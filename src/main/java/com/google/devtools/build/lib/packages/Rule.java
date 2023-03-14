@@ -455,7 +455,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     checkState(!isFrozen(), "Already frozen: %s", this);
     String attrName = attribute.getName();
     if (attrName.equals(NAME)) {
-      // Avoid unnecessarily storing the name in the attribute container - it's stored in the label.
+      // Avoid unnecessarily storing the name in attrValues - it's stored in the label.
       return;
     }
     Integer attrIndex = ruleClass.getAttributeIndex(attrName);
@@ -515,12 +515,12 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
     Attribute attr = ruleClass.getAttribute(attrIndex);
     if (attr.hasComputedDefault()) {
-      // Frozen attribute containers don't store computed defaults, so get it from the attribute.
-      // Mutable attribute containers do store computed defaults if they've been populated. If a
-      // mutable container returns null, return null here since resolving the default could trigger
-      // reads of other attributes which have not yet been populated. Note that in this situation
-      // returning null does not result in a correctness issue, since the value for the attribute is
-      // actually a function to compute the value.
+      // Frozen rules don't store computed defaults, so get it from the attribute. Mutable rules do
+      // store computed defaults if they've been populated. If no value is stored for a mutable
+      // rule, return null here since resolving the default could trigger reads of other attributes
+      // which have not yet been populated. Note that in this situation returning null does not
+      // result in a correctness issue, since the value for the attribute is actually a function to
+      // compute the value.
       return isFrozen() ? attr.getDefaultValue(this) : null;
     }
     switch (attr.getName()) {
@@ -649,7 +649,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * match the {@link Attribute} default. If {@link #getRawAttrValue} returns {@code null}, the
    * value should be taken from {@link Attribute#getDefaultValue}, even for computed defaults.
    *
-   * <p>Mutable containers have no such optimization. During rule creation, this allows for
+   * <p>Mutable rules have no such optimization. During rule creation, this allows for
    * distinguishing whether a computed default (which may depend on other unset attributes) is
    * available.
    */

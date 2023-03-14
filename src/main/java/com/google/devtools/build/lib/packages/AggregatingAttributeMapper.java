@@ -133,7 +133,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       if (!attr.hasComputedDefault()) {
         rawVal = attr.getDefaultValue(null);
       } else if (rule.isFrozen()) {
-        // Frozen attribute containers don't store computed defaults.
+        // Frozen rules don't store computed defaults.
         rawVal = attr.getDefaultValue(rule);
       }
     }

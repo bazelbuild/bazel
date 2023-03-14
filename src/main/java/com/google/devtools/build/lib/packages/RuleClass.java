@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -55,6 +54,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -70,10 +70,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.EvalException;
@@ -133,7 +131,8 @@ public class RuleClass {
   /**
    * Maximum attributes per RuleClass. Current value was chosen to be high enough to be considered a
    * non-breaking change for reasonable use. It was also chosen to be low enough to give significant
-   * headroom before hitting {@link AttributeContainer}'s limits.
+   * headroom before hitting limits imposed by the compact attribute value storage strategy in
+   * {@link Rule}.
    */
   private static final int MAX_ATTRIBUTES = 200;
 
@@ -292,7 +291,8 @@ public class RuleClass {
 
     /**
      * Exception indicating that configured target creation could not be completed. General error
-     * messaging should be done via {@link RuleErrorConsumer}; this exception only interrupts
+     * messaging should be done via {@link
+     * com.google.devtools.build.lib.analysis.RuleErrorConsumer}; this exception only interrupts
      * configured target creation in cases where it can no longer continue.
      */
     final class RuleErrorException extends Exception {
@@ -364,7 +364,7 @@ public class RuleClass {
    * select() keys). This is specially populated in {@link #populateRuleAttributeValues}.
    *
    * <p>This isn't technically necessary for builds: select() keys are evaluated in {@link
-   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} instead of
+   * com.google.devtools.build.lib.skyframe.PrerequisiteProducer#computeConfigConditions} instead of
    * normal dependency resolution because they're needed to determine other dependencies. So there's
    * no intrinsic reason why we need an extra attribute to store them.
    *
@@ -374,7 +374,7 @@ public class RuleClass {
    *   <li>Collecting them once in {@link #populateRuleAttributeValues} instead of multiple times in
    *       ConfiguredTargetFunction saves extra looping over the rule's attributes.
    *   <li>Query's dependency resolution has no equivalent of {@link
-   *       com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction#getConfigConditions} and
+   *       com.google.devtools.build.lib.skyframe.PrerequisiteProducer#computeConfigConditions} and
    *       we need to make sure its coverage remains complete.
    *   <li>Manual configuration trimming uses the normal dependency resolution process to work
    *       correctly and config_setting keys are subject to this trimming.
@@ -593,8 +593,7 @@ public class RuleClass {
           case All_EXCEPT:
             Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClass();
             ruleClassNamePredicate =
-                new DescribedPredicate<>(
-                    Predicates.not(containing), "all but " + containing.toString());
+                new DescribedPredicate<>(Predicates.not(containing), "all but " + containing);
             ruleClassPredicate =
                 new DescribedPredicate<>(
                     Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
@@ -645,11 +644,11 @@ public class RuleClass {
         return UNSPECIFIED_INSTANCE;
       }
 
-      public final Predicate<String> asPredicateOfRuleClass() {
+      final Predicate<String> asPredicateOfRuleClass() {
         return ruleClassNamePredicate;
       }
 
-      public final Predicate<RuleClass> asPredicateOfRuleClassObject() {
+      final Predicate<RuleClass> asPredicateOfRuleClassObject() {
         return ruleClassPredicate;
       }
 
@@ -669,7 +668,7 @@ public class RuleClass {
 
       @Override
       public int hashCode() {
-        return Objects.hash(ruleClassNames, predicateType);
+        return HashCodes.hashObjects(ruleClassNames, predicateType);
       }
 
       @Override
@@ -1255,20 +1254,6 @@ public class RuleClass {
       return this;
     }
 
-    /**
-     * Adds or overrides the attribute in the rule class. Meant for Starlark usage.
-     *
-     * @throws IllegalArgumentException if the attribute overrides an existing attribute (will be
-     *     legal in the future).
-     */
-    public void addOrOverrideAttribute(Attribute attribute) {
-      String name = attribute.getName();
-      // Attributes may be overridden in the future.
-      Preconditions.checkArgument(!attributes.containsKey(name),
-          "There is already a built-in attribute '%s' which cannot be overridden", name);
-      addAttribute(attribute);
-    }
-
     /** True if the rule class contains an attribute named {@code name}. */
     public boolean contains(String name) {
       return attributes.containsKey(name);
@@ -1473,18 +1458,6 @@ public class RuleClass {
      */
     public Builder addToolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
       return addToolchainTypes(ImmutableList.copyOf(toolchainTypes));
-    }
-
-    /**
-     * Causes rules of this type to require the specified toolchains be available via toolchain
-     * resolution when a target is configured.
-     */
-    // TODO(katre): Remove this once all callers use addToolchainType.
-    public Builder addRequiredToolchains(Collection<Label> toolchainLabels) {
-      return this.addToolchainTypes(
-          toolchainLabels.stream()
-              .map(label -> ToolchainTypeRequirement.create(label))
-              .collect(Collectors.toList()));
     }
 
     /**
@@ -1831,9 +1804,6 @@ public class RuleClass {
    * rule. If not otherwise specified, this will be the implementation used by {@link Rule}s created
    * with this {@link RuleClass}.
    *
-   * <p>Do not use this value to calculate implicit outputs for a rule, instead use {@link
-   * Rule#getImplicitOutputsFunction()}.
-   *
    * <p>An implicit output is an OutputFile that automatically comes into existence when a rule of
    * this class is declared, and whose name is derived from the name of the rule.
    *
@@ -1935,23 +1905,21 @@ public class RuleClass {
     return i == null ? null : attributes.get(i);
   }
 
-  /**
-   * Returns the number of attributes defined for this rule class.
-   */
-  public int getAttributeCount() {
+  /** Returns the number of attributes defined for this rule class. */
+  int getAttributeCount() {
     return attributeIndex.size();
   }
 
   /**
-   * Returns an (immutable) list of all Attributes defined for this class of
-   * rule, ordered by increasing index.
+   * Returns an (immutable) list of all Attributes defined for this class of rule, ordered by
+   * increasing index.
    */
   public List<Attribute> getAttributes() {
     return attributes;
   }
 
   /** Returns set of non-configurable attribute names defined for this class of rule. */
-  public List<String> getNonConfigurableAttributes() {
+  List<String> getNonConfigurableAttributes() {
     return nonConfigurableAttributes;
   }
 
@@ -1995,7 +1963,7 @@ public class RuleClass {
     return supportsConstraintChecking;
   }
 
-  public boolean hasAspects() {
+  boolean hasAspects() {
     return hasAspects;
   }
 
@@ -2532,20 +2500,18 @@ public class RuleClass {
   }
 
   /**
-   * Returns a function that computes the external bindings a repository function contributes to
-   * the WORKSPACE file.
+   * Returns a function that computes the external bindings a repository function contributes to the
+   * WORKSPACE file.
    */
-  public Function<? super Rule, Map<String, Label>> getExternalBindingsFunction() {
+  Function<? super Rule, Map<String, Label>> getExternalBindingsFunction() {
     return externalBindingsFunction;
   }
 
   /**
    * Returns a function that computes the toolchains that should be registered for a repository
    * function.
-   *
-   * @return
    */
-  public Function<? super Rule, ? extends List<String>> getToolchainsToRegisterFunction() {
+  Function<? super Rule, ? extends List<String>> getToolchainsToRegisterFunction() {
     return toolchainsToRegisterFunction;
   }
 
@@ -2604,7 +2570,7 @@ public class RuleClass {
   }
 
   /** Returns true if this rule class is an analysis test (set by analysis_test = true). */
-  public boolean isAnalysisTest() {
+  boolean isAnalysisTest() {
     return isAnalysisTest;
   }
 
@@ -2612,7 +2578,7 @@ public class RuleClass {
    * Returns true if this rule class has at least one attribute with an analysis test transition. (A
    * starlark-defined transition using analysis_test_transition()).
    */
-  public boolean hasAnalysisTestTransition() {
+  boolean hasAnalysisTestTransition() {
     return hasAnalysisTestTransition;
   }
 
@@ -2627,7 +2593,7 @@ public class RuleClass {
    *
    * <p>This is useful for rule types that don't make sense for license checking.
    */
-  public boolean ignoreLicenses() {
+  boolean ignoreLicenses() {
     return ignoreLicenses;
   }
 
@@ -2651,14 +2617,8 @@ public class RuleClass {
     return execGroups;
   }
 
-  public OutputFile.Kind  getOutputFileKind() {
+  OutputFile.Kind getOutputFileKind() {
     return outputFileKind;
-  }
-
-  public static boolean isThirdPartyPackage(PackageIdentifier packageIdentifier) {
-    return packageIdentifier.getRepository().isMain()
-        && packageIdentifier.getPackageFragment().startsWith(THIRD_PARTY_PREFIX)
-        && packageIdentifier.getPackageFragment().isMultiSegment();
   }
 
   /**
