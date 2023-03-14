@@ -68,6 +68,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean avoidHardcodedCompilationFlags;
   private final boolean linkingInfoMigration;
   private final boolean disallowSdkFrameworksAttributes;
+  private final boolean alwayslinkByDefault;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -93,6 +94,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
     this.linkingInfoMigration = objcOptions.incompatibleObjcLinkingInfoMigration;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
+    this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
   }
 
   /**
@@ -235,5 +237,11 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean disallowSdkFrameworksAttributes() {
     return disallowSdkFrameworksAttributes;
+  }
+
+  /** Returns whether objc_library and objc_import should default to alwayslink=True. */
+  @Override
+  public boolean alwayslinkByDefault() {
+    return alwayslinkByDefault;
   }
 }

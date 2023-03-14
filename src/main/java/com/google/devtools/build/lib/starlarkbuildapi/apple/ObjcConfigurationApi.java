@@ -140,4 +140,10 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       doc = "Returns whether sdk_frameworks and weak_sdk_frameworks are disallowed attributes.")
   boolean disallowSdkFrameworksAttributes();
+
+  @StarlarkMethod(
+      name = "alwayslink_by_default",
+      structField = true,
+      doc = "Returns whether objc_library and objc_import should default to alwayslink=True.")
+  boolean alwayslinkByDefault();
 }
