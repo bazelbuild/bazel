@@ -88,7 +88,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private final RuleClass ruleClass;
   private final Location location;
   private final CallStack callstack;
-  private final ImplicitOutputsFunction implicitOutputsFunction;
 
   /**
    * Stores attribute values, taking on one of two shapes:
@@ -157,22 +156,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private int numImplicitOutputKeys;
 
   Rule(Package pkg, Label label, RuleClass ruleClass, Location location, CallStack callstack) {
-    this(pkg, label, ruleClass, location, callstack, ruleClass.getDefaultImplicitOutputsFunction());
-  }
-
-  Rule(
-      Package pkg,
-      Label label,
-      RuleClass ruleClass,
-      Location location,
-      CallStack callstack,
-      ImplicitOutputsFunction implicitOutputsFunction) {
     this.pkg = checkNotNull(pkg);
     this.label = checkNotNull(label);
     this.ruleClass = checkNotNull(ruleClass);
     this.location = checkNotNull(location);
     this.callstack = checkNotNull(callstack);
-    this.implicitOutputsFunction = checkNotNull(implicitOutputsFunction);
     this.attrValues = new Object[ruleClass.getAttributeCount()];
     this.attrBytes = new byte[bitSetSize()];
   }
@@ -364,7 +352,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * output per key.
    */
   public ImmutableMap<String, OutputFile> getStarlarkImplicitOutputFileMap() {
-    if (!(implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction)) {
+    if (!(ruleClass.getDefaultImplicitOutputsFunction()
+        instanceof StarlarkImplicitOutputsFunction)) {
       return ImmutableMap.of();
     }
     ImmutableMap.Builder<String, OutputFile> result = ImmutableMap.builder();
@@ -391,10 +380,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   /** Returns the stack of function calls active when this rule was instantiated. */
   public CallStack getCallStack() {
     return callstack;
-  }
-
-  ImplicitOutputsFunction getImplicitOutputsFunction() {
-    return implicitOutputsFunction;
   }
 
   @Override
@@ -894,13 +879,21 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
       throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
-        eventHandler, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ true);
+        eventHandler,
+        pkgBuilder.getPackageIdentifier(),
+        ruleClass.getDefaultImplicitOutputsFunction(),
+        /* checkLabels= */ true);
   }
 
-  void populateOutputFilesUnchecked(Package.Builder pkgBuilder) throws InterruptedException {
+  void populateOutputFilesUnchecked(
+      Package.Builder pkgBuilder, ImplicitOutputsFunction implicitOutputsFunction)
+      throws InterruptedException {
     try {
       populateOutputFilesInternal(
-          NullEventHandler.INSTANCE, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ false);
+          NullEventHandler.INSTANCE,
+          pkgBuilder.getPackageIdentifier(),
+          implicitOutputsFunction,
+          /* checkLabels= */ false);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -917,7 +910,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   private void populateOutputFilesInternal(
-      EventHandler eventHandler, PackageIdentifier pkgId, boolean checkLabels)
+      EventHandler eventHandler,
+      PackageIdentifier pkgId,
+      ImplicitOutputsFunction implicitOutputsFunction,
+      boolean checkLabels)
       throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(flattenedOutputFileMap == null);
 

@@ -2049,10 +2049,9 @@ public class RuleClass {
       List<StarlarkThread.CallStackEntry> callstack,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule =
-        pkgBuilder.createRule(ruleLabel, this, location, callstack, implicitOutputsFunction);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
-    rule.populateOutputFilesUnchecked(pkgBuilder);
+    rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
     return rule;
   }
 

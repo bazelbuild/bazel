@@ -1486,27 +1486,6 @@ public class Package {
       return new Rule(pkg, label, ruleClass, location, callStackFactory.createFrom(callstack));
     }
 
-    /**
-     * Same as {@link #createRule(Label, RuleClass, Location, List, AttributeContainer)}, except
-     * allows specifying an {@link ImplicitOutputsFunction} override.
-     *
-     * <p>Only use if you know what you're doing.
-     */
-    Rule createRule(
-        Label label,
-        RuleClass ruleClass,
-        Location location,
-        List<StarlarkThread.CallStackEntry> callstack,
-        ImplicitOutputsFunction implicitOutputsFunction) {
-      return new Rule(
-          pkg,
-          label,
-          ruleClass,
-          location,
-          callStackFactory.createFrom(callstack),
-          implicitOutputsFunction);
-    }
-
     @Nullable
     Target getTarget(String name) {
       return targets.get(name);
