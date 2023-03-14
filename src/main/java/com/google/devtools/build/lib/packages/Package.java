@@ -305,7 +305,7 @@ public class Package {
    * Whether this package should contain only repo rules (returns {@code true}) or only build rules
    * (returns {@code false}).
    */
-  public boolean isRepoRulePackage() {
+  private boolean isRepoRulePackage() {
     return packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
         || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
   }
@@ -784,7 +784,7 @@ public class Package {
   }
 
   /** Gets the package metadata list for the default metadata declared by this package. */
-  public Set<Label> getDefaultPackageMetadata() {
+  Set<Label> getDefaultPackageMetadata() {
     return defaultPackageMetadata;
   }
 
@@ -1055,7 +1055,7 @@ public class Package {
 
     /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
     @Nullable
-    public String getGeneratorNameByLocation(Location loc) {
+    String getGeneratorNameByLocation(Location loc) {
       return generatorMap.get(loc);
     }
 
@@ -1363,7 +1363,7 @@ public class Package {
       return this;
     }
 
-    public void setFailureDetailOverride(FailureDetail failureDetail) {
+    void setFailureDetailOverride(FailureDetail failureDetail) {
       failureDetailOverride = failureDetail;
     }
 
@@ -1482,15 +1482,8 @@ public class Package {
         Label label,
         RuleClass ruleClass,
         Location location,
-        List<StarlarkThread.CallStackEntry> callstack,
-        AttributeContainer attributeContainer) { // required by WorkspaceFactory.setParent hack
-      return new Rule(
-          pkg,
-          label,
-          ruleClass,
-          location,
-          callStackFactory.createFrom(callstack),
-          attributeContainer);
+        List<StarlarkThread.CallStackEntry> callstack) {
+      return new Rule(pkg, label, ruleClass, location, callStackFactory.createFrom(callstack));
     }
 
     /**
@@ -1511,7 +1504,6 @@ public class Package {
           ruleClass,
           location,
           callStackFactory.createFrom(callstack),
-          AttributeContainer.newMutableInstance(ruleClass),
           implicitOutputsFunction);
     }
 

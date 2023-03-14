@@ -174,13 +174,7 @@ public class PackageTest {
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
       throws Exception {
-    Rule rule =
-        pkgBuilder.createRule(
-            label,
-            ruleClass,
-            Location.BUILTIN,
-            ImmutableList.of(),
-            AttributeContainer.newMutableInstance(FAUX_TEST_CLASS));
+    Rule rule = pkgBuilder.createRule(label, ruleClass, Location.BUILTIN, ImmutableList.of());
     rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder);
     pkgBuilder.addRule(rule);
     return rule;

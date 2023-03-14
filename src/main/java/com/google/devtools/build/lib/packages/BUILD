@@ -62,7 +62,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_class_set",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/split_transition",
@@ -122,7 +121,7 @@ java_library(
     ],
 )
 
-# TODO(kkress, adonovan) Eliminate this target, it is mostly unecessary. It
+# TODO(kkress, adonovan) Eliminate this target, it is mostly unnecessary. It
 # depends on lib:build-base for BlazeDirectories, which it uses for a type
 # parameter, but the param is unused.
 java_library(

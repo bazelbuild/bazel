@@ -2025,9 +2025,7 @@ public class RuleClass {
       Location location,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule =
-        pkgBuilder.createRule(
-            ruleLabel, this, location, callstack, AttributeContainer.newMutableInstance(this));
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
