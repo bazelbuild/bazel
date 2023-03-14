@@ -247,15 +247,65 @@ check_linking_action_lib_parameters_test = analysistest.make(
     },
 )
 
+AspectCcInfo = provider("Takes a cc_info.", fields = {"cc_info": "cc_info"})
+WrappedCcInfo = provider("Takes a cc_info.", fields = {"cc_info": "cc_info"})
+
+def _forwarding_cc_lib_aspect_impl(target, ctx):
+    cc_info = target[WrappedCcInfo].cc_info
+    linker_inputs = []
+    owner = ctx.label.relative(ctx.label.name + ".custom")
+    for linker_input in cc_info.linking_context.linker_inputs.to_list():
+        if linker_input.owner == ctx.label.relative("indirect_dep"):
+            linker_inputs.append(cc_common.create_linker_input(
+                owner = owner,
+                libraries = depset(linker_input.libraries),
+            ))
+        else:
+            linker_inputs.append(linker_input)
+    cc_info = CcInfo(
+        compilation_context = cc_info.compilation_context,
+        linking_context = cc_common.create_linking_context(
+            linker_inputs = depset(linker_inputs),
+        ),
+    )
+    return [
+        AspectCcInfo(cc_info = cc_info),
+        CcSharedLibraryHintInfo(
+            owners = [owner],
+        ),
+    ]
+
+forwarding_cc_lib_aspect = aspect(
+    implementation = _forwarding_cc_lib_aspect_impl,
+    required_providers = [WrappedCcInfo],
+    provides = [AspectCcInfo, CcSharedLibraryHintInfo],
+)
+
+def _wrapped_cc_lib_impl(ctx):
+    return [WrappedCcInfo(cc_info = ctx.attr.deps[0][CcInfo]), ProtoInfo()]
+
+wrapped_cc_lib = rule(
+    implementation = _wrapped_cc_lib_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [CcInfo]),
+    },
+    provides = [WrappedCcInfo, ProtoInfo],
+)
+
 def _forwarding_cc_lib_impl(ctx):
-    return [ctx.attr.deps[0][CcInfo]]
+    hints = CcSharedLibraryHintInfo(attributes = ["deps"])
+    if ctx.attr.deps:
+        return [ctx.attr.deps[0][AspectCcInfo].cc_info, hints]
+    else:
+        return [ctx.attr.do_not_follow_deps[0][AspectCcInfo].cc_info, hints]
 
 forwarding_cc_lib = rule(
     implementation = _forwarding_cc_lib_impl,
     attrs = {
-        "deps": attr.label_list(),
+        "deps": attr.label_list(providers = [WrappedCcInfo], aspects = [forwarding_cc_lib_aspect]),
+        "do_not_follow_deps": attr.label_list(providers = [WrappedCcInfo], aspects = [forwarding_cc_lib_aspect]),
     },
-    provides = [CcInfo],
+    provides = [CcInfo, CcSharedLibraryHintInfo],
 )
 
 def _nocode_cc_lib_impl(ctx):

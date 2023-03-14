@@ -37,7 +37,7 @@ GraphNodeInfo = provider(
     "Nodes in the graph of shared libraries.",
     fields = {
         "children": "Other GraphNodeInfo from dependencies of this target",
-        "label": "Label of the target visited",
+        "owners": "Owners of the linker inputs in the targets visited",
         "linkable_more_than_once": "Linkable into more than a single cc_shared_library",
     },
 )
@@ -51,6 +51,42 @@ CcSharedLibraryInfo = provider(
                                  "initializers. If we try to link them more than once, " +
                                  "we will throw an error",
         "linker_input": "the resulting linker input artifact for the shared library",
+    },
+)
+
+CcSharedLibraryHintInfo = provider(
+    doc = """
+    This provider should be used by rules that provide C++ linker inputs and
+    want to guide what the cc_shared_library uses. The reason for this may be
+    for example because the rule is not providing a standard provider like
+    CcInfo or ProtoInfo or because the rule does not want certain attributes
+    to be used for linking into shared libraries. It may also be needed if the
+    rule is using non-standard linker_input.owner names.
+
+    Propagation of the cc_shared_library aspect will always happen via all
+    attributes that provide either CcInfo, ProtoInfo or
+    CcSharedLibraryHintInfo, the hints control whether the result of that
+    propagation actually gets used.
+    """,
+    fields = {
+        "attributes": ("[String] - If not set, the aspect will use the result of every " +
+                       "dependency that provides CcInfo, ProtoInfo or CcSharedLibraryHintInfo. " +
+                       "If empty list, the aspect will not use the result of any dependency. If " +
+                       "the list contains a list of attribute names, the aspect will only use the " +
+                       "dependencies corresponding to those attributes as long as they provide CcInfo, " +
+                       "ProtoInfo or CcSharedLibraryHintInfo"),
+        "owners": ("[Label] - cc_shared_library will know which linker_inputs to link based on the owners " +
+                   "field of each linker_input. Most rules will simply use the ctx.label but certain " +
+                   "APIs like cc_common.create_linker_input(owner=) accept any label. " +
+                   "cc_common.create_linking_context_from_compilation_outputs() accepts a `name` which " +
+                   "will then be used to create the owner of the linker_input together with ctx.package." +
+                   "For these cases, since the cc_shared_library cannot guess, the rule author should " +
+                   "provide a hint with the owners of the linker inputs. If the value of owners is not set, then " +
+                   "ctx.label will be used. If the rule author passes a list and they want ctx.label plus some other " +
+                   "label then they will have to add ctx.label explicitly. If you want to use custom owners from C++ " +
+                   "rules keep as close to the original ctx.label as possible, to avoid conflicts with linker_inputs " +
+                   "created by other targets keep the original repository name, the original package name and re-use " +
+                   "the original name as part of your new name, limiting your custom addition to a prefix or suffix."),
     },
 )
 
@@ -72,16 +108,46 @@ def _separate_static_and_dynamic_link_libraries(
             break
 
         node = all_children[i]
-        node_label = str(node.label)
 
-        if node_label in seen_labels:
-            continue
-        seen_labels[node_label] = True
+        must_add_children = False
 
-        if node_label in can_be_linked_dynamically:
-            targets_to_be_linked_dynamically_set[node_label] = True
-        else:
-            targets_to_be_linked_statically_map[node_label] = node.linkable_more_than_once
+        # The *_seen variables are used to track a programmatic error and fail
+        # if it happens.  Every value in node.owners presumably corresponds to
+        # a linker_input in the same exact target. Therefore if we have seen
+        # any of the owners already, then we must have also seen all the other
+        # owners in the same node. Viceversa when we haven't seen them yet. If
+        # both of these values are non-zero after the loop, the most likely
+        # reason would be a bug in the implementation. It could potentially be
+        # triggered by users if they use owner labels that do not keep most of
+        # the ctx.label.package and ctx.label.name which then clash with other
+        # target's owners (unlikely). For now though if the error is
+        # triggered, it's reasonable to require manual revision by
+        # the cc_shared_library implementation owners.
+        has_owners_seen = False
+        has_owners_not_seen = False
+        for owner in node.owners:
+            # TODO(bazel-team): Do not convert Labels to string to save on
+            # garbage string allocations.
+            owner_str = str(owner)
+
+            if owner_str in seen_labels:
+                has_owners_seen = True
+                continue
+
+            has_owners_not_seen = True
+            seen_labels[owner_str] = True
+
+            if owner_str in can_be_linked_dynamically:
+                targets_to_be_linked_dynamically_set[owner_str] = True
+            else:
+                targets_to_be_linked_statically_map[owner_str] = node.linkable_more_than_once
+                must_add_children = True
+
+        if has_owners_seen and has_owners_not_seen:
+            fail("Your build has triggered a programmatic error in the cc_shared_library rule. " +
+                 "Please file an issue in https://github.com/bazelbuild/bazel")
+
+        if must_add_children:
             all_children.extend(node.children)
 
     return (targets_to_be_linked_statically_map, targets_to_be_linked_dynamically_set)
@@ -209,20 +275,22 @@ def _find_top_level_linker_input_labels(
             break
 
         node = nodes_to_check[i]
-        node_label = str(node.label)
-        if node_label in linker_inputs_to_be_linked_statically_map:
-            has_code_to_link = False
-            for linker_input in linker_inputs_to_be_linked_statically_map[node_label]:
-                if _contains_code_to_link(linker_input):
-                    top_level_linker_input_labels_set[node_label] = True
-                    has_code_to_link = True
-                    break
+        must_add_children = False
+        for owner in node.owners:
+            owner_str = str(owner)
+            if owner_str in linker_inputs_to_be_linked_statically_map:
+                must_add_children = True
+                for linker_input in linker_inputs_to_be_linked_statically_map[owner_str]:
+                    if _contains_code_to_link(linker_input):
+                        top_level_linker_input_labels_set[owner_str] = True
+                        must_add_children = False
+                        break
+            elif owner_str not in targets_to_be_linked_dynamically_set:
+                # This can happen when there was a target in the graph that exported other libraries'
+                # linker_inputs but didn't contribute any linker_input of its own.
+                must_add_children = True
 
-            if not has_code_to_link:
-                nodes_to_check.extend(node.children)
-        elif node_label not in targets_to_be_linked_dynamically_set:
-            # This can happen when there was a target in the graph that exported other libraries'
-            # linker_inputs but didn't contribute any linker_input of its own.
+        if must_add_children:
             nodes_to_check.extend(node.children)
 
     return top_level_linker_input_labels_set
@@ -590,10 +658,16 @@ def _cc_shared_library_impl(ctx):
 def _graph_structure_aspect_impl(target, ctx):
     children = []
 
+    attributes = dir(ctx.rule.attr)
+    owners = [ctx.label]
+    if CcSharedLibraryHintInfo in target:
+        attributes = getattr(target[CcSharedLibraryHintInfo], "attributes", dir(ctx.rule.attr))
+        owners = getattr(target[CcSharedLibraryHintInfo], "owners", [ctx.label])
+
     # Collect graph structure info from any possible deplike attribute. The aspect
     # itself applies across every deplike attribute (attr_aspects is *), so enumerate
     # over all attributes and consume GraphNodeInfo if available.
-    for fieldname in dir(ctx.rule.attr):
+    for fieldname in attributes:
         deps = getattr(ctx.rule.attr, fieldname, None)
         if type(deps) == "list":
             for dep in deps:
@@ -609,17 +683,16 @@ def _graph_structure_aspect_impl(target, ctx):
         for tag in ctx.rule.attr.tags:
             if tag == LINKABLE_MORE_THAN_ONCE:
                 linkable_more_than_once = True
-
     return [GraphNodeInfo(
-        label = ctx.label,
+        owners = owners,
         children = children,
         linkable_more_than_once = linkable_more_than_once,
     )]
 
 graph_structure_aspect = aspect(
     attr_aspects = ["*"],
-    required_providers = [[CcInfo], [ProtoInfo]],
-    required_aspect_providers = [[CcInfo]],
+    required_providers = [[CcInfo], [ProtoInfo], [CcSharedLibraryHintInfo]],
+    required_aspect_providers = [[CcInfo], [CcSharedLibraryHintInfo]],
     implementation = _graph_structure_aspect_impl,
 )
 
@@ -654,3 +727,4 @@ merge_cc_shared_library_infos = _merge_cc_shared_library_infos
 build_link_once_static_libs_map = _build_link_once_static_libs_map
 build_exports_map_from_only_dynamic_deps = _build_exports_map_from_only_dynamic_deps
 throw_linked_but_not_exported_errors = _throw_linked_but_not_exported_errors
+separate_static_and_dynamic_link_libraries = _separate_static_and_dynamic_link_libraries
