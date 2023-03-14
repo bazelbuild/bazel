@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -540,7 +541,8 @@ public final class SkyframeBuildView {
       boolean checkForActionConflicts,
       QuiescingExecutors executors,
       boolean shouldDiscardAnalysisCache,
-      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      BuildDriverKeyTestContext buildDriverKeyTestContext,
+      int skymeldAnalysisOverlapPercentage)
       throws InterruptedException,
           ViewCreationFailedException,
           BuildFailedException,
@@ -590,11 +592,17 @@ public final class SkyframeBuildView {
                         /*explicitlyRequested=*/ explicitTargetPatterns.contains(k.getLabel())))
             .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
+    MultiThreadPoolsQuiescingExecutor executor =
+        (MultiThreadPoolsQuiescingExecutor) executors.getMergedAnalysisAndExecutionExecutor();
+    Set<SkyKey> topLevelKeys =
+        Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys));
 
     try (AnalysisOperationWatcher autoCloseableWatcher =
         AnalysisOperationWatcher.createAndRegisterWithEventBus(
-            Sets.newConcurrentHashSet(Sets.union(buildDriverCTKeys, buildDriverAspectKeys)),
+            topLevelKeys,
             eventBus,
+            /* lowerThresholdToSignalForExecution= */ (float)
+                (topLevelKeys.size() * skymeldAnalysisOverlapPercentage / 100.0),
             /* finisher= */ () ->
                 analysisFinishedCallback(
                     eventBus,
@@ -602,7 +610,8 @@ public final class SkyframeBuildView {
                     skyframeExecutor,
                     ctKeys,
                     shouldDiscardAnalysisCache,
-                    /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis()))) {
+                    /* measuredAnalysisTime= */ analysisWorkTimer.stop().elapsed().toMillis()),
+            /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
 
       try {
         resourceManager.resetResourceUsage();
@@ -613,7 +622,12 @@ public final class SkyframeBuildView {
           enableAnalysis(true);
           evaluationResult =
               skyframeExecutor.evaluateBuildDriverKeys(
-                  eventHandler, buildDriverCTKeys, buildDriverAspectKeys, keepGoing, executors);
+                  eventHandler,
+                  buildDriverCTKeys,
+                  buildDriverAspectKeys,
+                  keepGoing,
+                  executors.executionParallelism(),
+                  executor);
         } finally {
           // Required for incremental correctness.
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since

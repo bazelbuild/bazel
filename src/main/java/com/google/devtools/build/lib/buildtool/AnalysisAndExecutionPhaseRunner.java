@@ -249,6 +249,7 @@ public final class AnalysisAndExecutionPhaseRunner {
             env.getEventBus(),
             env.getRuntime().getBugReporter(),
             /* includeExecutionPhase= */ true,
+            request.getBuildOptions().skymeldAnalysisOverlapPercentage,
             env.getLocalResourceManager(),
             env.getBuildResultListener(),
             executionSetupCallback,

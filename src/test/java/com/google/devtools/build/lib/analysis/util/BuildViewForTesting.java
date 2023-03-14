@@ -219,6 +219,7 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /* includeExecutionPhase= */ false,
+        /* skymeldAnalysisOverlapPercentage= */ 0,
         /* resourceManager= */ null,
         /* buildResultListener= */ null,
         /* executionSetupCallback= */ null,

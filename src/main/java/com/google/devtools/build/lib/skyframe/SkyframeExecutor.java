@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -2281,7 +2282,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<BuildDriverKey> buildDriverCTKeys,
       Set<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
-      QuiescingExecutors executors)
+      int executionParallelism,
+      QuiescingExecutor executor)
       throws InterruptedException {
     checkActive();
     try {
@@ -2289,8 +2291,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)
-              .setParallelism(executors.executionParallelism())
-              .setExecutor(executors.getMergedAnalysisAndExecutionExecutor())
+              .setParallelism(executionParallelism)
+              .setExecutor(executor)
               .setEventHandler(eventHandler)
               .setMergingSkyframeAnalysisExecutionPhases(true)
               .build();

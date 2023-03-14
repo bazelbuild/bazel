@@ -255,6 +255,7 @@ public final class AnalysisPhaseRunner {
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
               /* includeExecutionPhase= */ false,
+              /* skymeldAnalysisOverlapPercentage= */ 0,
               /* resourceManager= */ null,
               /* buildResultListener= */ null,
               /* executionSetupCallback= */ null,

@@ -32,4 +32,14 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
    * present.
    */
   void execute(Runnable runnable, ThreadPoolType threadPoolType);
+
+  /**
+   * Begin executing execution phase tasks.
+   *
+   * <p>The execution phase tasks sent to this executor will be queued up until this method is
+   * called. This is called exactly once per build.
+   *
+   * <p>Skymeld-only.
+   */
+  void launchQueuedUpExecutionPhaseTasks();
 }
