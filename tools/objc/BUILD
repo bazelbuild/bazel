@@ -37,4 +37,5 @@ objc_library(
     srcs = [
         "objc_dummy.mm",
     ],
+    alwayslink = False,
 )

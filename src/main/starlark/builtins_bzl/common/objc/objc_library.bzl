@@ -63,7 +63,7 @@ def _objc_library_impl(ctx):
         deps = ctx.attr.deps,
         runtime_deps = ctx.attr.runtime_deps,
         attr_linkopts = ctx.attr.linkopts,
-        alwayslink = ctx.attr.alwayslink,
+        alwayslink = ctx.fragments.objc.target_should_alwayslink(ctx),
     )
     files = []
     if common_variables.compilation_artifacts.archive != None:
