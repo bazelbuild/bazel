@@ -255,7 +255,7 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
             "deploysrcjar": "%{name}_deploy-src.jar",
         },
         exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
+            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
     )
 

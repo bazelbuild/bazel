@@ -554,7 +554,6 @@ EOF
 
   bazel test --extra_execution_platforms="${pkg}:platform_no_constraint,${pkg}:platform_with_constraint" ${pkg}:a --execution_log_json_file out.txt || fail "Test failed"
   grep --after=4 "platform" out.txt | grep "exec_property" || fail "Did not find the property key"
-  grep --after=4 "platform" out.txt | grep "no_constraint" && fail "Found the wrong property."
   grep --after=4 "platform" out.txt | grep "requires_test_constraint" || fail "Did not find the property value"
 }
 
@@ -703,8 +702,10 @@ def _impl(target, ctx):
 sample_aspect = aspect(
     implementation = _impl,
     exec_groups = {
-        # extra should inherit both the exec constraint and the toolchain.
-        'extra': exec_group(copy_from_rule = True),
+        'extra': exec_group(
+            exec_compatible_with = ['//${pkg}/platform:value_foo'],
+            toolchains = ['//${pkg}/platform:toolchain_type']
+        ),
     },
     exec_compatible_with = ['//${pkg}/platform:value_foo'],
     toolchains = ['//${pkg}/platform:toolchain_type'],
@@ -856,8 +857,11 @@ def _impl(ctx):
 sample_rule = rule(
     implementation = _impl,
     exec_groups = {
-        # extra should inherit both the exec constraint and the toolchain.
-        'extra': exec_group(copy_from_rule = True),
+        # extra should contain both the exec constraint and the toolchain.
+        'extra': exec_group(
+            exec_compatible_with = ['//${pkg}/platform:value_foo'],
+            toolchains = ['//${pkg}/platform:toolchain_type']
+        ),
     },
     exec_compatible_with = ['//${pkg}/platform:value_foo'],
     toolchains = ['//${pkg}/platform:toolchain_type'],
@@ -913,8 +917,8 @@ def _impl(ctx):
 sample_rule = rule(
     implementation = _impl,
     exec_groups = {
-        # extra should inherit the toolchain, and the exec constraint from the target.
-        'extra': exec_group(copy_from_rule = True),
+        # extra should contain the toolchain, and the exec constraint from the target.
+        'extra': exec_group(toolchains = ['//${pkg}/platform:toolchain_type']),
     },
     toolchains = ['//${pkg}/platform:toolchain_type'],
 )

@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.analysis.testing.ExecGroupCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -505,37 +504,6 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
     assertContainsEvent("errors encountered while analyzing target '//test:papaya'");
-  }
-
-  @Test
-  public void ruleInheritsRuleRequirements() throws Exception {
-    createToolchainsAndPlatforms();
-    scratch.file(
-        "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  return []",
-        "my_rule = rule(",
-        "  implementation = _impl,",
-        "  exec_groups = {",
-        "    'watermelon': exec_group(copy_from_rule = True),",
-        "  },",
-        "  exec_compatible_with = ['//platform:constraint_1'],",
-        "  toolchains = ['//rule:toolchain_type_1'],",
-        ")");
-    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'papaya')");
-
-    ConfiguredTarget ct = getConfiguredTarget("//test:papaya");
-    ExecGroupCollection execGroups = getRuleContext(ct).getExecGroups();
-    assertThat(execGroups).isNotNull();
-    assertThat(execGroups).hasExecGroup("watermelon");
-    // TODO(https://github.com/bazelbuild/bazel/issues/14726): Add tests of optional toolchains.
-    assertThat(execGroups).execGroup("watermelon").hasToolchainType("//rule:toolchain_type_1");
-    assertThat(execGroups)
-        .execGroup("watermelon")
-        .toolchainType("//rule:toolchain_type_1")
-        .isMandatory();
-    assertThat(execGroups).execGroup("watermelon").hasExecCompatibleWith("//platform:constraint_1");
   }
 
   @Test
