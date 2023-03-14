@@ -1358,7 +1358,6 @@ public final class CcCompilationHelper {
       CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact);
 
       builder
-          .setSemantics(semantics)
           .addMandatoryInputs(additionalCompilationInputs)
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
@@ -1447,7 +1446,6 @@ public final class CcCompilationHelper {
       }
       CppCompileActionBuilder builder = initializeCompileAction(artifact);
       builder
-          .setSemantics(semantics)
           .addMandatoryInputs(additionalCompilationInputs)
           .addAdditionalIncludeScanningRoots(additionalIncludeScanningRoots);
 
@@ -1670,7 +1668,7 @@ public final class CcCompilationHelper {
    */
   private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) {
     return new CppCompileActionBuilder(
-            actionConstructionContext, grepIncludes, ccToolchain, configuration)
+            actionConstructionContext, grepIncludes, ccToolchain, configuration, semantics)
         .setSourceFile(sourceArtifact)
         .setCcCompilationContext(ccCompilationContext)
         .setCoptsFilter(coptsFilter)
@@ -1687,7 +1685,6 @@ public final class CcCompilationHelper {
     boolean pic = module.getFilename().contains(".pic.");
 
     CppCompileActionBuilder builder = initializeCompileAction(module);
-    builder.setSemantics(semantics);
     builder.setPicMode(pic);
     builder.setOutputs(
         actionConstructionContext,
@@ -1788,7 +1785,6 @@ public final class CcCompilationHelper {
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
     CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact);
 
-    builder.setSemantics(semantics);
     Label label = Label.parseCanonicalUnchecked(cppModuleMap.getName());
 
     // A header module compile action is just like a normal compile action, but:

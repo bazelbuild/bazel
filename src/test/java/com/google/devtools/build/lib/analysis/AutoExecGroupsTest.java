@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
@@ -1814,5 +1816,330 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
                 + " and target platform //platforms:platform_1 from available execution platforms"
                 + " \\[//platforms:platform_1, //platforms:platform_2,"
                 + " //third_party/local_config_platform:host\\]"));
+  }
+
+  @Test
+  public void ccCommonCompile_cppCompileActionExecutesOnFirstPlatform() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/defs.bzl",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  (compilation_context, compilation_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        "  srcs = ['custom.cc'],",
+        ")");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ImmutableList<Action> cppCompileActions =
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+
+    assertThat(cppCompileActions).hasSize(1);
+    assertThat(cppCompileActions.get(0).getProgressMessage())
+        .isEqualTo("Compiling bazel_internal/test_rules/cc/custom.cc");
+    assertThat(cppCompileActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void ccCommonCompile_moduleActionsExecuteOnFirstPlatform() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/defs.bzl",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  (compilation_context, compilation_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "    public_hdrs = ctx.files.hdrs,",
+        "    separate_module_headers = ctx.files.hdrs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "    'hdrs': attr.label_list(allow_files = ['.h']),",
+        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        "  srcs = ['custom.cc'],",
+        "  hdrs = ['custom.h'],",
+        ")");
+    useConfiguration("--incompatible_auto_exec_groups", "--features=header_modules");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+
+    ImmutableList<Action> cppCompileActions =
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+    ImmutableList<Action> moduleActions =
+        cppCompileActions.stream()
+            .filter(action -> action.getProgressMessage().contains("custom_rule_name.cppmap"))
+            .collect(toImmutableList());
+
+    assertThat(moduleActions).hasSize(2);
+    assertThat(moduleActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+    assertThat(moduleActions.get(1).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void ccCommonCompile_codeGenModuleActionExecutesOnFirstPlatform() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/defs.bzl",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  (compilation_context, compilation_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "    public_hdrs = ctx.files.hdrs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "    'hdrs': attr.label_list(allow_files = ['.h']),",
+        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        "  srcs = ['custom.cc'],",
+        "  hdrs = ['custom.h'],",
+        ")");
+    useConfiguration(
+        "--incompatible_auto_exec_groups",
+        "--features=header_modules",
+        "--features=header_module_codegen");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+
+    ImmutableList<Action> cppCompileActions =
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+    ImmutableList<Action> codeGenCompileActions =
+        cppCompileActions.stream()
+            .filter(action -> action.getProgressMessage().contains("custom_rule_name.pcm"))
+            .collect(toImmutableList());
+
+    assertThat(codeGenCompileActions).hasSize(1);
+    assertThat(codeGenCompileActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void ccCommonCompile_compileHeaderActionExecutesOnFirstPlatform() throws Exception {
+    scratch.file(
+        "bazel_internal/test_rules/cc/defs.bzl",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  (compilation_context, compilation_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "    private_hdrs = ctx.files.hdrs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "    'hdrs': attr.label_list(allow_files = ['.h']),",
+        "    '_cc_toolchain': attr.label(default=Label('//bazel_internal/test_rules/cc:alias')),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "bazel_internal/test_rules/cc/BUILD",
+        "load('//bazel_internal/test_rules/cc:defs.bzl', 'custom_rule')",
+        "cc_toolchain_alias(name='alias')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        "  srcs = ['custom.cc'],",
+        "  hdrs = ['custom.h'],",
+        ")");
+    useConfiguration("--incompatible_auto_exec_groups", "--features=parse_headers");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(CppRuleClasses.PARSE_HEADERS));
+
+    ImmutableList<Action> cppCompileActions =
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+    ImmutableList<Action> compileHeaderActions =
+        cppCompileActions.stream()
+            .filter(
+                action ->
+                    action
+                        .getProgressMessage()
+                        .equals("Compiling bazel_internal/test_rules/cc/custom.h"))
+            .collect(toImmutableList());
+
+    assertThat(compileHeaderActions).hasSize(1);
+    assertThat(compileHeaderActions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
+  }
+
+  @Test
+  public void ccCommonCompile_treeArtifactActionExecutesOnFirstPlatform() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "def _use_cpp_toolchain():",
+        "   return [",
+        "      config_common.toolchain_type('"
+            + TestConstants.CPP_TOOLCHAIN_TYPE
+            + "', mandatory = False),",
+        "   ]",
+        "def _ta_impl(ctx):",
+        "    tree = ctx.actions.declare_directory('dir')",
+        "    ctx.actions.run_shell(",
+        "        outputs = [tree],",
+        "        inputs = [],",
+        "        arguments = [tree.path],",
+        "        command = 'mkdir $1',",
+        "    )",
+        "    return [DefaultInfo(files = depset([tree]))]",
+        "create_tree_artifact = rule(implementation = _ta_impl)",
+        "def _impl(ctx):",
+        "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = cc_toolchain,",
+        "      requested_features = ctx.features,",
+        "      unsupported_features = ctx.disabled_features,",
+        "  )",
+        "  (compilation_context, compilation_outputs) = cc_common.compile(",
+        "    name = ctx.label.name,",
+        "    actions = ctx.actions,",
+        "    feature_configuration = feature_configuration,",
+        "    cc_toolchain = cc_toolchain,",
+        "    srcs = ctx.files.srcs,",
+        "  )",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files = ['.cc']),",
+        "    '_cc_toolchain': attr.label(default=Label('//test:alias')),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_2'] + _use_cpp_toolchain(),",
+        "  fragments = ['cpp']",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "package(default_visibility = ['//visibility:public'])",
+        "load('//test:defs.bzl', 'custom_rule', 'create_tree_artifact')",
+        "cc_toolchain_alias(name='alias')",
+        "create_tree_artifact(name = 'tree_artifact')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        "  srcs = ['tree_artifact'],",
+        ")");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ImmutableList<ActionAnalysisMetadata> actions =
+        ((RuleConfiguredTarget) getConfiguredTarget("//test:custom_rule_name")).getActions();
+
+    assertThat(actions).hasSize(1);
+    assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
 }
