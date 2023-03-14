@@ -16,7 +16,9 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]),
+    srcs = glob(["*.bzl"]) + [
+        "//tools/osx/crosstool:bzl_srcs",
+    ],
     visibility = ["//tools:__pkg__"],
 )
 

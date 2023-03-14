@@ -1700,7 +1700,9 @@ EOF
      "mnemonic(CppCompile,//$pkg:main)" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
 
-  if "$is_windows"; then
+  if "$is_macos"; then
+    assert_contains '  key: "XCODE_VERSION_OVERRIDE"' output
+  elif "$is_windows"; then
     assert_contains '  key: "INCLUDE"' output
   else
     assert_contains '  key: "PWD"' output
