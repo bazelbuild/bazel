@@ -50,6 +50,25 @@ android_sh_test(
 )
 
 android_sh_test(
+    name = "android_local_test_integration_test",
+    size = "large",
+    srcs = ["android_local_test_integration_test.sh"],
+    data = [
+        ":android_helper",
+        # TODO(b/226204219): Remove this dep once Bazel properly loads d8
+        # in create_android_sdk_rules()
+        "//external:android/d8_jar_import",
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    # See https://github.com/bazelbuild/bazel/issues/8235
+    tags = [
+        "no-remote",
+        "no_windows",
+    ],
+)
+
+android_sh_test(
     name = "aapt_integration_test",
     size = "large",
     srcs = ["aapt_integration_test.sh"],

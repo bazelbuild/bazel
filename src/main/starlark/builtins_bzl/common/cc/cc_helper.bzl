@@ -350,7 +350,8 @@ ARCHIVE = [".a", ".lib"]
 PIC_ARCHIVE = [".pic.a"]
 ALWAYSLINK_LIBRARY = [".lo"]
 ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
-SHARED_LIBRARY = [".so", ".dylib", ".dll"]
+SHARED_LIBRARY = [".so", ".dylib", ".dll", ".wasm"]
+INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
 OBJECT_FILE = [".o", ".obj"]
 PIC_OBJECT_FILE = [".pic.o"]
 
@@ -539,12 +540,13 @@ def _is_versioned_shared_library_extension_valid(shared_library_name):
 def _is_valid_shared_library_name(shared_library_name):
     if (shared_library_name.endswith(".so") or
         shared_library_name.endswith(".dll") or
-        shared_library_name.endswith(".dylib")):
+        shared_library_name.endswith(".dylib") or
+        shared_library_name.endswith(".wasm")):
         return True
 
     return _is_versioned_shared_library_extension_valid(shared_library_name)
 
-_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib"]
+_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
 
 def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
