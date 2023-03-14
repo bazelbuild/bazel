@@ -232,8 +232,11 @@ java_library(
     srcs = ["LeaseService.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:tree_artifact_value",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:jsr305",
     ],
