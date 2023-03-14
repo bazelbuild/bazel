@@ -73,6 +73,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -1131,6 +1132,11 @@ public class ActionCacheCheckerTest {
     @Override
     public void remove(String key) {
       delegate.remove(key);
+    }
+
+    @Override
+    public void removeIf(Predicate<Entry> predicate) {
+      delegate.removeIf(predicate);
     }
 
     @Override

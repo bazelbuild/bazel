@@ -55,6 +55,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -342,6 +343,10 @@ public class CompactPersistentActionCache implements ActionCache {
       return null;
     }
     byte[] data = map.get(index);
+    return get(data);
+  }
+
+  private ActionCache.Entry get(byte[] data) {
     try {
       return data != null ? decode(indexer, data) : null;
     } catch (IOException e) {
@@ -379,6 +384,11 @@ public class CompactPersistentActionCache implements ActionCache {
   @Override
   public void remove(String key) {
     map.remove(indexer.getIndex(key));
+  }
+
+  @Override
+  public void removeIf(Predicate<Entry> predicate) {
+    map.entrySet().removeIf(entry -> predicate.test(get(entry.getValue())));
   }
 
   @ThreadSafety.ThreadHostile

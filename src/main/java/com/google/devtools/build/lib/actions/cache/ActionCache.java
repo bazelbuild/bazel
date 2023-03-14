@@ -45,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -75,6 +76,9 @@ public interface ActionCache {
    * Removes entry from cache
    */
   void remove(String key);
+
+  /** Removes entry from cache that matches the predicate. */
+  void removeIf(Predicate<ActionCache.Entry> predicate);
 
   /**
    * An entry in the ActionCache that contains all action input and output
@@ -246,7 +250,8 @@ public interface ActionCache {
       return outputFileMetadata.get(output.getExecPathString());
     }
 
-    Map<String, RemoteFileArtifactValue> getOutputFiles() {
+    /** Gets metadata of all output files */
+    public Map<String, RemoteFileArtifactValue> getOutputFiles() {
       return outputFileMetadata;
     }
 
@@ -273,7 +278,8 @@ public interface ActionCache {
       return outputTreeMetadata.get(output.getExecPathString());
     }
 
-    Map<String, SerializableTreeArtifactValue> getOutputTrees() {
+    /** Gets metadata of all output trees */
+    public Map<String, SerializableTreeArtifactValue> getOutputTrees() {
       return outputTreeMetadata;
     }
 
