@@ -18,7 +18,6 @@ filegroup(
 # Tests for Windows-specific functionality that can run cross-platform.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "PathFragmentWindowsTest.java",
-    "RootedPathAndCasingTest.java",
     "WindowsPathTest.java",
 ]
 
