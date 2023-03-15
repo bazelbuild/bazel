@@ -146,7 +146,8 @@ alias(
     )
     for OS in [
         "linux",
-        "darwin",
+        "darwin_x86_64",
+        "darwin_arm64",
         "windows",
     ]
 ]
@@ -163,7 +164,8 @@ alias(
     name = "ijar_prebuilt_binary_or_cc_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
         "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
     }),
@@ -173,7 +175,8 @@ alias(
     name = "ijar_prebuilt_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
     }),
 )
@@ -193,7 +196,8 @@ alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
         "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
@@ -203,7 +207,8 @@ alias(
     name = "prebuilt_singlejar",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
     }),
 )
