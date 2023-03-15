@@ -40,10 +40,6 @@ _COMPILING_RULE = {
         allow_single_file = [".pch"],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
-    "runtime_deps": attr.label_list(
-        providers = [AppleDynamicFrameworkInfo],
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
     "defines": attr.string_list(),
     "enable_modules": attr.bool(),
     "linkopts": attr.string_list(),

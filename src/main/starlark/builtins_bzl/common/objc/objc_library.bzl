@@ -61,7 +61,6 @@ def _objc_library_impl(ctx):
         toolchain = cc_toolchain,
         use_pch = True,
         deps = ctx.attr.deps,
-        runtime_deps = ctx.attr.runtime_deps,
         attr_linkopts = ctx.attr.linkopts,
         alwayslink = ctx.fragments.objc.target_should_alwayslink(ctx),
     )
