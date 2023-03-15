@@ -575,7 +575,7 @@ public abstract class Artifact
   @Override
   public final String getDirnameForStarlark(StarlarkSemantics starlarkSemantics)
       throws EvalException {
-    return starlarkSemantics.get(ArtifactPathMapper.STARLARK_SEMANTICS_KEY).getMappedDirname(this);
+    return starlarkSemantics.get(StarlarkPathMapper.STARLARK_SEMANTICS_KEY).getMappedDirname(this);
   }
 
   /**
@@ -644,7 +644,7 @@ public abstract class Artifact
   @Override
   public final FileRootApi getRootForStarlark(StarlarkSemantics starlarkSemantics)
       throws EvalException {
-    return starlarkSemantics.get(ArtifactPathMapper.STARLARK_SEMANTICS_KEY).getMappedRoot(this);
+    return starlarkSemantics.get(StarlarkPathMapper.STARLARK_SEMANTICS_KEY).getMappedRoot(this);
   }
 
   @Override
@@ -710,7 +710,7 @@ public abstract class Artifact
   @Override
   public final String getExecPathStringForStarlark(StarlarkSemantics starlarkSemantics)
       throws EvalException {
-    return starlarkSemantics.get(ArtifactPathMapper.STARLARK_SEMANTICS_KEY)
+    return starlarkSemantics.get(StarlarkPathMapper.STARLARK_SEMANTICS_KEY)
         .getMappedExecPathString(this);
   }
 
@@ -1640,8 +1640,14 @@ public abstract class Artifact
     }
   }
 
-  public static abstract class ArtifactPathMapper {
-    private static final ArtifactPathMapper NOOP = new ArtifactPathMapper() {
+  /**
+   * This class can be attached to {@link StarlarkSemantics} in order to transparently map the
+   * path struct fields of {@link FileApi} and {@link FileRootApi} when used from Starlark
+   * {@code Args#map_each} callbacks.
+   */
+  public static abstract class StarlarkPathMapper {
+
+    private static final StarlarkPathMapper NOOP = new StarlarkPathMapper() {
       @Override
       public String getMappedDirname(Artifact artifact) {
         return artifact.getDirname();
@@ -1658,7 +1664,7 @@ public abstract class Artifact
       }
     };
 
-    public static final StarlarkSemantics.Key<ArtifactPathMapper> STARLARK_SEMANTICS_KEY = new Key<>(
+    public static final StarlarkSemantics.Key<StarlarkPathMapper> STARLARK_SEMANTICS_KEY = new Key<>(
         "path_mapper", NOOP);
 
     public abstract String getMappedDirname(Artifact artifact) throws EvalException;

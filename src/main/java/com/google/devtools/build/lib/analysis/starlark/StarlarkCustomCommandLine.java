@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactPathMapper;
+import com.google.devtools.build.lib.actions.Artifact.StarlarkPathMapper;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
@@ -918,7 +918,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       mapEachSemantics = starlarkSemantics;
     } else {
       mapEachSemantics = starlarkSemantics.toBuilder()
-          .set(ArtifactPathMapper.STARLARK_SEMANTICS_KEY, stripPaths.toArtifactPathMapper())
+          .set(StarlarkPathMapper.STARLARK_SEMANTICS_KEY, stripPaths.toStarlarkPathMapper())
           .build();
     }
     try (Mutability mu = Mutability.create("map_each")) {

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactPathMapper;
+import com.google.devtools.build.lib.actions.Artifact.StarlarkPathMapper;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -216,11 +216,11 @@ public final class PathStripper {
     List<String> stripCustomStarlarkArgs(List<String> args);
 
     /**
-     * Creates a an {@link ArtifactPathMapper} that can be set on a Starlark thread's semantics
+     * Creates a an {@link StarlarkPathMapper} that can be set on a Starlark thread's semantics
      * object to automatically rewrite paths returned by the File API in map_each callbacks.
      */
-    default ArtifactPathMapper toArtifactPathMapper() {
-      return new ArtifactPathMapper() {
+    default StarlarkPathMapper toStarlarkPathMapper() {
+      return new StarlarkPathMapper() {
         private PathFragment getMappedExecPath(Artifact artifact) throws EvalException {
           if (!(artifact instanceof DerivedArtifact)) {
             return artifact.getExecPath();
