@@ -135,32 +135,6 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   public static RootedPath key(RootedPath rootedPath) {
     // RootedPath is already the SkyKey we want; see FileStateKey. This method and that interface
     // are provided as readability aids.
-    //
-    // We used to weakly intern all key instances but no longer do so after concluding the data
-    // structure overhead of the intern was a net negative wrt retained heap. The current approach
-    // of interning nothing is instead a net positive (saved ~0.1% when implemented in Feb 2022).
-    //
-    // A specific call to #key is going to be for one of the following important use-cases:
-    //   * FileFunction computing a specific FileValue (FV) node, declaring a Skyframe dep on a
-    //     specific FileStateValue (FSV) node. There are two things to consider:
-    //     * A specific FSV node will have exactly one rdep so there's no business-logic reason
-    //       interning of the RootedPath here would be productive. One exception to this reasoning
-    //       is symlinks: if paths `a` and `b` are both symlinks to `c` and Blaze needs to consider
-    //       `a` and `b`, then it'll have nodes FV(a); FV(b); FSV(a); FSV(b); FSV(c) and forward
-    //       edge sets FV(a)->{FSV(a); FSV(c)}; FV(b)->{FSV(b); FSV(c)}. So our current
-    //       non-interning approach will mean we have different RootedPath instances for right
-    //       endpoints of edges FV(a)->FSV(c); FV(b)->FSV(c). This is an acceptable inefficiency
-    //       because this situation is not common and not worth optimizing for.
-    //     * The Skyframe engine implementation effectively deduplicates the set of Skyframe deps of
-    //       a node declared by a skyFunction.compute(k, env), across all Skyframe restarts. So
-    //       there's no concern about a specific FV node causing many equivalent RootedPath
-    //       instances to be retained, due to Skyframe restarts of FileFunction.
-    //   * SkyQuery's RBuildFilesVisitor, creating a root node for a graph traversal for query
-    //     evaluation. The set of RootedPaths used for these roots is both low in number and also
-    //     deduped, so interning RootedPath here isn't productive. Also, these objects are not
-    //     retained for long anyway so it's fine to have some garbage churn.
-    //   * SkyframeExecutor, creating a root node for an invalidation traversal. Same reasoning as
-    //     above.
     return rootedPath;
   }
 
