@@ -17,6 +17,7 @@ java_library(
     name = "abstract_spawn_strategy",
     srcs = ["AbstractSpawnStrategy.java"],
     deps = [
+        ":execution_options",
         ":spawn_cache",
         ":spawn_exec_exception",
         ":spawn_input_expander",

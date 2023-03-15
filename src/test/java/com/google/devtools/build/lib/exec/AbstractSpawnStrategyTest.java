@@ -80,7 +80,7 @@ public class AbstractSpawnStrategyTest {
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner, /*verboseFailures=*/ true);
+      super(execRoot, spawnRunner, new ExecutionOptions());
     }
   }
 

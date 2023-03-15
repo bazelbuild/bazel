@@ -77,12 +77,13 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
 
   private final SpawnInputExpander spawnInputExpander;
   private final SpawnRunner spawnRunner;
-  private final boolean verboseFailures;
+  private final ExecutionOptions executionOptions;
 
-  protected AbstractSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+  protected AbstractSpawnStrategy(
+      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
     this.spawnInputExpander = new SpawnInputExpander(execRoot, false);
     this.spawnRunner = spawnRunner;
-    this.verboseFailures = verboseFailures;
+    this.executionOptions = executionOptions;
   }
 
   /**
@@ -206,7 +207,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       String message =
           !Strings.isNullOrEmpty(resultMessage)
               ? resultMessage
-              : CommandFailureUtils.describeCommandFailure(verboseFailures, cwd, spawn);
+              : CommandFailureUtils.describeCommandFailure(
+                  executionOptions.verboseFailures, cwd, spawn);
       throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/ false);
     }
     return ImmutableList.of(spawnResult);

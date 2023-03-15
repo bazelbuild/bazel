@@ -154,10 +154,10 @@ public class StandaloneSpawnStrategyTest {
                 resourceManager,
                 (env, binTools1, fallbackTmpDir) -> ImmutableMap.copyOf(env),
                 binTools,
-                /*processWrapper=*/ null,
+                /* processWrapper= */ null,
                 SyscallCache.NO_CACHE,
                 Mockito.mock(RunfilesTreeUpdater.class)),
-            /*verboseFailures=*/ false);
+            new ExecutionOptions());
     this.executor =
         new TestExecutorBuilder(fileSystem, directories, binTools)
             .addStrategy(strategy, "standalone")
