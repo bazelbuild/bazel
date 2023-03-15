@@ -37,9 +37,7 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
-        "no-remote",
         "no_windows",
         # bzlmod test requires network
         "requires-network",
@@ -55,9 +53,7 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
-        "no-remote",
         "no_windows",
     ],
 )
@@ -71,8 +67,6 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = ["no-remote"],
 )
 
 android_sh_test(
@@ -85,9 +79,7 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
-        "no-remote",
         "no_windows",
     ],
 )
@@ -101,8 +93,6 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = ["no-remote"],
 )
 
 android_sh_test(
@@ -115,9 +105,7 @@ android_sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 3,
-    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
-        "no-remote",
         "no_windows",
     ],
 )
@@ -134,7 +122,7 @@ android_sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 6,
-    # See https://github.com/bazelbuild/bazel/issues/8235
+    # Disable remote execution because we're over the input limit (70k).
     tags = [
         "no-remote",
         "no_windows",
@@ -150,8 +138,6 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = ["no-remote"],
 )
 
 android_sh_test(
@@ -163,9 +149,7 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
-        "no-remote",
         "no_windows",
     ],
 )
@@ -180,9 +164,7 @@ android_sh_test(
         "//src/test/shell/bazel:test-deps",
     ],
     shard_count = 4,
-    # See https://github.com/bazelbuild/bazel/issues/8235
     tags = [
-        "no-remote",
         "no_windows",
     ],
 )
@@ -197,6 +179,4 @@ android_sh_test(
         "//external:android_sdk_for_testing",
         "//src/test/shell/bazel:test-deps",
     ],
-    # See https://github.com/bazelbuild/bazel/issues/8235
-    tags = ["no-remote"],
 )
