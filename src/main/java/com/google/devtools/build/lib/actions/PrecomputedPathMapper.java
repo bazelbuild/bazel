@@ -153,18 +153,6 @@ public final class PrecomputedPathMapper implements PathMapper {
   }
 
   @Override
-  public PathFragment stripForRunfiles(PathFragment runfilesDir, PathFragment execPath) {
-    String runfilesDirName = runfilesDir.getBaseName();
-    Preconditions.checkArgument(runfilesDirName.endsWith(".runfiles"));
-    // Derive the path of the executable, apply the path mapping to it and then rederive the path
-    // of the runfiles dir.
-    PathFragment executable = runfilesDir.replaceName(
-        runfilesDirName.substring(0, runfilesDirName.length() - ".runfiles".length()));
-    return strip(executable).replaceName(runfilesDirName)
-        .getRelative(execPath.relativeTo(runfilesDir));
-  }
-
-  @Override
   public String getExecPathString(ActionInput artifact) {
     if (!(artifact instanceof DerivedArtifact)) {
       return artifact.getExecPathString();

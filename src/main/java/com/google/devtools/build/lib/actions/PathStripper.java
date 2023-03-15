@@ -129,10 +129,6 @@ public final class PathStripper {
       return execPath;
     }
 
-    default PathFragment stripForRunfiles(PathFragment runfilesDir, PathFragment execPath) {
-      return execPath;
-    }
-
     default boolean isNoop() {
       return false;
     }

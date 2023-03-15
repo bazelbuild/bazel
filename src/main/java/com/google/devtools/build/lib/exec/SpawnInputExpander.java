@@ -138,7 +138,7 @@ public class SpawnInputExpander {
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
-                  actionStager.stripForRunfiles(root, location)
+                  stripForRunfiles(actionStager, root, location)
                       .getRelative(((TreeFileArtifact) input).getParentRelativePath()),
                   input,
                   baseDirectory);
@@ -155,11 +155,11 @@ public class SpawnInputExpander {
             if (strict) {
               failIfDirectory(actionFileCache, localArtifact);
             }
-            addMapping(inputMap, actionStager.stripForRunfiles(root, location), localArtifact,
+            addMapping(inputMap, stripForRunfiles(actionStager, root, location), localArtifact,
                 baseDirectory);
           }
         } else {
-          addMapping(inputMap, actionStager.stripForRunfiles(root, location),
+          addMapping(inputMap, stripForRunfiles(actionStager, root, location),
               VirtualActionInput.EMPTY_MARKER, baseDirectory);
         }
       }
@@ -264,6 +264,21 @@ public class SpawnInputExpander {
         baseDirectory);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap, baseDirectory);
     return inputMap;
+  }
+
+  public PathFragment stripForRunfiles(ActionStager actionStager, PathFragment runfilesDir,
+      PathFragment execPath) {
+    if (actionStager.isNoop()) {
+      return execPath;
+    }
+    String runfilesDirName = runfilesDir.getBaseName();
+    Preconditions.checkArgument(runfilesDirName.endsWith(".runfiles"));
+    // Derive the path of the executable, apply the path mapping to it and then rederive the path
+    // of the runfiles dir.
+    PathFragment executable = runfilesDir.replaceName(
+        runfilesDirName.substring(0, runfilesDirName.length() - ".runfiles".length()));
+    return actionStager.strip(executable).replaceName(runfilesDirName)
+        .getRelative(execPath.relativeTo(runfilesDir));
   }
 
   /** The interface for accessing part of the input hierarchy. */
