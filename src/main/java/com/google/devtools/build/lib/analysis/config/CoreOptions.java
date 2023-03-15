@@ -795,7 +795,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + "File object directly to their command line or environment. Instead, add the File "
               + "objects to Args, using \"map_each\" callbacks for path manipulations. Actions "
               + "opted into content-based path mapping can only be executed in symlink-based "
-              + "sandboxes or with remote execution.")
+              + "sandboxes or with remote execution. This is meant as an experimental approach to"
+              + "the general issue https://github.com/bazelbuild/bazel/issues/6526.")
   public List<String> contentBasedPathMapping;
 
   @Option(
