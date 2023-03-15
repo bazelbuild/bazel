@@ -51,15 +51,14 @@ public class UiOptions extends OptionsBase {
   public static class EventFiltersConverter extends Converter.Contextless<EventFiltersConverter.EventKindFilters> {
 
     /**
-     * Container for an EventKind input filter. Added event kinds and removed event kinds are respectively events
-     * this filter wants to enable and disable.
+     * Container for an EventKind input filter.
      */
     @AutoValue
     public static abstract class EventKindFilters {
-      public abstract ImmutableSet<EventKind> getAddedEventKinds();
-      public abstract ImmutableSet<EventKind> getRemovedEventKinds();
-      public static EventKindFilters from(ImmutableSet<EventKind> added, ImmutableSet<EventKind> removed) {
-        return new AutoValue_UiOptions_EventFiltersConverter_EventKindFilters(added, removed);
+      public abstract ImmutableSet<EventKind> getFilteredEventKinds();
+      public abstract ImmutableSet<EventKind> getUnfilteredEventKinds();
+      public static EventKindFilters from(ImmutableSet<EventKind> filtered, ImmutableSet<EventKind> unfiltered) {
+        return new AutoValue_UiOptions_EventFiltersConverter_EventKindFilters(filtered, unfiltered);
       }
     }
     private final CommaSeparatedOptionListConverter commaSeparatedListConverter;
@@ -78,26 +77,26 @@ public class UiOptions extends OptionsBase {
       }
       ImmutableList<String> filters = commaSeparatedListConverter.convert(input, /*conversionContext=*/ null);
 
-      HashSet<EventKind> removedEvents = new HashSet<>();
-      HashSet<EventKind> addedEvents = new HashSet<>();
+      HashSet<EventKind> filteredEventKinds = new HashSet<>();
+      HashSet<EventKind> unfilteredEventKinds = new HashSet<>();
 
       for (String filter : filters) {
         if (!filter.startsWith("+") && !filter.startsWith("-")) {
-          removedEvents.addAll(EventKind.ALL_EVENTS);
-          addedEvents.clear();
+          filteredEventKinds.addAll(EventKind.ALL_EVENTS);
+          unfilteredEventKinds.clear();
         }
         if (!filter.isEmpty()) {
           EventKind kind = eventKindConverter.convert(filter.replaceFirst("^[+-]", ""), /*conversionContext=*/ null);
           if (filter.startsWith("-")) {
-            removedEvents.add(kind);
-            addedEvents.remove(kind);
+            filteredEventKinds.add(kind);
+            unfilteredEventKinds.remove(kind);
           } else {
-            addedEvents.add(kind);
-            removedEvents.remove(kind);
+            unfilteredEventKinds.add(kind);
+            filteredEventKinds.remove(kind);
           }
         }
       }
-      return EventKindFilters.from(ImmutableSet.copyOf(removedEvents), ImmutableSet.copyOf(addedEvents));
+      return EventKindFilters.from(ImmutableSet.copyOf(filteredEventKinds), ImmutableSet.copyOf(unfilteredEventKinds));
     }
 
     @Override
@@ -285,8 +284,8 @@ public class UiOptions extends OptionsBase {
   public ImmutableSet<EventKind> getFilteredEventKinds() {
     HashSet<EventKind> filtered = new HashSet<>();
     for (EventFiltersConverter.EventKindFilters filters: eventKindFilters) {
-      filtered.addAll(filters.getAddedEventKinds());
-      filtered.removeAll(filters.getRemovedEventKinds());
+      filtered.addAll(filters.getFilteredEventKinds());
+      filtered.removeAll(filters.getUnfilteredEventKinds());
     }
     return ImmutableSet.copyOf(filtered);
   }
