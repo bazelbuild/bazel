@@ -965,6 +965,8 @@ public final class RemoteModule extends BlazeModule {
 
     actionContextProvider.setTempPathGenerator(tempPathGenerator);
 
+    ExecutionOptions executionOptions =
+        Preconditions.checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteOptions remoteOptions =
         Preconditions.checkNotNull(
             env.getOptions().getOptions(RemoteOptions.class), "RemoteOptions");
@@ -987,7 +989,7 @@ public final class RemoteModule extends BlazeModule {
               tempPathGenerator,
               patternsToDownload,
               outputPermissions,
-              remoteOptions.useNewExitCodeForLostInputs);
+              executionOptions.useNewExitCodeForLostInputs);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
