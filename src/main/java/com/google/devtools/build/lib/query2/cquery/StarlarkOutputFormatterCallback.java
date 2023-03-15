@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -121,10 +120,7 @@ public class StarlarkOutputFormatterCallback extends CqueryThreadsafeCallback {
           @Param(name = "target"),
         })
     public Object providers(ConfiguredTarget target) {
-      if (!(target instanceof AbstractConfiguredTarget)) {
-        return Starlark.NONE;
-      }
-      Dict<String, Object> ret = ((AbstractConfiguredTarget) target).getProvidersDict();
+      Dict<String, Object> ret = target.getProvidersDict();
       if (ret == null) {
         return Starlark.NONE;
       }
