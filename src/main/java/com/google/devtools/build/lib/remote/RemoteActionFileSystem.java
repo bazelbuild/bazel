@@ -20,12 +20,15 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -566,10 +569,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
     return null;
   }
 
-  ActionInput getActionInput(PathFragment path) {
-    return getInput(path.relativeTo(execRoot).getPathString());
-  }
-
   @Nullable
   @Override
   public FileArtifactValue getMetadata(ActionInput input) throws IOException {
@@ -605,7 +604,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
   }
 
   @Nullable
-  RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
+  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
     if (!isOutput(path)) {
       return null;
     }
@@ -631,15 +630,21 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), getActionInput(path), m);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IOException(
-            String.format("Received interrupt while fetching file '%s'", path), e);
+    if (!isRemote(path)) {
+      return;
+    }
+    PathFragment execPath = path.relativeTo(execRoot);
+    try {
+      ActionInput input = getInput(execPath.getPathString());
+      if (input == null) {
+        // For undeclared outputs, getInput returns null as there's no artifact associated with the
+        // path. Therefore, we synthesize one here just so we're able to call prefetchFiles.
+        input = ActionInputHelper.fromPath(execPath);
       }
+      getFromFuture(inputFetcher.prefetchFiles(ImmutableList.of(input), this, Priority.CRITICAL));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
     }
   }
 

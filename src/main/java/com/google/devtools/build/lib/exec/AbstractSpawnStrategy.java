@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -48,6 +50,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -246,13 +249,35 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public ListenableFuture<Void> prefetchInputs()
         throws IOException, ForbiddenActionInputException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        return actionExecutionContext
-            .getActionInputPrefetcher()
-            .prefetchFiles(
-                getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                    .values(),
-                getMetadataProvider(),
-                Priority.MEDIUM);
+        return Futures.catchingAsync(
+            actionExecutionContext
+                .getActionInputPrefetcher()
+                .prefetchFiles(
+                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+                        .values(),
+                    getMetadataProvider(),
+                    Priority.MEDIUM),
+            BulkTransferException.class,
+            (BulkTransferException e) -> {
+              if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
+                var code =
+                    executionOptions.useNewExitCodeForLostInputs
+                        ? Code.REMOTE_CACHE_EVICTED
+                        : Code.REMOTE_CACHE_FAILED;
+                throw new EnvironmentalExecException(
+                    e,
+                    FailureDetail.newBuilder()
+                        .setMessage(
+                            "Failed to fetch blobs because they do not exist remotely."
+                                + " Build without the Bytes does not work if your remote"
+                                + " cache evicts blobs during builds.")
+                        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
+                        .build());
+              } else {
+                throw e;
+              }
+            },
+            directExecutor());
       }
 
       return immediateVoidFuture();

@@ -25,12 +25,12 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -76,8 +76,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         execRoot,
         tempPathGenerator,
         ImmutableList.of(),
-        OutputPermissions.READONLY,
-        /* useNewExitCodeForLostInputs= */ false);
+        OutputPermissions.READONLY);
   }
 
   @Test
@@ -94,8 +93,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
-            OutputPermissions.READONLY,
-            /* useNewExitCodeForLostInputs= */ false);
+            OutputPermissions.READONLY);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
@@ -123,8 +121,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
-            OutputPermissions.READONLY,
-            /* useNewExitCodeForLostInputs= */ false);
+            OutputPermissions.READONLY);
 
     // act
     wait(
@@ -145,7 +142,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
 
     var error =
         assertThrows(
-            ExecException.class,
+            BulkTransferException.class,
             () ->
                 wait(
                     prefetcher.prefetchFiles(

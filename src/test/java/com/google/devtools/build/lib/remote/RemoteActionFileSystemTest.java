@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -28,7 +29,11 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -50,6 +55,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Map;
 import org.junit.Before;
@@ -113,10 +119,10 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     return outputRoot.getRoot().asPath().getRelative(outputRootRelativePath).asFragment();
   }
 
-  private static Answer<Void> mockDownloadFile(Path path, String contents) {
+  private static Answer<ListenableFuture<Void>> mockPrefetchFile(Path path, String contents) {
     return invocationOnMock -> {
       FileSystemUtils.writeContent(path, UTF_8, contents);
-      return null;
+      return immediateVoidFuture();
     };
   }
 
@@ -142,9 +148,9 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createRemoteArtifact("remote-file", "remote contents", inputs);
     FileSystem actionFs = createActionFileSystem(inputs);
-    doAnswer(mockDownloadFile(artifact.getPath(), "remote contents"))
+    doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .downloadFile(eq(artifact.getPath()), any(), eq(inputs.getMetadata(artifact)));
+        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -154,7 +160,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .downloadFile(eq(artifact.getPath()), any(), eq(inputs.getMetadata(artifact)));
+        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -163,11 +169,10 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // arrange
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     FileSystem actionFs = createActionFileSystem(new ActionInputMap(0), ImmutableList.of(artifact));
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
-    doAnswer(mockDownloadFile(artifact.getPath(), "remote contents"))
+    injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
+    doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .downloadFile(eq(artifact.getPath()), any(), eq(metadata));
+        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -176,7 +181,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
-    verify(inputFetcher).downloadFile(eq(artifact.getPath()), any(), eq(metadata));
+    verify(inputFetcher)
+        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -184,11 +190,12 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   public void testGetInputStream_fromRemoteOutputTree_forUndeclaredOutput() throws Exception {
     // arrange
     Path path = outputRoot.getRoot().getRelative("out");
+    ActionInput input = ActionInputHelper.fromPath(path.relativeTo(execRoot));
     FileSystem actionFs = createActionFileSystem();
-    FileArtifactValue metadata = injectRemoteFile(actionFs, path.asFragment(), "remote contents");
-    doAnswer(mockDownloadFile(path, "remote contents"))
+    injectRemoteFile(actionFs, path.asFragment(), "remote contents");
+    doAnswer(mockPrefetchFile(path, "remote contents"))
         .when(inputFetcher)
-        .downloadFile(eq(path), any(), eq(metadata));
+        .prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(path.asFragment());
@@ -197,7 +204,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
-    verify(inputFetcher).downloadFile(eq(path), any(), eq(metadata));
+    verify(inputFetcher).prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -564,6 +571,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Override
+  @CanIgnoreReturnValue
   protected FileArtifactValue injectRemoteFile(
       FileSystem actionFs, PathFragment path, String content) throws IOException {
     byte[] contentBytes = content.getBytes(UTF_8);

@@ -18,6 +18,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -570,22 +571,7 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
-  public void downloadFile_downloadRemoteFiles() throws Exception {
-    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
-    Map<HashCode, byte[]> cas = new HashMap<>();
-    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
-    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
-
-    prefetcher.downloadFile(a1.getPath(), /* actionInput= */ null, metadata.get(a1));
-
-    assertThat(FileSystemUtils.readContent(a1.getPath(), UTF_8)).isEqualTo("hello world");
-    assertThat(a1.getPath().isExecutable()).isTrue();
-    assertThat(a1.getPath().isReadable()).isTrue();
-    assertThat(a1.getPath().isWritable()).isFalse();
-  }
-
-  @Test
-  public void downloadFile_onInterrupt_deletePartialDownloadedFile() throws Exception {
+  public void prefetchFiles_onInterrupt_deletePartialDownloadedFile() throws Exception {
     Semaphore startSemaphore = new Semaphore(0);
     Semaphore endSemaphore = new Semaphore(0);
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
@@ -605,7 +591,11 @@ public abstract class ActionInputPrefetcherTestBase {
         new Thread(
             () -> {
               try {
-                prefetcher.downloadFile(a1.getPath(), /* actionInput= */ null, metadata.get(a1));
+                getFromFuture(
+                    prefetcher.prefetchFiles(
+                        ImmutableList.of(a1),
+                        new StaticMetadataProvider(metadata),
+                        Priority.MEDIUM));
               } catch (IOException ignored) {
                 // Intentionally left empty
               } catch (InterruptedException e) {
