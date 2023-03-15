@@ -20,6 +20,9 @@ These may change at any time and are closely coupled to the rule implementation.
 
 _py_builtins = _builtins.internal.py_builtins
 
+def _is_available_for(package_group_target, label):
+    return package_group_target.isAvailableFor(label)
+
 # This replaces the Java-defined name using exports.bzl toplevels mapping.
 py_internal = struct(
     add_py_extra_pseudo_action = _py_builtins.add_py_extra_pseudo_action,
@@ -31,8 +34,10 @@ py_internal = struct(
     get_current_os_name = _py_builtins.get_current_os_name,
     get_label_repo_runfiles_path = _py_builtins.get_label_repo_runfiles_path,
     get_legacy_exernal_runfiles = _py_builtins.get_legacy_external_runfiles,
+    get_rule_name = _py_builtins.get_rule_name,
+    is_available_for = _is_available_for,
     is_singleton_depset = _py_builtins.is_singleton_depset,
+    make_runfiles_respect_legacy_external_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles,
     merge_runfiles_with_generated_inits_empty_files_supplier = _py_builtins.merge_runfiles_with_generated_inits_empty_files_supplier,
     new_py_cc_link_params_provider = _py_builtins.new_py_cc_link_params_provider,
-    make_runfiles_respect_legacy_external_runfiles = _py_builtins.make_runfiles_respect_legacy_external_runfiles,
 )

@@ -17,6 +17,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/common.bzl",
     "TOOLCHAIN_TYPE",
+    "check_native_allowed",
     "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
@@ -184,6 +185,7 @@ def py_executable_base_impl(ctx, *, semantics, is_test, inherited_environment = 
 def _validate_executable(ctx):
     if ctx.attr.python_version != "PY3":
         fail("It is not allowed to use Python 2")
+    check_native_allowed(ctx)
 
 def _compute_outputs(ctx, output_sources):
     # TODO: This should use the configuration instead of the Bazel OS.

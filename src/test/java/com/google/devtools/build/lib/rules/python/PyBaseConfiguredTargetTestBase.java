@@ -151,4 +151,39 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//pkg:foo");
     assertThat(target.get(PyInfo.PROVIDER).getUsesSharedLibraries()).isTrue();
   }
+
+  @Test
+  public void disallowNativeRulesWorks() throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+    scratch.file(
+        "pkg/BUILD", //
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        ")");
+
+    useConfiguration("--incompatible_python_disallow_native_rules");
+    getConfiguredTarget("//pkg:foo");
+    assertContainsEvent(Pattern.compile("not allowed to use native"));
+  }
+
+  @Test
+  public void nativeRulesAllowlistWorks() throws Exception {
+    scratch.file(
+        "pkg/BUILD",
+        ruleName + "(",
+        "    name = 'foo',",
+        "    srcs = ['foo.py'],",
+        ")",
+        "package_group(",
+        "    name = 'allowed',",
+        "    packages = ['//...'],",
+        ")");
+
+    useConfiguration(
+        "--incompatible_python_disallow_native_rules",
+        "--python_native_rules_allowlist=//pkg:allowed");
+    getConfiguredTarget("//pkg:foo");
+    assertNoEvents();
+  }
 }
