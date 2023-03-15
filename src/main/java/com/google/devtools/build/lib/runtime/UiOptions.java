@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.util.Pair;
@@ -50,6 +51,11 @@ public class UiOptions extends OptionsBase {
 
   /** Converter for {@link EventKind} filters * */
   public static class EventFiltersConverter extends Converter.Contextless<EventFiltersConverter.EventKindFilters> {
+
+    /**
+     * Container for an EventKind input filter. Added event kinds and removed event kinds are respectively events
+     * this filter wants to enable and disable.
+     */
     @AutoValue
     public static abstract class EventKindFilters {
       public abstract ImmutableSet<EventKind> getAddedEventKinds();
@@ -72,7 +78,7 @@ public class UiOptions extends OptionsBase {
         // Empty list means that the user wants to filter all events
         return EventKindFilters.from(EventKind.ALL_EVENTS, ImmutableSet.of());
       }
-      List<String> filters = commaSeparatedListConverter.convert(input, /*conversionContext=*/ null);
+      ImmutableList<String> filters = commaSeparatedListConverter.convert(input, /*conversionContext=*/ null);
 
       HashSet<EventKind> removedEvents = new HashSet<>();
       HashSet<EventKind> addedEvents = new HashSet<>();
@@ -236,7 +242,7 @@ public class UiOptions extends OptionsBase {
               + "set completely with direct assignment. The set of supported event kinds "
               + "include INFO, DEBUG, ERROR and more.",
       allowMultiple = true)
-  public List<EventFiltersConverter.EventKindFilters> eventFilters;
+  public List<EventFiltersConverter.EventKindFilters> eventKindFilters;
 
   @Option(
       name = "ui_actions_shown",
@@ -278,9 +284,9 @@ public class UiOptions extends OptionsBase {
     return useCursesEnum == UseCurses.YES || (useCursesEnum == UseCurses.AUTO && isATty);
   }
 
-  public ImmutableSet<EventKind> getFilteredEvents() {
+  public ImmutableSet<EventKind> getFilteredEventKinds() {
     HashSet<EventKind> filtered = new HashSet<>();
-    for (EventFiltersConverter.EventKindFilters filters: eventFilters) {
+    for (EventFiltersConverter.EventKindFilters filters: eventKindFilters) {
       filtered.addAll(filters.getAddedEventKinds());
       filtered.removeAll(filters.getRemovedEventKinds());
     }
