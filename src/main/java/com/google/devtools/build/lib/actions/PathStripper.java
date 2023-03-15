@@ -218,7 +218,7 @@ public final class PathStripper {
     List<String> stripCustomStarlarkArgs(List<String> args);
 
     /**
-     * Creates a an {@link StarlarkPathMapper} that can be set on a Starlark thread's semantics
+     * Creates a {@link StarlarkPathMapper} that can be set on a Starlark thread's semantics
      * object to automatically rewrite paths returned by the File API in map_each callbacks.
      */
     default StarlarkPathMapper toStarlarkPathMapper() {
