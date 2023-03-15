@@ -13,15 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionCacheUtils;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import java.util.HashMap;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -41,36 +39,44 @@ public class LeaseService {
       return;
     }
 
-    var actions = new HashMap<ActionLookupData, Action>();
+    // If any outputs are evicted, remove all remote metadata from skyframe and local action cache.
+    //
+    // With TTL based discarding and lease extension, remote cache eviction error won't happen if
+    // remote cache can guarantee the TTL. However, if it happens, it usually means the remote cache
+    // is under high load and it could possibly evict more blobs that Bazel wouldn't aware of.
+    // Following builds could still fail for the same error (caused by different blobs).
 
-    try {
-      for (ActionInput actionInput : missingActionInputs) {
-        if (actionInput instanceof Artifact.DerivedArtifact) {
-          Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) actionInput;
-          ActionLookupData actionLookupData = output.getGeneratingActionKey();
-          var actionLookupValue =
-              memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey());
-          if (actionLookupValue instanceof ActionLookupValue) {
-            Action action =
-                ((ActionLookupValue) actionLookupValue)
-                    .getAction(actionLookupData.getActionIndex());
-            actions.put(actionLookupData, action);
+    memoizingEvaluator.delete(
+        key -> {
+          if (key.functionName().equals(SkyFunctions.ACTION_EXECUTION)) {
+            try {
+              var value = memoizingEvaluator.getExistingValue(key);
+              return value instanceof ActionExecutionValue
+                  && isRemote((ActionExecutionValue) value);
+            } catch (InterruptedException ignored) {
+              return false;
+            }
           }
-        }
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+          return false;
+        });
 
-    if (!actions.isEmpty()) {
-      var actionKeys = actions.keySet();
-      memoizingEvaluator.delete(key -> key instanceof ActionLookupData && actionKeys.contains(key));
-
-      if (actionCache != null) {
-        for (var action : actions.values()) {
-          ActionCacheUtils.removeCacheEntry(actionCache, action);
-        }
-      }
+    if (actionCache != null) {
+      actionCache.removeIf(
+          entry -> !entry.getOutputFiles().isEmpty() || !entry.getOutputTrees().isEmpty());
     }
+  }
+
+  private boolean isRemote(ActionExecutionValue value) {
+    return value.getAllFileValues().values().stream().anyMatch(FileArtifactValue::isRemote)
+        || value.getAllTreeArtifactValues().values().stream().anyMatch(this::isRemoteTree);
+  }
+
+  private boolean isRemoteTree(TreeArtifactValue treeArtifactValue) {
+    return treeArtifactValue.getChildValues().values().stream()
+            .anyMatch(FileArtifactValue::isRemote)
+        || treeArtifactValue
+            .getArchivedRepresentation()
+            .map(ar -> ar.archivedFileValue().isRemote())
+            .orElse(false);
   }
 }

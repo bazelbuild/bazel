@@ -579,6 +579,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       actionCache.remove(key);
     }
 
+    @Override
+    public void removeIf(java.util.function.Predicate<Entry> predicate) {
+      actionCache.values().removeIf(predicate);
+    }
+
     public synchronized void reset() {
       actionCache.clear();
     }
