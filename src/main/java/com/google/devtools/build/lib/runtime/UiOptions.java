@@ -17,7 +17,6 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
@@ -30,7 +29,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /** Command-line UI options. */
 public class UiOptions extends OptionsBase {
