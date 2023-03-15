@@ -1675,7 +1675,9 @@ public abstract class Artifact
 
     /**
      * Any two instances are considered equal as they should not cause the Starlark method lookup
-     * cache to be invalidated.
+     * cache to be invalidated. This is purely a performance/memory optimization to prevent the
+     * cache in {@link net.starlark.java.eval.CallUtils#getCacheValue(Class, StarlarkSemantics)}
+     * from growing too large and becoming ineffective.
      */
     @Override
     public boolean equals(Object obj) {
