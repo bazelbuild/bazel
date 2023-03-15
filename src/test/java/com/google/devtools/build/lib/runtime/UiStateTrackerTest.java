@@ -869,17 +869,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.runningAction(new RunningActionEvent(action1, "strategy2"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
-    assertThat(terminalWriter.getTranscript()).contains("3 actions, 2 running");
+    assertThat(terminalWriter.getTranscript()).contains("2 actions, 1 running");
 
     stateTracker.runningAction(new RunningActionEvent(action2, "strategy1"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
-    assertThat(terminalWriter.getTranscript()).contains("3 actions running");
+    assertThat(terminalWriter.getTranscript()).contains("2 actions running");
 
     stateTracker.runningAction(new RunningActionEvent(action2, "strategy2"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
-    assertThat(terminalWriter.getTranscript()).contains("4 actions running");
+    assertThat(terminalWriter.getTranscript()).contains("2 actions running");
   }
 
   private void doTestOutputLength(boolean withTest, int actions) throws Exception {
@@ -1004,7 +1004,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Action foo being scanned should still be visible in output:\n" + output)
         .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
-    assertWithMessage("Indication at no actions are running is missing in output:\n" + output)
+    assertWithMessage("Indication that no actions are running is missing in output:\n" + output)
         .that(output.contains("0 running"))
         .isTrue();
     assertWithMessage("Total number of actions expected  in output:\n" + output)
@@ -1027,7 +1027,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Action bar being scheduled should still be visible in output:\n" + output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Indication at one action is running is missing in output:\n" + output)
+    assertWithMessage("Indication that one action is running is missing in output:\n" + output)
         .that(output.contains("1 running"))
         .isTrue();
     assertWithMessage("Total number of actions expected  in output:\n" + output)
