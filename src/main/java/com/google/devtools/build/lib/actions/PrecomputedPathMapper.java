@@ -19,6 +19,12 @@ import java.util.Optional;
  * An implementation of {@link PathMapper} that replaces the configuration segment of paths of
  * generated files with synthetic values, backed by a fixed mapping for the input files of an
  * action.
+ *
+ * <p>Examples:
+ * <ul>
+ *   <li><code>pkg/file.txt --> pkg/file.txt</code></li>
+ *   <li><code>bazel-out/k8-fastbuild/bin/pkg/generated_file --> bazel-out/fixed/bin/pkg/generated_file</code></li>
+ * </ul>
  */
 public final class PrecomputedPathMapper implements PathMapper {
 
