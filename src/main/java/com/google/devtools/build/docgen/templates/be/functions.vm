@@ -690,7 +690,7 @@ sh_binary(
     demonstrated in Example 2 below.
   </li>
   <li>If multiple conditions match and one is not a specialization of all the
-    others, Bazel fails with an error.
+    others, Bazel fails with an error, unless all conditions resolve to the same value.
   </li>
   <li>The special pseudo-label <code>//conditions:default</code> is
     considered to match if no other condition matches. If this condition
