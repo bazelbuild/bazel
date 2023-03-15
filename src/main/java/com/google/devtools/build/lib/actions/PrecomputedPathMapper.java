@@ -12,8 +12,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * An implementation of {@link PathMapper} that replaces the configuration segment of paths of
@@ -69,7 +71,7 @@ public final class PrecomputedPathMapper implements PathMapper {
       MetadataHandler metadataHandler,
       NestedSet<Artifact> inputs,
       Artifact primaryOutput) throws CommandLineExpansionException {
-    Optional<List<DerivedArtifact>> artifactsToMap = computeArtifactsToMap(artifactExpander,
+    Optional<Set<DerivedArtifact>> artifactsToMap = computeArtifactsToMap(artifactExpander,
         inputs);
     if (artifactsToMap.isEmpty()) {
       return NOOP;
@@ -92,9 +94,17 @@ public final class PrecomputedPathMapper implements PathMapper {
     return new PrecomputedPathMapper(execPathMapping.build(), primaryOutput);
   }
 
-  private static Optional<List<DerivedArtifact>> computeArtifactsToMap(
+  /**
+   * Computes the set of individual, potentially expanded artifacts whose exec paths will be mapped
+   * non-trivially by this path mapper. Source file paths have an empty root and thus don't require
+   * mapping.
+   *
+   * <p>If any of the inputs are of an unsupported type (filesets), then this method returns an
+   * empty {@link Optional}.
+   */
+  private static Optional<Set<DerivedArtifact>> computeArtifactsToMap(
       ArtifactExpander artifactExpander, NestedSet<Artifact> inputs) {
-    List<DerivedArtifact> inputsToMap = new ArrayList<>();
+    Set<DerivedArtifact> inputsToMap = new HashSet<>();
     for (Artifact input : inputs.toList()) {
       if (!(input instanceof DerivedArtifact)) {
         // Source file paths have an empty root and in particular contain no config part. They thus
