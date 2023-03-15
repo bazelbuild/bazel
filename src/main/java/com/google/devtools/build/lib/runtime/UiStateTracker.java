@@ -260,8 +260,8 @@ class UiStateTracker {
     /**
      * Marks the action as scanning.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * scheduled or running.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already caching, scheduling or running for any strategy.
      */
     synchronized void setScanning(long nanoChangeTime) {
       if (currentPhase.compareTo(ActionPhase.SCANNING) < 0) {
@@ -273,8 +273,8 @@ class UiStateTracker {
     /**
      * Marks the action as no longer scanning.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * scheduled or running.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already caching, scheduling or running for any strategy.
      */
     synchronized void setStopScanning(long nanoChangeTime) {
       if (currentPhase.compareTo(ActionPhase.CACHING) < 0) {
@@ -286,8 +286,8 @@ class UiStateTracker {
     /**
      * Marks the action as caching with the given strategy.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * scheduled or running with this strategy.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already caching, scheduling or running for any other strategy.
      */
     synchronized void setCaching(String strategy, long nanoChangeTime) {
       strategyBitmap |= strategyIds.getId(strategy);
@@ -300,8 +300,8 @@ class UiStateTracker {
     /**
      * Marks the action as scheduling with the given strategy.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * running with this strategy.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already scheduling or running for any other strategy.
      */
     synchronized void setScheduling(String strategy, long nanoChangeTime) {
       strategyBitmap |= strategyIds.getId(strategy);
@@ -314,8 +314,8 @@ class UiStateTracker {
     /**
      * Marks the action as running with the given strategy.
      *
-     * <p>Because "running" is a terminal state, this forcibly updates the state to running
-     * regardless of any other events (which may come out of order).
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already running for any other strategy.
      */
     synchronized void setRunning(String strategy, long nanoChangeTime) {
       strategyBitmap |= strategyIds.getId(strategy);
