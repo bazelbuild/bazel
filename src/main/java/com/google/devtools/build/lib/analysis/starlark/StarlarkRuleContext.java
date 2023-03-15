@@ -1166,7 +1166,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       throws EvalException {
     if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NEW_ACTIONS_API)) {
       throw Starlark.errorf(
-          "Use %s instead of %s. \n"
+          "Use %s instead of %s.\n"
               + "Use --incompatible_new_actions_api=false to temporarily disable this check.",
           newApi, oldApi);
     }
