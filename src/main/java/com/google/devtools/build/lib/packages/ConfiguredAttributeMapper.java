@@ -173,7 +173,9 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
       throws ValidationException {
-    Map<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
+    // Use a LinkedHashMap to guarantee a deterministic branch selection when multiple branches matches but they
+    // resolve to the same value.
+    LinkedHashMap<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
     // Use a LinkedHashSet to guarantee deterministic error message ordering. We use a LinkedHashSet
     // vs. a more general SortedSet because the latter supports insertion-order, which should more
     // closely match how users see select() structures in BUILD files.
