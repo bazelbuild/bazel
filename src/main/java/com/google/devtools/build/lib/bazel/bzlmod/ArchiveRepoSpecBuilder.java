@@ -85,6 +85,12 @@ public class ArchiveRepoSpecBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public ArchiveRepoSpecBuilder setArchiveType(String archiveType) {
+    attrBuilder.put("type", archiveType);
+    return this;
+  }
+
   public RepoSpec build() {
     return RepoSpec.builder()
         .setBzlFile("@bazel_tools//tools/build_defs/repo:http.bzl")
