@@ -129,6 +129,12 @@ public final class PathStripper {
       return execPath;
     }
 
+    /**
+     * Used to determine whether {@link Spawn}s using this instance have to run with a strategy
+     * that supports path mapping.
+     *
+     * @return false if and only if this instance never actually changes any exec paths.
+     */
     default boolean isNoop() {
       return false;
     }
