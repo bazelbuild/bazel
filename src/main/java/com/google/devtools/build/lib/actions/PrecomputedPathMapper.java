@@ -117,7 +117,8 @@ public final class PrecomputedPathMapper implements PathMapper {
   }
 
   private static PathFragment execPathWithSyntheticConfig(PathFragment execPath, String config) {
-    // TODO: Support experimental_sibling_repository_layout.
+    // TODO: Support experimental_sibling_repository_layout, which uses output roots such as
+    //  __main__/bazel-out/k8-fastbuild/bin instead of keeping the repository name out of the root.
     return execPath.subFragment(0, 1)
         .getRelative(config)
         .getRelative(execPath.subFragment(2));
