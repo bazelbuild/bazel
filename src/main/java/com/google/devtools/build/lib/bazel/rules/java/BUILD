@@ -91,6 +91,8 @@ gen_workspace_stanza(
         "remote_java_tools_linux",
         "remote_java_tools_windows",
         "remote_java_tools_darwin",
+        "remote_java_tools_darwin_x86_64",
+        "remote_java_tools_darwin_arm64",
         "rules_cc",
         "rules_java",
         "rules_proto",

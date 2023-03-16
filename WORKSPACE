@@ -522,6 +522,20 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
+# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+dist_http_archive(
+    name = "remote_java_tools_darwin_x86_64_for_testing",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+dist_http_archive(
+    name = "remote_java_tools_darwin_arm64_for_testing",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
 # Used in src/test/shell/bazel/testdata/jdk_http_archives.
 dist_http_archive(
     name = "remote_java_tools_test",
@@ -546,6 +560,20 @@ dist_http_archive(
 # Used in src/test/shell/bazel/testdata/jdk_http_archives.
 dist_http_archive(
     name = "remote_java_tools_test_darwin",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "remote_java_tools_test_darwin_x86_64",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "remote_java_tools_test_darwin_arm64",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
