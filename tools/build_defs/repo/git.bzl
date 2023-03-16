@@ -147,13 +147,11 @@ _common_attrs = {
             "This attribute is an absolute label (use '@//' for the main " +
             "repo). The file does not need to be named BUILD, but can " +
             "be (something like BUILD.new-repo-name may work well for " +
-            "distinguishing it from the repository's actual BUILD files. " +
-            "Either build_file or build_file_content must be specified.",
+            "distinguishing it from the repository's actual BUILD files. ",
     ),
     "build_file_content": attr.string(
         doc =
-            "The content for the BUILD file for this repository. " +
-            "Either build_file or build_file_content must be specified.",
+            "The content for the BUILD file for this repository. ",
     ),
     "workspace_file": attr.label(
         doc =
