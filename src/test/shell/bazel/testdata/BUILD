@@ -50,6 +50,8 @@ gen_workspace_stanza(
         "remote_java_tools_test_linux",
         "remote_java_tools_test_windows",
         "remote_java_tools_test_darwin",
+        "remote_java_tools_test_darwin_x86_64",
+        "remote_java_tools_test_darwin_arm64",
         "openjdk11_linux_archive",
         "openjdk11_linux_s390x_archive",
         "openjdk11_darwin_archive",
