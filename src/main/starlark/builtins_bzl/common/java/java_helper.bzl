@@ -19,6 +19,8 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/paths.bzl", "paths")
 load(":common/cc/cc_common.bzl", "cc_common")
 
+testing = _builtins.toplevel.testing
+
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = []
     if not classpath_type == "compile_only":
@@ -265,6 +267,24 @@ def _get_test_support(ctx):
         return ctx.attr._test_support
     return None
 
+def _test_providers(ctx):
+    test_providers = []
+    if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
+        test_providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
+
+    test_env = {}
+    test_env.update(cc_helper.get_expanded_env(ctx, {}))
+
+    coverage_config = _get_coverage_config(ctx)
+    if coverage_config:
+        test_env.update(coverage_config.env)
+    test_providers.append(testing.TestEnvironment(
+        environment = test_env,
+        inherited_environment = ctx.attr.env_inherit,
+    ))
+
+    return test_providers
+
 util = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
@@ -284,4 +304,5 @@ util = struct(
     is_windows = _is_windows,
     runfiles_enabled = _runfiles_enabled,
     get_test_support = _get_test_support,
+    test_providers = _test_providers,
 )
