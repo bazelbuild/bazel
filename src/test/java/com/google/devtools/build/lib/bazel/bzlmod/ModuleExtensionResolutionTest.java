@@ -36,8 +36,11 @@ import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositor
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -71,6 +74,7 @@ import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
@@ -93,8 +97,10 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1067,7 +1073,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
-  public void importNonExistentRepo() throws Exception {
+  public void importNonExistentRepoInRootModule_notReferenced() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
         "ext = use_extension('//:defs.bzl','ext')",
@@ -1088,13 +1094,83 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertContainsEvent("module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
+        + " \"missing_repo\", yet it is imported as \"my_repo\"", Set.of(EventKind.WARNING));
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void importNonExistentRepoInRootModule_referenced() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "use_repo(ext,my_repo='missing_repo')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='ext',data='void')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@@_main~ext~ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey mainRepoMappingKey = RepositoryMappingValue.key(RepositoryName.MAIN);
+    EvaluationResult<SkyValue> mainRepoMappingResult = evaluator.evaluate(
+        ImmutableList.of(mainRepoMappingKey), evaluationContext);
+    RepositoryMapping mainRepoMapping = ((RepositoryMappingValue) mainRepoMappingResult.get(
+        mainRepoMappingKey)).getRepositoryMapping();
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseWithRepoContext("@my_repo//:data.bzl",
+        RepoContext.of(RepositoryName.MAIN, mainRepoMapping)));
+    EvaluationResult<BzlLoadValue> result = evaluator.evaluate(ImmutableList.of(skyKey),
+        evaluationContext);
+
+    assertContainsEvent("module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
+        + " \"missing_repo\", yet it is imported as \"my_repo\"", Set.of(EventKind.WARNING));
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
-        .contains(
-            "module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
-                + " \"missing_repo\", yet it is imported as \"my_repo\" in the usage at"
-                + " <root>/MODULE.bazel:1:20");
+        .contains("Repository '@_main~ext~missing_repo' is not defined");
+  }
+
+  @Test
+  public void importNonExistentRepoInNonRootModule() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext', version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "use_repo(ext,my_repo='candy')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@my_repo//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,my_repo='missing_repo')");
+    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='candy', data='cotton candy')",
+        "ext = module_extension(implementation=_ext_impl)");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isFalse();
+    assertNoEvents();
   }
 
   @Test

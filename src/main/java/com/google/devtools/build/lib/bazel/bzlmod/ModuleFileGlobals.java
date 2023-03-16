@@ -421,6 +421,7 @@ public class ModuleFileGlobals {
           .setLocation(location)
           .setImports(ImmutableBiMap.copyOf(imports))
           .setTags(tags.build())
+          .setRootUsage(ModuleKey.ROOT.equals(module.getKey()))
           .build();
     }
 

@@ -180,6 +180,8 @@ public abstract class Module {
     /** Optional; defaults to {@link ModuleKey#ROOT}. */
     public abstract Builder setKey(ModuleKey value);
 
+    public abstract ModuleKey getKey();
+
     /** Optional; defaults to {@code 0}. */
     public abstract Builder setCompatibilityLevel(int value);
 

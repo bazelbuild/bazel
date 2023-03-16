@@ -226,6 +226,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionName(name)
         .setImports(importsBuilder.buildOrThrow())
         .setLocation(Location.BUILTIN)
+        .setRootUsage(false)
         .build();
   }
 

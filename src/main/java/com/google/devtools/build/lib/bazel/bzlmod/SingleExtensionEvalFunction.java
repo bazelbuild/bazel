@@ -207,23 +207,28 @@ public class SingleExtensionEvalFunction implements SkyFunction {
       }
     }
 
-    // Check that all imported repos have been actually generated
+    // Check that all imported repos have been actually generated.
+    //
+    // This is a warning, not an error, so that tools run with Bazel, which may use repos generated
+    // by the module extension, can be used to fix the problem. If the repository is ever
+    // referenced, an error will be thrown.
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
+      // To prevent spamming users about issues they can't resolve themselves, warnings are only
+      // emitted for root module usages.
+      if (!usage.isRootUsage()) {
+        continue;
+      }
       for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
         if (!threadContext.getGeneratedRepos().containsKey(repoImport.getValue())) {
-          throw new SingleExtensionEvalFunctionException(
-              ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
-                  "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
-                      + " is imported as \"%s\" in the usage at %s%s",
-                  extensionId.getExtensionName(),
-                  extensionId.getBzlFileLabel(),
-                  repoImport.getValue(),
-                  repoImport.getKey(),
-                  usage.getLocation(),
-                  SpellChecker.didYouMean(
-                      repoImport.getValue(), threadContext.getGeneratedRepos().keySet())),
-              Transience.PERSISTENT);
+          env.getListener().handle(Event.warn(usage.getLocation(), String.format(
+              "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
+                  + " is imported as \"%s\"%s",
+              extensionId.getExtensionName(),
+              extensionId.getBzlFileLabel(),
+              repoImport.getValue(),
+              repoImport.getKey(),
+              SpellChecker.didYouMean(
+                  repoImport.getValue(), threadContext.getGeneratedRepos().keySet()))));
         }
       }
     }

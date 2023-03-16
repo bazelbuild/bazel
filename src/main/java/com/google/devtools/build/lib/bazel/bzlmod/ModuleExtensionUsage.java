@@ -49,6 +49,9 @@ public abstract class ModuleExtensionUsage {
   /** All the tags specified by this module for this extension. */
   public abstract ImmutableList<Tag> getTags();
 
+  /** Whether this usage occurred in the root module. **/
+  public abstract boolean isRootUsage();
+
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
   }
@@ -66,6 +69,8 @@ public abstract class ModuleExtensionUsage {
     public abstract Builder setImports(ImmutableBiMap<String, String> value);
 
     public abstract Builder setTags(ImmutableList<Tag> value);
+
+    public abstract Builder setRootUsage(boolean value);
 
     abstract ImmutableList.Builder<Tag> tagsBuilder();
 

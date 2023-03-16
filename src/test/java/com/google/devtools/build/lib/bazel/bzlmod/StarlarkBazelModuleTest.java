@@ -44,7 +44,8 @@ public class StarlarkBazelModuleTest {
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
         .setLocation(Location.BUILTIN)
-        .setImports(ImmutableBiMap.of());
+        .setImports(ImmutableBiMap.of())
+        .setRootUsage(false);
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
