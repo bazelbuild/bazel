@@ -238,20 +238,15 @@ public class IndexRegistry implements Registry {
       }
     }
 
-    ArchiveRepoSpecBuilder archiveRepoSpecBuilder =
-        new ArchiveRepoSpecBuilder()
-            .setRepoName(repoName.getName())
-            .setUrls(urls.build())
-            .setIntegrity(sourceJson.get().integrity)
-            .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
-            .setRemotePatches(remotePatches.buildOrThrow())
-            .setRemotePatchStrip(sourceJson.get().patchStrip);
-
-    if (sourceJson.get().archiveType != null) {
-      archiveRepoSpecBuilder.setArchiveType(sourceJson.get().archiveType);
-    }
-
-    return archiveRepoSpecBuilder.build();
+    return new ArchiveRepoSpecBuilder()
+        .setRepoName(repoName.getName())
+        .setUrls(urls.build())
+        .setIntegrity(sourceJson.get().integrity)
+        .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
+        .setRemotePatches(remotePatches.buildOrThrow())
+        .setRemotePatchStrip(sourceJson.get().patchStrip)
+        .setArchiveType(Strings.nullToEmpty(sourceJson.get().archiveType))
+        .build();
   }
 
   @Override
