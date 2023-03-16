@@ -18,14 +18,13 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /** The result of evaluating a single module extension (see {@link SingleExtensionEvalFunction}). */
@@ -57,7 +56,7 @@ public abstract class SingleExtensionEvalValue implements SkyValue {
 
   @AutoCodec
   static class Key extends AbstractSkyKey<ModuleExtensionId> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     protected Key(ModuleExtensionId arg) {
       super(arg);
@@ -71,6 +70,11 @@ public abstract class SingleExtensionEvalValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.SINGLE_EXTENSION_EVAL;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }
