@@ -52,6 +52,15 @@ public class AnalysisOptions extends OptionsBase {
   public int maxConfigChangesToShow;
 
   @Option(
+    name = "skip_incompatible_explicit_targets",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    help = "Skip incompatible targets that are explicitly listed on the command line."
+  )
+  public boolean skipIncompatibleExplicitTargets;
+
+  @Option(
       name = "experimental_extra_action_filter",
       defaultValue = "",
       converter = RegexFilter.RegexFilterConverter.class,
