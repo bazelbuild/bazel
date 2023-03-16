@@ -162,7 +162,8 @@ In other words, `test_suite` targets on the command line behave like `:all` and
 `test_suite` targets with incompatible tests to also be incompatible.
 
 Explicitly specifying an incompatible target on the command line results in an
-error message and a failed build.
+error message and a failed build unless `--skip_incompatible_explicit_targets`
+is enabled:
 
 ```console
 $ bazel build --platforms=//:myplatform //:target_incompatible_with_myplatform

@@ -535,6 +535,15 @@ public class BuildRequestOptions extends OptionsBase {
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
 
+  @Option(
+    name = "skip_incompatible_explicit_targets",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+    help = "Skip incompatible targets that are explicitly listed on the command line."
+  )
+  public boolean skipIncompatibleExplicitTargets;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.

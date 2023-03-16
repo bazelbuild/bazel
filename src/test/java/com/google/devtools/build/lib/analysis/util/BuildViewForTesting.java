@@ -211,6 +211,7 @@ public class BuildViewForTesting {
         aspectsParameters,
         viewOptions,
         keepGoing,
+        /* skipIncompatibleExplicitTargets= */ false,
         /* checkForActionConflicts= */ true,
         QuiescingExecutorsImpl.forTesting(),
         topLevelOptions,
