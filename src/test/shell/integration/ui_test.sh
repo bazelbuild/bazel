@@ -551,10 +551,27 @@ function test_ui_events_filters() {
   expect_not_log "^WARNING: Target pattern parsing failed."
   expect_log "^INFO: Elapsed time"
 
-  bazel build  --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  bazel build --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
   expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
   expect_not_log "^WARNING: Target pattern parsing failed."
   expect_not_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=-error --ui_event_filters=+error \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters= --ui_event_filters=+info pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=warning --ui_event_filters=info --ui_event_filters=+error \
+      pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
 }
 
 function test_max_stdouterr_bytes_capping_behavior() {
