@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Defines a java_binary rule class that is executable but but doesn't have launcher flag
-resolution.
+"""Defines a java_binary rule class that is executable but doesn't have launcher
+ flag resolution.
 
 There are three physical rule classes for java_binary and we want all of them
 to have a name string of "java_binary" because various tooling expects that.
