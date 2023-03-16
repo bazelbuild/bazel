@@ -159,14 +159,14 @@ public class Chunker {
   public void seek(long toOffset) throws IOException {
     // For compressed stream, we need to reinitialize the stream since the offset refers to the
     // uncompressed form.
-    if (initialized && toOffset >= offset && !compressed) {
+    if (initialized && size > 0 && toOffset >= offset && !compressed) {
       ByteStreams.skipFully(data, toOffset - offset);
       offset = toOffset;
     } else {
       reset();
       initialize(toOffset);
     }
-    if (data.finished()) {
+    if (size > 0 && data.finished()) {
       close();
     }
   }
@@ -216,7 +216,7 @@ public class Chunker {
     maybeInitialize();
 
     if (size == 0) {
-      data = null;
+      close();
       return emptyChunk;
     }
 
