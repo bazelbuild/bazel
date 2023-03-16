@@ -2106,12 +2106,11 @@ public class RuleClass {
         nativeAttributeValue = attributeValue;
       }
 
-      // visibility is additionally recorded by rule.setVisibility.
       if (attr.getName().equals("visibility")) {
         @SuppressWarnings("unchecked")
         List<Label> vis = (List<Label>) nativeAttributeValue;
         try {
-          rule.setVisibility(PackageUtils.getVisibility(vis));
+          RuleVisibility.validate(vis);
         } catch (EvalException e) {
           rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
         }

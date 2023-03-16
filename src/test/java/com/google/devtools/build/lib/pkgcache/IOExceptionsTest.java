@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
@@ -55,7 +55,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   @Before
   public final void initializeVisitor() {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE);
+    setUpSkyframe(RuleVisibility.PRIVATE);
   }
 
   private boolean visitTransitively(Label label) throws InterruptedException {

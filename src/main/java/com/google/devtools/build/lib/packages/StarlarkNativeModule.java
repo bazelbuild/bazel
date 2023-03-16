@@ -572,8 +572,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     RuleVisibility visibility =
         Starlark.isNullOrNone(visibilityO)
-            ? ConstantRuleVisibility.PUBLIC
-            : PackageUtils.getVisibility(
+            ? RuleVisibility.PUBLIC
+            : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
 

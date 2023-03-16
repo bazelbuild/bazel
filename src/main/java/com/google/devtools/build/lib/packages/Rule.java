@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
@@ -122,7 +123,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   private byte[] attrBytes;
 
-  private RuleVisibility visibility;
   private boolean containsErrors = false;
 
   /**
@@ -163,10 +163,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     this.callstack = checkNotNull(callstack);
     this.attrValues = new Object[ruleClass.getAttributeCount()];
     this.attrBytes = new byte[bitSetSize()];
-  }
-
-  void setVisibility(RuleVisibility visibility) {
-    this.visibility = visibility;
   }
 
   void setContainsErrors() {
@@ -1064,39 +1060,71 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return getRuleClass() + " rule " + label;
   }
 
- /**
-   * Returns the effective visibility of this Rule. Visibility is computed from
+  /**
+   * Returns the effective visibility of this rule. For most rules, visibility is computed from
    * these sources in this order of preference:
-   *   - 'visibility' attribute
-   *   - 'default_visibility;' attribute of package() declaration
-   *   - public.
+   *
+   * <ol>
+   *   <li>'visibility' attribute
+   *   <li>Package default visibility ('default_visibility' attribute of package() declaration)
+   * </ol>
    */
   @Override
   public RuleVisibility getVisibility() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    return rawLabels == null
+        ? getDefaultVisibility()
+        // The attribute value was already validated when it was set, so call the unchecked method.
+        : RuleVisibility.parseUnchecked(rawLabels);
+  }
+
+  @Override
+  public Iterable<Label> getVisibilityDependencyLabels() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    if (rawLabels == null) {
+      return getDefaultVisibility().getDependencyLabels();
+    }
+    RuleVisibility constantVisibility = RuleVisibility.parseIfConstant(rawLabels);
+    if (constantVisibility != null) {
+      return constantVisibility.getDependencyLabels();
+    }
+    // Filter out labels like :__pkg__ and :__subpackages__.
+    return Iterables.filter(rawLabels, label -> PackageSpecification.fromLabel(label) == null);
+  }
+
+  @Override
+  public List<Label> getVisibilityDeclaredLabels() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    return rawLabels == null ? getDefaultVisibility().getDeclaredLabels() : rawLabels;
+  }
+
+  public boolean isVisibilitySpecified() {
+    return ruleClass.getName().equals("bind") || isAttributeValueExplicitlySpecified("visibility");
+  }
+
+  @Nullable
+  @SuppressWarnings("unchecked")
+  private List<Label> getRawVisibilityLabels() {
+    Integer visibilityIndex = ruleClass.getAttributeIndex("visibility");
+    if (visibilityIndex == null) {
+      return null;
+    }
+    return (List<Label>) getRawAttrValue(visibilityIndex);
+  }
+
+  private RuleVisibility getDefaultVisibility() {
+    if (ruleClass.getName().equals("bind")) {
+      return RuleVisibility.PUBLIC; // bind rules are always public.
+    }
     // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
     // visibility settings properly (legacy code may have visibility settings that would break if
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
     // conditional should be removed.
-    if (ruleClass.getName().equals("config_setting")) {
-      ConfigSettingVisibilityPolicy policy = pkg.getConfigSettingVisibilityPolicy();
-      if (visibility != null) {
-        return visibility; // Use explicitly set visibility
-      } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
-        return ConstantRuleVisibility.PUBLIC; // Default: //visibility:public.
-      } else {
-        return pkg.getDefaultVisibility(); // Default: same as all other rules.
-      }
-    }
-
-    // All other rules.
-    if (visibility != null) {
-      return visibility;
+    if (ruleClass.getName().equals("config_setting")
+        && pkg.getConfigSettingVisibilityPolicy() == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+      return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
     return pkg.getDefaultVisibility();
-  }
-
-  public boolean isVisibilitySpecified() {
-    return visibility != null;
   }
 
   @Override

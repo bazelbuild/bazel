@@ -985,7 +985,7 @@ public class Package {
     // TreeMap so that the iteration order of variables is predictable. This is useful so that the
     // serialized representation is deterministic.
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
-    private RuleVisibility defaultVisibility = ConstantRuleVisibility.PRIVATE;
+    private RuleVisibility defaultVisibility = RuleVisibility.PRIVATE;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
     private boolean defaultVisibilitySet;
     private final List<String> features = new ArrayList<>();

@@ -33,8 +33,8 @@ import net.starlark.java.syntax.Location;
  *
  * <p>{@link InputFile} assumes the input file follows package-default visibility and no license.
  * Use {@link PrivateVisibilityInputFile} if returned visibility is constantly {@code
- * ConstantRuleVisibility.PRIVATE}. Use {@link VisibilityLicenseSpecifiedInputFile} if either
- * visibility or license needs to be specified.
+ * RuleVisibility.PRIVATE}. Use {@link VisibilityLicenseSpecifiedInputFile} if either visibility or
+ * license needs to be specified.
  */
 @Immutable
 @ThreadSafe

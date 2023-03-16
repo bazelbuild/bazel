@@ -395,7 +395,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       // This special case for the visibility attribute is needed because its value is replaced
       // with an empty list during package loading if it is public or private in order not to visit
       // the package called 'visibility'.
-      return ImmutableList.of(type.cast(rule.getVisibility().getDeclaredLabels()));
+      return ImmutableList.of(type.cast(rule.getVisibilityDeclaredLabels()));
     }
 
     // For any other attribute, just return its direct value.

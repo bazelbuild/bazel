@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -118,43 +118,42 @@ public final class ConfiguredTargetFactory {
       EventHandler reporter,
       Target target) {
     RuleVisibility ruleVisibility = target.getVisibility();
-    if (ruleVisibility instanceof ConstantRuleVisibility) {
-      return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? PUBLIC_VISIBILITY
-          : PRIVATE_VISIBILITY;
-    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-      PackageGroupsRuleVisibility packageGroupsVisibility =
-          (PackageGroupsRuleVisibility) ruleVisibility;
-
-      NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
-      for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
-        // PackageGroupsConfiguredTargets are always in the package-group configuration.
-        TransitiveInfoCollection group = findVisibilityPrerequisite(prerequisiteMap, groupLabel);
-        PackageSpecificationProvider provider = null;
-        // group == null can only happen if the package group list comes
-        // from a default_visibility attribute, because in every other case,
-        // this missing link is caught during transitive closure visitation or
-        // if the RuleConfiguredTargetGraph threw out a visibility edge
-        // because if would have caused a cycle. The filtering should be done
-        // in a single place, ConfiguredTargetGraph, but for now, this is the
-        // minimally invasive way of providing a sane error message in case a
-        // cycle is created by a visibility attribute.
-        if (group != null) {
-          provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
-        }
-        if (provider != null) {
-          result.addTransitive(provider.getPackageSpecifications());
-        } else {
-          reporter.handle(Event.error(target.getLocation(),
-              String.format("Label '%s' does not refer to a package group", groupLabel)));
-        }
-      }
-
-      result.add(packageGroupsVisibility.getDirectPackages());
-      return result.build();
-    } else {
-      throw new IllegalStateException("unknown visibility");
+    if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
+      return PUBLIC_VISIBILITY;
     }
+    if (ruleVisibility.equals(RuleVisibility.PRIVATE)) {
+      return PRIVATE_VISIBILITY;
+    }
+    checkState(ruleVisibility instanceof PackageGroupsRuleVisibility, ruleVisibility);
+    PackageGroupsRuleVisibility packageGroupsVisibility =
+        (PackageGroupsRuleVisibility) ruleVisibility;
+
+    NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
+    for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
+      // PackageGroupsConfiguredTargets are always in the package-group configuration.
+      TransitiveInfoCollection group = findVisibilityPrerequisite(prerequisiteMap, groupLabel);
+      PackageSpecificationProvider provider = null;
+      // group == null can only happen if the package group list comes from a default_visibility
+      // attribute, because in every other case, this missing link is caught during transitive
+      // closure visitation or if the RuleConfiguredTargetGraph threw out a visibility edge because
+      // if would have caused a cycle. The filtering should be done in a single place,
+      // ConfiguredTargetGraph, but for now, this is the minimally invasive way of providing a sane
+      // error message in case a cycle is created by a visibility attribute.
+      if (group != null) {
+        provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
+      }
+      if (provider != null) {
+        result.addTransitive(provider.getPackageSpecifications());
+      } else {
+        reporter.handle(
+            Event.error(
+                target.getLocation(),
+                String.format("Label '%s' does not refer to a package group", groupLabel)));
+      }
+    }
+
+    result.add(packageGroupsVisibility.getDirectPackages());
+    return result.build();
   }
 
   @Nullable
@@ -512,7 +511,7 @@ public final class ConfiguredTargetFactory {
         missingFragments.add(fragment);
       }
     }
-    Preconditions.checkState(!missingFragments.isEmpty());
+    checkState(!missingFragments.isEmpty());
     return "all rules of type "
         + ruleClass.getName()
         + " require the presence of all of ["
