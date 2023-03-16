@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -87,7 +88,9 @@ public class ArchiveRepoSpecBuilder {
 
   @CanIgnoreReturnValue
   public ArchiveRepoSpecBuilder setArchiveType(String archiveType) {
-    attrBuilder.put("type", archiveType);
+    if (!Strings.isNullOrEmpty(archiveType)) {
+      attrBuilder.put("type", archiveType);
+    }
     return this;
   }
 

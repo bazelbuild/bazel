@@ -245,7 +245,7 @@ public class IndexRegistry implements Registry {
         .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
-        .setArchiveType(Strings.nullToEmpty(sourceJson.get().archiveType))
+        .setArchiveType(sourceJson.get().archiveType)
         .build();
   }
 
