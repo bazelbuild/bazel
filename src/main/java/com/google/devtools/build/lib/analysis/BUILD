@@ -198,7 +198,6 @@ java_library(
         "RuleConfiguredTargetFactory.java",
         "RuleContext.java",
         "RuleDefinition.java",
-        "RuleErrorConsumer.java",
         "Runfiles.java",
         "RunfilesProvider.java",
         "RunfilesSupport.java",
@@ -339,6 +338,7 @@ java_library(
         ":resolved_toolchain_context",
         ":rule_configured_object_value",
         ":rule_definition_environment",
+        ":rule_error_consumer",
         ":run_environment_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
@@ -657,6 +657,7 @@ java_library(
     srcs = ["CommonPrerequisiteValidator.java"],
     deps = [
         ":analysis_cluster",
+        ":rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -1057,6 +1058,14 @@ java_library(
     srcs = ["RuleDefinitionEnvironment.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
+    name = "rule_error_consumer",
+    srcs = ["RuleErrorConsumer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
@@ -2409,7 +2418,7 @@ java_library(
     name = "starlark/starlark_error_reporter",
     srcs = ["starlark/StarlarkErrorReporter.java"],
     deps = [
-        ":analysis_cluster",
+        ":rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",
     ],
