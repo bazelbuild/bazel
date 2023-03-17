@@ -233,7 +233,6 @@ public class ByteStreamUploaderTest {
 
               @Override
               public void onCompleted() {
-                streamObserver.onCompleted();
               }
             };
           }
