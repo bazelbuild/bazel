@@ -65,7 +65,7 @@ import javax.annotation.Nullable;
  *
  * <p>See {@link ReferenceCounted} for more information on reference counting.
  */
-class ByteStreamUploader {
+final class ByteStreamUploader {
   private final String instanceName;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
