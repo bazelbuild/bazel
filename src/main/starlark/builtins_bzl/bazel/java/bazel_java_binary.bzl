@@ -243,6 +243,9 @@ def _short_path(file):
 def _compute_test_support(use_testrunner):
     return Label(semantics.JAVA_TEST_RUNNER_LABEL) if use_testrunner else None
 
+def _compute_launcher_attr(launcher):
+    return launcher
+
 def _make_binary_rule(implementation, attrs, executable = False, test = False):
     return rule(
         implementation = implementation,
@@ -280,7 +283,7 @@ _BASE_BINARY_ATTRS = merge_attrs(
     },
 )
 
-def make_java_binary(executable, resolve_launcher_flag):
+def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
     return _make_binary_rule(
         _bazel_java_binary_impl,
         merge_attrs(
@@ -291,7 +294,7 @@ def make_java_binary(executable, resolve_launcher_flag):
                     default = configuration_field(
                         fragment = "java",
                         name = "launcher",
-                    ) if resolve_launcher_flag else None,
+                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
                 ),
             },
             ({} if executable else {
@@ -304,7 +307,7 @@ def make_java_binary(executable, resolve_launcher_flag):
 
 java_binary = make_java_binary(executable = True, resolve_launcher_flag = True)
 
-def make_java_test(resolve_launcher_flag):
+def make_java_test(resolve_launcher_flag, has_launcher = False):
     return _make_binary_rule(
         _bazel_java_test_impl,
         merge_attrs(
@@ -315,7 +318,7 @@ def make_java_test(resolve_launcher_flag):
                     default = configuration_field(
                         fragment = "java",
                         name = "launcher",
-                    ) if resolve_launcher_flag else None,
+                    ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
                 ),
                 "_lcov_merger": attr.label(
                     cfg = "exec",
