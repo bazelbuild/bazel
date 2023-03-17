@@ -282,11 +282,6 @@ java_library(
     exports = ["@maven//:org_checkerframework_checker_qual"],
 )
 
-java_import(
-    name = "compile_testing",
-    jars = ["compile_testing/compile-testing-0.18.jar"],
-)
-
 java_library(
     name = "gson",
     exports = ["@maven//:com_google_code_gson_gson"],
@@ -447,11 +442,6 @@ java_library(
     exports = ["@maven//:io_reactivex_rxjava3_rxjava"],
 )
 
-java_import(
-    name = "jimfs",
-    jars = ["jimfs/jimfs-1.1.jar"],
-)
-
 java_library(
     name = "jsr305",
     exports = ["@maven//:com_google_code_findbugs_jsr305"],
@@ -574,39 +564,37 @@ java_library(
 
 # Testing
 
-# TODO: Remove this target after migrating to java-diff-utils
-java_import(
-    name = "diffutils",
-    jars = ["diffutils/diffutils-1.3.0.jar"],
-)
-
-java_library(
-    name = "guava-testlib",
-    exports = ["@maven//:com_google_guava_guava_testlib"],
+alias(
+    name = "compile_testing",
+    actual = "@maven//:com_google_testing_compile_compile_testing",
     testonly = 1,
 )
 
-distrib_java_import(
+alias(
+    name = "guava-testlib",
+    actual = "@maven//:com_google_guava_guava_testlib",
+    testonly = 1,
+)
+
+# Not test_only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner
+java_library(
     name = "junit4",
-    enable_distributions = ["debian"],
-    jars = [
-        "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.2.jar",
+    exports = [
+        "@maven//:junit_junit",
+        "@maven//:org_hamcrest_hamcrest_core",
     ],
 )
 
-java_import(
+alias(
+    name = "jimfs",
+    actual = "@maven//:com_google_jimfs_jimfs",
+    testonly = 1,
+)
+
+alias(
     name = "mockito",
-    jars = ["mockito/mockito-core-3.12.4.jar"],
-    deps = [
-        ":byte_buddy",
-        ":objenesis",
-    ],
-)
-
-java_import(
-    name = "objenesis",
-    jars = ["objenesis/objenesis-1_3.jar"],
+    actual = "@maven//:org_mockito_mockito_core",
+    testonly = 1,
 )
 
 filegroup(
@@ -619,59 +607,14 @@ java_import(
     jars = ["turbine/turbine_direct.jar"],
 )
 
-java_import(
+java_library(
     name = "truth",
-    applicable_licenses = [":truth_license"],
-    jars = ["truth/truth-1.0.1.jar"],
     exports = [
-        ":truth8",
-        ":truth_proto",
+        "@maven//:com_google_truth_truth",
+        "@maven//:com_google_truth_extensions_truth_java8_extension",
+        "@maven//:com_google_truth_extensions_truth_proto_extension",
     ],
-    deps = [
-        ":diffutils",
-    ],
-)
-
-license(
-    name = "truth_license",
-    package_name = "truth/1.0.1",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "truth/LICENSE",
-)
-
-java_import(
-    name = "truth8",
-    applicable_licenses = [":truth8_license"],
-    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
-)
-
-license(
-    name = "truth8_license",
-    package_name = "truth8/1.0.1",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "truth8/LICENSE",
-)
-
-java_import(
-    name = "truth_proto",
-    applicable_licenses = [":truth_proto_license"],
-    jars = [
-        "truth_proto/truth-liteproto-extension-1.0.1.jar",
-        "truth_proto/truth-proto-extension-1.0.1.jar",
-    ],
-)
-
-license(
-    name = "truth_proto_license",
-    package_name = "truth_proto/1.0.1",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "truth_proto/LICENSE",
+    testonly = 1,
 )
 
 java_library(
@@ -693,8 +636,8 @@ license(
 filegroup(
     name = "junit4-jars",
     srcs = [
-        "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.2.jar",
+        "@maven//:junit_junit_file",
+        "@maven//:org_hamcrest_hamcrest_core_file",
     ],
 )
 
