@@ -37,7 +37,7 @@ public class AspectCompletionValue implements SkyValue {
 
   /** The key of an AspectCompletionValue. */
   @AutoValue
-  public abstract static class AspectCompletionKey implements TopLevelActionLookupKey {
+  public abstract static class AspectCompletionKey implements TopLevelActionLookupKeyWrapper {
     public static AspectCompletionKey create(
         AspectKey aspectKey, TopLevelArtifactContext topLevelArtifactContext) {
       return new AutoValue_AspectCompletionValue_AspectCompletionKey(

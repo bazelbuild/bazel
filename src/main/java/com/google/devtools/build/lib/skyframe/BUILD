@@ -207,7 +207,7 @@ java_library(
         ":tests_for_target_pattern_value",
         ":toolchain_context_key",
         ":toolchain_exception",
-        ":top_level_action_lookup_key",
+        ":top_level_action_lookup_key_wrapper",
         ":top_level_aspects_value",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
@@ -398,7 +398,7 @@ java_library(
         ":aspect_completion_value",
         ":sky_functions",
         ":test_completion_value",
-        ":top_level_action_lookup_key",
+        ":top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -616,7 +616,7 @@ java_library(
     deps = [
         ":aspect_key_creator",
         ":sky_functions",
-        ":top_level_action_lookup_key",
+        ":top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -2661,8 +2661,8 @@ java_library(
 )
 
 java_library(
-    name = "top_level_action_lookup_key",
-    srcs = ["TopLevelActionLookupKey.java"],
+    name = "top_level_action_lookup_key_wrapper",
+    srcs = ["TopLevelActionLookupKeyWrapper.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
@@ -2733,7 +2733,7 @@ java_library(
     deps = [
         ":configured_target_key",
         ":sky_functions",
-        ":top_level_action_lookup_key",
+        ":top_level_action_lookup_key_wrapper",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",

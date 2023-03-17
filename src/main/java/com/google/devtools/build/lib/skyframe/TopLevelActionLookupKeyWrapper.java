@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.SkyKey;
 
-/** The common interface for top level action lookup keys. */
-public interface TopLevelActionLookupKey extends SkyKey {
+/** The common interface for keys that wraps a top level action lookup keys. */
+public interface TopLevelActionLookupKeyWrapper extends SkyKey {
   ActionLookupKey actionLookupKey();
 
   TopLevelArtifactContext topLevelArtifactContext();
