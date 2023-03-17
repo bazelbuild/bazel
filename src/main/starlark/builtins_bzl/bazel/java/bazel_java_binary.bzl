@@ -16,9 +16,8 @@ load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_util.bzl", "shell_quote")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/java_helper.bzl", helper = "util")
-load(":common/java/java_binary.bzl", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
+load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/paths.bzl", "paths")
 
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -311,9 +310,9 @@ def make_java_test(resolve_launcher_flag, has_launcher = False):
     return _make_binary_rule(
         _bazel_java_test_impl,
         merge_attrs(
+            BASE_TEST_ATTRIBUTES,
             _BASE_BINARY_ATTRS,
             {
-                "test_class": attr.string(),
                 "_java_launcher": attr.label(
                     default = configuration_field(
                         fragment = "java",
@@ -331,14 +330,6 @@ def make_java_test(resolve_launcher_flag, has_launcher = False):
                     cfg = "exec",
                     allow_single_file = True,
                     default = "@bazel_tools//tools/test:collect_cc_coverage",
-                ),
-                "_apple_constraints": attr.label_list(
-                    default = [
-                        "@" + paths.join(cc_semantics.get_platforms_root(), "os:ios"),
-                        "@" + paths.join(cc_semantics.get_platforms_root(), "os:macos"),
-                        "@" + paths.join(cc_semantics.get_platforms_root(), "os:tvos"),
-                        "@" + paths.join(cc_semantics.get_platforms_root(), "os:watchos"),
-                    ],
                 ),
             },
             override_attrs = {

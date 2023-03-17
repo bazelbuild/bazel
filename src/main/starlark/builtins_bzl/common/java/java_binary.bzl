@@ -23,6 +23,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/paths.bzl", "paths")
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -542,3 +543,16 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
     },
 )
+
+BASE_TEST_ATTRIBUTES = {
+    "test_class": attr.string(),
+    "env_inherit": attr.string_list(),
+    "_apple_constraints": attr.label_list(
+        default = [
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:ios"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:macos"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:watchos"),
+        ],
+    ),
+}
