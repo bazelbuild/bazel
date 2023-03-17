@@ -541,8 +541,8 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
         Throwables.throwIfUnchecked(cause);
         throw new AssertionError(
             String.format(
-                "Unexpected exception type %s from %s strategy.exec()",
-                cause.getClass().getName(), mode));
+                "Unexpected exception type %s from %s strategy.exec() for %s",
+                cause.getClass().getName(), mode, getSpawnReadableId(branch.getSpawn())));
       }
     } catch (InterruptedException e) {
       branch.cancel();
@@ -587,7 +587,11 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
     // are, we are in big trouble.)
     DynamicMode current = strategyThatCancelled.get();
     if (cancellingStrategy.equals(current)) {
-      throw new AssertionError("stopBranch called more than once by " + cancellingStrategy);
+      throw new AssertionError(
+          "stopBranch called more than once by "
+              + cancellingStrategy
+              + " on "
+              + getSpawnReadableId(cancellingBranch.getSpawn()));
     } else {
       // Protect against the two branches from cancelling each other. The first branch to set the
       // reference to its own identifier wins and is allowed to issue the cancellation; the other
