@@ -611,7 +611,7 @@ public class AndroidCommon {
             ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    attributes.setTargetLabel(ruleContext.getLabel());
+    attributes.setTargetLabel(JavaCommon.getLabelForTooling(ruleContext));
 
     ruleContext.checkSrcsSamePackage(true);
     return helper;

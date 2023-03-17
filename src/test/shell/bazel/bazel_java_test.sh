@@ -1956,4 +1956,83 @@ EOF
 }
 
 
+function test_macro_strict_deps_warning() {
+  mkdir -p a b x
+
+  cat > a/defs.bzl <<'EOF'
+def my_java_binary(name, **kwargs):
+  bin_name = name + "_bin"
+  native.java_binary(name = bin_name, **kwargs)
+  native.genrule(
+    name = name,
+    srcs = [":" + bin_name + "_deploy.jar"],
+    outs = [name],
+    cmd = "cp $< > $@",
+  )
+EOF
+  cat > a/A.java <<'EOF'
+package a;
+
+import x.X;
+
+public class A {
+  public static void main(String args[]) {
+    X.print();
+  }
+}
+EOF
+  cat > a/BUILD <<'EOF'
+load(":defs.bzl", "my_java_binary")
+my_java_binary(
+    name = "a",
+    main_class = "a.A",
+    srcs = ["A.java"],
+    deps = ["//b"],
+)
+EOF
+
+
+  cat > b/B.java <<'EOF'
+package b;
+
+public class B {
+  public static void print() {
+     System.out.println("B");
+  }
+}
+EOF
+  cat > b/BUILD <<'EOF'
+java_library(
+    name = "b",
+    srcs = ["B.java"],
+    deps = ["//x"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > x/X.java <<'EOF'
+package x;
+
+public class X {
+  public static void print() {
+    System.out.println("X");
+  }
+}
+EOF
+  cat > x/BUILD <<'EOF'
+java_library(
+    name = "x",
+    srcs = ["X.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  bazel build //a >& $TEST_log && fail "Building //a should error out"
+  expect_log "** Please add the following dependencies:"
+  expect_log "//x to //a "
+  expect_log "'add deps //x' //a "
+  expect_not_log "to //a:a_bin"
+}
+
+
 run_suite "Java integration tests"

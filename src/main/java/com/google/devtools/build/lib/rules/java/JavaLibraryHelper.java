@@ -272,7 +272,7 @@ public final class JavaLibraryHelper {
     addDepsToAttributes(attributes);
     attributes.addClassPathResources(classpathResources);
     attributes.setStrictJavaDeps(strictDepsMode);
-    attributes.setTargetLabel(ruleContext.getLabel());
+    attributes.setTargetLabel(JavaCommon.getLabelForTooling(ruleContext));
     attributes.setInjectingRuleKind(injectingRuleKind);
     attributes.setSourcePath(sourcePathEntries);
     JavaCommon.addPlugins(attributes, plugins);

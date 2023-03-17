@@ -313,8 +313,7 @@ public final class JavaCompilationHelper {
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     builder.setClasspathMode(classpathMode);
     builder.setAdditionalInputs(additionalInputsForDatabinding);
-    Label label = ruleContext.getLabel();
-    builder.setTargetLabel(label);
+    builder.setTargetLabel(JavaCommon.getLabelForTooling(ruleContext));
     Artifact coverageArtifact = maybeCreateCoverageArtifact(outputs.output());
     builder.setCoverageArtifact(coverageArtifact);
     BootClassPathInfo bootClassPathInfo = getBootclasspathOrDefault();
@@ -366,7 +365,8 @@ public final class JavaCompilationHelper {
     builder.setFixDepsTool(getJavaConfiguration().getFixDepsTool());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setTargetLabel(
-        attributes.getTargetLabel() == null ? label : attributes.getTargetLabel());
+        attributes.getTargetLabel() == null ? JavaCommon.getLabelForTooling(ruleContext)
+            : attributes.getTargetLabel());
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
 
     if (coverageArtifact != null) {
