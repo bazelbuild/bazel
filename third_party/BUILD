@@ -577,9 +577,12 @@ alias(
 )
 
 # Not test_only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner
-alias(
+java_library(
     name = "junit4",
-    actual = "@maven//:junit_junit",
+    exports = [
+        "@maven//:junit_junit",
+        "@maven//:org_hamcrest_hamcrest_core",
+    ],
 )
 
 alias(
