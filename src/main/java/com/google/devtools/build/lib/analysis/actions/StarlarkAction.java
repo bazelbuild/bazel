@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathStripper;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -424,13 +425,13 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
      * <p>Since we don't currently have a proper Starlark API for this, we hard-code support for
      * specific actions we're interested in.
      *
-     * <p>The difference between this and {@link PathStripper.CommandAdjuster#mapCustomStarlarkArgs}
-     * is this triggers Bazel's standard path stripping logic for chosen mnemonics while {@link
-     * PathStripper.CommandAdjuster#mapCustomStarlarkArgs} custom-adjusts certain command line
-     * parameters the standard logic can't handle. For example, Starlark rules that only set {@code
+     * <p>The difference between this and {@link PathMapper#mapCustomStarlarkArgs} is this triggers
+     * Bazel's standard path stripping logic for chosen mnemonics while {@link
+     * PathMapper#mapCustomStarlarkArgs} custom-adjusts certain command line parameters the standard
+     * logic can't handle. For example, Starlark rules that only set {@code
      * ctx.actions.args().add(file_handle)} need an entry here but not in {@link
-     * PathStripper.CommandAdjuster#mapCustomStarlarkArgs} because standard path stripping logic
-     * handles that interface.
+     * PathMapper#mapCustomStarlarkArgs} because standard path stripping logic handles that
+     * interface.
      */
     private static boolean stripOutputPaths(
         String mnemonic,

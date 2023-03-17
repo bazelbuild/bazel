@@ -30,8 +30,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.PathStripper;
-import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -183,7 +182,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         List<String> builder,
         @Nullable ArtifactExpander artifactExpander,
-        PathStripper.CommandAdjuster pathStripper)
+        PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
@@ -216,7 +215,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int count = expandedValues.size();
         stringValues = new ArrayList<>(expandedValues.size());
         for (int i = 0; i < count; ++i) {
-          stringValues.add(expandToCommandLine(expandedValues.get(i), pathStripper));
+          stringValues.add(expandToCommandLine(expandedValues.get(i), pathMapper));
         }
       }
       // It's safe to uniquify at this stage, any transformations after this
@@ -735,12 +734,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
   @Override
   public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
-    return arguments(artifactExpander, PathStripper.CommandAdjuster.NOOP);
+    return arguments(artifactExpander, PathMapper.NOOP);
   }
 
   @Override
   public Iterable<String> arguments(
-      @Nullable ArtifactExpander artifactExpander, CommandAdjuster stripPaths)
+      @Nullable ArtifactExpander artifactExpander, PathMapper stripPaths)
       throws CommandLineExpansionException, InterruptedException {
     List<String> result = new ArrayList<>();
 
@@ -758,12 +757,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     return ImmutableList.copyOf(stripPaths.mapCustomStarlarkArgs(result));
   }
 
-  private static String expandToCommandLine(Object object, CommandAdjuster pathStripper) {
+  private static String expandToCommandLine(Object object, PathMapper pathMapper) {
     // It'd be nice to build this into DerivedArtifact's CommandLine interface so we don't have
     // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
     // a lot more dependencies on the Java library DerivedArtifact is built into.
     return object instanceof DerivedArtifact
-        ? pathStripper.map(((DerivedArtifact) object).getExecPath()).getPathString()
+        ? pathMapper.map(((DerivedArtifact) object).getExecPath()).getPathString()
         : CommandLineItem.expandToCommandLine(object);
   }
 
@@ -785,12 +784,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public Iterable<String> arguments(@Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException, InterruptedException {
-      return arguments(artifactExpander, CommandAdjuster.NOOP);
+      return arguments(artifactExpander, PathMapper.NOOP);
     }
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, CommandAdjuster stripPaths)
+        @Nullable ArtifactExpander artifactExpander, PathMapper stripPaths)
         throws CommandLineExpansionException, InterruptedException {
 
       List<String> result = new ArrayList<>();

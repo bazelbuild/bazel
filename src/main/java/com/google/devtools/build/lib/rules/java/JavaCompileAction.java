@@ -332,7 +332,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         reducedCommandLine.expand(
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
-            PathStripper.CommandAdjuster.create(
+            PathStripper.createForAction(
                 stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
             configuration.getCommandLineLimits());
     NestedSet<Artifact> inputs =
@@ -357,7 +357,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .expand(
                 actionExecutionContext.getArtifactExpander(),
                 getPrimaryOutput().getExecPath(),
-                PathStripper.CommandAdjuster.create(
+                PathStripper.createForAction(
                     stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
