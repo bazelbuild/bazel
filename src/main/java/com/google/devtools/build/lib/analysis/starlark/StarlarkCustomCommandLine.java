@@ -755,7 +755,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         result.add(expandToCommandLine(arg, stripPaths));
       }
     }
-    return ImmutableList.copyOf(stripPaths.stripCustomStarlarkArgs(result));
+    return ImmutableList.copyOf(stripPaths.mapCustomStarlarkArgs(result));
   }
 
   private static String expandToCommandLine(Object object, CommandAdjuster pathStripper) {
@@ -763,7 +763,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
     // a lot more dependencies on the Java library DerivedArtifact is built into.
     return object instanceof DerivedArtifact
-        ? pathStripper.strip(((DerivedArtifact) object).getExecPath()).getPathString()
+        ? pathStripper.map(((DerivedArtifact) object).getExecPath()).getPathString()
         : CommandLineItem.expandToCommandLine(object);
   }
 

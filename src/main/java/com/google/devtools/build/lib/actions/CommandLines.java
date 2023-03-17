@@ -173,7 +173,7 @@ public class CommandLines {
           String paramArg =
               SingleStringArgFormatter.format(
                   paramFileInfo.getFlagFormatString(),
-                  pathStripper.strip(paramFileExecPath).getPathString());
+                  pathStripper.map(paramFileExecPath).getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
 
@@ -494,7 +494,7 @@ public class CommandLines {
         @Nullable ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
         throws CommandLineExpansionException, InterruptedException {
       if (arg instanceof PathStrippable) {
-        return ImmutableList.of(((PathStrippable) arg).expand(pathStripper::strip));
+        return ImmutableList.of(((PathStrippable) arg).expand(pathStripper::map));
       }
       return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
     }

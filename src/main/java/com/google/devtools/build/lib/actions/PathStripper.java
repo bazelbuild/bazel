@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
  */
 public final class PathStripper {
   /**
-   * Support for stripping config paths from an action's inputs and outputs.
+   * Support for mapping config parts of exec paths of an action's inputs and outputs.
    *
    * <p>The executor should use this to correctly stage an action for execution.
    */
@@ -85,10 +85,12 @@ public final class PathStripper {
      *
      * <p>Else returns the artifact's original exec path.
      */
-    String getExecPathString(ActionInput artifact);
+    default String getMappedExecPathString(ActionInput artifact) {
+      return map(artifact.getExecPath()).getPathString();
+    }
 
-    /** Same as {@link #getExecPathString(ActionInput)} but for a {@link PathFragment}. */
-    PathFragment strip(PathFragment execPath);
+    /** Same as {@link #getMappedExecPathString(ActionInput)} but for a {@link PathFragment}. */
+    PathFragment map(PathFragment execPath);
 
     /**
      * Creates a new action stager for executor implementation logic to use.
@@ -105,37 +107,17 @@ public final class PathStripper {
     }
 
     /** An {@link ActionStager} that doesn't change paths. */
-    ActionStager NOOP =
-        new ActionStager() {
-          @Override
-          public String getExecPathString(ActionInput artifact) {
-            return artifact.getExecPathString();
-          }
-
-          @Override
-          public PathFragment strip(PathFragment execPath) {
-            return execPath;
-          }
-        };
+    ActionStager NOOP = execPath -> execPath;
 
     /** Instantiates an {@link ActionStager} that strips config prefixes from output paths. */
     private static ActionStager actionStripper(PathFragment outputRoot) {
-      return new ActionStager() {
-        @Override
-        public String getExecPathString(ActionInput artifact) {
-          return strip(artifact.getExecPath()).getPathString();
-        }
-
-        @Override
-        public PathFragment strip(PathFragment execPath) {
-          return isOutputPath(execPath, outputRoot) ? PathStripper.strip(execPath) : execPath;
-        }
-      };
+      return execPath ->
+          isOutputPath(execPath, outputRoot) ? PathStripper.strip(execPath) : execPath;
     }
   }
 
   /**
-   * Support for stripping config paths from an action's command line.
+   * Support for mapping config parts of exec paths in an action's command line.
    *
    * <p>Action implementation logic should use this to correctly set an action's command line.
    */
@@ -148,20 +130,24 @@ public final class PathStripper {
      *
      * <p>Else returns the artifact's original exec path.
      */
-    String strip(DerivedArtifact artifact);
+    default String getMappedExecPathString(ActionInput artifact) {
+      return map(artifact.getExecPath()).getPathString();
+    }
 
-    /** Same as {@link #strip(DerivedArtifact)} but for a {@link PathFragment}. */
-    PathFragment strip(PathFragment execPath);
+    /** Same as {@link #getMappedExecPathString(ActionInput)} but for a {@link PathFragment}. */
+    PathFragment map(PathFragment execPath);
 
     /**
-     * We don't yet have a Starlark API for stripping command lines. Simple Starlark calls like
-     * {@code args.add(arg_name, file_path} are automatically handled. But calls that involve custom
-     * Starlark code require deeper API support that remains a TODO.
+     * We don't yet have a Starlark API for mapping paths in command lines. Simple Starlark calls
+     * like {@code args.add(arg_name, file_path} are automatically handled. But calls that involve
+     * custom Starlark code require deeper API support that remains a TODO.
      *
      * <p>This method hard-codes support for specific command line entries for specific Starlark
-     * actions that we know we want to strip.
+     * actions that we know we want to apply stripping to.
      */
-    List<String> stripCustomStarlarkArgs(List<String> args);
+    default List<String> mapCustomStarlarkArgs(List<String> args) {
+      return args;
+    }
 
     /**
      * Creates a new command adjuster for action implementation logic to use.
@@ -184,23 +170,7 @@ public final class PathStripper {
     }
 
     /** Instantiates a {@link CommandAdjuster} that doesn't change paths. */
-    CommandAdjuster NOOP =
-        new CommandAdjuster() {
-          @Override
-          public String strip(DerivedArtifact artifact) {
-            return artifact.getExecPathString();
-          }
-
-          @Override
-          public PathFragment strip(PathFragment execPath) {
-            return execPath;
-          }
-
-          @Override
-          public List<String> stripCustomStarlarkArgs(List<String> args) {
-            return args;
-          }
-        };
+    CommandAdjuster NOOP = execPath -> execPath;
 
     /** Instantiates a {@link CommandAdjuster} that strips config prefixes from output paths. */
     private static CommandAdjuster commandStripper(
@@ -209,19 +179,23 @@ public final class PathStripper {
           starlarkMnemonic != null ? new StringStripper(outputRoot.getPathString()) : null;
       return new CommandAdjuster() {
         @Override
-        public String strip(DerivedArtifact artifact) {
-          return PathStripper.strip(artifact);
+        public String getMappedExecPathString(ActionInput artifact) {
+          if (artifact instanceof DerivedArtifact) {
+            return PathStripper.strip(artifact);
+          } else {
+            return artifact.getExecPathString();
+          }
         }
 
         @Override
-        public PathFragment strip(PathFragment execPath) {
+        public PathFragment map(PathFragment execPath) {
           return PathStripper.isOutputPath(execPath, outputRoot)
               ? PathStripper.strip(execPath)
               : execPath;
         }
 
         @Override
-        public List<String> stripCustomStarlarkArgs(List<String> args) {
+        public List<String> mapCustomStarlarkArgs(List<String> args) {
           // Add your favorite Starlark mnemonic that needs custom arg processing here.
           if (!starlarkMnemonic.contains("Android")
               && !starlarkMnemonic.equals("MergeManifests")
@@ -353,7 +327,7 @@ public final class PathStripper {
    * Private utility method: returns an output artifact's exec path with its configuration prefix
    * stripped.
    */
-  static String strip(DerivedArtifact artifact) {
+  static String strip(ActionInput artifact) {
     return strip(artifact.getExecPath()).getPathString();
   }
 
