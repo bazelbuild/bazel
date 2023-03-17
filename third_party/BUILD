@@ -10,8 +10,6 @@ filegroup(
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
         "//third_party/bazel-toolchains:srcs",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
