@@ -10,13 +10,13 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

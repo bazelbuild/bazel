@@ -11,8 +11,8 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/main/java/com/google/devtools/common/options/testing:srcs",
         "//src/main/java/com/google/devtools/common/options/processor:srcs",
+        "//src/main/java/com/google/devtools/common/options/testing:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

@@ -9,8 +9,8 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

@@ -8,8 +8,8 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/common/options/testing:srcs",
         "//src/test/java/com/google/devtools/common/options/processor:srcs",
+        "//src/test/java/com/google/devtools/common/options/testing:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
