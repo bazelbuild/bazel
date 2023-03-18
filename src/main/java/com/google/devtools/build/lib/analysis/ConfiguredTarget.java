@@ -97,19 +97,6 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
     return ImmutableMap.of();
   }
 
-  default boolean isRuleConfiguredTarget() {
-    return false;
-  }
-
-  /**
-   * The base configured target if it has been merged with aspects otherwise the current value.
-   *
-   * <p>Unwrapping is recursive if there are multiple layers.
-   */
-  default ConfiguredTarget unwrapIfMerged() {
-    return this;
-  }
-
   /**
    * This is only intended to be called from the query dialects of Starlark.
    *
