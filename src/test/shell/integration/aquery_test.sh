@@ -1665,6 +1665,25 @@ EOF
   fi
 }
 
+function test_does_not_fail_horribly_with_file() {
+  rm -rf peach
+  mkdir -p peach
+  cat > "peach/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > bar_out.txt",
+)
+EOF
+
+  echo "//peach:bar" > query_file
+  bazel aquery --query_file=query_file > $TEST_log
+
+  expect_log "Target: //peach:bar" "look in $TEST_log"
+  expect_log "ActionKey:"
+}
+
 function test_cpp_compile_action_env() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg"
