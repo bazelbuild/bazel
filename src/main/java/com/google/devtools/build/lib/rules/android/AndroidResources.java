@@ -425,6 +425,7 @@ public class AndroidResources {
     return process(
         dataContext,
         manifest,
+        ImmutableList.of(),
         ResourceDependencies.fromRuleDeps(ruleContext, neverlink),
         dataBindingContext);
   }
@@ -432,12 +433,13 @@ public class AndroidResources {
   ValidatedAndroidResources process(
       AndroidDataContext dataContext,
       StampedAndroidManifest manifest,
+      List<Artifact> resApkDeps,
       ResourceDependencies resourceDeps,
       DataBindingContext dataBindingContext)
       throws InterruptedException {
     return parse(dataContext, manifest, dataBindingContext)
         .merge(dataContext, resourceDeps)
-        .validate(dataContext);
+        .validate(dataContext, resApkDeps);
   }
 
   @Override

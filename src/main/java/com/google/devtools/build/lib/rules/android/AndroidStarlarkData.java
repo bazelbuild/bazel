@@ -149,6 +149,7 @@ public abstract class AndroidStarlarkData
       AndroidManifestInfo manifest,
       Sequence<?> resources, // <ConfiguredTarget>
       Sequence<?> deps, // <AndroidResourcesInfo>
+      Sequence<?> resApkDeps, // <File>
       boolean neverlink,
       boolean enableDataBinding)
       throws EvalException, InterruptedException {
@@ -161,6 +162,7 @@ public abstract class AndroidStarlarkData
           .process(
               ctx,
               manifest.asStampedManifest(),
+              Sequence.cast(resApkDeps, Artifact.class, "resource_apks"),
               ResourceDependencies.fromProviders(
                   Sequence.cast(deps, AndroidResourcesInfo.class, "deps"), neverlink),
               DataBinding.contextFrom(
@@ -180,7 +182,8 @@ public abstract class AndroidStarlarkData
       boolean enableDataBinding)
       throws EvalException, InterruptedException {
     ValidatedAndroidResources validated =
-        mergeRes(ctx, manifest, resources, deps, neverlink, enableDataBinding);
+        mergeRes(
+            ctx, manifest, resources, deps, StarlarkList.empty(), neverlink, enableDataBinding);
     JavaInfo javaInfo =
         getJavaInfoForRClassJar(validated.getClassJar(), validated.getJavaSourceJar());
     return Dict.<Provider, NativeInfo>builder()
@@ -258,9 +261,10 @@ public abstract class AndroidStarlarkData
             .process(
                 ctx,
                 AndroidManifest.forAarImport(androidManifestArtifact),
+                ImmutableList.of(),
                 ResourceDependencies.fromProviders(
                     getProviders(depsTargets, AndroidResourcesInfo.PROVIDER),
-                    /* neverlink = */ false),
+                    /* neverlink= */ false),
                 DataBinding.getDisabledDataBindingContext(ctx));
 
     MergedAndroidAssets mergedAssets =
