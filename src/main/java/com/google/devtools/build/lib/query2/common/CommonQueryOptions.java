@@ -327,7 +327,6 @@ public class CommonQueryOptions extends OptionsBase {
               + "applicable to --output=graph.")
   public boolean graphFactored;
 
-
   @Option(
       name = "query_file",
       defaultValue = "",
