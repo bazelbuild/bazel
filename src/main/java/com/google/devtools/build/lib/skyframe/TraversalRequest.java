@@ -18,12 +18,12 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
 
 /** A request for {@link RecursiveFilesystemTraversalFunction}. */
-public abstract class TraversalRequest implements SkyKey {
+public abstract class TraversalRequest implements ExecutionPhaseSkyKey {
 
   /** The path to start the traversal from; may be a file, a directory or a symlink. */
   @VisibleForTesting

@@ -49,4 +49,7 @@ public interface MultiThreadPoolsQuiescingExecutor extends QuiescingExecutor {
    * <p>Skymeld-only.
    */
   void launchQueuedUpExecutionPhaseTasks();
+
+  /** Only true when in Skymeld mode. */
+  boolean hasSeparatePoolForExecutionTasks();
 }

@@ -236,6 +236,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",

@@ -158,4 +158,9 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
       queuedPendingGoAhead = null;
     }
   }
+
+  @Override
+  public boolean hasSeparatePoolForExecutionTasks() {
+    return executionPhaseExecutorService != null;
+  }
 }
