@@ -46,9 +46,9 @@ android/ @ahumesky @ted-xie
 
 # C++
 
-/src/tools/cpp @oquenchil
+/tools/cpp @oquenchil
 
-/src/test/shell/bazel/cpp @oquenchil
+/src/test/cpp @oquenchil
 
 /src/test/java/com/google/devtools/build/lib/rules/cpp/ @oquenchil
 
