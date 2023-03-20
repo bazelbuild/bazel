@@ -326,4 +326,14 @@ public class CommonQueryOptions extends OptionsBase {
               + "will be merged together and their labels concatenated. This option is only "
               + "applicable to --output=graph.")
   public boolean graphFactored;
+
+  @Option(
+      name = "query_file",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If set, query will read the query from the file named here, rather than on the command "
+              + "line. It is an error to specify a file here as well as a command-line query.")
+  public String queryFile;
 }
