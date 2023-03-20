@@ -281,6 +281,14 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op. Use --experimental_dynamic_local_load_factor instead.")
     @Deprecated
     public boolean skipFirstBuild;
+
+    @Option(
+        name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

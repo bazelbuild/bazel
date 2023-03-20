@@ -497,10 +497,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.inmemoryDotdFiles;
   }
 
-  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
-    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
-  }
-
   public boolean getUseInterfaceSharedLibraries() {
     return cppOptions.useInterfaceSharedObjects;
   }

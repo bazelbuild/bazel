@@ -1438,8 +1438,7 @@ public final class CcCompilationHelper {
         // These are already handled above.
         continue;
       }
-      if (cppConfiguration.getParseHeadersSkippedIfCorrespondingSrcsFound()
-          && featureConfiguration.isEnabled(CppRuleClasses.VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS)
+      if (featureConfiguration.isEnabled(CppRuleClasses.VALIDATES_LAYERING_CHECK_IN_TEXTUAL_HDRS)
           && compiledBasenames.contains(
               Files.getNameWithoutExtension(artifact.getExecPathString()))) {
         continue;
