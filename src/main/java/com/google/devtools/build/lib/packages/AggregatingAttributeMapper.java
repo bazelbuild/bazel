@@ -130,11 +130,9 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     }
     rawVal = rule.getRawAttrValue(i);
     if (rawVal == null) {
-      if (!attr.hasComputedDefault()) {
-        rawVal = attr.getDefaultValue(null);
-      } else if (rule.isFrozen()) {
-        // Frozen rules don't store computed defaults.
-        rawVal = attr.getDefaultValue(rule);
+      // Frozen rules don't store computed defaults.
+      if (!attr.hasComputedDefault() || rule.isFrozen()) {
+        rawVal = attr.getDefaultValue();
       }
     }
     if (rawVal instanceof SelectorList) {
@@ -187,7 +185,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
               visitor.visit(key, attribute);
             }
             if (includeValues) {
-              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(null));
+              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue());
               type.visitLabels(visitor, value, attribute);
             }
           }

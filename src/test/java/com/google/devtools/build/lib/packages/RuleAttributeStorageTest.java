@@ -287,7 +287,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
   @Test
   public void computedDefault_mutable_stored() {
     Attribute attr = rule.getRuleClassObject().getAttribute(computedDefaultIndex);
-    var computedDefault = attr.getDefaultValue(rule);
+    var computedDefault = attr.getDefaultValue();
     assertThat(attr.hasComputedDefault()).isTrue();
     assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
 
@@ -300,7 +300,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
   @Test
   public void computedDefault_frozen_notStored() {
     Attribute attr = rule.getRuleClassObject().getAttribute(computedDefaultIndex);
-    var computedDefault = attr.getDefaultValue(rule);
+    var computedDefault = attr.getDefaultValue();
     assertThat(attr.hasComputedDefault()).isTrue();
     assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
 

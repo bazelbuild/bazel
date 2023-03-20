@@ -131,8 +131,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
   }
 
   private static class BrokenQueryScopeSkyFunctionException extends SkyFunctionException {
-    protected BrokenQueryScopeSkyFunctionException(
-        BrokenQueryScopeException cause, Transience transience) {
+    BrokenQueryScopeSkyFunctionException(BrokenQueryScopeException cause, Transience transience) {
       super(cause, transience);
     }
   }
@@ -370,7 +369,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
                 attrDepConsumer.transitions.get(attribute),
                 traversal.collectedTargets)) {
               AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-                  rule, aspect, DependencyFilter.ALL_DEPS, aspectDepConsumer);
+                  aspect, DependencyFilter.ALL_DEPS, aspectDepConsumer);
             }
           }
         }

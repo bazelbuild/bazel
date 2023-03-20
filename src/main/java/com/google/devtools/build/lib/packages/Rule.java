@@ -402,7 +402,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
+    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue();
     // Computed defaults not expected here.
     Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
     return defaultValue;
@@ -517,7 +517,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // which have not yet been populated. Note that in this situation returning null does not
       // result in a correctness issue, since the value for the attribute is actually a function to
       // compute the value.
-      return isFrozen() ? attr.getDefaultValue(this) : null;
+      return isFrozen() ? attr.getDefaultValue() : null;
     }
     switch (attr.getName()) {
       case GENERATOR_FUNCTION:
@@ -525,7 +525,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       case GENERATOR_LOCATION:
         return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
       default:
-        return attr.getDefaultValue(null);
+        return attr.getDefaultValue();
     }
   }
 
@@ -667,8 +667,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
       if (!getExplicitBit(i)) {
         Attribute attr = ruleClass.getAttribute(i);
-        Object defaultValue = attr.getDefaultValue(attr.hasComputedDefault() ? this : null);
-        if (value.equals(defaultValue)) {
+        if (value.equals(attr.getDefaultValue())) {
           // Non-explicit value matches the attribute's default. Save space by omitting storage.
           continue;
         }
@@ -1202,7 +1201,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     SetMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {
-        AspectDefinition.addAllAttributesOfAspect(Rule.this, labels, candidateClass, predicate);
+        AspectDefinition.addAllAttributesOfAspect(labels, candidateClass, predicate);
       }
     }
     return labels.values();

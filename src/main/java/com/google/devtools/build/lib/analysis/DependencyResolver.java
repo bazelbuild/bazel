@@ -578,17 +578,15 @@ public abstract class DependencyResolver {
       BuildConfigurationValue ruleConfig) {
     for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
-      if (!attribute.getCondition().apply(attributeMap)
-          // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
-          // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
-          // breaks trimming as shown by
-          // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
-          // because it resolves a dep that trimming (correctly) doesn't account for because it's
-          // part of an unchosen select() branch.
-          || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+      // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+      // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+      // breaks trimming as shown by
+      // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+      // because it resolves a dep that trimming (correctly) doesn't account for because it's part
+      // of an unchosen select() branch.
+      if (attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
         continue;
       }
-
       Type<?> type = attribute.getType();
       if (type == BuildType.OUTPUT
           || type == BuildType.OUTPUT_LIST
@@ -624,7 +622,7 @@ public abstract class DependencyResolver {
       if (dependencyKind.getOwningAspect() == null) {
         attributeValue = attributeMap.get(attribute.getName(), type);
       } else {
-        Object defaultValue = attribute.getDefaultValue(rule);
+        Object defaultValue = attribute.getDefaultValue();
         attributeValue =
             type.cast(
                 defaultValue instanceof ComputedDefault

@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -104,10 +105,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
    */
   public Optional<String> getDocumentation() {
     return Optional.ofNullable(documentation);
-  }
-
-  public ImmutableList<String> getAttributeAspects() {
-    return attributeAspects;
   }
 
   public ImmutableList<Attribute> getAttributes() {
@@ -252,52 +249,48 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
   @Override
   public Function<Rule, AspectParameters> getDefaultParametersExtractor() {
-    // This is serialized along with AspectsListBuilder.StarlarkAspectDetail and should not be
-    // turned into a lambda.
-    return new Function<Rule, AspectParameters>() {
-      @Override
-      public AspectParameters apply(Rule rule) {
-        AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
-        AspectParameters.Builder builder = new AspectParameters.Builder();
-        for (Attribute aspectAttr : attributes) {
-          String param = aspectAttr.getName();
-          if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
-            // These attributes are the private matters of the aspect
-            continue;
-          }
+    return (Function<Rule, AspectParameters> & Serializable)
+        rule -> {
+          AttributeMap ruleAttrs = RawAttributeMapper.of(rule);
+          AspectParameters.Builder builder = new AspectParameters.Builder();
+          for (Attribute aspectAttr : attributes) {
+            String param = aspectAttr.getName();
+            if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+              // These attributes are the private matters of the aspect
+              continue;
+            }
 
-          Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
-          if (paramAttributes.contains(aspectAttr.getName())) {
-            // These are preconditions because if they are false, RuleFunction.call() should
-            // already have generated an error.
-            Preconditions.checkArgument(
-                ruleAttr != null,
-                "Cannot apply aspect %s to %s that does not define attribute '%s'.",
-                getName(),
-                rule.getTargetKind(),
-                param);
-            Preconditions.checkArgument(
-                ruleAttr.getType() == Type.STRING
-                    || ruleAttr.getType() == Type.INTEGER
-                    || ruleAttr.getType() == Type.BOOLEAN,
-                "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
-                    + " string.",
-                getName(),
-                rule.getTargetKind(),
-                param);
-          }
+            Attribute ruleAttr = ruleAttrs.getAttributeDefinition(param);
+            if (paramAttributes.contains(aspectAttr.getName())) {
+              // These are preconditions because if they are false, RuleFunction.call() should
+              // already have generated an error.
+              Preconditions.checkArgument(
+                  ruleAttr != null,
+                  "Cannot apply aspect %s to %s that does not define attribute '%s'.",
+                  getName(),
+                  rule.getTargetKind(),
+                  param);
+              Preconditions.checkArgument(
+                  ruleAttr.getType() == Type.STRING
+                      || ruleAttr.getType() == Type.INTEGER
+                      || ruleAttr.getType() == Type.BOOLEAN,
+                  "Cannot apply aspect %s to %s since attribute '%s' is not boolean, integer, nor"
+                      + " string.",
+                  getName(),
+                  rule.getTargetKind(),
+                  param);
+            }
 
-          if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
-            // If the attribute has a select() (which aspect attributes don't yet support), the
-            // error gets reported in RuleClass.checkAspectAllowedValues.
-            if (!ruleAttrs.isConfigurable(param)) {
-              builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+            if (ruleAttr != null && ruleAttr.getType() == aspectAttr.getType()) {
+              // If the attribute has a select() (which aspect attributes don't yet support), the
+              // error gets reported in RuleClass.checkAspectAllowedValues.
+              if (!ruleAttrs.isConfigurable(param)) {
+                builder.addAttribute(param, ruleAttrs.get(param, ruleAttr.getType()).toString());
+              }
             }
           }
-        }
-        return builder.build();
-      }
-    };
+          return builder.build();
+        };
   }
 
   public AspectParameters extractTopLevelParameters(ImmutableMap<String, String> parametersValues)
@@ -324,7 +317,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
 
       String parameterValue =
           parametersValues.getOrDefault(
-              parameterName, parameterType.cast(aspectParameter.getDefaultValue(null)).toString());
+              parameterName, parameterType.cast(aspectParameter.getDefaultValue()).toString());
 
       Object castedParameterValue = parameterValue;
       // Validate integer and boolean parameters values
@@ -390,10 +383,6 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     }
 
     aspectsList.addAspect(this, baseAspectName);
-  }
-
-  public ImmutableSet<StarlarkAspect> getRequiredAspects() {
-    return requiredAspects;
   }
 
   public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getRequiredProviders() {
