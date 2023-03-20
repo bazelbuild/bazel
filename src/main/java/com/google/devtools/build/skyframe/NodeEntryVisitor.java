@@ -277,7 +277,11 @@ class NodeEntryVisitor {
       } else {
         threadPoolType = ThreadPoolType.REGULAR;
       }
-      ((MultiThreadPoolsQuiescingExecutor) quiescingExecutor).execute(runnable, threadPoolType);
+      ((MultiThreadPoolsQuiescingExecutor) quiescingExecutor)
+          .execute(
+              runnable,
+              threadPoolType,
+              /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
     } else {
       quiescingExecutor.execute(runnable);
     }

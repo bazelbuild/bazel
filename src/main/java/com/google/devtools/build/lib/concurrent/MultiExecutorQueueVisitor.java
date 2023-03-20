@@ -97,8 +97,9 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   }
 
   @Override
-  public void execute(Runnable runnable, ThreadPoolType threadPoolType) {
-    if (threadPoolType == ThreadPoolType.EXECUTION_PHASE && !executionPhaseTasksGoAhead) {
+  public void execute(
+      Runnable runnable, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal) {
+    if (shouldStallAwaitingSignal && !executionPhaseTasksGoAhead) {
       synchronized (this) {
         if (!executionPhaseTasksGoAhead) {
           Preconditions.checkNotNull(queuedPendingGoAhead).add(runnable);
@@ -152,7 +153,7 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     synchronized (this) {
       executionPhaseTasksGoAhead = true;
       for (Runnable runnable : Preconditions.checkNotNull(queuedPendingGoAhead)) {
-        execute(runnable, ThreadPoolType.EXECUTION_PHASE);
+        execute(runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
       }
       queuedPendingGoAhead = null;
     }

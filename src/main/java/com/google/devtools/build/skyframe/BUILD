@@ -91,6 +91,13 @@ java_library(
     deps = [":skyframe-objects"],
 )
 
+java_library(
+    name = "stallable_skykey",
+    srcs = ["StallableSkykey.java"],
+    visibility = ["//visibility:public"],
+    deps = [":skyframe-objects"],
+)
+
 proto_library(
     name = "graph_inconsistency",
     srcs = ["graph_inconsistency.proto"],
