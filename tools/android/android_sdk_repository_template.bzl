@@ -90,6 +90,7 @@ def create_android_sdk_rules(
             "build-tools/%s/lib/d8.jar" % build_tools_directory,
             "build-tools/%s/lib/dx.jar" % build_tools_directory,
             "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+            ":build_tools_libs",
         ] + [
             "platforms/android-%d/%s" % (api_level, filename)
             for api_level in api_levels
