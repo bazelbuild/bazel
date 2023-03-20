@@ -49,16 +49,18 @@ public abstract class RepositoryMapping {
   abstract RepositoryName ownerRepo();
 
   public static RepositoryMapping create(
-      Map<String, RepositoryName> repositoryMapping, RepositoryName ownerRepo) {
-    return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)),
-        Preconditions.checkNotNull(ownerRepo));
+      Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
+    return createInternal(
+        Preconditions.checkNotNull(entries), Preconditions.checkNotNull(ownerRepo));
   }
 
-  public static RepositoryMapping createAllowingFallback(
-      Map<String, RepositoryName> repositoryMapping) {
-    return new AutoValue_RepositoryMapping(
-        ImmutableMap.copyOf(Preconditions.checkNotNull(repositoryMapping)), null);
+  public static RepositoryMapping createAllowingFallback(Map<String, RepositoryName> entries) {
+    return createInternal(Preconditions.checkNotNull(entries), null);
+  }
+
+  private static RepositoryMapping createInternal(
+      Map<String, RepositoryName> entries, RepositoryName ownerRepo) {
+    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(entries), ownerRepo);
   }
 
   /**
@@ -68,7 +70,7 @@ public abstract class RepositoryMapping {
   public RepositoryMapping withAdditionalMappings(Map<String, RepositoryName> additionalMappings) {
     HashMap<String, RepositoryName> allMappings = new HashMap<>(additionalMappings);
     allMappings.putAll(entries());
-    return new AutoValue_RepositoryMapping(ImmutableMap.copyOf(allMappings), ownerRepo());
+    return createInternal(allMappings, ownerRepo());
   }
 
   /**
@@ -113,5 +115,25 @@ public abstract class RepositoryMapping {
         .filter(e -> e.getValue().equals(postMappingName))
         .map(Entry::getKey)
         .findFirst();
+  }
+
+  /**
+   * Creates a new {@link RepositoryMapping} instance that is the equivalent of composing this
+   * {@link RepositoryMapping} with another one. That is, {@code a.composeWith(b).get(name) ===
+   * b.get(a.get(name))} (treating {@code b} as allowing fallback).
+   *
+   * <p>Since we're treating the result of {@code a.get(name)} as an apparent repo name instead of a
+   * canonical repo name, this only really makes sense when {@code a} does not use strict deps (i.e.
+   * allows fallback).
+   */
+  public RepositoryMapping composeWith(RepositoryMapping other) {
+    Preconditions.checkArgument(
+        !usesStrictDeps(), "only an allow-fallback mapping can be composed with other mappings");
+    HashMap<String, RepositoryName> entries = new HashMap<>(other.entries());
+    for (Map.Entry<String, RepositoryName> entry : entries().entrySet()) {
+      RepositoryName mappedName = other.get(entry.getValue().getName());
+      entries.put(entry.getKey(), mappedName.isVisible() ? mappedName : entry.getValue());
+    }
+    return createInternal(entries, null);
   }
 }
