@@ -30,3 +30,5 @@ IS_BAZEL = True
 
 NATIVE_RULES_MIGRATION_HELP_URL = "https://github.com/bazelbuild/bazel/issues/17773"
 NATIVE_RULES_MIGRATION_FIX_CMD = "add_python_loads"
+
+ALLOWED_MAIN_EXTENSIONS = [".py"]

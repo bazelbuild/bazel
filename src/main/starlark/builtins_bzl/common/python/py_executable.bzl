@@ -42,6 +42,7 @@ load(
 )
 load(
     ":common/python/semantics.bzl",
+    "ALLOWED_MAIN_EXTENSIONS",
     "BUILD_DATA_SYMLINK_PATH",
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
@@ -624,7 +625,7 @@ def determine_main(ctx):
     """
     if ctx.attr.main:
         proposed_main = ctx.attr.main.label.name
-        if not proposed_main.endswith(".py"):
+        if not proposed_main.endswith(tuple(ALLOWED_MAIN_EXTENSIONS)):
             fail("main must end in '.py'")
     else:
         if ctx.label.name.endswith(".py"):
