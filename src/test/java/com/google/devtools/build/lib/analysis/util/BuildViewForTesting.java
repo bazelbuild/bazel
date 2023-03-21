@@ -661,7 +661,9 @@ public class BuildViewForTesting {
           ResolvedToolchainContext.load(
               unloadedToolchainContext.getValue(),
               targetDescription,
-              prerequisiteMap.get(DependencyKind.forExecGroup(unloadedToolchainContext.getKey())));
+              ImmutableSet.copyOf(
+                  prerequisiteMap.get(
+                      DependencyKind.forExecGroup(unloadedToolchainContext.getKey()))));
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 

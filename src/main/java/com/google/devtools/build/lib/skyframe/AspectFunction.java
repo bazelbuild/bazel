@@ -94,7 +94,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -362,8 +361,9 @@ final class AspectFunction implements SkyFunction {
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             unloadedToolchainContexts.getContextMap().entrySet()) {
-          Set<ConfiguredTargetAndData> toolchainDependencies =
-              depValueMap.get(DependencyKind.forExecGroup(unloadedContext.getKey()));
+          ImmutableSet<ConfiguredTargetAndData> toolchainDependencies =
+              ImmutableSet.copyOf(
+                  depValueMap.get(DependencyKind.forExecGroup(unloadedContext.getKey())));
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
