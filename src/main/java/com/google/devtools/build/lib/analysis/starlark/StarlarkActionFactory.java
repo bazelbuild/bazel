@@ -144,7 +144,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
-              + " set the toolchain parameter.");
+              + " set the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
     }
   }
 

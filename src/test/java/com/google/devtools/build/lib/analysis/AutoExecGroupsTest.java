@@ -186,6 +186,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    '_tool': attr.label(default = '//toolchain:a_tool', cfg = 'exec', executable = True),",
+        "    '_nonexecutable_tool': attr.label(default = '//toolchain:b_tool', cfg = 'exec'),",
         extraAttributes,
         "  },",
         "  exec_groups = {",
@@ -405,6 +406,43 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void toolWithFilesToRunExecutable_noToolchainParameter_reportsError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "executable ="
+            + " ctx.attr._nonexecutable_tool[DefaultInfo].files_to_run.executable,",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "",
+        /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertContainsEvent(
+        "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
+            + " the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
+  }
+
+  @Test
+  public void toolWithFilesToRunExecutable_toolchainParameterSetToNone_noError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ "toolchain = None,"
+            + " executable = ctx.attr._nonexecutable_tool[DefaultInfo].files_to_run.executable,",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "",
+        /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
   public void toolInExecutableUnidentified_noToolchainParameter_reportsError() throws Exception {
     createCustomRule(
         /* action= */ "ctx.actions.run",
@@ -420,7 +458,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertContainsEvent(
         "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
-            + " the toolchain parameter.");
+            + " the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
   }
 
   @Test
@@ -441,7 +479,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertContainsEvent(
         "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
-            + " the toolchain parameter.");
+            + " the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
   }
 
   @Test
@@ -465,7 +503,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertContainsEvent(
         "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
-            + " the toolchain parameter.");
+            + " the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
   }
 
   @Test
@@ -489,7 +527,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertContainsEvent(
         "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
-            + " the toolchain parameter.");
+            + " the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
   }
 
   @Test
@@ -512,7 +550,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     assertContainsEvent(
         "Couldn't identify if tools are from implicit dependencies or a toolchain. Please set"
-            + " the toolchain parameter.");
+            + " the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
   }
 
   @Test
