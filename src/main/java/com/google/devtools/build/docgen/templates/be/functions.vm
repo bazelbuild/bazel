@@ -89,12 +89,10 @@ file, before any rule.</p>
       <td>
         <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
         <p>Sets a default list of metadata targets which apply to all other targets in the package.
-	These are typically targets related to OSS package and license declarations.
-	See <a href="https://github.com/bazelbuild/rules_license>rules_license</a> for examples.</p>
-
+        These are typically targets related to OSS package and license declarations.
+        See <a href="https://github.com/bazelbuild/rules_license">rules_license</a> for examples.</p>
       </td>
     </tr>
-
     <tr>
       <td id="package.default_testonly"><code>default_testonly</code></td>
       <td>
