@@ -243,10 +243,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
   @Override
   public ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith,
-      Sequence<?> toolchains,
-      Boolean copyFromRule,
-      StarlarkThread thread) {
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread) {
     return new FakeExecGroup();
   }
 
