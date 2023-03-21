@@ -28,17 +28,18 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -451,11 +452,11 @@ public class IncrementalLoadingTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
-              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+              .setSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
       skyframeExecutor.injectExtraPrecomputedValues(
@@ -472,6 +473,7 @@ public class IncrementalLoadingTest {
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
     }
@@ -550,7 +552,7 @@ public class IncrementalLoadingTest {
 
       modifiedFileSet = getModifiedFileSet();
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
@@ -562,6 +564,7 @@ public class IncrementalLoadingTest {
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
@@ -574,7 +577,7 @@ public class IncrementalLoadingTest {
 
     Target getTarget(String targetName)
         throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
-      Label label = Label.parseAbsoluteUnchecked(targetName);
+      Label label = Label.parseCanonicalUnchecked(targetName);
       return skyframeExecutor.getPackageManager().getTarget(reporter, label);
     }
   }

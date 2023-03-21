@@ -59,7 +59,7 @@ public final class AndroidDex2OatInfo extends NativeInfo
   }
 
   private final boolean dex2OatEnabled;
-  private final boolean executeDex2OatOnHost;
+  private final boolean executeDex2OatOnExecPlatform;
   private final FilesToRunProvider sandboxForPregeneratingOatFilesForTests;
   private final Artifact framework;
   private final Artifact dalvikCache;
@@ -73,7 +73,7 @@ public final class AndroidDex2OatInfo extends NativeInfo
       Artifact dalvikCache,
       Artifact deviceProps) {
     this.dex2OatEnabled = dex2OatEnabled;
-    this.executeDex2OatOnHost = executeDex2OatOnHost;
+    this.executeDex2OatOnExecPlatform = executeDex2OatOnHost;
     this.sandboxForPregeneratingOatFilesForTests = sandboxForPregeneratingOatFilesForTests;
     this.framework = framework;
     this.dalvikCache = dalvikCache;
@@ -90,12 +90,12 @@ public final class AndroidDex2OatInfo extends NativeInfo
     return dex2OatEnabled;
   }
 
-  /** Returns whether dex2oat should be executed on the host. */
-  public boolean executeDex2OatOnHost() {
-    return executeDex2OatOnHost;
+  /** Returns whether dex2oat should be executed on the exec platform. */
+  public boolean executeDex2OatOnExecPlatform() {
+    return executeDex2OatOnExecPlatform;
   }
 
-  /** Returns the virtual device executable to run dex2oat on the host */
+  /** Returns the virtual device executable to run dex2oat on the exec platform */
   @Nullable
   public FilesToRunProvider getSandboxForPregeneratingOatFilesForTests() {
     return sandboxForPregeneratingOatFilesForTests;

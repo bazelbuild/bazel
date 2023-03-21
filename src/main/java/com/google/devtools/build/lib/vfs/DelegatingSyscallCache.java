@@ -67,9 +67,4 @@ public class DelegatingSyscallCache implements SyscallCache {
   public void clear() {
     delegate.clear();
   }
-
-  /** Returns the delegate {@link SyscallCache}. */
-  public SyscallCache getDelegate() {
-    return delegate;
-  }
 }

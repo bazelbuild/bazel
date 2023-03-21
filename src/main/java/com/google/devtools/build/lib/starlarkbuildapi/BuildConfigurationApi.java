@@ -28,8 +28,8 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc =
         "This object holds information about the environment in which the build is running. See the"
-            + " <a href='https://bazel.build/rules/rules#configurations'>Rules page</a> for more on"
-            + " the general concept of configurations.")
+            + " <a href='https://bazel.build/extending/rules#configurations'>Rules page</a> for"
+            + " more on the general concept of configurations.")
 public interface BuildConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "bin_dir", structField = true, documented = false)
@@ -92,4 +92,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
       documented = false,
       useStarlarkThread = true)
   boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "runfiles_enabled", documented = false, useStarlarkThread = true)
+  boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException;
 }

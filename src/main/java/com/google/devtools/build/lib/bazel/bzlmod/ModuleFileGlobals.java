@@ -141,26 +141,28 @@ public class ModuleFileGlobals {
             defaultValue = "''"),
         @Param(
             name = "version",
-            // TODO(wyv): explain version format
             doc =
                 "The version of the module. Can be omitted only if this module is the root module"
-                    + " (as in, if it's not going to be depended on by another module).",
+                    + " (as in, if it's not going to be depended on by another module). The version"
+                    + " must be in a relaxed SemVer format; see <a"
+                    + " href=\"/external/module#version_format\">the documentation</a> for more"
+                    + " details.",
             named = true,
             positional = false,
             defaultValue = "''"),
         @Param(
             name = "compatibility_level",
-            // TODO(wyv): See X for more details
             doc =
                 "The compatibility level of the module; this should be changed every time a major"
                     + " incompatible change is introduced. This is essentially the \"major"
                     + " version\" of the module in terms of SemVer, except that it's not embedded"
                     + " in the version string itself, but exists as a separate field. Modules with"
                     + " different compatibility levels participate in version resolution as if"
-                    + " they're modules with different names, but the final dependency graph"
-                    + " cannot contain multiple modules with the same name but different"
-                    + " compatibility levels (unless <code>multiple_version_override</code> is in"
-                    + " effect; see there for more details).",
+                    + " they're modules with different names, but the final dependency graph cannot"
+                    + " contain multiple modules with the same name but different compatibility"
+                    + " levels (unless <code>multiple_version_override</code> is in effect). See <a"
+                    + " href=\"/external/module#compatibility_level\">the documentation</a> for"
+                    + " more details.",
             named = true,
             positional = false,
             defaultValue = "0"),
@@ -597,9 +599,11 @@ public class ModuleFileGlobals {
       name = "multiple_version_override",
       doc =
           "Specifies that a dependency should still come from a registry, but multiple versions of"
-              + " it should be allowed to coexist. This directive can only be used by the root"
-              + " module; in other words, if a module specifies any overrides, it cannot be used"
-              + " as a dependency by others.",
+              + " it should be allowed to coexist. See <a"
+              + " href=\"/external/module#multiple-version_override\">the documentation</a> for"
+              + " more details. This directive can only be used by the root module; in other words,"
+              + " if a module specifies any overrides, it cannot be used as a dependency by"
+              + " others.",
       parameters = {
         @Param(
             name = "module_name",
@@ -608,7 +612,6 @@ public class ModuleFileGlobals {
             positional = false),
         @Param(
             name = "versions",
-            // TODO(wyv): See X for more details
             doc =
                 "Explicitly specifies the versions allowed to coexist. These versions must already"
                     + " be present in the dependency graph pre-selection. Dependencies on this"

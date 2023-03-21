@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.FutureSpawn;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -162,7 +161,7 @@ public interface SpawnRunner {
      * @see #prefetchInputs()
      */
     default void prefetchInputsAndWait()
-        throws IOException, InterruptedException, ForbiddenActionInputException {
+        throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
       ListenableFuture<Void> future = prefetchInputs();
       try (SilentCloseable s =
           Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
@@ -171,6 +170,7 @@ public interface SpawnRunner {
         Throwable cause = e.getCause();
         if (cause != null) {
           throwIfInstanceOf(cause, IOException.class);
+          throwIfInstanceOf(cause, ExecException.class);
           throwIfInstanceOf(cause, ForbiddenActionInputException.class);
           throwIfInstanceOf(cause, RuntimeException.class);
         }
@@ -251,7 +251,8 @@ public interface SpawnRunner {
      * mapping is used in a context where the directory relative to which the keys are interpreted
      * is not the same as the execroot.
      */
-    SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+    SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly)
         throws IOException, ForbiddenActionInputException;
 
     /** Reports a progress update to the Spawn strategy. */
@@ -279,24 +280,6 @@ public interface SpawnRunner {
     /** Returns action-scoped file system or {@code null} if it doesn't exist. */
     @Nullable
     FileSystem getActionFileSystem();
-  }
-
-  /**
-   * Run the given spawn asynchronously. The default implementation is synchronous for migration.
-   *
-   * @param spawn the spawn to run
-   * @param context the spawn execution context
-   * @return the result from running the spawn
-   * @throws InterruptedException if the calling thread was interrupted, or if the runner could not
-   *     lock the output files (see {@link SpawnExecutionContext#lockOutputFiles(int, String,
-   *     FileOutErr)})
-   * @throws IOException if something went wrong reading or writing to the local file system
-   * @throws ExecException if the request is malformed
-   */
-  default FutureSpawn execAsync(Spawn spawn, SpawnExecutionContext context)
-      throws InterruptedException, IOException, ExecException, ForbiddenActionInputException {
-    // TODO(ulfjack): Remove this default implementation. [exec-async]
-    return FutureSpawn.immediate(exec(spawn, context));
   }
 
   /**

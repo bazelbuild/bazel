@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.util.GroupedList;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -100,7 +98,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  public List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
@@ -125,7 +123,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return getDelegate().getTemporaryDirectDeps();
   }
 
@@ -150,7 +148,7 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+  public void addTemporaryDirectDepGroup(List<SkyKey> group) {
     getDelegate().addTemporaryDirectDepGroup(group);
   }
 
@@ -160,8 +158,13 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public boolean isReady() {
-    return getDelegate().isReady();
+  public boolean isReadyToEvaluate() {
+    return getDelegate().isReadyToEvaluate();
+  }
+
+  @Override
+  public boolean hasUnsignaledDeps() {
+    return getDelegate().hasUnsignaledDeps();
   }
 
   @Override
@@ -218,5 +221,25 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   @Override
   public void addExternalDep() {
     getDelegate().addExternalDep();
+  }
+
+  @Override
+  public int getPriority() {
+    return getDelegate().getPriority();
+  }
+
+  @Override
+  public int depth() {
+    return getDelegate().depth();
+  }
+
+  @Override
+  public void updateDepthIfGreater(int proposedDepth) {
+    getDelegate().updateDepthIfGreater(proposedDepth);
+  }
+
+  @Override
+  public void incrementEvaluationCount() {
+    getDelegate().incrementEvaluationCount();
   }
 }

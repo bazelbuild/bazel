@@ -15,10 +15,11 @@
 """apple_common.link_multi_arch_static_library Starlark implementation"""
 
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
-CcInfo = _builtins.toplevel.CcInfo
-cc_common = _builtins.toplevel.cc_common
 apple_common = _builtins.toplevel.apple_common
+objc_internal = _builtins.internal.objc_internal
 
 def _link_multi_arch_static_library(ctx, split_target_triplets):
     """Links a (potentially multi-architecture) static library targeting Apple platforms.
@@ -41,6 +42,7 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
                 - platform: Linked static library target Apple platform (e.g. 'ios', 'macos').
                 - environment: Linked static library environment (e.g. 'device', 'simulator').
     """
+    linking_info_migration = ctx.fragments.objc.linking_info_migration
     split_deps = ctx.split_attr.deps
     split_avoid_deps = ctx.split_attr.avoid_deps
     child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy
@@ -61,6 +63,7 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
 
         avoid_objc_providers = []
         avoid_cc_providers = []
+        avoid_cc_linking_contexts = []
 
         if len(split_avoid_deps.keys()):
             for dep in split_avoid_deps[split_transition_key]:
@@ -68,19 +71,37 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
                     avoid_objc_providers.append(dep[apple_common.Objc])
                 if CcInfo in dep:
                     avoid_cc_providers.append(dep[CcInfo])
-
-        objc_provider = common_variables.objc_provider.subtract_subtrees(
-            avoid_objc_providers = avoid_objc_providers,
-            avoid_cc_providers = avoid_cc_providers,
-        )
+                    avoid_cc_linking_contexts.append(dep[CcInfo].linking_context)
 
         name = ctx.label.name + "-" + cc_toolchain.target_gnu_system_name + "-fl"
 
-        linking_outputs = compilation_support.register_fully_link_action(
-            common_variables,
-            objc_provider,
-            name,
-        )
+        if not linking_info_migration:
+            objc_provider = common_variables.objc_provider.subtract_subtrees(
+                avoid_objc_providers = avoid_objc_providers,
+                avoid_cc_providers = avoid_cc_providers,
+            )
+            linking_outputs = compilation_support.register_fully_link_action(
+                name = name,
+                linking_info_migration = linking_info_migration,
+                common_variables = common_variables,
+                objc_provider = objc_provider,
+            )
+            sdk_dylib.append(objc_provider.sdk_dylib)
+            sdk_framework.append(objc_provider.sdk_framework)
+            weak_sdk_framework.append(objc_provider.weak_sdk_framework)
+        else:
+            cc_linking_context = objc_internal.subtract_linking_contexts(
+                ctx = ctx,
+                linking_contexts = common_variables.objc_linking_context.cc_linking_contexts,
+                avoid_dep_linking_contexts = avoid_cc_linking_contexts,
+            )
+            linking_outputs = compilation_support.register_fully_link_action(
+                name = name,
+                linking_info_migration = linking_info_migration,
+                common_variables = common_variables,
+                cc_linking_context = cc_linking_context,
+            )
+            objc_provider = apple_common.new_objc_provider()
 
         output = {
             "library": linking_outputs.library_to_link.static_library,
@@ -93,15 +114,13 @@ def _link_multi_arch_static_library(ctx, split_target_triplets):
             output["environment"] = target_triplet.environment
 
         outputs.append(struct(**output))
-        sdk_dylib.append(objc_provider.sdk_dylib)
-        sdk_framework.append(objc_provider.sdk_framework)
-        weak_sdk_framework.append(objc_provider.weak_sdk_framework)
 
-    objc_provider = apple_common.new_objc_provider(
-        sdk_dylib = depset(transitive = sdk_dylib),
-        sdk_framework = depset(transitive = sdk_framework),
-        weak_sdk_framework = depset(transitive = weak_sdk_framework),
-    )
+    if not linking_info_migration:
+        objc_provider = apple_common.new_objc_provider(
+            sdk_dylib = depset(transitive = sdk_dylib),
+            sdk_framework = depset(transitive = sdk_framework),
+            weak_sdk_framework = depset(transitive = weak_sdk_framework),
+        )
 
     header_tokens = []
     for _, deps in split_deps.items():

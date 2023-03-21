@@ -231,7 +231,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             WorkspaceFactoryHelper.createAndAddRepositoryRule(
                 context.getBuilder(),
                 ruleClass,
-                /*bindRuleClass=*/ null,
+                /* bindRuleClass= */ null,
                 WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                 thread.getSemantics(),
                 thread.getCallStack());
@@ -296,23 +296,19 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             positional = false)
       },
       useStarlarkThread = true)
-  public Object moduleExtension(
+  public ModuleExtension moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
       String doc,
       StarlarkThread thread)
       throws EvalException {
-    ModuleExtension.InStarlark inStarlark = new ModuleExtension.InStarlark();
-    inStarlark
-        .getBuilder()
+    return ModuleExtension.builder()
         .setImplementation(implementation)
         .setTagClasses(
             ImmutableMap.copyOf(Dict.cast(tagClasses, String.class, TagClass.class, "tag_classes")))
         .setDoc(doc)
-        .setDefinitionEnvironmentLabel(
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label())
-        .setLocation(thread.getCallerLocation());
-    return inStarlark;
+        .setLocation(thread.getCallerLocation())
+        .build();
   }
 
   @StarlarkMethod(

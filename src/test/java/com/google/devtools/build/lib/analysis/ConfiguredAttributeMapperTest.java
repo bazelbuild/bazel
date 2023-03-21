@@ -182,7 +182,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
                 .getTransitionFactory()
                 .isTool())
         .isTrue();
-    assertThat(getHostConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
+    assertThat(getExecConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
 
   @Test

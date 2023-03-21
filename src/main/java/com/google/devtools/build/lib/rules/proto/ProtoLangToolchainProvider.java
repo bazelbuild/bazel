@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StructImpl;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -44,7 +45,7 @@ public abstract class ProtoLangToolchainProvider {
   public static final String PROVIDER_NAME = "ProtoLangToolchainInfo";
   public static final StarlarkProvider.Key starlarkProtoLangToolchainKey =
       new StarlarkProvider.Key(
-          Label.parseAbsoluteUnchecked("@_builtins//:common/proto/proto_common.bzl"),
+          Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_common.bzl"),
           PROVIDER_NAME);
   public static final StarlarkProviderIdentifier PROVIDER_ID =
       StarlarkProviderIdentifier.forKey(starlarkProtoLangToolchainKey);
@@ -64,11 +65,11 @@ public abstract class ProtoLangToolchainProvider {
   public abstract TransitiveInfoCollection runtime();
 
   /**
-   * Returns a list of {@link ProtoSource}s that are already provided by the protobuf runtime (i.e.
-   * for which {@code <lang>_proto_library} should not generate bindings.
+   * Returns a list of {@code ProtoSourceInfos}s that are already provided by the protobuf runtime
+   * (i.e. for which {@code <lang>_proto_library} should not generate bindings.
    */
   // Proto sources provided by the toolchain.
-  public abstract ImmutableList<ProtoSource> providedProtoSources();
+  public abstract ImmutableList<StarlarkInfo> providedProtoSources();
 
   // Proto compiler.
   public abstract FilesToRunProvider protoc();
@@ -91,7 +92,7 @@ public abstract class ProtoLangToolchainProvider {
       String pluginFormatFlag,
       FilesToRunProvider pluginExecutable,
       TransitiveInfoCollection runtime,
-      ImmutableList<ProtoSource> providedProtoSources,
+      ImmutableList<StructImpl> providedProtoSources,
       FilesToRunProvider protoc,
       ImmutableList<String> protocOpts,
       String progressMessage,
@@ -105,7 +106,6 @@ public abstract class ProtoLangToolchainProvider {
     m.put("out_replacement_format_flag", outReplacementFormatFlag);
     m.put("progress_message", progressMessage);
     m.put("mnemonic", mnemonic);
-    m.put("plugin", pluginExecutable == null ? Starlark.NONE : pluginExecutable);
     m.put("runtime", runtime == null ? Starlark.NONE : runtime);
 
     StarlarkProvider.Builder builder = StarlarkProvider.builder(Location.BUILTIN);
@@ -168,7 +168,7 @@ public abstract class ProtoLangToolchainProvider {
                 ? null
                 : provider.getValue("runtime", TransitiveInfoCollection.class),
             ImmutableList.copyOf(
-                (StarlarkList<ProtoSource>) provider.getValue("provided_proto_sources")),
+                (StarlarkList<StarlarkInfo>) provider.getValue("provided_proto_sources")),
             provider.getValue("proto_compiler", FilesToRunProvider.class),
             ImmutableList.copyOf((StarlarkList<String>) provider.getValue("protoc_opts")),
             provider.getValue("progress_message", String.class),

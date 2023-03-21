@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -346,5 +348,18 @@ public final class SymlinkAction extends AbstractAction {
             .setMessage(message)
             .setSymlinkAction(FailureDetails.SymlinkAction.newBuilder().setCode(detailedCode))
             .build());
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    // SymlinkAction is platform agnostic.
+    return null;
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecProperties() {
+    // SymlinkAction is platform agnostic.
+    return ImmutableMap.of();
   }
 }

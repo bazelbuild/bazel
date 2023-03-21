@@ -51,20 +51,18 @@ public interface Spawn extends DescribableExecutionUnit {
    */
   ImmutableMap<String, String> getExecutionInfo();
 
-  /**
-   * Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn.
-   */
+  /** Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn. */
   RunfilesSupplier getRunfilesSupplier();
 
-  /**
-   * Returns the command (the first element) and its arguments.
-   */
+  /** Returns the command (the first element) and its arguments. */
+  @Override
   ImmutableList<String> getArguments();
 
   /**
-   * Returns the initial environment of the process.
-   * If null, the environment is inherited from the parent process.
+   * Returns the initial environment of the process. If null, the environment is inherited from the
+   * parent process.
    */
+  @Override
   ImmutableMap<String, String> getEnvironment();
 
   /**
@@ -109,6 +107,20 @@ public interface Spawn extends DescribableExecutionUnit {
    * so it can be cached.
    */
   Collection<? extends ActionInput> getOutputFiles();
+
+  /**
+   * Returns the output files that should be considered to be "generated" by this spawn for purposes
+   * of reconstructing the execution graph in {@link
+   * com.google.devtools.build.lib.runtime.ExecutionGraphModule}.
+   *
+   * <p>This method is only used for constructing a model of the execution graph and does not affect
+   * running this spawn in any way. It can be overridden to provide a clearer representation of the
+   * execution graph in the face of oddities such as a difference between {@link #getOutputFiles}
+   * and {@link Action#getOutputs}.
+   */
+  default Iterable<? extends ActionInput> getOutputEdgesForExecutionGraph() {
+    return getOutputFiles();
+  }
 
   /**
    * Returns true if {@code output} must be created for the action to succeed. Can be used by remote

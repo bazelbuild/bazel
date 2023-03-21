@@ -41,11 +41,13 @@ import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -269,6 +271,12 @@ public class BuildRequest implements OptionsProvider {
     return starlarkOptions;
   }
 
+  @Override
+  public Map<String, Object> getExplicitStarlarkOptions(
+      Predicate<? super ParsedOptionDescription> filter) {
+    throw new UnsupportedOperationException("No known callers to this implementation");
+  }
+
   /**
    * Returns a unique identifier that universally identifies this build.
    */
@@ -402,18 +410,6 @@ public class BuildRequest implements OptionsProvider {
     // Validate other BuildRequest options.
     if (getBuildOptions().verboseExplanations && getBuildOptions().explanationPath == null) {
       warnings.add("--verbose_explanations has no effect when --explain=<file> is not enabled");
-    }
-
-    // --nobuild means no execution will be carried out, hence it doesn't make sense to
-    // interleave analysis and execution in that case.
-    // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
-    // makes no different from the users' perspective.
-    if (getBuildOptions().mergedSkyframeAnalysisExecutionDoNotUseDirectly
-        && !getBuildOptions().performExecutionPhase
-        && !("aquery".equals(commandName) || "cquery".equals(commandName))) {
-      warnings.add(
-          "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and"
-              + " will be ignored.");
     }
 
     return warnings;

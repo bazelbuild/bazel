@@ -264,7 +264,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
-            .setNumThreads(LOADING_PHASE_THREADS)
+            .setParallelism(LOADING_PHASE_THREADS)
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =

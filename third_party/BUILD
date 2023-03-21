@@ -9,11 +9,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/animal_sniffer:srcs",
-        "//third_party/antlr:srcs",
         "//third_party/bazel-toolchains:srcs",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
         "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
@@ -32,11 +28,6 @@ filegroup(
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
         "//third_party/javascript/bootstrap:srcs",
-        "//third_party/jaxb:srcs",
-        "//third_party/jetbrains_annotations:srcs",
-        "//third_party/jetifier:srcs",
-        "//third_party/juniversalchardet:srcs",
-        "//third_party/kotlin_stdlib:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -45,7 +36,6 @@ filegroup(
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
-        "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
         "//third_party/upb:srcs",
         "@googleapis//:srcs",
@@ -61,112 +51,43 @@ filegroup(
     srcs = [],
 )
 
-# This target only contains the jars that are used for building / running Bazel.
-# The target below is for the Android tools that are not shipped with Bazel.
-distrib_java_import(
-    name = "android_common_25_0_0_lite",
-    enable_distributions = ["debian"],
-    jars = [
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
-java_import(
+java_library(
     name = "android-annotations",
-    jars = ["android_common/com.android_annotations_25.0.0.jar"],
+    exports = ["@maven_android//:com_android_tools_annotations"],
 )
 
-java_import(
-    name = "android_common_25_0_0",
-    jars = [
-        "android_common/com.android_annotations_25.0.0.jar",
-        "android_common/com.android.tools.build_builder_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-model_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
-        "android_common/com.android.tools.build_manifest-merger_25.0.0-patched.jar",
-        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
-        # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
-        # We are unable to upgrade the other libraries yet due to internal
-        # constraints with Blaze. See
-        # https://github.com/bazelbuild/bazel/issues/4381
-        # TODO(bazel-team): Upgrade entire android_common suite to 26+ after
-        # resolving internal constraint.
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
-        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
-        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
-        "android_common/com.android.tools_common_25.0.0.jar",
-        "android_common/com.android.tools_dvlib_25.0.0.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
-        "android_common/com.android.tools_sdklib_25.0.0.jar",
-    ],
-    runtime_deps = [
-        ":asm",
-        ":asm-analysis",
-        ":asm-tree",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
-java_import(
-    name = "apache_commons_codec",
-    jars = ["apache_commons_codec/commons-codec-1.10.jar"],
-)
-
-distrib_java_import(
+java_library(
     name = "apache_commons_collections",
-    enable_distributions = ["debian"],
-    jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
+    exports = ["@maven//:commons_collections_commons_collections"],
 )
 
-java_import(
-    name = "apache_commons_io",
-    jars = ["apache_commons_io/commons-io-2.4.jar"],
-)
-
-distrib_java_import(
+java_library(
     name = "apache_commons_lang",
-    enable_distributions = ["debian"],
-    jars = ["apache_commons_lang/commons-lang-2.6.jar"],
+    exports = ["@maven//:commons_lang_commons_lang"],
 )
 
-distrib_java_import(
+java_library(
     name = "apache_commons_compress",
-    enable_distributions = ["debian"],
-    jars = ["apache_commons_compress/apache-commons-compress-1.19.jar"],
+    exports = ["@maven//:org_apache_commons_commons_compress"],
 )
 
-distrib_java_import(
+java_library(
     name = "apache_commons_pool2",
-    enable_distributions = ["debian"],
-    jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
+    exports = ["@maven//:org_apache_commons_commons_pool2"],
 )
 
-distrib_java_import(
+java_library(
     name = "apache_velocity",
-    enable_distributions = ["debian"],
-    jars = ["apache_velocity/velocity-1.7.jar"],
-    deps = [
-        ":apache_commons_collections",
-        ":apache_commons_lang",
-    ],
+    exports = ["@maven//:org_apache_velocity_velocity"],
 )
 
-distrib_java_import(
+java_library(
     name = "api_client",
-    enable_distributions = ["debian"],
-    jars = [
-        "api_client/google-api-client-1.22.0.jar",
-        "api_client/google-api-client-gson-1.22.0.jar",
-        "api_client/google-http-client-1.41.4.jar",
-        "api_client/google-http-client-gson-1.41.4.jar",
+    exports = [
+        "@maven//:com_google_api_client_google_api_client",
+        "@maven//:com_google_api_client_google_api_client_gson",
+        "@maven//:com_google_http_client_google_http_client",
+        "@maven//:com_google_http_client_google_http_client_gson",
     ],
     runtime_deps = [
         ":gson",
@@ -176,44 +97,43 @@ distrib_java_import(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.2.jar"],
-    srcjar = "asm/asm-9.2-sources.jar",
+    jars = ["asm/asm-9.4.jar"],
+    srcjar = "asm/asm-9.4-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.2.jar"],
-    srcjar = "asm/asm-analysis-9.2-sources.jar",
+    jars = ["asm/asm-analysis-9.4.jar"],
+    srcjar = "asm/asm-analysis-9.4-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.2.jar"],
-    srcjar = "asm/asm-commons-9.2-sources.jar",
+    jars = ["asm/asm-commons-9.4.jar"],
+    srcjar = "asm/asm-commons-9.4-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.2.jar"],
-    srcjar = "asm/asm-tree-9.2-sources.jar",
+    jars = ["asm/asm-tree-9.4.jar"],
+    srcjar = "asm/asm-tree-9.4-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.2.jar"],
-    srcjar = "asm/asm-util-9.2-sources.jar",
+    jars = ["asm/asm-util-9.4.jar"],
+    srcjar = "asm/asm-util-9.4-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
-distrib_java_import(
+java_library(
     name = "auth",
-    enable_distributions = ["debian"],
-    jars = [
-        "auth/google-auth-library-oauth2-http-1.6.0.jar",
-        "auth/google-auth-library-credentials-1.6.0.jar",
+    exports = [
+        "@maven//:com_google_auth_google_auth_library_oauth2_http",
+        "@maven//:com_google_auth_google_auth_library_credentials",
     ],
     runtime_deps = [
         ":api_client",
@@ -227,7 +147,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -237,11 +156,10 @@ java_plugin(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "auto_common",
-    enable_distributions = ["debian"],
-    jars = ["auto/auto-common-1.1.2.jar"],
     applicable_licenses = [":auto_license"],
+    exports = ["@maven//:com_google_auto_auto_common"],
 )
 
 license(
@@ -273,12 +191,11 @@ java_plugin(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "auto_service_lib",
-    enable_distributions = ["debian"],
-    jars = [
-        "auto/auto-service-1.0-rc7.jar",
-        "auto/auto-service-annotations-1.0-rc7.jar",
+    exports = [
+        "@maven//:com_google_auto_service_auto_service",
+        "@maven//:com_google_auto_service_auto_service_annotations",
     ],
 )
 
@@ -288,7 +205,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -297,24 +213,49 @@ java_plugin(
     ],
 )
 
-java_library(
-    name = "auto_value",
-    exported_plugins = [
-        ":auto_annotation_plugin",
-        ":auto_value_plugin",
-    ],
-    exports = [
+java_plugin(
+    name = "auto_oneof_plugin",
+    processor_class = "com.google.auto.value.processor.AutoOneOfProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":auto_common",
+        ":auto_service_lib",
         ":auto_value_value",
+        ":guava",
         ":tomcat_annotations_api",
     ],
 )
 
-distrib_java_import(
+java_plugin(
+    name = "auto_value_gson_plugin",
+    processor_class = "com.ryanharter.auto.value.gson.factory.AutoValueGsonAdapterFactoryProcessor",
+    deps = [
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_extension",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_factory",
+    ],
+)
+
+java_library(
+    name = "auto_value",
+    exported_plugins = [
+        ":auto_annotation_plugin",
+        ":auto_oneof_plugin",
+        ":auto_value_plugin",
+        ":auto_value_gson_plugin",
+    ],
+    exports = [
+        ":auto_value_value",
+        ":tomcat_annotations_api",
+        "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
+    ],
+)
+
+java_library(
     name = "auto_value_value",
-    enable_distributions = ["debian"],
-    jars = [
-        "auto/auto-value-1.8.2.jar",
-        "auto/auto-value-annotations-1.8.2.jar",
+    exports = [
+        "@maven//:com_google_auto_value_auto_value",
+        "@maven//:com_google_auto_value_auto_value_annotations",
     ],
 )
 
@@ -322,25 +263,23 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
-        "auto/auto-value-1.8.2.jar",
-        "auto/auto-value-annotations-1.8.2.jar",
+        "@maven//:com_google_auto_value_auto_value_file",
+        "@maven//:com_google_auto_value_auto_value_annotations_file",
     ],
     enable_distributions = ["debian"],
 )
 
-java_import(
+java_library(
     name = "byte_buddy",
-    jars = [
-        "bytebuddy/byte-buddy-1.9.7.jar",
-        "bytebuddy/byte-buddy-agent-1.9.7.jar",
+    exports = [
+        "@maven//:net_bytebuddy_byte_buddy",
+        "@maven//:net_bytebuddy_byte_buddy_agent",
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "checker_framework_annotations",
-    enable_distributions = ["debian"],
-    jars = ["checker_framework_annotations/checker-qual-3.2.0.jar"],
-    srcjar = "checker_framework_annotations/checker-qual-3.2.0-sources.jar",
+    exports = ["@maven//:org_checkerframework_checker_qual"],
 )
 
 java_import(
@@ -348,77 +287,58 @@ java_import(
     jars = ["compile_testing/compile-testing-0.18.jar"],
 )
 
-distrib_java_import(
+java_library(
     name = "gson",
-    enable_distributions = ["debian"],
-    jars = ["gson/gson-2.8.6.jar"],
+    exports = ["@maven//:com_google_code_gson_gson"],
 )
 
-distrib_java_import(
+java_library(
     name = "caffeine",
-    enable_distributions = ["debian"],
-    jars = ["caffeine/caffeine-2.9.2.jar"],
+    exports = ["@maven//:com_github_ben_manes_caffeine_caffeine"],
 )
 
-java_import(
+java_library(
     name = "hungarian_algorithm",
-    jars = ["hungarian_algorithm/software-and-algorithms-1.0.jar"],
-    srcjar = "hungarian_algorithm/software-and-algorithms-1.0-src.jar",
+    exports = ["@maven//:com_github_kevinstern_software_and_algorithms"],
 )
 
-java_import(
+java_library(
     name = "threeten",
-    jars = [
-        "error_prone/threeten-extra-1.5.0.jar",
+    exports = [
+        "@maven//:org_threeten_threeten_extra",
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "error_prone_annotations",
-    enable_distributions = ["debian"],
-    jars = [
-        "error_prone/error_prone_annotations-2.11.0.jar",
-        "error_prone/error_prone_type_annotations-2.11.0.jar",
+    exports = [
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_errorprone_error_prone_type_annotations",
     ],
 )
 
 distrib_jar_filegroup(
     name = "error_prone_annotations-jar",
     srcs = [
-        "error_prone/error_prone_annotations-2.11.0.jar",
-        "error_prone/threeten-extra-1.5.0.jar",
+        "@maven//:com_google_errorprone_error_prone_annotations_file",
+        "@maven//:org_threeten_threeten_extra_file",
     ],
     enable_distributions = ["debian"],
 )
 
-java_import(
+java_library(
     name = "error_prone",
-    jars = [
-        "error_prone/error_prone_annotation-2.11.0.jar",
-        "error_prone/error_prone_check_api-2.11.0.jar",
-        "error_prone/error_prone_core-2.11.0.jar",
-    ],
     exports = [
         ":error_prone_annotations",
-    ],
-    deps = [
-        ":auto_common",
-        ":caffeine",
-        ":guava",
-        ":hungarian_algorithm",
-        ":jcip_annotations",
-        ":jsr305",
-        ":pcollections",
-        ":threeten",
-        "//third_party/checker_framework_dataflow",
+        "@maven//:com_google_errorprone_error_prone_check_api",
+        "@maven//:com_google_errorprone_error_prone_core",
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "jcip_annotations",
-    enable_distributions = ["debian"],
-    jars = [
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
+    exports = [
+        "@maven//:com_github_stephenc_jcip_jcip_annotations",
     ],
 )
 
@@ -426,16 +346,14 @@ distrib_java_import(
 distrib_jar_filegroup(
     name = "jcip_annotations-jars",
     srcs = [
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "@maven//:com_github_stephenc_jcip_jcip_annotations_file",
     ],
     enable_distributions = ["debian"],
 )
 
-java_import(
+java_library(
     name = "pcollections",
-    jars = [
-        "pcollections/pcollections-2.1.2.jar",
-    ],
+    exports = ["@maven//:org_pcollections_pcollections"],
 )
 
 # For bootstrapping JavaBuilder
@@ -449,19 +367,15 @@ filegroup(
     ],
 )
 
-distrib_java_import(
+java_library(
     name = "guava",
-    enable_distributions = ["debian"],
-    jars = [
-        "guava/failureaccess-1.0.1.jar",
-        "guava/guava-31.1-jre.jar",
-    ],
+    applicable_licenses = [":guava_license"],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
         ":jsr305",
+        "@maven//:com_google_guava_guava",
     ],
-    applicable_licenses = [":guava_license"],
 )
 
 license(
@@ -473,15 +387,14 @@ license(
     license_text = "guava/LICENSE",
 )
 
-distrib_java_import(
+java_library(
     name = "flogger",
-    enable_distributions = ["debian"],
-    jars = [
-        "flogger/flogger-0.5.1.jar",
-        "flogger/flogger-system-backend-0.5.1.jar",
-        "flogger/google-extensions-0.5.1.jar",
-    ],
     applicable_licenses = [":flogger_license"],
+    exports = [
+        "@maven//:com_google_flogger_flogger",
+        "@maven//:com_google_flogger_flogger_system_backend",
+        "@maven//:com_google_flogger_google_extensions",
+    ],
 )
 
 license(
@@ -490,81 +403,48 @@ license(
     license_kinds = [
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
-    license_text = "flogger/LICENSE",
 )
 
 distrib_jar_filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.5.1.jar",
-        "flogger/flogger-system-backend-0.5.1.jar",
-        "flogger/google-extensions-0.5.1.jar",
+        "@maven//:com_google_flogger_flogger_file",
+        "@maven//:com_google_flogger_flogger_system_backend_file",
+        "@maven//:com_google_flogger_google_extensions_file",
     ],
     enable_distributions = ["debian"],
-)
-
-distrib_java_import(
-    name = "opencensus-api",
-    enable_distributions = ["debian"],
-    jars = [
-        "opencensus/opencensus-api-0.24.0.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
-        "opencensus/opencensus-contrib-http-util-0.31.0.jar",
-    ],
-)
-
-distrib_java_import(
-    name = "perfmark-api",
-    enable_distributions = ["debian"],
-    jars = [
-        "perfmark/perfmark-api-0.19.0.jar",
-    ],
 )
 
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-31.1-jre.jar"],
+    srcs = ["@maven//:com_google_guava_guava_file"],
     enable_distributions = ["debian"],
 )
 
 # For desugaring the Guava jar.
 distrib_jar_filegroup(
     name = "guava-failureaccess-jar",
-    srcs = [
-        "guava/failureaccess-1.0.1.jar",
-    ],
+    srcs = ["@maven//:com_google_guava_failureaccess_file"],
     enable_distributions = ["debian"],
 )
 
-java_import(
+java_library(
     name = "javax_activation",
-    jars = ["javax_activation/javax.activation-api-1.2.0.jar"],
-    srcjar = "javax_activation/javax.activation-api-1.2.0-sources.jar",
+    exports = ["@maven//:javax_activation_javax_activation_api"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
-distrib_java_import(
+java_library(
     name = "javax_annotations",
-    enable_distributions = ["debian"],
-    jars = ["javax_annotations/javax.annotation-api-1.3.2.jar"],
+    exports = ["@maven//:javax_annotation_javax_annotation_api"],
     neverlink = 1,  # @Generated is source-retention
-    srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
 )
 
-distrib_java_import(
-    name = "reactive_streams",
-    enable_distributions = ["debian"],
-    jars = ["reactive_streams/reactive-streams-1.0.3.jar"],
-)
-
-distrib_java_import(
+java_library(
     name = "rxjava3",
-    enable_distributions = ["debian"],
-    jars = ["rxjava3/rxjava-3.1.2.jar"],
-    exports = [":reactive_streams"],
-    deps = [":reactive_streams"],
+    exports = ["@maven//:io_reactivex_rxjava3_rxjava"],
 )
 
 java_import(
@@ -572,33 +452,32 @@ java_import(
     jars = ["jimfs/jimfs-1.1.jar"],
 )
 
-distrib_java_import(
+java_library(
     name = "jsr305",
-    enable_distributions = ["debian"],
-    jars = ["jsr305/jsr-305.jar"],
+    exports = ["@maven//:com_google_code_findbugs_jsr305"],
 )
 
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "jsr305-jars",
-    srcs = ["jsr305/jsr-305.jar"],
+    srcs = ["@maven//:com_google_code_findbugs_jsr305_file"],
     enable_distributions = ["debian"],
 )
 
-java_import(
+alias(
     name = "jsr330_inject",
-    jars = ["jsr330_inject/javax.inject.jar"],
+    actual = "@maven//:javax_inject_javax_inject",
 )
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:windows": "*.so *.jnilib",
     "//src/conditions:darwin": "*.so *.dll",
     "//src/conditions:linux_x86_64": "*.jnilib *.dll",
-    # The .so file is an x86 one, so we can just remove it if the CPU is not x86
+    "//src/conditions:linux_s390x": "*.jnilib *.dll",
+    # The .so file is an x86/s390x one, so we can just remove it if the CPU is not x86/s390x
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
     "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
-    "//src/conditions:linux_s390x": "*.so *.jnilib *.dll",
     "//src/conditions:freebsd": "*.so *.jnilib *.dll",
     "//src/conditions:openbsd": "*.so *.jnilib *.dll",
     # Default is to play it safe -- better have a big binary than a slow binary
@@ -613,11 +492,11 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
 genrule(
     name = "filter_netty_dynamic_libs",
     srcs = select({
-        "//src/conditions:darwin_arm64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-osx-x86_64.jar"],
-        "//src/conditions:linux_aarch64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-linux-x86_64.jar"],
-        "//src/conditions:windows": ["netty_tcnative/netty-tcnative-boringssl-static-2.0.51.Final-windows-x86_64.jar"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_aarch_64_file"],
+        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_osx_x86_64_file"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_aarch_64_file"],
+        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_tcnative_boringssl_static_linux_x86_64_file"],
+        "//src/conditions:windows": ["@maven//:io_netty_netty_tcnative_boringssl_static_windows_x86_64_file"],
         "//conditions:default": [],
     }),
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
@@ -631,32 +510,32 @@ distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
     jars = [
-        "netty/netty-buffer-4.1.75.Final.jar",
-        "netty/netty-codec-4.1.75.Final.jar",
-        "netty/netty-codec-http2-4.1.75.Final.jar",
-        "netty/netty-codec-http-4.1.75.Final.jar",
-        "netty/netty-common-4.1.75.Final.jar",
-        "netty/netty-handler-4.1.75.Final.jar",
-        "netty/netty-handler-proxy-4.1.75.Final.jar",
-        "netty/netty-resolver-4.1.75.Final.jar",
-        "netty/netty-resolver-dns-4.1.75.Final.jar",
-        "netty/netty-transport-4.1.75.Final.jar",
-        "netty/netty-transport-classes-epoll-4.1.75.Final.jar",
-        "netty/netty-transport-classes-kqueue-4.1.75.Final.jar",
-        "netty/netty-transport-sctp-4.1.75.Final.jar",
+       "@maven//:io_netty_netty_buffer_file",
+       "@maven//:io_netty_netty_codec_file",
+       "@maven//:io_netty_netty_codec_http2_file",
+       "@maven//:io_netty_netty_codec_http_file",
+       "@maven//:io_netty_netty_common_file",
+       "@maven//:io_netty_netty_handler_file",
+       "@maven//:io_netty_netty_handler_proxy_file",
+       "@maven//:io_netty_netty_resolver_file",
+       "@maven//:io_netty_netty_resolver_dns_file",
+       "@maven//:io_netty_netty_transport_file",
+       "@maven//:io_netty_netty_transport_classes_epoll_file",
+       "@maven//:io_netty_netty_transport_classes_kqueue_file",
+       "@maven//:io_netty_netty_transport_sctp_file",
     ] + select({
-        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-osx-x86_64.jar"],
-        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-unix-common-4.1.75.Final-linux-x86_64.jar"],
-        "//conditions:default": ["netty/netty-transport-native-unix-common-4.1.75.Final.jar"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_aarch_64_file"],
+        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_osx_x86_64_file"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_aarch_64_file"],
+        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_unix_common_linux_x86_64_file"],
+        "//conditions:default": ["@maven//:io_netty_netty_transport_native_unix_common_file"],
     }) + select({
-        "//src/conditions:darwin_arm64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-aarch_64.jar"],
-        "//src/conditions:darwin_x86_64": ["netty/netty-transport-native-kqueue-4.1.75.Final-osx-x86_64.jar"],
+        "//src/conditions:darwin_arm64": ["@maven//:io_netty_netty_transport_native_kqueue_osx_aarch_64_file"],
+        "//src/conditions:darwin_x86_64": ["@maven//:io_netty_netty_transport_native_kqueue_osx_x86_64_file"],
         "//conditions:default": [],
     }) + select({
-        "//src/conditions:linux_aarch64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-aarch_64.jar"],
-        "//src/conditions:linux_x86_64": ["netty/netty-transport-native-epoll-4.1.75.Final-linux-x86_64.jar"],
+        "//src/conditions:linux_aarch64": ["@maven//:io_netty_netty_transport_native_epoll_linux_aarch_64_file"],
+        "//src/conditions:linux_x86_64": ["@maven//:io_netty_netty_transport_native_epoll_linux_x86_64_file"],
         "//conditions:default": [],
     }),
 )
@@ -665,7 +544,7 @@ distrib_java_import(
     name = "netty_tcnative",
     enable_distributions = ["debian"],
     jars = [
-        "netty_tcnative/netty-tcnative-classes-2.0.51.Final.jar",
+        "@maven//:io_netty_netty_tcnative_classes_file",
     ] + select({
         "//src/conditions:darwin_arm64": [":netty_tcnative/netty-tcnative-filtered.jar"],
         "//src/conditions:darwin_x86_64": [":netty_tcnative/netty-tcnative-filtered.jar"],
@@ -676,23 +555,21 @@ distrib_java_import(
     }),
 )
 
-distrib_java_import(
+java_library(
     name = "tomcat_annotations_api",
-    enable_distributions = ["debian"],
-    jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    exports = ["@maven//:org_apache_tomcat_tomcat_annotations_api"],
 )
 
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "tomcat_annotations_api-jars",
-    srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    srcs = ["@maven//:org_apache_tomcat_tomcat_annotations_api_file"],
     enable_distributions = ["debian"],
 )
 
-distrib_java_import(
+java_library(
     name = "java-diff-utils",
-    enable_distributions = ["debian"],
-    jars = ["java-diff-utils/java-diff-utils-4.0.jar"],
+    exports = ["@maven//:io_github_java_diff_utils_java_diff_utils"],
 )
 
 # Testing
@@ -703,9 +580,10 @@ java_import(
     jars = ["diffutils/diffutils-1.3.0.jar"],
 )
 
-java_import(
+java_library(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-31.1-jre.jar"],
+    exports = ["@maven//:com_google_guava_guava_testlib"],
+    testonly = 1,
 )
 
 distrib_java_import(
@@ -713,7 +591,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.jar",
+        "junit/junit-4.13.2.jar",
     ],
 )
 
@@ -743,6 +621,7 @@ java_import(
 
 java_import(
     name = "truth",
+    applicable_licenses = [":truth_license"],
     jars = ["truth/truth-1.0.1.jar"],
     exports = [
         ":truth8",
@@ -751,7 +630,6 @@ java_import(
     deps = [
         ":diffutils",
     ],
-    applicable_licenses = [":truth_license"],
 )
 
 license(
@@ -765,8 +643,8 @@ license(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
     applicable_licenses = [":truth8_license"],
+    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
 license(
@@ -780,11 +658,11 @@ license(
 
 java_import(
     name = "truth_proto",
+    applicable_licenses = [":truth_proto_license"],
     jars = [
         "truth_proto/truth-liteproto-extension-1.0.1.jar",
         "truth_proto/truth-proto-extension-1.0.1.jar",
     ],
-    applicable_licenses = [":truth_proto_license"],
 )
 
 license(
@@ -796,11 +674,10 @@ license(
     license_text = "truth_proto/LICENSE",
 )
 
-distrib_java_import(
+java_library(
     name = "xz",
-    enable_distributions = ["debian"],
-    jars = ["xz/xz-1.9.jar"],
     applicable_licenses = [":xz_license"],
+    exports = ["@maven//:org_tukaani_xz"],
 )
 
 license(
@@ -817,7 +694,7 @@ filegroup(
     name = "junit4-jars",
     srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.jar",
+        "junit/junit-4.13.2.jar",
     ],
 )
 

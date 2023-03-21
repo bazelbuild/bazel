@@ -391,13 +391,22 @@ public class BuildDriverFunction implements SkyFunction {
     env.getListener().post(SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
-    for (SkyValue value : topLevelAspectsValue.getTopLevelAspectsValues()) {
-      AspectValue aspectValue = (AspectValue) value;
+    for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
       AspectKey aspectKey = aspectValue.getKey();
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
           configuredAspect.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
-      postAspectAnalyzedEvent(env, aspectValue, aspectKey, configuredAspect);
+
+      // It's possible that this code path is triggered AFTER the analysis cache clean up and the
+      // transitive packages for package root resolution is already cleared. In such a case, the
+      // symlinks should have already been planted.
+      if (aspectValue.getTransitivePackages() != null) {
+        env.getListener()
+            .post(
+                TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
+      }
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+
       aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
     // Send the AspectAnalyzedEvents first to make sure the BuildResultListener is up-to-date before
@@ -406,23 +415,6 @@ public class BuildDriverFunction implements SkyFunction {
 
     declareDependenciesAndCheckValues(
         env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
-  }
-
-  private static void postAspectAnalyzedEvent(
-      Environment env,
-      AspectValue aspectValue,
-      AspectKey aspectKey,
-      ConfiguredAspect configuredAspect) {
-    // It's possible that this code path is triggered AFTER the analysis cache clean up and the
-    // transitive packages for package root resolution is already cleared. In such a case, the
-    // symlinks should have already been planted.
-    AspectAnalyzedEvent aspectAnalyzedEvent =
-        aspectValue.getTransitivePackages() == null
-            ? AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(aspectKey, configuredAspect)
-            : AspectAnalyzedEvent.create(
-                aspectKey, configuredAspect, aspectValue.getTransitivePackages());
-
-    env.getListener().post(aspectAnalyzedEvent);
   }
 
   /**
@@ -504,17 +496,17 @@ public class BuildDriverFunction implements SkyFunction {
     ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
-    void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
+    void registerConflictFreeKeys(ImmutableSet<SkyKey> keys);
   }
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
     abstract Sharder<ActionLookupValue> collectedValues();
 
-    abstract ImmutableSet<ActionLookupKey> visitedKeys();
+    abstract ImmutableSet<SkyKey> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        Sharder<ActionLookupValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
+        Sharder<ActionLookupValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }

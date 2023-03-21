@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
@@ -21,7 +20,7 @@ import java.io.IOException;
 /** Mocking support for platforms and toolchains. */
 public class MockPlatformSupport {
 
-  /** Adds mocks for basic host and target platform. */
+  /** Adds mocks for basic exec and target platform. */
   public static void setup(MockToolsConfig mockToolsConfig) throws IOException {
     setup(
         mockToolsConfig,
@@ -32,7 +31,7 @@ public class MockPlatformSupport {
         TestConstants.LOCAL_CONFIG_PLATFORM_PATH);
   }
 
-  /** Adds mocks for basic host and target platform. */
+  /** Adds mocks for basic exec and target platform. */
   public static void setup(
       MockToolsConfig mockToolsConfig,
       String platformsPath,
@@ -197,9 +196,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-k8',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '"
-            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-k8-compiler", ImmutableMap.of())
-            + "',",
+        "   toolchain = '" + crosstoolLabel.getLocalTargetLabel("cc-compiler-k8-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }
@@ -219,9 +216,7 @@ public class MockPlatformSupport {
         "toolchain(",
         "   name = 'toolchain_cc-compiler-ppc',",
         "   toolchain_type = '" + TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain_type',",
-        "   toolchain = '"
-            + crosstoolLabel.getRelativeWithRemapping("cc-compiler-ppc-compiler", ImmutableMap.of())
-            + "',",
+        "   toolchain = '" + crosstoolLabel.getLocalTargetLabel("cc-compiler-ppc-compiler") + "',",
         "   target_compatible_with = [':mock_value'],",
         ")");
   }

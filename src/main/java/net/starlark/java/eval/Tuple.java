@@ -41,17 +41,14 @@ import net.starlark.java.annot.StarlarkBuiltin;
             + "('a', 'b', 'c', 'd')[::2]  # ('a', 'c')\n"
             + "('a', 'b', 'c', 'd')[3:0:-1]  # ('d', 'c', 'b')</pre>"
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported.")
-public final class Tuple extends AbstractList<Object>
+public abstract class Tuple extends AbstractList<Object>
     implements Sequence<Object>, Comparable<Tuple> {
 
-  private final Object[] elems;
-
-  private Tuple(Object[] elems) {
-    this.elems = elems;
-  }
+  // Prohibit instantiation outside of package.
+  Tuple() {}
 
   // The shared (sole) empty tuple.
-  private static final Tuple EMPTY = new Tuple(new Object[0]);
+  private static final Tuple EMPTY = new RegularTuple(new Object[] {});
 
   /** Returns the empty tuple. */
   public static Tuple empty() {
@@ -60,7 +57,14 @@ public final class Tuple extends AbstractList<Object>
 
   /** Returns a Tuple that wraps the specified array, which must not be subsequently modified. */
   static Tuple wrap(Object[] array) {
-    return array.length == 0 ? empty() : new Tuple(array);
+    switch (array.length) {
+      case 0:
+        return EMPTY;
+      case 1:
+        return new SingletonTuple(array[0]);
+      default:
+        return new RegularTuple(array);
+    }
   }
 
   /** Returns a tuple containing the given elements. */
@@ -73,10 +77,7 @@ public final class Tuple extends AbstractList<Object>
 
   /** Returns a tuple containing the given elements. */
   public static Tuple of(Object... elems) {
-    if (elems.length == 0) {
-      return empty();
-    }
-    return new Tuple(Arrays.copyOf(elems, elems.length));
+    return wrap(Arrays.copyOf(elems, elems.length));
   }
 
   /** Returns a two-element tuple. */
@@ -98,38 +99,16 @@ public final class Tuple extends AbstractList<Object>
     } else if (y.isEmpty()) {
       return x;
     } else {
-      return wrap(ObjectArrays.concat(x.elems, y.elems, Object.class));
+      Object[] xelems =
+          x instanceof SingletonTuple
+              ? new Object[] {((SingletonTuple) x).elem}
+              : ((RegularTuple) x).elems;
+      Object[] yelems =
+          y instanceof SingletonTuple
+              ? new Object[] {((SingletonTuple) y).elem}
+              : ((RegularTuple) y).elems;
+      return wrap(ObjectArrays.concat(xelems, yelems, Object.class));
     }
-  }
-
-  @Override
-  public boolean isImmutable() {
-    for (Object x : elems) {
-      if (!Starlark.isImmutable(x)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  @Override
-  public void checkHashable() throws EvalException {
-    for (Object x : elems) {
-      Starlark.checkHashable(x);
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    return 9857 + 8167 * Arrays.hashCode(elems);
-  }
-
-  @Override
-  public boolean equals(Object that) {
-    // This slightly violates the java.util.List equivalence contract
-    // because it considers the class, not just the elements.
-    return this == that
-        || (that instanceof Tuple && Arrays.equals(this.elems, ((Tuple) that).elems));
   }
 
   @Override
@@ -138,63 +117,18 @@ public final class Tuple extends AbstractList<Object>
   }
 
   @Override
-  public Object get(int i) {
-    return elems[i];
-  }
-
-  @Override
-  public int size() {
-    return elems.length;
-  }
-
-  @Override
-  public Tuple subList(int from, int to) {
-    return wrap(Arrays.copyOfRange(elems, from, to));
-  }
-
-  /** Returns a new array of class Object[] containing the tuple elements. */
-  @Override
-  public Object[] toArray() {
-    return elems.length != 0 ? Arrays.copyOf(elems, elems.length, Object[].class) : elems;
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
-  public <T> T[] toArray(T[] a) {
-    if (a.length < elems.length) {
-      return (T[]) Arrays.copyOf(elems, elems.length, a.getClass());
-    } else {
-      System.arraycopy(elems, 0, a, 0, elems.length);
-      Arrays.fill(a, elems.length, a.length, null);
-      return a;
-    }
-  }
-
-  @Override
-  public void repr(Printer printer) {
-    printer.append('(');
-    String sep = "";
-    for (Object elem : elems) {
-      printer.append(sep);
-      sep = ", ";
-      printer.repr(elem);
-    }
-    if (elems.length == 1) {
-      printer.append(',');
-    }
-    printer.append(')');
+  public boolean equals(Object that) {
+    // This slightly violates the java.util.List equivalence contract
+    // because it considers the class, not just the elements.
+    // This is needed because in Starlark tuples are never equal to lists, however in Java they both
+    // implement List interface.
+    return this == that || (that instanceof Tuple && Sequence.sameElems(this, ((Tuple) that)));
   }
 
   // TODO(adonovan): StarlarkValue has 3 String methods yet still we need this fourth. Why?
   @Override
   public String toString() {
     return Starlark.repr(this);
-  }
-
-  @Override
-  public ImmutableList<Object> getImmutableList() {
-    // Share the array with this (immutable) Tuple.
-    return wrapImmutable(elems);
   }
 
   /**
@@ -225,35 +159,6 @@ public final class Tuple extends AbstractList<Object>
         });
   }
 
-  @Override
-  public Tuple getSlice(Mutability mu, int start, int stop, int step) throws EvalException {
-    RangeList indices = new RangeList(start, stop, step);
-    int n = indices.size();
-    if (step == 1) { // common case
-      return subList(indices.at(0), indices.at(n));
-    }
-    Object[] res = new Object[n];
-    for (int i = 0; i < n; ++i) {
-      res[i] = elems[indices.at(i)];
-    }
-    return wrap(res);
-  }
-
   /** Returns a Tuple containing n consecutive repeats of this tuple. */
-  Tuple repeat(StarlarkInt n) throws EvalException {
-    if (n.signum() <= 0 || isEmpty()) {
-      return empty();
-    }
-
-    int ni = n.toInt("repeat");
-    long sz = (long) ni * elems.length;
-    if (sz > StarlarkList.MAX_ALLOC) {
-      throw Starlark.errorf("excessive repeat (%d * %d elements)", elems.length, ni);
-    }
-    Object[] res = new Object[(int) sz];
-    for (int i = 0; i < ni; i++) {
-      System.arraycopy(elems, 0, res, i * elems.length, elems.length);
-    }
-    return wrap(res);
-  }
+  abstract Tuple repeat(StarlarkInt n) throws EvalException;
 }

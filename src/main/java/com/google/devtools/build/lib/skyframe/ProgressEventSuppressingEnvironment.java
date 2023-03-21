@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -104,7 +104,7 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
 
   @Override
   @Nullable
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
   }
 
@@ -131,6 +131,11 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }
 
   @Override

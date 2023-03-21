@@ -71,24 +71,13 @@ use_fake_python_runtimes_for_testsuite
 # Tests that Python 2 or Python 3 is actually invoked.
 function test_python_version() {
   mkdir -p test
-  touch test/main2.py test/main3.py
+  touch test/main3.py
   cat > test/BUILD << EOF
-py_binary(name = "main2",
-    python_version = "PY2",
-    srcs = ['main2.py'],
-)
 py_binary(name = "main3",
     python_version = "PY3",
     srcs = ["main3.py"],
 )
 EOF
-
-  # Google builds don't support Python 2
-  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
-    bazel run //test:main2 \
-        &> $TEST_log || fail "bazel run failed"
-    expect_log "I am Python 2"
-  fi
 
   # Stamping is disabled so that the invocation doesn't time out. What
   # happens is Google has stamping enabled by default, which causes the
@@ -103,94 +92,15 @@ function test_can_build_py_library_at_top_level_regardless_of_version() {
   mkdir -p test
   cat > test/BUILD << EOF
 py_library(
-    name = "lib2",
-    srcs = ["lib2.py"],
-    srcs_version = "PY2ONLY",
-)
-py_library(
     name = "lib3",
     srcs = ["lib3.py"],
     srcs_version = "PY3ONLY",
 )
 EOF
-  touch test/lib2.py test/lib3.py
+  touch test/lib3.py
 
-  # Python 2 support dropped in Google builds
-  if [[ "$PRODUCT_NAME" == "bazel" ]]; then
-    bazel build --python_version=PY2 //test:* \
-        &> $TEST_log || fail "bazel build failed"
-  fi
   bazel build --python_version=PY3 //test:* \
       &> $TEST_log || fail "bazel build failed"
-}
-
-# Regression test for #7808. We want to ensure that changing the Python version
-# to a value different from the top-level configuration, and then changing it
-# back again, is able to reuse the top-level configuration.
-function test_no_action_conflicts_from_version_transition() {
-  # Requires Python 2 support, which doesn't work for Google-internal builds
-  if [[ "$PRODUCT_NAME" != "bazel" ]]; then
-    return 0
-  fi
-  mkdir -p test
-
-  # To repro, we need to build a C++ target in two different ways in the same
-  # build:
-  #
-  #   1) At the top-level, and without any explicit flags passed to control the
-  #      Python version, because the behavior under test involves the internal
-  #      null default value of said flags.
-  #
-  #   2) As a dependency of a target that transitions the Python version to the
-  #      same value as in the top-level configuration.
-  #
-  # We need to use two different Python targets, to transition the version
-  # *away* from the top-level default and then *back* again. Furthermore,
-  # because (as of the writing of this test) the default Python version is in
-  # the process of being migrated from PY2 to PY3, we'll future-proof this test
-  # by using two separate paths that have the versions inverted.
-  #
-  # We use C++ for the repro because it has unshareable actions, so we'll know
-  # if the top-level config isn't being reused.
-
-  cat > test/BUILD << EOF
-cc_binary(
-    name = "cc",
-    srcs = ["cc.cc"],
-)
-
-py_binary(
-    name = "path_A_inner",
-    srcs = ["path_A_inner.py"],
-    data = [":cc"],
-    python_version = "PY2",
-)
-
-py_binary(
-    name = "path_A_outer",
-    srcs = [":path_A_outer.py"],
-    data = [":path_A_inner"],
-    python_version = "PY3",
-)
-
-py_binary(
-    name = "path_B_inner",
-    srcs = [":path_B_inner.py"],
-    data = [":cc"],
-    python_version = "PY3",
-)
-
-py_binary(
-    name = "path_B_outer",
-    srcs = [":path_B_outer.py"],
-    data = [":path_B_inner"],
-    python_version = "PY2",
-)
-EOF
-
-  # Build cc at the top level, along with the outer halves of both paths to cc.
-  bazel build --nobuild //test:cc //test:path_A_outer //test:path_B_outer \
-      &> $TEST_log || fail "bazel run failed"
 }
 
 # When invoking a Python binary using the runfiles manifest, the stub

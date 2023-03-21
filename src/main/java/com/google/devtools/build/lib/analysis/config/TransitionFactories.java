@@ -21,8 +21,9 @@ import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 
 /** Useful implementations of {@link TransitionFactory}. */
-// This class is in lib.analysis.config in order to access HostTransition, which is not visible to
-// lib.analysis.config.transitions.
+// This class is in lib.analysis.config in order to access the now removed HostTransition, which
+// is not visible to lib.analysis.config.transitions.
+// TODO(b/253313672): move this to lib.analysis.config.transitions.
 public final class TransitionFactories {
   // Don't instantiate this class.
   private TransitionFactories() {}
@@ -30,9 +31,7 @@ public final class TransitionFactories {
   /** Returns a {@link TransitionFactory} that wraps a static transition. */
   public static <T extends TransitionFactory.Data> TransitionFactory<T> of(
       ConfigurationTransition transition) {
-    if (transition instanceof HostTransition) {
-      return HostTransition.createFactory();
-    } else if (transition instanceof NoTransition) {
+    if (transition instanceof NoTransition) {
       return NoTransition.createFactory();
     } else if (transition instanceof NullTransition) {
       return NullTransition.createFactory();

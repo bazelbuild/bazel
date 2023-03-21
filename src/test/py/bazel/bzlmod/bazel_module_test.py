@@ -60,10 +60,20 @@ class BazelModuleTest(test_base.TestBase):
             # bazel_tools can work.
             'common --registry=https://bcr.bazel.build',
             'common --verbose_failures',
-        ] + ([
-            # Disable yanked version check so we are not affected BCR changes.
-            'common --allow_yanked_versions=all',
-        ] if allow_yanked_versions else []))
+            # Set an explicit Java language version
+            'common --java_language_version=8',
+            'common --tool_java_language_version=8',
+        ]
+        + (
+            [
+                # Disable yanked version check so we are not affected BCR
+                # changes.
+                'common --allow_yanked_versions=all',
+            ]
+            if allow_yanked_versions
+            else []
+        ),
+    )
 
   def writeMainProjectFiles(self):
     self.ScratchFile('aaa.patch', [
@@ -694,6 +704,118 @@ quux~2.0,quux,quux~2.0""")
         self.Path('bazel-bin/external/bar~2.0/bar.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
+  def testBashRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    projects_dir.joinpath('data').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])'])
+
+    self.main_registry.createLocalPathModule('test', '1.0', 'test',
+                                             {'data': '1.0'})
+    projects_dir.joinpath('test').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'), [
+            'sh_test(',
+            '    name = "test",',
+            '    srcs = ["test.sh"],',
+            '    data = ["@data//:foo.txt"],',
+            '    args = ["$(rlocationpath @data//:foo.txt)"],',
+            '    deps = ["@bazel_tools//tools/bash/runfiles"],',
+            ')',
+        ])
+    test_script = projects_dir.joinpath('test', 'test.sh')
+    scratchFile(
+        test_script, """#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v2 ---
+# Copy-pasted from the Bazel Bash runfiles library v2.
+set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v2 ---
+[[ -f  "$(rlocation $1)" ]] || exit 1
+[[ -f  "$(rlocation data/foo.txt)" ]] || exit 2
+""".splitlines())
+    os.chmod(test_script, 0o755)
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+    self.ScratchFile('WORKSPACE')
+
+    # Run sandboxed on Linux and macOS.
+    exit_code, stderr, stdout = self.RunBazel([
+        'test', '@test//:test', '--test_output=errors',
+        '--test_env=RUNFILES_LIB_DEBUG=1'
+    ],
+                                              allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    # Run unsandboxed on all platforms.
+    exit_code, stderr, stdout = self.RunBazel(
+        ['run', '@test//:test'],
+        allow_failure=True,
+        env_add={'RUNFILES_LIB_DEBUG': '1'})
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  def testCppRunfilesLibraryRepoMapping(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.main_registry.createLocalPathModule('data', '1.0', 'data')
+    projects_dir.joinpath('data').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('data', 'WORKSPACE'))
+    scratchFile(projects_dir.joinpath('data', 'foo.txt'), ['hello'])
+    scratchFile(
+        projects_dir.joinpath('data', 'BUILD'), ['exports_files(["foo.txt"])'])
+
+    self.main_registry.createLocalPathModule('test', '1.0', 'test',
+                                             {'data': '1.0'})
+    projects_dir.joinpath('test').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('test', 'WORKSPACE'))
+    scratchFile(
+        projects_dir.joinpath('test', 'BUILD'), [
+            'cc_test(',
+            '    name = "test",',
+            '    srcs = ["test.cpp"],',
+            '    data = ["@data//:foo.txt"],',
+            '    args = ["$(rlocationpath @data//:foo.txt)"],',
+            '    deps = ["@bazel_tools//tools/cpp/runfiles"],',
+            ')',
+        ])
+    scratchFile(
+        projects_dir.joinpath('test', 'test.cpp'), [
+            '#include <cstdlib>',
+            '#include <fstream>',
+            '#include "tools/cpp/runfiles/runfiles.h"',
+            'using bazel::tools::cpp::runfiles::Runfiles;',
+            'int main(int argc, char** argv) {',
+            '  Runfiles* runfiles = Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY);',
+            '  std::ifstream f1(runfiles->Rlocation(argv[1]));',
+            '  if (!f1.good()) std::exit(1);',
+            '  std::ifstream f2(runfiles->Rlocation("data/foo.txt"));',
+            '  if (!f2.good()) std::exit(2);',
+            '}',
+        ])
+
+    self.ScratchFile('MODULE.bazel', ['bazel_dep(name="test",version="1.0")'])
+    self.ScratchFile('WORKSPACE')
+
+    # Run sandboxed on Linux and macOS.
+    exit_code, stderr, stdout = self.RunBazel(
+        ['test', '@test//:test', '--test_output=errors'], allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    # Run unsandboxed on all platforms.
+    exit_code, stderr, stdout = self.RunBazel(['run', '@test//:test'],
+                                              allow_failure=True)
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
+
   def testJavaRunfilesLibraryRepoMapping(self):
     self.main_registry.setModuleBasePath('projects')
     projects_dir = self.main_registry.projects
@@ -761,6 +883,164 @@ quux~2.0,quux,quux~2.0""")
         allow_failure=True,
         env_add={'RUNFILES_LIB_DEBUG': '1'})
     self.AssertExitCode(exit_code, 0, stderr, stdout)
+
+  def testNativePackageRelativeLabel(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="foo")',
+            'bazel_dep(name="bar")',
+            'local_path_override(module_name="bar",path="bar")',
+        ],
+    )
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            'def mac(name):',
+            '  native.filegroup(name=name)',
+            '  print("1st: " + str(native.package_relative_label(":bleb")))',
+            '  print("2nd: " + str(native.package_relative_label('
+            + '"//bleb:bleb")))',
+            '  print("3rd: " + str(native.package_relative_label('
+            + '"@bleb//bleb:bleb")))',
+            '  print("4th: " + str(native.package_relative_label("//bleb")))',
+            '  print("5th: " + str(native.package_relative_label('
+            + '"@@bleb//bleb:bleb")))',
+            '  print("6th: " + str(native.package_relative_label(Label('
+            + '"//bleb"))))',
+        ],
+    )
+
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        [
+            'module(name="bar")',
+            'bazel_dep(name="foo", repo_name="bleb")',
+        ],
+    )
+    self.ScratchFile('bar/WORKSPACE')
+    self.ScratchFile(
+        'bar/quux/BUILD',
+        [
+            'load("@bleb//:defs.bzl", "mac")',
+            'mac(name="book")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        ['build', '@bar//quux:book'], allow_failure=False
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('1st: @@bar~override//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('3rd: @@//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar~override//bleb:bleb', stderr)
+    self.assertIn('5th: @@bleb//bleb:bleb', stderr)
+    self.assertIn('6th: @@//bleb:bleb', stderr)
+
+  def testWorkspaceEvaluatedBzlCanSeeRootModuleMappings(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="aaa",version="1.0")',
+            'bazel_dep(name="bbb",version="1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'WORKSPACE.bzlmod',
+        [
+            'local_repository(name="foo", path="foo", repo_mapping={',
+            '  "@bar":"@baz",',
+            '  "@my_aaa":"@aaa",',
+            '})',
+            'load("@foo//:test.bzl", "test")',
+            'test()',
+        ],
+    )
+    self.ScratchFile('foo/WORKSPACE')
+    self.ScratchFile('foo/BUILD', ['filegroup(name="test")'])
+    self.ScratchFile(
+        'foo/test.bzl',
+        [
+            'def test():',
+            '  print("1st: " + str(Label("@bar//:z")))',
+            '  print("2nd: " + str(Label("@my_aaa//:z")))',
+            '  print("3rd: " + str(Label("@bbb//:z")))',
+            '  print("4th: " + str(Label("@blarg//:z")))',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@foo//:test'], allow_failure=False)
+    stderr = '\n'.join(stderr)
+    # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
+    self.assertIn('1st: @@baz//:z', stderr)
+    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa~1.0
+    self.assertIn('2nd: @@aaa~1.0//:z', stderr)
+    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb~1.0
+    self.assertIn('3rd: @@bbb~1.0//:z', stderr)
+    # @blarg isn't mapped by WORKSPACE or Bzlmod
+    self.assertIn('4th: @@blarg//:z', stderr)
+
+  def testWorkspaceItselfCanSeeRootModuleMappings(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="hello")',
+            'local_path_override(module_name="hello",path="hello")',
+        ],
+    )
+    self.ScratchFile(
+        'WORKSPACE.bzlmod',
+        [
+            'load("@hello//:world.bzl", "message")',
+            'print(message)',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name="a")'])
+    self.ScratchFile('hello/WORKSPACE')
+    self.ScratchFile('hello/BUILD')
+    self.ScratchFile('hello/MODULE.bazel', ['module(name="hello")'])
+    self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
+
+    _, _, stderr = self.RunBazel(['build', ':a'], allow_failure=False)
+    self.assertIn('I LUV U!', '\n'.join(stderr))
+
+  def testArchiveWithArchiveType(self):
+    # make the archive without the .zip extension
+    self.main_registry.createCcModule(
+        'aaa', '1.2', archive_pattern='%s.%s', archive_type='zip'
+    )
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.2")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => aaa@1.2', stdout)
+
 
 if __name__ == '__main__':
   unittest.main()

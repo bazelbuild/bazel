@@ -19,6 +19,7 @@ officially support them. Contact the package maintainers for support.
 *   [Arch Linux](https://www.archlinux.org/packages/community/x86_64/bazel/){: .external}
 *   [Fedora 25, 26, 27, 28, and CentOS 7](/install/redhat)
 *   [CentOS 6](https://github.com/sub-mod/bazel-builds){: .external}
+*   [Debian](https://qa.debian.org/developer.php?email=team%2Bbazel%40tracker.debian.org){: .external}
 *   [FreeBSD](https://www.freshports.org/devel/bazel){: .external}
 *   [Gentoo](https://packages.gentoo.org/packages/dev-util/bazel){: .external}
 *   [Linuxbrew](https://github.com/Linuxbrew/homebrew-core/blob/master/Formula/bazel.rb){: .external}

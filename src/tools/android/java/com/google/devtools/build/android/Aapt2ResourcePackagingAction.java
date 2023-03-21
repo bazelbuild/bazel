@@ -16,7 +16,7 @@ package com.google.devtools.build.android;
 import static com.google.common.collect.Streams.concat;
 import static java.util.stream.Collectors.toList;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -256,15 +256,15 @@ public class Aapt2ResourcePackagingAction {
 
     @Option(
         name = "packageType",
-        defaultValue = "DEFAULT",
+        defaultValue = "BASE_APK",
         converter = VariantTypeConverter.class,
         category = "config",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Variant configuration type for packaging the resources."
-                + " Acceptable values DEFAULT, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantType packageType;
+                + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
+    public VariantTypeImpl packageType;
 
     @Option(
         name = "densities",

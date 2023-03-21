@@ -15,7 +15,7 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -186,7 +186,7 @@ public class AarGeneratorAction {
               ImmutableList.<DependencyAndroidData>of(),
               resourcesOut,
               assetsOut,
-              VariantType.LIBRARY,
+              VariantTypeImpl.LIBRARY,
               null,
               /* filteredResources= */ ImmutableList.<String>of(),
               options.throwOnResourceConflict);

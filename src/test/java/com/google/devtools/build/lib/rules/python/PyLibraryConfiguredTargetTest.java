@@ -46,20 +46,6 @@ public class PyLibraryConfiguredTargetTest extends PyBaseConfiguredTargetTestBas
   }
 
   @Test
-  public void canBuildWithIncompatibleSrcsVersion() throws Exception {
-    useConfiguration("--python_version=PY3");
-    scratch.file(
-        "pkg/BUILD",
-        "py_library(",
-        "    name = 'foo',",
-        "    srcs = [':foo.py'],",
-        "    srcs_version = 'PY2ONLY')");
-    // Errors are only reported at the binary target, not the library, and even then they'd be
-    // deferred to execution time, so there should be nothing wrong here.
-    assertThat(view.hasErrors(getConfiguredTarget("//pkg:foo"))).isFalse();
-  }
-
-  @Test
   public void versionIs3IfSetByFlag() throws Exception {
     assumesDefaultIsPY2();
     useConfiguration("--python_version=PY3");

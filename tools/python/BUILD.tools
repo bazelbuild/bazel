@@ -24,11 +24,11 @@ package(default_visibility = ["//visibility:public"])
 # don't have access to Skylib here. See
 # https://github.com/bazelbuild/skydoc/issues/166.
 exports_files([
+    "python_bootstrap_template.txt",
     "python_version.bzl",
     "srcs_version.bzl",
     "toolchain.bzl",
     "utils.bzl",
-    "private/defs.bzl",
     "private/py_test_alias.bzl",
     # write_file.bzl fortunately doesn't need to be exposed because it's only
     # used in this BUILD file.
@@ -37,7 +37,6 @@ exports_files([
 filegroup(
     name = "bzl_srcs",
     srcs = glob(["*.bzl"]) + [
-        "private/defs.bzl",
         "private/py_test_alias.bzl",
     ],
     visibility = ["//tools:__pkg__"],

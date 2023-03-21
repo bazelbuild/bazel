@@ -181,7 +181,7 @@ two sections:
 * A **References** section, which lists the files in which the reference also
   appears
 
-Both sections display the the name of the file, as well as the line or lines
+Both sections display the name of the file, as well as the line or lines
 that contains the reference. To open a file from the Cross Reference pane,
 click the line number entry. The file appears in a new section of the pane,
 allowing you to continue to browse the file while keeping the original file

@@ -20,12 +20,16 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,10 +46,14 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected abstract void setDownloadAll();
 
-  protected abstract void assertOutputEquals(String realContent, String expectedContent)
-      throws Exception;
+  protected abstract void assertOutputEquals(
+      String realContent, String expectedContent, boolean isLocal) throws Exception;
 
   protected abstract void assertOutputContains(String content, String contains) throws Exception;
+
+  protected abstract void evictAllBlobs() throws Exception;
+
+  protected abstract boolean hasAccessToRemoteOutputs();
 
   protected void waitDownloads() throws Exception {
     // Trigger afterCommand of modules so that downloads are waited.
@@ -77,6 +85,32 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void disableRunfiles_buildSuccessfully() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  cmd = 'echo foo > $@',",
+        "  outs = ['foo.data'],",
+        ")",
+        "sh_test(",
+        "  name = 'foobar',",
+        "  srcs = ['test.sh'],",
+        "  data = [':foo'],",
+        ")");
+    write("test.sh");
+    getWorkspace().getRelative("test.sh").setExecutable(true);
+    addOptions("--build_runfile_links", "--enable_runfiles=no");
+
+    buildTarget("//:foobar");
+  }
+
+  @Test
   public void downloadOutputsWithRegex() throws Exception {
     write(
         "BUILD",
@@ -99,6 +133,84 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertValidOutputFile("out/foo.txt", "foo\n");
     assertOutputsDoNotExist("//:foobar");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesTreeFile() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
+        ")");
+    addOptions("--experimental_remote_download_regex=.*foo/file-2$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertValidOutputFile("foo/file-2", "2");
+    assertOutputDoesNotExist("foo/file-1");
+    assertOutputDoesNotExist("foo/file-3");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_treeOutput_regexMatchesTreeRoot() throws Exception {
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
+        ")");
+    addOptions("--experimental_remote_download_regex=.*foo$");
+
+    buildTarget("//:foo");
+    waitDownloads();
+
+    assertThat(getOutputPath("foo").exists()).isTrue();
+    assertOutputDoesNotExist("foo/file-1");
+    assertOutputDoesNotExist("foo/file-2");
+    assertOutputDoesNotExist("foo/file-3");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_regexMatchParentPath_filesNotDownloaded() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'file-1',",
+        "  srcs = [],",
+        "  outs = ['foo/file-1'],",
+        "  cmd = 'echo file-1 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'file-2',",
+        "  srcs = [],",
+        "  outs = ['foo/file-2'],",
+        "  cmd = 'echo file-2 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'file-3',",
+        "  srcs = [],",
+        "  outs = ['foo/file-3'],",
+        "  cmd = 'echo file-3 > $@',",
+        ")");
+    addOptions("--experimental_remote_download_regex=.*foo$");
+
+    buildTarget("//:file-1", "//:file-2", "//:file-3");
+    waitDownloads();
+
+    assertOutputDoesNotExist("foo/file-1");
+    assertOutputDoesNotExist("foo/file-2");
+    assertOutputDoesNotExist("foo/file-3");
   }
 
   @Test
@@ -250,7 +362,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     if (OS.getCurrent() == OS.WINDOWS) {
       return;
     }
-
     addOptions("--internal_spawn_scheduler");
     addOptions("--strategy=Genrule=dynamic");
     addOptions("--experimental_local_execution_delay=9999999");
@@ -427,16 +538,101 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    write("manifest", "file-1", "file-2", "file-3");
 
     buildTarget("//:foo");
     waitDownloads();
 
-    assertValidOutputFile("foo/file-1", "file-1\n");
-    assertValidOutputFile("foo/file-2", "file-2\n");
-    assertValidOutputFile("foo/file-3", "file-3\n");
+    assertValidOutputFile("foo/file-1", "1");
+    assertValidOutputFile("foo/file-2", "2");
+    assertValidOutputFile("foo/file-3", "3");
+  }
+
+  @Test
+  public void treeOutputsFromLocalFileSystem_works() throws Exception {
+    // Disable on Windows since it fails for unknown reasons.
+    // TODO(chiwang): Enable it on windows.
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return;
+    }
+    // Test that tree artifact generated locally can be consumed by other actions.
+    // See https://github.com/bazelbuild/bazel/issues/16789
+
+    // Disable remote execution so tree outputs are generated locally
+    addOptions("--modify_execution_info=OutputDir=+no-remote-exec");
+    setDownloadToplevel();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1'},",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo)/file-1 > $@ && echo bar >> $@',",
+        ")");
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foobar.txt", "1bar\n");
+  }
+
+  @Test
+  public void emptyTreeConsumedByLocalAction() throws Exception {
+    // Disable remote execution so that the empty tree artifact is prefetched.
+    addOptions("--modify_execution_info=Genrule=+no-remote-exec");
+    addOptions("--verbose_failures");
+    setDownloadToplevel();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {},", // no files
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.txt'],",
+        "  cmd = 'touch $@',",
+        ")");
+
+    buildTarget("//:foobar");
+    waitDownloads();
+  }
+
+  @Test
+  public void multiplePackagePaths_buildsSuccessfully() throws Exception {
+    write(
+        "../a/src/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")");
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = ['//src:foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location //src:foo) > $@ && echo bar >> $@',",
+        ")");
+    addOptions("--package_path=%workspace%:%workspace%/../a");
+    setDownloadToplevel();
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
   }
 
   @Test
@@ -471,21 +667,26 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "load(':output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
         ")");
-    write("manifest", "file-1", "file-2", "file-3");
     setDownloadToplevel();
     buildTarget("//:foo");
     waitDownloads();
 
-    write("manifest", "file-1", "file-4");
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-4': '4'},",
+        ")");
     restartServer();
     setDownloadToplevel();
     buildTarget("//:foo");
     waitDownloads();
 
-    assertValidOutputFile("foo/file-1", "file-1\n");
-    assertValidOutputFile("foo/file-4", "file-4\n");
+    assertValidOutputFile("foo/file-1", "1");
+    assertValidOutputFile("foo/file-4", "4");
     assertOutputDoesNotExist("foo/file-2");
     assertOutputDoesNotExist("foo/file-3");
   }
@@ -608,6 +809,62 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void incrementalBuild_remoteFileMetadataIsReplacedWithLocalFileMetadata()
+      throws Exception {
+    // We need to download the intermediate output
+    if (!hasAccessToRemoteOutputs()) {
+      return;
+    }
+
+    // Arrange: Prepare workspace and run a clean build
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        "  tags = ['no-remote'],",
+        ")");
+
+    buildTarget("//:foobar");
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(getOnlyElement(getFileMetadata("//:foo").values()).isRemote()).isTrue();
+
+    // Act: Do an incremental build without any modifications
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+
+    // Assert: remote file metadata is replaced with local file metadata
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+    // Two actions are invalidated but were able to hit the action cache
+    assertThat(actionEventCollector.getCachedActionEvents()).hasSize(2);
+    assertThat(getOnlyElement(getFileMetadata("//:foo").values()).isRemote()).isFalse();
+  }
+
+  private ImmutableMap<Artifact, FileArtifactValue> getFileMetadata(String target)
+      throws Exception {
+    var result = ImmutableMap.<Artifact, FileArtifactValue>builder();
+    var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
+    for (var artifact : getArtifacts(target)) {
+      var value = evaluator.getExistingValue(Artifact.key(artifact));
+      Preconditions.checkState(value instanceof ActionExecutionValue);
+      result.putAll(((ActionExecutionValue) value).getAllFileValues());
+    }
+    return result.buildOrThrow();
+  }
+
+  @Test
   public void incrementalBuild_intermediateOutputModified_rerunGeneratingActions()
       throws Exception {
     // Arrange: Prepare workspace and run a clean build
@@ -652,6 +909,196 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(executedAction.getPrimaryOutput().getFilename()).isEqualTo("foo.txt");
   }
 
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // trigger build error
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        "load('//:output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo.out',",
+        "  content_map = {'file-inside': 'hello world'},",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
+        ")");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // trigger build error
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+
+    // Assert: target was successfully built
+    assertValidOutputFile(
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
+  }
+
+  @Test
+  public void remoteFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    addOptions("--experimental_remote_cache_ttl=0s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+  }
+
+  @Test
+  public void remoteTreeFilesExpiredBetweenBuilds_rerunGeneratingActions() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        "load('//:output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo.out',",
+        "  content_map = {'file-inside': 'hello world'},",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
+        ")");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    addOptions("--experimental_remote_cache_ttl=0s");
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // Act: Do an incremental build
+    write("a/bar.in", "updated bar");
+    addOptions("--strategy_regexp=.*bar=local");
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile(
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
+  }
+
   protected void assertOutputsDoNotExist(String target) throws Exception {
     for (Artifact output : getArtifacts(target)) {
       assertWithMessage(
@@ -678,12 +1125,17 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     Artifact output = getOnlyElement(getArtifacts(target));
     assertThat(output.getFilename()).isEqualTo(filename);
     assertThat(output.getPath().exists()).isTrue();
-    assertOutputEquals(readContent(output.getPath(), UTF_8), content);
+    assertOutputEquals(readContent(output.getPath(), UTF_8), content, /* isLocal= */ false);
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
+    assertValidOutputFile(binRelativePath, content, /* isLocal= */ false);
+  }
+
+  protected void assertValidOutputFile(String binRelativePath, String content, boolean isLocal)
+      throws Exception {
     Path output = getOutputPath(binRelativePath);
-    assertOutputEquals(readContent(output, UTF_8), content);
+    assertOutputEquals(readContent(output, UTF_8), content, isLocal);
     assertThat(output.isReadable()).isTrue();
     assertThat(output.isWritable()).isFalse();
     assertThat(output.isExecutable()).isTrue();
@@ -693,20 +1145,24 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     write(
         "output_dir.bzl",
         "def _output_dir_impl(ctx):",
-        "  output_dir = ctx.actions.declare_directory(ctx.attr.name)",
+        "  out = ctx.actions.declare_directory(ctx.attr.name)",
+        "  args = []",
+        "  for name, content in ctx.attr.content_map.items():",
+        "    args.append(out.path + '/' + name)",
+        "    args.append(content)",
         "  ctx.actions.run_shell(",
-        "    inputs = [ctx.file.manifest],",
-        "    outputs = [output_dir],",
-        "    arguments = [ctx.file.manifest.path, output_dir.path],",
-        "    command = 'while read -r line; do echo $line > $2/$line; done < $1',",
+        "    mnemonic = 'OutputDir',",
+        "    outputs = [out],",
+        "    arguments = args,",
+        "    command = 'while (($#)); do echo -n \"$2\" > $1; shift 2; done',",
         "  )",
-        "  return [DefaultInfo(files = depset([output_dir]))]",
+        "  return DefaultInfo(files = depset([out]))",
         "",
         "output_dir = rule(",
         "  implementation = _output_dir_impl,",
         "  attrs = {",
-        "    'manifest': attr.label(mandatory = True, allow_single_file = True),",
-        "  }",
+        "    'content_map': attr.string_dict(mandatory = True),",
+        "  },",
         ")");
   }
 

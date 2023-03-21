@@ -44,7 +44,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RuleFactoryTest extends PackageLoadingTestCase {
 
-  private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
+  private final ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
   private final RuleFactory ruleFactory = new RuleFactory(provider);
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
@@ -148,7 +148,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testWorkspaceRuleFailsInBuildFile() throws Exception {
+  public void testWorkspaceRuleFailsInBuildFile() {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
@@ -172,7 +172,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testBuildRuleFailsInWorkspaceFile() throws Exception {
+  public void testBuildRuleFailsInWorkspaceFile() {
     Path myPkgPath = scratch.resolve("/workspace/WORKSPACE");
     Package.Builder pkgBuilder = newBuilder(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, myPkgPath);
 
@@ -195,7 +195,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
 
-  private void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) throws Exception {
+  private static void assertAttr(RuleClass ruleClass, String attrName, Type<?> type) {
     assertWithMessage(
             "Rule class '"
                 + ruleClass.getName()
@@ -209,7 +209,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testOutputFileNotEqualDot() throws Exception {
+  public void testOutputFileNotEqualDot() {
     Path myPkgPath = scratch.resolve("/workspace/mypkg");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
@@ -251,8 +251,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
               Label.create(pkg.getPackageIdentifier(), "myrule"),
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
-              CallStack.EMPTY,
-              AttributeContainer.newMutableInstance(ruleClass));
+              CallStack.EMPTY);
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);
         assertAttr(ruleClass, "size", Type.STRING);

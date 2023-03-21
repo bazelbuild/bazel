@@ -3,6 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 # Description:
 #   Skyframe tests.
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -70,6 +71,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

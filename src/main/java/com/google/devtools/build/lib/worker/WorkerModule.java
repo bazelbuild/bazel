@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.SandboxedWorker.WorkerSandboxOptions;
-import com.google.devtools.build.lib.worker.WorkerPool.WorkerPoolConfig;
+import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -46,7 +46,7 @@ public class WorkerModule extends BlazeModule {
   private CommandEnvironment env;
 
   private WorkerFactory workerFactory;
-  @VisibleForTesting WorkerPool workerPool;
+  @VisibleForTesting WorkerPoolImpl workerPool;
   @Nullable private WorkerLifecycleManager workerLifecycleManager;
 
   @Override
@@ -99,7 +99,10 @@ public class WorkerModule extends BlazeModule {
               sandboxOptions.sandboxFakeUsername,
               sandboxOptions.sandboxDebug,
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
-              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath));
+              ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
+              sandboxOptions.memoryLimitMb,
+              sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
+              ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
     } else {
       workerSandboxOptions = null;
     }
@@ -156,7 +159,7 @@ public class WorkerModule extends BlazeModule {
     }
 
     if (workerPool == null) {
-      workerPool = new WorkerPool(newConfig);
+      workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
     }
@@ -176,6 +179,7 @@ public class WorkerModule extends BlazeModule {
         new WorkerSpawnRunner(
             new SandboxHelpers(),
             env.getExecRoot(),
+            env.getPackageLocator().getPathEntries(),
             workerPool,
             env.getReporter(),
             localEnvProvider,
@@ -190,8 +194,7 @@ public class WorkerModule extends BlazeModule {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(
-        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions.verboseFailures),
-        "worker");
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "worker");
   }
 
   @Subscribe

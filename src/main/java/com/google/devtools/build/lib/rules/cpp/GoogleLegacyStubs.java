@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextAp
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
@@ -46,7 +47,15 @@ public final class GoogleLegacyStubs {
           FeatureConfigurationApi,
           ConstraintValueInfoApi,
           StarlarkRuleContextApi<ConstraintValueInfoApi>,
-          CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
+          CcToolchainProviderApi<
+              FeatureConfigurationApi,
+              ?,
+              ?,
+              ConstraintValueInfoApi,
+              StarlarkRuleContextApi<ConstraintValueInfoApi>,
+              ?,
+              ? extends CppConfigurationApi<?>,
+              ?>,
           CompilationInfoApi<FileApi>,
           FileApi,
           CcCompilationContextApi<FileApi>,
@@ -55,7 +64,16 @@ public final class GoogleLegacyStubs {
     @Override
     public FeatureConfigurationApi starlarkGetFeatureConfiguration(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain)
+        CcToolchainProviderApi<
+                FeatureConfigurationApi,
+                ?,
+                ?,
+                ConstraintValueInfoApi,
+                StarlarkRuleContextApi<ConstraintValueInfoApi>,
+                ?,
+                ? extends CppConfigurationApi<?>,
+                ?>
+            ccToolchain)
         throws EvalException, InterruptedException {
       return null;
     }
@@ -70,7 +88,16 @@ public final class GoogleLegacyStubs {
     public CompilationInfoApi<FileApi> starlarkCreateCompileActions(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
         FeatureConfigurationApi featureConfiguration,
-        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
+        CcToolchainProviderApi<
+                FeatureConfigurationApi,
+                ?,
+                ?,
+                ConstraintValueInfoApi,
+                StarlarkRuleContextApi<ConstraintValueInfoApi>,
+                ?,
+                ? extends CppConfigurationApi<?>,
+                ?>
+            ccToolchain,
         FileApi ccFile,
         FileApi headerFile,
         Sequence<?> depCcCompilationContexts, // <CcCompilationContextApi>
@@ -96,7 +123,16 @@ public final class GoogleLegacyStubs {
     @Override
     public void registerSwigAction(
         StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
-        CcToolchainProviderApi<FeatureConfigurationApi, ?, ?> ccToolchain,
+        CcToolchainProviderApi<
+                FeatureConfigurationApi,
+                ?,
+                ?,
+                ConstraintValueInfoApi,
+                StarlarkRuleContextApi<ConstraintValueInfoApi>,
+                ?,
+                ? extends CppConfigurationApi<?>,
+                ?>
+            ccToolchain,
         FeatureConfigurationApi featureConfiguration,
         CcCompilationContextApi<FileApi> wrapperCcCompilationContext,
         Depset swigIncludes,
@@ -124,7 +160,15 @@ public final class GoogleLegacyStubs {
           StarlarkRuleContextApi<ConstraintValueInfoApi>,
           CcInfoApi<FileApi>,
           FeatureConfigurationApi,
-          CcToolchainProviderApi<FeatureConfigurationApi, ?, ?>,
+          CcToolchainProviderApi<
+              FeatureConfigurationApi,
+              ?,
+              ?,
+              ConstraintValueInfoApi,
+              StarlarkRuleContextApi<ConstraintValueInfoApi>,
+              ?,
+              ? extends CppConfigurationApi<?>,
+              ?>,
           CompilationInfoApi<FileApi>,
           CcCompilationContextApi<FileApi>,
           WrapCcIncludeProviderApi> {

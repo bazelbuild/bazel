@@ -399,8 +399,8 @@ start. Here are some more resources to continue learning with Bazel:
 
 *   To keep focusing on C++, read about common [C++ build use cases](https://bazel.build/tutorials/cpp-use-cases).
 *   To get started with building other applications with Bazel, see the tutorials
-for [Java](https://bazel.build/tutorials/java), [Android application](https://bazel.build/tutorials/android-app),
-or [iOS application](https://bazel.build/tutorials/ios-app).
+for [Java](https://bazel.build/start/java), [Android application](https://bazel.build/start/android-app ),
+or [iOS application](https://bazel.build/start/ios-app)).
 *   To learn more about working with local and remote repositories, read about
 [external dependencies](https://bazel.build/docs/external).
 *   To learn more about Bazel’s other rules, see this [reference guide](https://bazel.build/rules).

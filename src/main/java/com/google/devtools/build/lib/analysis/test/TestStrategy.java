@@ -17,11 +17,10 @@ package com.google.devtools.build.lib.analysis.test;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -56,15 +55,57 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
-  private final ConcurrentHashMap<ShardKey, ListenableFuture<Void>> futures =
+  private static class AttemptGroupImpl implements AttemptGroup {
+    private boolean cancelled;
+    private final Set<Thread> runningThreads;
+
+    private AttemptGroupImpl() {
+      cancelled = false;
+      runningThreads = new HashSet<>();
+    }
+
+    @Override
+    public synchronized void register() throws InterruptedException {
+      Verify.verify(runningThreads.add(Thread.currentThread()));
+
+      if (cancelled) {
+        throw new InterruptedException();
+      }
+    }
+
+    @Override
+    public synchronized void unregister() {
+      Verify.verify(runningThreads.remove(Thread.currentThread()));
+    }
+
+    @Override
+    public synchronized boolean cancelled() {
+      return cancelled;
+    }
+
+    @Override
+    public synchronized void cancelOthers() {
+      cancelled = true;
+
+      for (Thread thread : runningThreads) {
+        if (thread != Thread.currentThread()) {
+          thread.interrupt();
+        }
+      }
+    }
+  }
+
+  private final ConcurrentHashMap<ShardKey, AttemptGroupImpl> cancelGroups =
       new ConcurrentHashMap<>();
 
   /**
@@ -125,9 +166,9 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   @Override
-  public final ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum) {
+  public final AttemptGroup getAttemptGroup(ActionOwner owner, int shardNum) {
     ShardKey key = new ShardKey(owner, shardNum);
-    return futures.computeIfAbsent(key, (k) -> SettableFuture.<Void>create());
+    return cancelGroups.computeIfAbsent(key, k -> new AttemptGroupImpl());
   }
 
   /**

@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -29,21 +27,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FailAction;
-import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.StaticallyLinkedMarkerProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -51,22 +43,15 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -158,12 +143,6 @@ public class CppHelper {
     return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
   }
 
-  // Called from CcCommon.
-  static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {
-    List<String> unexpanded = ruleContext.getRule().getPackage().getDefaultCopts();
-    return ImmutableList.copyOf(expandMakeVariables(ruleContext, "copts", unexpanded));
-  }
-
   /** Tokenizes and expands make variables. */
   public static List<String> expandLinkopts(
       RuleContext ruleContext, String attrName, Iterable<String> values) {
@@ -197,46 +176,6 @@ public class CppHelper {
     return ImmutableList.of();
   }
 
-  public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
-      RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain)
-      throws RuleErrorException {
-    if (cppConfiguration.collectCodeCoverage()) {
-      String llvmCov = toolchain.getToolPathStringOrNull(Tool.LLVM_COV);
-      if (llvmCov == null) {
-        llvmCov = "";
-      }
-      String llvmProfdata = toolchain.getToolPathStringOrNull(Tool.LLVM_PROFDATA);
-      if (llvmProfdata == null) {
-        llvmProfdata = "";
-      }
-      String gcov = toolchain.getToolPathStringOrNull(Tool.GCOV);
-      if (gcov == null) {
-        gcov = "";
-      }
-      NestedSetBuilder<Pair<String, String>> coverageEnvironment =
-          NestedSetBuilder.<Pair<String, String>>stableOrder()
-              .add(Pair.of("COVERAGE_GCOV_PATH", gcov))
-              .add(Pair.of("LLVM_COV", llvmCov))
-              .add(Pair.of("LLVM_PROFDATA", llvmProfdata))
-              .add(Pair.of("GENERATE_LLVM_LCOV", cppConfiguration.generateLlvmLCov() ? "1" : "0"));
-      if (cppConfiguration.getFdoInstrument() != null) {
-        coverageEnvironment.add(Pair.of("FDO_DIR", cppConfiguration.getFdoInstrument()));
-      }
-      return coverageEnvironment.build();
-    } else {
-      return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
-    }
-  }
-
-  public static NestedSet<Artifact> getGcovFilesIfNeeded(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCoverageFiles();
-    } else {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-  }
-
   /**
    * This almost trivial method looks up the default cc toolchain attribute on the rule context,
    * makes sure that it refers to a rule that has a {@link CcToolchainProvider} (gives an error
@@ -258,64 +197,6 @@ public class CppHelper {
           ruleContext, CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME_FOR_STARLARK);
     }
     return null;
-  }
-
-  /**
-   * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
-   * for non C++ rules that link against the C++ runtime.
-   *
-   * <p>This uses the default feature configuration. Do *not* use this method in rules that use a
-   * non-default feature configuration, or risk a mismatch.
-   */
-  public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputs(
-      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
-    try {
-      return getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(ruleContext, semantics);
-    } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e);
-    }
-  }
-
-  /**
-   * Convenience function for finding the dynamic runtime inputs for the current toolchain. Useful
-   * for Starlark-defined rules that link against the C++ runtime.
-   *
-   * <p>This uses the default feature configuration. Do *not* use this method in rules that use a
-   * non-default feature configuration, or risk a mismatch.
-   */
-  public static NestedSet<Artifact> getDefaultCcToolchainDynamicRuntimeInputsFromStarlark(
-      RuleContext ruleContext, CppSemantics semantics) throws EvalException, RuleErrorException {
-    CcToolchainProvider defaultToolchain =
-        getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    if (defaultToolchain == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(
-            ruleContext, Language.CPP, defaultToolchain, semantics);
-
-    return defaultToolchain.getDynamicRuntimeLinkInputs(featureConfiguration);
-  }
-
-  /**
-   * Convenience function for finding the static runtime inputs for the current toolchain. Useful
-   * for non C++ rules that link against the C++ runtime.
-   */
-  public static NestedSet<Artifact> getDefaultCcToolchainStaticRuntimeInputs(
-      RuleContext ruleContext, CppSemantics semantics) throws RuleErrorException {
-    CcToolchainProvider defaultToolchain =
-        getToolchainUsingDefaultCcToolchainAttribute(ruleContext);
-    if (defaultToolchain == null) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(
-            ruleContext, Language.CPP, defaultToolchain, semantics);
-    try {
-      return defaultToolchain.getStaticRuntimeLinkInputs(featureConfiguration);
-    } catch (EvalException e) {
-      throw ruleContext.throwWithRuleError(e);
-    }
   }
 
   /**
@@ -373,7 +254,7 @@ public class CppHelper {
 
   private static CcToolchainProvider getToolchainFromPlatformConstraints(
       RuleContext ruleContext, Label toolchainType) throws RuleErrorException {
-    ToolchainInfo toolchainInfo = ruleContext.getToolchainContext().forToolchainType(toolchainType);
+    ToolchainInfo toolchainInfo = ruleContext.getToolchainInfo(toolchainType);
     if (toolchainInfo == null) {
       throw ruleContext.throwWithRuleError(
           "Unable to find a CC toolchain using toolchain resolution. Did you properly set"
@@ -424,103 +305,6 @@ public class CppHelper {
       Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
     return AnalysisUtils.getUniqueDirectory(
         ruleLabel, usePic ? PIC_DIA_FILES : DIA_FILES, siblingRepositoryLayout);
-  }
-
-  /**
-   * Returns a function that gets the C++ runfiles from a {@link TransitiveInfoCollection} or the
-   * empty runfiles instance if it does not contain that provider.
-   */
-  public static final Function<TransitiveInfoCollection, Runfiles> runfilesFunction(
-      RuleContext ruleContext, boolean linkingStatically) {
-    final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingDynamically =
-        input -> {
-          CcInfo provider = input.get(CcInfo.PROVIDER);
-          if (provider == null) {
-            return Runfiles.EMPTY;
-          } else {
-            // Cannot add libraries directly because the nested set has link order.
-            NestedSet<Artifact> dynamicLibrariesForRuntime =
-                NestedSetBuilder.<Artifact>stableOrder()
-                    .addAll(
-                        provider
-                            .getCcLinkingContext()
-                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ false))
-                    .build();
-            return new Runfiles.Builder(ruleContext.getWorkspaceName())
-                .addTransitiveArtifacts(dynamicLibrariesForRuntime)
-                .build();
-          }
-        };
-
-    final Function<TransitiveInfoCollection, Runfiles> runfilesForLinkingStatically =
-        input -> {
-          CcInfo provider = input.get(CcInfo.PROVIDER);
-          if (provider == null) {
-            return Runfiles.EMPTY;
-          } else {
-            // Cannot add libraries directly because the nested set has link order.
-            NestedSet<Artifact> dynamicLibrariesForRuntime =
-                NestedSetBuilder.<Artifact>stableOrder()
-                    .addAll(
-                        provider
-                            .getCcLinkingContext()
-                            .getDynamicLibrariesForRuntime(/* linkingStatically= */ true))
-                    .build();
-            return new Runfiles.Builder(ruleContext.getWorkspaceName())
-                .addTransitiveArtifacts(dynamicLibrariesForRuntime)
-                .build();
-          }
-        };
-    return linkingStatically ? runfilesForLinkingStatically : runfilesForLinkingDynamically;
-  }
-
-  /**
-   * Returns the linked artifact.
-   *
-   * @param ruleContext the ruleContext to be used to scope the artifact
-   * @param config the configuration to be used to scope the artifact
-   * @param linkType the type of artifact, used to determine extension
-   */
-  public static Artifact getLinkedArtifact(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue config,
-      LinkTargetType linkType)
-      throws RuleErrorException {
-    return getLinkedArtifact(
-        ruleContext, ccToolchain, config, linkType, /* linkedArtifactNameSuffix= */ "");
-  }
-
-  /** Returns the linked artifact with the given suffix. */
-  public static Artifact getLinkedArtifact(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      BuildConfigurationValue config,
-      LinkTargetType linkType,
-      String linkedArtifactNameSuffix)
-      throws RuleErrorException {
-    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
-    try {
-      name =
-          name.replaceName(
-              getArtifactNameForCategory(
-                  ccToolchain,
-                  linkType.getLinkerOutput(),
-                  name.getBaseName()
-                      + linkedArtifactNameSuffix
-                      + linkType.getPicExtensionWhenApplicable()));
-    } catch (RuleErrorException e) {
-      ruleContext.throwWithRuleError("Cannot get linked artifact name: " + e.getMessage());
-    }
-
-    return getLinkedArtifact(
-        ruleContext.getLabel(),
-        ruleContext,
-        ruleContext.getBinDirectory(),
-        config,
-        linkType,
-        linkedArtifactNameSuffix,
-        name);
   }
 
   public static Artifact getLinkedArtifact(
@@ -603,7 +387,8 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     return cppConfiguration.forcePic()
         || (toolchain.usePicForDynamicLibraries(cppConfiguration, featureConfiguration)
-            && cppConfiguration.getCompilationMode() != CompilationMode.OPT);
+            && (cppConfiguration.getCompilationMode() != CompilationMode.OPT
+                || featureConfiguration.isEnabled(CppRuleClasses.PREFER_PIC_FOR_OPT_BINARIES)));
   }
 
   /**
@@ -632,7 +417,11 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     if (branchFdoProfile != null) {
-
+      // If the profile has a .afdo extension and was supplied to the build via the xbinary_fdo
+      // flag, then this is a safdo profile.
+      if (branchFdoProfile.isAutoFdo() && cppConfiguration.getXFdoProfileLabel() != null) {
+        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "SAFDO" : null;
+      }
       if (branchFdoProfile.isAutoFdo()) {
         return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
       }
@@ -733,13 +522,6 @@ public class CppHelper {
     }
   }
 
-  public static void maybeAddStaticLinkMarkerProvider(
-      RuleConfiguredTargetBuilder builder, RuleContext ruleContext) {
-    if (ruleContext.getFeatures().contains("fully_static_link")) {
-      builder.addNativeDeclaredProvider(new StaticallyLinkedMarkerProvider(true));
-    }
-  }
-
   static Artifact getCompileOutputArtifact(
       ActionConstructionContext actionConstructionContext,
       Label label,
@@ -837,123 +619,6 @@ public class CppHelper {
   }
 
   /**
-   * Returns true when {@link CppRuleClasses#WINDOWS_EXPORT_ALL_SYMBOLS} feature is enabled and
-   * {@link CppRuleClasses#NO_WINDOWS_EXPORT_ALL_SYMBOLS} feature is not enabled and no custom DEF
-   * file is specified in win_def_file attribute.
-   */
-  public static boolean shouldUseGeneratedDefFile(
-      RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
-    return featureConfiguration.isEnabled(CppRuleClasses.WINDOWS_EXPORT_ALL_SYMBOLS)
-        && !featureConfiguration.isEnabled(CppRuleClasses.NO_WINDOWS_EXPORT_ALL_SYMBOLS)
-        && ruleContext.getPrerequisiteArtifact("win_def_file") == null;
-  }
-
-  /**
-   * Create actions for parsing object files to generate a DEF file, should only be used when
-   * targeting Windows.
-   *
-   * @param defParser The tool we use to parse object files for generating the DEF file.
-   * @param objectFiles A list of object files to parse
-   * @param dllName The DLL name to be written into the DEF file, it specifies which DLL is required
-   *     at runtime
-   * @return The DEF file artifact.
-   */
-  public static Artifact createDefFileActions(
-      RuleContext ruleContext,
-      Artifact defParser,
-      ImmutableList<Artifact> objectFiles,
-      String dllName) {
-    Artifact defFile =
-        ruleContext.getBinArtifact(
-            ruleContext.getLabel().getName()
-                + ".gen"
-                + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
-    CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
-    for (Artifact objectFile : objectFiles) {
-      argv.addDynamicString(objectFile.getExecPathString());
-    }
-
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .addInputs(objectFiles)
-            .addOutput(defFile)
-            .setExecutable(defParser)
-            .useDefaultShellEnvironment()
-            .addCommandLine(
-                CustomCommandLine.builder().addExecPath(defFile).addDynamicString(dllName).build())
-            .addCommandLine(
-                argv.build(),
-                ParamFileInfo.builder(ParameterFile.ParameterFileType.SHELL_QUOTED)
-                    .setCharset(UTF_8)
-                    .setUseAlways(true)
-                    .build())
-            .setMnemonic("DefParser")
-            .build(ruleContext));
-    return defFile;
-  }
-
-  /**
-   * Create action for generating an empty DEF file without any exports, should only be used when
-   * targeting Windows.
-   *
-   * @return The artifact of an empty DEF file.
-   */
-  private static Artifact createEmptyDefFileAction(RuleContext ruleContext) {
-    Artifact trivialDefFile =
-        ruleContext.getBinArtifact(
-            ruleContext.getLabel().getName()
-                + ".gen.empty"
-                + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
-    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, "", false));
-    return trivialDefFile;
-  }
-
-  /**
-   * Decide which DEF file should be used for the linking action.
-   *
-   * @return The artifact of the DEF file that should be used for the linking action.
-   */
-  public static Artifact getWindowsDefFileForLinking(
-      RuleContext ruleContext,
-      Artifact customDefFile,
-      Artifact generatedDefFile,
-      FeatureConfiguration featureConfiguration) {
-    // 1. If a custom DEF file is specified in win_def_file attribute, use it.
-    // 2. If a generated DEF file is available and should be used, use it.
-    // 3. Otherwise, we use an empty DEF file to ensure the import library will be generated.
-    if (customDefFile != null) {
-      return customDefFile;
-    } else if (generatedDefFile != null
-        && CppHelper.shouldUseGeneratedDefFile(ruleContext, featureConfiguration)) {
-      return generatedDefFile;
-    } else {
-      return createEmptyDefFileAction(ruleContext);
-    }
-  }
-
-  // TODO(gnish): Delete this method once cc_library is fully migrated to Starlark implementation.
-  /** Returns the suffix (_{hash}) for artifacts generated by cc_library on Windows. */
-  public static String getDLLHashSuffix(
-      RuleContext ruleContext, FeatureConfiguration featureConfiguration) {
-    CppOptions cppOptions =
-        Preconditions.checkNotNull(
-            ruleContext.getConfiguration().getOptions().get(CppOptions.class));
-    if (cppOptions.renameDLL
-        && cppOptions.dynamicMode != DynamicMode.OFF
-        && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)
-        // Because the custom DEF file in `win_def_file` does not contain the suffix of the DLL, we
-        // should not calculate _{hash} when `win_def_file` is used.
-        && (!ruleContext.isAttrDefined("win_def_file", LABEL)
-            || ruleContext.getPrerequisiteArtifact("win_def_file") == null)) {
-      Fingerprint digest = new Fingerprint();
-      digest.addString(ruleContext.getRepository().getNameWithAt());
-      digest.addPath(ruleContext.getPackageDirectory());
-      return "_" + digest.hexDigestAndReset().substring(0, 10);
-    }
-    return "";
-  }
-
-  /**
    * Returns true if the build implied by the given config and toolchain uses --start-lib/--end-lib
    * ld options.
    */
@@ -988,53 +653,12 @@ public class CppHelper {
         && cppConfiguration.getUseInterfaceSharedLibraries();
   }
 
-  public static CcNativeLibraryInfo collectNativeCcLibraries(
-      List<? extends TransitiveInfoCollection> deps, List<LibraryToLink> libraries) {
-    NestedSetBuilder<LibraryToLink> result = NestedSetBuilder.linkOrder();
-    result.addAll(libraries);
-    for (CcInfo dep : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
-      result.addTransitive(dep.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
-    }
-    return new CcNativeLibraryInfo(result.build());
-  }
-
   static boolean useToolchainResolution(RuleContext ruleContext) {
     CppOptions cppOptions =
         Preconditions.checkNotNull(
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
 
     return cppOptions.enableCcToolchainResolution;
-  }
-
-  public static ImmutableList<CcCompilationContext> getCompilationContextsFromDeps(
-      List<TransitiveInfoCollection> deps) {
-    return AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-        .map(CcInfo::getCcCompilationContext)
-        .collect(ImmutableList.toImmutableList());
-  }
-
-  public static CcDebugInfoContext mergeCcDebugInfoContexts(
-      CcCompilationOutputs compilationOutputs, Iterable<CcInfo> deps) {
-    ImmutableList.Builder<CcDebugInfoContext> contexts = ImmutableList.builder();
-    for (CcInfo ccInfo : deps) {
-      contexts.add(ccInfo.getCcDebugInfoContext());
-    }
-    contexts.add(CcDebugInfoContext.from(compilationOutputs));
-    return CcDebugInfoContext.merge(contexts.build());
-  }
-
-  public static ImmutableList<CcLinkingContext> getLinkingContextsFromDeps(
-      ImmutableList<TransitiveInfoCollection> deps) {
-    return AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-        .map(CcInfo::getCcLinkingContext)
-        .collect(ImmutableList.toImmutableList());
-  }
-
-  public static ImmutableList<CcDebugInfoContext> getDebugInfoContextsFromDeps(
-      List<TransitiveInfoCollection> deps) {
-    return AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
-        .map(CcInfo::getCcDebugInfoContext)
-        .collect(ImmutableList.toImmutableList());
   }
 
   @Nullable

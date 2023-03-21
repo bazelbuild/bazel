@@ -162,7 +162,7 @@ public class JavaBinary {
 EOF
   bazel coverage java/main:JavaBinary \
       --java_runtime_version=11 \
-      --extra_toolchains=//java/main:default_toolchain_definition \
+      --extra_toolchains=//java/main:all \
       --verbose_failures -s &>"${TEST_log}" \
       && fail "Coverage succeeded even when jacocorunner not set"
   expect_log "jacocorunner not set in java_toolchain:"
@@ -219,25 +219,6 @@ EOF
 
   expect_log ":VanillaJavaBuilder"
   expect_not_log ":JavaBuilder"
-}
-
-# PREBUILT_TOOLCHAIN_CONFIGURATION shall use prebuilt ijar and singlejar binaries.
-function test_default_java_toolchain_prebuiltToolchain() {
-  cat > BUILD <<EOF
-load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain", "PREBUILT_TOOLCHAIN_CONFIGURATION")
-default_java_toolchain(
-  name = "prebuilt_toolchain",
-  configuration = PREBUILT_TOOLCHAIN_CONFIGURATION,
-)
-EOF
-
-  bazel build //:prebuilt_toolchain || fail "default_java_toolchain target failed to build"
-  bazel cquery 'deps(//:prebuilt_toolchain)' >& $TEST_log || fail "failed to query //:prebuilt_toolchain"
-
-  expect_log "ijar/ijar\(.exe\)\? "
-  expect_log "singlejar/singlejar_local"
-  expect_not_log "ijar/ijar.cc"
-  expect_not_log "singlejar/singlejar_main.cc"
 }
 
 # NONPREBUILT_TOOLCHAIN_CONFIGURATION shall compile ijar and singlejar from sources.

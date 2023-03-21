@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -120,6 +122,18 @@ public class PythonOptions extends FragmentOptions {
   public boolean incompatiblePy3IsDefault;
 
   @Option(
+      name = "incompatible_python_disable_py2",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, using Python 2 settings will cause an error. This includes "
+              + "python_version=PY2, srcs_version=PY2, and srcs_version=PY2ONLY. See "
+              + "https://github.com/bazelbuild/bazel/issues/15684 for more information.")
+  public boolean disablePy2;
+
+  @Option(
       name = "incompatible_py2_outputs_are_suffixed",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -184,7 +198,7 @@ public class PythonOptions extends FragmentOptions {
    *
    * <p>Null means to use the default ({@link #getDefaultPythonVersion}).
    *
-   * <p>This option is only read by {@link #getHost}. It should not be read by other native code or
+   * <p>This option is only read by {@link #getExec}. It should not be read by other native code or
    * by {@code select()}s in user code.
    */
   @Option(
@@ -193,7 +207,7 @@ public class PythonOptions extends FragmentOptions {
       converter = TargetPythonVersionConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Overrides the Python version for the host configuration. Can be \"PY2\" or \"PY3\".")
+      help = "Overrides the Python version for the exec configuration. Can be \"PY2\" or \"PY3\".")
   public PythonVersion hostForcePython;
 
   private static final OptionDefinition HOST_FORCE_PYTHON_DEFINITION =
@@ -224,7 +238,7 @@ public class PythonOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_build_transitive_python_runfiles",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -248,6 +262,32 @@ public class PythonOptions extends FragmentOptions {
               + "https://github.com/bazelbuild/bazel/issues/10076.")
   public boolean incompatibleDefaultToExplicitInitPy;
 
+  @Option(
+      name = "python_native_rules_allowlist",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "An allowlist (package_group target) to use when enforcing "
+              + "--incompatible_python_disallow_native_rules.")
+  public Label nativeRulesAllowlist;
+
+  @Option(
+      name = "incompatible_python_disallow_native_rules",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, an error occurs when using the builtin py_* rules; instead the rule_python"
+              + " rules should be used. See https://github.com/bazelbuild/bazel/issues/17773 for"
+              + " more information and migration instructions.")
+  public boolean disallowNativeRules;
+
+  // Helper field to store hostForcePython in exec configuration
+  private PythonVersion defaultPythonVersion = null;
+
   @Override
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
     // TODO(brandjon): Instead of referencing the python_version target, whose path depends on the
@@ -256,17 +296,17 @@ public class PythonOptions extends FragmentOptions {
     restrictions.put(
         PYTHON_VERSION_DEFINITION,
         new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ true,
+            /* visibleWithinToolsPackage= */ true,
             "Use @bazel_tools//python/tools:python_version instead."));
     restrictions.put(
         FORCE_PYTHON_DEFINITION,
         new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ true,
+            /* visibleWithinToolsPackage= */ true,
             "Use @bazel_tools//python/tools:python_version instead."));
     restrictions.put(
         HOST_FORCE_PYTHON_DEFINITION,
         new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ false,
+            /* visibleWithinToolsPackage= */ false,
             "Use @bazel_tools//python/tools:python_version instead."));
     return restrictions.buildOrThrow();
   }
@@ -276,6 +316,9 @@ public class PythonOptions extends FragmentOptions {
    * a version should be built for.
    */
   public PythonVersion getDefaultPythonVersion() {
+    if (defaultPythonVersion != null) {
+      return defaultPythonVersion;
+    }
     return incompatiblePy3IsDefault ? PythonVersion.PY3 : PythonVersion.PY2;
   }
 
@@ -318,10 +361,13 @@ public class PythonOptions extends FragmentOptions {
   }
 
   @Override
-  public FragmentOptions getHost() {
+  public FragmentOptions getExec() {
     PythonOptions hostPythonOptions = (PythonOptions) getDefault();
-    PythonVersion hostVersion =
-        (hostForcePython != null) ? hostForcePython : getDefaultPythonVersion();
+    PythonVersion hostVersion = getDefaultPythonVersion();
+    if (hostForcePython != null) {
+      hostVersion = hostForcePython;
+      hostPythonOptions.defaultPythonVersion = hostForcePython;
+    }
     hostPythonOptions.setPythonVersion(hostVersion);
     hostPythonOptions.incompatiblePy3IsDefault = incompatiblePy3IsDefault;
     hostPythonOptions.incompatiblePy2OutputsAreSuffixed = incompatiblePy2OutputsAreSuffixed;
@@ -333,6 +379,9 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDefaultToExplicitInitPy = incompatibleDefaultToExplicitInitPy;
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
+    hostPythonOptions.disablePy2 = disablePy2;
+    hostPythonOptions.nativeRulesAllowlist = nativeRulesAllowlist;
+    hostPythonOptions.disallowNativeRules = disallowNativeRules;
 
     // Save host options in case of a further exec->host transition.
     hostPythonOptions.hostForcePython = hostForcePython;

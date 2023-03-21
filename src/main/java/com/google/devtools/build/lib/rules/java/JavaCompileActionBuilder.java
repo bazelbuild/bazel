@@ -143,6 +143,7 @@ public final class JavaCompileActionBuilder {
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider toolchain;
+  private final String execGroup;
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
@@ -171,9 +172,11 @@ public final class JavaCompileActionBuilder {
   private JavaClasspathMode classpathMode;
   private Artifact manifestOutput;
 
-  public JavaCompileActionBuilder(RuleContext ruleContext, JavaToolchainProvider toolchain) {
+  public JavaCompileActionBuilder(
+      RuleContext ruleContext, JavaToolchainProvider toolchain, String execGroup) {
     this.ruleContext = ruleContext;
     this.toolchain = toolchain;
+    this.execGroup = execGroup;
   }
 
   public JavaCompileAction build() {
@@ -273,7 +276,7 @@ public final class JavaCompileActionBuilder {
 
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
-        /* owner= */ ruleContext.getActionOwner(),
+        /* owner= */ ruleContext.getActionOwner(execGroup),
         /* env= */ actionEnvironment,
         /* tools= */ tools,
         /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,

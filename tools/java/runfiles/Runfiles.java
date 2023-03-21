@@ -17,7 +17,6 @@ package com.google.devtools.build.runfiles;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.ref.SoftReference;
@@ -410,7 +409,9 @@ public final class Runfiles {
       return Collections.emptyMap();
     }
 
-    try (BufferedReader r = new BufferedReader(new FileReader(path, StandardCharsets.UTF_8))) {
+    try (BufferedReader r =
+        new BufferedReader(
+            new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
       return Collections.unmodifiableMap(
           r.lines()
               .filter(line -> !line.isEmpty())

@@ -91,6 +91,6 @@ details, see the
 ## Updating versions {:#updating-versions}
 
 * For more information on updating your Bazel version, see
-  [Updating Bazel](/versions/updating-bazel).
+  [Updating Bazel](/install/bazelisk).
 * For more information on contributing updates to new Bazel releases, see
   [Contributing to Bazel](/contribute).

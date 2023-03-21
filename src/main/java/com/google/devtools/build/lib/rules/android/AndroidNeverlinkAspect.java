@@ -18,8 +18,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -29,7 +31,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,7 +50,8 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase,
+      Label targetLabel,
+      ConfiguredTarget ct,
       RuleContext ruleContext,
       AspectParameters parameters,
       RepositoryName toolsRepository)
@@ -73,14 +75,14 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
     }
 
     NestedSetBuilder<Artifact> runtimeJars = NestedSetBuilder.naiveLinkOrder();
-    runtimeJars.addAll(JavaInfo.getJavaInfo(ctadBase.getConfiguredTarget()).getDirectRuntimeJars());
+    runtimeJars.addAll(JavaInfo.getJavaInfo(ct).getDirectRuntimeJars());
     AndroidLibraryResourceClassJarProvider provider =
-        AndroidLibraryResourceClassJarProvider.getProvider(ctadBase.getConfiguredTarget());
+        AndroidLibraryResourceClassJarProvider.getProvider(ct);
     if (provider != null) {
       runtimeJars.addTransitive(provider.getResourceClassJars());
     }
     return new ConfiguredAspect.Builder(ruleContext)
-        .addProvider(
+        .addNativeDeclaredProvider(
             AndroidNeverLinkLibrariesProvider.create(
                 AndroidCommon.collectTransitiveNeverlinkLibraries(
                     ruleContext, deps, runtimeJars.build())))

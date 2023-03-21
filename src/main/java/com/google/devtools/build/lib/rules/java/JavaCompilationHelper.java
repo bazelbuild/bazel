@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -75,6 +76,7 @@ public final class JavaCompilationHelper {
   private final String fixDepsTool;
   private boolean enableJspecify = true;
   private boolean enableDirectClasspath = true;
+  private final String execGroup;
 
   public JavaCompilationHelper(
       RuleContext ruleContext,
@@ -91,6 +93,12 @@ public final class JavaCompilationHelper {
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
     this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
     this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
+
+    if (ruleContext.useAutoExecGroups()) {
+      this.execGroup = semantics.getJavaToolchainType();
+    } else {
+      this.execGroup = DEFAULT_EXEC_GROUP_NAME;
+    }
   }
 
   public JavaCompilationHelper(
@@ -299,7 +307,8 @@ public final class JavaCompilationHelper {
               .build();
     }
 
-    JavaCompileActionBuilder builder = new JavaCompileActionBuilder(ruleContext, javaToolchain);
+    JavaCompileActionBuilder builder =
+        new JavaCompileActionBuilder(ruleContext, javaToolchain, execGroup);
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     builder.setClasspathMode(classpathMode);
@@ -363,9 +372,9 @@ public final class JavaCompilationHelper {
     if (coverageArtifact != null) {
       ruleContext.registerAction(
           new LazyWritePathsFileAction(
-              ruleContext.getActionOwner(),
+              ruleContext.getActionOwner(execGroup),
               coverageArtifact,
-              sourceFiles,
+              NestedSetBuilder.<Artifact>stableOrder().addAll(sourceFiles).build(),
               /* filesToIgnore= */ ImmutableSet.of(),
               false));
     }
@@ -615,6 +624,7 @@ public final class JavaCompilationHelper {
                         .build())
                 .setProgressMessage("Building genclass jar %s", genClassJar.prettyPrint())
                 .setMnemonic("JavaSourceJar")
+                .setExecGroup(execGroup)
                 .build(getRuleContext()));
   }
 
@@ -656,7 +666,7 @@ public final class JavaCompilationHelper {
         .setTranslations(getTranslations())
         .setResourceJars(
             NestedSetBuilder.fromNestedSet(attributes.getResourceJars()).addAll(extraJars).build())
-        .build(semantics, ruleContext);
+        .build(semantics, ruleContext, execGroup);
   }
 
   /**
@@ -685,7 +695,8 @@ public final class JavaCompilationHelper {
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
         resourceJars.build(),
         outputJar,
-        javaToolchainProvider);
+        javaToolchainProvider,
+        execGroup);
   }
 
   public void createSourceJarAction(Artifact outputJar, @Nullable Artifact gensrcJar) {
@@ -700,7 +711,8 @@ public final class JavaCompilationHelper {
         semantics,
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, attributes.getSourceFiles()),
         resourceJars.build(),
-        outputJar);
+        outputJar,
+        execGroup);
   }
 
   /**
@@ -767,6 +779,7 @@ public final class JavaCompilationHelper {
                     ParamFileInfo.builder(ParameterFile.ParameterFileType.UNQUOTED).build())
                 .setProgressMessage("Optimizing jar %{label}")
                 .setMnemonic(mnemonic)
+                .setExecGroup(execGroup)
                 .build(getRuleContext()));
   }
 

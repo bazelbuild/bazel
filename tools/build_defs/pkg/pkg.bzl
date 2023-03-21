@@ -26,23 +26,20 @@ def _pkg_tar_impl(ctx):
     data_path = compute_data_path(ctx.outputs.out, ".")
 
     # Start building the arguments.
-    args = [
-        "--output=" + ctx.outputs.out.path,
-        "--directory=" + ctx.attr.package_dir,
-    ]
+    args = ctx.actions.args()
+    args.add("--output", ctx.outputs.out.path)
+    args.add("--directory", ctx.attr.package_dir)
 
     file_inputs = ctx.files.srcs[:]
-    args += [
-        "--file=%s=%s" % (_quote(f.path), dest_path(f, data_path))
-        for f in file_inputs
-    ]
-    arg_file = ctx.actions.declare_file(ctx.label.name + ".args")
-    ctx.actions.write(arg_file, "\n".join(args))
+    for f in file_inputs:
+        args.add("--file", "%s=%s" % (_quote(f.path), dest_path(f, data_path)))
+    args.set_param_file_format("flag_per_line")
+    args.use_param_file("@%s", use_always = False)
 
     ctx.actions.run(
-        inputs = file_inputs + [arg_file],
+        inputs = file_inputs,
         executable = ctx.executable.build_tar,
-        arguments = ["--flagfile", arg_file.path],
+        arguments = [args],
         outputs = [ctx.outputs.out],
         mnemonic = "PackageTar",
         use_default_shell_env = True,

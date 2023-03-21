@@ -13,7 +13,12 @@
 # limitations under the License.
 """Providers for Python rules."""
 
+load(":common/python/semantics.bzl", "TOOLS_REPO")
+
+_CcInfo = _builtins.toplevel.CcInfo
+
 DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3"
+DEFAULT_BOOTSTRAP_TEMPLATE = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt"
 _PYTHON_VERSION_VALUES = ["PY2", "PY3"]
 
 def _PyRuntimeInfo_init(
@@ -24,7 +29,8 @@ def _PyRuntimeInfo_init(
         coverage_tool = None,
         coverage_files = None,
         python_version,
-        stub_shebang = None):
+        stub_shebang = None,
+        bootstrap_template = None):
     if (interpreter_path == None) == (interpreter == None):
         fail("exactly one of interpreter_path or interpreter must be set")
     if (interpreter == None) != (files == None):
@@ -46,9 +52,12 @@ def _PyRuntimeInfo_init(
         "coverage_files": coverage_files,
         "python_version": python_version,
         "stub_shebang": stub_shebang,
+        "bootstrap_template": bootstrap_template,
     }
 
-PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
+# TODO(#15897): Rename this to PyRuntimeInfo when we're ready to replace the Java
+# implemented provider with the Starlark one.
+Starlark_PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
     doc = """Contains information about a Python runtime, as returned by the `py_runtime`
 rule.
 
@@ -96,7 +105,85 @@ the same conventions as the standard CPython interpreter.
             "script used when executing `py_binary` targets.  Does not " +
             "apply to Windows."
         ),
+        "bootstrap_template": (
+            "See py_runtime_rule.bzl%py_runtime.bootstrap_template for docs."
+        ),
+    },
+)
+
+PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
+
+def _check_arg_type(name, required_type, value):
+    value_type = type(value)
+    if value_type != required_type:
+        fail("parameter '{}' got value of type '{}', want '{}'".format(
+            name,
+            value_type,
+            required_type,
+        ))
+
+def _PyInfo_init(
+        *,
+        transitive_sources,
+        uses_shared_libraries = False,
+        imports = depset(),
+        has_py2_only_sources = False,
+        has_py3_only_sources = False):
+    _check_arg_type("transitive_sources", "depset", transitive_sources)
+    _check_arg_type("uses_shared_libraries", "bool", uses_shared_libraries)
+    _check_arg_type("imports", "depset", imports)
+    _check_arg_type("has_py2_only_sources", "bool", has_py2_only_sources)
+    _check_arg_type("has_py2_only_sources", "bool", has_py3_only_sources)
+    return {
+        "transitive_sources": transitive_sources,
+        "imports": imports,
+        "uses_shared_libraries": uses_shared_libraries,
+        "has_py2_only_sources": has_py2_only_sources,
+        "has_py3_only_sources": has_py2_only_sources,
+    }
+
+StarlarkPyInfo, _unused_raw_py_info_ctor = provider(
+    "Encapsulates information provided by the Python rules.",
+    init = _PyInfo_init,
+    fields = {
+        "transitive_sources": """\
+A (`postorder`-compatible) depset of `.py` files appearing in the target's
+`srcs` and the `srcs` of the target's transitive `deps`.
+""",
+        "uses_shared_libraries": """
+Whether any of this target's transitive `deps` has a shared library file (such
+as a `.so` file).
+
+This field is currently unused in Bazel and may go away in the future.
+""",
+        "imports": """\
+A depset of import path strings to be added to the `PYTHONPATH` of executable
+Python targets. These are accumulated from the transitive `deps`.
+The order of the depset is not guaranteed and may be changed in the future. It
+is recommended to use `default` order (the default).
+""",
+        "has_py2_only_sources": "Whether any of this target's transitive sources requires a Python 2 runtime.",
+        "has_py3_only_sources": "Whether any of this target's transitive sources requires a Python 3 runtime.",
     },
 )
 
 PyInfo = _builtins.toplevel.PyInfo
+
+def _PyCcLinkParamsProvider_init(cc_info):
+    return {
+        "cc_info": _CcInfo(linking_context = cc_info.linking_context),
+    }
+
+# buildifier: disable=name-conventions
+StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
+    doc = ("Python-wrapper to forward CcInfo.linking_context. This is to " +
+           "allow Python targets to propagate C++ linking information, but " +
+           "without the Python target appearing to be a valid C++ rule dependency"),
+    init = _PyCcLinkParamsProvider_init,
+    fields = {
+        "cc_info": "A CcInfo instance; it has only linking_context set",
+    },
+)
+
+# TODO(b/203567235): Re-implement in Starlark
+PyCcLinkParamsProvider = _builtins.toplevel.PyCcLinkParamsProvider  # buildifier: disable=name-conventions

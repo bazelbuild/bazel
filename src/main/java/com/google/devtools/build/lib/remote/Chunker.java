@@ -34,7 +34,6 @@ import java.io.InputStream;
 import java.io.PushbackInputStream;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * Splits a data source into one or more {@link Chunk}s of at most {@code chunkSize} bytes.
@@ -92,8 +91,7 @@ public class Chunker {
         return false;
       }
       Chunk other = (Chunk) o;
-      return other.offset == offset
-          && other.data.equals(data);
+      return other.offset == offset && other.data.equals(data);
     }
 
     @Override
@@ -102,8 +100,13 @@ public class Chunker {
     }
   }
 
-  private final Supplier<InputStream> dataSupplier;
-  private final long size;
+  /** A supplier that provide data as {@link InputStream}. */
+  public interface ChunkDataSupplier {
+    InputStream get() throws IOException;
+  }
+
+  private final ChunkDataSupplier dataSupplier;
+  private final long uncompressedSize;
   private final int chunkSize;
   private final Chunk emptyChunk;
 
@@ -117,9 +120,10 @@ public class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  Chunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
+  Chunker(
+      ChunkDataSupplier dataSupplier, long uncompressedSize, int chunkSize, boolean compressed) {
     this.dataSupplier = checkNotNull(dataSupplier);
-    this.size = size;
+    this.uncompressedSize = uncompressedSize;
     this.chunkSize = chunkSize;
     this.emptyChunk = new Chunk(ByteString.EMPTY, 0);
     this.compressed = compressed;
@@ -129,8 +133,8 @@ public class Chunker {
     return offset;
   }
 
-  public long getSize() {
-    return size;
+  public long getUncompressedSize() {
+    return uncompressedSize;
   }
 
   /**
@@ -156,14 +160,14 @@ public class Chunker {
   public void seek(long toOffset) throws IOException {
     // For compressed stream, we need to reinitialize the stream since the offset refers to the
     // uncompressed form.
-    if (initialized && toOffset >= offset && !compressed) {
+    if (initialized && uncompressedSize > 0 && toOffset >= offset && !compressed) {
       ByteStreams.skipFully(data, toOffset - offset);
       offset = toOffset;
     } else {
       reset();
       initialize(toOffset);
     }
-    if (data.finished()) {
+    if (uncompressedSize > 0 && data.finished()) {
       close();
     }
   }
@@ -212,8 +216,8 @@ public class Chunker {
 
     maybeInitialize();
 
-    if (size == 0) {
-      data = null;
+    if (uncompressedSize == 0) {
+      close();
       return emptyChunk;
     }
 
@@ -227,7 +231,7 @@ public class Chunker {
       // If the output is compressed we can't know how many bytes there are yet to read,
       // so we allocate the whole chunkSize, otherwise we try to compute the smallest possible value
       // The cast to int is safe, because the return value is capped at chunkSize.
-      int cacheSize = compressed ? chunkSize : (int) min(getSize() - getOffset(), chunkSize);
+      int cacheSize = compressed ? chunkSize : (int) min(uncompressedSize - getOffset(), chunkSize);
       // Lazily allocate it in order to save memory on small data.
       // 1) bytesToRead < chunkSize: There will only ever be one next() call.
       // 2) bytesToRead == chunkSize: chunkCache will be set to its biggest possible value.
@@ -287,7 +291,7 @@ public class Chunker {
     private int chunkSize = getDefaultChunkSize();
     protected long size;
     private boolean compressed;
-    protected Supplier<InputStream> inputStream;
+    protected ChunkDataSupplier inputStream;
 
     @CanIgnoreReturnValue
     public Builder setInput(byte[] data) {
@@ -310,14 +314,7 @@ public class Chunker {
     public Builder setInput(long size, Path file) {
       checkState(inputStream == null);
       this.size = size;
-      inputStream =
-          () -> {
-            try {
-              return file.getInputStream();
-            } catch (IOException e) {
-              throw new RuntimeException(e);
-            }
-          };
+      inputStream = file::getInputStream;
       return this;
     }
 
@@ -326,30 +323,16 @@ public class Chunker {
       checkState(inputStream == null);
       this.size = size;
       if (actionInput instanceof VirtualActionInput) {
-        inputStream =
-            () -> {
-              try {
-                return ((VirtualActionInput) actionInput).getBytes().newInput();
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            };
+        inputStream = () -> ((VirtualActionInput) actionInput).getBytes().newInput();
       } else {
-        inputStream =
-            () -> {
-              try {
-                return ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
-              } catch (IOException e) {
-                throw new RuntimeException(e);
-              }
-            };
+        inputStream = () -> ActionInputHelper.toInputPath(actionInput, execRoot).getInputStream();
       }
       return this;
     }
 
     @CanIgnoreReturnValue
     @VisibleForTesting
-    protected final Builder setInputSupplier(Supplier<InputStream> inputStream) {
+    protected final Builder setInputSupplier(ChunkDataSupplier inputStream) {
       this.inputStream = inputStream;
       return this;
     }

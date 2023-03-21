@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.runtime.commands.QueryCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
+import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -88,7 +88,7 @@ import org.w3c.dom.NodeList;
 @RunWith(TestParameterInjector.class)
 public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private final CustomFileSystem fs = new CustomFileSystem();
-  private final SyscallCache perCommandSyscallCache = PerBuildSyscallCache.newBuilder().build();
+  private final SyscallCache syscallCache = DefaultSyscallCache.newBuilder().build();
 
   private final List<String> options = new ArrayList<>();
 
@@ -100,7 +100,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
               @Override
               public void workspaceInit(
                   BlazeRuntime runtime, BlazeDirectories directories, WorkspaceBuilder builder) {
-                builder.setPerCommandSyscallCache(perCommandSyscallCache);
+                builder.setSyscallCache(syscallCache);
               }
             });
   }
@@ -863,7 +863,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     fs.watchedPaths.put(
         barBzl.asFragment(),
         () -> {
-          perCommandSyscallCache.clear();
+          syscallCache.clear();
           try {
             barBuild.delete();
           } catch (IOException e) {
@@ -886,7 +886,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     fs.watchedPaths.put(
         barBzl.asFragment(),
         () -> {
-          perCommandSyscallCache.clear();
+          syscallCache.clear();
           try {
             barBuild.delete();
           } catch (IOException e) {

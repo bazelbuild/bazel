@@ -26,8 +26,10 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -101,6 +103,7 @@ public class CommandEnvironment {
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
   private final SyscallCache syscallCache;
+  private final QuiescingExecutors quiescingExecutors;
   private final Duration waitTime;
   private final long commandStartTime;
   private final ImmutableList<Any> commandExtensions;
@@ -108,6 +111,8 @@ public class CommandEnvironment {
   private final Consumer<String> shutdownReasonConsumer;
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
+
+  private final boolean mergedAnalysisAndExecution;
 
   private OutputService outputService;
   private String workspaceName;
@@ -166,6 +171,7 @@ public class CommandEnvironment {
       Command command,
       OptionsParsingResult options,
       SyscallCache syscallCache,
+      QuiescingExecutors quiescingExecutors,
       List<String> warnings,
       long waitTimeInMs,
       long commandStartTime,
@@ -181,6 +187,7 @@ public class CommandEnvironment {
     this.options = options;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
+    this.quiescingExecutors = quiescingExecutors;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
     this.timestampGranularityMonitor = new TimestampGranularityMonitor(runtime.getClock());
     // Record the command's starting time again, for use by
@@ -277,6 +284,49 @@ public class CommandEnvironment {
 
     this.commandLinePathFactory =
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
+
+    this.mergedAnalysisAndExecution =
+        determineIfRunningWithMergedAnalysisAndExecution(
+            options, command.name(), packageLocator, warnings);
+  }
+
+  private static boolean determineIfRunningWithMergedAnalysisAndExecution(
+      OptionsParsingResult options,
+      String commandName,
+      @Nullable PathPackageLocator packageLocator,
+      List<String> warnings) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    // --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
+    // analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
+    // should be ignored.
+    // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
+    // makes no different from the users' perspective.
+    if (buildRequestOptions != null
+        && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
+        && !buildRequestOptions.performExecutionPhase
+        && !(commandName.equals("aquery") || commandName.equals("cquery"))) {
+      warnings.add(
+          "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild and"
+              + " will be ignored.");
+    }
+
+    boolean valueFromFlags =
+        buildRequestOptions != null
+            && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
+            && buildRequestOptions.performExecutionPhase;
+    boolean havingMultiPackagePath =
+        packageLocator != null && packageLocator.getPathEntries().size() > 1;
+
+    // TODO(b/246324830): Skymeld and multi-package_path are incompatible.
+    if (valueFromFlags && havingMultiPackagePath) {
+      warnings.add(
+          "--experimental_merged_skyframe_analysis_execution is "
+              + "incompatible with multiple --package_path ("
+              + packageLocator.getPathEntries()
+              + ") and its value will be ignored.");
+    }
+
+    return valueFromFlags && !havingMultiPackagePath;
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -421,6 +471,14 @@ public class CommandEnvironment {
    */
   public Map<String, String> getAllowlistedTestEnv() {
     return filterClientEnv(visibleTestEnv);
+  }
+
+  /**
+   * This should be the source of truth for whether this build should be run with merged analysis
+   * and execution phases.
+   */
+  public boolean withMergedAnalysisAndExecution() {
+    return mergedAnalysisAndExecution;
   }
 
   private Map<String, String> filterClientEnv(Set<String> vars) {
@@ -573,10 +631,6 @@ public class CommandEnvironment {
     return getDirectories().getActionTempsDirectory(getExecRoot());
   }
 
-  public Path getPersistentActionOutsDirectory() {
-    return getDirectories().getPersistentActionOutsDirectory(getExecRoot());
-  }
-
   /**
    * Returns the working directory of the {@code blaze} client process.
    *
@@ -710,6 +764,7 @@ public class CommandEnvironment {
                 clientEnv,
                 repoEnvFromOptions,
                 timestampGranularityMonitor,
+                quiescingExecutors,
                 options);
   }
 
@@ -762,7 +817,9 @@ public class CommandEnvironment {
     AnalysisOptions viewOptions = options.getOptions(AnalysisOptions.class);
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        commonOptions.keepStateAfterBuild, commonOptions.trackIncrementalState,
+        commonOptions.keepStateAfterBuild,
+        commonOptions.trackIncrementalState,
+        commonOptions.heuristicallyDropNodes,
         viewOptions != null && viewOptions.discardAnalysisCache,
         reporter);
 
@@ -813,6 +870,10 @@ public class CommandEnvironment {
 
   public XattrProvider getXattrProvider() {
     return getSyscallCache();
+  }
+
+  public QuiescingExecutors getQuiescingExecutors() {
+    return quiescingExecutors;
   }
 
   /**

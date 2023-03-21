@@ -38,9 +38,11 @@ import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkInt;
 
@@ -49,6 +51,9 @@ import net.starlark.java.eval.StarlarkInt;
  * domain-specific (i.e. aren't consumed within a single {@link FragmentOptions}).
  */
 public class CoreOptionConverters {
+
+  // Not instantiable.
+  private CoreOptionConverters() {}
 
   /**
    * The set of converters used for {@link com.google.devtools.build.lib.packages.BuildSetting}
@@ -117,6 +122,25 @@ public class CoreOptionConverters {
   }
 
   /**
+   * A converter from comma-separated strings to Labels which preserves order, but in case of
+   * duplicates, keeps only the first copy.
+   */
+  public static class LabelOrderedSetConverter extends LabelListConverter {
+    @Override
+    public List<Label> convert(String input, Object conversionContext)
+        throws OptionsParsingException {
+      Set<Label> alreadySeen = new HashSet<>();
+      ImmutableList.Builder<Label> result = ImmutableList.builder();
+      for (Label label : super.convert(input, conversionContext)) {
+        if (alreadySeen.add(label)) {
+          result.add(label);
+        }
+      }
+      return result.build();
+    }
+  }
+
+  /**
    * A converter that returns null if the input string is empty, otherwise it converts the input to
    * a label.
    */
@@ -139,7 +163,7 @@ public class CoreOptionConverters {
 
     protected DefaultLabelConverter(String defaultValue) {
       this.defaultValue =
-          defaultValue.equals("null") ? null : Label.parseAbsoluteUnchecked(defaultValue);
+          defaultValue.equals("null") ? null : Label.parseCanonicalUnchecked(defaultValue);
     }
 
     @Override

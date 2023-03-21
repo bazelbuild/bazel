@@ -44,11 +44,12 @@ static constexpr const char* BINARY_TYPE = "binary_type";
 
 using bazel::launcher::BashBinaryLauncher;
 using bazel::launcher::BinaryLauncherBase;
+using bazel::launcher::die;
 using bazel::launcher::GetBinaryPathWithExtension;
+using bazel::launcher::GetWindowsLongPath;
 using bazel::launcher::JavaBinaryLauncher;
 using bazel::launcher::LaunchDataParser;
 using bazel::launcher::PythonBinaryLauncher;
-using bazel::launcher::die;
 using std::make_unique;
 using std::unique_ptr;
 
@@ -64,9 +65,14 @@ static std::wstring GetExecutableFileName() {
 }
 
 int wmain(int argc, wchar_t* argv[]) {
-  const std::wstring executable_file = GetExecutableFileName();
+  // In case the given binary path is a shortened Windows 8dot3 path, we convert
+  // it back to its long path form so that path manipulations (e.g. appending
+  // ".runfiles") work as expected. Note that GetExecutableFileName may return a
+  // path different from argv[0].
+  const std::wstring launcher_path =
+      GetWindowsLongPath(GetExecutableFileName());
   LaunchDataParser::LaunchInfo launch_info;
-  if (!LaunchDataParser::GetLaunchInfo(executable_file, &launch_info)) {
+  if (!LaunchDataParser::GetLaunchInfo(launcher_path, &launch_info)) {
     die(L"Failed to parse launch info.");
   }
 
@@ -79,11 +85,13 @@ int wmain(int argc, wchar_t* argv[]) {
 
   if (result->second == L"Python") {
     binary_launcher = make_unique<PythonBinaryLauncher>(
-        launch_info, executable_file, argc, argv);
+        launch_info, launcher_path, argc, argv);
   } else if (result->second == L"Bash") {
-    binary_launcher = make_unique<BashBinaryLauncher>(launch_info, argc, argv);
+    binary_launcher =
+        make_unique<BashBinaryLauncher>(launch_info, launcher_path, argc, argv);
   } else if (result->second == L"Java") {
-    binary_launcher = make_unique<JavaBinaryLauncher>(launch_info, argc, argv);
+    binary_launcher =
+        make_unique<JavaBinaryLauncher>(launch_info, launcher_path, argc, argv);
   } else {
     die(L"Unknown binary type, cannot launch anything.");
   }

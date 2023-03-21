@@ -65,7 +65,9 @@ public interface CoverageCommonApi<
         @Param(
             name = "coverage_support_files",
             allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+              // TODO(#13365): improve the @ParamType annotation once it can support multiple
+              // contained types.
+              @ParamType(type = Sequence.class),
               @ParamType(type = Depset.class, generic1 = FileApi.class)
             },
             documented = false,
@@ -93,6 +95,25 @@ public interface CoverageCommonApi<
             positional = false,
             named = true,
             defaultValue = "None"),
+        @Param(
+            name = "metadata_files",
+            named = true,
+            positional = false,
+            documented = false,
+            defaultValue = "[]",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FileApi.class),
+            }),
+        @Param(
+            name = "reported_to_actual_sources",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = Depset.class),
+              @ParamType(type = NoneType.class),
+            })
       },
       useStarlarkThread = true)
   InstrumentedFilesInfoApi instrumentedFilesInfo(
@@ -102,6 +123,8 @@ public interface CoverageCommonApi<
       Object supportFiles, // Sequence or Depset of <FileApi> expected
       Dict<?, ?> environment, // <String, String>
       Object extensions,
+      Sequence<?> metadataFiles,
+      Object reportedToActualSourcesObject,
       StarlarkThread thread)
       throws EvalException, TypeException;
 }

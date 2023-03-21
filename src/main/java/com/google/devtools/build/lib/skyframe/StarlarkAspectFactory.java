@@ -17,10 +17,12 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.StarlarkProviderValidationUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Info;
@@ -46,7 +48,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
   @Override
   @Nullable
   public ConfiguredAspect create(
-      ConfiguredTargetAndData ctadBase,
+      Label targetLabel,
+      ConfiguredTarget ct,
       RuleContext ruleContext,
       AspectParameters parameters,
       RepositoryName toolsRepository)
@@ -65,8 +68,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
           Starlark.fastcall(
               ruleContext.getStarlarkThread(),
               starlarkAspect.getImplementation(),
-              /*positional=*/ new Object[] {ctadBase.getConfiguredTarget(), ctx},
-              /*named=*/ new Object[0]);
+              /* positional= */ new Object[] {ct, ctx},
+              /* named= */ new Object[0]);
 
       // If allowing analysis failures, targets should be created somewhat normally, and errors
       // will be propagated via a hook elsewhere as AnalysisFailureInfo.

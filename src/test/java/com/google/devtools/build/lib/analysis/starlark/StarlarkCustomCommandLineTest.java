@@ -194,7 +194,6 @@ public class StarlarkCustomCommandLineTest {
         PathFragment.create(relativePath),
         PathFragment.EMPTY_FRAGMENT,
         mock(HasDigest.class),
-        /*isGeneratedTarget=*/ false,
         execRoot.asFragment());
   }
 

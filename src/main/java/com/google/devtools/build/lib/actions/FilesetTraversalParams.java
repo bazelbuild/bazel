@@ -15,11 +15,8 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -27,10 +24,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
-import net.starlark.java.syntax.Location;
 
 /**
  * Parameters of a filesystem traversal requested by a Fileset rule.
@@ -284,8 +279,7 @@ public interface FilesetTraversalParams {
    * directory (when FilesetEntry.srcdir is specified) or traversal of a single file (when
    * FilesetEntry.files is specified). See {@link DirectTraversal} for more detail.
    *
-   * <p>The returned value is non-null if and only if {@link #getNestedArtifact} is null and {@link
-   * #additionalLinks} is null.
+   * <p>The returned value is non-null if and only if {@link #getNestedArtifact} is null.
    */
   @Nullable
   DirectTraversal getDirectTraversal();
@@ -295,36 +289,11 @@ public interface FilesetTraversalParams {
    *
    * <p>A nested traversal is the traversal of another Fileset referenced by FilesetEntry.srcdir.
    *
-   * <p>The value is non-null when {@link #getDirectTraversal} is absent and
-   * {@link #additionalLinks} is null.
+   * <p>The value is non-null when {@link #getDirectTraversal} is absent.
    */
   @Nullable
   Artifact getNestedArtifact();
 
-  /**
-   * Returns a {@link LinkSupplier} to add a customized collection of links.
-   *
-   * <p>The value is non-null when {@link #getDirectTraversal} is absent and
-   * {@link #getNestedArtifact} is null.
-   */
-  @Nullable
-  LinkSupplier additionalLinks();
-
   /** Adds the fingerprint of this traversal object. */
   void fingerprint(Fingerprint fp);
-
-  /**
-   * A {@link LinkSupplier} returns a collection of {@link FilesetOutputSymlink} to include in the
-   * Fileset.
-   */
-  interface LinkSupplier {
-    ImmutableList<FilesetOutputSymlink> getLinks(
-        EventHandler handler,
-        Location location,
-        ArtifactExpander artifactExpander,
-        MetadataProvider metadataProvider)
-        throws IOException;
-
-    void fingerprint(Fingerprint fp);
-  }
 }

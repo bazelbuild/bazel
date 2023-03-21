@@ -54,6 +54,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
 
   @Test
   public void testTestWithExclusiveRunLocallyByDefault() throws Exception {
+    useConfiguration("--noincompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
@@ -73,6 +74,7 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
 
   @Test
   public void testTestWithExclusiveIfRunLocally_notTaggedLocal() throws Exception {
+    useConfiguration("--noincompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
@@ -93,7 +95,6 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
 
   @Test
   public void testTestWithExclusiveDisablesRemoteExecution() throws Exception {
-    useConfiguration("--incompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",
@@ -113,7 +114,6 @@ public class TestTargetPropertiesTest extends BuildViewTestCase {
 
   @Test
   public void testTestWithExclusiveIfRunLocally_notTaggedNoRemote() throws Exception {
-    useConfiguration("--incompatible_exclusive_test_sandboxed");
     scratch.file("tests/test.sh", "#!/bin/bash", "exit 0");
     scratch.file(
         "tests/BUILD",

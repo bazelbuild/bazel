@@ -15,16 +15,20 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,6 +36,13 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link DependencyKey}. */
 @RunWith(JUnit4.class)
 public class DependencyKeyTest extends AnalysisTestCase {
+  private static final PatchTransition TEST_TRANSITION =
+      (options, eventHandler) -> {
+        BuildOptions newOptions = options.underlying().clone();
+        newOptions.get(CoreOptions.class).commandLineBuildVariables =
+            ImmutableList.of(Map.entry("newkey", "newvalue"));
+        return newOptions;
+      };
 
   @Test
   public void withTransitionAndAspects_BasicAccessors() throws Exception {
@@ -39,18 +50,19 @@ public class DependencyKeyTest extends AnalysisTestCase {
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     AspectCollection twoAspects =
         AspectCollection.createForTests(ImmutableSet.of(simpleAspect, attributeAspect));
-    DependencyKey hostDep =
+    DependencyKey transitionDep =
         DependencyKey.builder()
             .setLabel(Label.parseCanonical("//a"))
-            .setTransition(HostTransition.INSTANCE)
+            .setTransition(TEST_TRANSITION)
             .setAspects(twoAspects)
             .build();
 
-    assertThat(hostDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
-    assertThat(Iterables.transform(hostDep.getAspects().getUsedAspects(), AspectDeps::getAspect))
+    assertThat(transitionDep.getLabel()).isEqualTo(Label.parseCanonical("//a"));
+    assertThat(
+            Iterables.transform(transitionDep.getAspects().getUsedAspects(), AspectDeps::getAspect))
         .containsExactlyElementsIn(
             Iterables.transform(twoAspects.getUsedAspects(), AspectDeps::getAspect));
-    assertThat(hostDep.getTransition().isHostTransition()).isTrue();
+    assertThat(transitionDep.getTransition()).isSameInstanceAs(TEST_TRANSITION);
   }
 
   @Test
@@ -59,7 +71,7 @@ public class DependencyKeyTest extends AnalysisTestCase {
     DependencyKey dep =
         DependencyKey.builder()
             .setLabel(Label.parseCanonical("//a"))
-            .setTransition(HostTransition.INSTANCE)
+            .setTransition(TEST_TRANSITION)
             .setAspects(AspectCollection.EMPTY)
             .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
@@ -86,61 +98,61 @@ public class DependencyKeyTest extends AnalysisTestCase {
 
     new EqualsTester()
         .addEqualityGroup(
-            // base set but with transition HOST
+            // base set but with transition
             DependencyKey.builder()
                 .setLabel(a)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(twoAspects)
                 .build(),
             DependencyKey.builder()
                 .setLabel(aExplicit)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(twoAspects)
                 .build(),
             DependencyKey.builder()
                 .setLabel(a)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(inverseAspects)
                 .build(),
             DependencyKey.builder()
                 .setLabel(aExplicit)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(inverseAspects)
                 .build())
         .addEqualityGroup(
-            // base set but with transition HOST and different aspects
+            // base set but with transition and different aspects
             DependencyKey.builder()
                 .setLabel(a)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(differentAspects)
                 .build(),
             DependencyKey.builder()
                 .setLabel(aExplicit)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(differentAspects)
                 .build())
         .addEqualityGroup(
-            // base set but with transition HOST and label //b
+            // base set but with transition and label //b
             DependencyKey.builder()
                 .setLabel(b)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(twoAspects)
                 .build(),
             DependencyKey.builder()
                 .setLabel(b)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(inverseAspects)
                 .build())
         .addEqualityGroup(
-            // inverse of base set: transition HOST, label //b, different aspects
+            // inverse of base set: transition, label //b, different aspects
             DependencyKey.builder()
                 .setLabel(b)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(differentAspects)
                 .build(),
             DependencyKey.builder()
                 .setLabel(b)
-                .setTransition(HostTransition.INSTANCE)
+                .setTransition(TEST_TRANSITION)
                 .setAspects(differentAspects)
                 .build())
         .addEqualityGroup(

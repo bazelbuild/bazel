@@ -576,7 +576,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirWritable(
       return false;
     }
     // directory does not exist.
-    if (::mkdir(path_chars, 0777) == -1) {
+    if (::mkdir(path_chars, 0755) == -1) {
       PostException(env, errno, path_chars);
     }
     return true;
@@ -587,7 +587,7 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirWritable(
     return false;
   }
   // Make sure the mode is correct.
-  if ((statbuf.st_mode & 0777) != 0777 && ::chmod(path_chars, 0777) == -1) {
+  if ((statbuf.st_mode & 0755) != 0755 && ::chmod(path_chars, 0755) == -1) {
     PostException(env, errno, path_chars);
   }
   return false;

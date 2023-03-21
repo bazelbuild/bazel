@@ -64,7 +64,7 @@ and [Go](https://github.com/bazelbuild/rules_go/blob/master/go/toolchains.rst){:
 and new toolchain rules are under way for other languages and tools such as
 [bash](https://docs.google.com/document/d/e/2PACX-1vRCSB_n3vctL6bKiPkIa_RN_ybzoAccSe0ic8mxdFNZGNBJ3QGhcKjsL7YKf-ngVyjRZwCmhi_5KhcX/pub){: .external}.
 If a toolchain rule does not exist for the tool your rule uses, consider
-[creating a toolchain rule](/docs/toolchains#creating-a-toolchain-rule).
+[creating a toolchain rule](/extending/toolchains#creating-a-toolchain-rule).
 
 ## Managing implicit dependencies {:#manage-dependencies}
 
@@ -87,7 +87,7 @@ _foo_ will be lost and the build will fail.
 To help detect and eliminate these dependency problems, Bazel 0.14.1 offers the
 local Docker sandbox, which has the same restrictions for dependencies as remote
 execution. Use the sandbox to prepare your build for remote execution by
-identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/docs/remote-execution-sandbox)
+identifying and resolving dependency-related build errors. See [Troubleshooting Bazel Remote Execution with Docker Sandbox](/remote/sandbox)
 for more information.
 
 ## Managing platform-dependent binaries {:#manage-binaries}
@@ -143,7 +143,7 @@ remote execution:
     `runfiles` tree, creating environment variables, and similar actions, as
      they may behave unexpectedly on the remote execution platform.
 
-To help find potential non-hermetic behavior you can use [Workspace rules log](/docs/workspace-log).
+To help find potential non-hermetic behavior you can use [Workspace rules log](/remote/workspace).
 
 If an external dependency executes specific operations dependent on the host
 platform, you should split those operations between `WORKSPACE` and build

@@ -99,7 +99,8 @@ public final class FunctionTransitionUtil {
       }
 
       for (Map.Entry<String, Map<String, Object>> entry : transitions.entrySet()) {
-        Map<String, Object> newValues = handleImplicitPlatformChange(entry.getValue());
+        Map<String, Object> newValues =
+            handleImplicitPlatformChange(buildOptions, entry.getValue());
         BuildOptions transitionedOptions =
             applyTransition(buildOptions, newValues, optionInfoMap, starlarkTransition);
         splitBuildOptions.put(entry.getKey(), transitionedOptions);
@@ -127,21 +128,22 @@ public final class FunctionTransitionUtil {
    * <p>Transitions can also explicitly set --platforms to be clear what platform they set.
    *
    * <p>Platform mappings: https://bazel.build/concepts/platforms-intro#platform-mappings.
-   *
-   * <p>This doesn't check that the changed value is actually different than the source (i.e.
-   * setting {@code --cpu=foo} when {@code --cpu} is already {@code foo}). That could unnecessarily
-   * fork configurations that are really the same. That's a possible optimization TODO.
    */
   private static Map<String, Object> handleImplicitPlatformChange(
-      Map<String, Object> originalOutput) {
-    boolean changesCpu = originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "cpu");
-    boolean changesPlatforms = originalOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms");
-    return changesCpu && !changesPlatforms
-        ? ImmutableMap.<String, Object>builder()
-            .putAll(originalOutput)
-            .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
-            .build()
-        : originalOutput;
+      BuildOptions options, Map<String, Object> rawTransitionOutput) {
+    Object newCpu = rawTransitionOutput.get(COMMAND_LINE_OPTION_PREFIX + "cpu");
+    if (newCpu == null || newCpu.equals(options.get(CoreOptions.class).cpu)) {
+      // No effective change to --cpu, so no need to prevent the platform mapping from resetting it.
+      return rawTransitionOutput;
+    }
+    if (rawTransitionOutput.containsKey(COMMAND_LINE_OPTION_PREFIX + "platforms")) {
+      // Explicitly setting --platforms overrides the implicit clearing.
+      return rawTransitionOutput;
+    }
+    return ImmutableMap.<String, Object>builder()
+        .putAll(rawTransitionOutput)
+        .put(COMMAND_LINE_OPTION_PREFIX + "platforms", ImmutableList.<Label>of())
+        .build();
   }
 
   private static void checkForDenylistedOptions(StarlarkDefinedConfigTransition transition)
@@ -259,7 +261,7 @@ public final class FunctionTransitionUtil {
 
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         // The transition changes a Starlark option.
-        Label optionLabel = Label.parseAbsoluteUnchecked(optionKey);
+        Label optionLabel = Label.parseCanonicalUnchecked(optionKey);
         Object oldValue = fromOptions.getStarlarkOptions().get(optionLabel);
         if (oldValue instanceof Label) {
           // If this is a label-typed build setting, we need to convert the provided new value into

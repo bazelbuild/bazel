@@ -62,7 +62,11 @@ public class CppLinkstampCompileHelper {
       CppSemantics semantics) {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
-                actionConstructionContext, grepIncludes, ccToolchainProvider, configuration)
+                actionConstructionContext,
+                grepIncludes,
+                ccToolchainProvider,
+                configuration,
+                semantics)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
@@ -83,7 +87,6 @@ public class CppLinkstampCompileHelper {
                     semantics))
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
-            .setSemantics(semantics)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
             .setInputsForInvalidation(inputsForInvalidation)
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)

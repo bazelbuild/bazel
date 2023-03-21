@@ -1,5 +1,10 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
@@ -51,6 +56,7 @@ java_test(
     srcs = ["QueryPreloadingTest.java"],
     deps = [
         ":QueryPreloadingTest_lib",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",

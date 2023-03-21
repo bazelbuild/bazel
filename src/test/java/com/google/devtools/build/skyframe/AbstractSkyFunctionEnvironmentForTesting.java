@@ -75,4 +75,9 @@ public abstract class AbstractSkyFunctionEnvironmentForTesting
     Map<SkyKey, ValueOrUntypedException> valuesOrExceptions = getValueOrUntypedExceptions(depKeys);
     return new SimpleSkyframeLookupResult(() -> valuesMissing = true, valuesOrExceptions::get);
   }
+
+  @Override
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    throw new UnsupportedOperationException();
+  }
 }

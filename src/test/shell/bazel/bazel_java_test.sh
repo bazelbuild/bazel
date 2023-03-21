@@ -325,6 +325,12 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+function test_build_hello_world_reduced_classpath() {
+  write_hello_library_files
+
+  bazel build --experimental_java_classpath=bazel //java/main:main &> $TEST_log || fail "build failed"
+}
+
 function test_worker_strategy_is_default() {
   write_hello_library_files
 

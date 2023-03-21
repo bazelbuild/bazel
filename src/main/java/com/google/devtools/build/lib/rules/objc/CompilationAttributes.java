@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -228,6 +227,12 @@ final class CompilationAttributes implements StarlarkValue {
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(explicit);
         }
+        if (ruleContext.getFragment(ObjcConfiguration.class).disallowSdkFrameworksAttributes()
+            && !frameworks.isEmpty()) {
+          ruleContext.attributeError(
+              "sdk_frameworks",
+              "sdk_frameworks attribute is disallowed. Use explicit dependencies instead.");
+        }
         builder.addSdkFrameworks(frameworks.build());
       }
 
@@ -236,6 +241,12 @@ final class CompilationAttributes implements StarlarkValue {
         for (String frameworkName :
             ruleContext.attributes().get("weak_sdk_frameworks", Type.STRING_LIST)) {
           weakFrameworks.add(frameworkName);
+        }
+        if (ruleContext.getFragment(ObjcConfiguration.class).disallowSdkFrameworksAttributes()
+            && !weakFrameworks.isEmpty()) {
+          ruleContext.attributeError(
+              "weak_sdk_frameworks",
+              "weak_sdk_frameworks attribute is disallowed.  Use explicit dependencies instead.");
         }
         builder.addWeakSdkFrameworks(weakFrameworks.build());
       }
@@ -341,12 +352,12 @@ final class CompilationAttributes implements StarlarkValue {
 
   @StarlarkMethod(name = "hdrs", documented = false, structField = true)
   public Depset hdrsForStarlark() {
-    return Depset.of(Artifact.TYPE, hdrs());
+    return Depset.of(Artifact.class, hdrs());
   }
 
   @StarlarkMethod(name = "textual_hdrs", documented = false, structField = true)
   public Depset textualHdrsForStarlark() {
-    return Depset.of(Artifact.TYPE, textualHdrs());
+    return Depset.of(Artifact.class, textualHdrs());
   }
 
   /**
@@ -366,7 +377,7 @@ final class CompilationAttributes implements StarlarkValue {
   @StarlarkMethod(name = "includes", documented = false, structField = true)
   public Depset includesForStarlark() {
     return Depset.of(
-        ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.COMPILE_ORDER,
             includes().toList().stream()
@@ -377,7 +388,7 @@ final class CompilationAttributes implements StarlarkValue {
   @StarlarkMethod(name = "sdk_includes", documented = false, structField = true)
   public Depset sdkIncludesForStarlark() {
     return Depset.of(
-        ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.COMPILE_ORDER,
             sdkIncludes().toList().stream()
@@ -399,12 +410,12 @@ final class CompilationAttributes implements StarlarkValue {
 
   @StarlarkMethod(name = "sdk_frameworks", documented = false, structField = true)
   public Depset sdkFrameworksForStarlark() {
-    return Depset.of(ElementType.STRING, sdkFrameworks);
+    return Depset.of(String.class, sdkFrameworks);
   }
 
   @StarlarkMethod(name = "weak_sdk_frameworks", documented = false, structField = true)
   public Depset weakSdkFrameworksForStarlark() {
-    return Depset.of(ElementType.STRING, weakSdkFrameworks);
+    return Depset.of(String.class, weakSdkFrameworks);
   }
 
   /** Returns the SDK frameworks to be linked weakly. */
@@ -414,7 +425,7 @@ final class CompilationAttributes implements StarlarkValue {
 
   @StarlarkMethod(name = "sdk_dylibs", documented = false, structField = true)
   public Depset sdkDylibsForStarlark() {
-    return Depset.of(ElementType.STRING, sdkDylibs);
+    return Depset.of(String.class, sdkDylibs);
   }
 
   /**
@@ -432,8 +443,8 @@ final class CompilationAttributes implements StarlarkValue {
       })
   public Depset headerSearchPathsForStarlark(String genfilesDir) {
     return Depset.of(
-        ElementType.STRING,
-        NestedSetBuilder.stableOrder()
+        String.class,
+        NestedSetBuilder.<String>stableOrder()
             .addAll(
                 headerSearchPaths(PathFragment.create(genfilesDir)).toList().stream()
                     .map(PathFragment::toString)

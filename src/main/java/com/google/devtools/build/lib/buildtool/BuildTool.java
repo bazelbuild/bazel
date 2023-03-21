@@ -54,8 +54,10 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -171,7 +173,9 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
-      if (request.getBuildOptions().shouldMergeSkyframeAnalysisExecution()) {
+      env.getSkyframeExecutor()
+          .setMergedSkyframeAnalysisExecution(env.withMergedAnalysisAndExecution());
+      if (env.withMergedAnalysisAndExecution()) {
         buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
         return;
       }
@@ -205,7 +209,7 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
-        result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
+        result.setBuildConfiguration(analysisResult.getConfiguration());
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
@@ -308,7 +312,6 @@ public class BuildTool {
       throws InterruptedException, TargetParsingException, LoadingFailedException,
           AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
           InvalidConfigurationException, RepositoryMappingResolutionException {
-
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
@@ -317,7 +320,7 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
-    boolean catastrophe = false;
+    boolean hasCatastrophe = false;
 
     if (request.getBuildOptions().performAnalysisPhase) {
       ExecutionTool executionTool = new ExecutionTool(env, request);
@@ -335,13 +338,29 @@ public class BuildTool {
                 buildOptions,
                 loadingResult,
                 () -> executionTool.prepareForExecution(request.getId()),
-                result::setBuildConfigurationCollection);
+                result::setBuildConfiguration,
+                new BuildDriverKeyTestContext() {
+                  @Override
+                  public String getTestStrategy() {
+                    return request.getOptions(ExecutionOptions.class).testStrategy;
+                  }
+
+                  @Override
+                  public boolean forceExclusiveTestsInParallel() {
+                    return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
+                  }
+
+                  @Override
+                  public boolean forceExclusiveIfLocalTestsInParallel() {
+                    return executionTool
+                        .getTestActionContext()
+                        .forceExclusiveIfLocalTestsInParallel();
+                  }
+                });
         buildCompleted = true;
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException
-          | TargetParsingException
           | RepositoryMappingResolutionException
-          | LoadingFailedException
           | ViewCreationFailedException
           | BuildFailedException
           | TestExecException e) {
@@ -350,11 +369,17 @@ public class BuildTool {
         throw e;
       } catch (Error | RuntimeException e) {
         // These are catastrophic.
-        catastrophe = true;
+        hasCatastrophe = true;
         throw e;
       } finally {
         executionTool.unconditionalExecutionPhaseFinalizations(timer, env.getSkyframeExecutor());
-        if (!catastrophe) {
+
+        // For the --noskymeld code path, this is done after the analysis phase.
+        BuildResultListener buildResultListener = env.getBuildResultListener();
+        result.setActualTargets(buildResultListener.getAnalyzedTargets());
+        result.setTestTargets(buildResultListener.getAnalyzedTests());
+
+        if (!hasCatastrophe) {
           executionTool.nonCatastrophicFinalizations(
               result,
               env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),

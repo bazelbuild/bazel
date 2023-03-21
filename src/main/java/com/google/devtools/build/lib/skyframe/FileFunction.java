@@ -78,10 +78,10 @@ public class FileFunction implements SkyFunction {
     // In the course of resolving the real path of p, there will be a logical chain of paths we
     // consider. Going with the example from above, the full chain of paths we consider is
     // [a/b, c/b].
-    ArrayList<RootedPath> logicalChain = new ArrayList<>();
-    // Same contents as 'logicalChain', except stored as an sorted TreeSet for efficiency reasons.
+    final ArrayList<RootedPath> logicalChain = new ArrayList<>();
+    // Same contents as 'logicalChain', except stored as a sorted TreeSet for efficiency reasons.
     // See the usage in checkPathSeenDuringPartialResolutionInternal.
-    TreeSet<Path> sortedLogicalChain = Sets.newTreeSet();
+    final TreeSet<Path> sortedLogicalChain = Sets.newTreeSet();
 
     ImmutableList<RootedPath> pathToUnboundedAncestorSymlinkExpansionChain = null;
     ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain = null;
@@ -145,9 +145,13 @@ public class FileFunction implements SkyFunction {
         realFileStateValue);
   }
 
-  private static RootedPath getChild(RootedPath parentRootedPath, String baseName) {
+  private static RootedPath getChild(
+      RootedPath parent, String baseName, RootedPath originalParent, RootedPath originalChild) {
+    if (parent.equals(originalParent)) {
+      return originalChild; // Avoid constructing a new instance if we already have the child.
+    }
     return RootedPath.toRootedPath(
-        parentRootedPath.getRoot(), parentRootedPath.getRootRelativePath().getChild(baseName));
+        parent.getRoot(), parent.getRootRelativePath().getChild(baseName));
   }
 
   private RootedPath toRootedPath(Path path) {
@@ -180,14 +184,15 @@ public class FileFunction implements SkyFunction {
       Environment env)
       throws InterruptedException, FileFunctionException {
     PathFragment relativePath = rootedPath.getRootRelativePath();
-    RootedPath rootedPathFromAncestors;
     String baseName = relativePath.getBaseName();
 
     FileValue parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
     if (parentFileValue == null) {
       return null;
     }
-    rootedPathFromAncestors = getChild(parentFileValue.realRootedPath(), baseName);
+
+    RootedPath rootedPathFromAncestors =
+        getChild(parentFileValue.realRootedPath(), baseName, parentRootedPath, rootedPath);
 
     if (!parentFileValue.exists() || !parentFileValue.isDirectory()) {
       return new PartialResolutionResult(
@@ -196,7 +201,9 @@ public class FileFunction implements SkyFunction {
 
     for (RootedPath parentPartialRootedPath : parentFileValue.logicalChainDuringResolution()) {
       checkAndNotePathSeenDuringPartialResolution(
-          getChild(parentPartialRootedPath, baseName), symlinkResolutionState, env);
+          getChild(parentPartialRootedPath, baseName, parentRootedPath, rootedPath),
+          symlinkResolutionState,
+          env);
       if (env.valuesMissing()) {
         return null;
       }

@@ -695,6 +695,7 @@ public final class AndroidRuleClasses {
                   .value(env.getToolsLabel("//tools/android:desugared_java8_legacy_apis")))
           .add(
               attr("$merge_proguard_maps", LABEL)
+                  .cfg(ExecutionTransitionFactory.create())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:merge_proguard_maps")))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->

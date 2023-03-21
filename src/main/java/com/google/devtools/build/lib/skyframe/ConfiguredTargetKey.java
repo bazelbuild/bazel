@@ -17,14 +17,13 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -58,12 +57,12 @@ import javax.annotation.Nullable;
  * BuildConfigurationKey.
  */
 @AutoCodec
-public class ConfiguredTargetKey implements ActionLookupKey {
+public class ConfiguredTargetKey extends ActionLookupKey {
   /**
    * Cache so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
    * not {@code O(edges between configured targets)}.
    */
-  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
+  private static final SkyKeyInterner<ConfiguredTargetKey> interner = SkyKey.newInterner();
 
   private final Label label;
   @Nullable private final BuildConfigurationKey configurationKey;
@@ -101,6 +100,7 @@ public class ConfiguredTargetKey implements ActionLookupKey {
   }
 
   @Nullable
+  @Override
   public final BuildConfigurationKey getConfigurationKey() {
     return configurationKey;
   }
@@ -160,11 +160,16 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return helper.toString();
   }
 
+  @Override
+  public SkyKeyInterner<? extends ConfiguredTargetKey> getSkyKeyInterner() {
+    return interner;
+  }
+
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class ToolchainDependencyConfiguredTargetKey extends ConfiguredTargetKey {
-    private static final Interner<ToolchainDependencyConfiguredTargetKey>
-        toolchainDependencyConfiguredTargetKeyInterner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<ToolchainDependencyConfiguredTargetKey>
+        toolchainDependencyConfiguredTargetKeyInterner = SkyKey.newInterner();
 
     private final Label executionPlatformLabel;
 
@@ -192,6 +197,11 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     @Override
     public final Label getExecutionPlatformLabel() {
       return executionPlatformLabel;
+    }
+
+    @Override
+    public final SkyKeyInterner<? extends ConfiguredTargetKey> getSkyKeyInterner() {
+      return toolchainDependencyConfiguredTargetKeyInterner;
     }
   }
 

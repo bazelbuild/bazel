@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -33,6 +31,52 @@ import javax.annotation.Nullable;
  * A context for the execution of test actions ({@link TestRunnerAction}).
  */
 public interface TestActionContext extends ActionContext {
+
+  /**
+   * A group of attempts for a single test shard, ran either sequentially or in parallel.
+   *
+   * <p>When one attempt succeeds, threads running the other attempts get an {@link
+   * InterruptedException} and {@link #cancelled()} will in the future return true. When a thread
+   * joins an attempt group that is already cancelled, {@link InterruptedException} will be thrown
+   * on the call to {@link #register()}.
+   */
+  interface AttemptGroup {
+
+    /**
+     * Registers a thread to the attempt group.
+     *
+     * <p>If the attempt group is already cancelled, throw {@link InterruptedException}.
+     */
+    void register() throws InterruptedException;
+
+    /** Unregisters a thread from the attempt group. */
+    void unregister();
+
+    /** Signal that the attempt run by this thread has succeeded and cancel all the others. */
+    void cancelOthers();
+
+    /** Whether the attempt group has been cancelled. */
+    boolean cancelled();
+
+    /** A dummy attempt group used when no flaky test attempt cancellation is done. */
+    AttemptGroup NOOP =
+        new AttemptGroup() {
+          @Override
+          public void register() {}
+
+          @Override
+          public void unregister() {}
+
+          @Override
+          public void cancelOthers() {}
+
+          @Override
+          public boolean cancelled() {
+            return false;
+          }
+        };
+  }
+
   TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction testRunnerAction, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
@@ -66,18 +110,8 @@ public interface TestActionContext extends ActionContext {
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
       throws IOException;
 
-  /**
-   * Returns a listenable future that is unique for any given combination of owner and shard number,
-   * i.e., that is cached across different runs within the same shard of the same target. This is to
-   * facilitate cross-action cancellation - if {@code runs_per_test} and {@code
-   * runs_per_test_detects_flake} are both set, then it is sufficient to have a single passing
-   * result per shard, and any concurrent actions can be cancelled.
-   *
-   * <p>Note that the output files of a test are named after the owner, which guarantees that there
-   * are no two tests with the same owner.
-   */
-  @Nullable
-  ListenableFuture<Void> getTestCancelFuture(ActionOwner owner, int shardNum);
+  /** Returns the attempt group associaed with the given shard. */
+  AttemptGroup getAttemptGroup(ActionOwner owner, int shardNum);
 
   /** An individual test attempt result. */
   interface TestAttemptResult {
@@ -128,70 +162,12 @@ public interface TestActionContext extends ActionContext {
    */
   interface FailedAttemptResult {}
 
-  /** A continuation that represents a single test attempt. */
-  abstract class TestAttemptContinuation {
-    public static TestAttemptContinuation of(TestAttemptResult testAttemptResult) {
-      return new Finished(testAttemptResult);
-    }
-
-    /** Returns true if this is a final result. */
-    public boolean isDone() {
-      return false;
-    }
-
-    /** Returns a future representing any ongoing concurrent work, or {@code null} otherwise. */
-    @Nullable
-    public abstract ListenableFuture<?> getFuture();
-
-    /** Performs the next step in the process of executing the test attempt. */
-    public abstract TestAttemptContinuation execute()
-        throws InterruptedException, IOException, ExecException;
-
-    /** Returns the final result. */
-    public TestAttemptResult get() {
-      throw new IllegalStateException();
-    }
-
-    /** Represents a finished test attempt. */
-    private static final class Finished extends TestAttemptContinuation {
-      private final TestAttemptResult testAttemptResult;
-
-      private Finished(TestAttemptResult testAttemptResult) {
-        this.testAttemptResult = testAttemptResult;
-      }
-
-      @Override
-      public boolean isDone() {
-        return true;
-      }
-
-      @Override
-      public ListenableFuture<?> getFuture() {
-        return Futures.immediateFuture(null);
-      }
-
-      @Override
-      public TestAttemptContinuation execute() {
-        return this;
-      }
-
-      @Override
-      public TestAttemptResult get() {
-        return testAttemptResult;
-      }
-    }
-  }
-
   /** A delegate to run a test. This may include running multiple spawns, renaming outputs, etc. */
   interface TestRunnerSpawn {
     ActionExecutionContext getActionExecutionContext();
 
-    /**
-     * Begin the test attempt execution. This may block until the test attempt is complete and
-     * return a completed result, or it may return a continuation with a non-null future
-     * representing asynchronous execution.
-     */
-    TestAttemptContinuation beginExecution() throws InterruptedException, IOException;
+    /** Run the test attempt. Blocks until the attempt is complete. */
+    TestAttemptResult execute() throws InterruptedException, IOException, ExecException;
 
     /**
      * After the first attempt has run, this method is called to determine the maximum number of

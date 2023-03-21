@@ -30,6 +30,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.devtools.build.android.resources.Visibility;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -121,7 +122,7 @@ public class PublicXmlResourceValue implements XmlResourceValue {
     Map<String, String> protoValues = proto.getMappedStringValueMap();
     ImmutableMap.Builder<ResourceType, Optional<Integer>> typeToId = ImmutableMap.builder();
     for (Map.Entry<String, String> entry : protoValues.entrySet()) {
-      ResourceType type = ResourceType.getEnum(entry.getKey());
+      ResourceType type = ResourceTypeEnum.get(entry.getKey());
       Preconditions.checkNotNull(type);
       Optional<Integer> id =
           MISSING_ID_VALUE.equals(entry.getValue())

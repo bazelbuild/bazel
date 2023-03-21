@@ -42,13 +42,13 @@ public class PackageGroupStaticInitializationTest extends PackageLoadingTestCase
             () -> {
               try {
                 RepositoryName defaultRepoName =
-                    Label.parseAbsoluteUnchecked("//context").getRepository();
+                    Label.parseCanonicalUnchecked("//context").getRepository();
                 groupQueue.put(
                     PackageSpecification.fromString(
                         defaultRepoName,
                         "//fruits/...",
-                        /*allowPublicPrivate=*/ true,
-                        /*repoRootMeansCurrentRepo=*/ true));
+                        /* allowPublicPrivate= */ true,
+                        /* repoRootMeansCurrentRepo= */ true));
               } catch (Exception e) {
                 // Can't throw from Runnable, but this will cause the test to timeout
                 // when the consumer can't take the object.

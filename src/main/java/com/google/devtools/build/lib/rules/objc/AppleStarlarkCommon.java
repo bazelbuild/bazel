@@ -214,9 +214,10 @@ public class AppleStarlarkCommon
   public AppleDynamicFrameworkInfo newDynamicFrameworkProvider(
       Object dylibBinary,
       Object depsCcInfo,
-      ObjcProvider depsObjcProvider,
+      Object depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles)
+      Object dynamicFrameworkFiles,
+      StarlarkThread thread)
       throws EvalException {
     NestedSet<String> frameworkDirs =
         Depset.noneableCast(dynamicFrameworkDirs, String.class, "framework_dirs");
@@ -225,19 +226,30 @@ public class AppleStarlarkCommon
     Artifact binary = (dylibBinary != Starlark.NONE) ? (Artifact) dylibBinary : null;
     // TODO(b/252909384): Disallow Starlark.NONE once rules have been migrated to supply CcInfo.
     CcInfo ccInfo = (depsCcInfo != Starlark.NONE) ? (CcInfo) depsCcInfo : CcInfo.EMPTY;
-
+    ObjcProvider objcProvider;
+    if (depsObjcProvider != Starlark.NONE) {
+      objcProvider = (ObjcProvider) depsObjcProvider;
+    } else {
+      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+    }
     return new AppleDynamicFrameworkInfo(
-        binary, ccInfo, depsObjcProvider, frameworkDirs, frameworkFiles);
+        binary, ccInfo, objcProvider, frameworkDirs, frameworkFiles);
   }
 
   @Override
   public AppleExecutableBinaryInfo newExecutableBinaryProvider(
-      Object executableBinary, Object depsCcInfo, ObjcProvider depsObjcProvider)
+      Object executableBinary, Object depsCcInfo, Object depsObjcProvider, StarlarkThread thread)
       throws EvalException {
     Artifact binary = (executableBinary != Starlark.NONE) ? (Artifact) executableBinary : null;
     // TODO(b/252909384): Disallow Starlark.NONE once rules have been migrated to supply CcInfo.
     CcInfo ccInfo = (depsCcInfo != Starlark.NONE) ? (CcInfo) depsCcInfo : CcInfo.EMPTY;
-    return new AppleExecutableBinaryInfo(binary, ccInfo, depsObjcProvider);
+    ObjcProvider objcProvider;
+    if (depsObjcProvider != Starlark.NONE) {
+      objcProvider = (ObjcProvider) depsObjcProvider;
+    } else {
+      objcProvider = new ObjcProvider.StarlarkBuilder(thread.getSemantics()).build();
+    }
+    return new AppleExecutableBinaryInfo(binary, ccInfo, objcProvider);
   }
 
   @Override
@@ -350,7 +362,7 @@ public class AppleStarlarkCommon
     // instead of plain NestedSets because the Starlark caller may want to return this directly from
     // their implementation function.
     Map<String, StarlarkValue> outputGroups =
-        Maps.transformValues(linkingOutputs.getOutputGroups(), v -> Depset.of(Artifact.TYPE, v));
+        Maps.transformValues(linkingOutputs.getOutputGroups(), v -> Depset.of(Artifact.class, v));
 
     ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
     fields.put("objc", linkingOutputs.getDepsObjcProvider());

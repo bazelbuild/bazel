@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -33,7 +33,7 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
   private final DetailedExitCode executionDetailedExitCode;
 
   AnalysisAndExecutionResult(
-      BuildConfigurationCollection configurations,
+      BuildConfigurationValue configuration,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
@@ -48,19 +48,19 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     super(
-        configurations,
+        configuration,
         targetsToBuild,
         aspects,
         targetsToTest,
         targetsToSkip,
         analysisFailureDetail,
-        /*actionGraph=*/ null,
+        /* actionGraph= */ null,
         artifactsToBuild,
         parallelTests,
         exclusiveTests,
         exclusiveIfLocalTests,
         topLevelContext,
-        /*packageRoots=*/ null,
+        /* packageRoots= */ null,
         workspaceName,
         topLevelTargetsWithConfigs);
     this.executionDetailedExitCode = executionDetailedExitCode;

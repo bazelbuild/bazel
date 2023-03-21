@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -34,7 +32,7 @@ public class ResolvedFileValue implements SkyValue {
   @Immutable
   @AutoCodec
   public static class ResolvedFileKey implements SkyKey {
-    private static final Interner<ResolvedFileKey> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<ResolvedFileKey> interner = SkyKey.newInterner();
 
     private final RootedPath path;
 
@@ -72,6 +70,11 @@ public class ResolvedFileValue implements SkyValue {
     @Override
     public int hashCode() {
       return path.hashCode();
+    }
+
+    @Override
+    public SkyKeyInterner<ResolvedFileKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 

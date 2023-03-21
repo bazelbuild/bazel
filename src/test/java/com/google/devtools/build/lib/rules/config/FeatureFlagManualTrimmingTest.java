@@ -94,7 +94,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "  return [DefaultInfo(files = files)]",
         "host_transition = rule(",
         "  implementation = _host_transition_impl,",
-        "  attrs = {'srcs': attr.label_list(cfg='host')},",
+        "  attrs = {'srcs': attr.label_list(cfg='exec')},",
         ")");
   }
 
@@ -106,15 +106,11 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   private ImmutableSortedMap<Label, String> getFlagValuesFromOutputFile(Artifact flagDict) {
     String fileContents =
         ((FileWriteAction) getActionGraph().getGeneratingAction(flagDict)).getFileContents();
-    return Splitter.on('\n')
-        .withKeyValueSeparator(":::")
-        .split(fileContents)
-        .entrySet()
-        .stream()
+    return Splitter.on('\n').withKeyValueSeparator(":::").split(fileContents).entrySet().stream()
         .collect(
             toImmutableSortedMap(
                 Ordering.natural(),
-                (entry) -> Label.parseAbsoluteUnchecked(entry.getKey()),
+                (entry) -> Label.parseCanonicalUnchecked(entry.getKey()),
                 Map.Entry::getValue));
   }
 
@@ -572,7 +568,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargets("exports_flag"))
             .getConfiguration();
 
-    Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");
+    Label childLabel = Label.parseCanonicalUnchecked("//test:read_flag");
     assertThat(getFlagMapFromConfiguration(childConfiguration).keySet())
         .containsExactly(childLabel);
   }
@@ -653,7 +649,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInHostConfiguration_HasDefaultValue() throws Exception {
+  public void featureFlagInExecConfiguration_hasDefaultValue() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':host_transition.bzl', 'host_transition')",
@@ -690,7 +686,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void featureFlagInHostConfiguration_HasNoTransitiveConfigEnforcement() throws Exception {
+  public void featureFlagInExecConfiguration_hasNoTransitiveConfigEnforcement() throws Exception {
     scratch.file(
         "test/BUILD",
         "load(':host_transition.bzl', 'host_transition')",

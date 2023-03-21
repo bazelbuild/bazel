@@ -44,7 +44,6 @@ public class ConfiguredTargetQueryHelper extends PostAnalysisQueryHelper<KeyedCo
         getReporter(),
         extraFunctions,
         topLevelConfigurations,
-        analysisHelper.getHostConfiguration(),
         transitiveConfigurationKeys,
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),

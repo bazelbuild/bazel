@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.ExecutionGraph;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -63,7 +64,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.Before;
@@ -121,9 +121,9 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
@@ -143,6 +143,54 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         .isEqualTo(startTimeInstant.toEpochMilli());
     assertThat(nodes.get(0).getIndex()).isEqualTo(0);
     assertThat(nodes.get(0).getDependentIndexList()).isEmpty();
+  }
+
+  @Test
+  public void testSpawnWithDiscoverInputs() throws IOException {
+    UUID uuid = UUID.randomUUID();
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+    Spawn spawn =
+        new SimpleSpawn(
+            new FakeOwnerWithPrimaryOutput(
+                "Mnemonic", "Progress message", "//foo", "output/foo/out"),
+            ImmutableList.of("cmd"),
+            ImmutableMap.of("env", "value"),
+            ImmutableMap.of("exec", "value"),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(createOutputArtifact("output/foo/out")),
+            ResourceSet.ZERO);
+    SpawnResult result =
+        new SpawnResult.Builder()
+            .setRunnerName("local")
+            .setStatus(Status.SUCCESS)
+            .setExitCode(0)
+            .setSpawnMetrics(
+                SpawnMetrics.Builder.forLocalExec()
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
+                    .setParseTimeInMs(2000)
+                    .build())
+            .build();
+    startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
+    Instant startTimeInstant = Instant.ofEpochMilli(999888777L);
+    module.discoverInputs(
+        new DiscoveredInputsEvent(
+            SpawnMetrics.Builder.forOtherExec().setParseTimeInMs(987).setTotalTimeInMs(987).build(),
+            new ActionsTestUtil.NullAction(createOutputArtifact("output/foo/out")),
+            0));
+    module.spawnExecuted(new SpawnExecutedEvent(spawn, result, startTimeInstant));
+    module.buildComplete(
+        new BuildCompleteEvent(new BuildResult(startTimeInstant.toEpochMilli() + 1000)));
+
+    ImmutableList<ExecutionGraph.Node> nodes = parse(buffer);
+    ExecutionGraph.Metrics metrics = nodes.get(0).getMetrics();
+    assertThat(metrics.getDurationMillis()).isEqualTo(2221);
+    assertThat(metrics.getFetchMillis()).isEqualTo(0);
+    assertThat(metrics.getProcessMillis()).isEqualTo(2345);
+    assertThat(metrics.getProcessOutputsMillis()).isEqualTo(3456);
+    assertThat(metrics.getParseMillis()).isEqualTo(2000);
+    assertThat(metrics.getDiscoverInputsMillis()).isEqualTo(987);
   }
 
   @Test
@@ -191,9 +239,9 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.ALL);
@@ -253,7 +301,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     ActionDumpWriter writer =
         new ActionDumpWriter(
             BugReporter.defaultInstance(),
-            /*localLockFreeOutputEnabled=*/ false,
+            /* localLockFreeOutputEnabled= */ false,
+            /* logFileWriteEdges= */ false,
             OutputStream.nullOutputStream(),
             uuid,
             DependencyInfo.NONE,
@@ -278,7 +327,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     startLogging(
         eventBus,
         BugReporter.defaultInstance(),
-        /*localLockFreeOutputEnabled=*/ false,
+        /* localLockFreeOutputEnabled= */ false,
+        /* logFileWriteEdges= */ false,
         uuid,
         buffer,
         depType);
@@ -288,11 +338,13 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean localLockFreeOutputEnabled,
+      boolean logFileWriteEdges,
       UUID uuid,
       OutputStream buffer,
       DependencyInfo depType) {
     ActionDumpWriter writer =
-        new ActionDumpWriter(bugReporter, localLockFreeOutputEnabled, buffer, uuid, depType, -1) {
+        new ActionDumpWriter(
+            bugReporter, localLockFreeOutputEnabled, logFileWriteEdges, buffer, uuid, depType, -1) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
         };
@@ -334,9 +386,9 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .setExitCode(0)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forLocalExec()
-                    .setTotalTime(Duration.ofMillis(1234L))
-                    .setExecutionWallTime(Duration.ofMillis(2345L))
-                    .setProcessOutputsTime(Duration.ofMillis(3456L))
+                    .setTotalTimeInMs(1234)
+                    .setExecutionWallTimeInMs(2345)
+                    .setProcessOutputsTimeInMs(3456)
                     .build())
             .build();
     startLogging(eventBus, uuid, buffer, DependencyInfo.NONE);
@@ -361,7 +413,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     module.spawnExecuted(
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
-            createRemoteSpawnResult(Duration.ofMillis(200)),
+            createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100)));
     module.actionComplete(
         new ActionCompletionEvent(
@@ -394,7 +446,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     module.spawnExecuted(
         new SpawnExecutedEvent(
             new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build(),
-            createRemoteSpawnResult(Duration.ofMillis(200)),
+            createRemoteSpawnResult(200),
             Instant.ofEpochMilli(100)));
     var action = new ActionsTestUtil.NullAction(createOutputArtifact("bar/out"));
     module.actionComplete(new ActionCompletionEvent(0, action, null));
@@ -423,8 +475,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
   public void multipleSpawnsWithSameOutput_recordsBothSpawnsWithRetry() throws Exception {
     var buffer = new ByteArrayOutputStream();
     startLogging(eventBus, UUID.randomUUID(), buffer, DependencyInfo.ALL);
-    SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
-    SpawnResult remoteResult = createRemoteSpawnResult(Duration.ofMillis(200));
+    SpawnResult localResult = createLocalSpawnResult(100);
+    SpawnResult remoteResult = createRemoteSpawnResult(200);
     Spawn spawn =
         new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build();
 
@@ -493,11 +545,12 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         eventBus,
         bugReporter,
         localLockFreeOutput.optionValue,
+        /* logFileWriteEdges= */ false,
         UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
-    SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
-    SpawnResult remoteResult = createRemoteSpawnResult(Duration.ofMillis(200));
+    SpawnResult localResult = createLocalSpawnResult(100);
+    SpawnResult remoteResult = createRemoteSpawnResult(200);
     Spawn spawn =
         new SpawnBuilder().withOwnerPrimaryOutput(createOutputArtifact("foo/out")).build();
 
@@ -537,12 +590,13 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     startLogging(
         eventBus,
         BugReporter.defaultInstance(),
-        /*localLockFreeOutputEnabled=*/ true,
+        /* localLockFreeOutputEnabled= */ true,
+        /* logFileWriteEdges= */ false,
         UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
-    SpawnResult localResult = createLocalSpawnResult(Duration.ofMillis(100));
-    SpawnResult remoteResult = createRemoteSpawnResult(Duration.ofMillis(200));
+    SpawnResult localResult = createLocalSpawnResult(100);
+    SpawnResult remoteResult = createRemoteSpawnResult(200);
     Artifact input = createOutputArtifact("foo/input");
     Spawn spawn = new SpawnBuilder().withOwnerPrimaryOutput(input).build();
     Spawn dependentSpawn =
@@ -550,7 +604,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
             .withOwnerPrimaryOutput(createOutputArtifact("foo/output"))
             .withInput(input)
             .build();
-    SpawnResult dependentResult = createRemoteSpawnResult(Duration.ofMillis(300));
+    SpawnResult dependentResult = createRemoteSpawnResult(300);
 
     module.spawnExecuted(new SpawnExecutedEvent(spawn, localResult, Instant.EPOCH));
     module.spawnExecuted(new SpawnExecutedEvent(spawn, remoteResult, Instant.ofEpochMilli(10)));
@@ -614,21 +668,23 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         artifactRoot, artifactRoot.getExecPath().getRelative(rootRelativePath));
   }
 
-  private SpawnResult createLocalSpawnResult(Duration totalTime) {
+  private SpawnResult createLocalSpawnResult(int totalTimeInMs) {
     return new SpawnResult.Builder()
         .setRunnerName("local")
         .setStatus(Status.SUCCESS)
         .setExitCode(0)
-        .setSpawnMetrics(SpawnMetrics.Builder.forLocalExec().setTotalTime(totalTime).build())
+        .setSpawnMetrics(
+            SpawnMetrics.Builder.forLocalExec().setTotalTimeInMs(totalTimeInMs).build())
         .build();
   }
 
-  private SpawnResult createRemoteSpawnResult(Duration totalTime) {
+  private SpawnResult createRemoteSpawnResult(int totalTimeInMs) {
     return new SpawnResult.Builder()
         .setRunnerName("remote")
         .setStatus(Status.SUCCESS)
         .setExitCode(0)
-        .setSpawnMetrics(SpawnMetrics.Builder.forRemoteExec().setTotalTime(totalTime).build())
+        .setSpawnMetrics(
+            SpawnMetrics.Builder.forRemoteExec().setTotalTimeInMs(totalTimeInMs).build())
         .build();
   }
 

@@ -38,13 +38,9 @@ _NON_OBJC_LINK_ACTIONS = [
     ACTION_NAMES.cpp_link_nodeps_dynamic_library,
 ]
 
-# Link actions using the ObjC bazel actions.
-_OBJC_LINK_ACTIONS = [
+_ALL_LINK_ACTIONS = _NON_OBJC_LINK_ACTIONS + [
     ACTION_NAMES.objc_executable,
-    ACTION_NAMES.objcpp_executable,
 ]
-
-_ALL_LINK_ACTIONS = _NON_OBJC_LINK_ACTIONS + _OBJC_LINK_ACTIONS
 
 _archive_param_file_feature = feature(
     name = "archive_param_file",
@@ -1035,741 +1031,6 @@ def _impl(ctx):
         objc_executable_action = None
 
     if (ctx.attr.cpu == "x64_windows"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch <architecture>"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "<tool_dir>/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch arm64"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "ios/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch arm64"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "tvos/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch armv7"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "ios/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch armv7k"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "watchos/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch arm64_32"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "watchos/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch i386"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "iossim/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_i386"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch i386"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "watchsim/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_x86_64"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch x86_64"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "watchsim/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch x86_64"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "iossim/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch x86_64"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "mac/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        objcpp_executable_action = action_config(
-            action_name = "objc++-executable",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(flags = ["-stdlib=libc++", "-std=gnu++11"]),
-                        flag_group(flags = ["-arch x86_64"]),
-                        flag_group(
-                            flags = [
-                                "-Xlinker",
-                                "-objc_abi_version",
-                                "-Xlinker",
-                                "2",
-                                "-fobjc-link-runtime",
-                                "-ObjC",
-                            ],
-                        ),
-                        flag_group(
-                            flags = ["-framework %{framework_names}"],
-                            iterate_over = "framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-weak_framework %{weak_framework_names}"],
-                            iterate_over = "weak_framework_names",
-                        ),
-                        flag_group(
-                            flags = ["-l%{library_names}"],
-                            iterate_over = "library_names",
-                        ),
-                        flag_group(flags = ["-filelist %{filelist}"]),
-                        flag_group(flags = ["-o %{linked_binary}"]),
-                        flag_group(
-                            flags = ["-force_load %{force_load_exec_paths}"],
-                            iterate_over = "force_load_exec_paths",
-                        ),
-                        flag_group(
-                            flags = ["%{dep_linkopts}"],
-                            iterate_over = "dep_linkopts",
-                        ),
-                        flag_group(
-                            flags = ["-Wl,%{attr_linkopts}"],
-                            iterate_over = "attr_linkopts",
-                        ),
-                    ],
-                ),
-            ],
-            implies = [
-                "include_system_dirs",
-                "framework_paths",
-                "version_min",
-                "apple_env",
-                "apply_implicit_frameworks",
-            ],
-            tools = [
-                tool(
-                    path = "tvsim/wrapped_clang++",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    else:
-        objcpp_executable_action = None
-
-    if (ctx.attr.cpu == "x64_windows"):
         cpp_link_executable_action = action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             implies = [
@@ -2351,369 +1612,6 @@ def _impl(ctx):
         )
     else:
         objc_compile_action = None
-
-    if (ctx.attr.cpu == "x64_windows"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "<architecture>",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "<tool_dir>/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_arm64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "arm64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "ios/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_arm64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "arm64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "tvos/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_armv7"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "armv7",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "ios/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_armv7k"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "armv7k",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "watchos/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_arm64_32"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "arm64_32",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "watchos/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_i386"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "i386",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "iossim/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_i386"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "i386",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "watchsim/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "watchos_x86_64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "x86_64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "watchsim/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "ios_x86_64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "x86_64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "iossim/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "darwin_x86_64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "x86_64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "mac/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    elif (ctx.attr.cpu == "tvos_x86_64"):
-        objc_archive_action = action_config(
-            action_name = "objc-archive",
-            flag_sets = [
-                flag_set(
-                    flag_groups = [
-                        flag_group(
-                            flags = [
-                                "-static",
-                                "-filelist",
-                                "%{obj_list_path}",
-                                "-arch_only",
-                                "x86_64",
-                                "-syslibroot",
-                                "%{sdk_dir}",
-                                "-o",
-                                "%{output_execpath}",
-                            ],
-                        ),
-                    ],
-                ),
-            ],
-            implies = ["apple_env"],
-            tools = [
-                tool(
-                    path = "tvsim/libtool",
-                    execution_requirements = xcode_execution_requirements,
-                ),
-            ],
-        )
-    else:
-        objc_archive_action = None
 
     if (ctx.attr.cpu == "x64_windows"):
         objcpp_compile_action = action_config(
@@ -5917,9 +4815,7 @@ def _impl(ctx):
         objcpp_compile_action,
         assemble_action,
         preprocess_assemble_action,
-        objc_archive_action,
         objc_executable_action,
-        objcpp_executable_action,
         cpp_link_executable_action,
         cpp_link_dynamic_library_action,
         cpp_link_nodeps_dynamic_library_action,
@@ -5967,7 +4863,7 @@ def _impl(ctx):
             name = "apply_implicit_frameworks",
             flag_sets = [
                 flag_set(
-                    actions = ["objc-executable", "objc++-executable"],
+                    actions = ["objc-executable"],
                     flag_groups = [
                         flag_group(
                             flags = ["-framework Foundation", "-framework UIKit"],
@@ -5981,7 +4877,7 @@ def _impl(ctx):
             name = "apply_implicit_frameworks",
             flag_sets = [
                 flag_set(
-                    actions = ["objc-executable", "objc++-executable"],
+                    actions = ["objc-executable"],
                     flag_groups = [flag_group(flags = ["-framework Foundation"])],
                 ),
             ],
@@ -6371,7 +5267,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6399,7 +5294,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6427,7 +5321,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6454,7 +5347,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6482,7 +5374,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6510,7 +5401,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6537,7 +5427,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6562,7 +5451,6 @@ def _impl(ctx):
                 flag_set(
                     actions = [
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.cpp_link_executable,
                         ACTION_NAMES.cpp_link_dynamic_library,
                         ACTION_NAMES.cpp_link_nodeps_dynamic_library,
@@ -6644,7 +5532,6 @@ def _impl(ctx):
                     ACTION_NAMES.cpp_link_nodeps_dynamic_library,
                     ACTION_NAMES.cpp_link_executable,
                     "objc-executable",
-                    "objc++-executable",
                 ],
                 flag_groups = [flag_group(flags = ["-fprofile-instr-generate"])],
             ),
@@ -6710,12 +5597,11 @@ def _impl(ctx):
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                         "objc-executable",
-                        "objc++-executable",
                     ],
                     flag_groups = [flag_group(flags = ["-fembed-bitcode"])],
                 ),
                 flag_set(
-                    actions = ["objc-executable", "objc++-executable"],
+                    actions = ["objc-executable"],
                     flag_groups = [
                         flag_group(
                             flags = [
@@ -7354,7 +6240,7 @@ def _impl(ctx):
         name = "generate_linkmap",
         flag_sets = [
             flag_set(
-                actions = ["objc-executable", "objc++-executable"],
+                actions = ["objc-executable"],
                 flag_groups = [
                     flag_group(
                         flags = ["-Xlinker -map", "-Xlinker %{linkmap_exec_path}"],
@@ -7583,12 +6469,11 @@ def _impl(ctx):
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
                     "objc-executable",
-                    "objc++-executable",
                 ],
                 flag_groups = [flag_group(flags = ["-g", "-DDUMMY_GENERATE_DSYM_FILE"])],
             ),
             flag_set(
-                actions = ["objc-executable", "objc++-executable"],
+                actions = ["objc-executable"],
                 flag_groups = [
                     flag_group(
                         flags = [
@@ -7625,7 +6510,7 @@ def _impl(ctx):
             name = "link_cocoa",
             flag_sets = [
                 flag_set(
-                    actions = _OBJC_LINK_ACTIONS,
+                    actions = [ACTION_NAMES.objc_executable],
                     flag_groups = [flag_group(flags = ["-framework Cocoa"])],
                 ),
             ],
@@ -7651,9 +6536,7 @@ def _impl(ctx):
             "objc-compile",
             "objc++-compile",
             "objc-fully-link",
-            "objc-archive",
             "objc-executable",
-            "objc++-executable",
             "assemble",
             "preprocess-assemble",
             "c-compile",
@@ -7703,14 +6586,12 @@ def _impl(ctx):
                     ACTION_NAMES.preprocess_assemble,
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
-                    "objc-archive",
                     "objc-fully-link",
                     ACTION_NAMES.cpp_link_executable,
                     ACTION_NAMES.cpp_link_dynamic_library,
                     ACTION_NAMES.cpp_link_nodeps_dynamic_library,
                     ACTION_NAMES.cpp_link_static_library,
                     "objc-executable",
-                    "objc++-executable",
                 ],
                 env_entries = [
                     env_entry(
@@ -8122,7 +7003,6 @@ def _impl(ctx):
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                         "objc-executable",
-                        "objc++-executable",
                     ],
                     flag_groups = [flag_group(flags = ["-fembed-bitcode-marker"])],
                 ),
@@ -8339,7 +7219,6 @@ def _impl(ctx):
             flag_set(
                 actions = [
                     "objc-executable",
-                    "objc++-executable",
                 ],
                 flag_groups = [
                     flag_group(
@@ -8426,7 +7305,6 @@ def _impl(ctx):
                     ACTION_NAMES.objc_compile,
                     ACTION_NAMES.objcpp_compile,
                     "objc-executable",
-                    "objc++-executable",
                 ],
                 flag_groups = [
                     flag_group(
@@ -8538,7 +7416,6 @@ def _impl(ctx):
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                     ],
@@ -8575,7 +7452,6 @@ def _impl(ctx):
                         ACTION_NAMES.objc_compile,
                         ACTION_NAMES.objcpp_compile,
                         "objc-executable",
-                        "objc++-executable",
                         ACTION_NAMES.assemble,
                         ACTION_NAMES.preprocess_assemble,
                     ],

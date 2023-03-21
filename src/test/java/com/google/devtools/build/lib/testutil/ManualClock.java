@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,5 +44,10 @@ public final class ManualClock implements Clock {
 
   public long advanceMillis(long time) {
     return currentTimeMillis.addAndGet(time);
+  }
+
+  @CanIgnoreReturnValue
+  public long advance(Duration duration) {
+    return advanceMillis(duration.toMillis());
   }
 }

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.buildtool.BuildTool.ExitException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
@@ -89,7 +88,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             request,
             env,
             runtime,
-            analysisResult.getConfigurationCollection().getHostConfiguration(),
             new TopLevelConfigurations(analysisResult.getTopLevelTargetsWithConfigs()),
             env.getSkyframeExecutor().getTransitiveConfigurationKeys(),
             queryRuntimeHelper,
@@ -129,7 +127,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
   protected abstract PostAnalysisQueryEnvironment<T> getQueryEnvironment(
       BuildRequest request,
       CommandEnvironment env,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       WalkableGraph walkableGraph)
@@ -139,7 +136,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
       BuildRequest request,
       CommandEnvironment env,
       BlazeRuntime runtime,
-      BuildConfigurationValue hostConfiguration,
       TopLevelConfigurations topLevelConfigurations,
       Collection<SkyKey> transitiveConfigurationKeys,
       QueryRuntimeHelper queryRuntimeHelper,
@@ -153,7 +149,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
         getQueryEnvironment(
             request,
             env,
-            hostConfiguration,
             topLevelConfigurations,
             transitiveConfigurationKeys,
             walkableGraph);
@@ -164,7 +159,6 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             env.getReporter(),
             queryRuntimeHelper.getOutputStreamForQueryOutput(),
             env.getSkyframeExecutor(),
-            hostConfiguration,
             runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
             env.getPackageManager());
     String outputFormat = postAnalysisQueryEnvironment.getOutputFormat();

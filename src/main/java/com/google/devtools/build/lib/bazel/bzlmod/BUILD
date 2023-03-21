@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -86,6 +87,7 @@ java_library(
     srcs = [
         "AbridgedModule.java",
         "ArchiveOverride.java",
+        "BazelDepGraphValue.java",
         "BazelModuleResolutionValue.java",
         "GitOverride.java",
         "LocalPathOverride.java",
@@ -126,6 +128,7 @@ java_library(
 java_library(
     name = "resolution_impl",
     srcs = [
+        "BazelDepGraphFunction.java",
         "BazelModuleResolutionFunction.java",
         "Discovery.java",
         "ModuleExtensionContext.java",
@@ -168,6 +171,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/spelling",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",

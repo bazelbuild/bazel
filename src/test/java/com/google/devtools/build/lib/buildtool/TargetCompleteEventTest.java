@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEvent;
@@ -71,6 +72,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
         .addBlazeModule(new NoSpawnCacheModule())
+        .addBlazeModule(new CredentialModule())
         .addBlazeModule(new BazelBuildEventServiceModule());
   }
 
@@ -117,7 +119,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
         "        allow_single_file = True,",
         "        default = Label(\"//validation_actions:validation_tool\"),",
         "        executable = True,",
-        "        cfg = \"host\"),",
+        "        cfg = \"exec\"),",
         "  }",
         ")");
     write("validation_actions/validation_tool", "#!/bin/bash", "echo \"validation output\" > $1")
@@ -151,7 +153,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
     Artifact main =
         ((RuleConfiguredTarget) fooTarget)
             .getArtifactByOutputLabel(
-                Label.parseAbsoluteUnchecked("//validation_actions:foo0.main"));
+                Label.parseCanonicalUnchecked("//validation_actions:foo0.main"));
     FileStateType mainType =
         targetCompleteEventRef.get().getCompletionContext().getFileArtifactValue(main).getType();
     assertThat(CompletionContext.isGuaranteedToBeOutputFile(mainType)).isTrue();

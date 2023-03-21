@@ -18,19 +18,19 @@ Before learning the more advanced concepts, first:
 * Read about the [Starlark language](/rules/language), used in both the
   `BUILD` and `.bzl` files.
 
-* Learn how you can [share variables](/rules/tutorial-sharing-variables)
+* Learn how you can [share variables](/build/share-variables)
   between two `BUILD` files.
 
 ## Macros and rules
 
-A [macro](/rules/macros) is a function that instantiates rules. It is useful when a
+A [macro](/extending/macros) is a function that instantiates rules. It is useful when a
 `BUILD` file is getting too repetitive or too complex, as it allows you to reuse
 some code. The function is evaluated as soon as the `BUILD` file is read. After
 the evaluation of the `BUILD` file, Bazel has little information about macros:
 if your macro generates a `genrule`, Bazel will behave as if you wrote the
 `genrule`. As a result, `bazel query` will only list the generated `genrule`.
 
-A [rule](/rules/rules) is more powerful than a macro. It can access Bazel
+A [rule](/extending/rules) is more powerful than a macro. It can access Bazel
 internals and have full control over what is going on. It may for example pass
 information to other rules.
 
@@ -73,12 +73,12 @@ they will not be executed.
 
 ## Creating extensions
 
-* [Create your first macro](/rules/tutorial-creating-a-macro) in order to
-  reuse some code. Then [learn more about macros](/rules/macros) and
-  [using them to create "custom verbs"](/rules/tutorial-custom-verbs).
+* [Create your first macro](/rules/macro-tutorial) in order to
+  reuse some code. Then [learn more about macros](/extending/macros) and
+  [using them to create "custom verbs"](/rules/verbs-tutorial).
 
 * [Follow the rules tutorial](/rules/rules-tutorial) to get started with rules.
-  Next, you can read more about the [rules concepts](/rules/rules).
+  Next, you can read more about the [rules concepts](/extending/rules).
 
 The two links below will be very useful when writing your own extensions. Keep
 them within reach:
@@ -89,8 +89,8 @@ them within reach:
 
 ## Going further
 
-In addition to [macros](/rules/macros) and [rules](/rules/rules), you may want to write
-[aspects](/rules/aspects) and [repository rules](/rules/repository_rules).
+In addition to [macros](/extending/macros) and [rules](/extending/rules), you may want to write
+[aspects](/extending/aspects) and [repository rules](/extending/repo).
 
 * Use [Buildifier](https://github.com/bazelbuild/buildtools){: .external}
   consistently to format and lint your code.

@@ -186,10 +186,11 @@ public interface CommandLineArgsApi extends StarlarkValue {
             name = "arg_name_or_values",
             doc =
                 "If two positional parameters are passed this is interpreted as the arg name. "
-                    + "The arg name is added before the <code>values</code> without any "
-                    + "processing. This arg name will not be added if <code>omit_if_empty</code> "
-                    + "is true (the default) and no other items are appended (as happens if "
-                    + "<code>values</code> is empty or all of its items are filtered). "
+                    + "The arg name is added before the <code>values</code> as a separate argument "
+                    + "without any processing. This arg name will not be added if "
+                    + "<code>omit_if_empty</code> is true (the default) and no other items are "
+                    + "appended (as happens if <code>values</code> is empty or all of its items "
+                    + "are filtered). "
                     + "If only one positional parameter is passed, it is interpreted as "
                     + "<code>values</code> (see below)."),
         @Param(
@@ -272,7 +273,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
             positional = false,
             defaultValue = "None",
             doc =
-                "An optional string to append before each argument derived from "
+                "An optional argument to append before each argument derived from "
                     + "<code>values</code> is appended."),
         @Param(
             name = "omit_if_empty",
@@ -314,8 +315,8 @@ public interface CommandLineArgsApi extends StarlarkValue {
             positional = false,
             defaultValue = "None",
             doc =
-                "An optional string to append after all other arguments. This string will not be "
-                    + "added if <code>omit_if_empty</code> is true (the default) and no other "
+                "An optional argument to append after all other arguments. This argument will not "
+                    + "be added if <code>omit_if_empty</code> is true (the default) and no other "
                     + "items are appended (as happens if <code>values</code> is empty or all of "
                     + "its items are filtered)."),
         @Param(

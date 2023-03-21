@@ -49,9 +49,10 @@ Plugin Repository and install the zip file from the IDE's plugin browser:
 
 ### Xcode {:#xcode}
 
-[Tulsi](https://tulsi.bazel.build){: .external} and
-[XCHammer](https://github.com/pinterest/xchammer){: .external} generate Xcode projects from
-Bazel `BUILD` files.
+[rules_xcodeproj](https://github.com/buildbuddy-io/rules_xcodeproj){: .external},
+[Tulsi](https://tulsi.bazel.build){: .external}, and
+[XCHammer](https://github.com/pinterest/xchammer){: .external} generate Xcode
+projects from Bazel `BUILD` files.
 
 ### Visual Studio Code {:#visual-studio-code}
 
@@ -74,14 +75,20 @@ See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 Find the [`language-bazel` package](https://atom.io/packages/language-bazel){: .external}
 on the Atom package manager.
 
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
+
 ### Vim {:#vim}
 
 See [`bazelbuild/vim-bazel` on GitHub](https://github.com/bazelbuild/vim-bazel){: .external}
+
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 
 ### Emacs {:#emacs}
 
 See [`bazelbuild/bazel-emacs-mode` on
 GitHub](https://github.com/bazelbuild/emacs-bazel-mode){: .external}
+
+See also: [Autocomplete for Source Code](#autocomplete-for-source-code)
 
 ### Visual Studio {:#visual-studio}
 
@@ -98,7 +105,7 @@ Eclipse projects.
 
 ### C Language Family (C++, C, Objective-C, and Objective-C++)
 
-[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete in a wide variety of extensible editors, including VSCode, Vim, Emacs, and Sublime. It lets language servers, like clangd and ccls, and other types of tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including how it configures cross-compilation for other platforms.
+[`hedronvision/bazel-compile-commands-extractor`](https://github.com/hedronvision/bazel-compile-commands-extractor) enables autocomplete, smart navigation, quick fixes, and more in a wide variety of extensible editors, including VSCode, Vim, Emacs, Atom, and Sublime. It lets language servers, like clangd and ccls, and other types of tooling, draw upon Bazel's understanding of how `cc` and `objc` code will be compiled, including how it configures cross-compilation for other platforms.
 
 ### Java
 

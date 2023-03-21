@@ -3,13 +3,16 @@ load("@rules_java//java:defs.bzl", "java_library")
 # Description:
 #   A devtools-common options parser.
 #   Open-sourced as part of Bazel.
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/main/java/com/google/devtools/common/options/testing:srcs",
         "//src/main/java/com/google/devtools/common/options/processor:srcs",
+        "//src/main/java/com/google/devtools/common/options/testing:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

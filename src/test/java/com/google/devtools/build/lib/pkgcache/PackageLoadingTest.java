@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -97,7 +98,7 @@ public class PackageLoadingTest extends FoundationTestCase {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     setUpSkyframe(parsePackageOptions(), parseBuildLanguageOptions());
@@ -125,6 +126,7 @@ public class PackageLoadingTest extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
@@ -483,7 +485,8 @@ public class PackageLoadingTest extends FoundationTestCase {
     initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ false);
     reporter.removeHandler(failFastHandler);
     setUpCacheWithTwoRootLocator();
-    createBuildFile(rootDir1, "c", "d/x");
+    createBuildFile(rootDir1, "c", "d/x", "e/x");
+    createBuildFile(rootDir1, "c/e", "x");
     // Now package c exists in both roots, and c/d exists in only in the second
     // root.  It's as if we've merged c and c/d in the first root.
 
@@ -493,6 +496,7 @@ public class PackageLoadingTest extends FoundationTestCase {
 
     // Subpackage labels are still valid...
     assertLabelValidity(true, "//c/d:foo.txt");
+    assertLabelValidity(true, "//c/e:x");
     // ...and this crosses package boundaries:
     assertLabelValidity(false, "//c:d/x");
     assertPackageLoadingFails(
@@ -503,7 +507,7 @@ public class PackageLoadingTest extends FoundationTestCase {
     assertThat(getPackageManager().isPackage(reporter, PackageIdentifier.createInMainRepo("c/d")))
         .isTrue();
 
-    setOptions("--deleted_packages=c/d");
+    setOptions("--package_path=/workspace:/otherroot", "--deleted_packages=c/d");
     invalidatePackages();
 
     assertThat(getPackageManager().isPackage(reporter, PackageIdentifier.createInMainRepo("c/d")))
@@ -521,6 +525,25 @@ public class PackageLoadingTest extends FoundationTestCase {
     assertLabelValidity(false, "//c/d:x");
     // ...and now d is just a subdirectory of c:
     assertLabelValidity(true, "//c:d/x");
+
+    // Verify that multiple --deleted_packages options are concatenated
+    setOptions(
+        "--package_path=/workspace:/otherroot", "--deleted_packages=c/d", "--deleted_packages=c/e");
+    invalidatePackages();
+
+    assertLabelValidity(false, "//c/d:x");
+    assertLabelValidity(false, "//c/e:x");
+    assertLabelValidity(true, "//c:d/x");
+    assertLabelValidity(true, "//c:e/x");
+
+    // Verify that comma-separated values work, too
+    setOptions("--package_path=/workspace:/otherroot", "--deleted_packages=c/d,c/e");
+    invalidatePackages();
+
+    assertLabelValidity(false, "//c/d:x");
+    assertLabelValidity(false, "//c/e:x");
+    assertLabelValidity(true, "//c:d/x");
+    assertLabelValidity(true, "//c:e/x");
   }
 
   @Test

@@ -531,13 +531,11 @@ public class CppLinkActionBuilder {
             || featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
       case EXECUTABLE:
       case OBJC_EXECUTABLE:
-      case OBJCPP_EXECUTABLE:
         return true;
       case STATIC_LIBRARY:
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-      case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
         return featureConfiguration.isEnabled(CppRuleClasses.ARCHIVE_PARAM_FILE);
       default:
@@ -1079,6 +1077,11 @@ public class CppLinkActionBuilder {
       // is not needed).
       return false;
     }
+    if (featureConfiguration
+        .getRequestedFeatures()
+        .contains(CppRuleClasses.FORCE_NO_WHOLE_ARCHIVE)) {
+      return false;
+    }
     if (cppConfig.removeLegacyWholeArchive()) {
       // --incompatible_remove_legacy_whole_archive has been flipped, no --whole-archive for the
       // entire build.
@@ -1156,8 +1159,21 @@ public class CppLinkActionBuilder {
   }
 
   protected ActionOwner getOwner() {
-    ActionOwner execGroupOwner = actionConstructionContext.getActionOwner(CPP_LINK_EXEC_GROUP);
-    return execGroupOwner == null ? actionConstructionContext.getActionOwner() : execGroupOwner;
+    ActionOwner cppLinkExecGroupOwner =
+        actionConstructionContext.getActionOwner(CPP_LINK_EXEC_GROUP);
+    if (cppLinkExecGroupOwner != null) {
+      return cppLinkExecGroupOwner;
+    }
+
+    if (((RuleContext) actionConstructionContext).useAutoExecGroups()) {
+      ActionOwner autoExecGroupOwner =
+          actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
+      return autoExecGroupOwner == null
+          ? actionConstructionContext.getActionOwner()
+          : autoExecGroupOwner;
+    }
+
+    return actionConstructionContext.getActionOwner();
   }
 
   /** Sets the mnemonic for the link action. */

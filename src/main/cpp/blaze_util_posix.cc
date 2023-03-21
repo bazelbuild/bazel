@@ -58,7 +58,6 @@
 
 namespace blaze {
 
-using blaze_exit_code::INTERNAL_ERROR;
 using blaze_util::GetLastErrorString;
 
 using std::set;
@@ -192,6 +191,9 @@ void SignalHandler::Install(const string& product_name,
   sigemptyset(&sigset);
   sigprocmask(SIG_SETMASK, &sigset, nullptr);
 
+  // SIGWINCH is reserved for Bazel server internal use and cannot be passed to
+  // it. The JVM is not attached to a terminal, making a signal insufficient to
+  // react to window size change event anyway.
   signal(SIGINT, handler);
   signal(SIGTERM, handler);
   signal(SIGPIPE, handler);

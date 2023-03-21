@@ -397,6 +397,58 @@ class BazelWindowsTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('Hello from test!', '\n'.join(stdout))
 
+  def testZipUndeclaredTestOutputs(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+            '',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            'touch "$TEST_UNDECLARED_OUTPUTS_DIR/foo.txt"',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-testlogs'])
+    self.AssertExitCode(exit_code, 0, stderr)
+    bazel_testlogs = stdout[0]
+
+    output_file = os.path.join(bazel_testlogs, 'foo_test/test.outputs/foo.txt')
+    output_zip = os.path.join(
+        bazel_testlogs, 'foo_test/test.outputs/outputs.zip'
+    )
+
+    # Run the test with undeclared outputs zipping.
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'test',
+            '--zip_undeclared_test_outputs',
+            '//:foo_test',
+        ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertFalse(os.path.exists(output_file))
+    self.assertTrue(os.path.exists(output_zip))
+
+    # Run the test without undeclared outputs zipping.
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'test',
+            '--nozip_undeclared_test_outputs',
+            '//:foo_test',
+        ],
+    )
+    self.AssertExitCode(exit_code, 0, stderr)
+    self.assertTrue(os.path.exists(output_file))
+    self.assertFalse(os.path.exists(output_zip))
+
 
 if __name__ == '__main__':
   unittest.main()

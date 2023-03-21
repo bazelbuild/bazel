@@ -64,7 +64,7 @@ public class ToolchainInfoTest extends BuildViewTestCase {
     ConfiguredTarget extraLabel = (ConfiguredTarget) provider.getValue("extra_label");
     assertThat(extraLabel).isNotNull();
     assertThat(extraLabel.getLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//test/toolchain:dep"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//test/toolchain:dep"));
     assertThat(provider.getValue("extra_str")).isEqualTo("foo");
   }
 

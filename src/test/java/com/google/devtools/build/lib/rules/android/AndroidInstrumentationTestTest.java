@@ -180,7 +180,7 @@ public abstract class AndroidInstrumentationTestTest extends AndroidBuildViewTes
             getDirectPrerequisite(
                     androidInstrumentationTest.getConfiguredTarget(),
                     androidInstrumentationTest
-                        .getTarget()
+                        .getTargetForTesting()
                         .getAssociatedRule()
                         .getAttrDefaultValue("$test_entry_point")
                         .toString())

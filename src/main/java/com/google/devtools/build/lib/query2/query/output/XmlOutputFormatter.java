@@ -173,10 +173,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         }
       }
 
-      // Include explicit elements for all direct inputs and outputs of a rule;
-      // this goes beyond what is available from the attributes above, since it
-      // may also (depending on options) include implicit outputs,
-      // host-configuration outputs, and default values.
+      // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
+      // what is available from the attributes above, since it may also (depending on options)
+      // include implicit outputs, exec-configuration outputs, and default values.
       for (Label label : rule.getSortedLabels(dependencyFilter)) {
         Element inputElem = doc.createElement("rule-input");
         inputElem.setAttribute("name", label.toString());
@@ -264,13 +263,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addPackageGroupsToElement(Document doc, Element parent, Target target) {
-    for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {
+    for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
       Element elem = doc.createElement("package-group");
       elem.setAttribute("name", visibilityDependency.toString());
       parent.appendChild(elem);
     }
 
-    for (Label visibilityDeclaration : target.getVisibility().getDeclaredLabels()) {
+    for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
       Element elem = doc.createElement("visibility-label");
       elem.setAttribute("name", visibilityDeclaration.toString());
       parent.appendChild(elem);

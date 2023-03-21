@@ -27,6 +27,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 
 /** Command-line options for repositories. */
@@ -42,7 +43,8 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "Specifies the cache location of the downloaded values obtained "
               + "during the fetching of external repositories. An empty string "
-              + "as argument requests the cache to be disabled.")
+              + "as argument requests the cache to be disabled, "
+              + "otherwise the default of '<output_user_root>/cache/repos/v1' is used")
   public PathFragment experimentalRepositoryCache;
 
   @Option(
@@ -123,6 +125,24 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help = "Scale all timeouts related to http downloads by the given factor")
   public double httpTimeoutScaling;
+
+  @Option(
+      name = "http_connector_attempts",
+      defaultValue = "8",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The maximum number of attempts for http downloads.")
+  public int httpConnectorAttempts;
+
+  @Option(
+      name = "http_connector_retry_max_timeout",
+      defaultValue = "0s",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "The maximum timeout for http download retries. With a value of 0, no timeout maximum is"
+              + " defined.")
+  public Duration httpConnectorRetryMaxTimeout;
 
   @Option(
       name = "override_repository",
@@ -350,12 +370,12 @@ public class RepositoryOptions extends OptionsBase {
       OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
           new OptionsUtils.AbsolutePathFragmentConverter();
       try {
-        var unused = absolutePathFragmentConverter.convert(pieces[1]);
+        var path = absolutePathFragmentConverter.convert(pieces[1]);
+        return ModuleOverride.create(pieces[0], path.toString());
       } catch (OptionsParsingException e) {
         throw new OptionsParsingException(
             "Module override directory must be an absolute path", input, e);
       }
-      return ModuleOverride.create(pieces[0], pieces[1]);
     }
 
     @Override

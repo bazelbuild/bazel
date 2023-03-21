@@ -287,9 +287,9 @@ public abstract class MemoizingEvaluatorTest {
         .setBuilder(
             (skyKey, env) -> {
               if (counter.getAndIncrement() > 0) {
-                deps.addAll(env.getTemporaryDirectDeps().get(0));
+                deps.addAll(env.getTemporaryDirectDeps().getDepGroup(0));
               } else {
-                assertThat(env.getTemporaryDirectDeps().listSize()).isEqualTo(0);
+                assertThat(env.getTemporaryDirectDeps().numGroups()).isEqualTo(0);
               }
               return env.getValue(bottomKey);
             });
@@ -3838,13 +3838,6 @@ public abstract class MemoizingEvaluatorTest {
     // And the SkyFunction for otherErrorKey was evaluated exactly once.
     assertThat(numOtherInvocations.get()).isEqualTo(1);
     assertWithMessage(bogusInvocationMessage.get()).that(bogusInvocationMessage.get()).isNull();
-
-    // NB: The SkyFunction for otherErrorKey gets evaluated exactly once--it does not get
-    // re-evaluated during error bubbling. Why? When otherErrorKey throws, it is always the
-    // second error encountered, because it waited for errorKey's error to be committed before
-    // trying to get it. In fail-fast evaluations only the first failing SkyFunction's
-    // newly-discovered-dependencies are registered. Therefore, there won't be a reverse-dep from
-    // errorKey to otherErrorKey for the error to bubble through.
   }
 
   @Test
@@ -5195,7 +5188,7 @@ public abstract class MemoizingEvaluatorTest {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setKeepGoing(keepGoing)
-              .setNumThreads(numThreads)
+              .setParallelism(numThreads)
               .setEventHandler(reporter)
               .build();
       BugReport.maybePropagateLastCrashIfInTest();

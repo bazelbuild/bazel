@@ -39,7 +39,7 @@ public class ShellConfiguration extends Fragment {
 
   private static final ConstraintSettingInfo OS_CONSTRAINT_SETTING =
       ConstraintSettingInfo.create(
-          Label.parseAbsoluteUnchecked("@platforms//os:os"));
+          Label.parseCanonicalUnchecked("@platforms//os:os"));
 
   private static Function<Options, PathFragment> optionsBasedDefault;
 
@@ -72,27 +72,27 @@ public class ShellConfiguration extends Fragment {
               OS.DARWIN,
               ConstraintValueInfo.create(
                   OS_CONSTRAINT_SETTING,
-                  Label.parseAbsoluteUnchecked("@platforms//os:osx")))
+                  Label.parseCanonicalUnchecked("@platforms//os:osx")))
           .put(
               OS.WINDOWS,
               ConstraintValueInfo.create(
                   OS_CONSTRAINT_SETTING,
-                  Label.parseAbsoluteUnchecked("@platforms//os:windows")))
+                  Label.parseCanonicalUnchecked("@platforms//os:windows")))
           .put(
               OS.FREEBSD,
               ConstraintValueInfo.create(
                   OS_CONSTRAINT_SETTING,
-                  Label.parseAbsoluteUnchecked("@platforms//os:freebsd")))
+                  Label.parseCanonicalUnchecked("@platforms//os:freebsd")))
           .put(
               OS.OPENBSD,
               ConstraintValueInfo.create(
                   OS_CONSTRAINT_SETTING,
-                  Label.parseAbsoluteUnchecked("@platforms//os:openbsd")))
+                  Label.parseCanonicalUnchecked("@platforms//os:openbsd")))
           .put(
               OS.UNKNOWN,
               ConstraintValueInfo.create(
                   OS_CONSTRAINT_SETTING,
-                  Label.parseAbsoluteUnchecked("@platforms//os:none")))
+                  Label.parseCanonicalUnchecked("@platforms//os:none")))
           .buildOrThrow();
 
   private final boolean useShBinaryStubScript;
@@ -147,11 +147,11 @@ public class ShellConfiguration extends Fragment {
     public boolean useShBinaryStubScript;
 
     @Override
-    public Options getHost() {
-      Options host = (Options) getDefault();
-      host.shellExecutable = shellExecutable;
-      host.useShBinaryStubScript = useShBinaryStubScript;
-      return host;
+    public Options getExec() {
+      Options exec = (Options) getDefault();
+      exec.shellExecutable = shellExecutable;
+      exec.useShBinaryStubScript = useShBinaryStubScript;
+      return exec;
     }
   }
 }

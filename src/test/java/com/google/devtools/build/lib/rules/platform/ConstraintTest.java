@@ -183,9 +183,9 @@ public class ConstraintTest extends BuildViewTestCase {
         (ConstraintValueInfo) info.getValue("default_value");
     assertThat(defaultConstraintValue).isNotNull();
     assertThat(defaultConstraintValue.label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint_default:foo"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//constraint_default:foo"));
     assertThat(defaultConstraintValue.constraint().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//constraint_default:basic"));
+        .isEqualTo(Label.parseCanonicalUnchecked("//constraint_default:basic"));
 
     boolean hasConstraintValue = (boolean) info.getValue("has_default_value");
     assertThat(hasConstraintValue).isTrue();

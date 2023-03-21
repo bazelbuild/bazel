@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -254,13 +253,5 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Override
   public void repr(Printer printer) {
     printer.append("<unknown target " + getLabel() + ">");
-  }
-
-  /**
-   * Returns a map of provider names to their values. This is only intended to be called from the
-   * query dialects of Starlark. Implement in subclasses which can have providers.
-   */
-  public Dict<String, Object> getProvidersDict() {
-    return null;
   }
 }

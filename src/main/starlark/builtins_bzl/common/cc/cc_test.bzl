@@ -25,7 +25,7 @@ platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
 
 def _cc_test_impl(ctx):
-    binary_info, cc_info, providers = cc_binary_impl(ctx, [])
+    binary_info, providers = cc_binary_impl(ctx, [])
     test_env = {}
     test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
@@ -52,26 +52,16 @@ def _cc_test_impl(ctx):
     if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
         # When built for Apple platforms, require the execution to be on a Mac.
         providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
-    return _handle_legacy_return(ctx, cc_info, providers)
-
-def _handle_legacy_return(ctx, cc_info, providers):
-    if ctx.fragments.cpp.enable_legacy_cc_provider():
-        # buildifier: disable=rule-impl-return
-        return struct(
-            cc = cc_internal.create_cc_provider(cc_info = cc_info),
-            providers = providers,
-        )
-    else:
-        return providers
+    return providers
 
 def _impl(ctx):
     if semantics.should_use_legacy_cc_test(ctx):
         # This is the "legacy" cc_test flow
         return _cc_test_impl(ctx)
 
-    cc_test_info = ctx.attr._test_toolchain.cc_test_info
+    cc_test_info = ctx.attr._test_toolchain[cc_internal.CcTestRunnerInfo]
 
-    binary_info, cc_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
+    binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
     processed_environment = cc_helper.get_expanded_env(ctx, {})
 
     test_providers = cc_test_info.get_runner.func(
@@ -81,7 +71,7 @@ def _impl(ctx):
         **cc_test_info.get_runner.args
     )
     providers.extend(test_providers)
-    return _handle_legacy_return(ctx, cc_info, providers)
+    return providers
 
 def make_cc_test(with_linkstatic = False, with_aspects = False):
     """Makes one of the cc_test rule variants.
@@ -137,9 +127,9 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
             "stripped_binary": "%{name}.stripped",
             "dwp_file": "%{name}.dwp",
         },
-        fragments = ["google_cpp", "cpp"],
+        fragments = ["google_cpp", "cpp", "coverage"],
         exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
+            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
         toolchains = cc_helper.use_cpp_toolchain() +
                      semantics.get_runtimes_toolchain(),

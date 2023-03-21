@@ -69,7 +69,7 @@ trap "rm -fr $tmp_dir" EXIT
 
 gcs_bucket="gs://bazel-mirror/bazel_java_tools"
 
-for platform in "linux" "windows" "darwin"; do
+for platform in "linux" "windows" "darwin_x86_64" "darwin_arm64"; do
   rc_url="release_candidates/java/v${java_tools_version}/java_tools_${platform}-v${java_tools_version}-rc${rc}.zip"
 
   if [[ $release == "true" ]]; then

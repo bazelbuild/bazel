@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link ExecutionTransitionFactory}. */
 @RunWith(JUnit4.class)
 public class ExecutionTransitionFactoryTest {
-  private static final Label EXECUTION_PLATFORM = Label.parseAbsoluteUnchecked("//platform:exec");
+  private static final Label EXECUTION_PLATFORM = Label.parseCanonicalUnchecked("//platform:exec");
 
   @Test
   public void executionTransition() throws OptionsParsingException, InterruptedException {
@@ -59,7 +59,6 @@ public class ExecutionTransitionFactoryTest {
     assertThat(result).isNotSameInstanceAs(options);
 
     assertThat(result.contains(CoreOptions.class)).isNotNull();
-    assertThat(result.get(CoreOptions.class).isHost).isFalse();
     assertThat(result.get(CoreOptions.class).isExec).isTrue();
     assertThat(result.contains(PlatformOptions.class)).isNotNull();
     assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);

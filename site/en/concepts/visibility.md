@@ -250,7 +250,7 @@ private so long as it lives in the same package as the definition of the
 ## Load visibility {:#load-visibility}
 
 **Load visibility** controls whether a `.bzl` file may be loaded from other
-`BUILD` or `.bzl` files.
+`BUILD` or `.bzl` files outside the current package.
 
 In the same way that target visibility protects source code that is encapsulated
 by targets, load visibility protects build logic that is encapsulated by `.bzl`
@@ -379,7 +379,7 @@ to existing users and to the packages owned by your own team. You might write:
 # //mylib/macros.bzl
 
 load(":internal_defs.bzl", "our_packages")
-load("//some_big_client:defs.bzl", "their_remaining_uses)
+load("//some_big_client:defs.bzl", "their_remaining_uses")
 
 # List concatenation. Duplicates are fine.
 visibility(our_packages + their_remaining_uses)

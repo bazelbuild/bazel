@@ -128,46 +128,8 @@ public interface Action extends ActionExecutionMetadata {
    * @throws InterruptedException if the execution is interrupted
    */
   @ConditionallyThreadCompatible
-  default ActionResult execute(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    ActionContinuationOrResult continuation = beginExecution(actionExecutionContext);
-    while (!continuation.isDone()) {
-      continuation = continuation.execute();
-    }
-    return continuation.get();
-  }
-
-  /**
-   * Actions that want to support async execution can use this interface to do so. While this is
-   * still disabled by default, we want to eventually deprecate the {@link #execute} method in favor
-   * of this new interface.
-   *
-   * <p>If the relevant command-line flag is enabled, Skyframe will call this method rather than
-   * {@link #execute}. As such, actions implementing both should exhibit identical behavior, and all
-   * requirements from the {@link #execute} documentation apply.
-   *
-   * <p>This method allows an action to return a continuation representing future work to be done,
-   * in combination with a listenable future representing concurrent ongoing work in another thread
-   * pool or even on another machine. When the concurrent work finishes, the listenable future must
-   * be completed to notify Skyframe of this fact.
-   *
-   * <p>Once the listenable future is completed, Skyframe will re-execute the corresponding Skyframe
-   * node representing this action, which will eventually call into the continuation returned here.
-   *
-   * <p>Actions implementing this method are not required to run asynchronously, although we expect
-   * the majority of actions to do so eventually. They can block the current thread for any amount
-   * of time as long as they return eventually, and also honor interrupt signals.
-   *
-   * @param actionExecutionContext services in the scope of the action, like the output and error
-   *     streams to use for messages arising during action execution
-   * @return returns an ActionResult containing action execution metadata
-   * @throws ActionExecutionException if execution fails for any reason
-   * @throws InterruptedException if the execution is interrupted
-   */
-  default ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    return ActionContinuationOrResult.of(execute(actionExecutionContext));
-  }
+  ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException;
 
   /**
    * Returns true iff action must be executed regardless of its current state.

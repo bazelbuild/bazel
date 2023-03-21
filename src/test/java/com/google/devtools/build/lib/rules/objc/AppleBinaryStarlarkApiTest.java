@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -351,13 +353,27 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testCcDependencyLinkoptsArePropagatedToLinkAction() throws Exception {
-    checkCcDependencyLinkoptsArePropagatedToLinkAction(getRuleType());
+  public void testCcDependencyLinkoptsArePropagatedToLinkActionPreMigration() throws Exception {
+    checkCcDependencyLinkoptsArePropagatedToLinkAction(
+        getRuleType(), /* linkingInfoMigration= */ false);
   }
 
   @Test
-  public void testObjcLibraryLinkoptsArePropagatedToLinkAction() throws Exception {
-    checkObjcLibraryLinkoptsArePropagatedToLinkAction(getRuleType());
+  public void testCcDependencyLinkoptsArePropagatedToLinkActionPostMigration() throws Exception {
+    checkCcDependencyLinkoptsArePropagatedToLinkAction(
+        getRuleType(), /* linkingInfoMigration= */ true);
+  }
+
+  @Test
+  public void testObjcLibraryLinkoptsArePropagatedToLinkActionPreMigration() throws Exception {
+    checkObjcLibraryLinkoptsArePropagatedToLinkAction(
+        getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testObjcLibraryLinkoptsArePropagatedToLinkActionPostMigration() throws Exception {
+    checkObjcLibraryLinkoptsArePropagatedToLinkAction(
+        getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   /** Returns the bcsymbolmap artifact for given architecture and compilation mode. */
@@ -395,6 +411,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
         "   provider = dep[apple_common.AppleExecutableBinary]",
         "   return MyInfo(",
         "      binary = provider.binary,",
+        "      cc_info = provider.cc_info,",
         "      objc = provider.objc,",
         "   )",
         "test_rule = rule(implementation = _test_rule_impl,",
@@ -428,16 +445,28 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
 
     assertThat(myInfo.getValue("binary")).isInstanceOf(Artifact.class);
     assertThat(myInfo.getValue("objc")).isInstanceOf(ObjcProvider.class);
+    assertThat(myInfo.getValue("cc_info")).isInstanceOf(CcInfo.class);
   }
 
-  @Test
-  public void testDuplicateLinkopts() throws Exception {
+  private void checkDuplicateLinkopts() throws Exception {
     getRuleType().scratchTarget(scratch, "linkopts", "['-foo', 'bar', '-foo', 'baz']");
 
     CommandAction linkAction = linkAction("//x:x");
     String linkArgs = Joiner.on(" ").join(linkAction.getArguments());
     assertThat(linkArgs).contains("-Wl,-foo -Wl,bar");
     assertThat(linkArgs).contains("-Wl,-foo -Wl,baz");
+  }
+
+  @Test
+  public void testDuplicateLinkoptsPreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(false));
+    checkDuplicateLinkopts();
+  }
+
+  @Test
+  public void testDuplicateLinkoptsPostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(true));
+    checkDuplicateLinkopts();
   }
 
   @Test
@@ -531,13 +560,23 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAliasedLinkoptsThroughObjcLibrary() throws Exception {
-    checkAliasedLinkoptsThroughObjcLibrary(getRuleType());
+  public void testAliasedLinkoptsThroughObjcLibraryPreMigration() throws Exception {
+    checkAliasedLinkoptsThroughObjcLibrary(getRuleType(), /* linkingInfoMigration= */ false);
   }
 
   @Test
-  public void testObjcProviderLinkInputsInLinkAction() throws Exception {
-    checkObjcProviderLinkInputsInLinkAction(getRuleType());
+  public void testAliasedLinkoptsThroughObjcLibraryPostMigration() throws Exception {
+    checkAliasedLinkoptsThroughObjcLibrary(getRuleType(), /* linkingInfoMigration= */ true);
+  }
+
+  @Test
+  public void testLinkInputsInLinkActionPreMigration() throws Exception {
+    checkLinkInputsInLinkAction(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testLinkInputsInLinkActionPostMigration() throws Exception {
+    checkLinkInputsInLinkAction(getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   @Test
@@ -556,18 +595,43 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAvoidDepsThroughAvoidDep() throws Exception {
-    checkAvoidDepsThroughAvoidDep(getRuleType());
+  public void testAvoidDepsThroughAvoidDepPreMigration() throws Exception {
+    checkAvoidDepsThroughAvoidDep(getRuleType(), /* linkingInfoMigration= */ false);
   }
 
   @Test
-  public void testAvoidDepsObjects_avoidViaCcLibrary() throws Exception {
-    checkAvoidDepsObjects_avoidViaCcLibrary(getRuleType());
+  public void testAvoidDepsThroughAvoidDepPostMigration() throws Exception {
+    checkAvoidDepsThroughAvoidDep(getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   @Test
-  public void testBundleLoaderIsCorrectlyPassedToTheLinker() throws Exception {
-    checkBundleLoaderIsCorrectlyPassedToTheLinker(getRuleType());
+  public void testAvoidDepsObjectsAvoidViaCcLibraryPreMigration() throws Exception {
+    checkAvoidDepsObjectsAvoidViaCcLibrary(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testAvoidDepsObjectsAvoidViaCcLibraryPostMigration() throws Exception {
+    checkAvoidDepsObjectsAvoidViaCcLibrary(getRuleType(), /* linkingInfoMigration= */ true);
+  }
+
+  @Test
+  public void testAvoidDepsSubtractsImportedLibraryPreMigration() throws Exception {
+    checkAvoidDepsSubtractsImportedLibrary(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testAvoidDepsSubtractsImportedLibraryPostMigration() throws Exception {
+    checkAvoidDepsSubtractsImportedLibrary(getRuleType(), /* linkingInfoMigration= */ true);
+  }
+
+  @Test
+  public void testBundleLoaderIsCorrectlyPassedToTheLinkerPreMigration() throws Exception {
+    checkBundleLoaderIsCorrectlyPassedToTheLinker(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testBundleLoaderIsCorrectlyPassedToTheLinkerPostMigration() throws Exception {
+    checkBundleLoaderIsCorrectlyPassedToTheLinker(getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   @Test
@@ -589,13 +653,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     checkLinkMinimumOSVersion("-miphoneos-version-min=8.0");
   }
 
-  @Test
-  public void testWatchSimulatorDepCompile() throws Exception {
-    checkWatchSimulatorDepCompile(getRuleType());
-  }
-
-  @Test
-  public void testDylibBinaryType() throws Exception {
+  private void checkDylibBinaryType() throws Exception {
     getRuleType().scratchTarget(scratch, "binary_type", "'dylib'");
 
     CommandAction linkAction = linkAction("//x:x");
@@ -603,7 +661,18 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testBinaryTypeIsCorrectlySetToBundle() throws Exception {
+  public void testDylibBinaryTypePreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ false));
+    checkDylibBinaryType();
+  }
+
+  @Test
+  public void testDylibBinaryTypePostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
+    checkDylibBinaryType();
+  }
+
+  private void checkBinaryTypeIsCorrectlySetToBundle() throws Exception {
     getRuleType().scratchTarget(scratch, "binary_type", "'loadable_bundle'");
 
     CommandAction linkAction = linkAction("//x:x");
@@ -611,8 +680,25 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testMultiarch() throws Exception {
-    checkMultiarchCcDep(getRuleType());
+  public void testBinaryTypeIsCorrectlySetToBundlePreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ false));
+    checkBinaryTypeIsCorrectlySetToBundle();
+  }
+
+  @Test
+  public void testBinaryTypeIsCorrectlySetToBundlePostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
+    checkBinaryTypeIsCorrectlySetToBundle();
+  }
+
+  @Test
+  public void testMultiarchPreMigration() throws Exception {
+    checkMultiarchCcDep(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testMultiarchPostMigration() throws Exception {
+    checkMultiarchCcDep(getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   @Test
@@ -621,13 +707,27 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testFrameworkDepLinkFlagsPostCleanup() throws Exception {
-    checkFrameworkDepLinkFlags(getRuleType(), new ExtraLinkArgs());
+  public void testFrameworkDepLinkFlagsPreMigration() throws Exception {
+    checkFrameworkDepLinkFlags(
+        getRuleType(), new ExtraLinkArgs(), /* linkingInfoMigration= */ false);
   }
 
   @Test
-  public void testAvoidDepsDependenciesPostCleanup() throws Exception {
-    checkAvoidDepsDependencies(getRuleType(), new ExtraLinkArgs());
+  public void testFrameworkDepLinkFlagsPostMigration() throws Exception {
+    checkFrameworkDepLinkFlags(
+        getRuleType(), new ExtraLinkArgs(), /* linkingInfoMigration= */ true);
+  }
+
+  @Test
+  public void testAvoidDepsDependenciesPreMigration() throws Exception {
+    checkAvoidDepsDependencies(
+        getRuleType(), new ExtraLinkArgs(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testAvoidDepsDependenciesPostMigration() throws Exception {
+    checkAvoidDepsDependencies(
+        getRuleType(), new ExtraLinkArgs(), /* linkingInfoMigration= */ true);
   }
 
   @Test
@@ -893,18 +993,33 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAvoidDepsObjects() throws Exception {
-    checkAvoidDepsObjects(getRuleType());
+  public void testAvoidDepsObjectsPreMigration() throws Exception {
+    checkAvoidDepsObjects(getRuleType(), /* linkingInfoMigration= */ false);
   }
 
   @Test
-  public void testAvoidDepsObjcLibraries() throws Exception {
-    checkAvoidDepsObjcLibraries(getRuleType());
+  public void testAvoidDepsObjectsPostMigration() throws Exception {
+    checkAvoidDepsObjects(getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   @Test
-  public void testAvoidDepsObjcLibrariesAvoidViaCcLibrary() throws Exception {
-    checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(getRuleType());
+  public void testAvoidDepsObjcLibrariesPreMigration() throws Exception {
+    checkAvoidDepsObjcLibraries(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testAvoidDepsObjcLibrariesPostMigration() throws Exception {
+    checkAvoidDepsObjcLibraries(getRuleType(), /* linkingInfoMigration= */ true);
+  }
+
+  @Test
+  public void testAvoidDepsObjcLibrariesAvoidViaCcLibraryPreMigration() throws Exception {
+    checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(getRuleType(), /* linkingInfoMigration= */ false);
+  }
+
+  @Test
+  public void testAvoidDepsObjcLibrariesAvoidViaCcLibraryPostMigration() throws Exception {
+    checkAvoidDepsObjcLibrariesAvoidViaCcLibrary(getRuleType(), /* linkingInfoMigration= */ true);
   }
 
   @Test
@@ -1058,13 +1173,17 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     getRuleType()
         .scratchTarget(scratch, "binary_type", "'executable'", "deps", "['//testlib:lib']");
 
-    ObjcProvider objcProvider = providerForTarget("//x:x");
+    ObjcProvider objcProvider = objcProviderForTarget("//x:x");
     assertThat(Artifact.toRootRelativePaths(objcProvider.get(ObjcProvider.LIBRARY)))
+        .contains("testlib/liblib.a");
+    CcLinkingContext ccLinkingContext = ccInfoForTarget("//x:x").getCcLinkingContext();
+    assertThat(
+            Artifact.toRootRelativePaths(
+                ccLinkingContext.getStaticModeParamsForDynamicLibraryLibraries()))
         .contains("testlib/liblib.a");
   }
 
-  @Test
-  public void testIncludesLinkstampFiles() throws Exception {
+  private void checkIncludesLinkstampFiles() throws Exception {
     scratch.file(
         "test/BUILD",
         "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
@@ -1080,6 +1199,18 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     CommandAction linkAction = linkAction("//test:bin");
     assertThat(paramFileArgsForAction(linkAction))
         .contains(execPathEndingWith(linkAction.getInputs().toList(), "some_linkstamp.o"));
+  }
+
+  @Test
+  public void testIncludesLinkstampFilesPreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ false));
+    checkIncludesLinkstampFiles();
+  }
+
+  @Test
+  public void testIncludesLinkstampFilesPostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
+    checkIncludesLinkstampFiles();
   }
 
   @Test
@@ -1104,8 +1235,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     return RULE_TYPE;
   }
 
-  @Test
-  public void testExpandedLinkopts() throws Exception {
+  private void checkExpandedLinkopts() throws Exception {
     scratch.file(
         "a/BUILD",
         "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
@@ -1132,7 +1262,18 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testProvidesLinkerScriptToLinkAction() throws Exception {
+  public void testExpandedLinkoptsPreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ false));
+    checkExpandedLinkopts();
+  }
+
+  @Test
+  public void testExpandedLinkoptsPostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
+    checkExpandedLinkopts();
+  }
+
+  private void checkProvidesLinkerScriptToLinkAction() throws Exception {
     scratch.file(
         "a/BUILD",
         "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
@@ -1153,7 +1294,18 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testRunimeLib() throws Exception {
+  public void testProvidesLinkerScriptToLinkActionPreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ false));
+    checkProvidesLinkerScriptToLinkAction();
+  }
+
+  @Test
+  public void testProvidesLinkerScriptToLinkActionPostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
+    checkProvidesLinkerScriptToLinkAction();
+  }
+
+  private void checkRuntimeLib() throws Exception {
     MockObjcSupport.setupCcToolchainConfig(
         mockToolsConfig,
         MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.STATIC_LINK_CPP_RUNTIMES));
@@ -1186,5 +1338,17 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
 
     assertThat(paramFileArgsForAction(action))
         .containsAtLeastElementsIn(ActionsTestUtil.execPaths(staticRuntimes));
+  }
+
+  @Test
+  public void testRuntimeLibPreMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ false));
+    checkRuntimeLib();
+  }
+
+  @Test
+  public void testRuntimeLibPostMigration() throws Exception {
+    useConfiguration(linkingInfoMigrationFlag(/* linkingInfoMigration= */ true));
+    checkRuntimeLib();
   }
 }

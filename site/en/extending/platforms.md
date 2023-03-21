@@ -16,7 +16,7 @@ resources that are available in some environment.
 
 Modeling the environment as a platform helps Bazel to automatically select the
 appropriate
-[toolchains](/docs/toolchains)
+[toolchains](/extending/toolchains)
 for build actions. Platforms can also be used in combination with the
 [config_setting](/reference/be/general#config_setting)
 rule to write [configurable attributes](/docs/configurable-attributes).
@@ -229,7 +229,7 @@ cc_library(
 You can use the
 [`IncompatiblePlatformProvider`](/rules/lib/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
-format](/docs/cquery#output-format-definition) to distinguish
+format](/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.
 
 This can be used to filter out incompatible targets. The example below will

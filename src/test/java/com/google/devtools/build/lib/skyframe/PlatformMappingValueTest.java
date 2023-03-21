@@ -38,13 +38,13 @@ public final class PlatformMappingValueTest {
   private static final ImmutableSet<Class<? extends FragmentOptions>>
       BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
 
-  private static final Label PLATFORM1 = Label.parseAbsoluteUnchecked("//platforms:one");
-  private static final Label PLATFORM2 = Label.parseAbsoluteUnchecked("//platforms:two");
+  private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
+  private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("//platforms:two");
 
   private static final BuildOptions DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS =
       BuildOptions.getDefaultBuildOptionsForFragments(BUILD_CONFIG_PLATFORM_OPTIONS);
   private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@local_config_platform//:host");
 
   @Test
   public void testMapNoMappings() throws OptionsParsingException {
@@ -142,7 +142,7 @@ public final class PlatformMappingValueTest {
         new PlatformMappingValue(
             ImmutableMap.of(), flagsToPlatforms, BUILD_CONFIG_PLATFORM_OPTIONS);
 
-    BuildOptions options = BuildOptions.of(ImmutableList.of(CoreOptions.class));
+    BuildOptions options = BuildOptions.of(ImmutableList.of());
 
     assertThrows(IllegalArgumentException.class, () -> mappingValue.map(keyForOptions(options)));
   }

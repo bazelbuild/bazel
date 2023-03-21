@@ -1039,8 +1039,11 @@ message BuildMetrics {
 
   // Information about all workers that were alive during the invocation.
   message WorkerMetrics {
-    // Unique id of worker.
-    int32 worker_id = 1;
+    // Deprecated. Use worker_ids instead of this field.
+    int32 worker_id = 1 [deprecated = true];
+
+    // Ids of workers. Could be multiple in case of multiplex workers
+    repeated uint32 worker_ids = 8;
     // Worker process id. If there is no process for worker, equals to zero.
     uint32 process_id = 2;
     // Mnemonic of running worker.

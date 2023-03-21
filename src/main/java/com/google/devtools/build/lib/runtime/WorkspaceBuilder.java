@@ -23,13 +23,14 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
+import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
-import com.google.devtools.build.lib.skyframe.PerBuildSyscallCache;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.vfs.SingleFileSystemSyscallCache;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -59,7 +60,7 @@ public final class WorkspaceBuilder {
   private SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder = null;
 
   @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
-  private SyscallCache perCommandSyscallCache;
+  private SyscallCache syscallCache;
 
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
@@ -87,23 +88,24 @@ public final class WorkspaceBuilder {
     return (int) scaledMemory;
   }
 
-  public static PerBuildSyscallCache createPerBuildSyscallCache() {
-    return PerBuildSyscallCache.newBuilder()
-        .setInitialCapacity(getSyscallCacheInitialCapacity())
-        .build();
-  }
-
   BlazeWorkspace build(
       BlazeRuntime runtime,
       PackageFactory packageFactory,
-      SubscriberExceptionHandler eventBusExceptionHandler) throws AbruptExitException {
+      SubscriberExceptionHandler eventBusExceptionHandler)
+      throws AbruptExitException {
     // Set default values if none are set.
     if (skyframeExecutorFactory == null) {
       skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
     }
-    if (perCommandSyscallCache == null) {
-      perCommandSyscallCache = createPerBuildSyscallCache();
+    if (syscallCache == null) {
+      syscallCache =
+          DefaultSyscallCache.newBuilder()
+              .setInitialCapacity(getSyscallCacheInitialCapacity())
+              .build();
     }
+
+    SingleFileSystemSyscallCache singleFsSyscallCache =
+        new SingleFileSystemSyscallCache(syscallCache, runtime.getFileSystem());
 
     SkyframeExecutor skyframeExecutor =
         skyframeExecutorFactory.create(
@@ -114,7 +116,7 @@ public final class WorkspaceBuilder {
             workspaceStatusActionFactory,
             diffAwarenessFactories.build(),
             skyFunctions.buildOrThrow(),
-            perCommandSyscallCache,
+            singleFsSyscallCache,
             skyframeExecutorRepositoryHelpersHolder,
             skyKeyStateReceiver == null
                 ? SkyframeExecutor.SkyKeyStateReceiver.NULL_INSTANCE
@@ -128,7 +130,7 @@ public final class WorkspaceBuilder {
         workspaceStatusActionFactory,
         binTools,
         allocationTracker,
-        perCommandSyscallCache);
+        singleFsSyscallCache);
   }
 
   /**
@@ -168,13 +170,10 @@ public final class WorkspaceBuilder {
   }
 
   @CanIgnoreReturnValue
-  public WorkspaceBuilder setPerCommandSyscallCache(SyscallCache perCommandSyscallCache) {
+  public WorkspaceBuilder setSyscallCache(SyscallCache syscallCache) {
     Preconditions.checkState(
-        this.perCommandSyscallCache == null,
-        "Set twice: %s %s",
-        this.perCommandSyscallCache,
-        perCommandSyscallCache);
-    this.perCommandSyscallCache = Preconditions.checkNotNull(perCommandSyscallCache);
+        this.syscallCache == null, "Set twice: %s %s", this.syscallCache, syscallCache);
+    this.syscallCache = Preconditions.checkNotNull(syscallCache);
     return this;
   }
 

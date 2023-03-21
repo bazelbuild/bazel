@@ -485,10 +485,9 @@ public class JavaOptions extends FragmentOptions {
       help = "Roll-out flag for making java_proto_library propagate CcLinkParamsStore. DO NOT USE.")
   public boolean jplPropagateCcLinkParamsStore;
 
-  // Plugins are built using the host config. To avoid cycles we just don't propagate
-  // this option to the host config. If one day we decide to use plugins when building
-  // host tools, we can improve this by (for example) creating a compiler configuration that is
-  // used only for building plugins.
+  // Plugins are built using the exec config. To avoid cycles we just don't propagate this option to
+  // the exec config. If one day we decide to use plugins when building exec tools, we can improve
+  // this by (for example) creating a compiler configuration that is used only for building plugins.
   @Option(
       name = "plugin",
       converter = LabelListConverter.class,
@@ -543,7 +542,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "java_language_version",
-      defaultValue = "8",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version")
@@ -551,7 +550,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
       name = "tool_java_language_version",
-      defaultValue = "8",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "The Java language version used to execute the tools that are needed during a build")
@@ -610,72 +609,72 @@ public class JavaOptions extends FragmentOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
+
   @Override
-  public FragmentOptions getHost() {
-    // Note validation actions don't run in host config, so no need copying flags related to that.
-    // TODO(b/171078539): revisit if relevant validations are run in host config
-    JavaOptions host = (JavaOptions) getDefault();
+  public FragmentOptions getExec() {
+    // Note validation actions don't run in exec config, so no need copying flags related to that.
+    // TODO(b/171078539): revisit if relevant validations are run in exec config
+    JavaOptions exec = (JavaOptions) getDefault();
 
     if (hostJvmOpts == null || hostJvmOpts.isEmpty()) {
-      host.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
+      exec.jvmOpts = ImmutableList.of("-XX:ErrorFile=/dev/stderr");
     } else {
-      host.jvmOpts = hostJvmOpts;
+      exec.jvmOpts = hostJvmOpts;
     }
 
+    exec.javacOpts = hostJavacOpts;
 
-    host.javacOpts = hostJavacOpts;
-
-    host.javaLauncher = hostJavaLauncher;
+    exec.javaLauncher = hostJavaLauncher;
 
     // Java builds often contain complicated code generators for which
     // incremental build performance is important.
-    host.useIjars = useIjars;
-    host.headerCompilation = headerCompilation;
+    exec.useIjars = useIjars;
+    exec.headerCompilation = headerCompilation;
 
-    host.javaDeps = javaDeps;
-    host.javaClasspath = javaClasspath;
-    host.inmemoryJdepsFiles = inmemoryJdepsFiles;
+    exec.javaDeps = javaDeps;
+    exec.javaClasspath = javaClasspath;
+    exec.inmemoryJdepsFiles = inmemoryJdepsFiles;
 
-    host.strictJavaDeps = strictJavaDeps;
-    host.fixDepsTool = fixDepsTool;
+    exec.strictJavaDeps = strictJavaDeps;
+    exec.fixDepsTool = fixDepsTool;
 
-    host.enforceOneVersion = enforceOneVersion;
-    host.importDepsCheckingLevel = importDepsCheckingLevel;
-    // java_test targets can be used as a host tool, Ex: as a validating tool on a genrule.
-    host.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
-    host.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
-    host.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
+    exec.enforceOneVersion = enforceOneVersion;
+    exec.importDepsCheckingLevel = importDepsCheckingLevel;
+    // java_test targets can be used as a exec tool, Ex: as a validating tool on a genrule.
+    exec.enforceOneVersionOnJavaTests = enforceOneVersionOnJavaTests;
+    exec.allowRuntimeDepsOnNeverLink = allowRuntimeDepsOnNeverLink;
+    exec.addTestSupportToCompileTimeDeps = addTestSupportToCompileTimeDeps;
 
-    host.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
+    exec.jplPropagateCcLinkParamsStore = jplPropagateCcLinkParamsStore;
 
-    host.disallowResourceJars = disallowResourceJars;
+    exec.disallowResourceJars = disallowResourceJars;
 
-    host.javaRuntimeVersion = hostJavaRuntimeVersion;
-    host.javaLanguageVersion = hostJavaLanguageVersion;
+    exec.javaRuntimeVersion = hostJavaRuntimeVersion;
+    exec.javaLanguageVersion = hostJavaLanguageVersion;
 
-    host.bytecodeOptimizers = bytecodeOptimizers;
-    host.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
-    host.bytecodeOptimizationPassActions = bytecodeOptimizationPassActions;
+    exec.bytecodeOptimizers = bytecodeOptimizers;
+    exec.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
+    exec.bytecodeOptimizationPassActions = bytecodeOptimizationPassActions;
 
-    host.enforceProguardFileExtension = enforceProguardFileExtension;
-    host.proguard = proguard;
+    exec.enforceProguardFileExtension = enforceProguardFileExtension;
+    exec.proguard = proguard;
 
     // Save host options for further use.
-    host.hostJavacOpts = hostJavacOpts;
-    host.hostJavaLauncher = hostJavaLauncher;
-    host.hostJavaRuntimeVersion = hostJavaRuntimeVersion;
-    host.hostJavaLanguageVersion = hostJavaLanguageVersion;
+    exec.hostJavacOpts = hostJavacOpts;
+    exec.hostJavaLauncher = hostJavaLauncher;
+    exec.hostJavaRuntimeVersion = hostJavaRuntimeVersion;
+    exec.hostJavaLanguageVersion = hostJavaLanguageVersion;
 
-    host.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
+    exec.experimentalTurbineAnnotationProcessing = experimentalTurbineAnnotationProcessing;
 
-    host.requireJavaPluginInfo = requireJavaPluginInfo;
+    exec.requireJavaPluginInfo = requireJavaPluginInfo;
 
-    host.multiReleaseDeployJars = multiReleaseDeployJars;
+    exec.multiReleaseDeployJars = multiReleaseDeployJars;
 
-    host.disallowJavaImportExports = disallowJavaImportExports;
+    exec.disallowJavaImportExports = disallowJavaImportExports;
 
-    host.disallowJavaImportEmptyJars = disallowJavaImportEmptyJars;
+    exec.disallowJavaImportEmptyJars = disallowJavaImportEmptyJars;
 
-    return host;
+    return exec;
   }
 }

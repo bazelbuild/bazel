@@ -16,10 +16,8 @@ package com.google.devtools.build.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.ForOverride;
 import java.util.Collection;
@@ -80,13 +78,16 @@ public class NotifyingHelper {
     @Override
     public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
         throws InterruptedException {
+      var node = delegate.get(requestor, reason, key);
       // Maintains behavior for tests written when all DEP_REQUESTED calls were made as batch
       // requests. Now there are optimizations in SkyFunctionEnvironment for looking up deps
       // individually, but older tests may be written to listen for a GET_BATCH event.
       if (reason == Reason.DEP_REQUESTED) {
         notifyingHelper.graphListener.accept(key, EventType.GET_BATCH, Order.BEFORE, reason);
+      } else if (reason == Reason.EVALUATION) {
+        notifyingHelper.graphListener.accept(key, EventType.EVALUATE, Order.BEFORE, node);
       }
-      return notifyingHelper.wrapEntry(key, delegate.get(requestor, reason, key));
+      return notifyingHelper.wrapEntry(key, node);
     }
 
     @Override
@@ -134,6 +135,7 @@ public class NotifyingHelper {
    */
   public enum EventType {
     CREATE_IF_ABSENT,
+    EVALUATE,
     ADD_REVERSE_DEP,
     ADD_EXTERNAL_DEP,
     REMOVE_REVERSE_DEP,
@@ -232,7 +234,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public GroupedList<SkyKey> getTemporaryDirectDeps() {
+    public GroupedDeps getTemporaryDirectDeps() {
       graphListener.accept(myKey, EventType.GET_TEMPORARY_DIRECT_DEPS, Order.BEFORE, null);
       return super.getTemporaryDirectDeps();
     }
@@ -288,9 +290,9 @@ public class NotifyingHelper {
     }
 
     @Override
-    public boolean isReady() {
+    public boolean isReadyToEvaluate() {
       graphListener.accept(myKey, EventType.IS_READY, Order.BEFORE, this);
-      return super.isReady();
+      return super.isReadyToEvaluate();
     }
 
     @Override
@@ -324,7 +326,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+    public void addTemporaryDirectDepGroup(List<SkyKey> group) {
       graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, group);
       super.addTemporaryDirectDepGroup(group);
       graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, group);

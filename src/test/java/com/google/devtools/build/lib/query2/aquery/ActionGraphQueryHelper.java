@@ -38,7 +38,6 @@ public class ActionGraphQueryHelper extends PostAnalysisQueryHelper<KeyedConfigu
         getReporter(),
         extraFunctions,
         topLevelConfigurations,
-        analysisHelper.getHostConfiguration(),
         mainRepoTargetParser,
         analysisHelper.getPackageManager().getPackagePath(),
         () -> walkableGraph,

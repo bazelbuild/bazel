@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_binary")
 
-package(default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/buildjar:buildjar_package_group"],
+)
 
 java_binary(
     name = "turbine_direct_binary",

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -132,20 +131,21 @@ public class ConditionalEdges {
           // skip unconditional selectors
           continue;
         }
-        for (Map.Entry<Label, ?> entry : selector.getEntries().entrySet()) {
-          if (entry.getValue() instanceof List<?>) {
-            List<?> deps = (List<?>) entry.getValue();
-            for (Object dep : deps) {
-              if (dep instanceof Label) {
-                conditions.put((Label) dep, entry.getKey());
+        selector.forEach(
+            (key, value) -> {
+              if (value instanceof List<?>) {
+                List<?> deps = (List<?>) value;
+                for (Object dep : deps) {
+                  if (dep instanceof Label) {
+                    conditions.put((Label) dep, key);
+                  }
+                }
+              } else if (value instanceof Label) {
+                conditions.put((Label) value, key);
               }
-            }
-          } else if (entry.getValue() instanceof Label) {
-            conditions.put((Label) entry.getValue(), entry.getKey());
-          }
-        }
+            });
       }
     }
     return conditions;
   }
-};
+}

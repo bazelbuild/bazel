@@ -428,4 +428,95 @@ end_of_record'
   assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
 }
 
+function test_coverage_with_tmp_in_path() {
+  local -r clang="/usr/bin/clang"
+  if [[ ! -x ${clang} ]]; then
+    return
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
+    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
+    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
+  fi
+
+  local -r llvm_profdata="/usr/bin/llvm-profdata"
+  if [[ ! -x ${llvm_profdata} ]]; then
+    return
+  fi
+
+  local -r llvm_cov="/usr/bin/llvm-cov"
+  if [[ ! -x ${llvm_cov} ]]; then
+    return
+  fi
+
+  mkdir -p foo/tmp
+  cat > foo/tmp/BUILD <<'EOF'
+cc_library(
+    name = "a",
+    srcs = ["a.cc"],
+    hdrs = ["a.h"],
+)
+
+cc_test(
+    name = "t",
+    srcs = ["t.cc"],
+    linkstatic = True,
+    deps = [":a"],
+)
+EOF
+
+  cat > foo/tmp/a.h <<'EOF'
+int a(bool what);
+EOF
+
+  cat > foo/tmp/a.cc <<'EOF'
+#include "a.h"
+
+int a(bool what) {
+  if (what) {
+    return 2;
+  } else {
+    return 1;
+  }
+}
+EOF
+
+  cat > foo/tmp/t.cc <<'EOF'
+#include <stdio.h>
+#include "a.h"
+
+int main(void) {
+  a(true);
+}
+EOF
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
+    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
+      --combined_report=lcov --test_output=all \
+        //foo/tmp:t --instrumentation_filter=// &>$TEST_log || fail "Coverage failed"
+
+  local expected_result='SF:foo/tmp/a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+BRDA:4,0,0,1
+BRDA:4,0,1,0
+BRF:2
+BRH:1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:7,0
+DA:8,0
+DA:9,1
+LH:5
+LF:7
+end_of_record'
+
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+}
+
 run_suite "test tests"

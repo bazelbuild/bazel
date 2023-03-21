@@ -105,7 +105,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       skyKey -> (ConfiguredTargetKey) skyKey.argument();
 
   protected final TopLevelConfigurations topLevelConfigurations;
-  protected final BuildConfigurationValue hostConfiguration;
   private final TargetPattern.Parser mainRepoTargetParser;
   private final PathPackageLocator pkgPath;
   private final Supplier<WalkableGraph> walkableGraphSupplier;
@@ -118,14 +117,12 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfigurationValue hostConfiguration,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
       Set<Setting> settings) {
     super(keepGoing, true, Rule.ALL_LABELS, eventHandler, settings, extraFunctions);
     this.topLevelConfigurations = topLevelConfigurations;
-    this.hostConfiguration = hostConfiguration;
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.pkgPath = pkgPath;
     this.walkableGraphSupplier = walkableGraphSupplier;
@@ -137,7 +134,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           ExtendedEventHandler eventHandler,
           OutputStream outputStream,
           SkyframeExecutor skyframeExecutor,
-          BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
           PackageManager packageManager)
           throws QueryException, InterruptedException;
@@ -187,10 +183,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     }
   }
 
-  public BuildConfigurationValue getHostConfiguration() {
-    return hostConfiguration;
-  }
-
   // TODO(bazel-team): It's weird that this untemplated function exists. Fix? Or don't implement?
   @Override
   public Target getTarget(Label label) throws TargetNotFoundException, InterruptedException {
@@ -214,9 +206,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * the "actual" target instead of the alias target. Grr.
    */
   public abstract Label getCorrectLabel(T target);
-
-  @Nullable
-  protected abstract T getHostConfiguredTarget(Label label) throws InterruptedException;
 
   @Nullable
   protected abstract T getTargetConfiguredTarget(Label label) throws InterruptedException;
@@ -341,9 +330,9 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
    * @param deps next level of deps to filter
    */
   private ImmutableList<T> getAllowedDeps(T target, Collection<ClassifiedDependency<T>> deps) {
-    // It's possible to query on a target that's configured in the host configuration. In those
-    // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in the
-    // host config. This is somewhat counterintuitive and subject to change in the future but seems
+    // It's possible to query on a target that's configured in an exec configuration. In those
+    // cases if --notool_deps is turned on, we only allow reachable targets that are ALSO in an
+    // exec config. This is somewhat counterintuitive and subject to change in the future but seems
     // like the best option right now.
     if (settings.contains(Setting.ONLY_TARGET_DEPS)) {
       BuildConfigurationValue currentConfig = getConfiguration(target);
@@ -361,7 +350,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                 .filter(
                     dep ->
                         // We include source files, which have null configuration, even though
-                        // they can also appear on host-configured attributes like genrule#tools.
+                        // they can also appear on exec-configured attributes like genrule#tools.
                         // While this may not be strictly correct, it's better to overapproximate
                         // than underapproximate the results.
                         getConfiguration(dep.dependency) == null

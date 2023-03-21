@@ -41,12 +41,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "experimental_enable_target_export_check",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "experimental_cc_shared_library_debug",
       documented = false,
       useStarlarkThread = true)
@@ -130,7 +124,12 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @StarlarkMethod(name = "generate_llvm_lcov", documented = false, useStarlarkThread = true)
   boolean generateLlvmLcovStarlark(StarlarkThread thread) throws EvalException;
 
-  @StarlarkMethod(name = "fdo_instrument", documented = false, useStarlarkThread = true)
+  @Nullable
+  @StarlarkMethod(
+      name = "fdo_instrument",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
   String fdoInstrumentStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
@@ -198,4 +197,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
 
   @StarlarkMethod(name = "share_native_deps", documented = false, useStarlarkThread = true)
   boolean shareNativeDepsStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "disable_nocopts", documented = false, useStarlarkThread = true)
+  boolean disableNocoptsStarlark(StarlarkThread thread) throws EvalException;
 }

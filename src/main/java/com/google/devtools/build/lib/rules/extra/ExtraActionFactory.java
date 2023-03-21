@@ -48,7 +48,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
     List<Artifact> resolvedData = Lists.newArrayList();
 
     CommandHelper commandHelper =
-        CommandHelper.builder(context).addHostToolDependencies("tools").build();
+        CommandHelper.builder(context).addToolDependencies("tools").build();
 
     resolvedData.addAll(context.getPrerequisiteArtifacts("data").list());
     List<String>outputTemplates =

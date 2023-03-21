@@ -169,7 +169,7 @@ goals.
 
 As a rule of thumb, the more macros resemble the rules, the better.
 
-See also [macros](/rules/macros#conventions).
+See also [macros](/extending/macros#conventions).
 
 ## Rules {:#rules}
 
@@ -204,7 +204,7 @@ See also [macros](/rules/macros#conventions).
     (named with a leading underscore). A common style is to give the
     implementation function for `myrule` the name `_myrule_impl`.
 *   Pass information between your rules using a well-defined
-    [provider](/rules/rules#providers) interface. Declare and document provider
+    [provider](/extending/rules#providers) interface. Declare and document provider
     fields.
 *   Design your rule with extensibility in mind. Consider that other rules might
     want to interact with your rule, access your providers, and reuse the

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.List;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -38,13 +39,21 @@ public final class OutputFile extends FileTarget {
   }
 
   @Override
+  public Iterable<Label> getVisibilityDependencyLabels() {
+    return generatingRule.getVisibilityDependencyLabels();
+  }
+
+  @Override
+  public List<Label> getVisibilityDeclaredLabels() {
+    return generatingRule.getVisibilityDeclaredLabels();
+  }
+
+  @Override
   public boolean isConfigurable() {
     return true;
   }
 
-  /**
-   * Returns the rule which generates this output file.
-   */
+  /** Returns the rule which generates this output file. */
   public Rule getGeneratingRule() {
     return generatingRule;
   }

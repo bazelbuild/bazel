@@ -33,6 +33,7 @@ import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -53,11 +54,21 @@ public class HttpDownloader implements Downloader {
   private static final Locale LOCALE = Locale.getDefault();
 
   private float timeoutScaling = 1.0f;
+  private int maxAttempts = 0;
+  private Duration maxRetryTimeout = Duration.ZERO;
 
   public HttpDownloader() {}
 
   public void setTimeoutScaling(float timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
+  }
+
+  public void setMaxAttempts(int maxAttempts) {
+    this.maxAttempts = maxAttempts;
+  }
+
+  public void setMaxRetryTimeout(Duration maxRetryTimeout) {
+    this.maxRetryTimeout = maxRetryTimeout;
   }
 
   @Override
@@ -161,7 +172,14 @@ public class HttpDownloader implements Downloader {
       ExtendedEventHandler eventHandler, Map<String, String> clientEnv) {
     ProxyHelper proxyHelper = new ProxyHelper(clientEnv);
     HttpConnector connector =
-        new HttpConnector(LOCALE, eventHandler, proxyHelper, SLEEPER, timeoutScaling);
+        new HttpConnector(
+            LOCALE,
+            eventHandler,
+            proxyHelper,
+            SLEEPER,
+            timeoutScaling,
+            maxAttempts,
+            maxRetryTimeout);
     ProgressInputStream.Factory progressInputStreamFactory =
         new ProgressInputStream.Factory(LOCALE, CLOCK, eventHandler);
     HttpStream.Factory httpStreamFactory = new HttpStream.Factory(progressInputStreamFactory);

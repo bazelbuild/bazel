@@ -128,6 +128,7 @@ public @interface Option {
    * does not have to be visible in the {@linkplain com.google.devtools.common.options options}
    * package, e.g. private classes are allowed.
    */
+  @SuppressWarnings("rawtypes")
   Class<? extends Converter> converter() default Converter.class;
 
   /**

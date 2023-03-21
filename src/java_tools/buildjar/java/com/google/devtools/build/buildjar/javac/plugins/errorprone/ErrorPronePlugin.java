@@ -29,6 +29,7 @@ import com.google.errorprone.scanner.BuiltInCheckerSuppliers;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskEvent.Kind;
+import com.sun.tools.javac.code.DeferredCompletionFailureHandler;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
@@ -37,10 +38,11 @@ import com.sun.tools.javac.util.Log;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * A plugin for BlazeJavaCompiler that performs Error Prone analysis. Error Prone is a static
- * analysis framework that we use to perform some simple static checks on Java code.
+ * A plugin that performs Error Prone analysis. Error Prone is a static analysis framework that we
+ * use to perform some simple static checks on Java code.
  */
 public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
 
@@ -65,6 +67,7 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   private ErrorProneAnalyzer errorProneAnalyzer;
   private ErrorProneOptions epOptions;
   private ErrorProneTimings timings;
+  private DeferredCompletionFailureHandler deferredCompletionFailureHandler;
   private final Stopwatch elapsed = Stopwatch.createUnstarted();
 
   /** Registers our message bundle. */
@@ -106,11 +109,15 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
     errorProneAnalyzer =
         ErrorProneAnalyzer.createByScanningForPlugins(scannerSupplier, epOptions, context);
     timings = ErrorProneTimings.instance(context);
+    deferredCompletionFailureHandler = DeferredCompletionFailureHandler.instance(context);
   }
 
   /** Run Error Prone analysis after performing dataflow checks. */
   @Override
   public void postFlow(Env<AttrContext> env) {
+    DeferredCompletionFailureHandler.Handler previousDeferredCompletionFailureHandler =
+        deferredCompletionFailureHandler.setHandler(
+            deferredCompletionFailureHandler.userCodeHandler);
     elapsed.start();
     try {
       errorProneAnalyzer.finished(new TaskEvent(Kind.ANALYZE, env.toplevel, env.enclClass.sym));
@@ -121,15 +128,29 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
       throw e;
     } finally {
       elapsed.stop();
+      deferredCompletionFailureHandler.setHandler(previousDeferredCompletionFailureHandler);
     }
   }
 
   @Override
   public void finish() {
     statisticsBuilder.totalErrorProneTime(elapsed.elapsed());
+    initializationTime(timings).ifPresent(statisticsBuilder::errorProneInitializationTime);
     timings.timings().entrySet().stream()
         .sorted(Map.Entry.<String, Duration>comparingByValue().reversed())
         .limit(10) // best-effort to stay under the action metric size limit
         .forEachOrdered(e -> statisticsBuilder.addBugpatternTiming(e.getKey(), e.getValue()));
+  }
+
+  // TODO(cushon): remove once ErrorProneTimings#initializationTime makes it into an EP release
+  private static Optional<Duration> initializationTime(ErrorProneTimings timings) {
+    try {
+      return Optional.of(
+          (Duration) ErrorProneTimings.class.getMethod("initializationTime").invoke(timings));
+    } catch (NoSuchMethodException e) {
+      return Optional.empty();
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage(), e);
+    }
   }
 }

@@ -129,7 +129,7 @@ For `rules_mockascript` that means there will be a directory named
 ### Constraints
 
 If your rule defines
-[toolchain](/docs/toolchains) rules,
+[toolchain](/extending/toolchains) rules,
 it's possible that you'll need to define custom `constraint_setting`s and/or
 `constraint_value`s. Put these into a `//<LANG>/constraints` package. Your
 directory structure will look like this:

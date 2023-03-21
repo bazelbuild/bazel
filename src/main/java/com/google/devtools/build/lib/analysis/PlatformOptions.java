@@ -40,9 +40,9 @@ public class PlatformOptions extends FragmentOptions {
   // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
   // directly.
   public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@local_config_platform//:host");
   public static final Label DEFAULT_HOST_PLATFORM =
-      Label.parseAbsoluteUnchecked("@local_config_platform//:host");
+      Label.parseCanonicalUnchecked("@local_config_platform//:host");
   public static final String DEFAULT_TARGET_PLATFORM_FALLBACK = "@local_config_platform//:host";
 
   /**
@@ -76,15 +76,15 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "extra_execution_platforms",
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      allowMultiple = true,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "The platforms that are available as execution platforms to run actions. "
               + "Platforms can be specified by exact target, or as a target pattern. "
               + "These platforms will be considered before those declared in the WORKSPACE file by "
-              + "register_execution_platforms().")
+              + "register_execution_platforms(). This option may only be set once; later "
+              + "instances will override earlier flag settings.")
   public List<String> extraExecutionPlatforms;
 
   @Option(
@@ -226,20 +226,32 @@ public class PlatformOptions extends FragmentOptions {
   public List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   @Override
-  public PlatformOptions getHost() {
-    PlatformOptions host = (PlatformOptions) getDefault();
-    host.platforms =
+  public PlatformOptions getExec() {
+    PlatformOptions exec = (PlatformOptions) getDefault();
+    exec.platforms =
         this.hostPlatform == null ? ImmutableList.of() : ImmutableList.of(this.hostPlatform);
-    host.hostPlatform = this.hostPlatform;
-    host.platformMappings = this.platformMappings;
-    host.extraExecutionPlatforms = this.extraExecutionPlatforms;
-    host.extraToolchains = this.extraToolchains;
-    host.toolchainResolutionDebug = this.toolchainResolutionDebug;
-    host.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
-    host.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
-    host.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
-    host.targetPlatformFallback = this.targetPlatformFallback;
-    return host;
+    exec.hostPlatform = this.hostPlatform;
+    exec.platformMappings = this.platformMappings;
+    exec.extraExecutionPlatforms = this.extraExecutionPlatforms;
+    exec.extraToolchains = this.extraToolchains;
+    exec.toolchainResolutionDebug = this.toolchainResolutionDebug;
+    exec.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
+    exec.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
+    exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
+    exec.targetPlatformFallback = this.targetPlatformFallback;
+    return exec;
+  }
+
+  @Override
+  public PlatformOptions getNormalized() {
+    PlatformOptions result = (PlatformOptions) clone();
+    result.extraToolchains = dedupeOnly(result.extraToolchains);
+    // Only the first entry of platforms is used (it should have been Label and not List<Label>)
+    // So drop all but the first entry.
+    if (result.platforms.size() > 1) {
+      result.platforms = ImmutableList.of(result.platforms.get(0));
+    }
+    return result;
   }
 
   /** Returns the intended target platform value based on options defined in this fragment. */

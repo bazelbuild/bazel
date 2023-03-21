@@ -15,7 +15,7 @@ host machine for use during execution, your build is likely to break due to
 incompatibilities between the environments.
 
 As part of [adapting Bazel rules for remote
-execution](/docs/remote-execution-rules), you need to find such workspace rules
+execution](/remote/rules), you need to find such workspace rules
 and fix them. This page describes how to find potentially problematic workspace
 rules using the workspace log.
 

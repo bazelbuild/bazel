@@ -96,15 +96,13 @@ bool IsDirectory(const string& path) {
 
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir, std::string* out_manifest,
-               std::string* out_directory, std::string* out_repo_mapping);
+               std::string* out_directory);
 
 bool PathsFrom(const std::string& argv0, std::string runfiles_manifest_file,
                std::string runfiles_dir,
                std::function<bool(const std::string&)> is_runfiles_manifest,
                std::function<bool(const std::string&)> is_runfiles_directory,
-               std::function<bool(const std::string&)> is_repo_mapping,
-               std::string* out_manifest, std::string* out_directory,
-               std::string* out_repo_mapping);
+               std::string* out_manifest, std::string* out_directory);
 
 bool ParseManifest(const string& path, map<string, string>* result,
                    string* error);
@@ -117,9 +115,9 @@ Runfiles* Runfiles::Create(const string& argv0,
                            const string& runfiles_manifest_file,
                            const string& runfiles_dir,
                            const string& source_repository, string* error) {
-  string manifest, directory, repo_mapping;
+  string manifest, directory;
   if (!PathsFrom(argv0, runfiles_manifest_file, runfiles_dir, &manifest,
-                 &directory, &repo_mapping)) {
+                 &directory)) {
     if (error) {
       std::ostringstream err;
       err << "ERROR: " << __FILE__ << "(" << __LINE__
@@ -144,10 +142,10 @@ Runfiles* Runfiles::Create(const string& argv0,
   }
 
   map<pair<string, string>, string> mapping;
-  if (!repo_mapping.empty()) {
-    if (!ParseRepoMapping(repo_mapping, &mapping, error)) {
-      return nullptr;
-    }
+  if (!ParseRepoMapping(
+          RlocationUnchecked("_repo_mapping", runfiles, directory), &mapping,
+          error)) {
+    return nullptr;
   }
 
   return new Runfiles(std::move(runfiles), std::move(directory),
@@ -196,28 +194,28 @@ string Runfiles::Rlocation(const string& path,
     return path;
   }
 
-  if (repo_mapping_.empty()) {
-    return RlocationUnchecked(path);
-  }
   string::size_type first_slash = path.find_first_of('/');
   if (first_slash == string::npos) {
-    return RlocationUnchecked(path);
+    return RlocationUnchecked(path, runfiles_map_, directory_);
   }
   string target_apparent = path.substr(0, first_slash);
   auto target =
       repo_mapping_.find(std::make_pair(source_repo, target_apparent));
   if (target == repo_mapping_.cend()) {
-    return RlocationUnchecked(path);
+    return RlocationUnchecked(path, runfiles_map_, directory_);
   }
-  return RlocationUnchecked(target->second + path.substr(first_slash));
+  return RlocationUnchecked(target->second + path.substr(first_slash),
+                            runfiles_map_, directory_);
 }
 
-string Runfiles::RlocationUnchecked(const string& path) const {
-  const auto exact_match = runfiles_map_.find(path);
-  if (exact_match != runfiles_map_.end()) {
+string Runfiles::RlocationUnchecked(const string& path,
+                                    const map<string, string>& runfiles_map,
+                                    const string& directory) {
+  const auto exact_match = runfiles_map.find(path);
+  if (exact_match != runfiles_map.end()) {
     return exact_match->second;
   }
-  if (!runfiles_map_.empty()) {
+  if (!runfiles_map.empty()) {
     // If path references a runfile that lies under a directory that itself is a
     // runfile, then only the directory is listed in the manifest. Look up all
     // prefixes of path in the manifest and append the relative path from the
@@ -226,14 +224,14 @@ string Runfiles::RlocationUnchecked(const string& path) const {
     while ((prefix_end = path.find_last_of('/', prefix_end - 1)) !=
            string::npos) {
       const string prefix = path.substr(0, prefix_end);
-      const auto prefix_match = runfiles_map_.find(prefix);
-      if (prefix_match != runfiles_map_.end()) {
+      const auto prefix_match = runfiles_map.find(prefix);
+      if (prefix_match != runfiles_map.end()) {
         return prefix_match->second + "/" + path.substr(prefix_end + 1);
       }
     }
   }
-  if (!directory_.empty()) {
-    return directory_ + "/" + path;
+  if (!directory.empty()) {
+    return directory + "/" + path;
   }
   return "";
 }
@@ -279,13 +277,7 @@ bool ParseRepoMapping(const string& path,
                       string* error) {
   std::ifstream stm(path);
   if (!stm.is_open()) {
-    if (error) {
-      std::ostringstream err;
-      err << "ERROR: " << __FILE__ << "(" << __LINE__
-          << "): cannot open repository mapping \"" << path << "\"";
-      *error = err.str();
-    }
-    return false;
+    return true;
   }
   string line;
   std::getline(stm, line);
@@ -333,12 +325,9 @@ namespace testing {
 bool TestOnly_PathsFrom(const string& argv0, string mf, string dir,
                         function<bool(const string&)> is_runfiles_manifest,
                         function<bool(const string&)> is_runfiles_directory,
-                        function<bool(const string&)> is_repo_mapping,
-                        string* out_manifest, string* out_directory,
-                        string* out_repo_mapping) {
+                        string* out_manifest, string* out_directory) {
   return PathsFrom(argv0, mf, dir, is_runfiles_manifest, is_runfiles_directory,
-                   is_repo_mapping, out_manifest, out_directory,
-                   out_repo_mapping);
+                   out_manifest, out_directory);
 }
 
 bool TestOnly_IsAbsolute(const string& path) { return IsAbsolute(path); }
@@ -376,23 +365,19 @@ Runfiles* Runfiles::CreateForTest(std::string* error) {
 namespace {
 
 bool PathsFrom(const string& argv0, string mf, string dir, string* out_manifest,
-               string* out_directory, string* out_repo_mapping) {
+               string* out_directory) {
   return PathsFrom(
       argv0, mf, dir, [](const string& path) { return IsReadableFile(path); },
-      [](const string& path) { return IsDirectory(path); },
-      [](const string& path) { return IsReadableFile(path); }, out_manifest,
-      out_directory, out_repo_mapping);
+      [](const string& path) { return IsDirectory(path); }, out_manifest,
+      out_directory);
 }
 
 bool PathsFrom(const string& argv0, string mf, string dir,
                function<bool(const string&)> is_runfiles_manifest,
                function<bool(const string&)> is_runfiles_directory,
-               function<bool(const string&)> is_repo_mapping,
-               string* out_manifest, string* out_directory,
-               string* out_repo_mapping) {
+               string* out_manifest, string* out_directory) {
   out_manifest->clear();
   out_directory->clear();
-  out_repo_mapping->clear();
 
   bool mfValid = is_runfiles_manifest(mf);
   bool dirValid = is_runfiles_directory(dir);
@@ -428,31 +413,12 @@ bool PathsFrom(const string& argv0, string mf, string dir,
     dirValid = is_runfiles_directory(dir);
   }
 
-  string rm;
-  bool rmValid = false;
-
-  if (dirValid && ends_with(dir, ".runfiles")) {
-    rm = dir.substr(0, dir.size() - 9) + ".repo_mapping";
-    rmValid = is_repo_mapping(rm);
-  }
-
-  if (!rmValid && mfValid &&
-      (ends_with(mf, ".runfiles_manifest") ||
-       ends_with(mf, ".runfiles/MANIFEST"))) {
-    rm = mf.substr(0, mf.size() - 18) + ".repo_mapping";
-    rmValid = is_repo_mapping(rm);
-  }
-
   if (mfValid) {
     *out_manifest = mf;
   }
 
   if (dirValid) {
     *out_directory = dir;
-  }
-
-  if (rmValid) {
-    *out_repo_mapping = rm;
   }
 
   return true;

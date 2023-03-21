@@ -41,7 +41,7 @@ public class CommonQueryOptions extends OptionsBase {
       help =
           "A comma-separated set of target patterns (additive and subtractive). The query may be"
               + " performed in the universe defined by the transitive closure of the specified"
-              + " targets. This option is used for the query and cquery commands. \n"
+              + " targets. This option is used for the query and cquery commands.\n"
               + "For cquery, the input to this option is the targets all answers are built under"
               + " and so this option may affect configurations and transitions. If this option is"
               + " not specified, the top-level targets are assumed to be the targets parsed from"
@@ -90,16 +90,16 @@ public class CommonQueryOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       help =
-          "Query: If disabled, dependencies on 'host configuration' or 'execution' targets will"
-              + " not be included in the dependency graph over which the query operates. A 'host"
+          "Query: If disabled, dependencies on 'exec configuration' will"
+              + " not be included in the dependency graph over which the query operates. An 'exec"
               + " configuration' dependency edge, such as the one from any 'proto_library' rule to"
               + " the Protocol Compiler, usually points to a tool executed during the build rather"
-              + " than a part of the same 'target' program. \n"
-              + "Cquery: If disabled, filters out all configured targets which cross a host or"
+              + " than a part of the same 'target' program.\n"
+              + "Cquery: If disabled, filters out all configured targets which cross an"
               + " execution transition from the top-level target that discovered this configured"
               + " target. That means if the top-level target is in the target configuration, only"
               + " configured targets also in the target configuration will be returned. If the"
-              + " top-level target is in the host configuration, only host configured targets will"
+              + " top-level target is in the exec configuration, only exec configured targets will"
               + " be returned. This option will NOT exclude resolved toolchains.")
   public boolean includeToolDeps;
 

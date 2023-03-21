@@ -163,7 +163,7 @@ static int CreateTarget(const char *path, bool is_directory) {
 
   if (is_directory) {
     if (mkdir(path, 0755) < 0) {
-      DIE("mkdir");
+      DIE("mkdir(%s)", path);
     }
   } else {
     LinkFile(path);
@@ -280,10 +280,6 @@ static void MountFilesystems() {
     }
   }
 
-  // Make sure that our working directory is a mount point. The easiest way to
-  // do this is by bind-mounting it upon itself.
-  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
-
   // An attempt to mount the sandbox in tmpfs will always fail, so this block is
   // slightly redundant with the next mount() check, but dumping the mount()
   // syscall is incredibly cryptic, so we explicitly check against and warn
@@ -297,12 +293,6 @@ static void MountFilesystems() {
     }
   }
 
-  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
-            nullptr) < 0) {
-    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
-        opt.working_dir.c_str());
-  }
-
   std::unordered_set<std::string> bind_mount_sources;
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
@@ -310,8 +300,9 @@ static void MountFilesystems() {
     bind_mount_sources.insert(source);
     const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
-    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
-      DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
+    if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND | MS_REC,
+              nullptr) < 0) {
+      DIE("mount(%s, %s, nullptr, MS_BIND | MS_REC, nullptr)", source.c_str(),
           target.c_str());
     }
   }
@@ -330,6 +321,16 @@ static void MountFilesystems() {
           writable_file.c_str(), writable_file.c_str());
     }
   }
+
+  // Make sure that our working directory is a mount point. The easiest way to
+  // do this is by bind-mounting it upon itself.
+  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
+
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
+            nullptr) < 0) {
+    DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
+        opt.working_dir.c_str());
+  }
 }
 
 // We later remount everything read-only, except the paths for which this method
@@ -340,6 +341,10 @@ static bool ShouldBeWritable(const std::string &mnt_dir) {
   }
 
   if (opt.enable_pty && mnt_dir == "/dev/pts") {
+    return true;
+  }
+
+  if (mnt_dir == "/sys/fs/cgroup" && !opt.cgroups_dir.empty()) {
     return true;
   }
 
@@ -445,7 +450,7 @@ static void MountProc() {
 static void SetupNetworking() {
   // When running in a separate network namespace, enable the loopback interface
   // because some application may want to use it.
-  if (opt.create_netns) {
+  if (opt.create_netns == NETNS_WITH_LOOPBACK) {
     int fd;
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (fd < 0) {
@@ -555,6 +560,13 @@ static int WaitForChild() {
     const int exit_code = WEXITSTATUS(status);
     PRINT_DEBUG("child exited normally with code %d", exit_code);
     return exit_code;
+  }
+}
+
+static void AddProcessToCgroup() {
+  if (!opt.cgroups_dir.empty()) {
+    PRINT_DEBUG("Adding process to cgroups dir %s", opt.cgroups_dir.c_str());
+    WriteFile(opt.cgroups_dir + "/cgroup.procs", "1");
   }
 }
 
@@ -710,6 +722,7 @@ int Pid1Main(void *sync_pipe_param) {
   }
   SetupNetworking();
   EnterWorkingDirectory();
+  AddProcessToCgroup();
 
   // Ignore terminal signals; we hand off the terminal to the child in
   // SpawnChild below.

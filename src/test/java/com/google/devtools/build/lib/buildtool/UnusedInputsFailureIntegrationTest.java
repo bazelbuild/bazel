@@ -64,7 +64,7 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
         "  attrs = {",
         "    'inputs': attr.label(allow_files = True),",
         "    'filler': attr.label(allow_files = True),",
-        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'exec'),",
         "  },",
         "  implementation = _impl,",
         ")");
@@ -129,7 +129,7 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
         "build_rule = rule(",
         "  attrs = {",
         "    'inputs': attr.label(allow_files = True),",
-        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'exec'),",
         "  },",
         "  implementation = _impl,",
         ")");
@@ -199,7 +199,7 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
         "build_rule = rule(",
         "  attrs = {",
         "    'inputs': attr.label(allow_files = True),",
-        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "    'executable': attr.label(executable = True, allow_files = True, cfg = 'exec'),",
         "  },",
         "  implementation = _impl,",
         ")");

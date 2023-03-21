@@ -13,7 +13,7 @@ using Bazel to build and test for those platforms.
 
 The following resources will help you work with Bazel on macOS and iOS projects:
 
-*  [Tutorial: Building an iOS app](/tutorials/ios-app)
+*  [Tutorial: Building an iOS app](/start/ios-app))
 *  [Objective-C build rules](/reference/be/objective-c)
 *  [General Apple rules](https://github.com/bazelbuild/rules_apple){: .external}
 *  [Integration with Xcode](/install/ide)
@@ -31,7 +31,7 @@ in the migration guide to start building them with Bazel:
 You do not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](/rules/concepts)
+[extend Bazel's capabilities](/extending/concepts)
 when building your macOS and iOS projects:
 
 *  Modules:

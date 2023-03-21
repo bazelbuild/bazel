@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -72,6 +73,7 @@ public class MerkleTreeTest {
             Collections.emptySortedMap(),
             new StaticMetadataProvider(Collections.emptyMap()),
             execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
             digestUtil);
     Digest emptyDigest = digestUtil.compute(new byte[0]);
     assertThat(tree.getRootDigest()).isEqualTo(emptyDigest);
@@ -108,7 +110,12 @@ public class MerkleTreeTest {
 
     // act
     MerkleTree tree =
-        MerkleTree.build(sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+        MerkleTree.build(
+            sortedInputs,
+            new StaticMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
 
     // assert
     Digest expectedRootDigest = digestUtil.compute(rootDir);
@@ -157,14 +164,32 @@ public class MerkleTreeTest {
 
     MerkleTree treeEmpty =
         MerkleTree.build(
-            new TreeMap<>(), new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            new TreeMap<>(),
+            new StaticMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
     MerkleTree tree1 =
-        MerkleTree.build(sortedInputs1, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+        MerkleTree.build(
+            sortedInputs1,
+            new StaticMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
     MerkleTree tree2 =
-        MerkleTree.build(sortedInputs2, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+        MerkleTree.build(
+            sortedInputs2,
+            new StaticMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
     MerkleTree treeAll =
         MerkleTree.build(
-            sortedInputsAll, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            sortedInputsAll,
+            new StaticMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
 
     // act
     MerkleTree mergedTreeEmpty = MerkleTree.merge(Arrays.asList(), digestUtil);

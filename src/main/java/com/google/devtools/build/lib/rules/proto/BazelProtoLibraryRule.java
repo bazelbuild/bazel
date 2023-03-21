@@ -42,8 +42,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         <code>proto_library</code> targets.
         It may not depend on language-specific libraries.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
-            attr("deps", LABEL_LIST).mandatoryProviders(ProtoInfo.PROVIDER.id()).allowedFileTypes())
+        .override(attr("deps", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(srcs) -->
         The list of <code>.proto</code> and <code>.protodevel</code> files that are
         processed to create the target. This is usually a non empty list. One usecase
@@ -59,10 +58,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         List of proto_library targets that can be referenced via "import public" in the proto
         source.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr("exports", LABEL_LIST)
-                .mandatoryProviders(ProtoInfo.PROVIDER.id())
-                .allowedFileTypes())
+        .add(attr("exports", LABEL_LIST).allowedFileTypes())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(strip_import_prefix) -->
         The prefix to strip from the paths of the .proto files in this rule.
 
@@ -86,7 +82,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         prefix is added.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("import_prefix", STRING))
-        .advertiseStarlarkProvider(ProtoInfo.PROVIDER.id())
         .build();
   }
 

@@ -24,15 +24,9 @@ To check your Windows version:
 * Type `winver` in the search box and press Enter.
 * You should see the About Windows box with your Windows version information.
 
-Also supported:
-
-*   64 bit Windows 7 or newer
-
-*   64 bit Windows Server 2008 R2 or newer
-
 ### Install the prerequisites {:#install-prerequisites}
 
-*   [Visual C++ Redistributable for Visual Studio 2015](https://www.microsoft.com/en-us/download/details.aspx?id=48145){: .external}
+*   [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170){: .external}
 
 ### Download Bazel {:#download-bazel}
 
@@ -55,7 +49,7 @@ To make Bazel easily accessible from command prompts or PowerShell by default, y
 set PATH=%PATH%;{{ '<var>' }}path to the Bazel binary{{ '</var>' }}
 ```
 
-You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/docs/windows#set-environment-variables).
+You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](/configure/windows#set-environment-variables).
 
 ### Done {:#done}
 
@@ -71,8 +65,8 @@ Next, you can check out more tips and guidance here:
 
 *   [Installing compilers and language runtimes](#install-compilers)
 *   [Troubleshooting](#troubleshooting)
-*   [Best practices on Windows](/docs/windows#best-practices)
-*   [Tutorials](/start/getting-started#tutorials)
+*   [Best practices on Windows](/configure/windows#best-practices)
+*   [Tutorials](/start/#tutorials)
 
 ## Installing compilers and language runtimes {:#install-compilers}
 
@@ -109,9 +103,7 @@ Depending on which languages you want to build, you will need:
 
     Also supported:
 
-    *   Visual Studio 2015 (or newer) with Visual C++ and Windows 10 SDK
-
-    *   Visual C++ Build Tools 2015 (or newer) and Windows 10 SDK
+    *   Visual C++ Build Tools 2017 (or newer) and Windows 10 SDK
 
 *   [Java SE Development Kit 11 (JDK) for Windows x64](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html){: .external}{:#install-jdk}
 

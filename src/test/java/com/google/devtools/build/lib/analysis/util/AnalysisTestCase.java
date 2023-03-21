@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -73,6 +72,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -166,7 +166,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   // Note that these configurations are virtual (they use only VFS)
-  private BuildConfigurationCollection universeConfig;
+  private BuildConfigurationValue universeConfig;
+  private BuildConfigurationValue execConfig;
 
   private AnalysisResult analysisResult;
   protected SkyframeExecutor skyframeExecutor = null;
@@ -216,7 +217,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .setActionKeyContext(actionKeyContext)
         .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
         .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-        .setPerCommandSyscallCache(delegatingSyscallCache)
+        .setSyscallCache(delegatingSyscallCache)
         .build();
   }
 
@@ -264,6 +265,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -307,10 +309,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   }
 
   /**
-   * Sets host and target configuration using the specified options, falling back to the default
+   * Sets exec and target configuration using the specified options, falling back to the default
    * options for unspecified ones, and recreates the build view.
    */
-  public final void useConfiguration(String... args) throws Exception {
+  public void useConfiguration(String... args) throws Exception {
     optionsParser =
         OptionsParser.builder()
             .optionsClasses(
@@ -364,7 +366,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
   }
 
-  protected BuildConfigurationCollection getBuildConfigurationCollection() {
+  protected BuildConfigurationValue getBuildConfiguration() {
     return universeConfig;
   }
 
@@ -373,11 +375,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * configuration creation phase.
    */
   protected BuildConfigurationValue getTargetConfiguration() throws InterruptedException {
-    return universeConfig.getTargetConfiguration();
+    return universeConfig;
   }
 
-  protected BuildConfigurationValue getHostConfiguration() {
-    return universeConfig.getHostConfiguration();
+  protected BuildConfigurationValue getExecConfiguration() {
+    return execConfig;
   }
 
   protected final void ensureUpdateWasCalled() {
@@ -424,6 +426,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.invalidateFilesUnderPathForTesting(
@@ -456,7 +459,15 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       buildView.clearAnalysisCache(
           analysisResult.getTargetsToBuild(), analysisResult.getAspectsMap().keySet());
     }
-    universeConfig = analysisResult.getConfigurationCollection();
+
+    universeConfig = analysisResult.getConfiguration();
+    scratch.overwriteFile("platform/BUILD", "platform(name = 'exec')");
+    execConfig =
+        skyframeExecutor.getConfiguration(
+            reporter,
+            AnalysisTestUtil.execOptions(universeConfig.getOptions(), reporter),
+            /* keepGoing= */ false);
+
     return analysisResult;
   }
 
@@ -655,7 +666,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         targetsWithCounts.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()), Map.Entry::getValue));
+                    entry -> Label.parseCanonicalUnchecked(entry.getKey()), Map.Entry::getValue));
     ImmutableMap<Label, Integer> actual =
         expected.keySet().stream().collect(toImmutableMap(label -> label, actualSet::count));
     assertThat(actual).containsExactlyEntriesIn(expected);

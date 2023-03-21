@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -166,7 +167,7 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Whether to run validation actions as part of the build. See"
-              + " https://bazel.build/rules/rules#validation_actions")
+              + " https://bazel.build/extending/rules#validation_actions")
   public boolean runValidationActions;
 
   @Option(
@@ -439,20 +440,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean discardActionsAfterExecution;
 
   @Option(
-      name = "experimental_async_execution",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "If set to true, Bazel is allowed to run aynchronously, i.e., without reserving a local "
-              + "thread. This only has an effect if the action implementation and the lower-level "
-              + "strategy support it. This setting effectively circumvents the implicit limit of "
-              + "number of concurrently running actions otherwise imposed by the --jobs flag. Use "
-              + "with caution.")
-  public boolean useAsyncExecution;
-
-  @Option(
       name = "incompatible_skip_genfiles_symlink",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -464,24 +451,6 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean incompatibleSkipGenfilesSymlink;
 
   @Option(
-      name = "experimental_use_fork_join_pool",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, use a fork join pool in the abstract queue visitor.")
-  public boolean useForkJoinPool;
-
-  @Option(
-      name = "experimental_replay_action_out_err",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.EXPERIMENTAL,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help = "If this flag is set, replay action out/err on incremental builds.")
-  public boolean replayActionOutErr;
-
-  @Option(
       name = "target_pattern_file",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
@@ -491,7 +460,10 @@ public class BuildRequestOptions extends OptionsBase {
               + "line. It is an error to specify a file here as well as command-line patterns.")
   public String targetPatternFile;
 
-  /** Do not use directly. Instead use {@link shouldMergeSkyframeAnalysisExecution}. */
+  /**
+   * Do not use directly. Instead use {@link
+   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecution()}.
+   */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
       defaultValue = "false",
@@ -500,6 +472,22 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
   public boolean mergedSkyframeAnalysisExecutionDoNotUseDirectly;
+
+  @Option(
+      name = "experimental_skymeld_analysis_overlap_percentage",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      converter = PercentageConverter.class,
+      help =
+          "The value represents the % of the analysis phase which will be overlapped with the"
+              + " execution phase. A value of x means Skyframe will queue up execution tasks and"
+              + " wait until there's x% of the top level target left to be analyzed before allowing"
+              + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
+              + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
+              + " they can.")
+  public int skymeldAnalysisOverlapPercentage;
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter {
@@ -546,19 +534,6 @@ public class BuildRequestOptions extends OptionsBase {
               + " Bazel's output base, unless it's an absolute path.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
-
-  /**
-   * --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
-   * analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
-   * should be ignored.
-   *
-   * <p>This method should always be preferred over {@link
-   * mergedSkyframeAnalysisExecutionDoNotUseDirectly} to determine whether analysis and execution
-   * should be merged. The only exception to this is in {@link BuildRequest}.
-   */
-  public boolean shouldMergeSkyframeAnalysisExecution() {
-    return mergedSkyframeAnalysisExecutionDoNotUseDirectly && performExecutionPhase;
-  }
 
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and

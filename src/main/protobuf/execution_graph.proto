@@ -79,6 +79,7 @@ message Metrics {
   int32 setup_millis = 8;
   int32 process_outputs_millis = 9;
   int32 queue_millis = 10;
+  int32 discover_inputs_millis = 14;
 
   // Total time spent on failed attempts.
   int32 retry_millis = 11;

@@ -3213,7 +3213,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, True)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3466,7 +3466,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, False)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3526,8 +3526,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "genrule(name='gen', cmd='', outs=['foo/bar/bin/java'])",
         "cc_import(name='libs', static_library = 'libStatic.a')",
         "cc_library(name = 'jdk_static_libs00', data = ['libStatic.a'], linkstatic = 1)",
-        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java', hermetic_static_libs ="
-            + " ['libs'])",
+        "java_runtime(name='jvm', srcs=[], java='foo/bar/bin/java', lib_modules='lib/modules', "
+            + "hermetic_srcs = ['lib/hermetic.properties'], hermetic_static_libs = ['libs'])",
         "java_runtime_alias(name='alias')",
         "jrule(name='r')",
         "toolchain(",
@@ -3558,5 +3558,65 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             hermeticStaticLibs.get(0).getCcLinkingContext().getLibraries().toList().stream()
                 .map(LibraryToLink::getLibraryIdentifier))
         .containsExactly("a/libStatic");
+  }
+
+  @Test
+  public void testCollectNativeLibsDirsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  artifacts = java_common.collect_native_deps_dirs([])",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testGetRuntimeClasspathForArchiveIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  d = depset()",
+        "  artifact = java_common.get_runtime_classpath_for_archive(d, d)",
+        "  return []",
+        "custom_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {},",
+        ")");
+    scratch.file(
+        "foo/BUILD", "load(':custom_rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:custom");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  @Test
+  public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
+    scratch.file(
+        "foo/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.fragments.java.enforce_explicit_java_test_deps()",
+        "  return []",
+        "myrule = rule(",
+        "  implementation=_impl,",
+        "  fragments = ['java']",
+        ")");
+    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//foo:myrule");
+
+    assertContainsEvent("Rule in 'foo' cannot use private API");
   }
 }

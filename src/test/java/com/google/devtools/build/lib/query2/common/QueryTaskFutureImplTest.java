@@ -59,7 +59,7 @@ public class QueryTaskFutureImplTest {
             () -> "Callback Return",
             MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()));
 
-    var unused1 = inputQueryTaskFutureImpl.gracefullyCancel();
+    var unused1 = inputQueryTaskFutureImpl.cancel(true);
     var unused2 = ((QueryTaskFutureImpl<String>) nextFuture).get();
     assertThat(nextFuture.getIfSuccessful()).isEqualTo("Callback Return");
   }

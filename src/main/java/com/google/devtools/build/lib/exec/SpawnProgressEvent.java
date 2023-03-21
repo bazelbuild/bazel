@@ -28,13 +28,13 @@ public abstract class SpawnProgressEvent implements ProgressStatus {
   }
 
   /** The id that uniquely determines the progress among all progress events for this spawn. */
-  abstract String progressId();
+  public abstract String progressId();
 
   /** Human readable description of the progress. */
-  abstract String progress();
+  public abstract String progress();
 
   /** Whether the progress reported about is finished already. */
-  abstract boolean finished();
+  public abstract boolean finished();
 
   @Override
   public void postTo(ExtendedEventHandler eventHandler, ActionExecutionMetadata action) {

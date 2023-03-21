@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
@@ -35,7 +36,7 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc =
         "Module providing functions to create actions. "
-            + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
+            + "Access this module using <a href=\"ctx#actions\"><code>ctx.actions</code></a>.")
 public interface StarlarkActionFactoryApi extends StarlarkValue {
 
   @StarlarkMethod(
@@ -48,8 +49,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
               + " addition to declaring a file, you must separately create an action that emits the"
               + " file. Creating that action will require passing the returned <code>File</code>"
               + " object to the action's construction function.<p>Note that <a"
-              + " href='https://bazel.build/rules/rules#files'>predeclared output files</a> do not"
-              + " need to be (and cannot be) declared using this function. You can obtain their"
+              + " href='https://bazel.build/extending/rules#files'>predeclared output files</a> do"
+              + " not need to be (and cannot be) declared using this function. You can obtain their"
               + " <code>File</code> objects from <a"
               + " href=\"ctx.html#outputs\"><code>ctx.outputs</code></a> instead. <a"
               + " href=\"https://github.com/bazelbuild/examples/tree/main/rules/computed_dependencies/hash.bzl\">See"
@@ -465,6 +466,25 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + " <code>--experimental_action_resource_set</code> is false, the default"
                     + " values are used.<p>The callback must be top-level (lambda and nested"
                     + " functions aren't allowed)."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used in this action. The parameter"
+                    + " must be set, so that, the action executes on the correct execution"
+                    + " platform. </p><p>It's a no-op right now, but we recommend to set it when a"
+                    + " toolchain is used, because it will be required in the future Bazel"
+                    + " releases.</p><p>Note that the rule which creates this action needs to"
+                    + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
+                    + " and `exec_group` parameters are both set, `exec_group` will be used. An"
+                    + " error is raised in case the `exec_group` doesn't specify the same."),
       })
   void run(
       Sequence<?> outputs,
@@ -481,7 +501,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedAction,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException;
 
   @StarlarkMethod(
@@ -682,6 +703,26 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
             doc =
                 "A callback function for estimating resource usage if run locally. See"
                     + "<a href=\"#run.resource_set\"><code>ctx.actions.run()</code></a>."),
+        @Param(
+            name = "toolchain",
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc =
+                "<p>Toolchain type of the executable or tools used in this action. The parameter"
+                    + " must be set, so that, the action executes on the correct execution"
+                    + " platform. </p><p>It's a no-op right now, but we recommend to set it when a"
+                    + " toolchain is used, because it will be required in the future Bazel"
+                    + " releases.</p><p>Note that the rule which creates this action needs to"
+                    + " define this toolchain inside its 'rule()' function.</p><p>When `toolchain`"
+                    + " and `exec_group` parameters are both set, `exec_group` will be used. An"
+                    + " error is raised in case the `exec_group` doesn't specify the same."
+                    + " toolchain.</p>"),
       })
   void runShell(
       Sequence<?> outputs,
@@ -697,7 +738,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object inputManifestsUnchecked,
       Object execGroupUnchecked,
       Object shadowedAction,
-      Object resourceSetUnchecked)
+      Object resourceSetUnchecked,
+      Object toolchainUnchecked)
       throws EvalException;
 
   @StarlarkMethod(

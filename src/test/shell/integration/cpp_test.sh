@@ -169,6 +169,10 @@ package(default_visibility = ["//visibility:public"])
 load(":toolchain.bzl", "toolchains")
 
 cc_library(
+    name = "link_extra_lib",
+)
+
+cc_library(
     name = "malloc",
 )
 

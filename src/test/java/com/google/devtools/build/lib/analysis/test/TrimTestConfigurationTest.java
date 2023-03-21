@@ -147,7 +147,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         targetsWithCounts.entrySet().stream()
             .collect(
                 toImmutableMap(
-                    entry -> Label.parseAbsoluteUnchecked(entry.getKey()), Entry::getValue));
+                    entry -> Label.parseCanonicalUnchecked(entry.getKey()), Entry::getValue));
     ImmutableMap<Label, Integer> actual =
         expected.keySet().stream().collect(toImmutableMap(label -> label, actualSet::count));
     assertThat(actual).containsExactlyEntriesIn(expected);
@@ -788,7 +788,11 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
         "    srcs = ['JavaTest.java'],",
         "    test_class = 'test.JavaTest',",
         ")");
-    useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
+    useConfiguration(
+        "--trim_test_configuration",
+        "--noexpand_test_suites",
+        "--test_arg=TypeA",
+        "--experimental_google_legacy_api");
     update("//test:starlark_dep");
     assertThat(getAnalysisResult().getTargetsToBuild()).isNotEmpty();
   }

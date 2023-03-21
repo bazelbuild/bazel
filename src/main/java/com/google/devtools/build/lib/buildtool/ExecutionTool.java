@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -109,7 +108,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -256,19 +255,9 @@ public class ExecutionTool {
     BuildRequestOptions buildRequestOptions = request.getBuildOptions();
 
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
-    List<Root> pkgPathEntries = env.getPackageLocator().getPathEntries();
-
-    // TODO(b/246324830): Support this.
-    if (pkgPathEntries.size() != 1) {
-      throw new InvalidConfigurationException(
-          "--experimental_merged_skyframe_analysis_execution requires a single package path"
-              + " entry. Found instead: "
-              + pkgPathEntries,
-          BuildConfiguration.Code.INVALID_BUILD_OPTIONS);
-    }
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      Root singleSourceRoot = Iterables.getOnlyElement(pkgPathEntries);
+      Root singleSourceRoot = Iterables.getOnlyElement(env.getPackageLocator().getPathEntries());
       IncrementalPackageRoots incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),
@@ -277,7 +266,6 @@ public class ExecutionTool {
               env.getDirectories().getProductName() + "-",
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
       incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
-      skyframeExecutor.setIncrementalPackageRoots(incrementalPackageRoots);
 
       // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
       // via IncrementalPackageRoots.
@@ -359,8 +347,8 @@ public class ExecutionTool {
    * @param buildId UUID of the build id
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
-   * @param packageRoots package roots collected from loading phase and BuildConfigurationCollection
-   *     creation. May be empty if {@link
+   * @param packageRoots package roots collected from loading phase and {@link
+   *     BuildConfigurationValue} creation. May be empty if {@link
    *     SkyframeExecutor#getForcedSingleSourceRootIfNoExecrootSymlinkCreation} is false.
    */
   void executeBuild(
@@ -527,8 +515,6 @@ public class ExecutionTool {
               buildResultListener.getAnalyzedAspects().keySet(),
               buildResultListener.getBuiltAspects()));
       buildResult.setSkippedTargets(buildResultListener.getSkippedTargets());
-      buildResult.setActualTargets(buildResultListener.getAnalyzedTargets());
-      buildResult.setTestTargets(buildResultListener.getAnalyzedTests());
       BuildResultPrinter buildResultPrinter = new BuildResultPrinter(env);
       buildResultPrinter.showBuildResult(
           request,
@@ -665,15 +651,6 @@ public class ExecutionTool {
           Code.TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
           e);
     }
-
-    try {
-      env.getPersistentActionOutsDirectory().createDirectoryAndParents();
-    } catch (IOException e) {
-      throw createExitException(
-          "Couldn't create persistent action output directory",
-          Code.PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
-          e);
-    }
   }
 
   /**
@@ -745,7 +722,7 @@ public class ExecutionTool {
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
-            : ImmutableSet.of(analysisResult.getConfigurationCollection().getTargetConfiguration());
+            : ImmutableSet.of(analysisResult.getConfiguration());
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =
@@ -903,8 +880,7 @@ public class ExecutionTool {
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequestOptions options = request.getBuildOptions();
 
-    skyframeExecutor.setActionOutputRoot(
-        env.getActionTempsDirectory(), env.getPersistentActionOutsDirectory());
+    skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
 
     Predicate<Action> executionFilter =
         CheckUpToDateFilter.fromOptions(request.getOptions(ExecutionOptions.class));
@@ -937,10 +913,17 @@ public class ExecutionTool {
   public static void configureResourceManager(ResourceManager resourceMgr, BuildRequest request) {
     ExecutionOptions options = request.getOptions(ExecutionOptions.class);
     resourceMgr.setPrioritizeLocalActions(options.prioritizeLocalActions);
+    ImmutableMap<String, Float> extraResources =
+        options.localExtraResources.stream()
+            .collect(
+                ImmutableMap.toImmutableMap(
+                    Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v2));
+
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             options.localRamResources,
             options.localCpuResources,
+            extraResources,
             options.usingLocalTestJobs() ? options.localTestJobs : Integer.MAX_VALUE));
   }
 

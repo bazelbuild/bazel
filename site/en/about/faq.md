@@ -43,7 +43,7 @@ A long time ago, Google built its software using large, generated Makefiles. The
 
 ## Does Bazel require a build cluster?
 
-Bazel runs build operations locally by default. However, Bazel can also connect to a build cluster for even faster builds and tests. See our documentation on [remote execution and caching](/docs/remote-execution) and [remote caching](/docs/remote-caching) for further details.
+Bazel runs build operations locally by default. However, Bazel can also connect to a build cluster for even faster builds and tests. See our documentation on [remote execution and caching](/remote/rbe) and [remote caching](/remote/caching) for further details.
 
 ## How does the Google development process work?
 
@@ -160,17 +160,17 @@ Further details on exit codes are in the [User Manual](/docs/user-manual).
 
 ## What future features can we expect in Bazel?
 
-See our [Roadmaps](/community/roadmaps).
+See our [Roadmaps](/about/roadmap).
 
 ## Can I use Bazel for my INSERT LANGUAGE HERE project?
 
 Bazel is extensible. Anyone can add support for new languages. Many languages are supported: see the [build encyclopedia](/reference/be/overview) for a list of recommendations and [awesomebazel.com](https://awesomebazel.com/){: .external} for a more comprehensive list.
 
-If you would like to develop extensions or learn how they work, see the documentation for [extending Bazel](/rules/concepts).
+If you would like to develop extensions or learn how they work, see the documentation for [extending Bazel](/extending/concepts).
 
 ## Can I contribute to the Bazel code base?
 
-See our [contribution guidelines](/contribute/guide).
+See our [contribution guidelines](/contribute/).
 
 ## Why isn’t all development done in the open?
 
@@ -199,7 +199,7 @@ Open an issue [on GitHub](https://github.com/bazelbuild/bazel/issues){: .externa
 
 ## What’s up with the word “Blaze” in the codebase?
 
-This is an internal name for the tool. Please refer to Bazel as Bazel.
+This is an internal name for the tool. Please refer to Blaze as Bazel.
 
 ## Why do other Google projects (Android, Chrome) use other build tools?
 

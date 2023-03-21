@@ -20,7 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -65,7 +64,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
 /**
- * Metadata of a rule attribute. Contains the attribute name and type, and an default value to be
+ * Metadata of a rule attribute. Contains the attribute name and type, and a default value to be
  * used if none is provided in a rule declaration in a BUILD file. Attributes are immutable, and may
  * be shared by more than one rule (for example, <code>foo_binary</code> and <code>foo_library
  * </code> may share many attributes in common).
@@ -177,6 +176,9 @@ public final class Attribute implements Comparable<Attribute> {
      * or transition). Cannot be used for non-dependency attributes.
      */
     IS_TOOL_DEPENDENCY,
+
+    /** Whether this attribute was defined using Starlark's {@code attrs} module. */
+    STARLARK_DEFINED,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -186,16 +188,21 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * This method should return null if the edge is valid, or a suitable error message if it is
      * not. Note that warnings are not supported.
+     *
+     * @param toRuleTags the tags of the rule, used as a workaround in {@code J2ObjcLibraryBaseRule}
+     *     and should probably be deleted.
      */
-    String checkValid(Rule from, Rule to);
+    @Nullable
+    String checkValid(Rule from, String toRuleClass, Set<String> toRuleTags);
   }
 
-  @SerializationConstant public static final ValidityPredicate ANY_EDGE = (from, to) -> null;
+  @SerializationConstant
+  public static final ValidityPredicate ANY_EDGE = (from, toRuleClass, toRuleTags) -> null;
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
 
-    private final Set<Object> allowedValues;
+    private final ImmutableSet<Object> allowedValues;
 
     public AllowedValueSet(Object... values) {
       this(Arrays.asList(values));
@@ -252,7 +259,6 @@ public final class Attribute implements Comparable<Attribute> {
     private final Object value;
     private final AttributeValueSource valueSource;
     private final boolean valueSet;
-    private final Predicate<AttributeMap> condition;
     private final ImmutableSet<PropertyFlag> propertyFlags;
     private final PredicateWithMessage<Object> allowedValues;
     private final RequiredProviders requiredProviders;
@@ -270,7 +276,6 @@ public final class Attribute implements Comparable<Attribute> {
         ValidityPredicate validityPredicate,
         AttributeValueSource valueSource,
         boolean valueSet,
-        Predicate<AttributeMap> condition,
         PredicateWithMessage<Object> allowedValues,
         RequiredProviders requiredProviders,
         ImmutableList<AspectDetails<?>> aspects) {
@@ -284,7 +289,6 @@ public final class Attribute implements Comparable<Attribute> {
       this.value = value;
       this.valueSource = valueSource;
       this.valueSet = valueSet;
-      this.condition = condition;
       this.propertyFlags = propertyFlags;
       this.allowedValues = allowedValues;
       this.requiredProviders = requiredProviders;
@@ -334,7 +338,6 @@ public final class Attribute implements Comparable<Attribute> {
           allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels,
           validityPredicate,
-          condition,
           allowedValues,
           requiredProviders,
           aspects);
@@ -360,7 +363,6 @@ public final class Attribute implements Comparable<Attribute> {
     private String doc;
     private AttributeValueSource valueSource = AttributeValueSource.DIRECT;
     private boolean valueSet;
-    private Predicate<AttributeMap> condition;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
     private RequiredProviders.Builder requiredProvidersBuilder =
@@ -647,21 +649,6 @@ public final class Attribute implements Comparable<Attribute> {
     /** Returns where the value of this attribute comes from. Useful only for Starlark. */
     public AttributeValueSource getValueSource() {
       return valueSource;
-    }
-
-    /**
-     * Sets a condition predicate. The default value of the attribute only applies if the condition
-     * evaluates to true. If the value is explicitly provided, then this condition is ignored.
-     *
-     * <p>The condition is only evaluated if the attribute is not explicitly set, and after all
-     * explicit attributes have been set. It can generally not access default values of other
-     * attributes.
-     */
-    @CanIgnoreReturnValue
-    public Builder<TYPE> condition(Predicate<AttributeMap> condition) {
-      Preconditions.checkState(this.condition == null, "the condition is already set");
-      this.condition = condition;
-      return this;
     }
 
     /** Switches on the capability of an attribute to be published to the rule's tag set. */
@@ -1004,6 +991,12 @@ public final class Attribute implements Comparable<Attribute> {
       return setPropertyFlag(PropertyFlag.IS_TOOL_DEPENDENCY, "is_tool_dependency");
     }
 
+    /** Marks the built attribute as defined in Starlark. */
+    @CanIgnoreReturnValue
+    public Builder<TYPE> starlarkDefined() {
+      return setPropertyFlag(PropertyFlag.STARLARK_DEFINED, "starlark_defined");
+    }
+
     /** Returns an {@link ImmutableAttributeFactory} that can be invoked to create attributes. */
     public ImmutableAttributeFactory buildPartial() {
       Preconditions.checkState(
@@ -1025,7 +1018,6 @@ public final class Attribute implements Comparable<Attribute> {
           validityPredicate,
           valueSource,
           valueSet,
-          condition,
           allowedValues,
           requiredProvidersBuilder.build(),
           aspectsListBuilder.getAspectsDetails());
@@ -1247,7 +1239,7 @@ public final class Attribute implements Comparable<Attribute> {
         return Lists.newArrayList(type.cast(value));
       }
       ComputationStrategy<RuntimeException> strategy =
-          new ComputationStrategy<RuntimeException>() {
+          new ComputationStrategy<>() {
             @Override
             public Object compute(AttributeMap map) {
               return owner.getDefault(map);
@@ -1267,11 +1259,12 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Return true if {@link getDefault} can be safely called with a RawAttributeMapper.
+     * Return true if {@link #getDefault} can be safely called with a RawAttributeMapper.
      *
-     * <p>Notably, this means {@link getDefault} does not call {@link AttributeMapper#get} on any
+     * <p>Notably, this means {@link #getDefault} does not call {@link AttributeMap#get} on any
      * configurable attributes as they could potentially contain a SelectorList. In practice, only
-     * call get on nonconfigurable() attributes unless you really know what you are doing.
+     * call get on {@link Attribute.Builder#nonconfigurable} attributes unless you really know what
+     * you are doing.
      */
     public boolean resolvableWithRawAttributes() {
       return false;
@@ -1281,6 +1274,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Returns the value this {@link ComputedDefault} evaluates to, given the inputs contained in
      * {@code rule}.
      */
+    @Nullable
     public abstract Object getDefault(AttributeMap rule);
   }
 
@@ -1335,7 +1329,7 @@ public final class Attribute implements Comparable<Attribute> {
               attr.getPublicName(), rule.getLabel());
       final AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
       ComputationStrategy<InterruptedException> strategy =
-          new ComputationStrategy<InterruptedException>() {
+          new ComputationStrategy<>() {
             @Nullable
             @Override
             public Object compute(AttributeMap map) throws InterruptedException {
@@ -1429,7 +1423,7 @@ public final class Attribute implements Comparable<Attribute> {
    */
   static final class StarlarkComputedDefault extends ComputedDefault {
 
-    private final List<Type<?>> dependencyTypes;
+    private final ImmutableList<Type<?>> dependencyTypes;
     private final Map<List<Object>, Object> lookupTable;
 
     /**
@@ -1450,7 +1444,7 @@ public final class Attribute implements Comparable<Attribute> {
       this.lookupTable = Preconditions.checkNotNull(lookupTable);
     }
 
-    List<Type<?>> getDependencyTypes() {
+    ImmutableList<Type<?>> getDependencyTypes() {
       return dependencyTypes;
     }
 
@@ -1501,8 +1495,8 @@ public final class Attribute implements Comparable<Attribute> {
   // cleaned
   // up.
   /**
-   * Provider of values for late-bound attributes. See {@link Attribute#value(LateBoundDefault<?, ?
-   * extends TYPE> value)}.
+   * Provider of values for late-bound attributes. See {@link
+   * Attribute.Builder#value(LateBoundDefault)}.
    *
    * <p>Use sparingly - having different values for attributes during loading and analysis can
    * confuse users.
@@ -1536,7 +1530,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     @VisibleForTesting
     public static LabelLateBoundDefault<Void> fromConstantForTesting(Label defaultValue) {
-      return new LabelLateBoundDefault<Void>(
+      return new LabelLateBoundDefault<>(
           Void.class,
           Preconditions.checkNotNull(defaultValue),
           (rule, attributes, unused) -> defaultValue) {};
@@ -1560,7 +1554,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Returns the input type that the attribute expects. This is almost always a configuration
-     * fragment to be retrieved from the target's configuration (or the host configuration).
+     * fragment to be retrieved from the target's configuration (or the exec configuration).
      *
      * <p>It may also be {@link Void} to receive null. This is rarely necessary, but can be used,
      * e.g., if the attribute is named to match an attribute in another rule which is late-bound.
@@ -1741,8 +1735,6 @@ public final class Attribute implements Comparable<Attribute> {
    */
   private final ValidityPredicate validityPredicate;
 
-  private final Predicate<AttributeMap> condition;
-
   private final PredicateWithMessage<Object> allowedValues;
 
   private final RequiredProviders requiredProviders;
@@ -1774,7 +1766,6 @@ public final class Attribute implements Comparable<Attribute> {
       RuleClassNamePredicate allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
       ValidityPredicate validityPredicate,
-      Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
       RequiredProviders requiredProviders,
       ImmutableList<AspectDetails<?>> aspects) {
@@ -1797,7 +1788,6 @@ public final class Attribute implements Comparable<Attribute> {
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
     this.validityPredicate = validityPredicate;
-    this.condition = condition;
     this.allowedValues = allowedValues;
     this.requiredProviders = requiredProviders;
     this.aspects = aspects;
@@ -1813,7 +1803,6 @@ public final class Attribute implements Comparable<Attribute> {
             allowedRuleClassesForLabelsWarning,
             allowedFileTypesForLabels,
             validityPredicate,
-            condition,
             allowedValues,
             requiredProviders,
             aspects);
@@ -1967,7 +1956,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   /**
    * Returns true if this attribute is used as a tool dependency, either because the attribute
-   * declares it directly (with {@link Attribute$Builder.tool}), or because the value's {@link
+   * declares it directly (with {@link Attribute.Builder#tool}), or because the value's {@link
    * TransitionFactory} declares it.
    *
    * <p>Non-dependency attributes will always return {@code false}.
@@ -1981,6 +1970,19 @@ public final class Attribute implements Comparable<Attribute> {
     }
     return transitionFactory.isTool();
   }
+
+  /**
+   * Returns true if this attribute was defined using Starlark's {@code attrs} module.
+   *
+   * <p>This may be used as a hint by documentation generators; for example, in the documentation
+   * for a Starlark rule, we may want to fully document the Starlark-defined attributes set via
+   * {@code rule(attrs=...)}), but skip or abbreviate documentation for implicitly added
+   * non-Starlark attributes like "tags" and "testonly".
+   */
+  public boolean starlarkDefined() {
+    return getPropertyFlag(PropertyFlag.STARLARK_DEFINED);
+  }
+
   /**
    * Returns a predicate that evaluates to true for rule classes that are allowed labels in this
    * attribute. If this is not a label or label-list attribute, the returned predicate always
@@ -1990,7 +1992,11 @@ public final class Attribute implements Comparable<Attribute> {
    * thing", rather than actually allowing all rule classes in that attribute. Others parts of bazel
    * code check for that specific instance.
    */
-  public Predicate<RuleClass> getAllowedRuleClassesPredicate() {
+  public Predicate<RuleClass> getAllowedRuleClassObjectPredicate() {
+    return allowedRuleClassesForLabels.asPredicateOfRuleClassObject();
+  }
+
+  public Predicate<String> getAllowedRuleClassPredicate() {
     return allowedRuleClassesForLabels.asPredicateOfRuleClass();
   }
 
@@ -1999,7 +2005,11 @@ public final class Attribute implements Comparable<Attribute> {
    * attribute with warning. If this is not a label or label-list attribute, the returned predicate
    * always evaluates to true.
    */
-  public Predicate<RuleClass> getAllowedRuleClassesWarningPredicate() {
+  public Predicate<RuleClass> getAllowedRuleClassObjectWarningPredicate() {
+    return allowedRuleClassesForLabelsWarning.asPredicateOfRuleClassObject();
+  }
+
+  public Predicate<String> getAllowedRuleClassWarningPredicate() {
     return allowedRuleClassesForLabelsWarning.asPredicateOfRuleClass();
   }
 
@@ -2013,10 +2023,6 @@ public final class Attribute implements Comparable<Attribute> {
 
   public ValidityPredicate getValidityPredicate() {
     return validityPredicate;
-  }
-
-  public Predicate<AttributeMap> getCondition() {
-    return condition == null ? Predicates.alwaysTrue() : condition;
   }
 
   public PredicateWithMessage<Object> getAllowedValues() {
@@ -2058,23 +2064,16 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the default value of this attribute in the context of the specified Rule. For
-   * attributes with a computed default, i.e. {@code hasComputedDefault()}, {@code rule} must be
-   * non-null since the result may depend on the values of its other attributes.
+   * Returns the default value of this attribute.
    *
    * <p>The result may be null (although this is not a value in the build language).
    *
    * <p>During population of the rule's attribute dictionary, all non-computed defaults must be set
    * before all computed ones.
-   *
-   * @param rule the rule to which this attribute belongs; non-null if {@code hasComputedDefault()};
-   *     ignored otherwise.
    */
   @Nullable
-  public Object getDefaultValue(Rule rule) {
-    if (!getCondition().apply(rule == null ? null : NonconfigurableAttributeMapper.of(rule))) {
-      return null;
-    } else if (defaultValue instanceof LateBoundDefault<?, ?>) {
+  public Object getDefaultValue() {
+    if (defaultValue instanceof LateBoundDefault) {
       return ((LateBoundDefault<?, ?>) defaultValue).getDefault();
     } else {
       return defaultValue;
@@ -2082,8 +2081,8 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the default value of this attribute, even if it has a condition, is a computed default,
-   * or a late-bound default.
+   * Returns the default value of this attribute, even if it is a computed default, or a late-bound
+   * default.
    */
   @VisibleForTesting
   public Object getDefaultValueUnchecked() {
@@ -2096,14 +2095,13 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns true iff this attribute has a computed default or a condition.
+   * Returns true iff this attribute has a computed default.
    *
-   * @see #getDefaultValue(Rule)
+   * @see #getDefaultValue
    */
   boolean hasComputedDefault() {
-    return (defaultValue instanceof ComputedDefault)
-        || (defaultValue instanceof StarlarkComputedDefaultTemplate)
-        || (condition != null);
+    return defaultValue instanceof ComputedDefault
+        || defaultValue instanceof StarlarkComputedDefaultTemplate;
   }
 
   /**
@@ -2186,7 +2184,6 @@ public final class Attribute implements Comparable<Attribute> {
             allowedRuleClassesForLabelsWarning, attribute.allowedRuleClassesForLabelsWarning)
         && Objects.equals(allowedFileTypesForLabels, attribute.allowedFileTypesForLabels)
         && Objects.equals(validityPredicate, attribute.validityPredicate)
-        && Objects.equals(condition, attribute.condition)
         && Objects.equals(allowedValues, attribute.allowedValues)
         && Objects.equals(requiredProviders, attribute.requiredProviders)
         && Objects.equals(aspects, attribute.aspects);
@@ -2207,7 +2204,6 @@ public final class Attribute implements Comparable<Attribute> {
     builder.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     builder.requiredProvidersBuilder = requiredProviders.copyAsBuilder();
     builder.validityPredicate = validityPredicate;
-    builder.condition = condition;
     builder.transitionFactory = transitionFactory;
     builder.propertyFlags = newEnumSet(propertyFlags, PropertyFlag.class);
     builder.value = defaultValue;
@@ -2225,7 +2221,7 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Converts a rule attribute value from internal form to Starlark form. Internal form may use any
    * subtype of {@link List} or {@link Map} for {@code list} and {@code dict} attributes, whereas
-   * Starlark uses only immutable {@link StarlarkList} and {@link Dict}.
+   * Starlark uses only immutable {@link net.starlark.java.eval.StarlarkList} and {@link Dict}.
    *
    * <p>The conversion is similar to {@link Starlark#fromJava} for all types except {@code
    * attr.string_list_dict} ({@code Map<String, List<String>>}), for which fromJava does not

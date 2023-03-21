@@ -56,7 +56,7 @@ public final class AndroidIdlProvider extends NativeInfo
 
   @Override
   public Depset /*<String>*/ getTransitiveIdlImportRootsForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, transitiveIdlImportRoots);
+    return Depset.of(String.class, transitiveIdlImportRoots);
   }
 
   NestedSet<String> getTransitiveIdlImportRoots() {
@@ -65,7 +65,7 @@ public final class AndroidIdlProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveIdlImportsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveIdlImports);
+    return Depset.of(Artifact.class, transitiveIdlImports);
   }
 
   NestedSet<Artifact> getTransitiveIdlImports() {
@@ -74,7 +74,7 @@ public final class AndroidIdlProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveIdlJarsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveIdlJars);
+    return Depset.of(Artifact.class, transitiveIdlJars);
   }
 
   NestedSet<Artifact> getTransitiveIdlJars() {
@@ -83,7 +83,7 @@ public final class AndroidIdlProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveIdlPreprocessedForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveIdlPreprocessed);
+    return Depset.of(Artifact.class, transitiveIdlPreprocessed);
   }
 
   NestedSet<Artifact> getTransitiveIdlPreprocessed() {

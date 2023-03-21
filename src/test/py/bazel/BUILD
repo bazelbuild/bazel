@@ -1,5 +1,5 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("//tools/python:private/defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -43,6 +43,7 @@ gen_workspace_stanza(
     repos = [
         "rules_license",
         "rules_cc",
+        "rules_python",
     ],
 )
 
@@ -91,7 +92,6 @@ py_test(
     ],
     deps = [
         ":test_base",
-        "//third_party/py/six",
     ],
 )
 
@@ -241,13 +241,6 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
-    deps = [":test_base"],
-)
-
-py_test(
-    name = "action_replay_test",
-    size = "medium",
-    srcs = ["action_replay_test.py"],
     deps = [":test_base"],
 )
 

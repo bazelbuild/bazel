@@ -51,6 +51,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
       PathFragment javaBinaryRunfilesPath,
       NestedSet<Artifact> hermeticInputs,
       @Nullable Artifact libModules,
+      @Nullable Artifact defaultCDS,
       ImmutableList<CcInfo> hermeticStaticLibs) {
     return new JavaRuntimeInfo(
         javaBaseInputs,
@@ -60,6 +61,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
         javaBinaryRunfilesPath,
         hermeticInputs,
         libModules,
+        defaultCDS,
         hermeticStaticLibs);
   }
 
@@ -76,12 +78,10 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
     ToolchainInfo toolchainInfo =
-        ruleContext
-            .getToolchainContext()
-            .forToolchainType(
-                ruleContext
-                    .getPrerequisite(JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
-                    .getLabel());
+        ruleContext.getToolchainInfo(
+            ruleContext
+                .getPrerequisite(JavaRuleClasses.JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+                .getLabel());
     return from(ruleContext, toolchainInfo);
   }
 
@@ -123,6 +123,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
   private final PathFragment javaBinaryRunfilesPath;
   private final NestedSet<Artifact> hermeticInputs;
   @Nullable private final Artifact libModules;
+  @Nullable private final Artifact defaultCDS;
   private final ImmutableList<CcInfo> hermeticStaticLibs;
 
   private JavaRuntimeInfo(
@@ -133,6 +134,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
       PathFragment javaBinaryRunfilesPath,
       NestedSet<Artifact> hermeticInputs,
       @Nullable Artifact libModules,
+      @Nullable Artifact defaultCDS,
       ImmutableList<CcInfo> hermeticStaticLibs) {
     this.javaBaseInputs = javaBaseInputs;
     this.javaHome = javaHome;
@@ -141,6 +143,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
     this.javaBinaryRunfilesPath = javaBinaryRunfilesPath;
     this.hermeticInputs = hermeticInputs;
     this.libModules = libModules;
+    this.defaultCDS = defaultCDS;
     this.hermeticStaticLibs = hermeticStaticLibs;
   }
 
@@ -192,13 +195,19 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   @Override
   public Depset starlarkHermeticInputs() {
-    return Depset.of(Artifact.TYPE, hermeticInputs());
+    return Depset.of(Artifact.class, hermeticInputs());
   }
 
   @Override
   @Nullable
   public Artifact libModules() {
     return libModules;
+  }
+
+  @Override
+  @Nullable
+  public Artifact defaultCDS() {
+    return defaultCDS;
   }
 
   public ImmutableList<CcInfo> hermeticStaticLibs() {
@@ -220,7 +229,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   @Override
   public Depset starlarkJavaBaseInputs() {
-    return Depset.of(Artifact.TYPE, javaBaseInputs());
+    return Depset.of(Artifact.class, javaBaseInputs());
   }
 
   @Override

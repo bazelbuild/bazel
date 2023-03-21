@@ -54,7 +54,7 @@ string GetOutputRoot() {
     struct passwd *pw = nullptr;
     int uid = getuid();
     int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-    if (r != -1 && pw != nullptr) {
+    if (r == 0 && pw != nullptr) {
       base = pw->pw_dir;
     }
   }

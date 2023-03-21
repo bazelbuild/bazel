@@ -359,13 +359,10 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   startup_options.AddJVMArgumentPrefix(jvm_path.GetParent().GetParent(),
                                        &result);
 
-  // TODO(b/109998449): only assume JDK >= 9 for embedded JDKs
-  if (!startup_options.GetEmbeddedJavabase().IsEmpty()) {
-    // quiet warnings from com.google.protobuf.UnsafeUtil,
-    // see: https://github.com/google/protobuf/issues/3781
-    result.push_back("--add-opens=java.base/java.nio=ALL-UNNAMED");
-    result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
-  }
+  // com.google.devtools.build.lib.unsafe.StringUnsafe uses reflection to access
+  // private fields in java.lang.String. The Bazel server requires Java 11, so
+  // this option is known to be supported.
+  result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
 
   result.push_back("-Xverify:none");
 
@@ -405,6 +402,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   // Force use of latin1 for file names.
   result.push_back("-Dfile.encoding=ISO-8859-1");
+  // Force into the root locale to ensure consistent behavior of string
+  // operations across machines (e.g. in the tr_TR locale, capital ASCII 'I'
+  // turns into a special Unicode 'i' when converted to lower case).
+  // https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Locale.html#ROOT
+  result.push_back("-Duser.country=");
+  result.push_back("-Duser.language=");
+  result.push_back("-Duser.variant=");
 
   if (startup_options.host_jvm_debug) {
     BAZEL_LOG(USER)
@@ -2145,6 +2149,12 @@ unsigned int BlazeServer::Communicate(
       BAZEL_LOG(USER)
           << "\nServer requested exec() but did not pass a binary to execute\n";
       return blaze_exit_code::INTERNAL_ERROR;
+    }
+
+    // Clear environment variables before setting the requested ones so that
+    // users can still explicitly override the clearing.
+    for (const auto &variable_name : request.environment_variable_to_clear()) {
+      UnsetEnv(variable_name);
     }
 
     vector<string> argv(request.argv().begin(), request.argv().end());

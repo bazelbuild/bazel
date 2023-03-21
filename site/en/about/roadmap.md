@@ -6,106 +6,70 @@ Book: /_book.yaml
 
 ## Overview
 
-The Bazel project constantly evolves in response to your needs — developing features and providing support while maintaining, refactoring, and improving the performance of the core product.
+Happy new year to our Bazel community. With the new year, we plan to bring details of our 2023 roadmap. Last year, we published our 2022 year roadmap with our Bazel 6.0 plans. We hope that the roadmap provided informed your build tooling needs. As the Bazel project continues to evolve in response to your needs, we want to share our 2023 update.
 
 With these changes, we’re looking to keep our open-source community informed and included. This roadmap describes current initiatives and predictions for the future of Bazel development, giving you visibility into current priorities and ongoing projects.
 
-This roadmap snapshots targets, and should not be taken as guarantees. Priorities are subject to change in response to developer and customer feedback, or new market opportunities.
+## Bazel 7.0 Release
+We plan to bring Bazel 7.0 [long term support (LTS)](https://bazel.build/release/versioning) to you in late 2023. With Bazel 7.0 we aim to deliver many of the in progress items and continue to work through feature improvements that our users have been asking for.
 
-To be notified of new features — including updates to this roadmap — join the [Google Group](https://groups.google.com/g/bazel-discuss) community.
-
-## Q4 — Bazel 6.0 Release
-
-Q4 brings Bazel 6.0 — the new [long term support (LTS)](https://bazel.build/release/versioning) version. Bazel 6.0 plans to include new powerful and community-requested features for managing dependencies, developing with Android, and more.
-
-### Bzlmod: external dependency management system
-
-[Bzlmod](https://bazel.build/docs/bzlmod) automatically resolves transitive dependencies, allowing projects to scale while staying fast and resource-efficient. Introduced experimentally in Bazel 5.0, Bzlmod will be generally available and  provide a solution for the [diamond dependency problem](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc).
-
-*   Bzlmod goes from ‘experimental’ to ‘generally available’
-*   [Bzlmod Migration Guide](https://docs.google.com/document/d/1JtXIVnXyFZ4bmbiBCr5gsTH4-opZAFf5DMMb-54kES0/edit?usp=gmail) provides tools, scripts, and documentation to teams looking to adopt Bzlmod
-*   The [Bazel central repository](https://github.com/bazelbuild/bazel-central-registry) hosts core Bazel `BUILD` rules (`rules_jvm_external`, `rules_go`, `rules_python`, `rules_nodejs`) and key dependencies required for Bzlmod
-
-For more on this development, watch the [Bzlmod community update](https://www.youtube.com/watch?v=MuW5XNcFukE) or read the [original design doc](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc).
+### Better cross-platform cache sharing
+Enables [cached artifacts](https://docs.google.com/document/d/1o0mrl2DanfV_6kB_Kf_jUdge13CQ8CvCiqeni2o-rvA/edit#heading=h.mvuo768l4ja2) to be shared across different build local (Mac) and remote (Linux) build platforms primarily for Java/Kotlin and Android development, resulting in better performance and efficient cache usage.
 
 ### Android app build with Bazel
+Manifest & Resource Merger updates to v30.1.3 so Android app developers can use newer manifest merging features like tools:node="merge".
 
-Bazel 6.0 will include improved tooling and merged-in community feature contributions. Anticipating further adoption and a growing codebase, the Bazel team will prioritize integration of Android build tools with Bazel Android rules.
-
-*   Updates D8 to v. 3.3.28 and sets it as the [default dexer](https://github.com/bazelbuild/bazel/issues/10240).
-*   Merges to main community feature contributions added in 5.X including support for:
-    *   Persistent workers with D8
-    *   Desugaring using D8
-    *   Merging "uses-permissions" tags in Android manifests
-    *   Multiplex workers in Android resource processing
-
-### Optional toolchains
-
-Our Developer Satisfaction survey showed that rule authors want support for further toolchain development. Bazel 6.0 will allow authors to write rules using an [optional, high performance toolchain](https://bazel.build/docs/toolchains#optional-toolchains) when available with a fallback implementation for other platforms.
-
-### Bazel-JetBrains\* IntelliJ IDEA support
-
-JetBrains has partnered with Bazel to co-maintain the [Bazel IntelliJ IDEA plugin](https://plugins.jetbrains.com/plugin/8609-bazel), supporting the goal of increasing community stewardship and opening up capacity for feature requests and development.
-
-*   IntelliJ plugin v. 2022.2 provides support for the latest JetBrains plugin release
-*   Increases compatibility with remote development
-*   Furthers community-driven development for in-flight features such as Scala support
-
-For more on this development, read the Bazel-JetBrains [blog announcement](https://blog.bazel.build/2022/07/11/Bazel-IntelliJ-Update.html).
-
-## Future development
-
-Looking ahead, the Bazel team has begun development or anticipates prioritizing the following features in 2023 and beyond.
-
-### Improving Bazel's Android build rules
-
-Continue to invest in the Android app development experience, focusing on the workflow through build, test, and deployment.
-
-*   Migration to and support for R8
-*   Updates to the Android rules, including translation to the Starlark language
-*   Support for App Bundle
-*   Support for recent NDK versions
-*   Test code coverage
+### Remote execution improvements
+Bazel 7.0 provides support for asynchronous execution, speeding up remote execution via increased parallelism with flag --jobs.
 
 ### Bzlmod: external dependency management system
+[Bzlmod](https://bazel.build/docs/bzlmod) automatically resolves transitive dependencies, allowing projects to scale while staying fast and resource-efficient. Bazel 7.0 contains a number of enhancements to [Bazel's external dependency management](https://docs.google.com/document/d/1moQfNcEIttsk6vYanNKIy3ZuK53hQUFq1b1r0rmsYVg/edit#heading=h.lgyp7ubwxmjc) functionality, including:
 
-At launch, Bzlmod improves the scalability and reliability of transitive dependencies. Over the next three years, Bzlmod aims to replace `WORKSPACE` as the default Bazel workspace dependency management subsystem. Targeted features include:
-
-*   Support for hermetic builds
-*   Vendor/offline mode pinning versioned references rules to a local copy
-*   Bazel Central Registry includes regular community contribution and adoption of key Bazel rules & projects
-*   Bzlmod becomes the default tool for building Bazel projects
-
-### Software Bill of Materials data generation (SBOMs) & OSS license compliance tools
-
-With Bazel, developers can generate data to produce SBOMs. This data will be available in text or JSON format and can be easily formatted to meet [SPDX](https://spdx.dev/specifications/) or [CycloneDX](https://cyclonedx.org/specification/overview/) needs.
-
-Additionally, the project also provides rules to declare the licenses that Bazel modules are available under, and tools to build processes around those declarations.See the in-progress [rules_license implementation](https://github.com/bazelbuild/rules_license) on GitHub.
-
-### Signed builds
-
-Bazel will provide trusted binaries for Windows and Mac signed with Google keys. This feature enables multi-platform developers/dev-ops to identify the source of Bazel binaries and protect their systems from malicious, unverified binaries.
-
-### Standardized Platforms API
-
-The new Platforms API will standardize the architecture configuration for multi-language, multi-platform builds. With this feature, developers can reduce costly development-time errors and complexity in their large builds.
-
-### Automated execution for dynamic builds
-
-By improving resource utilization predictions, Bazel will optimize local and dynamic
-execution of build actions, leading to faster builds and less overloaded developer machines.
+-   Bzlmod turned on by default for external dependency management in Bazel
+-   Lock file support — enables hermetic build with Bzlmod
+-   Vendor/offline mode support — allows users to run builds with pre-downloaded dependencies
+-   Complete repository cache support (caching not only downloads artifacts, but also the final repository content)
+-   [Bazel Central Registry](https://registry.bazel.build/) includes regular community contribution and adoption of key Bazel rules & projects
 
 ### Build analysis metrics
+Bazel 7.0 provides analysis-phase time metrics, letting developers optimize their own build performance.
 
-Bazel will provide analysis-phase time metrics, letting developers optimize their own build performance.
+### Build without the Bytes turned on by default
+[Builds without the Bytes](https://github.com/bazelbuild/bazel/issues/6862) optimizes performance by avoiding the download of intermediate artifacts and preventing builds from bottlenecking on network bandwidth. Features added include:
 
-### Remote execution with “Builds without the Bytes”
+-   [Support for remote cache eviction with a lease service](https://docs.google.com/document/d/1wM61xufcMS5W0LQ0ar5JBREiN9zKfgu6AnHVD7BSkR4/edit#heading=h.mflzzzunlhlz), so that users don’t run into errors when artifacts are evicted prematurely
 
-[Builds without the Bytes](https://github.com/bazelbuild/bazel/issues/6862) will optimize performance by only allowing Bazel to download needed artifacts, preventing builds from bottlenecking on network bandwidth. Features added for remote builds include:
+-   Address feature gaps in symlink support
+-   Provide options to retrieve intermediate outputs from remote actions
 
--   Use asynchronous download to let actions kick off as soon as they’ve downloaded their dependent outputs
--   Add Symlinks support
--   Add ways to support retrieving intermediate outputs from remote actions during a build
--   Supports remote cache eviction between invocations
+### Build Productivity with Skymeld
+Bazel 7.0 introduces Skymeld — an evaluation mode that reduces the wall time of your multi-target builds. Skymeld eliminates the barrier between analysis and execution phases to improve build speeds, especially for builds with multiple top-level targets. However, for single-target builds, no significant difference is expected.
 
-_\*Copyright © 2022 JetBrains s.r.o. JetBrains and IntelliJ are registered trademarks of JetBrains s.r.o._
+## Bazel Ecosystem & Tooling
+
+### Android app build with Bazel
+-   Migrate Android native rules to Starlark: For Bazel 7.0 the Android rules migrate to Starlark to decouple development from Bazel itself and to better enable community contributions. Additionally, we have made these rules independent of the core Bazel binary, allowing us to release more frequently.
+-   [Migration of Android rules to Starlark](https://bazel.build/reference/be/android)
+-   R8 support: Allows Android app developers to use R8 updated optimizations.
+-   Mobile Install: Allows Android app developers to develop, test, deploy any Android app changes quickly through an updated version of [Mobile Install](https://bazel.build/docs/mobile-install).
+
+### Software Bill of Materials data generation (SBOMs) & OSS license compliance tools
+With Bazel, developers can generate data to help produce [SBOMs](https://security.googleblog.com/2022/06/sbom-in-action-finding-vulnerabilities.html). This data outputs in text or JSON format, and can be easily formatted to meet [SPDX](https://spdx.dev/specifications/) or [CycloneDX](https://cyclonedx.org/specification/overview/) specifications. Additionally, the process provides rules to declare the licenses Bazel modules are made available under, and tools to build processes around those declarations. See the in-progress [rules_license implementation](https://github.com/bazelbuild/rules_license) on GitHub.
+
+### Signed builds
+Bazel provides trusted binaries for Windows and Mac signed with Google keys. This feature enables multi-platform developers/dev-ops to identify the source of Bazel binaries and protect their systems from potentially malicious, unverified binaries.
+
+### Migration of Java, C++, and Python rules to Starlark
+Complete migration of Java, C++, and Python rulesets to Starlark. This effort allows Bazel users to fork only rulesets and not Bazel binary codebase, allowing users to
+
+-   Update and customize rules as needed
+-   Update rules independently of Bazel
+
+### Bazel-JetBrains* IntelliJ IDEA support
+Incremental IntelliJ plugin updates to support the latest JetBrains plugin release.
+
+*This roadmap snapshots targets, and should not be taken as guarantees. Priorities are subject to change in response to developer and customer feedback, or new market opportunities.*
+
+*To be notified of new features — including updates to this roadmap — join the [Google Group](https://groups.google.com/g/bazel-discuss) community.*
+
+*Copyright © 2022 JetBrains s.r.o. JetBrains and IntelliJ are registered trademarks of JetBrains s.r.o

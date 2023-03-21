@@ -59,7 +59,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
-  private static final PathFragment STL_CPPMAP = PathFragment.create("stl.cppmap");
+  private static final PathFragment STL_CPPMAP = PathFragment.create("stl_cc_library.cppmap");
   private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
 
   @Override
@@ -497,8 +497,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     Artifact helloBinExe = getFilesToBuild(helloBin).toList().get(0);
     assertThat(helloBinExe.getExecPathString()).endsWith("hello_bin.exe");
 
-    assertThat(
-            artifactsToStrings(getOutputGroup(hello, CcLibrary.DYNAMIC_LIBRARY_OUTPUT_GROUP_NAME)))
+    assertThat(artifactsToStrings(getOutputGroup(hello, "dynamic_library")))
         .containsExactly("bin hello/hello_5e918d2.dll", "bin hello/hello.if.lib");
   }
 
@@ -2023,7 +2022,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    hdrs = ['implementation_dep.h'],",
         ")");
 
-    getHostConfiguredTarget("//foo:public_dep");
+    assertThat(getExecConfiguredTarget("//foo:public_dep")).isNotNull();
+    ;
     assertDoesNotContainEvent("requires --experimental_cc_implementation_deps");
   }
 

@@ -124,15 +124,12 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
     try (AutoProfiler ignored =
         GoogleAutoProfilerUtils.logged("deletion marking", MIN_TIME_TO_LOG_DELETION)) {
       Set<SkyKey> toDelete = Sets.newConcurrentHashSet();
-      graph
-          .getAllValuesMutable()
-          .forEachEntry(
-              /*parallelismThreshold=*/ 1024,
-              e -> {
-                if (e.getValue().isDirty() || deletePredicate.test(e.getKey())) {
-                  toDelete.add(e.getKey());
-                }
-              });
+      graph.parallelForEach(
+          e -> {
+            if (e.isDirty() || deletePredicate.test(e.getKey())) {
+              toDelete.add(e.getKey());
+            }
+          });
       valuesToDelete.addAll(toDelete);
     }
   }
@@ -158,7 +155,6 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       throws InterruptedException {
     // NOTE: Performance critical code. See bug "Null build performance parity".
     IntVersion graphVersion = lastGraphVersion == null ? IntVersion.of(0) : lastGraphVersion.next();
-    evaluationContext = ensureExecutorService(evaluationContext);
     setAndCheckEvaluateState(true, roots);
     try {
       // Mark for removal any inflight nodes from the previous evaluation.
@@ -186,7 +182,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
             new ParallelEvaluator(
                 graph,
                 graphVersion,
-                MinimalVersion.INSTANCE,
+                Version.minimal(),
                 skyFunctions,
                 evaluationContext.getEventHandler(),
                 emittedEventState,
@@ -195,10 +191,16 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
                 evaluationContext.getKeepGoing(),
                 progressReceiver,
                 graphInconsistencyReceiver,
-                evaluationContext.getExecutorServiceSupplier().get(),
+                evaluationContext
+                    .getExecutor()
+                    .orElseGet(
+                        () ->
+                            AbstractQueueVisitor.create(
+                                "skyframe-evaluator",
+                                evaluationContext.getParallelism(),
+                                ParallelEvaluatorErrorClassifier.instance())),
                 new SimpleCycleDetector(),
-                evaluationContext.getCPUHeavySkyKeysThreadPoolSize(),
-                evaluationContext.getExecutionPhaseThreadPoolSize(),
+                evaluationContext.mergingSkyframeAnalysisExecutionPhases(),
                 evaluationContext.getUnnecessaryTemporaryStateDropperReceiver());
         result = evaluator.eval(roots);
       }
@@ -210,21 +212,6 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       lastGraphVersion = graphVersion;
       setAndCheckEvaluateState(false, roots);
     }
-  }
-
-  private static EvaluationContext ensureExecutorService(EvaluationContext evaluationContext) {
-    return evaluationContext.getExecutorServiceSupplier().isPresent()
-        ? evaluationContext
-        : evaluationContext
-            .builder()
-            .setNumThreads(evaluationContext.getParallelism())
-            .setExecutorServiceSupplier(
-                () ->
-                    AbstractQueueVisitor.createExecutorService(
-                        evaluationContext.getParallelism(),
-                        "skyframe-evaluator",
-                        evaluationContext.getUseForkJoinPool()))
-            .build();
   }
 
   /**
@@ -313,7 +300,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
   }
 
   @Override
-  protected InMemoryGraph inMemoryGraph() {
+  public InMemoryGraph getInMemoryGraph() {
     return graph;
   }
 

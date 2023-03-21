@@ -216,13 +216,13 @@ may kill any stray processes. Tests should not leak processes in this fashion.
 ## Test sharding {:#test-sharding}
 
 Tests can be parallelized via test sharding. See
-[`--test_sharding_strategy`](/docs/user-manual#running-executables) and
-[`shard_count`](/reference/be/common-definitions#common-attributes-tests) to enable
-test sharding. When sharding is enabled, the test runner is launched once per
-shard. The environment variable [`TEST_TOTAL_SHARDS`](#initial-conditions) is
-the number of shards, and [`TEST_SHARD_INDEX`](#initial-conditions) is the shard
-index, beginning at 0. Runners use this information to select which tests to
-run - for example, using a round-robin strategy. Not all test runners support
+[`--test_sharding_strategy`](/reference/command-line-reference#flag--test_sharding_strategy)
+and [`shard_count`](/reference/be/common-definitions#common-attributes-tests) to
+enable test sharding. When sharding is enabled, the test runner is launched once
+per shard. The environment variable [`TEST_TOTAL_SHARDS`](#initial-conditions)
+is the number of shards, and [`TEST_SHARD_INDEX`](#initial-conditions) is the
+shard index, beginning at 0. Runners use this information to select which tests
+to run - for example, using a round-robin strategy. Not all test runners support
 sharding. If a runner supports sharding, it must create or update the last
 modified date of the file specified by
 [`TEST_SHARD_STATUS_FILE`](#initial-conditions). Otherwise, Bazel assumes it

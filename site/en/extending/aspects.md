@@ -5,8 +5,9 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-This page explains the basics and benefits of using aspects and provides
-simple and advanced examples.
+This page explains the basics and benefits of using
+[aspects](/rules/lib/globals#aspect) and provides simple and advanced
+examples.
 
 Aspects allow augmenting build dependency graphs with additional information
 and actions. Some typical scenarios when aspects can be useful:
@@ -47,11 +48,11 @@ This `BUILD` file defines a dependency graph shown in the following figure:
 **Figure 1.** `BUILD` file dependency graph.
 
 Bazel analyzes this dependency graph by calling an implementation function of
-the corresponding [rule](/rules/rules) (in this case "java_library") for every
+the corresponding [rule](/extending/rules) (in this case "java_library") for every
 target in the above example. Rule implementation functions generate actions that
 build artifacts, such as `.jar` files, and pass information, such as locations
 and names of those artifacts, to the reverse dependencies of those targets in
-[providers](/rules/rules#providers).
+[providers](/extending/rules#providers).
 
 Aspects are similar to rules in that they have an implementation function that
 generates actions and returns providers. However, their power comes from
@@ -137,8 +138,8 @@ def _print_aspect_impl(target, ctx):
 ```
 
 Aspect implementation functions are similar to the rule implementation
-functions. They return [providers](/rules/rules#providers), can generate
-[actions](/rules/rules#actions), and take two arguments:
+functions. They return [providers](/extending/rules#providers), can generate
+[actions](/extending/rules#actions), and take two arguments:
 
 *  `target`: the [target](/rules/lib/Target) the aspect is being applied to.
 *   `ctx`: [`ctx`](/rules/lib/ctx) object that can be used to access attributes
@@ -397,3 +398,7 @@ rule implementation, ``extension`` would be considered an optional parameter.
 
 When the ``file_count`` target is built, our aspect will be evaluated for
 itself, and all of the targets accessible recursively via ``deps``.
+
+## References
+
+* [`aspect` API reference](/rules/lib/globals#aspect)

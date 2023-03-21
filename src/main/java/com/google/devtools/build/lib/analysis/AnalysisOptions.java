@@ -91,17 +91,6 @@ public class AnalysisOptions extends OptionsBase {
   public boolean skyframePrepareAnalysis;
 
   @Option(
-      name = "incompatible_strict_conflict_checks",
-      oldName = "experimental_strict_conflict_checks",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
-  public boolean strictConflictChecks;
-
-  @Option(
       name = "experimental_skyframe_cpu_heavy_skykeys_thread_pool_size",
       defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -133,4 +122,18 @@ public class AnalysisOptions extends OptionsBase {
               + " be used. Example value: \"HOST_CPUS*0.5\".",
       converter = CpuResourceConverter.class)
   public int oomSensitiveSkyFunctionsSemaphoreSize;
+
+  @Option(
+      name = "experimental_use_priority_in_analysis",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      help =
+          "If true, runs the analysis phase with priority queuing for SkyFunctions, improving large"
+              + " build performance. This option is ignored unless"
+              + " experimental_skyframe_cpu_heavy_skykeys_thread_pool_size has a positive value.")
+  public boolean usePrioritization;
 }

@@ -15,8 +15,8 @@
 """Attributes common to Objc rules"""
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
-CcInfo = _builtins.toplevel.CcInfo
 AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
 TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
 
@@ -29,40 +29,15 @@ _CC_TOOLCHAIN_RULE = {
 
 _COMPILING_RULE = {
     "srcs": attr.label_list(
-        allow_files = [
-            # NON_CPP_SOURCES
-            ".m",
-            ".c",
-            # CPP_SOURCES
-            ".cc",
-            ".cpp",
-            ".mm",
-            ".cxx",
-            ".C",
-            # ASSEMBLY_SOURCES
-            ".s",
-            ".S",
-            ".asm",
-            # OBJECT_FILE_SOURCES
-            ".o",
-            # HEADERS
-            ".h",
-            ".inc",
-            ".hpp",
-            ".hh",
-        ],
+        allow_files = True,
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "non_arc_srcs": attr.label_list(
-        allow_files = [".m", ".mm"],
+        allow_files = True,
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "pch": attr.label(
         allow_single_file = [".pch"],
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "runtime_deps": attr.label_list(
-        providers = [AppleDynamicFrameworkInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "defines": attr.string_list(),
