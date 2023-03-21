@@ -141,6 +141,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final int nonSkyframeGlobbingThreads;
   @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
+  private final boolean usePooledSkyKeyInterning;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -157,6 +158,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
+    boolean usePooledSkyKeyInterning = true;
 
     protected Builder(
         Root workspaceDir,
@@ -242,6 +244,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder disablePooledSkyKeyInterning() {
+      this.usePooledSkyKeyInterning = false;
+      return this;
+    }
+
     /** Throws {@link IllegalArgumentException} if builder args are incomplete/inconsistent. */
     protected void validate() {
       if (starlarkSemantics == null) {
@@ -273,6 +281,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         NamedForkJoinPool.newNamedPool(
             "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
+    this.usePooledSkyKeyInterning = builder.usePooledSkyKeyInterning;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
@@ -408,7 +417,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
         new NestedSetVisitor.VisitedState(),
-        /*keepEdges=*/ false);
+        /* keepEdges= */ false,
+        usePooledSkyKeyInterning);
   }
 
   protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();

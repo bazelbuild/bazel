@@ -1004,7 +1004,10 @@ public class ParallelEvaluatorTest {
       throws Exception {
     Assume.assumeTrue(keepGoing || keepEdges);
 
-    graph = keepEdges ? InMemoryGraph.create() : InMemoryGraph.createEdgeless();
+    graph =
+        keepEdges
+            ? InMemoryGraph.create(/* usePooledSkyKeyInterning= */ true)
+            : InMemoryGraph.createEdgeless(/* usePooledSkyKeyInterning= */ true);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
