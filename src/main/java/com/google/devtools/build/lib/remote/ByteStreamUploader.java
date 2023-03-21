@@ -195,12 +195,12 @@ final class ByteStreamUploader {
       return Futures.immediateFailedFuture(e);
     }
 
-    if (chunker.getSize() != digest.getSizeBytes()) {
+    if (chunker.getUncompressedSize() != digest.getSizeBytes()) {
       return Futures.immediateFailedFuture(
           new IllegalStateException(
               String.format(
                   "Expected chunker size of %d, got %d",
-                  digest.getSizeBytes(), chunker.getSize())));
+                  digest.getSizeBytes(), chunker.getUncompressedSize())));
     }
 
     UUID uploadId = UUID.randomUUID();

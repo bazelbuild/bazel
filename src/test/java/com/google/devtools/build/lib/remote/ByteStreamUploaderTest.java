@@ -835,7 +835,7 @@ public class ByteStreamUploaderTest {
     Chunker chunker = Mockito.mock(Chunker.class);
     Digest digest = DIGEST_UTIL.compute(blob);
     Mockito.doThrow(new IOException("Too many open files")).when(chunker).seek(0);
-    Mockito.when(chunker.getSize()).thenReturn(digest.getSizeBytes());
+    Mockito.when(chunker.getUncompressedSize()).thenReturn(digest.getSizeBytes());
     serviceRegistry.addService(new MaybeFailOnceUploadService(ImmutableMap.of()));
 
     String newMessage =
