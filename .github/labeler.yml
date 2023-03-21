@@ -1,53 +1,56 @@
 # Based on paths provided in the CODEOWNERS file
 
-# Add 'awaiting-review' to any PR opened
+# Add 'awaiting-review' to any PR opened (starting with just team-ExternalDeps)
 awaiting-review:
-- '**/*'
+- src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+- src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+- src/test/py/bazel/bzlmod/**/*
+# - '**/*'
 
-team-Configurability:
-- src/main/java/com/google/devtools/build/lib/analysis/**/*
-- src/test/java/com/google/devtools/build/lib/analysis/**/*
-- src/main/java/com/google/devtools/build/lib/rules/platform/**/*
-- src/test/java/com/google/devtools/build/lib/rules/platform/**/*
-- tools/platforms/**/*
+# team-Configurability:
+# - src/main/java/com/google/devtools/build/lib/analysis/**/*
+# - src/test/java/com/google/devtools/build/lib/analysis/**/*
+# - src/main/java/com/google/devtools/build/lib/rules/platform/**/*
+# - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
+# - tools/platforms/**/*
 
 # team-Performance
 
-team-Android:
-- src/tools/android/java/com/google/devtools/build/android/**/*
-- src/test/java/com/google/devtools/build/android/**/*
-- src/tools/android/java/com/google/devtools/build/android/**/*
-- src/test/java/com/google/devtools/build/android/**/*
+# team-Android:
+# - src/tools/android/java/com/google/devtools/build/android/**/*
+# - src/test/java/com/google/devtools/build/android/**/*
+# - src/tools/android/java/com/google/devtools/build/android/**/*
+# - src/test/java/com/google/devtools/build/android/**/*
 
 # team-Local-Exec
 
-team-Remote-Exec:
-- src/main/java/com/google/devtools/build/lib/remote/**/*
-- src/test/java/com/google/devtools/build/lib/remote/**/*
-- src/test/py/bazel/remote/**/*
-- src/test/shell/bazel/remote/**/*
-- src/tools/remote/**/*
-- third_party/remoteapis/build/bazel/remote/**/*
+# team-Remote-Exec:
+# - src/main/java/com/google/devtools/build/lib/remote/**/*
+# - src/test/java/com/google/devtools/build/lib/remote/**/*
+# - src/test/py/bazel/remote/**/*
+# - src/test/shell/bazel/remote/**/*
+# - src/tools/remote/**/*
+# - third_party/remoteapis/build/bazel/remote/**/*
 
 # team-OSS
 
-team-Documentation:
-- site/**/*
+# team-Documentation:
+# - site/**/*
 
 # team-Bazel
 
-team-Rules-Python:
-- src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
-- src/main/java/com/google/devtools/build/lib/rules/python/**/*
+# team-Rules-Python:
+# - src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
+# - src/main/java/com/google/devtools/build/lib/rules/python/**/*
 
-team-Rules-Java:
-- src/java_tools/buildjar/**/*
+# team-Rules-Java:
+# - src/java_tools/buildjar/**/*
 
-team-Rules-CPP:
-- tools/cpp/**/*
-- test/shell/bazel/cpp/**/*
-- src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
-- src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
+# team-Rules-CPP:
+# - tools/cpp/**/*
+# - test/shell/bazel/cpp/**/*
+# - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
+# - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
 
 # team-Rules-Server
 
