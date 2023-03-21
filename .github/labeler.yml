@@ -7,6 +7,11 @@ awaiting-review:
 - src/test/py/bazel/bzlmod/**/*
 # - '**/*'
 
+team-ExternalDeps:
+- src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+- src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
+- src/test/py/bazel/bzlmod/**/*
+
 # team-Configurability:
 # - src/main/java/com/google/devtools/build/lib/analysis/**/*
 # - src/test/java/com/google/devtools/build/lib/analysis/**/*
@@ -14,15 +19,11 @@ awaiting-review:
 # - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
 # - tools/platforms/**/*
 
-# team-Performance
-
 # team-Android:
 # - src/tools/android/java/com/google/devtools/build/android/**/*
 # - src/test/java/com/google/devtools/build/android/**/*
 # - src/tools/android/java/com/google/devtools/build/android/**/*
 # - src/test/java/com/google/devtools/build/android/**/*
-
-# team-Local-Exec
 
 # team-Remote-Exec:
 # - src/main/java/com/google/devtools/build/lib/remote/**/*
@@ -32,12 +33,8 @@ awaiting-review:
 # - src/tools/remote/**/*
 # - third_party/remoteapis/build/bazel/remote/**/*
 
-# team-OSS
-
 # team-Documentation:
 # - site/**/*
-
-# team-Bazel
 
 # team-Rules-Python:
 # - src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
@@ -52,6 +49,14 @@ awaiting-review:
 # - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
 # - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
 
+# team-Performance
+
+# team-Bazel
+
+# team-Local-Exec
+
+# team-OSS
+
 # team-Rules-Server
 
 # team-Starlark-Interpreter
@@ -61,11 +66,6 @@ awaiting-review:
 # team-Rules-API
 
 # team-Loading-API
-
-team-ExternalDeps:
-- src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
-- src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
-- src/test/py/bazel/bzlmod/**/*
 
 # team-Rules-ObjC
 
