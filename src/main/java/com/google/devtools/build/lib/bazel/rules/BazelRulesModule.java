@@ -449,15 +449,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean besBestEffort;
 
     @Option(
-        name = "distinct_host_configuration",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help = "No-op.")
-    public boolean useDistinctHostConfiguration;
-
-    @Option(
         name = "experimental_keep_config_nodes_on_analysis_discard",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
