@@ -30,7 +30,7 @@ def _clone_or_update_repo(ctx):
 
     root = ctx.path(".")
     directory = str(root)
-    if ctx.attr.strip_prefix:
+    if ctx.attr.strip_prefix or ctx.attr.add_prefix:
         directory = root.get_child(".tmp_git_root")
 
     git_ = git_repo(ctx, directory)
@@ -41,6 +41,11 @@ def _clone_or_update_repo(ctx):
             fail("strip_prefix at {} does not exist in repo".format(ctx.attr.strip_prefix))
         for item in ctx.path(dest_link).readdir():
             ctx.symlink(item, root.get_child(item.basename))
+
+    if ctx.attr.add_prefix:
+        dest_link = "{}/{}".format(root, ctx.attr.add_prefix)
+        for item in ctx.path(directory).readdir():
+            ctx.symlink(item, ctx.path(dest_link).get_child(item.basename))
 
     if ctx.attr.shallow_since:
         return {"commit": git_.commit, "shallow_since": git_.shallow_since}
@@ -104,6 +109,10 @@ _common_attrs = {
     "strip_prefix": attr.string(
         default = "",
         doc = "A directory prefix to strip from the extracted files.",
+    ),
+    "add_prefix": attr.string(
+        default = "",
+        doc = "A directory prefix be added to extracted files.",
     ),
     "patches": attr.label_list(
         default = [],
