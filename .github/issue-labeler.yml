@@ -1,0 +1,13 @@
+# Add labels to opened issues based on what's in the issue description
+
+"type: feature request":
+    - 'Description of the feature request'
+
+"type: bug":
+    - 'Description of the bug'
+
+
+# Add the 'untriaged' label to all opened issues
+
+"untriaged":
+    - ''
