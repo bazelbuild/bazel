@@ -107,6 +107,11 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
     return Optional.ofNullable(documentation);
   }
 
+  /** Returns the names of rule attributes along which the aspect will propagate. */
+  public ImmutableList<String> getAttributeAspects() {
+    return attributeAspects;
+  }
+
   public ImmutableList<Attribute> getAttributes() {
     return attributes;
   }
