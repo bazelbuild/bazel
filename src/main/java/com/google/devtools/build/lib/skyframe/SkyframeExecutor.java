@@ -397,9 +397,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
   private RegexFilter extraActionFilter;
 
-  // Reset while preparing for execution in each build.
-  private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
-
   // This boolean controls whether FILE_STATE or DIRECTORY_LISTING_STATE nodes are dropped after the
   // corresponding FILE or DIRECTORY_LISTING nodes are evaluated.
   // See b/261019506.
@@ -2303,17 +2300,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  public void setIncrementalPackageRoots(IncrementalPackageRoots incrementalPackageRoots) {
-    this.incrementalPackageRoots = Optional.of(incrementalPackageRoots);
-  }
-
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
 
-    if (incrementalPackageRoots.isPresent()) {
-      incrementalPackageRoots = Optional.empty();
-    }
     skyframeActionExecutor.executionOver();
     actionExecutionFunction.complete(eventHandler);
   }

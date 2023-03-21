@@ -266,7 +266,6 @@ public class ExecutionTool {
               env.getDirectories().getProductName() + "-",
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
       incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
-      skyframeExecutor.setIncrementalPackageRoots(incrementalPackageRoots);
 
       // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
       // via IncrementalPackageRoots.
