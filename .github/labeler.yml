@@ -5,6 +5,8 @@ awaiting-review:
 - src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
 - src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
 - src/test/py/bazel/bzlmod/**/*
+- src/main/java/com/google/devtools/build/lib/bazel/repository/**/*
+- src/test/java/com/google/devtools/build/lib/bazel/repository/**/*
 # - '**/*'
 
 team-ExternalDeps:
