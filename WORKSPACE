@@ -430,13 +430,6 @@ dist_http_archive(
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
-    name = "remote_java_tools_darwin_for_testing",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
-dist_http_archive(
     name = "remote_java_tools_darwin_x86_64_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
@@ -466,13 +459,6 @@ dist_http_archive(
 # Used in src/test/shell/bazel/testdata/jdk_http_archives.
 dist_http_archive(
     name = "remote_java_tools_test_windows",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# Used in src/test/shell/bazel/testdata/jdk_http_archives.
-dist_http_archive(
-    name = "remote_java_tools_test_darwin",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
@@ -740,7 +726,12 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
-        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
+        maven.artifact(
+            "com.google.guava",
+            "guava-testlib",
+            "31.1-jre",
+            testonly = True,
+        ),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
