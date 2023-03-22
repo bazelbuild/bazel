@@ -752,7 +752,7 @@ maven_install(
         maven.artifact("com.google.truth.extensions", "truth-java8-extension", "1.1.3", testonly = True),
         maven.artifact("com.google.truth.extensions", "truth-liteproto-extension", "1.1.3", testonly = True),
         maven.artifact("com.google.truth.extensions", "truth-proto-extension", "1.1.3", testonly = True),
-        maven.artifact("org.mockito", "mockito-core", "5.2.0", testonly = True),
+        maven.artifact("org.mockito", "mockito-core", "3.12.4", testonly = True),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
