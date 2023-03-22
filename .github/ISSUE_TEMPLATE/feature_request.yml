@@ -1,5 +1,8 @@
 name: Feature Request
 description: Suggest a new feature
+labels: ["type: feature request", "untriaged"]
+assignees:
+  - bazelbuild/triage
 body:
   - type: markdown
     attributes:
