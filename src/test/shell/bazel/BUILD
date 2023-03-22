@@ -49,6 +49,8 @@ filegroup(
     name = "test-deps-wo-bazel",
     testonly = 1,
     srcs = [
+        ":junit_jar",
+        ":hamcrest_jar",
         "cc_api_rules.bzl",
         "remote_helpers.sh",
         "testing_server.py",
@@ -71,6 +73,20 @@ filegroup(
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
+)
+
+genrule(
+    name = "junit_jar",
+    srcs = ["@maven//:junit_junit_file"],
+    outs = ["junit.jar"],
+    cmd = "cp $< $@",
+)
+
+genrule(
+    name = "hamcrest_jar",
+    srcs = ["@maven//:org_hamcrest_hamcrest_core_file"],
+    outs = ["hamcrest.jar"],
+    cmd = "cp $< $@",
 )
 
 sh_test(
