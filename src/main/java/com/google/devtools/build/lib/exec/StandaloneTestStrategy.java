@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
@@ -83,6 +85,14 @@ public class StandaloneTestStrategy extends TestStrategy {
           .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
           .put("RUN_UNDER_RUNFILES", "1")
           .build();
+
+  @Override
+  public boolean forceExclusiveIfLocalTestsInParallel(SpawnStrategyRegistry spawnStrategyRegistry) {
+    List<? extends SpawnStrategy> strategies =
+        spawnStrategyRegistry
+            .getStrategies(null, TestRunnerAction.MNEMONIC, null);
+    return !strategies.isEmpty() && strategies.get(0).forceExclusiveIfLocalTestsInParallel();
+  }
 
   public static final TestPolicy DEFAULT_LOCAL_POLICY = new TestPolicy(ENV_VARS);
 

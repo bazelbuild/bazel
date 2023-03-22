@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -205,7 +206,9 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
         }
         if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
-            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+            && executionTool
+                   .getTestActionContext()
+                   .forceExclusiveIfLocalTestsInParallel(executionTool.getSpawnStrategyRegistry())) {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
@@ -354,7 +357,7 @@ public class BuildTool {
                   public boolean forceExclusiveIfLocalTestsInParallel() {
                     return executionTool
                         .getTestActionContext()
-                        .forceExclusiveIfLocalTestsInParallel();
+                        .forceExclusiveIfLocalTestsInParallel(executionTool.getSpawnStrategyRegistry());
                   }
                 });
         buildCompleted = true;

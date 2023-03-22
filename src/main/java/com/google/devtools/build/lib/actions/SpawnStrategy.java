@@ -63,4 +63,15 @@ public interface SpawnStrategy {
   // TODO(katre): Remove once strategies are only instantiated if used, the callback can then be
   //  done upon construction.
   default void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {}
+
+  /**
+   * Returns {@code true} to indicate that "exclusive-if-local" tests should be treated as regular
+   * parallel tests.
+   *
+   * <p>Returning {@code true} may make sense for certain remote spawn strategies where running
+   * tests in sequence would be wasteful.
+   */
+  default boolean forceExclusiveIfLocalTestsInParallel() {
+    return false;
+  }
 }

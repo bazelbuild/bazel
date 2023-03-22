@@ -350,6 +350,7 @@ java_library(
         ":bin_tools",
         ":execution_options",
         ":spawn_exec_exception",
+        ":spawn_strategy_registry",
         ":spawn_strategy_resolver",
         ":standalone_test_result",
         ":test_policy",

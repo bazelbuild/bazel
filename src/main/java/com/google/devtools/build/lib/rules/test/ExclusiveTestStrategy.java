@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.io.IOException;
@@ -48,6 +49,11 @@ public class ExclusiveTestStrategy implements TestActionContext {
   @Override
   public boolean isTestKeepGoing() {
     return parent.isTestKeepGoing();
+  }
+
+  @Override
+  public boolean forceExclusiveIfLocalTestsInParallel(SpawnStrategyRegistry spawnStrategyRegistry) {
+    return parent.forceExclusiveIfLocalTestsInParallel(spawnStrategyRegistry);
   }
 
   @Override

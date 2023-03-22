@@ -343,6 +343,11 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  public boolean forceExclusiveIfLocalTestsInParallel() {
+    return remoteCache instanceof RemoteExecutionCache
+        && remoteExecutor != null;
+  }
+
   private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
     TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
     for (ActionInput output : spawn.getOutputFiles()) {

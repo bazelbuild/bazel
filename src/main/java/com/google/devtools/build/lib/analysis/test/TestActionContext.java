@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -102,9 +103,7 @@ public interface TestActionContext extends ActionContext {
    * <p>Returning {@code true} may make sense for certain remote test execution strategies where
    * running tests in sequence would be wasteful.
    */
-  default boolean forceExclusiveIfLocalTestsInParallel() {
-    return false;
-  }
+  boolean forceExclusiveIfLocalTestsInParallel(SpawnStrategyRegistry spawnStrategyRegistry);
 
   /** Creates a cached test result. */
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)
