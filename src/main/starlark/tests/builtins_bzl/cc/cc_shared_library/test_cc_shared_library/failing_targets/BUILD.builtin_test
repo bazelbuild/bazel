@@ -89,3 +89,27 @@ cc_shared_library(
     name = "failing_with_no_deps_so",
     tags = TAGS,
 )
+
+
+cc_shared_library(
+    name = "failing_only_dynamic_lib",
+    deps = [
+        "dynamic_only",
+    ],
+    tags = TAGS,
+)
+
+cc_library(
+    name = "dynamic_only",
+    srcs = [
+        "libabc.so",
+    ],
+)
+
+genrule(
+    name = "abc_lib",
+    srcs = [],
+    outs = ["libabc.so"],
+    cmd = "touch \"$@\"",
+)
+

@@ -86,13 +86,13 @@ public class StandaloneModule extends BlazeModule {
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
             RunfilesTreeUpdater.INSTANCE);
 
-    boolean verboseFailures =
-        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     // Order of strategies passed to builder is significant - when there are many strategies that
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     registryBuilder.registerStrategy(
-        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner, verboseFailures),
+        new StandaloneSpawnStrategy(env.getExecRoot(), localSpawnRunner, executionOptions),
         "standalone",
         "local");
 

@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -17,7 +18,6 @@ filegroup(
 # Tests for Windows-specific functionality that can run cross-platform.
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "PathFragmentWindowsTest.java",
-    "RootedPathAndCasingTest.java",
     "WindowsPathTest.java",
 ]
 

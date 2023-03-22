@@ -81,7 +81,7 @@ public class ProtoCommon {
                 declareGeneratedFiles,
                 ImmutableList.of(
                     /* actions */ ruleContext.getStarlarkRuleContext().actions(),
-                    /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
+                    /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER.getKey()),
                     /* extension */ extension),
                 ImmutableMap.of());
     try {
@@ -107,7 +107,7 @@ public class ProtoCommon {
         compile,
         ImmutableList.of(
             /* actions */ ruleContext.getStarlarkRuleContext().actions(),
-            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
+            /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER.getKey()),
             /* proto_lang_toolchain_info */ protoLangToolchainInfo,
             /* generated_files */ StarlarkList.immutableCopyOf(generatedFiles),
             /* plugin_output */ pluginOutput == null ? Starlark.NONE : pluginOutput),
@@ -131,7 +131,7 @@ public class ProtoCommon {
                   ruleContext.callStarlarkOrThrowRuleError(
                       filterSources,
                       ImmutableList.of(
-                          /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER),
+                          /* proto_info */ protoTarget.get(ProtoInfo.PROVIDER.getKey()),
                           /* proto_lang_toolchain_info */ protoLangToolchainInfo),
                       ImmutableMap.of()))
               .get(0),

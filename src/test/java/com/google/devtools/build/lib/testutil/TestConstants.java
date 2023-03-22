@@ -167,6 +167,9 @@ public class TestConstants {
   /** The java toolchain type. */
   public static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
 
+  /** The cpp toolchain type. */
+  public static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+
   /** A choice of test execution mode, only varies internally. */
   public enum InternalTestExecutionMode {
     NORMAL

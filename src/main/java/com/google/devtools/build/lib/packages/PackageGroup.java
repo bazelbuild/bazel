@@ -155,7 +155,7 @@ public class PackageGroup implements Target {
     // Package groups are always public to avoid a PackageGroupConfiguredTarget
     // needing itself for the visibility check. It may work, but I did not
     // think it over completely.
-    return ConstantRuleVisibility.PUBLIC;
+    return RuleVisibility.PUBLIC;
   }
 
   @Override

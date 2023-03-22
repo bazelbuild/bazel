@@ -304,11 +304,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
       }
 
-      for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {
+      for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
         input.addPackageGroup(visibilityDependency.toString());
       }
 
-      for (Label visibilityDeclaration : target.getVisibility().getDeclaredLabels()) {
+      for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
         input.addVisibilityLabel(visibilityDeclaration.toString());
       }
 

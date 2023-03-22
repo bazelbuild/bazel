@@ -3,6 +3,7 @@ common --enable_platform_specific_config
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
+build:remote_shared --remote_download_toplevel
 build:remote_shared --remote_timeout=600
 build:remote_shared --google_default_credentials
 build:remote_shared --jobs=100
@@ -16,8 +17,7 @@ build:remote_shared --noexperimental_check_desugar_deps
 build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//java:all
 build:ubuntu1804_java11 --crosstool_top=@rbe_ubuntu1804_java11//cc:toolchain
 build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//config:cc-toolchain
-build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_platform
-build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_highcpu_platform
+build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_platform,//:rbe_ubuntu1804_java11_highcpu_platform
 build:ubuntu1804_java11 --host_platform=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --platforms=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --config=remote_shared

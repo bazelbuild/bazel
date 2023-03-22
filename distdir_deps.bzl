@@ -355,6 +355,13 @@ DIST_DEPS = {
         ],
         "package_version": "4.5",
     },
+    "rules_python": {
+        "sha256": "ffc7b877c95413c82bfd5482c017edcf759a6250d8b24e82f41f3c8b8d9e287e",
+        "strip_prefix": "rules_python-0.19.0",
+        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.19.0/rules_python-0.19.0.tar.gz"],
+        "archive": "rules_python-0.19.0.tar.gz",
+        "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
+    },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10
         "archive": "5847d6a06302136d95a14b4cbd4b55a9c9f1436e.zip",
@@ -384,64 +391,83 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v11.11.zip",
-        "sha256": "b95903c3659d28c159c719449e201b83db475491031b620d021458b982400a22",
+        "archive": "java_tools-v12.0.zip",
+        "sha256": "6efab6ca6e16e02c90e62bbd08ca65f61527984ab78564ea7ad7a2692b2ffdbb",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.11/java_tools-v11.11.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools-v11.11.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools-v12.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools-v12.0.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "12.0",
     },
     "remote_java_tools_linux": {
         "aliases": [
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v11.11.zip",
-        "sha256": "644c887e6e64ca0dd5271d42709b93c07d7ef5dbf42047b823c214a79f9b05f3",
+        "archive": "java_tools_linux-v12.0.zip",
+        "sha256": "4b8366b780387fc5ce69527ed287f2b444ee429d3325305ad062c92ac43c7fb6",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.11/java_tools_linux-v11.11.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools_linux-v11.11.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_linux-v12.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_linux-v12.0.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "12.0",
     },
     "remote_java_tools_windows": {
         "aliases": [
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v11.11.zip",
-        "sha256": "e08acc5c1b43a29335a2a5257e16741a4a4efcdaaf1fdf05c00cce81c4b0ced8",
+        "archive": "java_tools_windows-v12.0.zip",
+        "sha256": "7b938f0c67d9d390f10489b1b9a4dabb51e39ecc94532c3acdf8c4c16900457f",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.11/java_tools_windows-v11.11.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools_windows-v11.11.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_windows-v12.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_windows-v12.0.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "12.0",
     },
-    "remote_java_tools_darwin": {
+    "remote_java_tools_darwin_x86_64": {
         "aliases": [
+            "remote_java_tools_darwin",
             "remote_java_tools_test_darwin",
+            "remote_java_tools_test_darwin_x86_64",
             "remote_java_tools_darwin_for_testing",
+            "remote_java_tools_darwin_x86_64_for_testing",
         ],
-        "archive": "java_tools_darwin-v11.11.zip",
-        "sha256": "af62d4070263d0f80186abd44c9ae4df83e1a64aa5133163dca11a05bb7f2d4f",
+        "archive": "java_tools_darwin_x86_64-v12.0.zip",
+        "sha256": "abc434be713ee9e1fd6525d7a7bd9d7cdff6e27ae3ca9d96420490e7ff6e28a3",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v11.11/java_tools_darwin-v11.11.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v11.11/java_tools_darwin-v11.11.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_darwin_x86_64-v12.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_darwin_x86_64-v12.0.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "11.11",
+        "package_version": "12.0",
+    },
+    "remote_java_tools_darwin_arm64": {
+        "aliases": [
+            "remote_java_tools_test_darwin_arm64",
+            "remote_java_tools_darwin_arm64_for_testing",
+        ],
+        "archive": "java_tools_darwin_arm64-v12.0.zip",
+        "sha256": "24a47a5557ee2ccdacd10a54fe4c15d627c6aeaf7596a5dccf2e11a866a5a32a",
+        "urls": [
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_darwin_arm64-v12.0.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_darwin_arm64-v12.0.zip",
+        ],
+        "used_in": [
+            "test_WORKSPACE_files",
+        ],
+        "package_version": "12.0",
     },
     "remotejdk11_linux": {
         "aliases": [
@@ -485,6 +511,7 @@ DIST_DEPS = {
     "remotejdk11_linux_s390x": {
         "aliases": [
             "remotejdk11_linux_s390x_for_testing",
+            "openjdk11_linux_s390x_archive",
         ],
         "sha256": "a58fc0361966af0a5d5a31a2d8a208e3c9bb0f54f345596fd80b99ea9a39788b",
         "strip_prefix": "jdk-11.0.15+10",
@@ -606,6 +633,7 @@ DIST_DEPS = {
     "remotejdk17_linux_s390x": {
         "aliases": [
             "remotejdk17_linux_s390x_for_testing",
+            "openjdk17_linux_s390x_archive",
             "openjdk_linux_s390x_vanilla",
         ],
         "archive": "OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
@@ -688,83 +716,85 @@ DIST_DEPS = {
             "test_WORKSPACE_files",
         ],
     },
-    "remotejdk18_linux_aarch64": {
+    "remotejdk19_linux_aarch64": {
         "aliases": [
-            "remotejdk18_linux_for_testing",
-            "openjdk18_linux_archive",
+            "remotejdk19_linux_for_testing",
         ],
-        "archive": "zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
-        "sha256": "a1d5f78172f32f819d08e9043b0f82fa7af738b37c55c6ca8d6092c61d204d53",
-        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-linux_aarch64",
+        "archive": "zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
+        "sha256": "76216efa69e448fe487d57310372aea0df1cf15b82974c84a8cb0d97eb934165",
+        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-linux_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk18_linux": {
+    "remotejdk19_linux_s390x": {
         "aliases": [
-            "remotejdk18_linux_for_testing",
-            "openjdk18_linux_archive",
+            "remotejdk19_linux_s390x_for_testing",
+            "openjdk19_linux_s390x_archive",
         ],
-        "sha256": "959a94ca4097dcaabc7886784cec10dfdf2b0a3bff890ea8943cc09c5fff29cb",
-        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-linux_x64",
+        "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+        "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
+        "strip_prefix": "jdk-19.0.2+7",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-linux_x64.tar.gz",
+            "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         ],
-        "used_in": [],
+        "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk18_macos": {
+    "remotejdk19_linux": {
         "aliases": [
-            "remotejdk18_macos_for_testing",
-            "openjdk18_darwin_archive",
+            "remotejdk19_linux_for_testing",
+            "openjdk19_linux_archive",
         ],
-        "sha256": "780a9aa4bda95a6793bf41d13f837c59ef915e9bfd0e0c5fd4c70e4cdaa88541",
-        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-macosx_x64",
+        "archive": "zulu19.32.13-ca-jdk19.0.2-linux_x64.tar.gz",
+        "sha256": "4a994aded1d9b35258d543a59d4963d2687a1094a818b79a21f00273fbbc5bca",
+        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-linux_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_x64.tar.gz",
         ],
-        "used_in": [],
+        "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk18_macos_aarch64": {
+    "remotejdk19_macos": {
         "aliases": [
-            "remotejdk18_macos_aarch64_for_testing",
-            "openjdk18_darwin_aarch64_archive",
+            "remotejdk19_macos_for_testing",
+            "openjdk19_darwin_archive",
         ],
-        "sha256": "9595e001451e201fdf33c1952777968a3ac18fe37273bdeaea5b5ed2c4950432",
-        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-macosx_aarch64",
+        "archive": "zulu19.32.13-ca-jdk19.0.2-macosx_x64.tar.gz",
+        "sha256": "2804575ae9ac63e39caa910e57610bf52b0f9e2d671928a98d18e2fcc9f62ac1",
+        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-macosx_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_x64.tar.gz",
         ],
-        "used_in": [],
+        "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk18_win": {
+    "remotejdk19_macos_aarch64": {
         "aliases": [
-            "remotejdk18_win_for_testing",
-            "openjdk18_windows_archive",
+            "remotejdk19_macos_aarch64_for_testing",
+            "openjdk19_darwin_aarch64_archive",
         ],
-        "sha256": "6c75498163b047595386fdb909cb6d4e04282c3a81799743c5e1f9316391fe16",
-        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_x64",
+        "archive": "zulu19.32.13-ca-jdk19.0.2-macosx_aarch64.tar.gz",
+        "sha256": "177d058d968b2fbe7a5ff5eceb18cdc16f6376ce291004f1a3139e78b2fb6391",
+        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_x64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_aarch64.tar.gz",
         ],
-        "used_in": [],
+        "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk18_win_arm64": {
+    "remotejdk19_win": {
         "aliases": [
-            "remotejdk18_win_arm64_for_testing",
-            "openjdk18_windows_arm64_archive",
+            "remotejdk19_win_for_testing",
+            "openjdk19_windows_archive",
         ],
-        "archive": "zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
-        "sha256": "9b52b259516e4140ee56b91f77750667bffbc543e78ad8c39082449d4c377b54",
-        "strip_prefix": "zulu18.28.13-ca-jdk18.0.0-win_aarch64",
+        "archive": "zulu19.32.13-ca-jdk19.0.2-win_x64.zip",
+        "sha256": "d6c768c5ec3252f936bd0562c25458f7c753c62835ca3e91166f975f7a5fe9f1",
+        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-win_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu18.28.13-ca-jdk18.0.0-win_aarch64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-win_x64.zip",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },

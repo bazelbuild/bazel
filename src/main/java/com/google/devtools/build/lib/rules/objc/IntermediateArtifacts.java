@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
@@ -180,9 +181,13 @@ public final class IntermediateArtifacts implements StarlarkValue {
     // The path will be {RULE_PACKAGE}/lib{RULEBASENAME}{.a,.lo,{SUFFIX}.a}
     String basename = PathFragment.create(ruleContext.getLabel().getName()).getBaseName();
     String extension;
+    AttributeMap attributes = ruleContext.attributes();
+    ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
     if (alwaysLinkLibraryExtension
-        && ruleContext.attributes().has("alwayslink", Type.BOOLEAN)
-        && ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
+        && attributes.has("alwayslink", Type.BOOLEAN)
+        && (attributes.isAttributeValueExplicitlySpecified("alwayslink")
+            ? attributes.get("alwayslink", Type.BOOLEAN)
+            : objcConfiguration.alwayslinkByDefault())) {
       extension = ".lo";
     } else {
       extension = ".a";

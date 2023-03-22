@@ -19,11 +19,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -74,8 +72,8 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
    * rules sharing the same scope will require only one scope traversal to occur.
    */
   @AutoCodec
-  static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<Label>> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  public static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<Label>> {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(ImmutableList<Label> arg) {
       super(ImmutableList.sortedCopyOf(arg));
@@ -95,6 +93,11 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
     @Override
     public boolean supportsPartialReevaluation() {
       return true;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 
@@ -128,8 +131,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
   }
 
   private static class BrokenQueryScopeSkyFunctionException extends SkyFunctionException {
-    protected BrokenQueryScopeSkyFunctionException(
-        BrokenQueryScopeException cause, Transience transience) {
+    BrokenQueryScopeSkyFunctionException(BrokenQueryScopeException cause, Transience transience) {
       super(cause, transience);
     }
   }
@@ -367,7 +369,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
                 attrDepConsumer.transitions.get(attribute),
                 traversal.collectedTargets)) {
               AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-                  rule, aspect, DependencyFilter.ALL_DEPS, aspectDepConsumer);
+                  aspect, DependencyFilter.ALL_DEPS, aspectDepConsumer);
             }
           }
         }

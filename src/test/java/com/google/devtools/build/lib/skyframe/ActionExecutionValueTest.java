@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static org.mockito.Mockito.mock;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
@@ -30,25 +28,36 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root.RootCodecDependencies;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class ActionExecutionValueTest {
+public final class ActionExecutionValueTest {
   private static final FileArtifactValue VALUE_1 =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 1);
+          /* digest= */ new byte[0],
+          /* size= */ 0,
+          /* locationIndex= */ 1,
+          /* expireAtEpochMilli= */ -1);
   private static final FileArtifactValue VALUE_2 =
       RemoteFileArtifactValue.create(
-          /* digest= */ new byte[0], /* size= */ 0, /* locationIndex= */ 2);
+          /* digest= */ new byte[0],
+          /* size= */ 0,
+          /* locationIndex= */ 2,
+          /* expireAtEpochMilli= */ -1);
 
-  private static final ActionLookupKey KEY = mock(ActionLookupKey.class);
+  private static final ActionLookupKey KEY = ActionsTestUtil.NULL_ARTIFACT_OWNER;
   private static final ActionLookupData ACTION_LOOKUP_DATA_1 = ActionLookupData.create(KEY, 1);
   private static final ActionLookupData ACTION_LOOKUP_DATA_2 = ActionLookupData.create(KEY, 2);
 
@@ -56,7 +65,7 @@ public class ActionExecutionValueTest {
       ArtifactRoot.asDerivedRoot(new Scratch().resolve("/execroot"), RootType.Output, "out");
 
   @Test
-  public void equals_returnsFalseForDifferentValues() {
+  public void equality() {
     SpecialArtifact tree1 = tree("tree1");
     TreeArtifactValue tree1Value1 =
         TreeArtifactValue.newBuilder(tree1)
@@ -78,7 +87,6 @@ public class ActionExecutionValueTest {
             PathFragment.create("execPath2"));
 
     new EqualsTester()
-        .addEqualityGroup(createWithArtifactData(ImmutableMap.of()))
         .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_1)))
         .addEqualityGroup(createWithArtifactData(ImmutableMap.of(output("file1"), VALUE_2)))
         .addEqualityGroup(
@@ -123,39 +131,74 @@ public class ActionExecutionValueTest {
                 NestedSetBuilder.<Artifact>stableOrder()
                     .add(output("file1"))
                     .addTransitive(NestedSetBuilder.create(Order.STABLE_ORDER, output("file2")))))
-        // Non-empty collection for each member.
-        .addEqualityGroup(
-            ActionExecutionValue.createForTesting(
-                /* artifactData= */ ImmutableMap.of(output("file1"), VALUE_1),
-                /* treeArtifactData= */ ImmutableMap.of(tree1, tree1Value1),
-                /* outputSymlinks= */ ImmutableList.of(symlink1),
-                /* discoveredModules= */ NestedSetBuilder.create(
-                    Order.STABLE_ORDER, output("file1"))))
         .testEquals();
   }
 
-  ActionExecutionValue createWithArtifactData(
+  @Test
+  public void serialization() throws Exception {
+    new SerializationTester(
+            // Single output file
+            createWithArtifactData(ImmutableMap.of(output("output1"), VALUE_1)),
+            // Fileset
+            createWithOutputSymlinks(
+                ImmutableList.of(
+                    FilesetOutputSymlink.createForTesting(
+                        PathFragment.create("name"),
+                        PathFragment.create("target"),
+                        PathFragment.create("execPath")))),
+            // Module discovering
+            createWithDiscoveredModules(
+                NestedSetBuilder.create(Order.STABLE_ORDER, output("module"))),
+            // Multiple output files
+            createWithArtifactData(
+                ImmutableMap.of(output("output1"), VALUE_1, output("output2"), VALUE_2)),
+            // Single tree
+            createWithTreeArtifactData(ImmutableMap.of(tree("tree"), TreeArtifactValue.empty())),
+            // Multiple trees
+            createWithTreeArtifactData(
+                ImmutableMap.of(
+                    tree("tree1"),
+                    TreeArtifactValue.empty(),
+                    tree("tree2"),
+                    TreeArtifactValue.empty())),
+            // Mixed file and tree
+            ActionExecutionValue.create(
+                ImmutableMap.of(output("file"), VALUE_1),
+                ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
+                /* outputSymlinks= */ ImmutableList.of(),
+                /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
+        .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
+        .addDependency(
+            RootCodecDependencies.class, new RootCodecDependencies(OUTPUT_ROOT.getRoot()))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
+        .runTests();
+  }
+
+  private static ActionExecutionValue createWithArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData) {
-    return ActionExecutionValue.createForTesting(
+    return ActionExecutionValue.create(
         /* artifactData= */ artifactData,
         /* treeArtifactData= */ ImmutableMap.of(),
-        /* outputSymlinks= */ ImmutableList.of());
+        /* outputSymlinks= */ ImmutableList.of(),
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
-  ActionExecutionValue createWithTreeArtifactData(
+  private static ActionExecutionValue createWithTreeArtifactData(
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.createForTesting(
+    return ActionExecutionValue.create(
         /* artifactData= */ ImmutableMap.of(),
         treeArtifactData,
-        /* outputSymlinks= */ ImmutableList.of());
+        /* outputSymlinks= */ ImmutableList.of(),
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
-  ActionExecutionValue createWithOutputSymlinks(
+  private static ActionExecutionValue createWithOutputSymlinks(
       ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    return ActionExecutionValue.createForTesting(
-        /* artifactData= */ ImmutableMap.of(),
+    return ActionExecutionValue.create(
+        ImmutableMap.of(output("fileset.manifest"), VALUE_1),
         /* treeArtifactData= */ ImmutableMap.of(),
-        outputSymlinks);
+        outputSymlinks,
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static ActionExecutionValue createWithDiscoveredModules(
@@ -165,8 +208,8 @@ public class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithDiscoveredModules(
       NestedSet<Artifact> discoveredModules) {
-    return ActionExecutionValue.createForTesting(
-        /* artifactData= */ ImmutableMap.of(),
+    return ActionExecutionValue.create(
+        /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1),
         /* treeArtifactData= */ ImmutableMap.of(),
         /* outputSymlinks= */ ImmutableList.of(),
         discoveredModules);

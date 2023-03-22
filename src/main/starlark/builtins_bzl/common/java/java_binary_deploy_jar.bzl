@@ -34,7 +34,7 @@ def create_deploy_archives(
         main_class,
         coverage_main_class,
         strip_as_default,
-        build_info_files,
+        stamp,
         build_target,
         hermetic = False,
         add_exports = depset(),
@@ -55,6 +55,7 @@ def create_deploy_archives(
         coverage_main_class: (String) FQN of the entry point for coverage collection
         build_target: (String) Name of the build target for stamping
         strip_as_default: (bool) Whether to create unstripped deploy jar
+        stamp: (bool) Value of stamping attribute on the rule
         hermetic: (bool)
         add_exports: (depset)
         add_opens: (depset)
@@ -75,6 +76,8 @@ def create_deploy_archives(
         order = "preorder",
     )
     multi_release = ctx.fragments.java.multi_release_deploy_jars
+
+    build_info_files = semantics.get_build_info(ctx, stamp)
 
     _create_deploy_archive(
         ctx,
@@ -250,6 +253,9 @@ def make_deploy_jars_rule(implementation):
             "_cc_toolchain": attr.label(default = "@" + cc_semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
             "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
             "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
+            "_build_info_translator": attr.label(
+                default = semantics.BUILD_INFO_TRANSLATOR_LABEL,
+            ),
         },
         outputs = _implicit_outputs,
         fragments = ["java"],

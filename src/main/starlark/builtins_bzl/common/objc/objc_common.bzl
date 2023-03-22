@@ -47,7 +47,6 @@ def _create_context_and_provider(
         has_module_map,
         extra_import_libraries,
         deps,
-        runtime_deps,
         attr_linkopts):
     objc_providers = []
     cc_compilation_contexts = []
@@ -69,13 +68,6 @@ def _create_context_and_provider(
         if CcInfo in dep:
             cc_compilation_contexts.append(dep[CcInfo].compilation_context)
             cc_linking_contexts.append(dep[CcInfo].linking_context)
-
-    runtime_objc_providers = []
-    for runtime_dep in runtime_deps:
-        if apple_common.Objc in runtime_dep:
-            runtime_objc_providers.append(runtime_dep[apple_common.Objc])
-        if CcInfo in runtime_dep:
-            cc_compilation_contexts.append(runtime_dep[CcInfo].compilation_context)
 
     link_order_keys = [
         "imported_library",
@@ -100,7 +92,7 @@ def _create_context_and_provider(
     }
 
     objc_compilation_context_kwargs = {
-        "providers": objc_providers + runtime_objc_providers,
+        "providers": objc_providers,
         "cc_compilation_contexts": cc_compilation_contexts,
         "public_hdrs": [],
         "private_hdrs": [],

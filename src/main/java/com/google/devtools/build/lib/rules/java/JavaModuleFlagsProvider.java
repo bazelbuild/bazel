@@ -50,12 +50,12 @@ final class JavaModuleFlagsProvider implements TransitiveInfoProvider, JavaModul
 
   @Override
   public Depset /*String*/ getAddExports() {
-    return Depset.of(Depset.ElementType.STRING, addExports);
+    return Depset.of(String.class, addExports);
   }
 
   @Override
   public Depset /*String*/ getAddOpens() {
-    return Depset.of(Depset.ElementType.STRING, addOpens);
+    return Depset.of(String.class, addOpens);
   }
 
   public JavaModuleFlagsProvider(NestedSet<String> addExports, NestedSet<String> addOpens) {

@@ -334,7 +334,7 @@ final class PathLabelVisitor {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {
           Multimap<Attribute, Label> allLabels = HashMultimap.create();
-          AspectDefinition.addAllAttributesOfAspect(fromRule, allLabels, aspect, edgeFilter);
+          AspectDefinition.addAllAttributesOfAspect(allLabels, aspect, edgeFilter);
           for (Map.Entry<Attribute, Label> e : allLabels.entries()) {
             enqueue(from, e.getKey(), e.getValue());
           }

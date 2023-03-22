@@ -256,7 +256,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<Artifact>*/ dynamicFrameworkFileForStarlark() {
-    return Depset.of(Artifact.TYPE, dynamicFrameworkFile());
+    return Depset.of(Artifact.class, dynamicFrameworkFile());
   }
 
   NestedSet<Artifact> dynamicFrameworkFile() {
@@ -265,18 +265,18 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<Artifact>*/ forceLoadLibrary() {
-    return Depset.of(Artifact.TYPE, get(FORCE_LOAD_LIBRARY));
+    return Depset.of(Artifact.class, get(FORCE_LOAD_LIBRARY));
   }
 
   @Override
   public Depset /*<Artifact>*/ importedLibrary() {
-    return Depset.of(Artifact.TYPE, get(IMPORTED_LIBRARY));
+    return Depset.of(Artifact.class, get(IMPORTED_LIBRARY));
   }
 
   @Override
   public Depset /*<String>*/ strictIncludeForStarlark() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getStrictDependencyIncludes().stream()
@@ -286,27 +286,27 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<Artifact>*/ j2objcLibrary() {
-    return Depset.of(Artifact.TYPE, get(J2OBJC_LIBRARY));
+    return Depset.of(Artifact.class, get(J2OBJC_LIBRARY));
   }
 
   @Override
   public Depset /*<Artifact>*/ library() {
-    return Depset.of(Artifact.TYPE, get(LIBRARY));
+    return Depset.of(Artifact.class, get(LIBRARY));
   }
 
   @Override
   public Depset /*<Artifact>*/ linkInputs() {
-    return Depset.of(Artifact.TYPE, get(LINK_INPUTS));
+    return Depset.of(Artifact.class, get(LINK_INPUTS));
   }
 
   @Override
   public Depset /*<String>*/ linkopt() {
-    return Depset.of(Depset.ElementType.STRING, get(LINKOPT));
+    return Depset.of(String.class, get(LINKOPT));
   }
 
   @Override
   public Depset /*<Artifact>*/ moduleMap() {
-    return Depset.of(Artifact.TYPE, get(MODULE_MAP));
+    return Depset.of(Artifact.class, get(MODULE_MAP));
   }
 
   @Override
@@ -316,17 +316,17 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ sdkDylib() {
-    return Depset.of(Depset.ElementType.STRING, get(SDK_DYLIB));
+    return Depset.of(String.class, get(SDK_DYLIB));
   }
 
   @Override
   public Depset sdkFramework() {
-    return Depset.of(Depset.ElementType.STRING, get(SDK_FRAMEWORK));
+    return Depset.of(String.class, get(SDK_FRAMEWORK));
   }
 
   @Override
   public Depset /*<Artifact>*/ sourceForStarlark() {
-    return Depset.of(Artifact.TYPE, source());
+    return Depset.of(Artifact.class, source());
   }
 
   NestedSet<Artifact> source() {
@@ -340,7 +340,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<Artifact>*/ staticFrameworkFileForStarlark() {
-    return Depset.of(Artifact.TYPE, staticFrameworkFile());
+    return Depset.of(Artifact.class, staticFrameworkFile());
   }
 
   NestedSet<Artifact> staticFrameworkFile() {
@@ -349,12 +349,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<Artifact>*/ umbrellaHeader() {
-    return Depset.of(Artifact.TYPE, get(UMBRELLA_HEADER));
+    return Depset.of(Artifact.class, get(UMBRELLA_HEADER));
   }
 
   @Override
   public Depset weakSdkFramework() {
-    return Depset.of(Depset.ElementType.STRING, get(WEAK_SDK_FRAMEWORK));
+    return Depset.of(String.class, get(WEAK_SDK_FRAMEWORK));
   }
 
   /**
@@ -716,12 +716,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<LibraryToLink>*/ ccLibrariesForStarlark() {
-    return Depset.of(Artifact.TYPE, get(ObjcProvider.CC_LIBRARY));
+    return Depset.of(LibraryToLink.class, get(ObjcProvider.CC_LIBRARY));
   }
 
   @Override
   public Depset /*<String>*/ dynamicFrameworkNamesForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkNames());
+    return Depset.of(String.class, dynamicFrameworkNames());
   }
 
   NestedSet<String> dynamicFrameworkNames() {
@@ -730,7 +730,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ dynamicFrameworkPathsForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, dynamicFrameworkPaths());
+    return Depset.of(String.class, dynamicFrameworkPaths());
   }
 
   NestedSet<String> dynamicFrameworkPaths() {
@@ -739,7 +739,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ staticFrameworkNamesForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, staticFrameworkNames());
+    return Depset.of(String.class, staticFrameworkNames());
   }
 
   NestedSet<String> staticFrameworkNames() {
@@ -748,7 +748,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ staticFrameworkPathsForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, staticFrameworkPaths());
+    return Depset.of(String.class, staticFrameworkPaths());
   }
 
   NestedSet<String> staticFrameworkPaths() {

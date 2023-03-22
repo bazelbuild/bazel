@@ -164,14 +164,20 @@ public abstract class NativeDepsHelper {
       return false;
     }
     Iterable<Artifact> objectFiles;
-    if (library.getObjectFiles() != null) {
+    if (library.getObjectFiles() != null && !library.getObjectFiles().isEmpty()) {
       objectFiles = library.getObjectFiles();
-    } else if (library.getPicObjectFiles() != null) {
+    } else if (library.getPicObjectFiles() != null && !library.getPicObjectFiles().isEmpty()) {
       objectFiles = library.getPicObjectFiles();
-    } else {
+    } else if (isAnySourceArtifact(library.getStaticLibrary(), library.getPicStaticLibrary())) {
       // this is an opaque library so we're going to have to link it
       return true;
+    } else {
+      // if we reach here, this is a cc_library without sources generating an empty archive which
+      // does not need to be linked
+      // TODO(hvd): replace all such usages of cc_library with a exporting_cc_library
+      return false;
     }
+
     for (Artifact object : objectFiles) {
       if (!Link.SHARED_LIBRARY_FILETYPES.matches(object.getFilename())) {
         // this library was built with a non-shared-library object so we should link it
@@ -386,5 +392,14 @@ public abstract class NativeDepsHelper {
             + features.size()
             + "_"
             + fp.hexDigestAndReset());
+  }
+
+  private static boolean isAnySourceArtifact(Artifact... files) {
+    for (Artifact file : files) {
+      if (file != null && file.isSourceArtifact()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

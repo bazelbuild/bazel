@@ -211,11 +211,12 @@ public final class WorkerKey {
     // debugging.
     return CommandFailureUtils.describeCommand(
         CommandDescriptionForm.COMPLETE,
-        /*prettyPrintArgs=*/ false,
+        /* prettyPrintArgs= */ false,
         args,
         env,
+        /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
-        /*configurationChecksum=*/ null,
-        /*executionPlatformAsLabelString=*/ null);
+        /* configurationChecksum= */ null,
+        /* executionPlatformAsLabelString= */ null);
   }
 }

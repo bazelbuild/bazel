@@ -176,7 +176,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "incompatible_strict_conflict_checks",
       oldName = "experimental_strict_conflict_checks",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
@@ -1026,6 +1026,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     // === Pass on C++ compiler features.
     exec.incompatibleUseHostFeatures = incompatibleUseHostFeatures;
+    exec.hostFeatures = ImmutableList.copyOf(hostFeatures);
     if (incompatibleUseHostFeatures) {
       exec.defaultFeatures = ImmutableList.copyOf(hostFeatures);
     } else {

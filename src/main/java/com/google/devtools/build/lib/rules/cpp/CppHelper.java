@@ -417,7 +417,11 @@ public class CppHelper {
       FeatureConfiguration featureConfiguration) {
     FdoContext.BranchFdoProfile branchFdoProfile = fdoContext.getBranchFdoProfile();
     if (branchFdoProfile != null) {
-
+      // If the profile has a .afdo extension and was supplied to the build via the xbinary_fdo
+      // flag, then this is a safdo profile.
+      if (branchFdoProfile.isAutoFdo() && cppConfiguration.getXFdoProfileLabel() != null) {
+        return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "SAFDO" : null;
+      }
       if (branchFdoProfile.isAutoFdo()) {
         return featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO) ? "AFDO" : null;
       }

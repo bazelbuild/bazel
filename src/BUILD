@@ -1,6 +1,6 @@
 # Packaging
 
-load("//tools/python:private/defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
@@ -442,8 +442,6 @@ genrule(
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/tools/singlejar:embedded_java_tools",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
         "//third_party/java/proguard:srcs",
@@ -537,7 +535,8 @@ sh_binary(
         "tmp/build",
         "--platform",
     ] + select({
-        "//src/conditions:darwin": ["darwin"],
+        "//src/conditions:darwin_x86_64": ["darwin_x86_64"],
+        "//src/conditions:darwin_arm64": ["darwin_arm64"],
         "//src/conditions:windows": ["windows"],
         "//src/conditions:linux": ["linux"],
         "//conditions:default": ["unknown"],
@@ -566,10 +565,14 @@ filegroup(
         "@com_google_protobuf//:WORKSPACE",
         "@remote_coverage_tools//:WORKSPACE",
         "@remote_java_tools_darwin_for_testing//:WORKSPACE",
+        "@remote_java_tools_darwin_x86_64_for_testing//:WORKSPACE",
+        "@remote_java_tools_darwin_arm64_for_testing//:WORKSPACE",
         "@remote_java_tools_for_testing//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_test//:WORKSPACE",
         "@remote_java_tools_test_darwin//:WORKSPACE",
+        "@remote_java_tools_test_darwin_x86_64//:WORKSPACE",
+        "@remote_java_tools_test_darwin_arm64//:WORKSPACE",
         "@remote_java_tools_test_linux//:WORKSPACE",
         "@remote_java_tools_test_windows//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
@@ -588,11 +591,11 @@ filegroup(
         "@rules_python//:WORKSPACE",
     ] + [
         "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for os in ("darwin", "darwin_aarch64", "linux", "windows", "windows_arm64")
-        for version in ("17", "18")
+        for version in ("17", "19")
+        for os in ("darwin", "darwin_aarch64", "linux", "linux_s390x", "windows") + (("windows_arm64",) if version != "19" else ())
     ] + [
         "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
-        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
-        for version in ("17", "18")
+        for version in ("17", "19")
+        for os in ("macos", "macos_aarch64", "linux", "linux_s390x", "win") + (("win_arm64",) if version != "19" else ())
     ],
 )

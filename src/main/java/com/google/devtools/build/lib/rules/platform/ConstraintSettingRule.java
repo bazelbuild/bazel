@@ -16,11 +16,16 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.platform.ConstraintSettingInfo;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
+import com.google.devtools.build.lib.packages.Type;
 
 /** Rule definition for {@link ConstraintSetting}. */
 public class ConstraintSettingRule implements RuleDefinition {
@@ -31,6 +36,21 @@ public class ConstraintSettingRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .advertiseStarlarkProvider(ConstraintSettingInfo.PROVIDER.id())
+        .cfg(NoConfigTransition.createFactory())
+        .exemptFromConstraintChecking("this rule helps *define* a constraint")
+        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .removeAttribute(":action_listener")
+        .override(
+            attr("applicable_licenses", BuildType.LABEL_LIST)
+                // This is a constant which is never linked into a target
+                .value(ImmutableList.of())
+                .allowedFileTypes()
+                .nonconfigurable("fundamental constant, used in platform configuration"))
+        .override(
+            attr("tags", Type.STRING_LIST)
+                // No need to show up in ":all", etc. target patterns.
+                .value(ImmutableList.of("manual"))
+                .nonconfigurable("low-level attribute, used in platform configuration"))
         /* <!-- #BLAZE_RULE(constraint_setting).ATTRIBUTE(default_constraint_value) -->
         The label of the default value for this setting, to be used if no value is given. If this
         attribute is present, the <code>constraint_value</code> it points to must be defined in the
@@ -53,7 +73,7 @@ public class ConstraintSettingRule implements RuleDefinition {
   public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(PlatformBaseRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(ConstraintSetting.class)
         .build();
   }

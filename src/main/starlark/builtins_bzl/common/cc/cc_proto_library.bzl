@@ -18,8 +18,7 @@ load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_common.bzl", "cc_common")
 
 ProtoCcFilesInfo = provider(fields = ["files"], doc = "Provide cc proto files.")
 ProtoCcHeaderInfo = provider(fields = ["headers"], doc = "Provide cc proto headers.")

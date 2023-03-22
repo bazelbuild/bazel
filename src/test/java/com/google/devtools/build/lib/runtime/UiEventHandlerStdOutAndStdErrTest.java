@@ -64,7 +64,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
   @Before
   public void createUiEventHandler() {
     UiOptions uiOptions = new UiOptions();
-    uiOptions.eventFilters = ImmutableList.of();
+    uiOptions.eventKindFilters = ImmutableList.of();
     createUiEventHandler(uiOptions);
   }
 
@@ -204,7 +204,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     UiOptions uiOptions = new UiOptions();
     uiOptions.showProgress = true;
     uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
-    uiOptions.eventFilters = ImmutableList.of();
+    uiOptions.eventKindFilters = ImmutableList.of();
     createUiEventHandler(uiOptions);
     if (testedOutput == TestedOutput.STDERR) {
       assertThat(output.flushed).hasSize(2);
@@ -221,7 +221,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     UiOptions uiOptions = new UiOptions();
     uiOptions.showProgress = true;
     uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
-    uiOptions.eventFilters = ImmutableList.of();
+    uiOptions.eventKindFilters = ImmutableList.of();
     createUiEventHandler(uiOptions);
 
     uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);

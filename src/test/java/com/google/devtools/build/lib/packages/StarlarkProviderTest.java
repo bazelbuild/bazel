@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
@@ -26,6 +27,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import java.util.Optional;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -194,9 +196,33 @@ public final class StarlarkProviderTest {
   }
 
   @Test
+  public void basicInstantiationWithDocumentedSchema() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableMap.of("a", "Parameter a", "b", "Parameter b", "c", "Parameter c"))
+            .build();
+    StarlarkInfo infoFromNormalConstructor = instantiateWithA1(provider);
+    assertHasExactlyValuesA1(infoFromNormalConstructor);
+    StarlarkInfo infoFromRawConstructor = instantiateWithA1B2C3(provider.createRawConstructor());
+    assertHasExactlyValuesA1B2C3(infoFromRawConstructor);
+  }
+
+  @Test
   public void schemaDisallowsUnexpectedFields() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN).setSchema(ImmutableList.of("a", "b")).build();
+    EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1B2C3(provider));
+    assertThat(e)
+        .hasMessageThat()
+        .contains("got unexpected field 'c' in call to instantiate provider");
+  }
+
+  @Test
+  public void documentedSchemaDisallowsUnexpectedFields() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableMap.of("a", "Parameter a", "b", "Parameter b"))
+            .build();
     EvalException e = assertThrows(EvalException.class, () -> instantiateWithA1B2C3(provider));
     assertThat(e)
         .hasMessageThat()
@@ -229,18 +255,74 @@ public final class StarlarkProviderTest {
   }
 
   @Test
+  public void documentedProvider_getDocumentation() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN).setDocumentation("My doc string").build();
+    assertThat(provider.getDocumentation()).hasValue("My doc string");
+  }
+
+  @Test
+  public void undocumentedProvider_getDocumentation() throws Exception {
+    StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
+    assertThat(provider.getDocumentation()).isEmpty();
+  }
+
+  @Test
   public void schemalessProvider_getFields() throws Exception {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
     assertThat(provider.getFields()).isNull();
   }
 
   @Test
-  public void schemafulProvider_getFields() throws Exception {
+  public void schemalessProvider_getSchemaWithDocumentation() throws Exception {
+    StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
+    assertThat(provider.getSchemaWithDocumentation()).isNull();
+  }
+
+  @Test
+  public void providerWithUndocumentedSchema_getFields() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
             .setSchema(ImmutableList.of("a", "b", "c"))
             .build();
     assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
+  }
+
+  @Test
+  public void providerWithUndocumentedSchema_getSchemaWithDocumentation() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableList.of("a", "b", "c"))
+            .build();
+    assertThat(provider.getSchemaWithDocumentation().keySet())
+        .containsExactly("a", "b", "c")
+        .inOrder();
+    assertThat(provider.getSchemaWithDocumentation().values())
+        .containsExactly(Optional.empty(), Optional.empty(), Optional.empty());
+  }
+
+  @Test
+  public void providerWithDocumentedSchema_getFields() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableMap.of("a", "Parameter a", "b", "Parameter b", "c", "Parameter c"))
+            .build();
+    assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
+  }
+
+  @Test
+  public void providerWithDocumentedSchema_getSchemaWithDocumentation() throws Exception {
+    StarlarkProvider provider =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .setSchema(ImmutableMap.of("a", "Parameter a", "b", "Parameter b", "c", "Parameter c"))
+            .build();
+    assertThat(provider.getSchemaWithDocumentation().keySet())
+        .containsExactly("a", "b", "c")
+        .inOrder();
+    assertThat(provider.getSchemaWithDocumentation().values())
+        .containsExactly(
+            Optional.of("Parameter a"), Optional.of("Parameter b"), Optional.of("Parameter c"))
+        .inOrder();
   }
 
   /**

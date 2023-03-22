@@ -91,19 +91,19 @@ flag to explicitly allow the yanked version.
 
 ## Compatibility level
 
-MVS's assumption about backwards compatibility works because it treats backwards
-incompatible versions of a module as a separate module. In terms of SemVer, that
-means `A 1.x` and `A 2.x` are considered distinct modules, and can coexist in
-the resolved dependency graph. This is, in turn, made possible by encoding the
-major version in the package path in Go, so there aren't any compile-time or
-linking-time conflicts.
+In Go, MVS's assumption about backwards compatibility works because it treats
+backwards incompatible versions of a module as a separate module. In terms of
+SemVer, that means `A 1.x` and `A 2.x` are considered distinct modules, and can
+coexist in the resolved dependency graph. This is, in turn, made possible by
+encoding the major version in the package path in Go, so there aren't any
+compile-time or linking-time conflicts.
 
-Bazel cannot provide such guarantees, so it needs the "major version" number in
-order to detect backwards incompatible versions. This number is called the
-*compatibility level*, and is specified by each module version in its `module()`
-directive. With this information, Bazel can throw an error when it detects that
-versions of the same module with different compatibility levels exist in the
-resolved dependency graph.
+Bazel, however, cannot provide such guarantees, so it needs the "major version"
+number in order to detect backwards incompatible versions. This number is called
+the *compatibility level*, and is specified by each module version in its
+`module()` directive. With this information, Bazel can throw an error when it
+detects that versions of the same module with different compatibility levels
+exist in the resolved dependency graph.
 
 ## Overrides
 

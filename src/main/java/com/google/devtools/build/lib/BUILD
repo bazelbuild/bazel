@@ -222,11 +222,15 @@ java_library(
 )
 
 java_library(
-    name = "runtime/memory_pressure_event",
+    name = "runtime/memory_pressure",
     srcs = [
         "runtime/MemoryPressureEvent.java",
+        "runtime/MemoryPressureOptions.java",
+        "runtime/MemoryPressureStatCollector.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:memory_pressure_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -261,6 +265,9 @@ java_library(
             "runtime/CommandLinePathFactory.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
+            "runtime/MemoryPressureEvent.java",
+            "runtime/MemoryPressureOptions.java",
+            "runtime/MemoryPressureStatCollector.java",
         ],
     ),
     deps = [
@@ -271,6 +278,7 @@ java_library(
         ":runtime/blaze_command_result",
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
+        ":runtime/memory_pressure",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -282,6 +290,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:package_roots",
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/actions:shared_action_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
@@ -420,6 +429,7 @@ java_library(
         "//src/main/protobuf:execution_graph_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//src/main/protobuf:memory_pressure_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",

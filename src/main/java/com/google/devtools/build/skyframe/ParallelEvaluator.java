@@ -128,7 +128,8 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             value != null
                 ? EvaluationSuccessState.SUCCESS.supplier()
                 : EvaluationSuccessState.FAILURE.supplier(),
-            evaluationState);
+            evaluationState,
+            /* directDeps= */ null);
   }
 
   @ThreadCompatible

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
-import com.google.devtools.build.lib.exec.SpawnExecutingEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -53,9 +52,6 @@ final class RemoteSpawnCache implements SpawnCache {
 
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("remote-cache");
-
-  private static final SpawnExecutingEvent SPAWN_EXECUTING_EVENT =
-      SpawnExecutingEvent.create("remote-cache");
 
   private final Path execRoot;
   private final RemoteOptions options;
@@ -137,7 +133,7 @@ final class RemoteSpawnCache implements SpawnCache {
       } catch (CacheNotFoundException e) {
         // Intentionally left blank
       } catch (IOException e) {
-        if (BulkTransferException.isOnlyCausedByCacheNotFoundException(e)) {
+        if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
           // Intentionally left blank
         } else {
           String errorMessage = Utils.grpcAwareErrorMessage(e, verboseFailures);
@@ -149,10 +145,6 @@ final class RemoteSpawnCache implements SpawnCache {
         }
       }
     }
-
-    context.prefetchInputsAndWait();
-
-    context.report(SPAWN_EXECUTING_EVENT);
 
     if (shouldUploadLocalResults) {
       return new CacheHandle() {

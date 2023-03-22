@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -315,7 +315,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
 
-    packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+    packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     packageOptions.packagePath = ImmutableList.of(rootDirectory.getPathString());

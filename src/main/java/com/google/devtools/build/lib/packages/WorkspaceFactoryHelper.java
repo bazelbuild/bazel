@@ -34,7 +34,7 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A helper for the {@link WorkspaceFactory} to create repository rules */
-public class WorkspaceFactoryHelper {
+public final class WorkspaceFactoryHelper {
 
   public static Rule createAndAddRepositoryRule(
       Package.Builder pkg,
@@ -168,7 +168,6 @@ public class WorkspaceFactoryHelper {
     Rule rule =
         RuleFactory.createRule(pkg, bindRuleClass, attributeValues, handler, semantics, callstack);
     overwriteRule(pkg, rule);
-    rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }
 
   private static void overwriteRule(Package.Builder pkg, Rule rule)
@@ -184,4 +183,6 @@ public class WorkspaceFactoryHelper {
       pkg.addRule(rule);
     }
   }
+
+  private WorkspaceFactoryHelper() {}
 }

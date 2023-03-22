@@ -493,7 +493,8 @@ public class ParallelEvaluatorTest {
                   @Nullable SkyValue newValue,
                   @Nullable ErrorInfo newError,
                   Supplier<EvaluationSuccessState> evaluationSuccessState,
-                  EvaluationState state) {
+                  EvaluationState state,
+                  @Nullable GroupedDeps directDeps) {
                 receivedValues.add(skyKey);
               }
             });
@@ -1003,7 +1004,10 @@ public class ParallelEvaluatorTest {
       throws Exception {
     Assume.assumeTrue(keepGoing || keepEdges);
 
-    graph = keepEdges ? InMemoryGraph.create() : InMemoryGraph.createEdgeless();
+    graph =
+        keepEdges
+            ? InMemoryGraph.create(/* usePooledSkyKeyInterning= */ true)
+            : InMemoryGraph.createEdgeless(/* usePooledSkyKeyInterning= */ true);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
@@ -2586,7 +2590,8 @@ public class ParallelEvaluatorTest {
               @Nullable SkyValue newValue,
               @Nullable ErrorInfo newError,
               Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state) {
+              EvaluationState state,
+              @Nullable GroupedDeps directDeps) {
             evaluatedValues.add(skyKey);
           }
         };

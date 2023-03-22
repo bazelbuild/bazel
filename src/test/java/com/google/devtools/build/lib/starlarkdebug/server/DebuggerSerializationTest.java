@@ -60,8 +60,7 @@ public final class DebuggerSerializationTest {
   public void testSimpleNestedSet() {
     Set<String> children = ImmutableSet.of("a", "b");
     Depset set =
-        Depset.of(
-            Depset.ElementType.STRING, NestedSetBuilder.stableOrder().addAll(children).build());
+        Depset.of(String.class, NestedSetBuilder.<String>stableOrder().addAll(children).build());
 
     Value value = getValueProto("name", set);
 
@@ -90,7 +89,7 @@ public final class DebuggerSerializationTest {
     ImmutableSet<String> directChildren = ImmutableSet.of("a", "b");
     Depset outerSet =
         Depset.of(
-            Depset.ElementType.STRING,
+            String.class,
             NestedSetBuilder.<String>linkOrder()
                 .addAll(directChildren)
                 .addTransitive(innerNestedSet)

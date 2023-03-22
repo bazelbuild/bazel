@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -72,7 +74,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private final FileSystem actionFileSystem;
   @Nullable private final Object skyframeDepsResult;
 
-  @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
+  private ImmutableList<FilesetOutputSymlink> outputSymlinks = ImmutableList.of();
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
@@ -283,18 +285,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return topLevelFilesets;
   }
 
-  @Nullable
   public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return outputSymlinks;
   }
 
   public void setOutputSymlinks(ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    Preconditions.checkState(
-        this.outputSymlinks == null,
+    checkState(
+        this.outputSymlinks.isEmpty(),
         "Unexpected reassignment of the outputSymlinks of a Fileset from\n:%s to:\n%s",
         this.outputSymlinks,
         outputSymlinks);
-    this.outputSymlinks = outputSymlinks;
+    this.outputSymlinks = checkNotNull(outputSymlinks);
   }
 
   @Override
@@ -341,6 +342,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             showSubcommands.prettyPrintArgs,
             spawn.getArguments(),
             spawn.getEnvironment(),
+            /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
             spawn.getExecutionPlatformLabelString());
@@ -372,7 +374,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
    * Provides a mechanism for the action to request values from Skyframe while it discovers inputs.
    */
   public Environment getEnvironmentForDiscoveringInputs() {
-    return Preconditions.checkNotNull(env);
+    return checkNotNull(env);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -409,29 +411,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
    * useful for muting the output for example.
    */
   public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
-    return new ActionExecutionContext(
-        executor,
-        actionInputFileCache,
-        actionInputPrefetcher,
-        actionKeyContext,
-        metadataHandler,
-        rewindingEnabled,
-        lostInputsCheck,
-        fileOutErr,
-        eventHandler,
-        clientEnv,
-        topLevelFilesets,
-        artifactExpander,
-        env,
-        actionFileSystem,
-        skyframeDepsResult,
-        discoveredModulesPruner,
-        syscallCache,
-        threadStateReceiverForMetrics);
-  }
-
-  /** Allows us to create a new context that overrides the MetadataHandler with another one. */
-  public ActionExecutionContext withMetadataHandler(MetadataHandler metadataHandler) {
     return new ActionExecutionContext(
         executor,
         actionInputFileCache,

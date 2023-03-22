@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -281,7 +280,7 @@ public interface SkyFunction {
      * you're doing!
      */
     @Nullable
-    default GroupedList<SkyKey> getTemporaryDirectDeps() {
+    default GroupedDeps getTemporaryDirectDeps() {
       return null;
     }
 

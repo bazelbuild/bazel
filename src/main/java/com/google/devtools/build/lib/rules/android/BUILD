@@ -69,6 +69,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/function_transition_util",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_api_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_error_reporter",

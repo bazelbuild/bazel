@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -69,13 +70,13 @@ import org.junit.runners.JUnit4;
  * Test the behavior of ActionMetadataHandler and ArtifactFunction with respect to TreeArtifacts.
  */
 @RunWith(JUnit4.class)
-public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
+public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
   // A list of subpaths for the SetArtifact created by our custom ActionExecutionFunction.
   private List<PathFragment> testTreeArtifactContents;
 
   @Before
-  public final void setUp() {
+  public void setUp() {
     delegateActionExecutionFunction = new TreeArtifactExecutionFunction();
   }
 
@@ -284,10 +285,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         }
       }
 
-      return ActionExecutionValue.createForTesting(
-          /*artifactData=*/ ImmutableMap.of(),
-          ImmutableMap.of(output, tree.build()),
-          /*outputSymlinks=*/ null);
+      return ActionsTestUtil.createActionExecutionValue(
+          /* artifactData= */ ImmutableMap.of(), ImmutableMap.of(output, tree.build()));
     }
   }
 }

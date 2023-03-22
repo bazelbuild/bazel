@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkPositionIndex;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -22,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,6 +44,8 @@ import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPol
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -73,23 +82,48 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private static final String GENERATOR_FUNCTION = "generator_function";
   private static final String GENERATOR_LOCATION = "generator_location";
 
-  private final Label label;
+  private static final int ATTR_SIZE_THRESHOLD = 126;
 
   private final Package pkg;
-
+  private final Label label;
   private final RuleClass ruleClass;
-
-  private AttributeContainer attributes;
-
-  private RuleVisibility visibility;
-
-  private boolean containsErrors;
-
   private final Location location;
-
   private final CallStack callstack;
 
-  private final ImplicitOutputsFunction implicitOutputsFunction;
+  /**
+   * Stores attribute values, taking on one of two shapes:
+   *
+   * <ol>
+   *   <li>While the rule is mutable, the array length is equal to the number of attributes. Each
+   *       array slot holds the attribute value for the corresponding index or null if not set.
+   *   <li>After {@link #freeze}, the array is compacted to store only necessary values. Nulls and
+   *       values that match {@link Attribute#getDefaultValue} are omitted to save space. Ordering
+   *       of attributes by their index is preserved.
+   * </ol>
+   */
+  private Object[] attrValues;
+
+  /**
+   * Holds bits of metadata about attributes, taking on one of three shapes:
+   *
+   * <ol>
+   *   <li>While the rule is mutable, contains one bit for each attribute indicating whether it was
+   *       explicitly set.
+   *   <li>After {@link #freeze} for rules with fewer than 126 attributes (extremely common case),
+   *       contains one byte dedicated to each value in the compact representation of {@link
+   *       #attrValues}, at corresponding array indices. The first bit indicates whether the
+   *       attribute was explicitly set. The remaining 7 bits represent the attribute's index (as
+   *       per {@link RuleClass#getAttributeIndex}). See {@link #freezeSmall}.
+   *   <li>After {@link #freeze} for rules with 126 or more attributes (rare case), contains the
+   *       full set of bytes from the mutable representation, followed by the index of each
+   *       attribute stored in the compact representation of {@link #attrValues}. Because attribute
+   *       indices may require a full byte, there is no room to pack the explicit bit as we do for
+   *       the small case. See {@link #freezeLarge}.
+   * </ol>
+   */
+  private byte[] attrBytes;
+
+  private boolean containsErrors = false;
 
   /**
    * A compact representation of a multimap from "output keys" to output files.
@@ -121,55 +155,14 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private int numImplicitOutputKeys;
 
-  Rule(
-      Package pkg,
-      Label label,
-      RuleClass ruleClass,
-      Location location,
-      CallStack callstack,
-      AttributeContainer attributeContainer) {
-    this(
-        pkg,
-        label,
-        ruleClass,
-        location,
-        callstack,
-        attributeContainer,
-        ruleClass.getDefaultImplicitOutputsFunction());
-  }
-
-  Rule(
-      Package pkg,
-      Label label,
-      RuleClass ruleClass,
-      Location location,
-      CallStack callstack,
-      AttributeContainer attributeContainer,
-      ImplicitOutputsFunction implicitOutputsFunction) {
-    this.pkg = Preconditions.checkNotNull(pkg);
-    this.label = label;
-    this.ruleClass = Preconditions.checkNotNull(ruleClass);
-    this.location = Preconditions.checkNotNull(location);
-    this.callstack = Preconditions.checkNotNull(callstack);
-    this.attributes = attributeContainer;
-    this.implicitOutputsFunction = implicitOutputsFunction;
-    this.containsErrors = false;
-  }
-
-  void setVisibility(RuleVisibility visibility) {
-    this.visibility = visibility;
-  }
-
-  void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
-    String attrName = attribute.getName();
-    if (attrName.equals(NAME)) {
-      // Avoid unnecessarily storing the name in the attribute container - it's stored in the label.
-      return;
-    }
-    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
-    Preconditions.checkArgument(
-        attrIndex != null, "attribute %s is not valid for this rule", attrName);
-    attributes.setAttributeValue(attrIndex, value, explicit);
+  Rule(Package pkg, Label label, RuleClass ruleClass, Location location, CallStack callstack) {
+    this.pkg = checkNotNull(pkg);
+    this.label = checkNotNull(label);
+    this.ruleClass = checkNotNull(ruleClass);
+    this.location = checkNotNull(location);
+    this.callstack = checkNotNull(callstack);
+    this.attrValues = new Object[ruleClass.getAttributeCount()];
+    this.attrBytes = new byte[bitSetSize()];
   }
 
   void setContainsErrors() {
@@ -306,7 +299,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Constructs and returns an immutable list of all the implicit output files of this rule, in the
    * order they were declared.
    */
-  public ImmutableList<OutputFile> getImplicitOutputFiles() {
+  ImmutableList<OutputFile> getImplicitOutputFiles() {
     ImmutableList.Builder<OutputFile> result = ImmutableList.builder();
     int seenKeys = 0;
     for (Object o : flattenedOutputFileMap) {
@@ -355,7 +348,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * output per key.
    */
   public ImmutableMap<String, OutputFile> getStarlarkImplicitOutputFileMap() {
-    if (!(implicitOutputsFunction instanceof StarlarkImplicitOutputsFunction)) {
+    if (!(ruleClass.getDefaultImplicitOutputsFunction()
+        instanceof StarlarkImplicitOutputsFunction)) {
       return ImmutableMap.of();
     }
     ImmutableMap.Builder<String, OutputFile> result = ImmutableMap.builder();
@@ -384,21 +378,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return callstack;
   }
 
-  public ImplicitOutputsFunction getImplicitOutputsFunction() {
-    return implicitOutputsFunction;
-  }
-
   @Override
   public Rule getAssociatedRule() {
     return this;
-  }
-
-  /**
-   * Returns this rule's raw attribute info, suitable for being fed into an {@link AttributeMap} for
-   * user-level attribute access. Don't use this method for direct attribute access.
-   */
-  AttributeContainer getAttributeContainer() {
-    return attributes;
   }
 
   /*
@@ -420,7 +402,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * must exist (an exception is thrown otherwise).
    */
   public Object getAttrDefaultValue(String attrName) {
-    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue(this);
+    Object defaultValue = ruleClass.getAttributeByName(attrName).getDefaultValue();
     // Computed defaults not expected here.
     Preconditions.checkState(!(defaultValue instanceof Attribute.ComputedDefault));
     return defaultValue;
@@ -434,36 +416,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   public boolean isAttrDefined(String attrName, Type<?> type) {
     return ruleClass.hasAttr(attrName, type);
-  }
-
-  /**
-   * Returns the value of the attribute with the given index. Returns null, if no such attribute
-   * exists OR no value was set.
-   */
-  @Nullable
-  private Object getAttrWithIndex(int attrIndex) {
-    Object value = attributes.getAttributeValue(attrIndex);
-    if (value != null) {
-      return value;
-    }
-    Attribute attr = ruleClass.getAttribute(attrIndex);
-    if (attr.hasComputedDefault()) {
-      // Frozen attribute containers don't store computed defaults, so get it from the attribute.
-      // Mutable attribute containers do store computed defaults if they've been populated. If a
-      // mutable container returns null, return null here since resolving the default could trigger
-      // reads of other attributes which have not yet been populated. Note that in this situation
-      // returning null does not result in a correctness issue, since the value for the attribute is
-      // actually a function to compute the value.
-      return attributes.isFrozen() ? attr.getDefaultValue(this) : null;
-    }
-    switch (attr.getName()) {
-      case GENERATOR_FUNCTION:
-        return callstack.size() > 1 ? callstack.getFrame(1).name : "";
-      case GENERATOR_LOCATION:
-        return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
-      default:
-        return attr.getDefaultValue(null);
-    }
   }
 
   @Nullable
@@ -480,6 +432,35 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     String absolutePath = location.toString();
     int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);
+  }
+
+  /** Copies attribute values from the given rule to this rule. */
+  void copyAttributesFrom(Rule rule) {
+    checkArgument(
+        ruleClass.equals(rule.ruleClass),
+        "Rule class mismatch: (this=%s, given=%s)",
+        ruleClass,
+        rule.ruleClass);
+    checkArgument(rule.isFrozen(), "Not frozen: %s", rule);
+    checkState(!isFrozen(), "Already frozen: %s", this);
+    this.attrValues = rule.attrValues;
+    this.attrBytes = rule.attrBytes;
+  }
+
+  void setAttributeValue(Attribute attribute, Object value, boolean explicit) {
+    checkState(!isFrozen(), "Already frozen: %s", this);
+    String attrName = attribute.getName();
+    if (attrName.equals(NAME)) {
+      // Avoid unnecessarily storing the name in attrValues - it's stored in the label.
+      return;
+    }
+    Integer attrIndex = ruleClass.getAttributeIndex(attrName);
+    checkArgument(attrIndex != null, "Attribute %s is not valid for this rule", attrName);
+    if (explicit) {
+      checkState(!getExplicitBit(attrIndex), "Attribute %s already explicitly set", attrName);
+      setExplicitBit(attrIndex);
+    }
+    attrValues[attrIndex] = value;
   }
 
   /**
@@ -518,53 +499,77 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return getAttrWithIndex(index);
   }
 
-  private void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
-    if (requestedType != attr.getType()) {
-      throw new IllegalArgumentException(
-          "Attribute "
-              + attrName
-              + " is of type "
-              + attr.getType()
-              + " and not of type "
-              + requestedType
-              + " in "
-              + ruleClass
-              + " rule "
-              + label);
+  /**
+   * Returns the value of the attribute with the given index. Returns null, if no such attribute
+   * exists OR no value was set.
+   */
+  @Nullable
+  private Object getAttrWithIndex(int attrIndex) {
+    Object value = getRawAttrValue(attrIndex);
+    if (value != null) {
+      return value;
+    }
+    Attribute attr = ruleClass.getAttribute(attrIndex);
+    if (attr.hasComputedDefault()) {
+      // Frozen rules don't store computed defaults, so get it from the attribute. Mutable rules do
+      // store computed defaults if they've been populated. If no value is stored for a mutable
+      // rule, return null here since resolving the default could trigger reads of other attributes
+      // which have not yet been populated. Note that in this situation returning null does not
+      // result in a correctness issue, since the value for the attribute is actually a function to
+      // compute the value.
+      return isFrozen() ? attr.getDefaultValue() : null;
+    }
+    switch (attr.getName()) {
+      case GENERATOR_FUNCTION:
+        return callstack.size() > 1 ? callstack.getFrame(1).name : "";
+      case GENERATOR_LOCATION:
+        return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
+      default:
+        return attr.getDefaultValue();
     }
   }
 
   /**
-   * Returns a {@link BuildType.SelectorList} for the given attribute if the attribute is
-   * configurable for this rule, null otherwise.
+   * Returns the attribute value at the specified index if stored in this rule, otherwise {@code
+   * null}.
+   *
+   * <p>Unlike {@link #getAttr}, does not fall back to the default value.
    */
   @Nullable
-  @SuppressWarnings("unchecked")
-  public <T> BuildType.SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
-    Integer index = ruleClass.getAttributeIndex(attributeName);
-    if (index == null) {
-      return null;
+  Object getRawAttrValue(int attrIndex) {
+    checkPositionIndex(attrIndex, attrCount() - 1);
+    switch (getAttrState()) {
+      case MUTABLE:
+        return attrValues[attrIndex];
+      case FROZEN_SMALL:
+        int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
+        return index < 0 ? null : attrValues[index];
+      case FROZEN_LARGE:
+        if (attrBytes.length == 0) {
+          return null;
+        }
+        int bitSetSize = bitSetSize();
+        index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
+        return index < 0 ? null : attrValues[index - bitSetSize];
     }
-    Object attrValue = attributes.getAttributeValue(index);
-    if (!(attrValue instanceof BuildType.SelectorList)) {
-      return null;
-    }
-    if (((BuildType.SelectorList<?>) attrValue).getOriginalType() != type) {
-      throw new IllegalArgumentException(
-          "Attribute "
-              + attributeName
-              + " is not of type "
-              + type
-              + " in "
-              + ruleClass
-              + " rule "
-              + label);
-    }
-    return (BuildType.SelectorList<T>) attrValue;
+    throw new AssertionError();
   }
+
   /**
-   * See {@link #isAttributeValueExplicitlySpecified(String)}
+   * Returns raw attribute values stored by this rule.
+   *
+   * <p>The indices of attribute values in the returned list are not guaranteed to be consistent
+   * with the other methods of this class. If this is important, which is generally the case, avoid
+   * this method.
+   *
+   * <p>The returned iterable may contain null values. Its {@link Iterable#iterator} is
+   * unmodifiable.
    */
+  Iterable<Object> getRawAttrValues() {
+    return () -> Iterators.forArray(attrValues);
+  }
+
+  /** See {@link #isAttributeValueExplicitlySpecified(String)} */
   @Override
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return isAttributeValueExplicitlySpecified(attribute.getName());
@@ -587,7 +592,204 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (attrIndex == null) {
       return false;
     }
-    return attributes.isAttributeValueExplicitlySpecified(attrIndex);
+    switch (getAttrState()) {
+      case MUTABLE:
+      case FROZEN_LARGE:
+        return getExplicitBit(attrIndex);
+      case FROZEN_SMALL:
+        int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
+        return index >= 0 && (attrBytes[index] & 0x80) != 0;
+    }
+    throw new AssertionError();
+  }
+
+  /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */
+  private int binarySearchAttrBytes(int start, int attrIndex, int mask) {
+    // Binary search, treating values as unsigned bytes.
+    int lo = start;
+    int hi = attrBytes.length - 1;
+    while (hi >= lo) {
+      int mid = (lo + hi) / 2;
+      int midAttrIndex = attrBytes[mid] & mask;
+      if (midAttrIndex == attrIndex) {
+        return mid;
+      } else if (midAttrIndex < attrIndex) {
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return -1;
+  }
+
+  private void checkAttrType(String attrName, Type<?> requestedType, Attribute attr) {
+    if (requestedType != attr.getType()) {
+      throw new IllegalArgumentException(
+          "Attribute "
+              + attrName
+              + " is of type "
+              + attr.getType()
+              + " and not of type "
+              + requestedType
+              + " in "
+              + ruleClass
+              + " rule "
+              + label);
+    }
+  }
+
+  /**
+   * Returns {@code true} if this rule's attributes are immutable.
+   *
+   * <p>Frozen rules optimize for space by omitting storage for non-explicit attribute values that
+   * match the {@link Attribute} default. If {@link #getRawAttrValue} returns {@code null}, the
+   * value should be taken from {@link Attribute#getDefaultValue}, even for computed defaults.
+   *
+   * <p>Mutable rules have no such optimization. During rule creation, this allows for
+   * distinguishing whether a computed default (which may depend on other unset attributes) is
+   * available.
+   */
+  boolean isFrozen() {
+    return getAttrState() != AttrState.MUTABLE;
+  }
+
+  /** Makes this rule's attributes immutable and compacts their representation. */
+  void freeze() {
+    if (isFrozen()) {
+      return;
+    }
+
+    BitSet indicesToStore = new BitSet();
+    for (int i = 0; i < attrValues.length; i++) {
+      Object value = attrValues[i];
+      if (value == null) {
+        continue;
+      }
+      if (!getExplicitBit(i)) {
+        Attribute attr = ruleClass.getAttribute(i);
+        if (value.equals(attr.getDefaultValue())) {
+          // Non-explicit value matches the attribute's default. Save space by omitting storage.
+          continue;
+        }
+      }
+      indicesToStore.set(i);
+    }
+
+    if (attrCount() < ATTR_SIZE_THRESHOLD) {
+      freezeSmall(indicesToStore);
+    } else {
+      freezeLarge(indicesToStore);
+    }
+    // Sanity check to ensure mutable vs frozen is distinguishable.
+    checkState(isFrozen(), "Freeze unsuccessful");
+  }
+
+  private void freezeSmall(BitSet indicesToStore) {
+    int numToStore = indicesToStore.cardinality();
+    Object[] compactValues = new Object[numToStore];
+    byte[] compactBytes = new byte[numToStore];
+
+    int attrIndex = 0;
+    for (int i = 0; i < numToStore; i++) {
+      attrIndex = indicesToStore.nextSetBit(attrIndex);
+      byte byteValue = (byte) (0x7f & attrIndex);
+      if (getExplicitBit(attrIndex)) {
+        byteValue = (byte) (byteValue | 0x80);
+      }
+      compactBytes[i] = byteValue;
+      compactValues[i] = attrValues[attrIndex];
+      attrIndex++;
+    }
+
+    this.attrValues = compactValues;
+    this.attrBytes = compactBytes;
+  }
+
+  private void freezeLarge(BitSet indicesToStore) {
+    int numToStore = indicesToStore.cardinality();
+    int bitSetSize = attrBytes.length;
+    Object[] compactValues = new Object[numToStore];
+    byte[] compactBytes = Arrays.copyOf(attrBytes, bitSetSize + numToStore);
+
+    int attrIndex = 0;
+    for (int i = 0; i < numToStore; i++) {
+      attrIndex = indicesToStore.nextSetBit(attrIndex);
+      compactBytes[i + bitSetSize] = (byte) attrIndex;
+      compactValues[i] = attrValues[attrIndex];
+      attrIndex++;
+    }
+
+    this.attrValues = compactValues;
+    this.attrBytes = compactBytes;
+  }
+
+  private int attrCount() {
+    return ruleClass.getAttributeCount();
+  }
+
+  private enum AttrState {
+    MUTABLE,
+    FROZEN_SMALL,
+    FROZEN_LARGE
+  }
+
+  private AttrState getAttrState() {
+    int attrCount = attrCount();
+    // This check works because the name attribute is never stored, so the compact representation
+    // of attrValues will always have length < attrCount.
+    if (attrValues.length == attrCount) {
+      return AttrState.MUTABLE;
+    }
+    return attrCount < ATTR_SIZE_THRESHOLD ? AttrState.FROZEN_SMALL : AttrState.FROZEN_LARGE;
+  }
+
+  /** Calculates the number of bytes necessary to have an explicit bit for each attribute. */
+  private int bitSetSize() {
+    // ceil(attrCount() / 8)
+    return (attrCount() + 7) / 8;
+  }
+
+  private boolean getExplicitBit(int attrIndex) {
+    int byteIndex = attrIndex / 8;
+    int bitIndex = attrIndex % 8;
+    byte byteValue = attrBytes[byteIndex];
+    return (byteValue & (1 << bitIndex)) != 0;
+  }
+
+  private void setExplicitBit(int attrIndex) {
+    int byteIndex = attrIndex / 8;
+    int bitIndex = attrIndex % 8;
+    byte byteValue = attrBytes[byteIndex];
+    attrBytes[byteIndex] = (byte) (byteValue | (1 << bitIndex));
+  }
+
+  /**
+   * Returns a {@link BuildType.SelectorList} for the given attribute if the attribute is
+   * configurable for this rule, null otherwise.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> BuildType.SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
+    Integer index = ruleClass.getAttributeIndex(attributeName);
+    if (index == null) {
+      return null;
+    }
+    Object attrValue = getRawAttrValue(index);
+    if (!(attrValue instanceof BuildType.SelectorList)) {
+      return null;
+    }
+    if (((BuildType.SelectorList<?>) attrValue).getOriginalType() != type) {
+      throw new IllegalArgumentException(
+          "Attribute "
+              + attributeName
+              + " is not of type "
+              + type
+              + " in "
+              + ruleClass
+              + " rule "
+              + label);
+    }
+    return (BuildType.SelectorList<T>) attrValue;
   }
 
   /**
@@ -655,10 +857,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return transitions;
   }
 
-  void freeze() {
-    attributes = attributes.freeze(this);
-  }
-
   /**
    * Check if this rule is valid according to the validityPredicate of its RuleClass.
    */
@@ -676,13 +874,21 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   void populateOutputFiles(EventHandler eventHandler, Package.Builder pkgBuilder)
       throws LabelSyntaxException, InterruptedException {
     populateOutputFilesInternal(
-        eventHandler, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ true);
+        eventHandler,
+        pkgBuilder.getPackageIdentifier(),
+        ruleClass.getDefaultImplicitOutputsFunction(),
+        /* checkLabels= */ true);
   }
 
-  void populateOutputFilesUnchecked(Package.Builder pkgBuilder) throws InterruptedException {
+  void populateOutputFilesUnchecked(
+      Package.Builder pkgBuilder, ImplicitOutputsFunction implicitOutputsFunction)
+      throws InterruptedException {
     try {
       populateOutputFilesInternal(
-          NullEventHandler.INSTANCE, pkgBuilder.getPackageIdentifier(), /*checkLabels=*/ false);
+          NullEventHandler.INSTANCE,
+          pkgBuilder.getPackageIdentifier(),
+          implicitOutputsFunction,
+          /* checkLabels= */ false);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
@@ -699,7 +905,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   private void populateOutputFilesInternal(
-      EventHandler eventHandler, PackageIdentifier pkgId, boolean checkLabels)
+      EventHandler eventHandler,
+      PackageIdentifier pkgId,
+      ImplicitOutputsFunction implicitOutputsFunction,
+      boolean checkLabels)
       throws LabelSyntaxException, InterruptedException {
     Preconditions.checkState(flattenedOutputFileMap == null);
 
@@ -850,39 +1059,71 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return getRuleClass() + " rule " + label;
   }
 
- /**
-   * Returns the effective visibility of this Rule. Visibility is computed from
+  /**
+   * Returns the effective visibility of this rule. For most rules, visibility is computed from
    * these sources in this order of preference:
-   *   - 'visibility' attribute
-   *   - 'default_visibility;' attribute of package() declaration
-   *   - public.
+   *
+   * <ol>
+   *   <li>'visibility' attribute
+   *   <li>Package default visibility ('default_visibility' attribute of package() declaration)
+   * </ol>
    */
   @Override
   public RuleVisibility getVisibility() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    return rawLabels == null
+        ? getDefaultVisibility()
+        // The attribute value was already validated when it was set, so call the unchecked method.
+        : RuleVisibility.parseUnchecked(rawLabels);
+  }
+
+  @Override
+  public Iterable<Label> getVisibilityDependencyLabels() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    if (rawLabels == null) {
+      return getDefaultVisibility().getDependencyLabels();
+    }
+    RuleVisibility constantVisibility = RuleVisibility.parseIfConstant(rawLabels);
+    if (constantVisibility != null) {
+      return constantVisibility.getDependencyLabels();
+    }
+    // Filter out labels like :__pkg__ and :__subpackages__.
+    return Iterables.filter(rawLabels, label -> PackageSpecification.fromLabel(label) == null);
+  }
+
+  @Override
+  public List<Label> getVisibilityDeclaredLabels() {
+    List<Label> rawLabels = getRawVisibilityLabels();
+    return rawLabels == null ? getDefaultVisibility().getDeclaredLabels() : rawLabels;
+  }
+
+  public boolean isVisibilitySpecified() {
+    return ruleClass.getName().equals("bind") || isAttributeValueExplicitlySpecified("visibility");
+  }
+
+  @Nullable
+  @SuppressWarnings("unchecked")
+  private List<Label> getRawVisibilityLabels() {
+    Integer visibilityIndex = ruleClass.getAttributeIndex("visibility");
+    if (visibilityIndex == null) {
+      return null;
+    }
+    return (List<Label>) getRawAttrValue(visibilityIndex);
+  }
+
+  private RuleVisibility getDefaultVisibility() {
+    if (ruleClass.getName().equals("bind")) {
+      return RuleVisibility.PUBLIC; // bind rules are always public.
+    }
     // Temporary logic to relax config_setting's visibility enforcement while depot migrations set
     // visibility settings properly (legacy code may have visibility settings that would break if
     // enforced). See https://github.com/bazelbuild/bazel/issues/12669. Ultimately this entire
     // conditional should be removed.
-    if (ruleClass.getName().equals("config_setting")) {
-      ConfigSettingVisibilityPolicy policy = pkg.getConfigSettingVisibilityPolicy();
-      if (visibility != null) {
-        return visibility; // Use explicitly set visibility
-      } else if (policy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
-        return ConstantRuleVisibility.PUBLIC; // Default: //visibility:public.
-      } else {
-        return pkg.getDefaultVisibility(); // Default: same as all other rules.
-      }
-    }
-
-    // All other rules.
-    if (visibility != null) {
-      return visibility;
+    if (ruleClass.getName().equals("config_setting")
+        && pkg.getConfigSettingVisibilityPolicy() == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC) {
+      return RuleVisibility.PUBLIC; // Default: //visibility:public.
     }
     return pkg.getDefaultVisibility();
-  }
-
-  public boolean isVisibilitySpecified() {
-    return visibility != null;
   }
 
   @Override
@@ -960,7 +1201,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     SetMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {
-        AspectDefinition.addAllAttributesOfAspect(Rule.this, labels, candidateClass, predicate);
+        AspectDefinition.addAllAttributesOfAspect(labels, candidateClass, predicate);
       }
     }
     return labels.values();

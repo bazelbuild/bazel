@@ -75,6 +75,13 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     this.language = language;
   }
 
+  private static final String CPP_TOOLCHAIN_TYPE = "@bazel_tools//tools/cpp:toolchain_type";
+
+  @Override
+  public String getCppToolchainType() {
+    return CPP_TOOLCHAIN_TYPE;
+  }
+
   @Override
   public Language language() {
     return language;

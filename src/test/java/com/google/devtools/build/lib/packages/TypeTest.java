@@ -303,8 +303,7 @@ public class TypeTest {
   @Test
   public void testListDepsetConversion() throws Exception {
     Object input =
-        Depset.of(
-            Depset.ElementType.STRING, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
+        Depset.of(String.class, NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
     Type.STRING_LIST.convert(input, null);
   }
 

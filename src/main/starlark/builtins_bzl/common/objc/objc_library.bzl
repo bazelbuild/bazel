@@ -14,15 +14,15 @@
 
 """objc_library Starlark implementation replacing native"""
 
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/objc_common.bzl", "extensions")
+load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load("@_builtins//:common/objc/transitions.bzl", "apple_crosstool_transition")
-load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
 objc_internal = _builtins.internal.objc_internal
-cc_common = _builtins.toplevel.cc_common
 coverage_common = _builtins.toplevel.coverage_common
 apple_common = _builtins.toplevel.apple_common
 
@@ -56,15 +56,15 @@ def _objc_library_impl(ctx):
     _validate_attributes(srcs = ctx.attr.srcs, non_arc_srcs = ctx.attr.non_arc_srcs, label = ctx.label)
 
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    semantics.check_toolchain_supports_objc_compile(ctx, cc_toolchain)
 
     common_variables = compilation_support.build_common_variables(
         ctx = ctx,
         toolchain = cc_toolchain,
         use_pch = True,
         deps = ctx.attr.deps,
-        runtime_deps = ctx.attr.runtime_deps,
         attr_linkopts = ctx.attr.linkopts,
-        alwayslink = ctx.attr.alwayslink,
+        alwayslink = ctx.fragments.objc.target_should_alwayslink(ctx),
     )
     files = []
     if common_variables.compilation_artifacts.archive != None:

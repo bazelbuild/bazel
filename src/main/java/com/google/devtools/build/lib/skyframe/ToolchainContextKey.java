@@ -15,13 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Optional;
 
 /**
@@ -31,18 +29,24 @@ import java.util.Optional;
 @AutoValue
 public abstract class ToolchainContextKey implements SkyKey {
 
+  private static final SkyKeyInterner<ToolchainContextKey> interner = SkyKey.newInterner();
+
   /** Returns a new {@link Builder}. */
   public static Builder key() {
     return new AutoValue_ToolchainContextKey.Builder()
         .toolchainTypes(ImmutableSet.of())
         .execConstraintLabels(ImmutableSet.of())
-        .forceExecutionPlatform(Optional.empty())
         .debugTarget(false);
   }
 
   @Override
-  public SkyFunctionName functionName() {
+  public final SkyFunctionName functionName() {
     return SkyFunctions.TOOLCHAIN_RESOLUTION;
+  }
+
+  @Override
+  public final SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
   }
 
   abstract BuildConfigurationKey configurationKey();
@@ -57,35 +61,25 @@ public abstract class ToolchainContextKey implements SkyKey {
 
   /** Builder for {@link ToolchainContextKey}. */
   @AutoValue.Builder
-  public interface Builder {
-    Builder configurationKey(BuildConfigurationKey key);
+  public abstract static class Builder {
+    public abstract Builder configurationKey(BuildConfigurationKey key);
 
-    Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
+    public abstract Builder toolchainTypes(ImmutableSet<ToolchainTypeRequirement> toolchainTypes);
 
-    @CanIgnoreReturnValue
-    default Builder toolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
-      return this.toolchainTypes(ImmutableSet.copyOf(toolchainTypes));
+    public abstract Builder toolchainTypes(ToolchainTypeRequirement... toolchainTypes);
+
+    public abstract Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
+
+    public abstract Builder execConstraintLabels(Label... execConstraintLabels);
+
+    public abstract Builder debugTarget(boolean flag);
+
+    public abstract Builder forceExecutionPlatform(Label execPlatform);
+
+    public final ToolchainContextKey build() {
+      return interner.intern(autoBuild());
     }
 
-    Builder execConstraintLabels(ImmutableSet<Label> execConstraintLabels);
-
-    Builder execConstraintLabels(Label... execConstraintLabels);
-
-    Builder debugTarget(boolean flag);
-
-    @CanIgnoreReturnValue
-    default Builder debugTarget() {
-      return this.debugTarget(true);
-    }
-
-    ToolchainContextKey build();
-
-    Builder forceExecutionPlatform(Optional<Label> execPlatform);
-
-    @CanIgnoreReturnValue
-    default Builder forceExecutionPlatform(Label execPlatform) {
-      Preconditions.checkNotNull(execPlatform);
-      return forceExecutionPlatform(Optional.of(execPlatform));
-    }
+    abstract ToolchainContextKey autoBuild();
   }
 }

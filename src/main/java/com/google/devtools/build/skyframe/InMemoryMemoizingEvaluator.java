@@ -92,7 +92,8 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
         new NestedSetVisitor.VisitedState(),
-        /*keepEdges=*/ true);
+        /* keepEdges= */ true,
+        /* usePooledSkyKeyInterning= */ true);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -102,13 +103,17 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       EventFilter eventFilter,
       NestedSetVisitor.VisitedState emittedEventState,
-      boolean keepEdges) {
+      boolean keepEdges,
+      boolean usePooledSkyKeyInterning) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = new DirtyTrackingProgressReceiver(progressReceiver);
     this.graphInconsistencyReceiver = Preconditions.checkNotNull(graphInconsistencyReceiver);
     this.eventFilter = eventFilter;
-    this.graph = keepEdges ? InMemoryGraph.create() : InMemoryGraph.createEdgeless();
+    this.graph =
+        keepEdges
+            ? InMemoryGraph.create(usePooledSkyKeyInterning)
+            : InMemoryGraph.createEdgeless(usePooledSkyKeyInterning);
     this.emittedEventState = emittedEventState;
     this.keepEdges = keepEdges;
   }

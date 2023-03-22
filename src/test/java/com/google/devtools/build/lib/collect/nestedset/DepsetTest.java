@@ -85,8 +85,10 @@ public final class DepsetTest {
     // getSet argument must be a legal Starlark value class, or Object,
     // but not some superclass that doesn't implement StarlarkValue.
     Depset ints =
-        Depset.legacyOf(
-            Order.STABLE_ORDER, Tuple.of(StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
+        Depset.of(
+            StarlarkInt.class,
+            NestedSetBuilder.create(
+                Order.STABLE_ORDER, StarlarkInt.of(1), StarlarkInt.of(2), StarlarkInt.of(3)));
     assertThat(ints.getSet(StarlarkInt.class).toString()).isEqualTo("[1, 2, 3]");
     IllegalArgumentException ex =
         assertThrows(IllegalArgumentException.class, () -> ints.getSet(Number.class));
@@ -278,10 +280,10 @@ public final class DepsetTest {
     //  (b) at least one order is "default"
 
     for (Order first : Order.values()) {
-      Depset s1 = Depset.legacyOf(first, Tuple.of("1", "11"));
+      Depset s1 = Depset.of(String.class, NestedSetBuilder.create(first, "1", "11"));
 
       for (Order second : Order.values()) {
-        Depset s2 = Depset.legacyOf(second, Tuple.of("2", "22"));
+        Depset s2 = Depset.of(String.class, NestedSetBuilder.create(second, "2", "22"));
 
         boolean compatible = true;
 

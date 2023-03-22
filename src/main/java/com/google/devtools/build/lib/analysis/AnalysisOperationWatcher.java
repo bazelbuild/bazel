@@ -26,15 +26,24 @@ import java.util.Set;
 public class AnalysisOperationWatcher implements AutoCloseable {
   // Since the events are fired from within a SkyFunction, it's possible that the same event is
   // fired multiple times. A simple counter would therefore not suffice.
+  private final ExecutionGoAheadCallback executionGoAheadCallback;
   private final Set<SkyKey> threadSafeExpectedKeys;
   private final EventBus eventBus;
   private final AnalysisOperationWatcherFinisher finisher;
+  // When there's not more than this amount of top level target/aspect left to analyze, we can start
+  // with execution.
+  private final float lowerThresholdToSignalForExecution;
+  private boolean signalledExecutionGoAhead = false;
 
   private AnalysisOperationWatcher(
       Set<SkyKey> threadSafeExpectedKeys,
       EventBus eventBus,
-      AnalysisOperationWatcherFinisher finisher) {
+      float lowerThresholdToSignalForExecution,
+      AnalysisOperationWatcherFinisher finisher,
+      ExecutionGoAheadCallback executionGoAheadCallback) {
+    this.executionGoAheadCallback = executionGoAheadCallback;
     this.threadSafeExpectedKeys = threadSafeExpectedKeys;
+    this.lowerThresholdToSignalForExecution = lowerThresholdToSignalForExecution;
     this.eventBus = eventBus;
     this.finisher = finisher;
   }
@@ -43,9 +52,16 @@ public class AnalysisOperationWatcher implements AutoCloseable {
   public static AnalysisOperationWatcher createAndRegisterWithEventBus(
       Set<SkyKey> threadSafeExpectedKeys,
       EventBus eventBus,
-      AnalysisOperationWatcherFinisher finisher) {
+      float lowerThresholdToSignalForExecution,
+      AnalysisOperationWatcherFinisher finisher,
+      ExecutionGoAheadCallback executionGoAheadCallback) {
     AnalysisOperationWatcher watcher =
-        new AnalysisOperationWatcher(threadSafeExpectedKeys, eventBus, finisher);
+        new AnalysisOperationWatcher(
+            threadSafeExpectedKeys,
+            eventBus,
+            lowerThresholdToSignalForExecution,
+            finisher,
+            executionGoAheadCallback);
     eventBus.register(watcher);
     return watcher;
   }
@@ -56,6 +72,13 @@ public class AnalysisOperationWatcher implements AutoCloseable {
       return;
     }
     threadSafeExpectedKeys.remove(e.getAnalyzedTopLevelKey());
+
+    if (!signalledExecutionGoAhead
+        && threadSafeExpectedKeys.size() <= lowerThresholdToSignalForExecution) {
+      signalledExecutionGoAhead = true;
+      executionGoAheadCallback.goAhead();
+    }
+
     if (threadSafeExpectedKeys.isEmpty()) {
       try {
         finisher.analysisFinishedCallback();
@@ -76,5 +99,11 @@ public class AnalysisOperationWatcher implements AutoCloseable {
   @FunctionalInterface
   public interface AnalysisOperationWatcherFinisher {
     void analysisFinishedCallback() throws InterruptedException;
+  }
+
+  /** A callback to signal that the delayed execution tasks can now go ahead. */
+  @FunctionalInterface
+  public interface ExecutionGoAheadCallback {
+    void goAhead();
   }
 }

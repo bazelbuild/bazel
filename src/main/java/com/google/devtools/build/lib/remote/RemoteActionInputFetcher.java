@@ -14,28 +14,26 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.lib.remote.common.ProgressStatusListener.NO_ACTION;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.exec.SpawnProgressEvent;
+import com.google.devtools.build.lib.remote.RemoteCache.DownloadProgressReporter;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.server.FailureDetails;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import io.reactivex.rxjava3.core.Completable;
 import java.io.IOException;
 import java.util.regex.Pattern;
 
@@ -50,7 +48,6 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
   private final String buildRequestId;
   private final String commandId;
   private final RemoteCache remoteCache;
-  private final boolean useNewExitCodeForLostInputs;
 
   RemoteActionInputFetcher(
       Reporter reporter,
@@ -60,19 +57,16 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       ImmutableList<Pattern> patternsToDownload,
-      OutputPermissions outputPermissions,
-      boolean useNewExitCodeForLostInputs) {
+      OutputPermissions outputPermissions) {
     super(reporter, execRoot, tempPathGenerator, patternsToDownload, outputPermissions);
     this.buildRequestId = Preconditions.checkNotNull(buildRequestId);
     this.commandId = Preconditions.checkNotNull(commandId);
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
-    this.useNewExitCodeForLostInputs = useNewExitCodeForLostInputs;
   }
 
   @Override
-  public boolean supportsPartialTreeArtifactInputs() {
-    // This prefetcher is unable to fetch only individual files inside a tree artifact.
-    return false;
+  public boolean requiresTreeMetadataWhenTreeFileIsInput() {
+    return true;
   }
 
   @Override
@@ -87,7 +81,11 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
 
   @Override
   protected ListenableFuture<Void> doDownloadFile(
-      Path tempPath, PathFragment execPath, FileArtifactValue metadata, Priority priority)
+      Reporter reporter,
+      Path tempPath,
+      PathFragment execPath,
+      FileArtifactValue metadata,
+      Priority priority)
       throws IOException {
     checkArgument(metadata.isRemote(), "Cannot download file that is not a remote file.");
     RequestMetadata requestMetadata =
@@ -95,27 +93,43 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
     RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
     Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-    return remoteCache.downloadFile(context, tempPath, digest);
+
+    DownloadProgressReporter downloadProgressReporter;
+    if (priority == Priority.LOW) {
+      // Only report download progress for toplevel outputs
+      downloadProgressReporter =
+          new DownloadProgressReporter(
+              /* includeFile= */ false,
+              progress -> reporter.post(new DownloadProgress(progress)),
+              execPath.toString(),
+              metadata.getSize());
+    } else {
+      downloadProgressReporter = new DownloadProgressReporter(NO_ACTION, "", 0);
+    }
+
+    return remoteCache.downloadFile(context, tempPath, digest, downloadProgressReporter);
   }
 
-  @Override
-  protected Completable onErrorResumeNext(Throwable error) {
-    if (error instanceof BulkTransferException) {
-      if (((BulkTransferException) error).onlyCausedByCacheNotFoundException()) {
-        var code =
-            useNewExitCodeForLostInputs ? Code.REMOTE_CACHE_EVICTED : Code.REMOTE_CACHE_FAILED;
-        error =
-            new EnvironmentalExecException(
-                (BulkTransferException) error,
-                FailureDetail.newBuilder()
-                    .setMessage(
-                        "Failed to fetch blobs because they do not exist remotely."
-                            + " Build without the Bytes does not work if your remote"
-                            + " cache evicts blobs during builds")
-                    .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
-                    .build());
-      }
+  public static class DownloadProgress implements FetchProgress {
+    private final SpawnProgressEvent progress;
+
+    public DownloadProgress(SpawnProgressEvent progress) {
+      this.progress = progress;
     }
-    return Completable.error(error);
+
+    @Override
+    public String getResourceIdentifier() {
+      return progress.progressId();
+    }
+
+    @Override
+    public String getProgress() {
+      return progress.progress();
+    }
+
+    @Override
+    public boolean isFinished() {
+      return progress.finished();
+    }
   }
 }

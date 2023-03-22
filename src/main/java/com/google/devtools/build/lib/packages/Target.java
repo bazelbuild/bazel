@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.syntax.Location;
@@ -65,19 +67,36 @@ public interface Target extends TargetApi {
    */
   Location getLocation();
 
-  /**
-   * Returns the set of distribution types associated with this target.
-   */
+  /** Returns the set of distribution types associated with this target. */
   Set<DistributionType> getDistributions();
 
-  /**
-   * Returns the visibility of this target.
-   */
+  /** Returns the visibility of this target. */
+  // TODO(jhorvitz): Usually one of the following two methods suffice. Try to remove this.
   RuleVisibility getVisibility();
 
   /**
-   * Returns whether this target type can be configured (e.g. accepts non-null configurations).
+   * Equivalent to calling {@link RuleVisibility#getDependencyLabels} on the value returned by
+   * {@link #getVisibility}, but potentially more efficient.
+   *
+   * <p>Prefer this method over {@link #getVisibility} when only the dependency labels are needed
+   * and not a {@link RuleVisibility} instance.
    */
+  default Iterable<Label> getVisibilityDependencyLabels() {
+    return getVisibility().getDependencyLabels();
+  }
+
+  /**
+   * Equivalent to calling {@link RuleVisibility#getDeclaredLabels} on the value returned by {@link
+   * #getVisibility}, but potentially more efficient.
+   *
+   * <p>Prefer this method over {@link #getVisibility} when only the declared labels are needed and
+   * not a {@link RuleVisibility} instance.
+   */
+  default List<Label> getVisibilityDeclaredLabels() {
+    return getVisibility().getDeclaredLabels();
+  }
+
+  /** Returns whether this target type can be configured (e.g. accepts non-null configurations). */
   boolean isConfigurable();
 
   /** Returns the rule class name if the target is a rule and {@code ""} otherwise. */

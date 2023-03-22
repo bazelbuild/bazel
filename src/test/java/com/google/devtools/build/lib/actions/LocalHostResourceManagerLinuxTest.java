@@ -31,29 +31,6 @@ public class LocalHostResourceManagerLinuxTest {
 
   @Test
   public void testNonHyperthreadedMachine() throws Exception {
-    String cpuinfoContent =
-        StringUtilities.joinLines(
-            "processor\t: 0",
-            "vendor_id\t: GenuineIntel",
-            "cpu family\t: 15",
-            "model\t\t: 4",
-            "model name\t:               Intel(R) Pentium(R) 4 CPU 3.40GHz",
-            "stepping\t: 10",
-            "cpu MHz\t\t: 3400.000",
-            "cache size\t: 2048 KB",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 5",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca "
-                + "cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm "
-                + "syscall nx lm constant_tsc up pni monitor ds_cpl est cid cx16 "
-                + "xtpr lahf_lm",
-            "bogomips\t: 6803.83",
-            "clflush size\t: 64",
-            "cache_alignment\t: 128",
-            "address sizes\t: 36 bits physical, 48 bits virtual",
-            "power management:");
     String meminfoContent =
         StringUtilities.joinLines(
             "MemTotal:      3091732 kB",
@@ -87,7 +64,6 @@ public class LocalHostResourceManagerLinuxTest {
             "HugePages_Rsvd:      0",
             "Hugepagesize:     2048 kB");
     String meminfoFile = scratch.file("test_meminfo_nonht", meminfoContent).getPathString();
-    assertThat(LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent)).isEqualTo(1);
     // +/- 0.1MB
     assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
         .isWithin(0.1)
@@ -96,58 +72,6 @@ public class LocalHostResourceManagerLinuxTest {
 
   @Test
   public void testHyperthreadedMachine() throws Exception {
-    String cpuinfoContent =
-        StringUtilities.joinLines(
-            "processor\t: 0",
-            "vendor_id\t: GenuineIntel",
-            "cpu family\t: 15",
-            "model\t\t: 4",
-            "model name\t:               Intel(R) Pentium(R) 4 CPU 3.40GHz",
-            "stepping\t: 1",
-            "cpu MHz\t\t: 3400.245",
-            "cache size\t: 1024 KB",
-            "physical id\t: 0",
-            "siblings\t: 2",
-            "core id\t\t: 0",
-            "cpu cores\t: 1",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 5",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge "
-                + "mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm "
-                + "syscall lm constant_tsc pni monitor ds_cpl cid cx16 xtpr",
-            "bogomips\t: 6806.31",
-            "clflush size\t: 64",
-            "cache_alignment\t: 128",
-            "address sizes\t: 36 bits physical, 48 bits virtual",
-            "power management:",
-            "",
-            "processor\t: 1",
-            "vendor_id\t: GenuineIntel",
-            "cpu family\t: 15",
-            "model\t\t: 4",
-            "model name\t:               Intel(R) Pentium(R) 4 CPU 3.40GHz",
-            "stepping\t: 1",
-            "cpu MHz\t\t: 3400.245",
-            "cache size\t: 1024 KB",
-            "physical id\t: 0",
-            "siblings\t: 2",
-            "core id\t\t: 0",
-            "cpu cores\t: 1",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 5",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge "
-                + "mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm "
-                + "syscall lm constant_tsc pni monitor ds_cpl cid cx16 xtpr",
-            "bogomips\t: 6800.76",
-            "clflush size\t: 64",
-            "cache_alignment\t: 128",
-            "address sizes\t: 36 bits physical, 48 bits virtual",
-            "power management:",
-            "");
     String meminfoContent =
         StringUtilities.joinLines(
             "MemTotal:      3092004 kB",
@@ -181,7 +105,6 @@ public class LocalHostResourceManagerLinuxTest {
             "HugePages_Rsvd:      0",
             "Hugepagesize:     2048 kB");
     String meminfoFile = scratch.file("test_meminfo_ht", meminfoContent).getPathString();
-    assertThat(LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent)).isEqualTo(2);
     // +/- 0.1MB
     assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
         .isWithin(0.1)
@@ -190,116 +113,6 @@ public class LocalHostResourceManagerLinuxTest {
 
   @Test
   public void testAMDMachine() throws Exception {
-    String cpuinfoContent =
-        StringUtilities.joinLines(
-            "processor\t: 0",
-            "vendor_id\t: AuthenticAMD",
-            "cpu family\t: 15",
-            "model\t\t: 65",
-            "model name\t: Dual-Core AMD Opteron(tm) Processor 8214 HE",
-            "stepping\t: 2",
-            "cpu MHz\t\t: 2200.000",
-            "cache size\t: 1024 KB",
-            "physical id\t: 0",
-            "siblings\t: 2",
-            "core id\t\t: 0",
-            "cpu cores\t: 2",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 1",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr "
-                + "pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall "
-                + "nx mmxext fxsr_opt rdtscp lm 3dnowext 3dnow pni cx16 lahf_lm "
-                + "cmp_legacy svm cr8_legacy",
-            "bogomips\t: 4425.84",
-            "TLB size\t: 1024 4K pages",
-            "clflush size\t: 64",
-            "cache_alignment\t: 64",
-            "address sizes\t: 40 bits physical, 48 bits virtual",
-            "power management: ts fid vid ttp tm stc",
-            "",
-            "processor\t: 1",
-            "vendor_id\t: AuthenticAMD",
-            "cpu family\t: 15",
-            "model\t\t: 65",
-            "model name\t: Dual-Core AMD Opteron(tm) Processor 8214 HE",
-            "stepping\t: 2",
-            "cpu MHz\t\t: 2200.000",
-            "cache size\t: 1024 KB",
-            "physical id\t: 0",
-            "siblings\t: 2",
-            "core id\t\t: 1",
-            "cpu cores\t: 2",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 1",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr "
-                + "pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall "
-                + "nx mmxext fxsr_opt rdtscp lm 3dnowext 3dnow pni cx16 lahf_lm "
-                + "cmp_legacy svm cr8_legacy",
-            "bogomips\t: 4460.61",
-            "TLB size\t: 1024 4K pages",
-            "clflush size\t: 64",
-            "cache_alignment\t: 64",
-            "address sizes\t: 40 bits physical, 48 bits virtual",
-            "power management: ts fid vid ttp tm stc",
-            "",
-            "processor\t: 2",
-            "vendor_id\t: AuthenticAMD",
-            "cpu family\t: 15",
-            "model\t\t: 65",
-            "model name\t: Dual-Core AMD Opteron(tm) Processor 8214 HE",
-            "stepping\t: 2",
-            "cpu MHz\t\t: 2200.000",
-            "cache size\t: 1024 KB",
-            "physical id\t: 1",
-            "siblings\t: 2",
-            "core id\t\t: 0",
-            "cpu cores\t: 2",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 1",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr "
-                + "pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall "
-                + "nx mmxext fxsr_opt rdtscp lm 3dnowext 3dnow pni cx16 lahf_lm "
-                + "cmp_legacy svm cr8_legacy",
-            "bogomips\t: 4420.45",
-            "TLB size\t: 1024 4K pages",
-            "clflush size\t: 64",
-            "cache_alignment\t: 64",
-            "address sizes\t: 40 bits physical, 48 bits virtual",
-            "power management: ts fid vid ttp tm stc",
-            "",
-            "processor\t: 3",
-            "vendor_id\t: AuthenticAMD",
-            "cpu family\t: 15",
-            "model\t\t: 65",
-            "model name\t: Dual-Core AMD Opteron(tm) Processor 8214 HE",
-            "stepping\t: 2",
-            "cpu MHz\t\t: 2200.000",
-            "cache size\t: 1024 KB",
-            "physical id\t: 1",
-            "siblings\t: 2",
-            "core id\t\t: 1",
-            "cpu cores\t: 2",
-            "fpu\t\t: yes",
-            "fpu_exception\t: yes",
-            "cpuid level\t: 1",
-            "wp\t\t: yes",
-            "flags\t\t: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr "
-                + "pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall "
-                + "nx mmxext fxsr_opt rdtscp lm 3dnowext 3dnow pni cx16 lahf_lm "
-                + "cmp_legacy svm cr8_legacy",
-            "bogomips\t: 4460.39",
-            "TLB size\t: 1024 4K pages",
-            "clflush size\t: 64",
-            "cache_alignment\t: 64",
-            "address sizes\t: 40 bits physical, 48 bits virtual",
-            "power management: ts fid vid ttp tm stc",
-            "");
     String meminfoContent =
         StringUtilities.joinLines(
             "MemTotal:      8223956 kB",
@@ -333,7 +146,6 @@ public class LocalHostResourceManagerLinuxTest {
             "HugePages_Rsvd:      0",
             "Hugepagesize:     2048 kB");
     String meminfoFile = scratch.file("test_meminfo_amd", meminfoContent).getPathString();
-    assertThat(LocalHostResourceManagerLinux.getLogicalCpuCountHelper(cpuinfoContent)).isEqualTo(4);
     // +/- 0.1MB
     assertThat(LocalHostResourceManagerLinux.getMemoryInMbHelper(meminfoFile))
         .isWithin(0.1)

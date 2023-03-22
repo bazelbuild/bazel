@@ -18,17 +18,18 @@ load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
 objc_internal = _builtins.internal.objc_internal
-cc_common = _builtins.toplevel.cc_common
 
 def _objc_import_impl(ctx):
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+    alwayslink = ctx.fragments.objc.target_should_alwayslink(ctx)
     common_variables = compilation_support.build_common_variables(
         ctx = ctx,
         deps = ctx.attr.deps,
         toolchain = cc_toolchain,
-        alwayslink = ctx.attr.alwayslink,
+        alwayslink = alwayslink,
         extra_import_libraries = ctx.files.archives,
         empty_compilation_artifacts = True,
     )
@@ -45,7 +46,7 @@ def _objc_import_impl(ctx):
             actions = ctx.actions,
             cc_toolchain = cc_toolchain,
             static_library = archive,
-            alwayslink = common_variables.alwayslink,
+            alwayslink = alwayslink,
         )
         libraries_to_link.append(library_to_link)
 

@@ -182,7 +182,6 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute), depMap, env)) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              rule,
               aspect,
               DependencyFilter.ALL_DEPS,
               (aspectAttribute, aspectLabel) -> depKeys.add(getKey(aspectLabel)));

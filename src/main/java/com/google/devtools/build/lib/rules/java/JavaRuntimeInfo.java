@@ -195,7 +195,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   @Override
   public Depset starlarkHermeticInputs() {
-    return Depset.of(Artifact.TYPE, hermeticInputs());
+    return Depset.of(Artifact.class, hermeticInputs());
   }
 
   @Override
@@ -229,7 +229,7 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
 
   @Override
   public Depset starlarkJavaBaseInputs() {
-    return Depset.of(Artifact.TYPE, javaBaseInputs());
+    return Depset.of(Artifact.class, javaBaseInputs());
   }
 
   @Override

@@ -306,7 +306,7 @@ public class EnvironmentGroup implements Target {
 
   @Override
   public RuleVisibility getVisibility() {
-    return ConstantRuleVisibility.PRIVATE; // No rule should be referencing an environment_group.
+    return RuleVisibility.PRIVATE; // No rule should be referencing an environment_group.
   }
 
   @Override

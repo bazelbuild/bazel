@@ -219,6 +219,7 @@ public class BuildViewForTesting {
         eventBus,
         BugReporter.defaultInstance(),
         /* includeExecutionPhase= */ false,
+        /* skymeldAnalysisOverlapPercentage= */ 0,
         /* resourceManager= */ null,
         /* buildResultListener= */ null,
         /* executionSetupCallback= */ null,
@@ -660,7 +661,9 @@ public class BuildViewForTesting {
           ResolvedToolchainContext.load(
               unloadedToolchainContext.getValue(),
               targetDescription,
-              prerequisiteMap.get(DependencyKind.forExecGroup(unloadedToolchainContext.getKey())));
+              ImmutableSet.copyOf(
+                  prerequisiteMap.get(
+                      DependencyKind.forExecGroup(unloadedToolchainContext.getKey()))));
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 

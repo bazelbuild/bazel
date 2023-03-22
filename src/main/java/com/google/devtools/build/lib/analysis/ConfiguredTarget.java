@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Structure;
 
 /**
@@ -109,5 +110,14 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
    */
   default ConfiguredTarget unwrapIfMerged() {
     return this;
+  }
+
+  /**
+   * This is only intended to be called from the query dialects of Starlark.
+   *
+   * @return a map of provider names to their values
+   */
+  default Dict<String, Object> getProvidersDict() {
+    return null;
   }
 }

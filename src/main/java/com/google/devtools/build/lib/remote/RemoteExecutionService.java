@@ -64,6 +64,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -107,6 +108,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -127,6 +129,7 @@ import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -372,10 +375,14 @@ public class RemoteExecutionService {
           spawn,
           context,
           (Object nodeKey, InputWalker walker) -> {
-            subMerkleTrees.add(buildMerkleTreeVisitor(nodeKey, walker, metadataProvider));
+            subMerkleTrees.add(
+                buildMerkleTreeVisitor(
+                    nodeKey, walker, metadataProvider, context.getPathResolver()));
           });
       if (!outputDirMap.isEmpty()) {
-        subMerkleTrees.add(MerkleTree.build(outputDirMap, metadataProvider, execRoot, digestUtil));
+        subMerkleTrees.add(
+            MerkleTree.build(
+                outputDirMap, metadataProvider, execRoot, context.getPathResolver(), digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
@@ -395,16 +402,20 @@ public class RemoteExecutionService {
           toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
           context.getMetadataProvider(),
           execRoot,
+          context.getPathResolver(),
           digestUtil);
     }
   }
 
   private MerkleTree buildMerkleTreeVisitor(
-      Object nodeKey, InputWalker walker, MetadataProvider metadataProvider)
+      Object nodeKey,
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
     if (result == null) {
-      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider);
+      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver);
       merkleTreeCache.put(nodeKey, result);
     }
     return result;
@@ -412,14 +423,23 @@ public class RemoteExecutionService {
 
   @VisibleForTesting
   public MerkleTree uncachedBuildMerkleTreeVisitor(
-      InputWalker walker, MetadataProvider metadataProvider)
+      InputWalker walker,
+      MetadataProvider metadataProvider,
+      ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
-        MerkleTree.build(walker.getLeavesInputMapping(), metadataProvider, execRoot, digestUtil));
+        MerkleTree.build(
+            walker.getLeavesInputMapping(),
+            metadataProvider,
+            execRoot,
+            artifactPathResolver,
+            digestUtil));
     walker.visitNonLeaves(
         (Object subNodeKey, InputWalker subWalker) -> {
-          subMerkleTrees.add(buildMerkleTreeVisitor(subNodeKey, subWalker, metadataProvider));
+          subMerkleTrees.add(
+              buildMerkleTreeVisitor(
+                  subNodeKey, subWalker, metadataProvider, artifactPathResolver));
         });
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
@@ -788,7 +808,12 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
+  private void injectRemoteArtifacts(
+      RemoteAction action,
+      ActionResult actionResult,
+      ActionResultMetadata metadata,
+      FileOutErr outErr,
+      long expireAtEpochMilli)
       throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
@@ -807,7 +832,8 @@ public class RemoteExecutionService {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
             DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes());
+            file.digest().getSizeBytes(),
+            expireAtEpochMilli);
       }
     }
 
@@ -815,7 +841,49 @@ public class RemoteExecutionService {
       remoteActionFileSystem.injectRemoteFile(
           file.path().asFragment(),
           DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes());
+          file.digest().getSizeBytes(),
+          expireAtEpochMilli);
+    }
+
+    // Inject the metadata for the stdout/stderr, which could be inputs to a followup spawn in the
+    // same action (as is the case e.g. with test rules).
+
+    maybeInjectRemoteArtifactForStdoutOrStderr(
+        remoteActionFileSystem,
+        outErr.getOutputPath(),
+        actionResult.hasStdoutDigest() ? actionResult.getStdoutDigest() : null,
+        actionResult.getStdoutRaw().size(),
+        expireAtEpochMilli);
+
+    maybeInjectRemoteArtifactForStdoutOrStderr(
+        remoteActionFileSystem,
+        outErr.getErrorPath(),
+        actionResult.hasStderrDigest() ? actionResult.getStderrDigest() : null,
+        actionResult.getStderrRaw().size(),
+        expireAtEpochMilli);
+  }
+
+  private void maybeInjectRemoteArtifactForStdoutOrStderr(
+      RemoteActionFileSystem remoteActionFileSystem,
+      Path path,
+      @Nullable Digest digest,
+      long inlinedSize,
+      long expireAtEpochMilli)
+      throws IOException {
+    if (digest != null) {
+      remoteActionFileSystem.injectRemoteFile(
+          path.asFragment(),
+          DigestUtil.toBinaryDigest(digest),
+          digest.getSizeBytes(),
+          expireAtEpochMilli);
+    } else if (inlinedSize > 0) {
+      // If we didn't get a digest back from the service, but we did get the inlined contents,
+      // compute the digest from the output file previously written by downloadOutputs.
+      remoteActionFileSystem.injectRemoteFile(
+          path.asFragment(),
+          DigestUtils.manuallyComputeDigest(path, inlinedSize),
+          inlinedSize,
+          expireAtEpochMilli);
     }
   }
 
@@ -1144,7 +1212,8 @@ public class RemoteExecutionService {
         }
       }
 
-      injectRemoteArtifacts(action, metadata);
+      var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
+      injectRemoteArtifacts(action, result.actionResult, metadata, outErr, expireAtEpochMilli);
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {

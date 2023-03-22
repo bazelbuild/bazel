@@ -1,4 +1,4 @@
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
@@ -19,6 +19,7 @@ FILES = [
     "extra_actions_base",
     "invocation_policy",
     "java_compilation",
+    "memory_pressure",
     "test_status",
     "worker_protocol",
     "execution_graph",
@@ -47,10 +48,7 @@ proto_library(
 
 py_proto_library(
     name = "analysis_v2_py_proto",
-    srcs = ["analysis_v2.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
-    deps = [":build_pb_py"],
+    deps = [":analysis_v2_proto"],
 )
 
 java_proto_library(
@@ -187,9 +185,7 @@ cc_grpc_library(
 
 py_proto_library(
     name = "build_pb_py",
-    srcs = ["build.proto"],
-    default_runtime = "//third_party/protobuf:protobuf_python",
-    protoc = "//third_party/protobuf:protoc",
+    deps = [":build_proto"],
 )
 
 java_library_srcs(

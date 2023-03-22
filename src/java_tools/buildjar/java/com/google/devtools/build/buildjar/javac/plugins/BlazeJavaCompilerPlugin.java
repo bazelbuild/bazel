@@ -34,7 +34,6 @@ public abstract class BlazeJavaCompilerPlugin {
 
   protected Context context;
   protected Log log;
-  protected JavaCompiler compiler;
   protected BlazeJavacStatistics.Builder statisticsBuilder;
 
   /**
@@ -97,7 +96,6 @@ public abstract class BlazeJavaCompilerPlugin {
       BlazeJavacStatistics.Builder statisticsBuilder) {
     this.context = context;
     this.log = log;
-    this.compiler = compiler;
     this.statisticsBuilder = statisticsBuilder;
   }
 

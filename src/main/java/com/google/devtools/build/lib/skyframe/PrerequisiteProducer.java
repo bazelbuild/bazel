@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
@@ -79,6 +80,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.devtools.build.skyframe.state.Driver;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -113,8 +115,21 @@ import javax.annotation.Nullable;
  * <p>See {@link ConfiguredTargetFunction} for more review on analysis implementation.
  */
 public final class PrerequisiteProducer {
-  static class State implements SkyKeyComputeState {
+  static class State implements SkyKeyComputeState, IncompatibleTargetProducer.ResultSink {
     @Nullable TargetAndConfiguration targetAndConfiguration;
+
+    /**
+     * Drives the stateful computation of {@link #incompatibleTarget}.
+     *
+     * <p>Non-null only while the computation is in-flight.
+     */
+    @Nullable private Driver incompatibleTargetProducer;
+    /**
+     * If a value is present, it means the target was directly incompatible.
+     *
+     * <p>Non-null after the {@link #incompatibleTargetProducer} completes.
+     */
+    private Optional<RuleConfiguredTargetValue> incompatibleTarget;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
     @Nullable private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMapResult;
@@ -154,6 +169,11 @@ public final class PrerequisiteProducer {
      * thrown away.
      */
     @Nullable private StoredEventHandler storedEventHandlerFromResolveConfigurations;
+
+    @Override
+    public void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget) {
+      this.incompatibleTarget = incompatibleTarget;
+    }
   }
 
   /**
@@ -341,14 +361,8 @@ public final class PrerequisiteProducer {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      Optional<RuleConfiguredTargetValue> incompatibleTarget =
-          IncompatibleTargetChecker.createDirectlyIncompatibleTarget(
-              targetAndConfiguration, configConditions, env, platformInfo, transitivePackages);
-      if (incompatibleTarget == null) {
+      if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
         return false;
-      }
-      if (incompatibleTarget.isPresent()) {
-        throw new IncompatibleTargetException(incompatibleTarget.get());
       }
 
       // Calculate the dependencies of this target.
@@ -387,6 +401,37 @@ public final class PrerequisiteProducer {
         | ToolchainException e) {
       // We handle exceptions in a dedicated method to keep this method concise and readable.
       handleException(env, target, e);
+    }
+    return true;
+  }
+
+  /**
+   * Checks if a target is incompatible because of its "target_compatible_with" attribute.
+   *
+   * @return false if a {@code Skyframe} restart is needed.
+   */
+  private boolean checkForIncompatibleTarget(
+      Environment env, State state, @Nullable NestedSetBuilder<Package> transitivePackages)
+      throws InterruptedException, IncompatibleTargetException {
+    if (state.incompatibleTarget == null) {
+      if (state.incompatibleTargetProducer == null) {
+        state.incompatibleTargetProducer =
+            new Driver(
+                new IncompatibleTargetProducer(
+                    targetAndConfiguration.getTarget(),
+                    targetAndConfiguration.getConfiguration(),
+                    configConditions,
+                    platformInfo,
+                    transitivePackages,
+                    state));
+      }
+      if (!state.incompatibleTargetProducer.drive(env, env.getListener())) {
+        return false;
+      }
+      state.incompatibleTargetProducer = null;
+      if (state.incompatibleTarget.isPresent()) {
+        throw new IncompatibleTargetException(state.incompatibleTarget.get());
+      }
     }
     return true;
   }
@@ -635,11 +680,7 @@ public final class PrerequisiteProducer {
       ImmutableMap<String, ExecGroup> execGroups,
       @Nullable Label parentExecutionPlatformLabel)
       throws InterruptedException, ToolchainException {
-
-    // Create a merged version of the exec groups that handles exec group inheritance properly.
-    ExecGroup.Builder defaultExecGroupBuilder =
-        ExecGroup.builder().execCompatibleWith(defaultExecConstraintLabels).copyFrom(null);
-
+        
     Map<String, ExecGroup> allExecGroups = new HashMap<>();
 
     // Add exec groups that the rule itself has defined (custom exec groups).
@@ -652,14 +693,13 @@ public final class PrerequisiteProducer {
             toolchainType.toolchainType().toString(),
             ExecGroup.builder().addToolchainType(toolchainType).copyFrom(null).build());
       }
-    } else {
-      // Add toolchain types iff toolchains are not asociated with automatic exec groups.
-      defaultExecGroupBuilder.toolchainTypes(toolchainTypes);
     }
 
     ExecGroupCollection.Builder execGroupCollectionBuilder =
         ExecGroupCollection.builder(
-            defaultExecGroupBuilder.build(), ImmutableMap.copyOf(allExecGroups));
+            /* execGroups= */ ImmutableMap.copyOf(allExecGroups),
+            /* defaultExecWith= */ defaultExecConstraintLabels,
+            /* defaultToolchainTypes= */ toolchainTypes);
 
     // Short circuit and end now if this target doesn't require toolchain resolution.
     if (!useToolchainResolution) {

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -79,6 +80,14 @@ public final class CredentialHelper {
           Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
         try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
           GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
+        } catch (IOException e) {
+          // This can happen if the helper prints a static set of credentials without reading from
+          // stdin (e.g., with a simple shell script running `echo "{...}"`). If the process is
+          // already finished even though we failed to write to its stdin, ignore the error and
+          // assume the process did not need the request payload.
+          if (!process.finished()) {
+            throw e;
+          }
         }
 
         try {
@@ -145,7 +154,9 @@ public final class CredentialHelper {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(args);
 
-    return new SubprocessBuilder()
+    // Force using JavaSubprocessFactory on Windows, because for some reasons,
+    // WindowsSubprocessFactory cannot redirect stdin to subprocess.
+    return new SubprocessBuilder(JavaSubprocessFactory.INSTANCE)
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
         .setWorkingDirectory(environment.getWorkspacePath().getPathFile())
         .setEnv(environment.getClientEnvironment())

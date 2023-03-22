@@ -1804,6 +1804,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(action).contains("-iquote foo/bar");
     assertThat(action).contains("-iquote bam/baz");
   }
+
   @Test
   public void testCollectCodeCoverageWithGCOVFlags() throws Exception {
     useConfiguration("--collect_code_coverage");
@@ -1834,7 +1835,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileAction("//objc:x", "e.o").getArguments()).containsAtLeastElementsIn(copts);
     assertThat(compileAction("//objc:x", "f.o").getArguments()).containsAtLeastElementsIn(copts);
     assertThat(compileAction("//objc:x", "g.o").getArguments()).containsAtLeastElementsIn(copts);
-   }
+  }
 
   @Test
   public void testNoG0IfGeneratesDsym() throws Exception {
@@ -2129,6 +2130,99 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testAlwaysLinkDefaultFalse() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'objc_bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['b.m'],",
+        ")");
+
+    CommandAction testLinkAction = linkAction("//test:objc_bin");
+    assertThat(Joiner.on(" ").join(testLinkAction.getArguments())).doesNotContain("-force_load");
+  }
+
+  @Test
+  public void testAlwaysLinkDefaultTrue() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'objc_bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['b.m'],",
+        ")");
+    scratch.file("test/b.m", "// dummy file");
+
+    CommandAction testLinkAction = linkAction("//test:objc_bin");
+    assertThat(Joiner.on(" ").join(testLinkAction.getArguments()))
+        .containsMatch("-force_load [^ ]+-out/[^ ]+/test/libmain_lib.lo");
+  }
+
+  @Test
+  public void testAlwaysLinkTrueDefaultFalse() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'objc_bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['b.m'],",
+        "    alwayslink = True,",
+        ")");
+
+    CommandAction testLinkAction = linkAction("//test:objc_bin");
+    assertThat(Joiner.on(" ").join(testLinkAction.getArguments()))
+        .containsMatch("-force_load [^ ]+-out/[^ ]+/test/libmain_lib.lo");
+  }
+
+  @Test
+  public void testAlwaysLinkFalseDefaultTrue() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'objc_bin',",
+        "    platform_type = 'ios',",
+        "    deps = [':main_lib'],",
+        ")",
+        "objc_library(",
+        "    name = 'main_lib',",
+        "    srcs = ['b.m'],",
+        "    alwayslink = False,",
+        ")");
+
+    CommandAction testLinkAction = linkAction("//test:objc_bin");
+    assertThat(Joiner.on(" ").join(testLinkAction.getArguments())).doesNotContain("-force_load");
+  }
+
+  @Test
   public void testLinkActionMnemonic() throws Exception {
     scratchConfiguredTarget("foo", "x", "objc_library(name = 'x', srcs = ['a.m'])");
 
@@ -2319,41 +2413,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         ")");
 
     getConfiguredTarget("//x:foo");
-  }
-
-  @Test
-  public void testRuntimeDeps() throws Exception {
-    scratch.file(
-        "x/defs.bzl",
-        "def _var_providing_rule_impl(ctx):",
-        "   return [",
-        "       CcInfo(),",
-        "       apple_common.new_dynamic_framework_provider(",
-        "           cc_info=ctx.attr.dep[CcInfo],",
-        "           objc=ctx.attr.dep[apple_common.Objc],",
-        "       )",
-        "   ]",
-        "var_providing_rule = rule(",
-        "   implementation = _var_providing_rule_impl,",
-        "   attrs = { 'dep': attr.label(),}",
-        ")");
-    scratch.file(
-        "x/BUILD",
-        "load('//x:defs.bzl', 'var_providing_rule')",
-        "objc_library(",
-        "    name = 'baz',",
-        "    srcs = ['baz.m'],",
-        ")",
-        "var_providing_rule(",
-        "    name = 'foo',",
-        "    dep = 'baz',",
-        ")",
-        "objc_library(",
-        "    name = 'bar',",
-        "    srcs = ['bar.m'],",
-        "    runtime_deps = [':foo'],",
-        ")");
-    getConfiguredTarget("//x:bar");
   }
 
   @Test

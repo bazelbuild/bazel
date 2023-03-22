@@ -240,7 +240,7 @@ public interface JavaSemantics {
    * Returns the resources contributed by a Java rule (usually the contents of the {@code resources}
    * attribute)
    */
-  ImmutableList<Artifact> collectResources(RuleContext ruleContext);
+  ImmutableList<Artifact> collectResources(RuleContext ruleContext) throws RuleErrorException;
 
   String getTestRunnerMainClass();
 

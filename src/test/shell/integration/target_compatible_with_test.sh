@@ -475,6 +475,38 @@ function test_failure_on_incompatible_top_level_target() {
   expect_log '^ERROR: Build did NOT complete successfully'
 }
 
+# https://github.com/bazelbuild/bazel/issues/17561 regression test: incompatible
+# target skipping doesn't crash with --auto_cpu_environment_group.
+function test_failure_on_incompatible_top_level_target_and_auto_cpu_environment_group() {
+  cat >> target_skipping/BUILD <<EOF
+sh_test(
+    name = "always_incompatible",
+    srcs = [":pass.sh"],
+    target_compatible_with = [":not_compatible"],
+)
+EOF
+
+  mkdir -p buildenv/cpus
+  cat >> buildenv/cpus/BUILD <<EOF
+environment(name = "foo_cpu")
+environment_group(
+    name = "cpus",
+    defaults = [":foo_cpu"],
+    environments = [":foo_cpu"],
+)
+EOF
+
+  bazel build \
+    --nobuild \
+    --cpu=foo_cpu \
+    --auto_cpu_environment_group=//buildenv/cpus:cpus \
+    --build_event_text_file=$TEST_log \
+    //target_skipping:all &> "${TEST_log}" \
+        || fail "Bazel failed unexpectedly."
+
+  expect_log 'Target //target_skipping:always_incompatible build was skipped'
+}
+
 # Crudely validates that the build event protocol contains useful information
 # when targets are skipped due to incompatibilities.
 function test_build_event_protocol() {

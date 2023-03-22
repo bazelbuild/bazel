@@ -125,7 +125,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
           PackageIdentifier.createInMainRepo("tools/build_defs/android"));
 
-  public static final String EXECUTABLE_OUTPUT_NAME = "executable";
+  private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
   // This field is a copy of the info from ruleContext, stored separately so it can be accessed
   // after this object has been nullified.
@@ -270,7 +270,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder aspectBuilder =
           StarlarkAttributesCollection.builder(this);
       for (Attribute attribute : attributes) {
-        Object defaultValue = attribute.getDefaultValue(rule);
+        Object defaultValue = attribute.getDefaultValue();
         if (defaultValue instanceof ComputedDefault) {
           defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
         }
@@ -302,7 +302,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           continue;
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
-          Object defaultValue = attribute.getDefaultValue(rule);
+          Object defaultValue = attribute.getDefaultValue();
           if (defaultValue instanceof ComputedDefault) {
             defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
           }
@@ -459,7 +459,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return aspectDescriptor;
   }
 
-  public String getRuleLabelCanonicalName() {
+  String getRuleLabelCanonicalName() {
     return ruleLabelCanonicalName;
   }
 
@@ -1120,7 +1120,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             .addToolDependencies(Sequence.cast(tools, TransitiveInfoCollection.class, "tools"))
             .build();
     return Tuple.pair(
-        Depset.of(Artifact.TYPE, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
+        Depset.of(Artifact.class, helper.getResolvedTools()), helper.getToolsRunfilesSuppliers());
   }
 
   public StarlarkSemantics getStarlarkSemantics() {
@@ -1166,7 +1166,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       throws EvalException {
     if (semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NEW_ACTIONS_API)) {
       throw Starlark.errorf(
-          "Use %s instead of %s. \n"
+          "Use %s instead of %s.\n"
               + "Use --incompatible_new_actions_api=false to temporarily disable this check.",
           newApi, oldApi);
     }

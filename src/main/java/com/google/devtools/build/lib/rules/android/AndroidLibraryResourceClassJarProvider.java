@@ -57,7 +57,7 @@ public final class AndroidLibraryResourceClassJarProvider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getResourceClassJarsForStarlark() {
-    return Depset.of(Artifact.TYPE, resourceClassJars);
+    return Depset.of(Artifact.class, resourceClassJars);
   }
 
   public NestedSet<Artifact> getResourceClassJars() {

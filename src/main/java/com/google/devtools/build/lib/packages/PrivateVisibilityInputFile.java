@@ -31,6 +31,6 @@ public class PrivateVisibilityInputFile extends InputFile {
 
   @Override
   public RuleVisibility getVisibility() {
-    return ConstantRuleVisibility.PRIVATE;
+    return RuleVisibility.PRIVATE;
   }
 }

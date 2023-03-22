@@ -45,9 +45,6 @@ public abstract class FilesetOutputSymlink {
    */
   public abstract HasDigest getMetadata();
 
-  /** true if the target is a generated artifact */
-  public abstract boolean isGeneratedTarget();
-
   /** Returns {@code true} if this symlink is relative to the execution root. */
   public abstract boolean isRelativeToExecRoot();
 
@@ -77,13 +74,13 @@ public abstract class FilesetOutputSymlink {
   @VisibleForTesting
   public static FilesetOutputSymlink createForTesting(
       PathFragment name, PathFragment target, PathFragment execRoot) {
-    return create(name, target, HasDigest.EMPTY, false, execRoot);
+    return create(name, target, HasDigest.EMPTY, execRoot);
   }
 
   @VisibleForTesting
   public static FilesetOutputSymlink createAlreadyRelativizedForTesting(
       PathFragment name, PathFragment target, boolean isRelativeToExecRoot) {
-    return createAlreadyRelativized(name, target, HasDigest.EMPTY, false, isRelativeToExecRoot);
+    return createAlreadyRelativized(name, target, HasDigest.EMPTY, isRelativeToExecRoot);
   }
 
   /**
@@ -97,15 +94,10 @@ public abstract class FilesetOutputSymlink {
    *     with and FilesetEntry.strip_prefix applied (if applicable)
    * @param target relative or absolute value of the link
    * @param metadata metadata corresponding to the target.
-   * @param isGeneratedTarget true if the target is generated.
    * @param execRoot the execution root
    */
   public static FilesetOutputSymlink create(
-      PathFragment name,
-      PathFragment target,
-      HasDigest metadata,
-      boolean isGeneratedTarget,
-      PathFragment execRoot) {
+      PathFragment name, PathFragment target, HasDigest metadata, PathFragment execRoot) {
     boolean isRelativeToExecRoot = false;
     // Check if the target is under the execution root. This is not always the case because the
     // target may point to a source artifact or it may point to another symlink, in which case the
@@ -114,8 +106,7 @@ public abstract class FilesetOutputSymlink {
       target = target.relativeTo(execRoot);
       isRelativeToExecRoot = true;
     }
-    return createAlreadyRelativized(
-        name, target, metadata, isGeneratedTarget, isRelativeToExecRoot);
+    return createAlreadyRelativized(name, target, metadata, isRelativeToExecRoot);
   }
 
   /**
@@ -123,12 +114,7 @@ public abstract class FilesetOutputSymlink {
    * stripped if necessary.
    */
   public static FilesetOutputSymlink createAlreadyRelativized(
-      PathFragment name,
-      PathFragment target,
-      HasDigest metadata,
-      boolean isGeneratedTarget,
-      boolean isRelativeToExecRoot) {
-    return new AutoValue_FilesetOutputSymlink(
-        name, target, metadata, isGeneratedTarget, isRelativeToExecRoot);
+      PathFragment name, PathFragment target, HasDigest metadata, boolean isRelativeToExecRoot) {
+    return new AutoValue_FilesetOutputSymlink(name, target, metadata, isRelativeToExecRoot);
   }
 }

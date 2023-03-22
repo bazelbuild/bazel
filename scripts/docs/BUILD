@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 
 BUILD_SCM_REV_CMD = "$$(grep BUILD_SCM_REVISION bazel-out/volatile-status.txt | sed 's/^BUILD_SCM_REVISION //')"
 

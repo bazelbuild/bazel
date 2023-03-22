@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
@@ -456,7 +456,7 @@ public class IncrementalLoadingTest {
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
       skyframeExecutor.injectExtraPrecomputedValues(
@@ -552,7 +552,7 @@ public class IncrementalLoadingTest {
 
       modifiedFileSet = getModifiedFileSet();
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(

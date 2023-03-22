@@ -17,12 +17,14 @@
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
-cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
+
+    semantics.check_cc_shared_library_tags(ctx)
 
     common = cc_internal.create_common(ctx = ctx)
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
@@ -611,7 +613,7 @@ cc_library = rule(
     incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
     exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
     compile_one_filetype = [".cc", ".h", ".c"],
 )

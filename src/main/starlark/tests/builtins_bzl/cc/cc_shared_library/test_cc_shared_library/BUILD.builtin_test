@@ -7,10 +7,18 @@ load(
     "linking_suffix_test",
     "paths_test",
     "runfiles_test",
-    "no_exporting_static_lib_test",
+    "check_linking_action_lib_parameters_test",
+    "forwarding_cc_lib",
+    "nocode_cc_lib",
+    "wrapped_cc_lib",
 )
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
+
+NO_BUILD_TAGS = [
+    "manual",
+    "nobuilder",
+]
 
 licenses(["notice"])
 
@@ -79,7 +87,7 @@ cc_shared_library(
     name = "diamond2_so",
     dynamic_deps = [":a_so"],
     features = ["windows_export_all_symbols"],
-    deps = [":qux2"],
+    deps = [":bar"],
 )
 
 cc_binary(
@@ -112,6 +120,9 @@ cc_shared_library(
     deps = [
         "baz",
         "foo",
+        "cc_lib_with_no_srcs",
+        "nocode_cc_lib",
+        "should_not_be_linked_cc_lib",
         "a_suffix",
     ],
     user_link_flags = select({
@@ -143,10 +154,65 @@ cc_library(
         "baz",
         # Not exported.
         "qux",
-        "qux2",
         "prebuilt",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg"
+    ] + select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }),
+)
+
+wrapped_cc_lib(
+    name = "wrapped_cc_lib",
+    deps = [
+        "indirect_dep",
     ],
+)
+
+forwarding_cc_lib(
+    name = "cc_lib_with_no_srcs",
+    deps = [
+        "wrapped_cc_lib",
+    ],
+)
+
+wrapped_cc_lib(
+    name = "should_not_be_linked_wrapped",
+    deps = [
+        "indirect_dep3",
+    ],
+)
+
+forwarding_cc_lib(
+    name = "should_not_be_linked_cc_lib",
+    do_not_follow_deps = [
+        "should_not_be_linked_wrapped",
+    ],
+)
+
+nocode_cc_lib(
+    name = "nocode_cc_lib",
+    additional_inputs = [
+        ":additional_script.txt",
+    ],
+    deps = [
+        "indirect_dep2",
+    ],
+)
+
+cc_library(
+    name = "indirect_dep",
+    srcs = ["indirect_dep.cc"],
+)
+
+cc_library(
+    name = "indirect_dep2",
+    srcs = ["indirect_dep2.cc"],
+)
+
+cc_library(
+    name = "indirect_dep3",
+    srcs = ["indirect_dep3.cc"],
 )
 
 cc_library(
@@ -173,7 +239,7 @@ cc_library(
     name = "qux2",
     srcs = ["qux2.cc"],
     hdrs = ["qux2.h"],
-    tags = [LINKABLE_MORE_THAN_ONCE],
+    tags = [LINKABLE_MORE_THAN_ONCE] + NO_BUILD_TAGS,
 )
 
 config_setting(
@@ -225,8 +291,10 @@ cc_library(
     hdrs = ["bar.h"],
     deps = [
         "barX",
-        "qux2",
-    ],
+    ] + select({
+        ":is_bazel": ["qux2"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
@@ -376,51 +444,6 @@ cc_library(
     ],
 )
 
-cc_library(
-    name = "static_lib_no_exporting",
-    srcs = [
-        "bar.cc",
-        "bar.h",
-    ],
-    tags = ["NO_EXPORTING"],
-)
-
-cc_library(
-    name = "static_lib_exporting",
-    srcs = [
-        "bar2.cc",
-        "bar2.h",
-    ],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots_1",
-    deps = [":static_lib_no_exporting"],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots_2",
-    deps = [":static_lib_no_exporting"],
-    dynamic_deps = [":lib_with_no_exporting_roots_3"],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots_3",
-    deps = [":static_lib_no_exporting"],
-)
-
-cc_shared_library(
-    name = "lib_with_no_exporting_roots",
-    deps = [
-        ":static_lib_no_exporting",
-        ":static_lib_exporting",
-    ],
-    dynamic_deps = [
-        ":lib_with_no_exporting_roots_1",
-        ":lib_with_no_exporting_roots_2",
-    ],
-)
-
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_so_test",
     message = "Two shared libraries in dependencies export the same symbols",
@@ -456,13 +479,26 @@ runfiles_test(
     target_under_test = ":python_test",
 )
 
-no_exporting_static_lib_test(
-    name = "no_exporting_static_lib_test",
-    target_under_test = ":lib_with_no_exporting_roots",
+check_linking_action_lib_parameters_test(
+    name = "check_binary_doesnt_take_already_linked_in_libs",
+    target_under_test = ":binary",
+    libs_that_shouldnt_be_present = ["foo", "bar"],
+)
+
+check_linking_action_lib_parameters_test(
+    name = "check_shared_lib_doesnt_take_already_linked_in_libs",
+    target_under_test = ":foo_so",
+    libs_that_shouldnt_be_present = ["bar"],
 )
 
 build_failure_test(
     name = "shared_library_without_deps",
     message = "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
+)
+
+build_failure_test(
+    name = "direct_dep_with_only_shared_lib_file",
+    message = "Do not place libraries which only contain a precompiled dynamic library",
+    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_only_dynamic_lib",
 )

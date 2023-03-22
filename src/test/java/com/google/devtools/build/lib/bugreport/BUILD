@@ -20,6 +20,7 @@ java_library(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

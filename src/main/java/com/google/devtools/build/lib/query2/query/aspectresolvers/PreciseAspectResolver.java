@@ -65,7 +65,7 @@ public class PreciseAspectResolver implements AspectResolver {
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              rule, aspect, dependencyFilter, result::put);
+              aspect, dependencyFilter, result::put);
         }
       }
     }

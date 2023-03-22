@@ -15,12 +15,12 @@
 """cc_binary Starlark implementation replacing native"""
 
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/experimental_cc_shared_library.bzl", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "throw_linked_but_not_exported_errors")
+load(":common/cc/experimental_cc_shared_library.bzl", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "throw_linked_but_not_exported_errors")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
 DebugPackageInfo = _builtins.toplevel.DebugPackageInfo
-cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 StaticallyLinkedMarkerInfo = _builtins.internal.StaticallyLinkedMarkerProvider
 
@@ -329,29 +329,6 @@ def _collect_transitive_dwo_artifacts(cc_compilation_outputs, cc_debug_context, 
             transitive_dwo_files = cc_debug_context.files
     return depset(dwo_files, transitive = [transitive_dwo_files])
 
-def _separate_static_and_dynamic_link_libraries(direct_children, can_be_linked_dynamically):
-    link_statically_labels = {}
-    link_dynamically_labels = {}
-    all_children = list(direct_children)
-    seen_labels = {}
-
-    # Some of the logic here is a duplicate from cc_shared_library.
-    # But some parts are different hence rewriting.
-    for i in range(2147483647):
-        if i == len(all_children):
-            break
-        node = all_children[i]
-        node_label = str(node.label)
-        if node_label in seen_labels:
-            continue
-        seen_labels[node_label] = True
-        if node_label in can_be_linked_dynamically:
-            link_dynamically_labels[node_label] = True
-        else:
-            link_statically_labels[node_label] = True
-            all_children.extend(node.children)
-    return (link_statically_labels, link_dynamically_labels)
-
 def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_config):
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
@@ -368,7 +345,7 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context, cpp_c
         if owner in exports_map:
             can_be_linked_dynamically[owner] = True
 
-    (link_statically_labels, link_dynamically_labels) = _separate_static_and_dynamic_link_libraries(graph_structure_aspect_nodes, can_be_linked_dynamically)
+    (link_statically_labels, link_dynamically_labels) = separate_static_and_dynamic_link_libraries(graph_structure_aspect_nodes, can_be_linked_dynamically)
 
     linker_inputs_seen = {}
     linked_statically_but_not_exported = {}
@@ -927,7 +904,7 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
         },
         fragments = ["google_cpp", "cpp"],
         exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
+            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
         toolchains = cc_helper.use_cpp_toolchain() +
                      semantics.get_runtimes_toolchain(),

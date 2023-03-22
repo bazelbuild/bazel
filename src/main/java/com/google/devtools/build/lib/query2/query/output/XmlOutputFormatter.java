@@ -263,13 +263,13 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   private static void addPackageGroupsToElement(Document doc, Element parent, Target target) {
-    for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {
+    for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
       Element elem = doc.createElement("package-group");
       elem.setAttribute("name", visibilityDependency.toString());
       parent.appendChild(elem);
     }
 
-    for (Label visibilityDeclaration : target.getVisibility().getDeclaredLabels()) {
+    for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
       Element elem = doc.createElement("visibility-label");
       elem.setAttribute("name", visibilityDeclaration.toString());
       parent.appendChild(elem);

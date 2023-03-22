@@ -127,7 +127,7 @@ public class RawAttributeMapper extends AbstractAttributeMapper {
     // with an empty list during package loading if it is public or private in order not to visit
     // the package called 'visibility'.
     if (attr.getName().equals("visibility")) {
-      return rule.getVisibility().getDeclaredLabels();
+      return rule.getVisibilityDeclaredLabels();
     }
 
     // If the attribute value contains one or more select(...) expressions, then return

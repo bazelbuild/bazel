@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -659,13 +660,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Set by {@link #discoverInputs}. Returns a subset of {@link #getAdditionalInputs()} or null, if
-   * this is not a compile action producing a C++ module.
+   * Set by {@link #discoverInputs}. Returns a subset of {@link #getAdditionalInputs} or an empty
+   * {@link NestedSet}, if this is not a compile action producing a C++ module.
    */
   @Override
-  @Nullable
   public NestedSet<Artifact> getDiscoveredModules() {
-    return discoveredModules;
+    return firstNonNull(discoveredModules, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   /** Returns the path where the compiler should put the discovered dependency information. */
@@ -885,14 +885,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     try {
-      if (cppConfiguration.ignoreParamFile()) {
-        return StarlarkList.immutableCopyOf(
-            compileCommandLine.getArguments(
-                /*parameterFilePath=*/ null, getOverwrittenVariables()));
+      return StarlarkList.immutableCopyOf(
+          compileCommandLine.getArguments(
+              /* parameterFilePath= */ null, getOverwrittenVariables()));
 
-      } else {
-        return StarlarkList.immutableCopyOf(getArguments());
-      }
     } catch (CommandLineExpansionException ex) {
       throw new EvalException(ex);
     }

@@ -384,15 +384,6 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .mandatoryProviders(CcInfo.PROVIDER.id())
                   .allowedFileTypes())
-          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
-          The list of framework targets that are late loaded at runtime.  They are included in the
-          app bundle but not linked against at build time.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(
-              attr("runtime_deps", LABEL_LIST)
-                  .direct_compile_time_input()
-                  .mandatoryProviders(AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.id())
-                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
           Extra <code>-D</code> flags to pass to the compiler. They should be in
           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are

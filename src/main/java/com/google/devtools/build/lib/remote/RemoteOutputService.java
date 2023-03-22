@@ -20,15 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionCacheUtils;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
-import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
@@ -40,31 +36,30 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote module */
 public class RemoteOutputService implements OutputService {
 
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
-  @Nullable MemoizingEvaluator memoizingEvaluator;
-  @Nullable ActionCache actionCache;
+  @Nullable private LeaseService leaseService;
+  @Nullable private Supplier<MetadataProvider> fileCacheSupplier;
 
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
     this.actionInputFetcher = Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
   }
 
-  void setMemoizingEvaluator(MemoizingEvaluator memoizingEvaluator) {
-    this.memoizingEvaluator = memoizingEvaluator;
+  void setLeaseService(LeaseService leaseService) {
+    this.leaseService = leaseService;
   }
 
-  void setActionCache(ActionCache actionCache) {
-    this.actionCache = actionCache;
+  void setFileCacheSupplier(Supplier<MetadataProvider> fileCacheSupplier) {
+    this.fileCacheSupplier = fileCacheSupplier;
   }
 
   @Override
@@ -91,6 +86,7 @@ public class RemoteOutputService implements OutputService {
         relativeOutputPath,
         inputArtifactData,
         outputArtifacts,
+        fileCacheSupplier.get(),
         actionInputFetcher);
   }
 
@@ -128,44 +124,8 @@ public class RemoteOutputService implements OutputService {
 
   @Subscribe
   public void onExecutionPhaseCompleteEvent(ExecutionPhaseCompleteEvent event) {
-    processMissingInputs();
-  }
-
-  private void processMissingInputs() {
-    if (memoizingEvaluator == null || actionInputFetcher == null) {
-      return;
-    }
-
-    var actions = new HashMap<ActionLookupData, Action>();
-
-    try {
-      for (ActionInput actionInput : actionInputFetcher.getMissingActionInputs()) {
-        if (actionInput instanceof Artifact.DerivedArtifact) {
-          Artifact.DerivedArtifact output = (Artifact.DerivedArtifact) actionInput;
-          ActionLookupData actionLookupData = output.getGeneratingActionKey();
-          var actionLookupValue =
-              memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey());
-          if (actionLookupValue instanceof ActionLookupValue) {
-            Action action =
-                ((ActionLookupValue) actionLookupValue)
-                    .getAction(actionLookupData.getActionIndex());
-            actions.put(actionLookupData, action);
-          }
-        }
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
-
-    if (!actions.isEmpty()) {
-      var actionKeys = actions.keySet();
-      memoizingEvaluator.delete(key -> key instanceof ActionLookupData && actionKeys.contains(key));
-
-      if (actionCache != null) {
-        for (var action : actions.values()) {
-          ActionCacheUtils.removeCacheEntry(actionCache, action);
-        }
-      }
+    if (leaseService != null && actionInputFetcher != null) {
+      leaseService.handleMissingInputs(actionInputFetcher.getMissingActionInputs());
     }
   }
 
@@ -225,6 +185,7 @@ public class RemoteOutputService implements OutputService {
             relativeOutputPath,
             actionInputMap,
             ImmutableList.of(),
+            fileCacheSupplier.get(),
             actionInputFetcher);
     return ArtifactPathResolver.createPathResolver(remoteFileSystem, fileSystem.getPath(execRoot));
   }

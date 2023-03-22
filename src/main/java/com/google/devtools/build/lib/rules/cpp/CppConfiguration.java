@@ -367,10 +367,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.isCSFdo();
   }
 
-  public boolean ignoreParamFile() {
-    return cppOptions.ignoreParamFile;
-  }
-
   public boolean useArgsParamsFile() {
     return cppOptions.useArgsParamsFile;
   }
@@ -499,10 +495,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean getInmemoryDotdFiles() {
     return cppOptions.inmemoryDotdFiles;
-  }
-
-  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
-    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
   }
 
   public boolean getUseInterfaceSharedLibraries() {

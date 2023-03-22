@@ -65,7 +65,7 @@ even posted a
 <img src="https://upload.wikimedia.org/wikipedia/en/3/3b/Canva_Logo.png" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
-Java, Typescript, Scala, Python, and more. Migration to Bazel has delivered
+Java, TypeScript, Scala, Python, and more. Migration to Bazel has delivered
 significant developer and compute infrastructure efficiencies, for example 5-6x
 decreases in average CI build times, and it continues to become the foundation
 of fast, reproducible, and standardised software builds at the company.
@@ -116,7 +116,7 @@ baking and deploying all their 3D Assets.
 ### [Dropbox](https://www.dropbox.com/){: .external}
 <img src="/community/images/dropbox.png" width="150" align="right">
 At Dropbox, Bazel is a key component to our distributed build and test
-environment. We use Bazel to combine Typescript/Python/Go/C/Rust into reliable
+environment. We use Bazel to combine TypeScript/Python/Go/C/Rust into reliable
 production releases.
 
 ### [Engel & Völkers](https://www.engelvoelkers.com){: .external}
@@ -250,6 +250,22 @@ for our go, java and python projects.
 <img src="/community/images/Linkedin-Logo.png" width="100" align="right">
 LinkedIn, a subsidiary of Microsoft, is the world’s largest professional social
 network. LinkedIn uses Bazel for building its iOS Apps.
+
+### [Lucid Software](https://lucid.co/){: .external}
+
+<img src="/community/images/Lucid_Software-logo.svg" width="150" align="right">
+
+Lucid Software is a leader in visual collaboration, helping teams see and build the
+future from idea to reality. With its products—[Lucidchart](https://www.lucidchart.com/),
+[Lucidspark](https://lucidspark.com/), and [Lucidscale](https://lucidscale.com/)—teams
+can align around a shared vision, clarify complexity, and collaborate visually, no
+matter where they’re located.
+
+Lucid uses Bazel to build millions of lines of Scala and TypeScript.
+Migrating to Bazel has tremendously sped up its builds, reduced external
+dependencies on the build environment, and simplified developers' experience
+with the build system. Bazel has improved developer productivity at Lucid and
+unlocked further growth.
 
 ### [Lyft](https://www.lyft.com/){: .external}
 

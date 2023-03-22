@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ValidatedAndroidDataApi;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -27,10 +29,6 @@ import net.starlark.java.eval.StarlarkList;
 /** Wraps validated and packaged Android resource information */
 public class ValidatedAndroidResources extends MergedAndroidResources
     implements ValidatedAndroidDataApi<Artifact, AndroidResourcesInfo> {
-
-  public static final Depset.ElementType TYPE =
-      Depset.ElementType.of(ValidatedAndroidResources.class);
-
   private final Artifact rTxt;
   private final Artifact sourceJar;
   private final Artifact apk;
@@ -63,7 +61,9 @@ public class ValidatedAndroidResources extends MergedAndroidResources
    * </ul>
    */
   public static ValidatedAndroidResources validateFrom(
-      AndroidDataContext dataContext, MergedAndroidResources merged) throws InterruptedException {
+      AndroidDataContext dataContext, MergedAndroidResources merged, List<Artifact> resApkDeps)
+      throws InterruptedException {
+
     Artifact rTxtOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT);
     Artifact sourceJarOut =
         dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_JAVA_SOURCE_JAR);
@@ -74,9 +74,13 @@ public class ValidatedAndroidResources extends MergedAndroidResources
         .addInput("--libraries", dataContext.getSdk().getAndroidJar())
         .addInput("--compiled", merged.getCompiledSymbols())
         .addInput("--manifest", merged.getManifest())
+        .addInputs(resApkDeps)
         // Sets an alternative java package for the generated R.java
         // this allows android rules to generate resources outside of the java{,tests} tree.
         .maybeAddFlag("--packageForR", merged.getJavaPackage())
+        .addVectoredFlag(
+            "--additionalApksToLinkAgainst",
+            resApkDeps.stream().map(Artifact::getRootRelativePathString).collect(toImmutableList()))
         .addTransitiveVectoredInput(
             "--compiledDep", merged.getResourceDependencies().getTransitiveCompiledSymbols())
         .addOutput("--sourceJarOut", sourceJarOut)

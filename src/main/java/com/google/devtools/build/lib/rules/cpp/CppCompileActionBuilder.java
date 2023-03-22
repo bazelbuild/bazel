@@ -90,8 +90,16 @@ public class CppCompileActionBuilder {
       ActionConstructionContext actionConstructionContext,
       @Nullable Artifact grepIncludes,
       CcToolchainProvider ccToolchain,
-      BuildConfigurationValue configuration) {
-    this.owner = actionConstructionContext.getActionOwner();
+      BuildConfigurationValue configuration,
+      CppSemantics cppSemantics) {
+
+    ActionOwner actionOwner = null;
+    if (actionConstructionContext instanceof RuleContext
+        && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
+      actionOwner = actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
+    }
+
+    this.owner = actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner;
     this.shareable = false;
     this.configuration = configuration;
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -102,6 +110,7 @@ public class CppCompileActionBuilder {
     this.ccToolchain = ccToolchain;
     this.builtinIncludeDirectories = ccToolchain.getBuiltInIncludeDirectories();
     this.grepIncludes = grepIncludes;
+    this.cppSemantics = cppSemantics;
   }
 
   /**
@@ -569,13 +578,6 @@ public class CppCompileActionBuilder {
   @CanIgnoreReturnValue
   public CppCompileActionBuilder setPicMode(boolean usePic) {
     this.usePic = usePic;
-    return this;
-  }
-
-  /** Sets the CppSemantics for this compile. */
-  @CanIgnoreReturnValue
-  public CppCompileActionBuilder setSemantics(CppSemantics semantics) {
-    this.cppSemantics = semantics;
     return this;
   }
 

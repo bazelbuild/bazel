@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+enum NetNamespaceOption { NO_NETNS, NETNS, NETNS_WITH_LOOPBACK };
+
 // Options parsing result.
 struct Options {
   // Working directory (-W)
@@ -48,8 +50,8 @@ struct Options {
   std::string stats_path;
   // Set the hostname inside the sandbox to 'localhost' (-H)
   bool fake_hostname;
-  // Create a new network namespace (-N)
-  bool create_netns;
+  // Create a new network namespace (-n/-N)
+  NetNamespaceOption create_netns;
   // Pretend to be root inside the namespace (-R)
   bool fake_root;
   // Set the username inside the sandbox to 'nobody' (-U)

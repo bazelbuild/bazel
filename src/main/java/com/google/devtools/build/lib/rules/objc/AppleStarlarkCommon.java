@@ -362,7 +362,7 @@ public class AppleStarlarkCommon
     // instead of plain NestedSets because the Starlark caller may want to return this directly from
     // their implementation function.
     Map<String, StarlarkValue> outputGroups =
-        Maps.transformValues(linkingOutputs.getOutputGroups(), v -> Depset.of(Artifact.TYPE, v));
+        Maps.transformValues(linkingOutputs.getOutputGroups(), v -> Depset.of(Artifact.class, v));
 
     ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
     fields.put("objc", linkingOutputs.getDepsObjcProvider());

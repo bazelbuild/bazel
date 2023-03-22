@@ -281,7 +281,7 @@ abstract class AbstractParallelEvaluator {
         // its reverse dep on this node removed. Failing to do either one of these would result in
         // a graph inconsistency, where the child had a reverse dep on this node, but this node
         // had no kind of dependency on the child.
-        ImmutableList<SkyKey> directDepsToCheck = nodeEntry.getNextDirtyDirectDeps();
+        List<SkyKey> directDepsToCheck = nodeEntry.getNextDirtyDirectDeps();
 
         if (invalidatedByErrorTransience(directDepsToCheck, nodeEntry)) {
           // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
@@ -391,7 +391,8 @@ abstract class AbstractParallelEvaluator {
                   /* newValue= */ null,
                   /* newError= */ null,
                   new EvaluationSuccessStateSupplier(nodeEntry),
-                  EvaluationState.CLEAN);
+                  EvaluationState.CLEAN,
+                  /* directDeps= */ null);
           if (!evaluatorContext.keepGoing() && nodeEntry.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;

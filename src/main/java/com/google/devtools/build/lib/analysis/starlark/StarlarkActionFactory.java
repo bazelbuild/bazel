@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -143,7 +144,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
-              + " set the toolchain parameter.");
+              + " set the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
     }
   }
 
@@ -475,9 +476,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
   }
 
-  private void verifyAutomaticExecGroupExists(String execGroup, RuleContext ctx)
+  private void verifyAutomaticExecGroupExists(String execGroup, RuleContext ruleContext)
       throws EvalException {
-    if (!ctx.hasToolchainContext(execGroup)) {
+    if (!ruleContext.hasToolchainContext(execGroup)) {
       throw Starlark.errorf("Action declared for non-existent toolchain '%s'.", execGroup);
     }
   }
@@ -736,14 +737,26 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
     }
 
+    Label toolchainLabel = null;
+    if (toolchainUnchecked instanceof Label) {
+      toolchainLabel = (Label) toolchainUnchecked;
+    } else if (toolchainUnchecked instanceof String) {
+      try {
+        toolchainLabel =
+            Label.parseWithPackageContext(
+                (String) toolchainUnchecked, ruleContext.getPackageContext());
+      } catch (LabelSyntaxException e) {
+        throw Starlark.errorf("%s", e.getMessage());
+      }
+    }
+
     if (execGroupUnchecked != Starlark.NONE) {
       String execGroup = (String) execGroupUnchecked;
       verifyExecGroupExists(execGroup, ruleContext);
       checkValidGroupName(execGroup);
 
       // If toolchain and exec_groups are both defined, verify they are compatible.
-      if (useAutoExecGroups && toolchainUnchecked instanceof String) {
-        Label toolchainLabel = Label.parseCanonicalUnchecked((String) toolchainUnchecked);
+      if (useAutoExecGroups && toolchainLabel != null) {
         if (ruleContext.getExecGroups().getExecGroup(execGroup).toolchainTypes().stream()
             .map(ToolchainTypeRequirement::toolchainType)
             .noneMatch(toolchainLabel::equals)) {
@@ -755,10 +768,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       builder.setExecGroup(execGroup);
-    } else if (useAutoExecGroups && toolchainUnchecked instanceof String) {
-      String toolchain = (String) toolchainUnchecked;
-      verifyAutomaticExecGroupExists(toolchain, ruleContext);
-      builder.setExecGroup(toolchain);
+    } else if (useAutoExecGroups && toolchainLabel != null) {
+      verifyAutomaticExecGroupExists(toolchainLabel.toString(), ruleContext);
+      builder.setExecGroup(toolchainLabel.toString());
     } else {
       builder.setExecGroup(ExecGroup.DEFAULT_EXEC_GROUP_NAME);
     }

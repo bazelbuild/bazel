@@ -669,8 +669,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
+    BaselineProfileProvider baselineprofileProvider =
+        ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
     Artifact artProfileZip =
-        androidSemantics.getArtProfileForApk(ruleContext, finalClassesDex, finalProguardOutputMap);
+        (baselineprofileProvider != null)
+            ? baselineprofileProvider.getArtProfileZip()
+            : androidSemantics.getArtProfileForApk(
+                ruleContext, finalClassesDex, finalProguardOutputMap);
+
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =

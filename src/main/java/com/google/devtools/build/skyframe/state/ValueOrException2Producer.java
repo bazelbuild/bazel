@@ -13,8 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
  * <p>This class serves as a bridge between a {@link StateMachine} and a {@link SkyFunction}.
  *
  * <p>Subclasses should call {@link #setValue}, {@link #setException1} or {@link #setException2} to
- * emit results. An API is provided for clients to safely retrieve the result when complete.
+ * emit results.
  */
 public abstract class ValueOrException2Producer<V, E1 extends Exception, E2 extends Exception>
     implements StateMachine {
@@ -37,78 +36,48 @@ public abstract class ValueOrException2Producer<V, E1 extends Exception, E2 exte
   private E1 exception1;
   private E2 exception2;
 
-  /** Delegates to {@link Driver#drive}. */
-  public final boolean drive(Environment env, ExtendedEventHandler listener)
-      throws InterruptedException {
-    return driver.drive(env, listener);
-  }
-
-  protected final void setValue(V value) {
-    checkState(!hasResult(), "%s value=%s", this, value);
-    this.value = value;
-  }
-
-  protected final void setException1(E1 exception) {
-    checkState(!hasResult(), "%s exception=%s", this, exception);
-    this.exception1 = exception;
-  }
-
-  protected final void setException2(E2 exception) {
-    checkState(!hasResult(), "%s exception=%s", this, exception);
-    this.exception2 = exception;
-  }
-
+  /**
+   * Tries to produce the result of the underlying state machine.
+   *
+   * <p>See comment of {@link ValueOrExceptionProducer#tryProduceValue}. The only difference here is
+   * that if both {@link #exception1} and {@link #exception2} are set, {@link #exception1} has
+   * priority.
+   */
   @Nullable
-  public final V getValueOrThrow() throws E1, E2 {
-    if (value != null) {
-      return value;
-    }
+  public final V tryProduceValue(Environment env, ExtendedEventHandler listener)
+      throws InterruptedException, E1, E2 {
+    boolean done = driver.drive(env, listener);
     if (exception1 != null) {
       throw exception1;
     }
     if (exception2 != null) {
       throw exception2;
     }
+    if (done) {
+      return checkNotNull(value);
+    }
     return null;
   }
 
-  public final boolean hasResult() {
-    return value != null || exception1 != null || exception2 != null;
+  protected final void setValue(V value) {
+    this.value = value;
   }
 
-  public final boolean hasValue() {
-    return value != null;
-  }
-
-  @Nullable
-  public final V getValue() {
-    return value;
-  }
-
-  public final boolean hasException1() {
-    return exception1 != null;
+  protected final void setException1(E1 exception) {
+    this.exception1 = exception;
   }
 
   @Nullable
-  public final E1 getException1() {
+  protected final E1 getException1() {
     return exception1;
   }
 
-  public final boolean hasException2() {
-    return exception2 != null;
+  protected final void setException2(E2 exception) {
+    this.exception2 = exception;
   }
 
   @Nullable
-  public final E2 getException2() {
+  protected final E2 getException2() {
     return exception2;
-  }
-
-  @Override
-  public String toString() {
-    return toStringHelper(this)
-        .add("value", value)
-        .add("exception1", exception1)
-        .add("exception2", exception2)
-        .toString();
   }
 }

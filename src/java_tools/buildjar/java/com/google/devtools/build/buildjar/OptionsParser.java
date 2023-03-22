@@ -95,8 +95,6 @@ public final class OptionsParser {
   private String targetLabel;
   private String injectingRuleKind;
 
-  @Nullable private String profile;
-
   @Nullable private final JavacOptions normalizer;
 
   /**
@@ -213,9 +211,6 @@ public final class OptionsParser {
           break;
         case "--injecting_rule_kind":
           injectingRuleKind = getArgument(argQueue, arg);
-          break;
-        case "--profile":
-          profile = getArgument(argQueue, arg);
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -453,9 +448,5 @@ public final class OptionsParser {
 
   public String getInjectingRuleKind() {
     return injectingRuleKind;
-  }
-
-  public String getProfile() {
-    return profile;
   }
 }

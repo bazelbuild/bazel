@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Defines a java_binary rule class that is executable but but doesn't have launcher flag
-resolution.
+"""Defines a java_binary rule class that is executable but doesn't have launcher
+ flag resolution.
 
 There are three physical rule classes for java_binary and we want all of them
 to have a name string of "java_binary" because various tooling expects that.
@@ -22,6 +22,8 @@ hash of their bzl environments will be different. See http://b/226379109,
 specifically #20, for details.
 """
 
-load(":bazel/java/bazel_java_binary.bzl", "make_java_binary")
+load(":bazel/java/bazel_java_binary.bzl", "make_java_binary", "make_java_test")
 
 java_binary = make_java_binary(executable = True, resolve_launcher_flag = False)
+
+java_test = make_java_test(resolve_launcher_flag = False)

@@ -219,8 +219,8 @@ public class WorkspaceFactory {
                 rule.getLabel(),
                 rule.getRuleClassObject(),
                 rule.getLocation(),
-                rule.getCallStack().toList(),
-                rule.getAttributeContainer());
+                rule.getCallStack().toList());
+        newRule.copyAttributesFrom(rule);
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
         if (rule.containsErrors()) {
           newRule.setContainsErrors();
