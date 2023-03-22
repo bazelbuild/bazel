@@ -488,7 +488,10 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             cc,
             "-xc++",
             cxx_opts + no_canonical_prefixes_opt + ["-stdlib=libc++"],
-        ),
+        ) +
+        # Always included in case the user has Xcode + the CLT installed, both
+        # paths can be used interchangeably
+        ["/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"],
     )
 
     if is_clang:
