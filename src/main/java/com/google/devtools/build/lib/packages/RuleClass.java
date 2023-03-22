@@ -78,6 +78,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -2079,8 +2080,12 @@ public class RuleClass {
       Integer attrIndex = getAttributeIndex(attributeName);
       if (attrIndex == null) {
         rule.reportError(
-            String.format(
-                "%s: no such attribute '%s' in '%s' rule", rule.getLabel(), attributeName, name),
+            String.format("%s: no such attribute '%s' in '%s' rule%s", rule.getLabel(),
+                attributeName, name, SpellChecker.didYouMean(attributeName,
+                    rule.getAttributes().stream()
+                        .filter(Attribute::isDocumented)
+                        .map(Attribute::getName)
+                        .collect(ImmutableList.toImmutableList()))),
             eventHandler);
         continue;
       }
