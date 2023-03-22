@@ -1,5 +1,8 @@
 name: bazel.build doc issue
 description: File a documentation issue through bazel.build's "Report an Issue" button
+labels: ["type: documentation (cleanup)", "untriaged", "team-Documentation"]
+assignees:
+  - bazelbuild/triage
 body:
   - type: input
     id: link
