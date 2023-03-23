@@ -16,7 +16,7 @@ filegroup(
         "default_java_toolchain.bzl",
         "fail_rule.bzl",
         "java_toolchain_alias.bzl",
-        "jdk.BUILD",
+        "jdk_build_file.bzl",
         "local_java_repository.bzl",
         "nosystemjdk/README",
         "proguard_whitelister.py",
