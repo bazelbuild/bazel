@@ -107,6 +107,8 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "    repo_rule(name = name, **kwargs)");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/jdk/BUILD"));
     FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/jdk/jdk_build_file.bzl"), "JDK_BUILD_TEMPLATE = ''");
+    FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/jdk/local_java_repository.bzl"),
         "def local_java_repository(**kwargs):",
         "  pass");
