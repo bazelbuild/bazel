@@ -216,7 +216,7 @@ FILETIME WindowsFileMtime::GetFuture(WORD years) {
   GetSystemTimeAsFileTime(&result);
 
   // 1 year in FILETIME.
-  constexpr ULONGLONG kOneYear = 365ULL * 24 * 60 * 60 * 10'000'000;
+  constexpr ULONGLONG kOneYear = 365ULL * 24 * 60 * 60 * 10000000;
 
   ULARGE_INTEGER result_value;
   result_value.LowPart = result.dwLowDateTime;

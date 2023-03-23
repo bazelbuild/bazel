@@ -29,7 +29,7 @@ namespace blaze_util {
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
 template <typename T>
 std::string ToString(const T &value) {
-#if defined(__CYGWIN__) || defined(__MINGW32__)
+#if defined(__CYGWIN__)
   std::ostringstream oss;
   oss << value;
   return oss.str();
