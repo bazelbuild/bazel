@@ -1018,7 +1018,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
       builder.addTransitiveArtifacts(transitiveArtifacts);
     }
-    if (isDepset(symlinks)) {
+    if (isNonEmptyDepset(symlinks)) {
       // If Starlark code directly manipulates symlinks, activate more stringent validity checking.
       checkConflicts = true;
       builder.addSymlinks(((Depset) symlinks).getSet(SymlinkEntry.class));
@@ -1029,7 +1029,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
         builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
       }
     }
-    if (isDepset(rootSymlinks)) {
+    if (isNonEmptyDepset(rootSymlinks)) {
       checkConflicts = true;
       builder.addRootSymlinks(((Depset) rootSymlinks).getSet(SymlinkEntry.class));
     } else if (isNonEmptyDict(rootSymlinks)) {
@@ -1050,8 +1050,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     return o instanceof Dict && !((Dict<?, ?>) o).isEmpty();
   }
 
-  private static boolean isDepset(Object o) {
-    return o instanceof Depset;
+  private static boolean isNonEmptyDepset(Object o) {
+    return o instanceof Depset && !((Depset) o).isEmpty();
   }
 
   @Override
