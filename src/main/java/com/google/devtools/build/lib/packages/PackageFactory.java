@@ -123,8 +123,6 @@ public final class PackageFactory {
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
-  private final ImmutableMap<String, PackageArgument<?>> packageArguments;
-
   private final PackageSettings packageSettings;
   private final PackageValidator packageValidator;
   private final PackageOverheadEstimator packageOverheadEstimator;
@@ -202,7 +200,6 @@ public final class PackageFactory {
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
-    this.packageArguments = createPackageArguments(this.environmentExtensions);
     this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
     this.packageOverheadEstimator = packageOverheadEstimator;
@@ -212,7 +209,7 @@ public final class PackageFactory {
             ruleClassProvider,
             buildRuleFunctions(ruleFactory),
             this.environmentExtensions,
-            newPackageFunction(packageArguments),
+            newPackageFunction(createPackageArguments(this.environmentExtensions)),
             version);
   }
 
@@ -415,7 +412,6 @@ public final class PackageFactory {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
             context.eventHandler,
-            thread.getSemantics(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(e);
@@ -773,7 +769,7 @@ public final class PackageFactory {
 
               Expression excludeDirectories = null;
               Expression include = null;
-              List<Argument> arguments = call.getArguments();
+              ImmutableList<Argument> arguments = call.getArguments();
               for (int i = 0; i < arguments.size(); i++) {
                 Argument arg = arguments.get(i);
                 String name = arg.getName();

@@ -85,7 +85,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT,
             DUMMY_STACK);
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
@@ -145,7 +144,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
-            StarlarkSemantics.DEFAULT,
             DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
   }
@@ -169,7 +167,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
@@ -193,7 +190,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
@@ -229,7 +225,6 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
-                    StarlarkSemantics.DEFAULT,
                     DUMMY_STACK));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))

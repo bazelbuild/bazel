@@ -308,7 +308,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         executable,
         outputToGenfiles,
         fragments,
-        hostFragments,
         starlarkTestable,
         toolchains,
         doc,
@@ -331,7 +330,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       boolean executable,
       boolean outputToGenfiles,
       Sequence<?> fragments,
-      Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
       Object doc,
@@ -824,7 +822,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             ruleClass,
             attributeValues,
             pkgContext.getEventHandler(),
-            thread.getSemantics(),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);

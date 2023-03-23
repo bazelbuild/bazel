@@ -22,9 +22,9 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.Set;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
@@ -70,7 +70,6 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      StarlarkSemantics semantics,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
@@ -131,7 +130,6 @@ public class RuleFactory {
    *     a map entry for each non-optional attribute of this class of rule.
    * @param eventHandler a eventHandler on which errors and warnings are reported during rule
    *     creation
-   * @param semantics the Starlark semantics
    * @param callstack the stack of active calls in the Starlark thread
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
    *     {@code name} attribute is defined)
@@ -139,16 +137,15 @@ public class RuleFactory {
    *     package
    * @throws InterruptedException if interrupted
    */
+  @CanIgnoreReturnValue
   public static Rule createAndAddRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      StarlarkSemantics semantics,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
-    Rule rule =
-        createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, semantics, callstack);
+    Rule rule = createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, callstack);
     pkgBuilder.addRule(rule);
     return rule;
   }
@@ -218,7 +215,7 @@ public class RuleFactory {
     }
 
     @Override
-    public Iterable<Map.Entry<String, Object>> getAttributeAccessors() {
+    public Set<Map.Entry<String, Object>> getAttributeAccessors() {
       return attributeValues.entrySet();
     }
 

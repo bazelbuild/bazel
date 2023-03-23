@@ -76,7 +76,7 @@ public final class BzlmodRepoRuleCreator {
     try {
       rule =
           RuleFactory.createAndAddRule(
-              packageBuilder, ruleClass, attributeValues, eventHandler, semantics, callStack);
+              packageBuilder, ruleClass, attributeValues, eventHandler, callStack);
     } catch (NameConflictException e) {
       // This literally cannot happen -- we just created the package!
       throw new IllegalStateException(e);
