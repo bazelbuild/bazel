@@ -505,7 +505,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   @Nullable
   private Object getAttrWithIndex(int attrIndex) {
-    Object value = getRawAttrValue(attrIndex);
+    Object value = getAttrIfStored(attrIndex);
     if (value != null) {
       return value;
     }
@@ -518,6 +518,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // result in a correctness issue, since the value for the attribute is actually a function to
       // compute the value.
       return isFrozen() ? attr.getDefaultValue() : null;
+    }
+    if (attr.isLateBound()) {
+      // Frozen rules don't store late bound defaults.
+      checkState(isFrozen(), "Mutable rule missing LateBoundDefault");
+      return attr.getLateBoundDefault();
     }
     switch (attr.getName()) {
       case GENERATOR_FUNCTION:
@@ -536,7 +541,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * <p>Unlike {@link #getAttr}, does not fall back to the default value.
    */
   @Nullable
-  Object getRawAttrValue(int attrIndex) {
+  Object getAttrIfStored(int attrIndex) {
     checkPositionIndex(attrIndex, attrCount() - 1);
     switch (getAttrState()) {
       case MUTABLE:
@@ -642,8 +647,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns {@code true} if this rule's attributes are immutable.
    *
    * <p>Frozen rules optimize for space by omitting storage for non-explicit attribute values that
-   * match the {@link Attribute} default. If {@link #getRawAttrValue} returns {@code null}, the
-   * value should be taken from {@link Attribute#getDefaultValue}, even for computed defaults.
+   * match the {@link Attribute} default. If {@link #getAttrIfStored} returns {@code null}, the
+   * value should be taken from either {@link Attribute#getLateBoundDefault} for late-bound defaults
+   * or {@link Attribute#getDefaultValue} for all other attributes (including computed defaults).
    *
    * <p>Mutable rules have no such optimization. During rule creation, this allows for
    * distinguishing whether a computed default (which may depend on other unset attributes) is
@@ -667,7 +673,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       }
       if (!getExplicitBit(i)) {
         Attribute attr = ruleClass.getAttribute(i);
-        if (value.equals(attr.getDefaultValue())) {
+        if (value.equals(attr.getDefaultValueUnchecked())) {
           // Non-explicit value matches the attribute's default. Save space by omitting storage.
           continue;
         }
@@ -774,7 +780,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (index == null) {
       return null;
     }
-    Object attrValue = getRawAttrValue(index);
+    Object attrValue = getAttrIfStored(index);
     if (!(attrValue instanceof BuildType.SelectorList)) {
       return null;
     }
@@ -1108,7 +1114,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (visibilityIndex == null) {
       return null;
     }
-    return (List<Label>) getRawAttrValue(visibilityIndex);
+    return (List<Label>) getAttrIfStored(visibilityIndex);
   }
 
   private RuleVisibility getDefaultVisibility() {

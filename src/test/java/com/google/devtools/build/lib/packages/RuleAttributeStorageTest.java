@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -39,6 +40,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
   private static final String STRING_DEFAULT = Type.STRING.getDefaultValue();
   private static final int COMPUTED_DEFAULT_OFFSET = 1;
+  private static final int LATE_BOUND_DEFAULT_OFFSET = 2;
 
   private enum ContainerSize {
     SMALL(16),
@@ -60,6 +62,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
   private Attribute lastCustomAttr;
   private int computedDefaultIndex;
   private Attribute computedDefaultAttr;
+  private int lateBoundDefaultIndex;
+  private Attribute lateBoundDefaultAttr;
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -72,18 +76,29 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
                 IntStream.range(0, numCustomAttrs)
                     .mapToObj(
                         i -> {
-                          var attr = attr("attr" + i, Type.STRING);
-                          // Make one of the attributes a computed default.
+                          // Make one attribute a computed default and one a late bound default.
                           if (i == COMPUTED_DEFAULT_OFFSET) {
-                            attr.value(
-                                new ComputedDefault() {
-                                  @Override
-                                  public Object getDefault(AttributeMap rule) {
-                                    return "computed";
-                                  }
-                                });
+                            return attr("attr" + i + "_computed_default", Type.STRING)
+                                .value(
+                                    new ComputedDefault() {
+                                      @Override
+                                      public Object getDefault(AttributeMap rule) {
+                                        return "computed";
+                                      }
+                                    });
                           }
-                          return attr;
+                          if (i == LATE_BOUND_DEFAULT_OFFSET) {
+                            return attr(":attr" + i + "_late_bound_default", Type.STRING)
+                                .value(
+                                    new LateBoundDefault<>(Void.class, "late_bound") {
+                                      @Override
+                                      public String resolve(
+                                          Rule rule, AttributeMap attributes, Void input) {
+                                        return "late_bound";
+                                      }
+                                    });
+                          }
+                          return attr("attr" + i, Type.STRING);
                         })
                     .toArray(Attribute.Builder[]::new));
     var builder = new ConfiguredRuleClassProvider.Builder().addRuleDefinition(exampleRule);
@@ -111,6 +126,8 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     lastCustomAttr = attrAt(lastCustomAttrIndex);
     computedDefaultIndex = firstCustomAttrIndex + COMPUTED_DEFAULT_OFFSET;
     computedDefaultAttr = attrAt(computedDefaultIndex);
+    lateBoundDefaultIndex = firstCustomAttrIndex + LATE_BOUND_DEFAULT_OFFSET;
+    lateBoundDefaultAttr = attrAt(lateBoundDefaultIndex);
   }
 
   @Test
@@ -122,9 +139,9 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
       rule.freeze();
     }
 
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex)).isEqualTo("val1");
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex)).isEqualTo("val1");
     assertThat(rule.isAttributeValueExplicitlySpecified(firstCustomAttr)).isTrue();
-    assertThat(rule.getRawAttrValue(lastCustomAttrIndex)).isEqualTo("val2");
+    assertThat(rule.getAttrIfStored(lastCustomAttrIndex)).isEqualTo("val2");
     assertThat(rule.isAttributeValueExplicitlySpecified(lastCustomAttr)).isTrue();
   }
 
@@ -134,7 +151,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
       rule.freeze();
     }
     assertThrows(
-        IndexOutOfBoundsException.class, () -> rule.getRawAttrValue(lastCustomAttrIndex + 1));
+        IndexOutOfBoundsException.class, () -> rule.getAttrIfStored(lastCustomAttrIndex + 1));
   }
 
   @Test
@@ -146,10 +163,10 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
       rule.freeze();
     }
 
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex - 1)).isNull();
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex - 1)).isNull();
     assertThat(rule.isAttributeValueExplicitlySpecified(attrAt(firstCustomAttrIndex - 1)))
         .isFalse();
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex + 1)).isNull();
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex + 1)).isNull();
     assertThat(rule.isAttributeValueExplicitlySpecified(attrAt(firstCustomAttrIndex + 1)))
         .isFalse();
   }
@@ -166,9 +183,9 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     // Double freezing is a no-op
     rule.freeze();
     // reads/explicit bits work as expected
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex)).isEqualTo("val1");
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex)).isEqualTo("val1");
     assertThat(rule.isAttributeValueExplicitlySpecified(firstCustomAttr)).isTrue();
-    assertThat(rule.getRawAttrValue(lastCustomAttrIndex)).isEqualTo("val2");
+    assertThat(rule.getAttrIfStored(lastCustomAttrIndex)).isEqualTo("val2");
     assertThat(rule.isAttributeValueExplicitlySpecified(lastCustomAttr)).isFalse();
     // writes no longer work.
     assertThrows(
@@ -189,7 +206,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
     }
 
     for (int i = 1; i < size; i++) { // Skip attribute 0 (name) which is never stored.
-      assertThat(rule.getRawAttrValue(i)).isEqualTo("value " + i);
+      assertThat(rule.getAttrIfStored(i)).isEqualTo("value " + i);
       assertWithMessage("attribute " + i)
           .that(rule.isAttributeValueExplicitlySpecified(attrAt(i)))
           .isEqualTo(i % 2 == 0);
@@ -235,7 +252,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
     assertThat(rule.getAttr("name")).isEqualTo(ruleName);
     assertThat(rule.isAttributeValueExplicitlySpecified("name")).isTrue();
-    assertThat(rule.getRawAttrValue(lastCustomAttrIndex)).isEqualTo("last");
+    assertThat(rule.getAttrIfStored(lastCustomAttrIndex)).isEqualTo("last");
     assertThat(rule.isAttributeValueExplicitlySpecified(lastCustomAttr)).isTrue();
   }
 
@@ -248,7 +265,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
       rule.freeze();
     }
 
-    assertThat(rule.getRawAttrValue(0)).isNull();
+    assertThat(rule.getAttrIfStored(0)).isNull();
     assertThat(rule.getRawAttrValues()).doesNotContain(ruleName);
     assertThat(rule.getAttr("name")).isEqualTo(ruleName);
     assertThat(rule.isAttributeValueExplicitlySpecified("name")).isTrue();
@@ -262,7 +279,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
       rule.freeze();
     }
 
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex)).isNotNull();
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex)).isNotNull();
     assertThat(rule.isAttributeValueExplicitlySpecified(firstCustomAttr)).isTrue();
   }
 
@@ -270,7 +287,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
   public void nonExplicitDefaultValue_mutable_stored() {
     rule.setAttributeValue(firstCustomAttr, STRING_DEFAULT, /* explicit= */ false);
 
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex)).isNotNull();
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex)).isNotNull();
     assertThat(rule.isAttributeValueExplicitlySpecified(firstCustomAttr)).isFalse();
   }
 
@@ -280,35 +297,58 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
 
     rule.freeze();
 
-    assertThat(rule.getRawAttrValue(firstCustomAttrIndex)).isNull();
+    assertThat(rule.getAttrIfStored(firstCustomAttrIndex)).isNull();
     assertThat(rule.isAttributeValueExplicitlySpecified(firstCustomAttr)).isFalse();
   }
 
   @Test
   public void computedDefault_mutable_stored() {
-    Attribute attr = rule.getRuleClassObject().getAttribute(computedDefaultIndex);
-    var computedDefault = attr.getDefaultValue();
-    assertThat(attr.hasComputedDefault()).isTrue();
+    var computedDefault = computedDefaultAttr.getDefaultValue();
+    assertThat(computedDefaultAttr.hasComputedDefault()).isTrue();
     assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
 
     rule.setAttributeValue(computedDefaultAttr, computedDefault, /* explicit= */ false);
 
-    assertThat(rule.getRawAttrValue(computedDefaultIndex)).isEqualTo(computedDefault);
+    assertThat(rule.getAttrIfStored(computedDefaultIndex)).isEqualTo(computedDefault);
+    assertThat(rule.getAttr(computedDefaultAttr.getName())).isEqualTo(computedDefault);
     assertThat(rule.isAttributeValueExplicitlySpecified(computedDefaultAttr)).isFalse();
   }
 
   @Test
   public void computedDefault_frozen_notStored() {
-    Attribute attr = rule.getRuleClassObject().getAttribute(computedDefaultIndex);
-    var computedDefault = attr.getDefaultValue();
-    assertThat(attr.hasComputedDefault()).isTrue();
+    var computedDefault = computedDefaultAttr.getDefaultValue();
+    assertThat(computedDefaultAttr.hasComputedDefault()).isTrue();
     assertThat(computedDefault).isInstanceOf(ComputedDefault.class);
 
     rule.setAttributeValue(computedDefaultAttr, computedDefault, /* explicit= */ false);
     rule.freeze();
 
-    assertThat(rule.getRawAttrValue(computedDefaultIndex)).isNull();
+    assertThat(rule.getAttrIfStored(computedDefaultIndex)).isNull();
+    assertThat(rule.getAttr(computedDefaultAttr.getName())).isEqualTo(computedDefault);
     assertThat(rule.isAttributeValueExplicitlySpecified(computedDefaultAttr)).isFalse();
+  }
+
+  @Test
+  public void lateBoundDefault_mutable_stored() {
+    var lateBoundDefault = lateBoundDefaultAttr.getLateBoundDefault();
+
+    rule.setAttributeValue(lateBoundDefaultAttr, lateBoundDefault, /* explicit= */ false);
+
+    assertThat(rule.getAttrIfStored(lateBoundDefaultIndex)).isEqualTo(lateBoundDefault);
+    assertThat(rule.getAttr(lateBoundDefaultAttr.getName())).isEqualTo(lateBoundDefault);
+    assertThat(rule.isAttributeValueExplicitlySpecified(lateBoundDefaultAttr)).isFalse();
+  }
+
+  @Test
+  public void lateBoundDefault_frozen_notStored() {
+    var lateBoundDefault = lateBoundDefaultAttr.getLateBoundDefault();
+
+    rule.setAttributeValue(lateBoundDefaultAttr, lateBoundDefault, /* explicit= */ false);
+    rule.freeze();
+
+    assertThat(rule.getAttrIfStored(lateBoundDefaultIndex)).isNull();
+    assertThat(rule.getAttr(lateBoundDefaultAttr.getName())).isEqualTo(lateBoundDefault);
+    assertThat(rule.isAttributeValueExplicitlySpecified(lateBoundDefaultAttr)).isFalse();
   }
 
   private Attribute attrAt(int attrIndex) {

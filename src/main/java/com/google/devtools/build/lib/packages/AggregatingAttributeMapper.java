@@ -115,7 +115,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     if (type.getLabelClass() == LabelClass.NONE) {
       // The only way for LabelClass.NONE to contain labels is in select keys.
       if (includeSelectKeys && attr.isConfigurable()) {
-        rawVal = rule.getRawAttrValue(i);
+        rawVal = rule.getAttrIfStored(i);
         if (rawVal instanceof SelectorList) {
           visitLabelsInSelect(
               (SelectorList<T>) rawVal,
@@ -128,7 +128,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
       return;
     }
-    rawVal = rule.getRawAttrValue(i);
+    rawVal = rule.getAttrIfStored(i);
     if (rawVal == null) {
       // Frozen rules don't store computed defaults.
       if (!attr.hasComputedDefault() || rule.isFrozen()) {
