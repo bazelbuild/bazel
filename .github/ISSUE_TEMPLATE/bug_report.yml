@@ -1,5 +1,8 @@
-name: Bug Report
+name: Bug report
 description: File a bug report
+labels: ["type: bug", "untriaged"]
+assignees:
+  - bazelbuild/triage
 body:
   - type: markdown
     attributes:
