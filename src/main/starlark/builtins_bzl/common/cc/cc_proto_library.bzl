@@ -260,6 +260,7 @@ _cc_proto_aspect = aspect(
     attr_aspects = ["deps"],
     fragments = ["cpp", "proto"],
     required_providers = [ProtoInfo],
+    provides = [CcInfo],
     attrs = {
         "_aspect_cc_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
