@@ -2,7 +2,8 @@ name: Feature request
 description: Suggest a new feature
 labels: ["type: feature request", "untriaged"]
 assignees:
-  - bazelbuild/triage
+  - kshyanashree
+  - sgowroji
 body:
   - type: markdown
     attributes:

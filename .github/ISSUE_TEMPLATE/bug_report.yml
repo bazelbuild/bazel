@@ -2,7 +2,8 @@ name: Bug report
 description: File a bug report
 labels: ["type: bug", "untriaged"]
 assignees:
-  - bazelbuild/triage
+  - kshyanashree
+  - sgowroji
 body:
   - type: markdown
     attributes:
