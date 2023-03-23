@@ -54,6 +54,8 @@ def _bazel_java_binary_impl(ctx):
     )
 
     if ctx.attr.use_testrunner:
+        if semantics.find_java_runtime_toolchain(ctx).version >= 17:
+            jvm_flags.append("-Djava.security.manager=allow")
         test_class = ctx.attr.test_class if hasattr(ctx.attr, "test_class") else ""
         if test_class == "":
             test_class = helper.primary_class(ctx)
