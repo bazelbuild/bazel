@@ -635,6 +635,20 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
   }
 
+  @Override
+  @Nullable
+  public String moduleName(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_name");
+    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleName().orElse(null);
+  }
+
+  @Override
+  @Nullable
+  public String moduleVersion(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_version");
+    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleVersion().orElse(null);
+  }
+
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
     Dict.Builder<String, Object> values = Dict.builder();
 
