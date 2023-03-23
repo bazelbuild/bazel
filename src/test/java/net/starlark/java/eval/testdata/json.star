@@ -80,6 +80,9 @@ assert_eq(json.decode('"\\u0123"'), 'ģ')
 assert_eq(json.decode('\t[\t1,\r2,\n3]\n'), [1, 2, 3]) # whitespace other than ' '
 assert_eq(json.decode('\n{\t"a":\r1\t}\n'), {'a': 1}) # same, with dict
 assert_eq(json.decode(r'"\\\/\"\n\r\t"'), "\\/\"\n\r\t") # TODO(adonovan): test \b\f when Starlark/Java supports them
+assert_eq(json.decode('{"x": 1, "x": 2}'), {"x": 2})
+assert_eq(json.decode('{"x": {"y": 1, "y": 2}}'), {"x": {"y": 2}})
+assert_eq(json.decode('{"x": {"y": 1, "z": 1}, "x": {"y": 2}}'), {"x": {"y": 2}})
 
 # We accept UTF-16 strings that have been arbitrarily truncated,
 # as many Java and JavaScript programs emit them.
@@ -123,7 +126,6 @@ assert_fails(lambda: json.decode('[1, 2}'), "got \"}\", want ',' or ']'")
 assert_fails(lambda: json.decode('{"one": 1'), "unexpected end of file")
 assert_fails(lambda: json.decode('{"one" 1'), 'after object key, got "1", want \':\'')
 assert_fails(lambda: json.decode('{"one": 1 "two": 2'), "in object, got ..\"., want ',' or '}'")
-assert_fails(lambda: json.decode('{"x": 1, "x": 2}'), 'object has duplicate key: "x"')
 assert_fails(lambda: json.decode('{1:2}'), "got int for object key, want string")
 assert_fails(lambda: json.decode('{"one": 1,'), "unexpected end of file")
 assert_fails(lambda: json.decode('{"one": 1, }'), 'unexpected character "}"')
