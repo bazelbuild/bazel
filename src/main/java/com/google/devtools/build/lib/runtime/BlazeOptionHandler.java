@@ -262,20 +262,17 @@ public final class BlazeOptionHandler {
    * not passed in here during {@link #getOptionsResult}.
    */
   DetailedExitCode parseStarlarkOptions(CommandEnvironment env, ExtendedEventHandler eventHandler) {
-    // For now, restrict starlark options to commands that already build to ensure that loading
-    // will work. We may want to open this up to other commands in the future. The "info"
-    // and "clean" commands have builds=true set in their annotation but don't actually do any
-    // building (b/120041419).
-    if (!commandAnnotation.builds()
-        || commandAnnotation.name().equals("info")
-        || commandAnnotation.name().equals("clean")) {
-      return DetailedExitCode.success();
-    }
     try {
       StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);
+      if (!commandAnnotation.builds()
+          || commandAnnotation.name().equals("info")
+          || commandAnnotation.name().equals("clean")) {
+        logger.atInfo().log("Skipping Starlark options due to parsing failure");
+        return DetailedExitCode.success();
+      }
       return processOptionsParsingException(
           eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
