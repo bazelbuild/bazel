@@ -264,7 +264,8 @@ public class ExecutionTool {
               singleSourceRoot,
               env.getEventBus(),
               env.getDirectories().getProductName() + "-",
-              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout);
+              request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
+              runtime.getWorkspace().doesAllowExternalRepositories());
       incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
 
       // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
