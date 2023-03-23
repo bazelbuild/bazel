@@ -2,6 +2,8 @@
 #   Android data binding buildtime libs and common lib shared with Android
 #   clients: implementation.
 
+load("@rules_java//java:defs.bzl", "java_import")
+
 package(default_visibility = ["//third_party/java/android_databinding:__pkg__"])
 
 licenses(["notice"])  # Apache License 2.0
