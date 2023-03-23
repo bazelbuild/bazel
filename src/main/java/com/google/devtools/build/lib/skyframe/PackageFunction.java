@@ -1348,6 +1348,8 @@ public class PackageFunction implements SkyFunction {
               .newPackageBuilder(
                   packageId,
                   workspaceName,
+                  repositoryMappingValue.getAssociatedModuleName(),
+                  repositoryMappingValue.getAssociatedModuleVersion(),
                   starlarkBuiltinsValue.starlarkSemantics,
                   repositoryMapping,
                   mainRepositoryMappingValue.getRepositoryMapping())
