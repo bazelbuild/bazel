@@ -9,9 +9,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/bazel-toolchains:srcs",
-        "//third_party/css/bootstrap:srcs",
-        "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
         "//third_party/cncf_udpa:srcs",
@@ -27,7 +24,6 @@ filegroup(
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
-        "//third_party/javascript/bootstrap:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -37,7 +33,6 @@ filegroup(
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
         "//third_party/zlib:srcs",
-        "//third_party/upb:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -51,34 +46,34 @@ filegroup(
     srcs = [],
 )
 
-java_library(
+alias(
     name = "android-annotations",
-    exports = ["@maven_android//:com_android_tools_annotations"],
+    actual = "@maven_android//:com_android_tools_annotations",
 )
 
-java_library(
+alias(
     name = "apache_commons_collections",
-    exports = ["@maven//:commons_collections_commons_collections"],
+    actual = "@maven//:commons_collections_commons_collections",
 )
 
-java_library(
+alias(
     name = "apache_commons_lang",
-    exports = ["@maven//:commons_lang_commons_lang"],
+    actual = "@maven//:commons_lang_commons_lang",
 )
 
-java_library(
+alias(
     name = "apache_commons_compress",
-    exports = ["@maven//:org_apache_commons_commons_compress"],
+    actual = "@maven//:org_apache_commons_commons_compress",
 )
 
-java_library(
+alias(
     name = "apache_commons_pool2",
-    exports = ["@maven//:org_apache_commons_commons_pool2"],
+    actual = "@maven//:org_apache_commons_commons_pool2",
 )
 
-java_library(
+alias(
     name = "apache_velocity",
-    exports = ["@maven//:org_apache_velocity_velocity"],
+    actual = "@maven//:org_apache_velocity_velocity",
 )
 
 java_library(
@@ -156,19 +151,9 @@ java_plugin(
     ],
 )
 
-java_library(
+alias(
     name = "auto_common",
-    applicable_licenses = [":auto_license"],
-    exports = ["@maven//:com_google_auto_auto_common"],
-)
-
-license(
-    name = "auto_license",
-    package_name = "auto-common/1.8.2",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "auto/LICENSE",
+    actual = "@maven//:com_google_auto_auto_common",
 )
 
 java_library(
@@ -277,31 +262,29 @@ java_library(
     ],
 )
 
-java_library(
+alias(
     name = "checker_framework_annotations",
-    exports = ["@maven//:org_checkerframework_checker_qual"],
+    actual = "@maven//:org_checkerframework_checker_qual",
 )
 
-java_library(
+alias(
     name = "gson",
-    exports = ["@maven//:com_google_code_gson_gson"],
+    actual = "@maven//:com_google_code_gson_gson",
 )
 
-java_library(
+alias(
     name = "caffeine",
-    exports = ["@maven//:com_github_ben_manes_caffeine_caffeine"],
+    actual = "@maven//:com_github_ben_manes_caffeine_caffeine",
 )
 
-java_library(
+alias(
     name = "hungarian_algorithm",
-    exports = ["@maven//:com_github_kevinstern_software_and_algorithms"],
+    actual = "@maven//:com_github_kevinstern_software_and_algorithms",
 )
 
-java_library(
+alias(
     name = "threeten",
-    exports = [
-        "@maven//:org_threeten_threeten_extra",
-    ],
+    actual = "@maven//:org_threeten_threeten_extra",
 )
 
 java_library(
@@ -330,11 +313,9 @@ java_library(
     ],
 )
 
-java_library(
+alias(
     name = "jcip_annotations",
-    exports = [
-        "@maven//:com_github_stephenc_jcip_jcip_annotations",
-    ],
+    actual = "@maven//:com_github_stephenc_jcip_jcip_annotations",
 )
 
 # For bootstrapping JavaBuilder
@@ -346,9 +327,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_library(
+alias(
     name = "pcollections",
-    exports = ["@maven//:org_pcollections_pcollections"],
+    actual = "@maven//:org_pcollections_pcollections",
 )
 
 # For bootstrapping JavaBuilder
@@ -424,9 +405,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_library(
+alias(
     name = "javax_activation",
-    exports = ["@maven//:javax_activation_javax_activation_api"],
+    actual = "@maven//:javax_activation_javax_activation_api",
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -437,14 +418,14 @@ java_library(
     neverlink = 1,  # @Generated is source-retention
 )
 
-java_library(
+alias(
     name = "rxjava3",
-    exports = ["@maven//:io_reactivex_rxjava3_rxjava"],
+    actual = "@maven//:io_reactivex_rxjava3_rxjava",
 )
 
-java_library(
+alias(
     name = "jsr305",
-    exports = ["@maven//:com_google_code_findbugs_jsr305"],
+    actual = "@maven//:com_google_code_findbugs_jsr305",
 )
 
 # For bootstrapping JavaBuilder
@@ -545,9 +526,9 @@ distrib_java_import(
     }),
 )
 
-java_library(
+alias(
     name = "tomcat_annotations_api",
-    exports = ["@maven//:org_apache_tomcat_tomcat_annotations_api"],
+    actual = "@maven//:org_apache_tomcat_tomcat_annotations_api",
 )
 
 # For bootstrapping JavaBuilder
@@ -557,9 +538,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_library(
+alias(
     name = "java-diff-utils",
-    exports = ["@maven//:io_github_java_diff_utils_java_diff_utils"],
+    actual = "@maven//:io_github_java_diff_utils_java_diff_utils",
 )
 
 # Testing
@@ -617,19 +598,9 @@ java_library(
     testonly = 1,
 )
 
-java_library(
+alias(
     name = "xz",
-    applicable_licenses = [":xz_license"],
-    exports = ["@maven//:org_tukaani_xz"],
-)
-
-license(
-    name = "xz_license",
-    package_name = "xz/1.9",
-    license_kinds = [
-        "@rules_license//licenses/generic:permissive",
-    ],
-    license_text = "xz/LICENSE",
+    actual = "@maven//:org_tukaani_xz",
 )
 
 # To be used by the skylark example.

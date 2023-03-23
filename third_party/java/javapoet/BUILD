@@ -11,7 +11,7 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_library(
+alias(
     name = "javapoet",
-    exports = ["@maven//:com_squareup_javapoet"],
+    actual = "@maven//:com_squareup_javapoet",
 )
