@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
@@ -60,6 +61,8 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             id,
             "TESTING",
+            Optional.empty(),
+            Optional.empty(),
             StarlarkSemantics.DEFAULT,
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK)

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.syntax.Location;
 import org.junit.Before;
@@ -163,7 +164,9 @@ public class PackageTest {
             DefaultPackageSettings.INSTANCE,
             PackageIdentifier.createInMainRepo(name),
             "workspace",
-            /*noImplicitFileExport=*/ true,
+            Optional.empty(),
+            Optional.empty(),
+            /* noImplicitFileExport= */ true,
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK);
     result.setFilename(
