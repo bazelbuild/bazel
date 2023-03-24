@@ -99,7 +99,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
@@ -158,7 +157,6 @@ import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
-import com.google.devtools.build.lib.rules.genquery.GenQueryConfiguration.GenQueryOptions;
 import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction;
@@ -3119,9 +3117,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               argument);
           SkyKey directoryListingStateKey = DirectoryListingStateValue.key((RootedPath) argument);
           memoizingEvaluator.getInMemoryGraph().remove(directoryListingStateKey);
-        } else if (directDeps != null
-            && skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-          maybeDropGenQueryDep(newValue, directDeps);
         }
       }
 
@@ -3174,27 +3169,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           if (dep.functionName().equals(SkyFunctions.GLOB)) {
             recursivelyRemoveGlobFromGraph((GlobDescriptor) dep);
           }
-        }
-      }
-    }
-
-    private void maybeDropGenQueryDep(SkyValue newValue, GroupedDeps directDeps) {
-      if (!(newValue instanceof RuleConfiguredTargetValue)) {
-        return;
-      }
-      var t = (RuleConfiguredTarget) ((RuleConfiguredTargetValue) newValue).getConfiguredTarget();
-      if (!t.getRuleClassString().equals("genquery")) {
-        return;
-      }
-      BuildOptions options = t.getConfigurationKey().getOptions();
-      if (!options.contains(GenQueryOptions.class)
-          || !options.get(GenQueryOptions.class).skipTtvs) {
-        return;
-      }
-      for (SkyKey key : directDeps.getAllElementsAsIterable()) {
-        if (key instanceof GenQueryDirectPackageProviderFactory.Key) {
-          memoizingEvaluator.getInMemoryGraph().remove(key);
-          return;
         }
       }
     }

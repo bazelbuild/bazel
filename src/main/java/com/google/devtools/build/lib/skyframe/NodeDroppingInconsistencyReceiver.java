@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -38,12 +36,6 @@ import javax.annotation.Nullable;
  */
 public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyReceiver {
 
-  private static final ImmutableMap<SkyFunctionName, SkyFunctionName> EXPECTED_MISSING_CHILDREN =
-      ImmutableMap.of(
-          FileValue.FILE, FileStateKey.FILE_STATE,
-          SkyFunctions.DIRECTORY_LISTING, SkyFunctions.DIRECTORY_LISTING_STATE,
-          SkyFunctions.CONFIGURED_TARGET, GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE);
-
   @Override
   public void noteInconsistencyAndMaybeThrow(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
@@ -61,8 +53,9 @@ public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyRece
    */
   public static boolean isExpectedInconsistency(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
-    SkyFunctionName expectedMissingChildType = EXPECTED_MISSING_CHILDREN.get(key.functionName());
-    if (expectedMissingChildType == null) {
+    boolean isFileKey = key.functionName().equals(FileValue.FILE);
+    boolean isDirectoryListingKey = key.functionName().equals(SkyFunctions.DIRECTORY_LISTING);
+    if (!isFileKey && !isDirectoryListingKey) {
       return false;
     }
     if (inconsistency == Inconsistency.RESET_REQUESTED) {
@@ -72,7 +65,9 @@ public class NodeDroppingInconsistencyReceiver implements GraphInconsistencyRece
         || inconsistency == Inconsistency.BUILDING_PARENT_FOUND_UNDONE_CHILD) {
       // For already declared child missing inconsistency, key is the parent while `otherKeys`
       // are the children (dependency nodes).
-      return otherKeys.stream().allMatch(SkyFunctionName.functionIs(expectedMissingChildType));
+      SkyFunctionName expectedStateKeyType =
+          isFileKey ? FileStateKey.FILE_STATE : SkyFunctions.DIRECTORY_LISTING_STATE;
+      return otherKeys.stream().allMatch(SkyFunctionName.functionIs(expectedStateKeyType));
     }
     return false;
   }
