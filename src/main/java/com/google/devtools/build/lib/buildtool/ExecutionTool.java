@@ -113,7 +113,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
@@ -248,8 +247,10 @@ public class ExecutionTool {
    *
    * <p>TODO(b/213040766): Write tests for these setup steps.
    */
-  public void prepareForExecution(UUID buildId)
-      throws AbruptExitException, BuildFailedException, InterruptedException,
+  public void prepareForExecution(UUID buildId, Stopwatch executionTimer)
+      throws AbruptExitException,
+          BuildFailedException,
+          InterruptedException,
           InvalidConfigurationException {
     init();
     BuildRequestOptions buildRequestOptions = request.getBuildOptions();
@@ -327,7 +328,8 @@ public class ExecutionTool {
           env.getReporter(), executor, request, skyframeBuilder.getActionCacheChecker());
     }
 
-    env.getEventBus().register(new ExecutionProgressReceiverSetup(skyframeExecutor, env));
+    env.getEventBus()
+        .register(new ExecutionProgressReceiverSetup(skyframeExecutor, env, executionTimer));
     // TODO(leba): Add watchdog support.
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
@@ -558,7 +560,7 @@ public class ExecutionTool {
    * catastrophe or not.
    */
   void unconditionalExecutionPhaseFinalizations(
-      Stopwatch timer, SkyframeExecutor skyframeExecutor) {
+      Stopwatch executionTimer, SkyframeExecutor skyframeExecutor) {
     // These may flush logs, which may help if there is a catastrophic failure.
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       executorLifecycleListener.executionPhaseEnding();
@@ -568,8 +570,16 @@ public class ExecutionTool {
     // a catastrophic failure. Posting these is consistent with other behavior.
     env.getEventBus().post(skyframeExecutor.createExecutionFinishedEvent());
 
-    env.getEventBus()
-        .post(new ExecutionPhaseCompleteEvent(timer.stop().elapsed(TimeUnit.MILLISECONDS)));
+    // With Skymeld, the timer is started with the first execution activity in the build and ends
+    // when the build is done. A running timer indicates that some execution activity happened.
+    //
+    // Sometimes there's no execution in the build: e.g. when there's only 1 target, and we fail at
+    // the analysis phase. In such a case, we shouldn't send out this event. This is consistent with
+    // the noskymeld behavior.
+    if (executionTimer.isRunning()) {
+      env.getEventBus()
+          .post(new ExecutionPhaseCompleteEvent(executionTimer.stop().elapsed().toMillis()));
+    }
   }
 
   private void prepare(PackageRoots packageRoots) throws AbruptExitException, InterruptedException {
@@ -983,11 +993,17 @@ public class ExecutionTool {
   private static class ExecutionProgressReceiverSetup {
     private final SkyframeExecutor skyframeExecutor;
     private final CommandEnvironment env;
+
+    private final Stopwatch executionUnstartedTimer;
     private final AtomicBoolean activated = new AtomicBoolean(false);
 
-    ExecutionProgressReceiverSetup(SkyframeExecutor skyframeExecutor, CommandEnvironment env) {
+    ExecutionProgressReceiverSetup(
+        SkyframeExecutor skyframeExecutor,
+        CommandEnvironment env,
+        Stopwatch executionUnstartedTimer) {
       this.skyframeExecutor = skyframeExecutor;
       this.env = env;
+      this.executionUnstartedTimer = executionUnstartedTimer;
     }
 
     @Subscribe
@@ -1009,6 +1025,7 @@ public class ExecutionTool {
         skyframeExecutor.setActionExecutionProgressReportingObjects(
             executionProgressReceiver, executionProgressReceiver, statusReporter);
         skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
+        executionUnstartedTimer.start();
 
         env.getEventBus().unregister(this);
       }
