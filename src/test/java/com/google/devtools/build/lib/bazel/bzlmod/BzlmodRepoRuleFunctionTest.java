@@ -180,7 +180,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     SkyFunctions.REPOSITORY_MAPPING,
                     // Dummy function that always falls back.
                     (skyKey, env) ->
-                        RepositoryMappingValue.withMapping(RepositoryMapping.ALWAYS_FALLBACK))
+                        RepositoryMappingValue.createForBzlmodRepo(RepositoryMapping.ALWAYS_FALLBACK))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
