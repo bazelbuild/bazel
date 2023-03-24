@@ -148,8 +148,9 @@ py_test(
 
 py_test(
     name = "launcher_test",
-    size = "medium",
+    size = "large",
     srcs = ["launcher_test.py"],
+    shard_count = 5,
     deps = [":test_base"],
 )
 

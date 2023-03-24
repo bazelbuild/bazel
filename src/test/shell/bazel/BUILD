@@ -950,10 +950,10 @@ sh_test(
 
 sh_test(
     name = "cc_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
-    shard_count = 5,
+    shard_count = 10,
     tags = ["no_windows"],
 )
 
