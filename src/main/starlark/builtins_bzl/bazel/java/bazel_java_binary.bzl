@@ -235,7 +235,7 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
         arguments = [launcher_artifact.path, launch_info, executable.path],
         use_default_shell_env = False,
         env = {
-            "PATH" : "%PATH%",
+            "PATH" : "c:/tools/msys64/mingw64/bin;c:/tools/msys64/bin",
         },
     )
     return executable
