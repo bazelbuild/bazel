@@ -79,7 +79,6 @@ class TestBase(unittest.TestCase):
       'remotejdk19_macos_aarch64_for_testing',
       'remotejdk19_win_for_testing',
       'remote_java_tools_for_testing',
-      'remote_java_tools_darwin_for_testing',
       'remote_java_tools_darwin_x86_64_for_testing',
       'remote_java_tools_darwin_arm64_for_testing',
       'remote_java_tools_linux_for_testing',
