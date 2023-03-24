@@ -997,40 +997,6 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     _, _, stderr = self.RunBazel(['build', ':a'], allow_failure=False)
     self.assertIn('I LUV U!', '\n'.join(stderr))
 
-  def testArchiveWithArchiveType(self):
-    # make the archive without the .zip extension
-    self.main_registry.createCcModule(
-        'aaa', '1.2', archive_pattern='%s.%s', archive_type='zip'
-    )
-
-    self.ScratchFile(
-        'MODULE.bazel',
-        [
-            'bazel_dep(name = "aaa", version = "1.2")',
-        ],
-    )
-    self.ScratchFile(
-        'BUILD',
-        [
-            'cc_binary(',
-            '  name = "main",',
-            '  srcs = ["main.cc"],',
-            '  deps = ["@aaa//:lib_aaa"],',
-            ')',
-        ],
-    )
-    self.ScratchFile(
-        'main.cc',
-        [
-            '#include "aaa.h"',
-            'int main() {',
-            '    hello_aaa("main function");',
-            '}',
-        ],
-    )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
-    self.assertIn('main function => aaa@1.2', stdout)
-
   def testNativeModuleNameAndVersion(self):
     self.main_registry.setModuleBasePath('projects')
     projects_dir = self.main_registry.projects
