@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -761,15 +762,17 @@ abstract class AbstractParallelEvaluator {
         // "newDeps" refers to newly discovered this time around after a SkyFunction#compute call
         // and not to be confused with the oldDeps variable which refers to the last evaluation,
         // i.e. a prior call to ParallelEvaluator#eval.
-        Set<SkyKey> newDepsThatWerentInTheLastEvaluation;
-        Set<SkyKey> newDepsThatWereInTheLastEvaluation;
+        Collection<SkyKey> newDepsThatWerentInTheLastEvaluation;
+        ImmutableList<SkyKey> newDepsThatWereInTheLastEvaluation;
         if (oldDeps.isEmpty()) {
           // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
           newDepsThatWerentInTheLastEvaluation = newDeps;
-          newDepsThatWereInTheLastEvaluation = ImmutableSet.of();
+          newDepsThatWereInTheLastEvaluation = ImmutableList.of();
         } else {
-          newDepsThatWerentInTheLastEvaluation = Sets.difference(newDeps, oldDeps);
-          newDepsThatWereInTheLastEvaluation = Sets.intersection(newDeps, oldDeps);
+          newDepsThatWerentInTheLastEvaluation =
+              ImmutableList.copyOf(Sets.difference(newDeps, oldDeps));
+          newDepsThatWereInTheLastEvaluation =
+              ImmutableList.copyOf(Sets.intersection(newDeps, oldDeps));
         }
 
         InterruptibleSupplier<NodeBatch> newDepsThatWerentInTheLastEvaluationNodes =
@@ -1026,15 +1029,14 @@ abstract class AbstractParallelEvaluator {
     }
 
     env.addTemporaryDirectDepsTo(entry);
-    Set<SkyKey> newlyAddedNewDeps;
-    Set<SkyKey> previouslyRegisteredNewDeps;
+    Collection<SkyKey> newlyAddedNewDeps;
+    ImmutableCollection<SkyKey> previouslyRegisteredNewDeps;
     if (oldDeps.isEmpty()) {
-      // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
       newlyAddedNewDeps = newDeps;
       previouslyRegisteredNewDeps = ImmutableSet.of();
     } else {
-      newlyAddedNewDeps = Sets.difference(newDeps, oldDeps);
-      previouslyRegisteredNewDeps = Sets.intersection(newDeps, oldDeps);
+      newlyAddedNewDeps = ImmutableList.copyOf(Sets.difference(newDeps, oldDeps));
+      previouslyRegisteredNewDeps = ImmutableList.copyOf(Sets.intersection(newDeps, oldDeps));
     }
 
     InterruptibleSupplier<NodeBatch> newlyAddedNewDepNodes =
