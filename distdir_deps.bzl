@@ -416,10 +416,7 @@ DIST_DEPS = {
     },
     "remote_java_tools_darwin_x86_64": {
         "aliases": [
-            "remote_java_tools_darwin",
-            "remote_java_tools_test_darwin",
             "remote_java_tools_test_darwin_x86_64",
-            "remote_java_tools_darwin_for_testing",
             "remote_java_tools_darwin_x86_64_for_testing",
         ],
         "archive": "java_tools_darwin_x86_64-v11.12.zip",
