@@ -233,7 +233,7 @@ def _create_windows_exe_launcher(ctx, java_executable, classpath, main_class, jv
         tools = [ctx.executable._windows_launcher_maker],
         outputs = [executable],
         arguments = [launcher_artifact.path, launch_info, executable.path],
-        use_default_shell_env = True,
+        use_default_shell_env = False,
         env = {
             "foo" : "bar",
         },
