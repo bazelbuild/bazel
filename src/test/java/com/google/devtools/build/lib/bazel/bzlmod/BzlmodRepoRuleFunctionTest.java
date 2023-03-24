@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -180,7 +181,7 @@ public final class BzlmodRepoRuleFunctionTest extends FoundationTestCase {
                     SkyFunctions.REPOSITORY_MAPPING,
                     // Dummy function that always falls back.
                     (skyKey, env) ->
-                        RepositoryMappingValue.createForBzlmodRepo(RepositoryMapping.ALWAYS_FALLBACK))
+                        RepositoryMappingValue.createForBzlmodRepo(RepositoryMapping.ALWAYS_FALLBACK, "", Version.EMPTY))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,
