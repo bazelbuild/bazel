@@ -30,15 +30,20 @@
 //       using bazel::tools::cpp::runfiles::Runfiles;
 //
 // 3.  Create a Runfiles object and use rlocation to look up runfile paths:
+//     Note that if Runfiles::CurrentRepository() is not supported for the cc
+//     toolchain you are using. Please use BAZEL_CURRENT_REPOSITORY instead.
+//     However, note that BAZEL_CURRENT_REPOSITORY should only be used in source
+//     files, i.e., do not use them in headers.
 //
 //       int main(int argc, char** argv) {
 //         std::string error;
 //         std::unique_ptr<Runfiles> runfiles(
-//             Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY, &error));
+//             Runfiles::Create(argv[0], Runfiles::CurrentRepository(),
+//             &error));
 //
 //         // Important:
 //         //   If this is a test, use
-//         //   Runfiles::CreateForTest(BAZEL_CURRENT_REPOSITORY, &error).
+//         //   Runfiles::CreateForTest(Runfiles::CurrentRepository(), &error).
 //
 //         if (runfiles == nullptr) {
 //           ...  // error handling
@@ -58,7 +63,7 @@
 // environment variables for them:
 //
 //   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(
-//     argv[0], BAZEL_CURRENT_REPOSITORY, &error));
+//     argv[0], Runfiles::CurrentRepository(), &error));
 //
 //   std::string path = runfiles->Rlocation("path/to/binary"));
 //   if (!path.empty()) {
@@ -92,6 +97,51 @@ namespace runfiles {
 class Runfiles {
  public:
   virtual ~Runfiles() {}
+
+#if defined(__has_builtin)
+#if __has_builtin(__builtin_FILE)
+#define BAZEL_TOOLS_CPP_RUNFILES_GENERIC_HAS_BUILTIN_FILE
+#endif
+#endif
+#if defined(_MSC_VER)
+#if _MSC_VER >= 1926
+#define BAZEL_TOOLS_CPP_RUNFILES_MSVC_HAS_BUILTIN_FILE
+#endif
+#endif
+#if defined(BAZEL_TOOLS_CPP_RUNFILES_GENERIC_HAS_BUILTIN_FILE) || \
+    defined(BAZEL_TOOLS_CPP_RUNFILES_MSVC_HAS_BUILTIN_FILE)
+#define BAZEL_TOOLS_CPP_RUNFILES_HAS_BUILTIN_FILE
+#endif
+#undef BAZEL_TOOLS_CPP_RUNFILES_GENERIC_HAS_BUILTIN_FILE
+#undef BAZEL_TOOLS_CPP_RUNFILES_MSVC_HAS_BUILTIN_FILE
+
+#if defined(BAZEL_TOOLS_CPP_RUNFILES_HAS_BUILTIN_FILE)
+  // Returns the repository name.
+  //
+  // Use this from within `cc_test` rules.
+  //
+  // Returns nullptr on error. If `error` is provided, the method prints an
+  // error message into it.
+  //
+  // This method looks at the RUNFILES_MANIFEST_FILE and TEST_SRCDIR
+  // environment variables.
+  //
+  // If source_repository is not provided, it defaults to the main repository
+  // (also known as the workspace).
+  static std::string CurrentRepository(const std::string& file = __builtin_FILE());
+ private:
+  static std::string GetPrefixHint() {
+    return __builtin_FILE();
+  }
+ public:
+#else
+  template <typename T = decltype(nullptr)>
+  static std::string CurrentRepository(const std::string& file = "") {
+    static_assert(T{} != nullptr, "Runfiles::CurrentRepository is not "
+                                  "supported by the current cc toolchain");
+    return "";
+  }
+#endif
 
   // Returns a new `Runfiles` instance.
   //

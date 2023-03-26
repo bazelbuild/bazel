@@ -30,6 +30,7 @@
 #include <functional>
 #include <map>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN32
@@ -79,6 +80,21 @@ bool ends_with(const string& s, const string& suffix) {
   return s.rfind(suffix) == s.size() - suffix.size();
 }
 
+std::vector<std::string> split(const std::string& s, const std::string& sep) {
+  std::vector<std::string> res;
+  std::string buf;
+  for (char c : s) {
+    if (std::find(sep.begin(), sep.end(), c) != sep.end()) {
+      res.emplace_back(std::move(buf));
+      buf.clear();
+    } else {
+      buf.push_back(c);
+    }
+  }
+  res.emplace_back(std::move(buf));
+  return res;
+}
+
 bool IsReadableFile(const string& path) {
   return std::ifstream(path).is_open();
 }
@@ -110,6 +126,35 @@ bool ParseRepoMapping(const string& path,
                       map<pair<string, string>, string>* result, string* error);
 
 }  // namespace
+
+#if defined(BAZEL_TOOLS_CPP_RUNFILES_HAS_BUILTIN_FILE)
+std::string Runfiles::CurrentRepository(const std::string& file) {
+  static const std::vector<std::string>& prefixes = [] {
+    // */external/bazel_tools/tools/cpp/runfiles/runfiles_src.h
+    auto paths = split(GetPrefixHint(), "/\\");
+    if (paths.size() >= 6) {
+      paths.erase(paths.end() - 6, paths.end());
+    } else {
+      paths.clear();
+    }
+    return paths;
+  }();
+  std::vector<std::string> paths = split(file, "/\\");
+  if (paths.size() > prefixes.size()) {
+    if (std::equal(prefixes.begin(), prefixes.end(), paths.begin())) {
+      paths.erase(paths.begin(), paths.begin() + prefixes.size());
+    }
+  }
+  if (paths.size() >= 2 && paths[0] == "external") {  // external/repo_name
+    return paths[1];
+  } else if (paths.size() >= 5 && paths[0] == "bazel-out" &&
+             paths[3] == "external") {  // bazel-out/*/*/external/repo_name
+    return paths[4];
+  } else {  // main repository
+    return "";
+  }
+}
+#endif
 
 Runfiles* Runfiles::Create(const string& argv0,
                            const string& runfiles_manifest_file,
