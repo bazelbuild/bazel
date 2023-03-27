@@ -1,3 +1,49 @@
+## Release 7.0.0-pre.20230316.2 (2023-03-27)
+
+```
+Baseline: 8b68efeea23fdcd734bcb1f4bbd6754f11108405
+
+Cherry picks:
+
+   + 8a23169311142f49ceef076eb02e06f030e275ed:
+     Automated rollback of commit
+     08d31877bd5c1500e3ca67f47bcd3b79b4af226d.
+```
+
+Incompatible changes:
+
+  - Bazel's local CPU resource on Linux is now container aware. Use
+    `--local_cpu_resources`, `--loading_phase_threads` or `--jobs` to
+    override.
+  - `copy_from_rule` is exec_groups is deprecated
+    (https://github.com/bazelbuild/bazel/issues/17668).
+  - --legacy_bazel_java_test is now a no-op
+  - --legacy_bazel_java_test is now a no-op
+
+Important changes:
+
+  - making --incompatible_use_platforms_repo_for_constraints do
+    nothing. Using constraints from @bazel_tools//platforms with or
+    without the flag will throw error with message "Constraints from
+    @bazel_tools//platforms have been removed. Please use constraints
+    from @platforms repository embedded in Bazel, or preferably
+    declare dependency on https://github.com/bazelbuild/platforms"
+  - Fixed an issue where WORKSPACE and WORKSPACE-loaded .bzl files
+    couldn't see the Bzlmod root module's mappings when Bzlmod is
+    enabled.
+  - Subsequent settings of --extra_execution_platforms now override
+    previous settings, instead of adding them to a list. If you
+    currently set --extra_execution_platforms more than once, please
+    migrate by passing a list of values to
+    --extra_execution_platforms instead so that earlier values aren't
+    overwritten.
+  - @bazel_tools//config:common_settings.bzl has been removed.
+    Use @bazel_skylib//rules:common_settings.bzl instead.
+  - cc_shared_library is no longer experimental, see
+    https://github.com/bazelbuild/bazel/issues/16709 for details
+
+This release contains contributions from many people at Google, as well as Adam Lavin, Andy Hamon, Benjamin Peterson, Ezekiel Warren, Fabian Meumertzheim, Julio Merino, Keith Smiley, redwrasse, Sagar Pathare, something_vague, Yannic Bonenberger.
+
 ## Release 7.0.0-pre.20230306.4 (2023-03-17)
 
 ```
