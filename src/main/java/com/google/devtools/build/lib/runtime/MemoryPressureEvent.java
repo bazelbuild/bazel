@@ -22,6 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 public abstract class MemoryPressureEvent {
   public abstract boolean wasManualGc();
 
+  public abstract boolean wasGcLockerInitiatedGc();
+
   public abstract boolean wasFullGc();
 
   public abstract long tenuredSpaceUsedBytes();
@@ -30,7 +32,10 @@ public abstract class MemoryPressureEvent {
 
   @VisibleForTesting
   public static Builder newBuilder() {
-    return new AutoValue_MemoryPressureEvent.Builder().setWasFullGc(false);
+    return new AutoValue_MemoryPressureEvent.Builder()
+        .setWasManualGc(false)
+        .setWasGcLockerInitiatedGc(false)
+        .setWasFullGc(false);
   }
 
   /** A memory pressure event builder. */
@@ -38,6 +43,8 @@ public abstract class MemoryPressureEvent {
   @AutoValue.Builder
   public abstract static class Builder {
     public abstract Builder setWasManualGc(boolean value);
+
+    public abstract Builder setWasGcLockerInitiatedGc(boolean value);
 
     public abstract Builder setWasFullGc(boolean value);
 
