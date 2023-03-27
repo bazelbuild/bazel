@@ -31,13 +31,16 @@ import net.starlark.java.syntax.Location;
 /** An EvalException indicates an Starlark evaluation error. */
 public class EvalException extends Exception {
 
+  private static final ImmutableList<StarlarkThread.CallStackEntry> NO_CALLSTACK_SENTINEL =
+      ImmutableList.of();
+
   // The call stack associated with this error.
   // It is initially null, but is set by the interpreter to a non-empty
   // stack when popping a frame. Thus an exception newly created by a
   // built-in function has no stack until it is thrown out of a function call.
   @Nullable private ImmutableList<StarlarkThread.CallStackEntry> callstack;
 
-  /** Constructs an EvalException. Use {@link Starlak#errorf} if you want string formatting. */
+  /** Constructs an EvalException. Use {@link Starlark#errorf} if you want string formatting. */
   public EvalException(String message) {
     this(message, /*cause=*/ null);
   }
@@ -55,6 +58,12 @@ public class EvalException extends Exception {
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
     super(getCauseMessage(cause), cause);
+  }
+
+  static EvalException createWithoutCallStack(String message) {
+    EvalException e = new EvalException(message);
+    e.callstack = NO_CALLSTACK_SENTINEL;
+    return e;
   }
 
   private static String getCauseMessage(Throwable cause) {
@@ -107,7 +116,7 @@ public class EvalException extends Exception {
    * source line for each stack frame is obtained from the provided SourceReader.
    */
   public final String getMessageWithStack(SourceReader src) {
-    if (callstack != null) {
+    if (callstack != null && callstack != NO_CALLSTACK_SENTINEL) {
       return formatCallStack(callstack, getMessage(), src);
     }
     return getMessage();

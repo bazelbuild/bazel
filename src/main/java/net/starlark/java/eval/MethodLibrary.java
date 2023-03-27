@@ -673,6 +673,16 @@ class MethodLibrary {
                 "Deprecated. Causes an optional prefix containing this string to be added to the"
                     + " error message.",
             positional = false,
+            named = true),
+        @Param(
+            name = "causes",
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = FailureCause.class),
+            },
+            defaultValue = "[]",
+            doc = "A list of <code>failure_causes</code> to append to the error message. If this "
+                + "list is not empty, no stack trace is printed.",
+            positional = false,
             named = true)
       },
       extraPositionals =
@@ -682,8 +692,9 @@ class MethodLibrary {
                   "A list of values, formatted with str and joined with spaces, that appear in the"
                       + " error message."),
       useStarlarkThread = true)
-  public void fail(Object msg, Object attr, Tuple args, StarlarkThread thread)
+  public void fail(Object msg, Object attr, Sequence<?> contexts0, Tuple args, StarlarkThread thread)
       throws EvalException {
+    Sequence<FailureCause> causes = Sequence.cast(contexts0, FailureCause.class, "causes");
     List<String> elems = new ArrayList<>();
     // msg acts like a leading element of args.
     if (msg != Starlark.NONE) {
@@ -696,7 +707,21 @@ class MethodLibrary {
     if (attr != Starlark.NONE) {
       str = String.format("attribute %s: %s", attr, str);
     }
-    throw Starlark.errorf("%s", str);
+
+    if (causes.isEmpty()) {
+      throw Starlark.errorf("%s", str);
+    } else {
+      Printer p = new Printer();
+      p.append(str);
+      p.append("\nCauses:");
+      try (SilentCloseable ignored = p.indent()) {
+        for (FailureCause cause : causes) {
+          p.append('\n');
+          cause.appendCauseTo(p, thread.getSemantics());
+        }
+      }
+      throw EvalException.createWithoutCallStack(p.toString());
+    }
   }
 
   @StarlarkMethod(
