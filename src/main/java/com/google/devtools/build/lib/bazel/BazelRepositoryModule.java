@@ -392,7 +392,8 @@ public class BazelRepositoryModule extends BlazeModule {
         // We use a LinkedHashMap to preserve the iteration order.
         Map<RepositoryName, PathFragment> overrideMap = new LinkedHashMap<>();
         for (RepositoryOverride override : repoOptions.repositoryOverrides) {
-          overrideMap.put(override.repositoryName(), override.path());
+          String repoPath = getAbsolutePath(override.path(), env);
+          overrideMap.put(override.repositoryName(), PathFragment.create(repoPath));
         }
         ImmutableMap<RepositoryName, PathFragment> newOverrides = ImmutableMap.copyOf(overrideMap);
         if (!Maps.difference(overrides, newOverrides).areEqual()) {
@@ -404,9 +405,9 @@ public class BazelRepositoryModule extends BlazeModule {
 
       if (repoOptions.moduleOverrides != null) {
         Map<String, ModuleOverride> moduleOverrideMap = new LinkedHashMap<>();
-        for (RepositoryOptions.ModuleOverride modOverride : repoOptions.moduleOverrides) {
-          moduleOverrideMap.put(
-              modOverride.moduleName(), LocalPathOverride.create(modOverride.path()));
+        for (RepositoryOptions.ModuleOverride override : repoOptions.moduleOverrides) {
+          String modulePath = getAbsolutePath(override.path(), env);
+          moduleOverrideMap.put(override.moduleName(), LocalPathOverride.create(modulePath));
         }
         ImmutableMap<String, ModuleOverride> newModOverrides =
             ImmutableMap.copyOf(moduleOverrideMap);
@@ -467,6 +468,21 @@ public class BazelRepositoryModule extends BlazeModule {
       singleExtensionEvalFunction.setRepositoryRemoteExecutor(remoteExecutor);
       delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
     }
+  }
+
+  /**
+   * If the given path is absolute path, leave it as it is. If the given path is a relative path, it
+   * is relative to the current working directory. If the given path starts with '%workspace%, it is
+   * relative to the workspace root, which is the output of `bazel info workspace`.
+   *
+   * @return Absolute Path
+   */
+  private String getAbsolutePath(String path, CommandEnvironment env) {
+    path = path.replace("%workspace%", env.getWorkspace().getPathString());
+    if (!PathFragment.isAbsolute(path)) {
+      path = env.getWorkingDirectory().getRelative(path).getPathString();
+    }
+    return path;
   }
 
   @Override
