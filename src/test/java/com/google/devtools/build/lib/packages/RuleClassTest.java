@@ -69,6 +69,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkFunction;
@@ -264,6 +265,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
+            Optional.empty(),
+            Optional.empty(),
             StarlarkSemantics.DEFAULT,
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK)

@@ -52,6 +52,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
@@ -464,6 +465,8 @@ public final class PackageFactory {
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
       String workspaceName,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping) {
@@ -471,6 +474,8 @@ public final class PackageFactory {
         packageSettings,
         packageId,
         workspaceName,
+        associatedModuleName,
+        associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
         mainRepositoryMapping);

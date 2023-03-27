@@ -83,6 +83,18 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
     return Label.parseCanonicalUnchecked("//:fake_label");
   }
 
+  @Nullable
+  @Override
+  public String moduleName(StarlarkThread thread) throws EvalException {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public String moduleVersion(StarlarkThread thread) throws EvalException {
+    return null;
+  }
+
   @Override
   public Sequence<?> subpackages(
       Sequence<?> include, Sequence<?> exclude, boolean allowEmpty, StarlarkThread thread)
