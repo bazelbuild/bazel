@@ -537,6 +537,7 @@ public final class SkyframeBuildView {
       BuildResultListener buildResultListener,
       CoverageReportActionsWrapperSupplier coverageReportActionsWrapperSupplier,
       boolean keepGoing,
+      boolean skipIncompatibleExplicitTargets,
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
       QuiescingExecutors executors,
@@ -573,6 +574,7 @@ public final class SkyframeBuildView {
                         strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
+                        skipIncompatibleExplicitTargets,
                         determineTestType(
                             testsToRun,
                             labelTargetMap,
@@ -589,7 +591,8 @@ public final class SkyframeBuildView {
                         k,
                         topLevelArtifactContext,
                         strictConflictCheck,
-                        /*explicitlyRequested=*/ explicitTargetPatterns.contains(k.getLabel())))
+                        /* explicitlyRequested= */ explicitTargetPatterns.contains(k.getLabel()),
+                        skipIncompatibleExplicitTargets))
             .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     MultiThreadPoolsQuiescingExecutor executor =

@@ -211,6 +211,7 @@ public class BuildView {
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
       boolean keepGoing,
+      boolean skipIncompatibleExplicitTargets,
       boolean checkForActionConflicts,
       QuiescingExecutors executors,
       TopLevelArtifactContext topLevelOptions,
@@ -426,6 +427,7 @@ public class BuildView {
                     getCoverageArtifactsHelper(
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
+                skipIncompatibleExplicitTargets,
                 targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 executors,
@@ -492,7 +494,10 @@ public class BuildView {
 
         PlatformRestrictionsResult platformRestrictions =
             topLevelConstraintSemantics.checkPlatformRestrictions(
-                skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+                skyframeAnalysisResult.getConfiguredTargets(),
+                explicitTargetPatterns,
+                keepGoing,
+                skipIncompatibleExplicitTargets);
 
         if (!platformRestrictions.targetsWithErrors().isEmpty()) {
           // If there are any errored targets (e.g. incompatible targets that are explicitly
