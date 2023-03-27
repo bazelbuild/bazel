@@ -30,12 +30,7 @@
 #include <sys/endian.h>
 #elif defined(__APPLE__) || defined(_WIN32)
 // Hopefully OSX and Windows will keep running solely on little endian CPUs, so:
-#define le16toh(x) (x)
-#define le32toh(x) (x)
-#define le64toh(x) (x)
-#define htole16(x) (x)
 #define htole32(x) (x)
-#define htole64(x) (x)
 #else
 #error "This platform is not supported."
 #endif
