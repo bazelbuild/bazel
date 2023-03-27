@@ -30,6 +30,10 @@ public abstract class MemoryPressureEvent {
 
   public abstract long tenuredSpaceMaxBytes();
 
+  public final int percentTenuredSpaceUsed() {
+    return (int) ((tenuredSpaceUsedBytes() * 100L) / tenuredSpaceMaxBytes());
+  }
+
   @VisibleForTesting
   public static Builder newBuilder() {
     return new AutoValue_MemoryPressureEvent.Builder()

@@ -130,7 +130,7 @@ final class RetainedHeapLimiter implements MemoryPressureStatCollector {
       return; // Inactive.
     }
 
-    int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
+    int actual = event.percentTenuredSpaceUsed();
     if (actual < threshold) {
       if (wasHeapLimiterTriggeredGc || wasGcLockerDeferredHeapLimiterTriggeredGc) {
         logger.atInfo().log("Back under threshold (%s%% of tenured space)", actual);
