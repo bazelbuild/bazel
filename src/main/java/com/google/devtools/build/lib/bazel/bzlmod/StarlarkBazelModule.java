@@ -101,6 +101,7 @@ public class StarlarkBazelModule implements StarlarkValue {
   public static StarlarkBazelModule create(
       AbridgedModule module,
       ModuleExtension extension,
+      ModuleExtensionId extensionId,
       RepositoryMapping repoMapping,
       @Nullable ModuleExtensionUsage usage)
       throws ExternalDepsException {
@@ -130,7 +131,7 @@ public class StarlarkBazelModule implements StarlarkValue {
       // (for example, String to Label).
       typeCheckedTags
           .get(tag.getTagName())
-          .add(TypeCheckedTag.create(tagClass, tag, labelConverter));
+          .add(TypeCheckedTag.create(tagClass, tag, labelConverter, tag.getTagName(), extensionId));
     }
     return new StarlarkBazelModule(
         module.getName(),

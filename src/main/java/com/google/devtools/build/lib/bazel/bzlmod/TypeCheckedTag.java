@@ -23,25 +23,42 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.FailureCause;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.spelling.SpellChecker;
+import net.starlark.java.syntax.Location;
 
 /**
  * A {@link Tag} whose attribute values have been type-checked against the attribute schema define
  * in the {@link TagClass}.
  */
 @StarlarkBuiltin(name = "bazel_module_tag", documented = false)
-public class TypeCheckedTag implements Structure {
+public class TypeCheckedTag implements FailureCause, Structure {
+
   private final TagClass tagClass;
   private final Object[] attrValues;
 
-  private TypeCheckedTag(TagClass tagClass, Object[] attrValues) {
+  // The properties below are only used for error reporting.
+  private final Location location;
+  private final String tagClassName;
+  private final String extensionName;
+
+  private TypeCheckedTag(TagClass tagClass, Object[] attrValues, Location location,
+      String tagClassName, String extensionName) {
     this.tagClass = tagClass;
     this.attrValues = attrValues;
+    this.location = location;
+    this.tagClassName = tagClassName;
+    this.extensionName = extensionName;
   }
 
-  /** Creates a {@link TypeCheckedTag}. */
-  public static TypeCheckedTag create(TagClass tagClass, Tag tag, LabelConverter labelConverter)
+  /**
+   * Creates a {@link TypeCheckedTag}.
+   */
+  public static TypeCheckedTag create(TagClass tagClass, Tag tag, LabelConverter labelConverter,
+      String tagClassName, ModuleExtensionId extensionId)
       throws ExternalDepsException {
     Object[] attrValues = new Object[tagClass.getAttributes().size()];
     for (Map.Entry<String, Object> attrValue : tag.getAttributeValues().entrySet()) {
@@ -95,7 +112,8 @@ public class TypeCheckedTag implements Structure {
         attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
       }
     }
-    return new TypeCheckedTag(tagClass, attrValues);
+    return new TypeCheckedTag(tagClass, attrValues, tag.getLocation(), tagClassName,
+        extensionId.getExtensionName());
   }
 
   @Override
@@ -122,5 +140,29 @@ public class TypeCheckedTag implements Structure {
   @Override
   public String getErrorMessageForUnknownField(String field) {
     return "unknown attribute " + field;
+  }
+
+  @Override
+  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+    printer.append(extensionName);
+    printer.append('.');
+    printer.append(tagClassName);
+    printer.append("(\n");
+
+    for (int i = 0; i < attrValues.length; i++) {
+      Attribute attr = tagClass.getAttributes().get(i);
+      printer.append("    ");
+      printer.append(attr.getPublicName());
+      printer.append(" = ");
+      printer.repr(attrValues[i]);
+      printer.append(",\n");
+    }
+
+    printer.append(")");
+  }
+
+  @Override
+  public Location getLocation() {
+    return location;
   }
 }

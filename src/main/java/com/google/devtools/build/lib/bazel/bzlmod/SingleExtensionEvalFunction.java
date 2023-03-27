@@ -259,6 +259,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             StarlarkBazelModule.create(
                 abridgedModule,
                 extension,
+                extensionId,
                 usagesValue.getRepoMappings().get(moduleKey),
                 usagesValue.getExtensionUsages().get(moduleKey)));
       } catch (ExternalDepsException e) {
