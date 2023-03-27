@@ -263,21 +263,18 @@ local_repository(
     path = "original",
 )
 EOF
+  # Test absolute path
   bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
-
+  # Test no override used
   bazel build @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "original" bazel-genfiles/external/o/gen.out
-
-  bazel build --override_repository="o=$PWD/override" @o//:gen &> $TEST_log \
+  # Test relative path (should be relative to working directory)
+  bazel build --override_repository="o=override" @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
-
-  bazel build @o//:gen &> $TEST_log \
-    || fail "Expected build to succeed"
-  assert_contains "original" bazel-genfiles/external/o/gen.out
 
   # For multiple override options, the latest should win
   bazel build --override_repository=o=/ignoreme \
@@ -285,6 +282,13 @@ EOF
         @o//:gen &> $TEST_log \
     || fail "Expected build to succeed"
   assert_contains "override" bazel-genfiles/external/o/gen.out
+
+  # Test workspace relative path
+  mkdir -p dummy
+  cd dummy
+  bazel build --override_repository="o=%workspace%/override" @o//:gen &> $TEST_log \
+    || fail "Expected build to succeed"
+  assert_contains "override" ../bazel-genfiles/external/o/gen.out
 
 }
 
