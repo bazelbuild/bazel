@@ -297,6 +297,7 @@ def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
                         name = "launcher",
                     ) if resolve_launcher_flag else (_compute_launcher_attr if has_launcher else None),
                 ),
+                "_use_auto_exec_groups": attr.bool(default = True),
             },
             ({} if executable else {
                 "args": attr.string_list(),
