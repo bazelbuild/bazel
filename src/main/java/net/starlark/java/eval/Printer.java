@@ -14,6 +14,7 @@
 package net.starlark.java.eval;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import java.util.Arrays;
 import java.util.IllegalFormatException;
 import java.util.List;
@@ -36,6 +37,7 @@ public class Printer {
   // indicating a cycle.
   private Object[] stack;
   private int depth;
+  private String indent = "";
 
   /** Creates a printer that writes to the given buffer. */
   public Printer(StringBuilder buffer) {
@@ -47,24 +49,47 @@ public class Printer {
     this(new StringBuilder());
   }
 
+  /** Increases the indent level by one tab.
+   *  Should be called at the beginning of a new line.
+   */
+  @CheckReturnValue
+  public final SilentCloseable indent() {
+    indent += '\t';
+    buffer.append('\t');
+    return () -> indent = indent.substring(0, indent.length() - 1);
+  }
+
   /** Appends a char to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(char c) {
     buffer.append(c);
+    if (c == '\n') {
+      buffer.append(indent);
+    }
     return this;
   }
 
   /** Appends a char sequence to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(CharSequence s) {
-    buffer.append(s);
-    return this;
+    if (indent.isEmpty()) {
+      buffer.append(s);
+      return this;
+    } else {
+      return append(s, 0, s.length());
+    }
   }
 
   /** Appends a char subsequence to the printer's buffer */
   @CanIgnoreReturnValue
   public final Printer append(CharSequence s, int start, int end) {
-    buffer.append(s, start, end);
+    if (indent.isEmpty()) {
+      buffer.append(s, start, end);
+    } else {
+      for (int i = start; i < end; i++) {
+        append(s.charAt(i));
+      }
+    }
     return this;
   }
 
