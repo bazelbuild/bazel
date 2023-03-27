@@ -25,6 +25,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -72,6 +73,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -82,6 +84,17 @@ public class BuildDriverFunction implements SkyFunction {
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
+
+  // A set of BuildDriverKeys that have been checked for conflicts.
+  // This gets cleared after each build.
+  // We can't use SkyKeyComputeState here since it doesn't guarantee that the same state for
+  // a previously requested SkyKey is retrieved. This could cause a correctness issue:
+  // - we clear the conflict checking states and shut down the Executors after all the analysis
+  //   work is done in the build
+  // - If the SkyKeyComputeState for this BuildDriverKey was cleared, an evaluation of this key
+  //   would attempt again to check for conflicts => we redo the work, or a race condition with the
+  //   shutting down of the Executors could lead to a RejectedExecutionException.
+  private Set<BuildDriverKey> checkedForConflicts = Sets.newConcurrentHashSet();
 
   BuildDriverFunction(
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
@@ -95,7 +108,6 @@ public class BuildDriverFunction implements SkyFunction {
   }
 
   private static class State implements SkyKeyComputeState {
-    private ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts;
     // It's only necessary to do this check once.
     private boolean checkedForCompatibility = false;
     private boolean checkedForPlatformCompatibility = false;
@@ -129,28 +141,22 @@ public class BuildDriverFunction implements SkyFunction {
       return null;
     }
 
-    // This code path should not be run during error bubbling for several reasons:
-    // 1. Correctness: to check for action conflicts, we need access to the transitive
-    //    ConfiguredTargets, which will be null after AnalysisPhaseCompleteEvent in
-    //    --discard_analysis_cache mode.
-    // 2. Performance: this method is CPU intensive, and it does not offer anything while error
-    //    bubbling.
-    if (!env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
-      // Unconditionally check for action conflicts.
-      // TODO(b/214371092): Only check when necessary.
-      try (SilentCloseable c =
-          Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-        if (state.actionConflicts == null) {
-          state.actionConflicts =
-              checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
-        }
-        if (!state.actionConflicts.isEmpty()) {
+    // Unconditionally check for action conflicts.
+    // TODO(b/214371092): Only check when necessary.
+    try (SilentCloseable c =
+        Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
+      // We only check for action conflict once per BuildDriverKey.
+      if (checkedForConflicts.add(buildDriverKey)) {
+        ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
+            checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
+        if (!actionConflicts.isEmpty()) {
           throw new BuildDriverFunctionException(
               new TopLevelConflictException(
                   "Action conflict(s) detected while analyzing top-level target "
                       + actionLookupKey.getLabel(),
-                  state.actionConflicts));
+                  actionConflicts));
         }
+
       }
     }
 
@@ -244,6 +250,10 @@ public class BuildDriverFunction implements SkyFunction {
     }
 
     return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+  }
+
+  public void resetActionConflictCheckingStatus() {
+    checkedForConflicts = Sets.newConcurrentHashSet();
   }
 
   private static void postTopLevelTargetAnalyzedEvent(

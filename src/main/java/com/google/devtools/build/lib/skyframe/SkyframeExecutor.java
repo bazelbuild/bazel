@@ -335,6 +335,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
+  private BuildDriverFunction buildDriverFunction;
   private GlobFunction globFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
@@ -660,8 +661,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
         ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
-    map.put(
-        SkyFunctions.BUILD_DRIVER,
+    BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
               @Override
@@ -676,7 +676,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             },
             this::getIncrementalArtifactConflictFinder,
             this::getRuleContextConstraintSemantics,
-            this::getExtraActionFilter));
+            this::getExtraActionFilter);
+    map.put(SkyFunctions.BUILD_DRIVER, buildDriverFunction);
+    this.buildDriverFunction = buildDriverFunction;
+
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -2396,6 +2399,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   void resetActionConflictsStoredInSkyframe() {
     memoizingEvaluator.delete(
         SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+  }
+
+  public void resetBuildDriverFunction() {
+    buildDriverFunction.resetActionConflictCheckingStatus();
   }
 
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */

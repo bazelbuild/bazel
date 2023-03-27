@@ -636,6 +636,7 @@ public final class SkyframeBuildView {
           // We unconditionally reset the states here instead of in #analysisFinishedCallback since
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
           skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
+          skyframeExecutor.resetBuildDriverFunction();
 
           Set<Artifact> additionalArtifacts = new HashSet<>();
 
