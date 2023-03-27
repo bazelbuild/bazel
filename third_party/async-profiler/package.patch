@@ -1,0 +1,91 @@
+diff --git a/src/converter/Arguments.java b/src/converter/Arguments.java
+index a0059e2..4d33acb 100644
+--- a/src/converter/Arguments.java
++++ b/src/converter/Arguments.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ import java.lang.reflect.Field;
+ import java.lang.reflect.Modifier;
+ import java.util.Calendar;
+diff --git a/src/converter/CollapsedStacks.java b/src/converter/CollapsedStacks.java
+index d5b086b..1b4878f 100644
+--- a/src/converter/CollapsedStacks.java
++++ b/src/converter/CollapsedStacks.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ import java.io.BufferedOutputStream;
+ import java.io.FileOutputStream;
+ import java.io.IOException;
+diff --git a/src/converter/FlameGraph.java b/src/converter/FlameGraph.java
+index e4de8eb..a0d7cc3 100644
+--- a/src/converter/FlameGraph.java
++++ b/src/converter/FlameGraph.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ import java.io.BufferedOutputStream;
+ import java.io.BufferedReader;
+ import java.io.ByteArrayOutputStream;
+diff --git a/src/converter/Main.java b/src/converter/Main.java
+index 1f96168..741c97a 100644
+--- a/src/converter/Main.java
++++ b/src/converter/Main.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ /**
+  * Main entry point of jar.
+  * Lists available converters.
+diff --git a/src/converter/jfr2flame.java b/src/converter/jfr2flame.java
+index a07167d..6e0cd45 100644
+--- a/src/converter/jfr2flame.java
++++ b/src/converter/jfr2flame.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ import one.jfr.ClassRef;
+ import one.jfr.Dictionary;
+ import one.jfr.JfrReader;
+diff --git a/src/converter/jfr2nflx.java b/src/converter/jfr2nflx.java
+index a3a9a8a..c41b62c 100644
+--- a/src/converter/jfr2nflx.java
++++ b/src/converter/jfr2nflx.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ import one.jfr.ClassRef;
+ import one.jfr.JfrReader;
+ import one.jfr.MethodRef;
+diff --git a/src/converter/jfr2pprof.java b/src/converter/jfr2pprof.java
+index 78a89fb..9a34aba 100644
+--- a/src/converter/jfr2pprof.java
++++ b/src/converter/jfr2pprof.java
+@@ -14,6 +14,8 @@
+  * limitations under the License.
+  */
+ 
++package one.converter;
++
+ import one.jfr.ClassRef;
+ import one.jfr.Dictionary;
+ import one.jfr.JfrReader;

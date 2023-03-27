@@ -745,14 +745,54 @@ maven_install(
         # and hamcrest is a dependency of junit.
         "junit:junit:4.13.2",
         "org.hamcrest:hamcrest-core:1.3",
-        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
-        maven.artifact("com.google.jimfs", "jimfs", "1.2", testonly = True),
-        maven.artifact("com.google.testing.compile", "compile-testing", "0.18", testonly = True),
-        maven.artifact("com.google.truth", "truth", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-java8-extension", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-liteproto-extension", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-proto-extension", "1.1.3", testonly = True),
-        maven.artifact("org.mockito", "mockito-core", "3.12.4", testonly = True),
+        maven.artifact(
+            "com.google.guava",
+            "guava-testlib",
+            "31.1-jre",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.jimfs",
+            "jimfs",
+            "1.2",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.testing.compile",
+            "compile-testing",
+            "0.18",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth",
+            "truth",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-java8-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-liteproto-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-proto-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "org.mockito",
+            "mockito-core",
+            "3.12.4",
+            testonly = True,
+        ),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
@@ -799,3 +839,8 @@ maven_install(
 load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
 
 pinned_maven_install_android()
+
+dist_http_archive(
+    name = "async-profiler",
+    build_file = "//third_party:async-profiler/async-profiler.BUILD",
+)

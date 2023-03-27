@@ -1,0 +1,13 @@
+diff --git a/src/incbin.h b/src/incbin.h
+index b3b663e..0231fb8 100644
+--- a/src/incbin.h
++++ b/src/incbin.h
+@@ -31,7 +31,7 @@
+     asm(INCBIN_SECTION "\n"\
+         ".global " INCBIN_SYMBOL #NAME "\n"\
+         INCBIN_SYMBOL #NAME ":\n"\
+-        ".incbin \"" FILE "\"\n"\
++        ".incbin \"" FILE ".inl\"\n"\
+         ".global " INCBIN_SYMBOL #NAME "_END\n"\
+         INCBIN_SYMBOL #NAME "_END:\n"\
+         ".byte 0x00\n"\

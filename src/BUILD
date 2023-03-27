@@ -18,6 +18,7 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         # otherwise bazel won't correctly reextract modified files.
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "@async-profiler//:async_profiler_jni",
         "//src/main/cpp:client",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
@@ -239,6 +240,7 @@ genrule(
         ":platforms_archive",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
+        "@async-profiler//:async_profiler_jni",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",

@@ -283,6 +283,27 @@ DIST_DEPS = {
         "license_text": "LICENSE",
         "package_version": "1.5.2-3",
     },
+    "async-profiler": {
+        "archive": "v2.9.zip",
+        "sha256": "49c966106f92bcce09eb858f3475acd4490a9759ff125aac86a5ecdebc61f0e2",
+        "urls": [
+            "https://github.com/async-profiler/async-profiler/archive/refs/tags/v2.9.zip",
+        ],
+        "strip_prefix": "async-profiler-2.9",
+        "patches": [
+            "//third_party:async-profiler/incbin.patch",
+            "//third_party:async-profiler/package.patch",
+        ],
+        "patch_args": ["-p1"],
+        "used_in": [
+            "additional_distfiles",
+        ],
+        "license_kinds": [
+            "@rules_license//licenses/spdx:Apache-2",
+        ],
+        "license_text": "LICENSE",
+        "package_version": "2.9",
+    },
     ###################################################
     #
     # Build time dependencies for testing and packaging
