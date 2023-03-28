@@ -19,6 +19,8 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.TOOLS_REPOSITORY;
 
+import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.util.OS;
@@ -31,6 +33,26 @@ import org.junit.runners.JUnit4;
 /** Tests of bazel java rules. */
 @RunWith(JUnit4.class)
 public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
+
+  @Test
+  public void testResourceStripPrefix() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "java_binary(",
+        "   name = 'bin',",
+        "   srcs = ['Foo.java'],",
+        "   resources = ['path/to/strip/bar.props'],",
+        "   main_class = 'Foo',",
+        "   resource_strip_prefix = 'a/path/to/strip'",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+
+    assertThat(target).isNotNull();
+    String resourceJarArgs =
+        Joiner.on(" ").join(getGeneratingSpawnActionArgs(getBinArtifact("bin.jar", target)));
+    assertThat(resourceJarArgs).contains("--resources a/path/to/strip/bar.props:bar.props");
+  }
 
   @Test
   public void javaTestSetsSecurityManagerPropertyOnVersion17() throws Exception {
