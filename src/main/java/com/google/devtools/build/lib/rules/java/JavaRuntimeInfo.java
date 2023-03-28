@@ -51,7 +51,6 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
       PathFragment javaBinaryRunfilesPath,
       NestedSet<Artifact> hermeticInputs,
       @Nullable Artifact libModules,
-      @Nullable Artifact defaultCDS,
       ImmutableList<CcInfo> hermeticStaticLibs,
       int version) {
     return new JavaRuntimeInfo(
@@ -62,7 +61,6 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
         javaBinaryRunfilesPath,
         hermeticInputs,
         libModules,
-        defaultCDS,
         hermeticStaticLibs,
         version);
   }
@@ -138,7 +136,6 @@ public final class JavaRuntimeInfo extends NativeInfo implements JavaRuntimeInfo
       PathFragment javaBinaryRunfilesPath,
       NestedSet<Artifact> hermeticInputs,
       @Nullable Artifact libModules,
-      @Nullable Artifact defaultCDS,
       ImmutableList<CcInfo> hermeticStaticLibs,
       int version) {
     this.javaBaseInputs = javaBaseInputs;
