@@ -129,7 +129,7 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
         },
         fragments = ["google_cpp", "cpp", "coverage"],
         exec_groups = {
-            "cpp_link": exec_group(copy_from_rule = True),
+            "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
         toolchains = cc_helper.use_cpp_toolchain() +
                      semantics.get_runtimes_toolchain(),

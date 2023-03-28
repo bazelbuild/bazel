@@ -116,11 +116,11 @@ protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
 skylib_package="@bazel_skylib//"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
-  junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
-  hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
+  junit_jar="${BAZEL_RUNFILES}/src/test/shell/bazel/junit.jar"
+  hamcrest_jar="${BAZEL_RUNFILES}/src/test/shell/bazel/hamcrest.jar"
 else
-  junit_jar=$(rlocation io_bazel/third_party/junit/junit-.*.jar)
-  hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
+  junit_jar=$(rlocation io_bazel/src/test/shell/bazel/junit.jar)
+  hamcrest_jar=$(rlocation io_bazel/src/test/shell/bazel/hamcrest.jar)
 fi
 
 
@@ -295,9 +295,11 @@ EOF
         "openjdk19_windows_archive"
         "remote_coverage_tools"
         "remote_java_tools_for_testing"
-        "remote_java_tools_darwin_for_testing"
+        "remote_java_tools_darwin_x86_64_for_testing"
+        "remote_java_tools_darwin_arm64_for_testing"
         "remote_java_tools_test"
-        "remote_java_tools_test_darwin"
+        "remote_java_tools_test_darwin_x86_64"
+        "remote_java_tools_test_darwin_arm64"
         "remote_java_tools_test_linux"
         "remote_java_tools_test_windows"
         "remote_java_tools_linux_for_testing"

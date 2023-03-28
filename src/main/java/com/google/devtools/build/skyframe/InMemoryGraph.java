@@ -26,15 +26,19 @@ public interface InMemoryGraph extends ProcessableGraph, SkyKeyPool {
 
   /** Creates a new in-memory graph suitable for incremental builds. */
   static InMemoryGraph create() {
-    return new InMemoryGraphImpl();
+    return new InMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
+  }
+
+  static InMemoryGraph create(boolean usePooledSkyKeyInterning) {
+    return new InMemoryGraphImpl(usePooledSkyKeyInterning);
   }
 
   /**
    * Creates a new in-memory graph that discards graph edges to save memory and cannot be used for
    * incremental builds.
    */
-  static InMemoryGraph createEdgeless() {
-    return new EdgelessInMemoryGraphImpl();
+  static InMemoryGraph createEdgeless(boolean usePooledSkyKeyInterning) {
+    return new EdgelessInMemoryGraphImpl(usePooledSkyKeyInterning);
   }
 
   @Override

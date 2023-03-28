@@ -87,7 +87,7 @@ public final class StarlarkRepositoryContextTest {
   private static final StarlarkThread thread =
       new StarlarkThread(Mutability.create("test"), StarlarkSemantics.DEFAULT);
 
-  private static String ONE_LINE_PATCH = "@@ -1,1 +1,2 @@\n line one\n+line two\n";
+  private static final String ONE_LINE_PATCH = "@@ -1,1 +1,2 @@\n line one\n+line two\n";
 
   @Before
   public void setUp() throws Exception {
@@ -97,7 +97,7 @@ public final class StarlarkRepositoryContextTest {
     workspaceFile = scratch.file("/wsRoot/WORKSPACE");
   }
 
-  protected static RuleClass buildRuleClass(Attribute... attributes) {
+  private static RuleClass buildRuleClass(Attribute... attributes) {
     RuleClass.Builder ruleClassBuilder =
         new RuleClass.Builder("test", RuleClassType.WORKSPACE, true);
     for (Attribute attr : attributes) {
@@ -127,7 +127,7 @@ public final class StarlarkRepositoryContextTest {
           new StarlarkThread.CallStackEntry( //
               "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
-  protected void setUpContextForRule(
+  private void setUpContextForRule(
       Map<String, Object> kwargs,
       ImmutableSet<PathFragment> ignoredPathFragments,
       ImmutableMap<String, String> envVariables,
@@ -149,7 +149,6 @@ public final class StarlarkRepositoryContextTest {
             buildRuleClass(attributes),
             null,
             kwargs,
-            starlarkSemantics,
             DUMMY_STACK);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
@@ -176,7 +175,7 @@ public final class StarlarkRepositoryContextTest {
             root.asPath());
   }
 
-  protected void setUpContextForRule(String name) throws Exception {
+  private void setUpContextForRule(String name) throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", name),
         ImmutableSet.of(),
@@ -429,11 +428,11 @@ public final class StarlarkRepositoryContextTest {
     // Act
     StarlarkExecutionResult starlarkExecutionResult =
         context.execute(
-            StarlarkList.of(/*mutability=*/ null, "/bin/cmd", "arg1"),
+            StarlarkList.of(/* mutability= */ null, "/bin/cmd", "arg1"),
             /* timeoutI= */ StarlarkInt.of(10),
-            /*uncheckedEnvironment=*/ Dict.empty(),
-            /*quiet=*/ true,
-            /*workingDirectory=*/ "",
+            /* uncheckedEnvironment= */ Dict.empty(),
+            /* quiet= */ true,
+            /* overrideWorkingDirectory= */ "",
             thread);
 
     // Assert
@@ -461,7 +460,7 @@ public final class StarlarkRepositoryContextTest {
     assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));
   }
 
-  private void testOutputFile(Path path, String content) throws IOException {
+  private static void testOutputFile(Path path, String content) throws IOException {
     assertThat(path.exists()).isTrue();
     try (InputStreamReader reader =
         new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)) {

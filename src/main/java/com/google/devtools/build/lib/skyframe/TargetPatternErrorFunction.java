@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -42,7 +40,7 @@ public class TargetPatternErrorFunction implements SkyFunction {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key implements SkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
     private final String message;
     private final DetailedExitCode detailedExitCode;
 
@@ -75,6 +73,11 @@ public class TargetPatternErrorFunction implements SkyFunction {
       Key that = (Key) obj;
       return this.message.equals(that.message)
           && this.detailedExitCode.equals(that.detailedExitCode);
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

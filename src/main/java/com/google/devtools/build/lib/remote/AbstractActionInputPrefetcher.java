@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
-import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -228,30 +227,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
   }
 
-  /** Priority for the staging task. */
-  protected enum Priority {
-    /**
-     * Critical priority tasks are tasks that are critical to the execution time e.g. staging files
-     * for in-process actions.
-     */
-    CRITICAL,
-    /**
-     * High priority tasks are tasks that may have impact on the execution time e.g. staging outputs
-     * that are inputs to local actions which will be executed later.
-     */
-    HIGH,
-    /**
-     * Medium priority tasks are tasks that may or may not have the impact on the execution time
-     * e.g. staging inputs for local branch of dynamically scheduled actions.
-     */
-    MEDIUM,
-    /**
-     * Low priority tasks are tasks that don't have impact on the execution time e.g. staging
-     * outputs of toplevel targets/aspects.
-     */
-    LOW,
-  }
-
   protected AbstractActionInputPrefetcher(
       Reporter reporter,
       Path execRoot,
@@ -301,11 +276,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   protected void prefetchVirtualActionInput(VirtualActionInput input) throws IOException {}
 
-  /** Transforms the error encountered during the prefetch . */
-  protected Completable onErrorResumeNext(Throwable error) {
-    return Completable.error(error);
-  }
-
   /**
    * Fetches remotely stored action outputs, that are inputs to this spawn, and stores them under
    * their path in the output base.
@@ -319,11 +289,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-    return prefetchFiles(inputs, metadataProvider, Priority.MEDIUM);
-  }
-
-  protected ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs,
       MetadataProvider metadataProvider,
       Priority priority) {
@@ -352,8 +317,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Completable prefetch =
         Completable.using(
-                () -> dirCtx, ctx -> mergeBulkTransfer(transfers), DirectoryContext::close)
-            .onErrorResumeNext(this::onErrorResumeNext);
+            () -> dirCtx, ctx -> mergeBulkTransfer(transfers), DirectoryContext::close);
 
     return toListenableFuture(prefetch);
   }
@@ -456,30 +420,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return null;
   }
 
-  /**
-   * Downloads file into the {@code path} with its metadata.
-   *
-   * <p>The file will be written into a temporary file and moved to the final destination after the
-   * download finished.
-   */
-  private Completable downloadFileRx(
-      DirectoryContext dirCtx,
-      Path path,
-      @Nullable Path treeRoot,
-      @Nullable ActionInput actionInput,
-      FileArtifactValue metadata,
-      Priority priority) {
-    if (!canDownloadFile(path, metadata)) {
-      return Completable.complete();
-    }
-    return downloadFileNoCheckRx(dirCtx, path, treeRoot, actionInput, metadata, priority);
-  }
-
   private Completable downloadFileNoCheckRx(
       DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
-      @Nullable ActionInput actionInput,
+      ActionInput actionInput,
       FileArtifactValue metadata,
       Priority priority) {
     if (path.isSymbolicLink()) {
@@ -521,7 +466,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                 /* eager= */ false)
             .doOnError(
                 error -> {
-                  if (error instanceof CacheNotFoundException && actionInput != null) {
+                  if (error instanceof CacheNotFoundException) {
                     missingActionInputs.add(actionInput);
                   }
                 });
@@ -535,37 +480,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               }
               return Completable.complete();
             }));
-  }
-
-  /**
-   * Download file to the {@code path} with given metadata. Blocking await for the download to
-   * complete.
-   *
-   * <p>The file will be written into a temporary file and moved to the final destination after the
-   * download finished.
-   */
-  public void downloadFile(Path path, @Nullable ActionInput actionInput, FileArtifactValue metadata)
-      throws IOException, InterruptedException {
-    getFromFuture(downloadFileAsync(path.asFragment(), actionInput, metadata, Priority.CRITICAL));
-  }
-
-  protected ListenableFuture<Void> downloadFileAsync(
-      PathFragment path,
-      @Nullable ActionInput actionInput,
-      FileArtifactValue metadata,
-      Priority priority) {
-    return toListenableFuture(
-        Completable.using(
-            DirectoryContext::new,
-            dirCtx ->
-                downloadFileRx(
-                    dirCtx,
-                    execRoot.getFileSystem().getPath(path),
-                    /* treeRoot= */ null,
-                    actionInput,
-                    metadata,
-                    priority),
-            DirectoryContext::close));
   }
 
   private void finalizeDownload(

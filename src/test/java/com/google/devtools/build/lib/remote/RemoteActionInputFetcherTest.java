@@ -23,13 +23,14 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
@@ -75,8 +76,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
         execRoot,
         tempPathGenerator,
         ImmutableList.of(),
-        OutputPermissions.READONLY,
-        /* useNewExitCodeForLostInputs= */ false);
+        OutputPermissions.READONLY);
   }
 
   @Test
@@ -93,12 +93,11 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
-            OutputPermissions.READONLY,
-            /* useNewExitCodeForLostInputs= */ false);
+            OutputPermissions.READONLY);
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
-    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
+    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider, Priority.MEDIUM));
 
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
@@ -122,13 +121,12 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             execRoot,
             tempPathGenerator,
             ImmutableList.of(),
-            OutputPermissions.READONLY,
-            /* useNewExitCodeForLostInputs= */ false);
+            OutputPermissions.READONLY);
 
     // act
     wait(
         actionInputFetcher.prefetchFiles(
-            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider));
+            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider, Priority.MEDIUM));
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -144,8 +142,11 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
 
     var error =
         assertThrows(
-            ExecException.class,
-            () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider)));
+            BulkTransferException.class,
+            () ->
+                wait(
+                    prefetcher.prefetchFiles(
+                        ImmutableList.of(a), metadataProvider, Priority.MEDIUM)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();

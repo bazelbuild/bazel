@@ -331,7 +331,7 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
     checkError(
         "badlib",
         "library-jar",
-        "//badlib:library-jar: should not refer to Java rules",
+        "'jars' attribute cannot contain labels of Java targets",
         "java_library(name = 'javalib',",
         "             srcs = ['Javalib.java'])",
         "java_import(name  = 'library-jar',",

@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
@@ -151,6 +152,14 @@ public class ExecutionGraphModule extends BlazeModule {
         defaultValue = "true",
         help = "Subscribe to ActionCompletionEvent in ExecutionGraphModule.")
     public boolean logMissedActions;
+
+    @Option(
+        name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        help = "Handle edges from filewrite actions to their inputs correctly.")
+    public boolean logFileWriteEdges;
   }
 
   /** What level of dependency information to include in the dump. */
@@ -455,12 +464,22 @@ public class ExecutionGraphModule extends BlazeModule {
         metricsBuilder.putRetryMillisByError(entry.getKey(), entry.getValue());
       }
       metrics = null;
+
+      NestedSet<? extends ActionInput> inputFiles;
+      if (logFileWriteEdges && spawn.getResourceOwner() instanceof AbstractFileWriteAction) {
+        // In order to handle file write like actions correctly, get the inputs
+        // from the corresponding action.
+        inputFiles = spawn.getResourceOwner().getInputs();
+      } else {
+        inputFiles = spawn.getInputFiles();
+      }
+
       // maybeAddEdges can take a while, so do it last and try to give up references to any objects
       // we won't need.
       maybeAddEdges(
           nodeBuilder,
           spawn.getOutputEdgesForExecutionGraph(),
-          spawn.getInputFiles(),
+          inputFiles,
           spawn.getResourceOwner(),
           spawn.getRunfilesSupplier(),
           startMillis,
@@ -578,6 +597,7 @@ public class ExecutionGraphModule extends BlazeModule {
 
     private final BugReporter bugReporter;
     private final boolean localLockFreeOutputEnabled;
+    private final boolean logFileWriteEdges;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
     private final Map<ActionInput, Duration> outputToDiscoverInputsTime = new ConcurrentHashMap<>();
     private final DependencyInfo depType;
@@ -605,12 +625,14 @@ public class ExecutionGraphModule extends BlazeModule {
     ActionDumpWriter(
         BugReporter bugReporter,
         boolean localLockFreeOutputEnabled,
+        boolean logFileWriteEdges,
         OutputStream outStream,
         UUID commandId,
         DependencyInfo depType,
         int queueSize) {
       this.bugReporter = bugReporter;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
+      this.logFileWriteEdges = logFileWriteEdges;
       this.outStream = outStream;
       this.depType = depType;
       if (queueSize < 0) {
@@ -772,6 +794,7 @@ public class ExecutionGraphModule extends BlazeModule {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
+          executionGraphOptions.logFileWriteEdges,
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
           env.getCommandId(),
           executionGraphOptions.depType,
@@ -784,6 +807,7 @@ public class ExecutionGraphModule extends BlazeModule {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
+          executionGraphOptions.logFileWriteEdges,
           actionGraphFile,
           env.getCommandId(),
           executionGraphOptions.depType,
@@ -799,6 +823,7 @@ public class ExecutionGraphModule extends BlazeModule {
     public FilesystemActionDumpWriter(
         BugReporter bugReporter,
         boolean localLockFreeOutputEnabled,
+        boolean logFileWriteEdges,
         Path actionGraphFile,
         UUID uuid,
         DependencyInfo depType,
@@ -807,6 +832,7 @@ public class ExecutionGraphModule extends BlazeModule {
       super(
           bugReporter,
           localLockFreeOutputEnabled,
+          logFileWriteEdges,
           actionGraphFile.getOutputStream(),
           uuid,
           depType,
@@ -845,6 +871,7 @@ public class ExecutionGraphModule extends BlazeModule {
     public StreamingActionDumpWriter(
         BugReporter bugReporter,
         boolean localLockFreeOutputEnabled,
+        boolean logFileWriteEdges,
         UploadContext uploadContext,
         UUID commandId,
         DependencyInfo depType,
@@ -852,6 +879,7 @@ public class ExecutionGraphModule extends BlazeModule {
       super(
           bugReporter,
           localLockFreeOutputEnabled,
+          logFileWriteEdges,
           uploadContext.getOutputStream(),
           commandId,
           depType,

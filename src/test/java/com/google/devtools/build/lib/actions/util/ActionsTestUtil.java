@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
@@ -248,16 +249,33 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
-        /*rewindingEnabled=*/ false,
+        /* rewindingEnabled= */ false,
         LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),
         environment,
-        /*actionFileSystem=*/ null,
+        /* actionFileSystem= */ null,
         discoveredModulesPruner,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
+  }
+
+  /** Creates an {@link ActionExecutionValue} with only file outputs. */
+  public static ActionExecutionValue createActionExecutionValue(
+      ImmutableMap<Artifact, FileArtifactValue> artifactData) {
+    return createActionExecutionValue(artifactData, /* treeArtifactData= */ ImmutableMap.of());
+  }
+
+  /** Creates an {@link ActionExecutionValue} with only file and tree artifact outputs. */
+  public static ActionExecutionValue createActionExecutionValue(
+      ImmutableMap<Artifact, FileArtifactValue> artifactData,
+      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
+    return ActionExecutionValue.create(
+        artifactData,
+        treeArtifactData,
+        /* outputSymlinks= */ ImmutableList.of(),
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   public static Artifact createArtifact(ArtifactRoot root, Path path) {

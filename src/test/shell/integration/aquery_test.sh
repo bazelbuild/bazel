@@ -1505,6 +1505,73 @@ EOF
   assert_contains "\"value\": \"123456\"" output
 }
 
+# Cre: @keith https://github.com/bazelbuild/bazel/pull/17682
+function test_aquery_multiple_expand_templates() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+
+  cat > "$pkg/template.txt" <<'EOF'
+The token: {TOKEN1}
+EOF
+
+  cat > "$pkg/test.bzl" <<EOF
+def _impl(ctx):
+    template1 = ctx.actions.declare_file("first.txt")
+    ctx.actions.expand_template(
+        template = ctx.file._template,
+        output = template1,
+        substitutions = {
+            "{TOKEN1}": "{TOKEN2}",
+        },
+    )
+    template2 = ctx.actions.declare_file("second.txt")
+    ctx.actions.expand_template(
+        template = template1,
+        output = template2,
+        substitutions = {
+            "{TOKEN2}": "123456",
+        },
+    )
+    return [DefaultInfo(files = depset([template2]))]
+test_template = rule(
+    _impl,
+    attrs = {
+        "_template": attr.label(
+            default = Label("//$pkg:template.txt"),
+            allow_single_file = True,
+        ),
+    },
+)
+EOF
+
+  cat > "$pkg/BUILD" <<'EOF'
+load('test.bzl', 'test_template')
+test_template(name='foo')
+EOF
+
+  # aquery returns template content and substitutions of TemplateExpand actions.
+  QUERY="//$pkg:foo"
+
+  bazel aquery --output=text ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Template: The token: {TOKEN1}" output
+  assert_contains "{{TOKEN1}: {TOKEN2}}" output
+  assert_contains "Template: ARTIFACT:.*$pkg/first.txt" output
+  assert_contains "{{TOKEN2}: 123456}" output
+
+  bazel aquery --output=jsonproto ${QUERY} > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "\"templateContent\": \"The token" output
+  assert_contains "\"templateContent\": \"ARTIFACT" output
+  assert_contains "\"key\": \"{TOKEN1}\"" output
+  assert_contains "\"value\": \"{TOKEN2}\"" output
+  assert_contains "\"key\": \"{TOKEN2}\"" output
+  assert_contains "\"value\": \"123456\"" output
+}
+
 # Regression test for b/205753626.
 # This test case isn't testing aquery for correctness, just using aquery as a
 # vehicle for testing lower-level logic.
@@ -1700,9 +1767,7 @@ EOF
      "mnemonic(CppCompile,//$pkg:main)" >output 2> "$TEST_log" || fail "Expected success"
   cat output >> "$TEST_log"
 
-  if "$is_macos"; then
-    assert_contains '  key: "XCODE_VERSION_OVERRIDE"' output
-  elif "$is_windows"; then
+  if "$is_windows"; then
     assert_contains '  key: "INCLUDE"' output
   else
     assert_contains '  key: "PWD"' output

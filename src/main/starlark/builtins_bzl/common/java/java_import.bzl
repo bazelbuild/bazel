@@ -32,7 +32,7 @@ def _collect_jars(ctx, jars):
     jars_dict = {}
     for info in jars:
         if JavaInfo in info:
-            fail("//" + ctx.label.package + ":" + ctx.attr.name + ": should not refer to Java rules")
+            fail("'jars' attribute cannot contain labels of Java targets")
         for jar in info.files.to_list():
             jar_path = jar.dirname + jar.basename
             if jars_dict.get(jar_path) != None:

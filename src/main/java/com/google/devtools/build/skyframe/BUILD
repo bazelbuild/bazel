@@ -16,7 +16,6 @@ SKYFRAME_OBJECT_SRCS = [
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
-    "UsePooledSkyKeyInterningFlag.java",
     "Version.java",
 ]
 
@@ -87,6 +86,13 @@ java_library(
 java_library(
     name = "execution_phase_skykey",
     srcs = ["ExecutionPhaseSkyKey.java"],
+    visibility = ["//visibility:public"],
+    deps = [":skyframe-objects"],
+)
+
+java_library(
+    name = "stallable_skykey",
+    srcs = ["StallableSkykey.java"],
     visibility = ["//visibility:public"],
     deps = [":skyframe-objects"],
 )

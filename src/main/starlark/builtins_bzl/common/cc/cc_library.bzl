@@ -613,7 +613,7 @@ cc_library = rule(
     incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
     exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
     compile_one_filetype = [".cc", ".h", ".c"],
 )

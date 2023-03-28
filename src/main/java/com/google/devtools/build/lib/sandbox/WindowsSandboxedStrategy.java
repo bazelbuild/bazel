@@ -15,13 +15,15 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.vfs.Path;
 
 /** Strategy that uses sandboxing to execute a process. */
 public final class WindowsSandboxedStrategy extends AbstractSpawnStrategy {
-  WindowsSandboxedStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
-    super(execRoot, spawnRunner, verboseFailures);
+  WindowsSandboxedStrategy(
+      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
+    super(execRoot, spawnRunner, executionOptions);
   }
 
   @Override

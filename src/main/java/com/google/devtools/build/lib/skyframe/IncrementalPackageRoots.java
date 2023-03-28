@@ -62,6 +62,8 @@ public class IncrementalPackageRoots implements PackageRoots {
   private final Root singleSourceRoot;
   private final String prefix;
   private final boolean useSiblingRepositoryLayout;
+
+  private final boolean allowExternalRepositories;
   @Nullable private EventBus eventBus;
 
   private IncrementalPackageRoots(
@@ -69,13 +71,15 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
-      boolean useSiblingRepositoryLayout) {
+      boolean useSiblingRepositoryLayout,
+      boolean allowExternalRepositories) {
     this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
     this.execroot = execroot;
     this.singleSourceRoot = singleSourceRoot;
     this.prefix = prefix;
     this.eventBus = eventBus;
     this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
+    this.allowExternalRepositories = allowExternalRepositories;
   }
 
   public static IncrementalPackageRoots createAndRegisterToEventBus(
@@ -83,10 +87,16 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
-      boolean useSiblingRepositoryLayout) {
+      boolean useSiblingRepositoryLayout,
+      boolean allowExternalRepositories) {
     IncrementalPackageRoots incrementalPackageRoots =
         new IncrementalPackageRoots(
-            execroot, singleSourceRoot, eventBus, prefix, useSiblingRepositoryLayout);
+            execroot,
+            singleSourceRoot,
+            eventBus,
+            prefix,
+            useSiblingRepositoryLayout,
+            allowExternalRepositories);
     eventBus.register(incrementalPackageRoots);
     return incrementalPackageRoots;
   }
@@ -120,7 +130,9 @@ public class IncrementalPackageRoots implements PackageRoots {
   @Subscribe
   public void topLevelTargetReadyForSymlinkPlanting(TopLevelTargetReadyForSymlinkPlanting event)
       throws AbruptExitException {
-    registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
+    if (allowExternalRepositories) {
+      registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
+    }
   }
 
   @Subscribe

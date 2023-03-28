@@ -1,14 +1,15 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/common/options/testing:srcs",
         "//src/test/java/com/google/devtools/common/options/processor:srcs",
+        "//src/test/java/com/google/devtools/common/options/testing:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

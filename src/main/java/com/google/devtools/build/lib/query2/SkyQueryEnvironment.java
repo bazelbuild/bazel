@@ -519,7 +519,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // Rule#getTransitions only visits the labels of attribute values, so that means it doesn't
       // know about deps from the labels of the rule's package's default_visibility. Therefore, we
       // need to explicitly handle that here.
-      allowedLabels.addAll(rule.getVisibility().getDependencyLabels());
+      Iterables.addAll(allowedLabels, rule.getVisibilityDependencyLabels());
     }
     // We should add deps from aspects, otherwise they are going to be filtered out.
     allowedLabels.addAll(rule.getAspectLabelsSuperset(dependencyFilter));

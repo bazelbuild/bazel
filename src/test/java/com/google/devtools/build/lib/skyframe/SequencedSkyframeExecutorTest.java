@@ -145,6 +145,7 @@ import com.google.devtools.build.skyframe.TrackingAwaiter;
 import com.google.devtools.build.skyframe.ValueWithMetadata;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsProvider;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -774,7 +775,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(reporter)
             .build();
-    return skyframeExecutor.getEvaluator().evaluate(roots, evaluationContext);
+    return evaluateWithEvaluationContext(roots, evaluationContext);
+  }
+
+  @CanIgnoreReturnValue
+  private <T extends SkyValue> EvaluationResult<T> evaluateWithEvaluationContext(
+      Iterable<? extends SkyKey> roots, EvaluationContext context) throws InterruptedException {
+    return skyframeExecutor.getEvaluator().evaluate(roots, context);
   }
 
   /**
@@ -1620,9 +1627,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
    *
    * <p>Also incidentally tests that events coming from action execution are actually not stored at
    * all.
+   *
+   * <p>The boolean TestParameter skymeld is to ensure that this behavior is consistent even for
+   * skymeld mode.
    */
   @Test
-  public void analysisEventsNotStoredInExecution() throws Exception {
+  public void analysisEventsNotStoredInExecution(@TestParameter boolean skymeld) throws Exception {
     Path root = getExecRoot();
     PathFragment execPath = PathFragment.create("out").getRelative("dir");
     ActionLookupKey lc1 = new InjectedActionLookupKey("lc1");
@@ -1675,7 +1685,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     skyframeExecutor.prepareBuildingForTestingOnly(
         reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER);
-    evaluate(ImmutableList.of(Artifact.key(output2)));
+
+    EvaluationContext evaluationContext =
+        EvaluationContext.newBuilder()
+            .setKeepGoing(false)
+            .setParallelism(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setEventHandler(reporter)
+            .setMergingSkyframeAnalysisExecutionPhases(skymeld)
+            .build();
+    evaluateWithEvaluationContext(ImmutableList.of(Artifact.key(output2)), evaluationContext);
     assertContainsEvent("action 1");
     assertContainsEvent("action 2");
     assertDoesNotContainEvent("analysis warning 1");

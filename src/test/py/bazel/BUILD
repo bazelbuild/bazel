@@ -65,6 +65,7 @@ py_test(
     name = "py_test",
     size = "medium",
     srcs = ["py_test.py"],
+    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -148,8 +149,9 @@ py_test(
 
 py_test(
     name = "launcher_test",
-    size = "medium",
+    size = "large",
     srcs = ["launcher_test.py"],
+    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -266,6 +268,7 @@ py_test(
     name = "bazel_module_test",
     size = "large",
     srcs = ["bzlmod/bazel_module_test.py"],
+    shard_count = 5,
     tags = [
         "requires-network",
     ],

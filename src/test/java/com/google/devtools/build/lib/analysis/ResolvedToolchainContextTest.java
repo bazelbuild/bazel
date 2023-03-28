@@ -76,10 +76,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
-        ResolvedToolchainContext.load(
-            unloadedToolchainContext,
-            "test",
-            ImmutableList.of(toolchain));
+        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableSet.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
     assertThat(toolchainContext)
@@ -109,7 +106,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     assertThrows(
         ToolchainException.class,
-        () -> ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableList.of()));
+        () -> ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableSet.of()));
   }
 
   @Test
@@ -150,8 +147,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
-        ResolvedToolchainContext.load(
-            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
+        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableSet.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext).hasToolchainType(optionalToolchainTypeLabel);
     assertThat(toolchainContext)
@@ -180,7 +176,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
-        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableList.of());
+        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableSet.of());
     assertThat(toolchainContext).isNotNull();
 
     // Missing optional toolchain type requirement is present.
@@ -231,7 +227,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
         ResolvedToolchainContext.load(
-            unloadedToolchainContext, "test", ImmutableList.of(testToolchain));
+            unloadedToolchainContext, "test", ImmutableSet.of(testToolchain));
     assertThat(toolchainContext).isNotNull();
 
     // Test toolchain is present.
@@ -285,10 +281,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
 
     // Resolve toolchains.
     ResolvedToolchainContext toolchainContext =
-        ResolvedToolchainContext.load(
-            unloadedToolchainContext,
-            "test",
-            ImmutableList.of(toolchain));
+        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableSet.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
     assertThat(toolchainContext)
@@ -331,9 +324,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ToolchainException.class,
         () ->
             ResolvedToolchainContext.load(
-                unloadedToolchainContext,
-                "test",
-                ImmutableList.of(toolchain)));
+                unloadedToolchainContext, "test", ImmutableSet.of(toolchain)));
   }
 
   @Test
@@ -392,8 +383,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         getConfiguredTargetAndData(
             Label.parseCanonicalUnchecked("//variable:variable_toolchain_impl"), targetConfig);
     ResolvedToolchainContext toolchainContext =
-        ResolvedToolchainContext.load(
-            unloadedToolchainContext, "test", ImmutableList.of(toolchain));
+        ResolvedToolchainContext.load(unloadedToolchainContext, "test", ImmutableSet.of(toolchain));
     assertThat(toolchainContext).isNotNull();
     assertThat(toolchainContext).hasToolchainType(variableToolchainTypeLabel);
     assertThat(toolchainContext.templateVariableProviders()).hasSize(1);

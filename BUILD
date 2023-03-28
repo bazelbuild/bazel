@@ -40,7 +40,7 @@ filegroup(
         "//third_party:srcs",
         "//src/main/starlark/tests/builtins_bzl:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-    ] + glob([".bazelci/*"]) + [".bazelrc"],
+    ] + glob([".bazelci/*"]) + [".bazelrc", ".bazelversion"],
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

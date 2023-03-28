@@ -23,13 +23,13 @@ jobs:
       uses: actions/stale@v5
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        days-before-issue-stale: 1095
-        days-before-pr-stale: 1095
+        days-before-issue-stale: 913
+        days-before-pr-stale: 913
         days-before-issue-close: 14
         days-before-pr-close: 14
         stale-issue-message: >
           Thank you for contributing to the Bazel repository!
-          This issue has been marked as stale since it has not had any activity in the last 3 years. It will be closed in the next 14
+          This issue has been marked as stale since it has not had any activity in the last 2.5 years. It will be closed in the next 14
           days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-bazeler". Please reach out
           to the triage team (`@bazelbuild/triage`) if you think this issue is still relevant or you are interested in getting the
           issue resolved.
@@ -38,7 +38,7 @@ jobs:
           to the triage team (`@bazelbuild/triage`). Thanks!
         stale-pr-message: >
           Thank you for contributing to the Bazel repository!
-          This pull request has been marked as stale since it has not had any activity in the last 3 years. It will be closed in the next
+          This pull request has been marked as stale since it has not had any activity in the last 2.5 years. It will be closed in the next
           14 days unless any other activity occurs or one of the following labels is added: "not stale", "awaiting-review", "awaiting-PR-merge".
           Please reach out to the triage team (`@bazelbuild/triage`) if you think this PR is still relevant or you are interested in getting the
           PR merged.

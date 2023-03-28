@@ -15,7 +15,6 @@
 """Semantics for Bazel cc rules"""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/cc_common.bzl", "cc_common")
 
 def _get_proto_aspects():
     return []
@@ -152,10 +151,6 @@ def _check_can_use_implementation_deps(ctx):
     if (not experimental_cc_implementation_deps and ctx.attr.implementation_deps):
         fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
 
-def _check_experimental_cc_shared_library(ctx):
-    if not cc_common.check_experimental_cc_shared_library():
-        fail("Pass --experimental_cc_shared_library to use cc_shared_library")
-
 def _get_linkstatic_default(ctx):
     if ctx.attr._is_test:
         # By default Tests do not link statically. Except on Windows.
@@ -205,7 +200,6 @@ semantics = struct(
     get_grep_includes = _get_grep_includes,
     get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
     check_can_use_implementation_deps = _check_can_use_implementation_deps,
-    check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     get_linkstatic_default = _get_linkstatic_default,
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,

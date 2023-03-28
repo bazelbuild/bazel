@@ -198,7 +198,7 @@ public class SpawnIncludeScanner {
 
     @Override
     public NestedSet<Artifact> getInputs() {
-      throw new UnsupportedOperationException();
+      return actionExecutionMetadata.getInputs();
     }
 
     @Override

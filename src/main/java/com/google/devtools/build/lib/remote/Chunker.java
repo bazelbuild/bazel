@@ -106,7 +106,7 @@ public class Chunker {
   }
 
   private final ChunkDataSupplier dataSupplier;
-  private final long size;
+  private final long uncompressedSize;
   private final int chunkSize;
   private final Chunk emptyChunk;
 
@@ -120,9 +120,10 @@ public class Chunker {
   // lazily on the first call to next(), as opposed to opening it in the constructor or on reset().
   private boolean initialized;
 
-  Chunker(ChunkDataSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
+  Chunker(
+      ChunkDataSupplier dataSupplier, long uncompressedSize, int chunkSize, boolean compressed) {
     this.dataSupplier = checkNotNull(dataSupplier);
-    this.size = size;
+    this.uncompressedSize = uncompressedSize;
     this.chunkSize = chunkSize;
     this.emptyChunk = new Chunk(ByteString.EMPTY, 0);
     this.compressed = compressed;
@@ -132,8 +133,8 @@ public class Chunker {
     return offset;
   }
 
-  public long getSize() {
-    return size;
+  public long getUncompressedSize() {
+    return uncompressedSize;
   }
 
   /**
@@ -159,14 +160,14 @@ public class Chunker {
   public void seek(long toOffset) throws IOException {
     // For compressed stream, we need to reinitialize the stream since the offset refers to the
     // uncompressed form.
-    if (initialized && toOffset >= offset && !compressed) {
+    if (initialized && uncompressedSize > 0 && toOffset >= offset && !compressed) {
       ByteStreams.skipFully(data, toOffset - offset);
       offset = toOffset;
     } else {
       reset();
       initialize(toOffset);
     }
-    if (data.finished()) {
+    if (uncompressedSize > 0 && data.finished()) {
       close();
     }
   }
@@ -215,8 +216,8 @@ public class Chunker {
 
     maybeInitialize();
 
-    if (size == 0) {
-      data = null;
+    if (uncompressedSize == 0) {
+      close();
       return emptyChunk;
     }
 
@@ -230,7 +231,7 @@ public class Chunker {
       // If the output is compressed we can't know how many bytes there are yet to read,
       // so we allocate the whole chunkSize, otherwise we try to compute the smallest possible value
       // The cast to int is safe, because the return value is capped at chunkSize.
-      int cacheSize = compressed ? chunkSize : (int) min(getSize() - getOffset(), chunkSize);
+      int cacheSize = compressed ? chunkSize : (int) min(uncompressedSize - getOffset(), chunkSize);
       // Lazily allocate it in order to save memory on small data.
       // 1) bytesToRead < chunkSize: There will only ever be one next() call.
       // 2) bytesToRead == chunkSize: chunkCache will be set to its biggest possible value.

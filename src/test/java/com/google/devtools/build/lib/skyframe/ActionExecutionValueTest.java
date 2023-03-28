@@ -162,10 +162,11 @@ public final class ActionExecutionValueTest {
                     tree("tree2"),
                     TreeArtifactValue.empty())),
             // Mixed file and tree
-            ActionExecutionValue.createForTesting(
+            ActionExecutionValue.create(
                 ImmutableMap.of(output("file"), VALUE_1),
                 ImmutableMap.of(tree("tree"), TreeArtifactValue.empty()),
-                /* outputSymlinks= */ null))
+                /* outputSymlinks= */ ImmutableList.of(),
+                /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .addDependency(FileSystem.class, OUTPUT_ROOT.getRoot().getFileSystem())
         .addDependency(
             RootCodecDependencies.class, new RootCodecDependencies(OUTPUT_ROOT.getRoot()))
@@ -175,24 +176,29 @@ public final class ActionExecutionValueTest {
 
   private static ActionExecutionValue createWithArtifactData(
       ImmutableMap<Artifact, FileArtifactValue> artifactData) {
-    return ActionExecutionValue.createForTesting(
+    return ActionExecutionValue.create(
         /* artifactData= */ artifactData,
         /* treeArtifactData= */ ImmutableMap.of(),
-        /* outputSymlinks= */ null);
+        /* outputSymlinks= */ ImmutableList.of(),
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static ActionExecutionValue createWithTreeArtifactData(
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
-    return ActionExecutionValue.createForTesting(
-        /* artifactData= */ ImmutableMap.of(), treeArtifactData, /* outputSymlinks= */ null);
+    return ActionExecutionValue.create(
+        /* artifactData= */ ImmutableMap.of(),
+        treeArtifactData,
+        /* outputSymlinks= */ ImmutableList.of(),
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static ActionExecutionValue createWithOutputSymlinks(
       ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    return ActionExecutionValue.createForTesting(
+    return ActionExecutionValue.create(
         ImmutableMap.of(output("fileset.manifest"), VALUE_1),
         /* treeArtifactData= */ ImmutableMap.of(),
-        outputSymlinks);
+        outputSymlinks,
+        /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static ActionExecutionValue createWithDiscoveredModules(
@@ -205,7 +211,7 @@ public final class ActionExecutionValueTest {
     return ActionExecutionValue.create(
         /* artifactData= */ ImmutableMap.of(output("modules.pcm"), VALUE_1),
         /* treeArtifactData= */ ImmutableMap.of(),
-        /* outputSymlinks= */ null,
+        /* outputSymlinks= */ ImmutableList.of(),
         discoveredModules);
   }
 

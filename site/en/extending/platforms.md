@@ -172,6 +172,9 @@ ERROR: Target //:target_incompatible_with_myplatform is incompatible and cannot 
 FAILED: Build did NOT complete successfully
 ```
 
+Incompatible explicit targets are silently skipped if
+`--skip_incompatible_explicit_targets` is enabled.
+
 ### More expressive constraints {:#expressive-constraints}
 
 For more flexibility in expressing constraints, use the

@@ -17,6 +17,7 @@ java_library(
     name = "abstract_spawn_strategy",
     srcs = ["AbstractSpawnStrategy.java"],
     deps = [
+        ":execution_options",
         ":spawn_cache",
         ":spawn_exec_exception",
         ":spawn_input_expander",
@@ -26,6 +27,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",

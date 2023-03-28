@@ -1,6 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_library")
 load("//src:release_archive.bzl", "release_archive")
-load("//third_party/ijar:darwin_universal_binary.bzl", "darwin_universal_binary")
 
 # Description:
 #   singlejar C++ implementation.
@@ -65,7 +64,7 @@ release_archive(
 
 release_archive(
     name = "singlejar_deploy_zip",
-    srcs = [":singlejar_local_binary_for_deploy"],
+    srcs = [":singlejar_local"],
     package_dir = "java_tools/src/tools/singlejar",
     visibility = ["//src:__pkg__"],
 )
@@ -87,20 +86,6 @@ cc_binary(
         "output_jar",
         "//third_party/zlib",
     ],
-)
-
-alias(
-    name = "singlejar_local_binary_for_deploy",
-    actual = select({
-        "//src/conditions:darwin": ":singlejar_local_darwin",
-        "//conditions:default": ":singlejar_local",
-    }),
-)
-
-darwin_universal_binary(
-    name = "singlejar_local_darwin",
-    binary = ":singlejar_local",
-    output_name = "singlejar_local",
 )
 
 cc_binary(

@@ -314,6 +314,18 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuilderWithNoExecutableCommand_buildsActionWithCorrectArgs() throws Exception {
+    SpawnAction action =
+        builder()
+            .addOutput(getBinArtifactWithNoOwner("output"))
+            .addCommandLine(CommandLine.of(ImmutableList.of("arg1", "arg2")))
+            .addCommandLine(CommandLine.of(ImmutableList.of("arg3")))
+            .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
+
+    assertThat(action.getArguments()).containsExactly("arg1", "arg2", "arg3").inOrder();
+  }
+
+  @Test
   public void testMultipleCommandLines() throws Exception {
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");

@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -204,6 +205,7 @@ import com.google.devtools.build.skyframe.EvaluationContext.UnnecessaryTemporary
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.EventFilter;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
@@ -233,6 +235,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
@@ -332,6 +335,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       new AtomicReference<>();
   protected final SkyframeActionExecutor skyframeActionExecutor;
   private ActionExecutionFunction actionExecutionFunction;
+  private BuildDriverFunction buildDriverFunction;
   private GlobFunction globFunction;
   protected SkyframeProgressReceiver progressReceiver;
   private CyclesReporter cyclesReporter = null;
@@ -393,9 +397,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Set<SkyKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
   private RegexFilter extraActionFilter;
-
-  // Reset while preparing for execution in each build.
-  private Optional<IncrementalPackageRoots> incrementalPackageRoots = Optional.empty();
 
   // This boolean controls whether FILE_STATE or DIRECTORY_LISTING_STATE nodes are dropped after the
   // corresponding FILE or DIRECTORY_LISTING nodes are evaluated.
@@ -660,8 +661,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.ARTIFACT_NESTED_SET,
         ArtifactNestedSetFunction.createInstance(valueBasedChangePruningEnabled()));
-    map.put(
-        SkyFunctions.BUILD_DRIVER,
+    BuildDriverFunction buildDriverFunction =
         new BuildDriverFunction(
             new TransitiveActionLookupValuesHelper() {
               @Override
@@ -676,7 +676,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             },
             this::getIncrementalArtifactConflictFinder,
             this::getRuleContextConstraintSemantics,
-            this::getExtraActionFilter));
+            this::getExtraActionFilter);
+    map.put(SkyFunctions.BUILD_DRIVER, buildDriverFunction);
+    this.buildDriverFunction = buildDriverFunction;
+
     map.putAll(extraSkyFunctions);
     return ImmutableMap.copyOf(map);
   }
@@ -869,6 +872,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+    progressReceiver.globDeps = new ConcurrentHashMap<>();
     globFunction.complete();
   }
 
@@ -1343,7 +1347,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
-    syscallCache.clear();
+    clearSyscallCache();
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
@@ -2167,7 +2171,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
-    syscallCache.clear();
+    clearSyscallCache();
     invalidateFilesUnderPathForTestingImpl(eventHandler, modifiedFileSet, pathEntry);
   }
 
@@ -2265,6 +2269,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return packageRoots.buildOrThrow();
   }
 
+  void clearSyscallCache() {
+    syscallCache.clear();
+  }
+
   /**
    * Evaluates the given collections of CT/Aspect BuildDriverKeys. This is part of
    * https://github.com/bazelbuild/bazel/issues/14057, internal: b/147350683.
@@ -2274,7 +2282,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<BuildDriverKey> buildDriverCTKeys,
       Set<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
-      QuiescingExecutors executors)
+      int executionParallelism,
+      QuiescingExecutor executor)
       throws InterruptedException {
     checkActive();
     try {
@@ -2282,30 +2291,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)
-              .setParallelism(executors.executionParallelism())
-              .setExecutor(executors.getMergedAnalysisAndExecutionExecutor())
+              .setParallelism(executionParallelism)
+              .setExecutor(executor)
               .setEventHandler(eventHandler)
               .setMergingSkyframeAnalysisExecutionPhases(true)
               .build();
       return memoizingEvaluator.evaluate(
           Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
     } finally {
-      // No more analysis expected after this.
-      syscallCache.noteAnalysisPhaseEnded();
+      clearSyscallCache();
     }
-  }
-
-  public void setIncrementalPackageRoots(IncrementalPackageRoots incrementalPackageRoots) {
-    this.incrementalPackageRoots = Optional.of(incrementalPackageRoots);
   }
 
   /** Called after a single Skyframe evaluation that involves action execution. */
   private void cleanUpAfterSingleEvaluationWithActionExecution(ExtendedEventHandler eventHandler) {
     setExecutionProgressReceiver(null);
 
-    if (incrementalPackageRoots.isPresent()) {
-      incrementalPackageRoots = Optional.empty();
-    }
     skyframeActionExecutor.executionOver();
     actionExecutionFunction.complete(eventHandler);
   }
@@ -2398,6 +2399,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   void resetActionConflictsStoredInSkyframe() {
     memoizingEvaluator.delete(
         SkyFunctionName.functionIs(SkyFunctions.ACTION_LOOKUP_CONFLICT_FINDING));
+  }
+
+  public void resetBuildDriverFunction() {
+    buildDriverFunction.resetActionConflictCheckingStatus();
   }
 
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
@@ -3054,6 +3059,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     private Map<SkyKey, SkyValue> batchedActionLookupValuesForConflictChecking =
         Maps.newConcurrentMap();
 
+    // In non-incremental builds, we want to remove the glob subgraph after the rdep PACKAGE is
+    // done. However, edges are not stored. So, we use the `globDeps` map to temporarily store the
+    // relationship between GLOB and their dependent GLOBs.
+    // After the rdep PACKAGE has been evaluated, all direct or transitive dependent GLOBs will be
+    // recursively removed from both the in-memory graph and `globDeps` map.
+    private Map<GlobDescriptor, ImmutableList<GlobDescriptor>> globDeps = new ConcurrentHashMap<>();
+
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
       if (ignoreInvalidations) {
@@ -3093,7 +3105,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Nullable SkyValue newValue,
         @Nullable ErrorInfo newError,
         Supplier<EvaluationSuccessState> evaluationSuccessState,
-        EvaluationState state) {
+        EvaluationState state,
+        @Nullable GroupedDeps directDeps) {
       if (heuristicallyDropNodes) {
         Object argument = skyKey.argument();
         if (skyKey.functionName().equals(FileValue.FILE)) {
@@ -3131,10 +3144,49 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       skyframeBuildView
           .getProgressReceiver()
-          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
+          .evaluated(skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(
-            skyKey, newValue, newError, evaluationSuccessState, state);
+            skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
+      }
+
+      if (!heuristicallyDropNodes || directDeps == null) {
+        return;
+      }
+
+      if (skyKey.functionName().equals(SkyFunctions.GLOB)) {
+        Preconditions.checkArgument(skyKey instanceof GlobDescriptor, skyKey);
+        Preconditions.checkState(!globDeps.containsKey(skyKey), skyKey);
+        ImmutableList.Builder<GlobDescriptor> directDepGlobsBuilder = ImmutableList.builder();
+        for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
+          if (dep.functionName().equals(SkyFunctions.GLOB)) {
+            Preconditions.checkArgument(dep instanceof GlobDescriptor, dep);
+            directDepGlobsBuilder.add((GlobDescriptor) dep);
+          }
+        }
+
+        ImmutableList<GlobDescriptor> directDepGlobs = directDepGlobsBuilder.build();
+        if (!directDepGlobs.isEmpty()) {
+          globDeps.put((GlobDescriptor) skyKey, directDepGlobs);
+        }
+      }
+
+      if (skyKey.functionName().equals(SkyFunctions.PACKAGE)) {
+        for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
+          if (dep.functionName().equals(SkyFunctions.GLOB)) {
+            recursivelyRemoveGlobFromGraph((GlobDescriptor) dep);
+          }
+        }
+      }
+    }
+
+    private void recursivelyRemoveGlobFromGraph(GlobDescriptor root) {
+      memoizingEvaluator.getInMemoryGraph().remove(root);
+      ImmutableList<GlobDescriptor> adjacentDeps = globDeps.remove(root);
+      if (adjacentDeps != null) {
+        for (GlobDescriptor nextLevelDep : adjacentDeps) {
+          recursivelyRemoveGlobFromGraph(nextLevelDep);
+        }
       }
     }
 

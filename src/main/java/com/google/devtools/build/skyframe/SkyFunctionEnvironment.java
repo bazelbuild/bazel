@@ -307,12 +307,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     addTransitiveEventsFromDepValuesForDoneNode(
         eventBuilder,
-        // When there's no boundary between analysis & execution, we don't filter any dep.
-        evaluatorContext.mergingSkyframeAnalysisExecutionPhases()
-            ? depKeys.getAllElementsAsIterable()
-            : Iterables.filter(
-                depKeys.getAllElementsAsIterable(),
-                depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
+        Iterables.filter(
+            depKeys.getAllElementsAsIterable(),
+            depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
         expectDoneDeps);
 
     NestedSet<Reportable> events = eventBuilder.buildInterruptibly();
@@ -888,7 +885,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     GroupedDeps temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
     if (!oldDeps.isEmpty()) {
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
-      Set<SkyKey> depsToRemove = Sets.difference(oldDeps, temporaryDirectDeps.toSet());
+      ImmutableList<SkyKey> depsToRemove =
+          ImmutableList.copyOf(Sets.difference(oldDeps, temporaryDirectDeps.toSet()));
       NodeBatch oldDepEntries =
           evaluatorContext.getGraph().getBatch(skyKey, Reason.RDEP_REMOVAL, depsToRemove);
       for (SkyKey key : depsToRemove) {
@@ -920,7 +918,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
             evaluationState == EvaluationState.BUILT ? value : null,
             evaluationState == EvaluationState.BUILT ? errorInfo : null,
             EvaluationSuccessStateSupplier.fromSkyValue(valueWithMetadata),
-            evaluationState);
+            evaluationState,
+            temporaryDirectDeps);
 
     return reverseDeps;
   }

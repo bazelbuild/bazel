@@ -19,11 +19,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/paths.bzl", "paths")
 load(":common/cc/cc_common.bzl", "cc_common")
 
-def _collect_all_targets_as_runtime_deps(ctx):
-    return _collect_all_targets_as_deps(ctx)
-
-def _collect_all_targets_as_compile_deps(ctx):
-    return _collect_all_targets_as_deps(ctx, classpath_type = "compile_only")
+testing = _builtins.toplevel.testing
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = []
@@ -34,12 +30,6 @@ def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
             deps.extend(ctx.attr.exports)
 
     deps.extend(ctx.attr.deps or [])
-
-    if (
-        ctx.fragments.java.add_test_support_to_compile_deps and
-        hasattr(ctx.attr, "_test_support") and ctx.attr._test_support
-    ):
-        deps.append(ctx.attr._test_support)
 
     launcher = _filter_launcher_for_target(ctx)
     if launcher:
@@ -272,9 +262,31 @@ def _is_absolute_path(ctx, path):
 def _runfiles_enabled(ctx):
     return ctx.configuration.runfiles_enabled()
 
+def _get_test_support(ctx):
+    if ctx.attr.create_executable and ctx.attr.use_testrunner:
+        return ctx.attr._test_support
+    return None
+
+def _test_providers(ctx):
+    test_providers = []
+    if cc_helper.has_target_constraints(ctx, ctx.attr._apple_constraints):
+        test_providers.append(testing.ExecutionInfo({"requires-darwin": ""}))
+
+    test_env = {}
+    test_env.update(cc_helper.get_expanded_env(ctx, {}))
+
+    coverage_config = _get_coverage_config(ctx)
+    if coverage_config:
+        test_env.update(coverage_config.env)
+    test_providers.append(testing.TestEnvironment(
+        environment = test_env,
+        inherited_environment = ctx.attr.env_inherit,
+    ))
+
+    return test_providers
+
 util = struct(
-    collect_all_targets_as_runtime_deps = _collect_all_targets_as_runtime_deps,
-    collect_all_targets_as_compile_deps = _collect_all_targets_as_compile_deps,
+    collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
     launcher_artifact_for_target = _launcher_artifact_for_target,
     check_and_get_main_class = _check_and_get_main_class,
@@ -291,4 +303,6 @@ util = struct(
     is_absolute_path = _is_absolute_path,
     is_windows = _is_windows,
     runfiles_enabled = _runfiles_enabled,
+    get_test_support = _get_test_support,
+    test_providers = _test_providers,
 )

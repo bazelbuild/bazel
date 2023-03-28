@@ -14,21 +14,12 @@
 """Rules for configuring the C++ toolchain (experimental)."""
 
 load("@bazel_tools//tools/cpp:windows_cc_configure.bzl", "configure_windows_toolchain")
-load("@bazel_tools//tools/cpp:osx_cc_configure.bzl", "configure_osx_toolchain")
 load("@bazel_tools//tools/cpp:unix_cc_configure.bzl", "configure_unix_toolchain")
 load(
     "@bazel_tools//tools/cpp:lib_cc_configure.bzl",
     "get_cpu_value",
     "resolve_labels",
 )
-load("@bazel_tools//tools/osx:xcode_configure.bzl", "run_xcode_locator")
-
-def _generate_cpp_only_build_file(repository_ctx, cpu_value, paths):
-    repository_ctx.template(
-        "BUILD",
-        paths["@bazel_tools//tools/cpp:BUILD.toolchains.tpl"],
-        {"%{name}": cpu_value},
-    )
 
 def cc_autoconf_toolchains_impl(repository_ctx):
     """Generate BUILD file with 'toolchain' targets for the local host C++ toolchain.
@@ -36,47 +27,25 @@ def cc_autoconf_toolchains_impl(repository_ctx):
     Args:
       repository_ctx: repository context
     """
-    paths = resolve_labels(repository_ctx, [
-        "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
-        "@bazel_tools//tools/osx/crosstool:BUILD.toolchains",
-        "@bazel_tools//tools/osx:xcode_locator.m",
-    ])
     env = repository_ctx.os.environ
-    cpu_value = get_cpu_value(repository_ctx)
 
     # Should we try to find C++ toolchain at all? If not, we don't have to generate toolchains for C++ at all.
     should_detect_cpp_toolchain = "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN" not in env or env["BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN"] != "1"
 
-    # Should we unconditionally *not* use xcode? If so, we don't have to run Xcode locator ever.
-    should_use_cpp_only_toolchain = "BAZEL_USE_CPP_ONLY_TOOLCHAIN" in env and env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] == "1"
-
-    # Should we unconditionally use xcode? If so, we don't have to run Xcode locator now.
-    should_use_xcode = "BAZEL_USE_XCODE_TOOLCHAIN" in env and env["BAZEL_USE_XCODE_TOOLCHAIN"] == "1"
-
-    if not should_detect_cpp_toolchain:
-        repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
-    elif cpu_value.startswith("darwin") and not should_use_cpp_only_toolchain:
-        xcode_toolchains = []
-
-        # Only detect xcode if the user didn't tell us it will be there.
-        if not should_use_xcode:
-            # TODO(#6926): Unify C++ and ObjC toolchains so we don't have to run xcode locator to generate toolchain targets.
-            # And also so we don't have to keep this code in sync with //tools/cpp:osx_cc_configure.bzl.
-            (xcode_toolchains, _xcodeloc_err) = run_xcode_locator(
-                repository_ctx,
-                paths["@bazel_tools//tools/osx:xcode_locator.m"],
-            )
-
-        if should_use_xcode or xcode_toolchains:
-            repository_ctx.symlink(paths["@bazel_tools//tools/osx/crosstool:BUILD.toolchains"], "BUILD")
-        else:
-            _generate_cpp_only_build_file(repository_ctx, cpu_value, paths)
+    if should_detect_cpp_toolchain:
+        paths = resolve_labels(repository_ctx, [
+            "@bazel_tools//tools/cpp:BUILD.toolchains.tpl",
+        ])
+        repository_ctx.template(
+            "BUILD",
+            paths["@bazel_tools//tools/cpp:BUILD.toolchains.tpl"],
+            {"%{name}": get_cpu_value(repository_ctx)},
+        )
     else:
-        _generate_cpp_only_build_file(repository_ctx, cpu_value, paths)
+        repository_ctx.file("BUILD", "# C++ toolchain autoconfiguration was disabled by BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN env variable.")
 
 cc_autoconf_toolchains = repository_rule(
     environ = [
-        "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
     ],
     implementation = cc_autoconf_toolchains_impl,
@@ -118,9 +87,6 @@ def cc_autoconf_impl(repository_ctx, overriden_tools = dict()):
         # TODO(ibiryukov): overriden_tools are only supported in configure_unix_toolchain.
         # We might want to add that to Windows too(at least for msys toolchain).
         configure_windows_toolchain(repository_ctx)
-    elif (cpu_value.startswith("darwin") and
-          ("BAZEL_USE_CPP_ONLY_TOOLCHAIN" not in env or env["BAZEL_USE_CPP_ONLY_TOOLCHAIN"] != "1")):
-        configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools)
     else:
         configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools)
 
@@ -157,8 +123,6 @@ cc_autoconf = repository_rule(
         "BAZEL_TARGET_CPU",
         "BAZEL_TARGET_LIBC",
         "BAZEL_TARGET_SYSTEM",
-        "BAZEL_USE_CPP_ONLY_TOOLCHAIN",
-        "BAZEL_USE_XCODE_TOOLCHAIN",
         "BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN",
         "BAZEL_USE_LLVM_NATIVE_COVERAGE",
         "BAZEL_LLVM",

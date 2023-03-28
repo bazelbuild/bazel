@@ -116,21 +116,6 @@ cc_library(
     }),
 )
 
-alias(
-    name = "java",
-    actual = "@local_jdk//:java",
-)
-
-alias(
-    name = "jar",
-    actual = "@local_jdk//:jar",
-)
-
-alias(
-    name = "javadoc",
-    actual = "@local_jdk//:javadoc",
-)
-
 [
     (
         alias(
@@ -146,7 +131,8 @@ alias(
     )
     for OS in [
         "linux",
-        "darwin",
+        "darwin_x86_64",
+        "darwin_arm64",
         "windows",
     ]
 ]
@@ -163,7 +149,8 @@ alias(
     name = "ijar_prebuilt_binary_or_cc_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
         "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
     }),
@@ -173,7 +160,8 @@ alias(
     name = "ijar_prebuilt_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
     }),
 )
@@ -193,7 +181,8 @@ alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
         "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
@@ -203,14 +192,14 @@ alias(
     name = "prebuilt_singlejar",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
     }),
 )
 
 exports_files([
     "BUILD.java_tools",
-    "jdk.BUILD",
 ])
 
 alias(
@@ -272,20 +261,6 @@ alias(
 alias(
     name = "proguard",
     actual = "@remote_java_tools//:proguard",
-)
-
-BOOTCLASS_JARS = [
-    "rt.jar",
-    "resources.jar",
-    "jsse.jar",
-    "jce.jar",
-    "charsets.jar",
-]
-
-# TODO(cushon): this isn't compatible with JDK 9
-alias(
-    name = "bootclasspath",
-    actual = "@local_jdk//:bootclasspath",
 )
 
 alias(

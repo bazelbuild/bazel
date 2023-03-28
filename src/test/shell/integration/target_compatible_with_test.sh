@@ -507,6 +507,34 @@ EOF
   expect_log 'Target //target_skipping:always_incompatible build was skipped'
 }
 
+# Validates that incompatible target skipping works with top level targets when
+# --skip_incompatible_explicit_targets is enabled.
+function test_success_on_incompatible_top_level_target_with_skipping() {
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  # Validate a variety of ways to refer to the same target.
+  local -r -a incompatible_targets=(
+      :pass_on_foo1_bar2
+      //target_skipping:pass_on_foo1_bar2
+      @//target_skipping:pass_on_foo1_bar2
+  )
+
+  for incompatible_target in "${incompatible_targets[@]}"; do
+    echo "Testing ${incompatible_target}"
+
+    bazel test \
+      --show_result=10 \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --build_event_text_file="${TEST_log}".build.json \
+      --skip_incompatible_explicit_targets \
+      "${incompatible_target}" &> "${TEST_log}" \
+      || fail "Bazel failed unexpectedly."
+
+    expect_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+  done
+}
+
 # Crudely validates that the build event protocol contains useful information
 # when targets are skipped due to incompatibilities.
 function test_build_event_protocol() {

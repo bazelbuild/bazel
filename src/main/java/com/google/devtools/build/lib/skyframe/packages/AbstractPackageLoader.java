@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
@@ -50,6 +49,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
@@ -141,6 +141,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final int nonSkyframeGlobbingThreads;
   @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
+  private final boolean usePooledSkyKeyInterning;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -157,6 +158,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
+    boolean usePooledSkyKeyInterning = true;
 
     protected Builder(
         Root workspaceDir,
@@ -242,6 +244,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder disablePooledSkyKeyInterning() {
+      this.usePooledSkyKeyInterning = false;
+      return this;
+    }
+
     /** Throws {@link IllegalArgumentException} if builder args are incomplete/inconsistent. */
     protected void validate() {
       if (starlarkSemantics == null) {
@@ -273,6 +281,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         NamedForkJoinPool.newNamedPool(
             "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
+    this.usePooledSkyKeyInterning = builder.usePooledSkyKeyInterning;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
@@ -316,7 +325,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       injected.inject(injectable);
     }
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(injectable, pkgLocator);
-    PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, ConstantRuleVisibility.PRIVATE);
+    PrecomputedValue.DEFAULT_VISIBILITY.set(injectable, RuleVisibility.PRIVATE);
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY
         .set(injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
@@ -408,7 +417,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
         new NestedSetVisitor.VisitedState(),
-        /*keepEdges=*/ false);
+        /* keepEdges= */ false,
+        usePooledSkyKeyInterning);
   }
 
   protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();

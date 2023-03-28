@@ -162,8 +162,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         "platform(name = 'execution_platform_2')");
 
     useConfiguration(
-        "--extra_execution_platforms=//extra:execution_platform_1",
-        "--extra_execution_platforms=//extra:execution_platform_2");
+        "--extra_execution_platforms=//extra:execution_platform_1,//extra:execution_platform_2");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =

@@ -638,17 +638,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "cache misses and retries.")
   public boolean remoteDiscardMerkleTrees;
 
-  @Option(
-      name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
-              + " blobs during the build.")
-  public boolean useNewExitCodeForLostInputs;
-
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 

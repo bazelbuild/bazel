@@ -34,9 +34,9 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 *   Access the [bash completion script](/install/completion#bash)
 *   Install the [zsh completion script](/install/completion#zsh)
 
-### Step 1: Add Bazel distribution URI as a package source {:#add-dis-uri}
-
 ## Using Bazel's apt repository {:#install-on-ubuntu}
+
+### Step 1: Add Bazel distribution URI as a package source {:#add-dis-uri}
 
 **Note:** This is a one-time setup step.
 

@@ -154,7 +154,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           .build();
 
   /** Parent rule class for executable non-test Starlark rules. */
-  public static final RuleClass binaryBaseRule =
+  private static final RuleClass binaryBaseRule =
       new RuleClass.Builder("$binary_base_rule", RuleClassType.ABSTRACT, true, baseRule)
           .add(attr("args", STRING_LIST))
           .add(attr("output_licenses", LICENSE))
@@ -308,7 +308,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         executable,
         outputToGenfiles,
         fragments,
-        hostFragments,
         starlarkTestable,
         toolchains,
         doc,
@@ -331,7 +330,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       boolean executable,
       boolean outputToGenfiles,
       Sequence<?> fragments,
-      Sequence<?> hostFragments,
       boolean starlarkTestable,
       Sequence<?> toolchains,
       Object doc,
@@ -644,12 +642,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
         if (attribute.getType() == Type.STRING) {
           // isValueSet() is always true for attr.string as default value is "" by default.
-          hasDefault = !Objects.equals(attribute.getDefaultValue(null), "");
+          hasDefault = !Objects.equals(attribute.getDefaultValue(), "");
         } else if (attribute.getType() == Type.INTEGER) {
           // isValueSet() is always true for attr.int as default value is 0 by default.
-          hasDefault = !Objects.equals(attribute.getDefaultValue(null), StarlarkInt.of(0));
+          hasDefault = !Objects.equals(attribute.getDefaultValue(), StarlarkInt.of(0));
         } else if (attribute.getType() == Type.BOOLEAN) {
-          hasDefault = !Objects.equals(attribute.getDefaultValue(null), false);
+          hasDefault = !Objects.equals(attribute.getDefaultValue(), false);
         } else {
           throw Starlark.errorf(
               "Aspect parameter attribute '%s' must have type 'bool', 'int' or 'string'.",
@@ -658,7 +656,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
         if (hasDefault && attribute.checkAllowedValues()) {
           PredicateWithMessage<Object> allowed = attribute.getAllowedValues();
-          Object defaultVal = attribute.getDefaultValue(null);
+          Object defaultVal = attribute.getDefaultValue();
           if (!allowed.apply(defaultVal)) {
             throw Starlark.errorf(
                 "Aspect parameter attribute '%s' has a bad default value: %s",
@@ -824,7 +822,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             ruleClass,
             attributeValues,
             pkgContext.getEventHandler(),
-            thread.getSemantics(),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(e);
@@ -1045,19 +1042,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
   @Override
   public ExecGroup execGroup(
-      Sequence<?> toolchains,
-      Sequence<?> execCompatibleWith,
-      Boolean copyFromRule,
-      StarlarkThread thread)
+      Sequence<?> toolchains, Sequence<?> execCompatibleWith, StarlarkThread thread)
       throws EvalException {
-    if (copyFromRule) {
-      if (!toolchains.isEmpty() || !execCompatibleWith.isEmpty()) {
-        throw Starlark.errorf(
-            "An exec group cannot set copy_from_rule=True and declare toolchains or constraints.");
-      }
-      return ExecGroup.copyFromDefault();
-    }
-
     ImmutableSet<ToolchainTypeRequirement> toolchainTypes = parseToolchainTypes(toolchains, thread);
     ImmutableSet<Label> constraints = parseExecCompatibleWith(execCompatibleWith, thread);
     return ExecGroup.builder()

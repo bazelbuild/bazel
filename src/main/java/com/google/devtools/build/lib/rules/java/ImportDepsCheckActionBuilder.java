@@ -97,13 +97,6 @@ public final class ImportDepsCheckActionBuilder {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  public ImportDepsCheckActionBuilder importDepsChecker(Artifact importDepsChecker) {
-    checkState(this.importDepsChecker == null);
-    this.importDepsChecker = checkNotNull(importDepsChecker);
-    return this;
-  }
-
   public void buildAndRegister(RuleContext ruleContext) {
     checkNotNull(jarsToCheck);
     checkNotNull(bootclasspath);

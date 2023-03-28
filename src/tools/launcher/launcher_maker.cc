@@ -54,13 +54,13 @@ int main(int argc, char** argv) {
   std::wstring winfo_params = windows_path(argv[2]);
   std::wstring woutput_path = windows_path(argv[3]);
 
-  std::ifstream src(wlauncher_path, std::ios::binary);
+  std::ifstream src(wlauncher_path.c_str(), std::ios::binary);
   if (!src.good()) {
     fprintf(stderr, "Failed to open %ls: %s\n", wlauncher_path.c_str(),
             strerror(errno));
     return 1;
   }
-  std::ofstream dst(woutput_path, std::ios::binary);
+  std::ofstream dst(woutput_path.c_str(), std::ios::binary);
   if (!dst.good()) {
     fprintf(stderr, "Failed to create %ls: %s\n", woutput_path.c_str(),
             strerror(errno));
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
   }
   dst << src.rdbuf();
 
-  std::ifstream info_file(winfo_params);
+  std::ifstream info_file(winfo_params.c_str());
   if (!info_file.good()) {
     fprintf(stderr, "Failed to open %ls: %s\n", winfo_params.c_str(),
             strerror(errno));

@@ -12,6 +12,15 @@ filegroup(
 )
 
 java_library(
+    name = "bulk_transfer_exception",
+    srcs = ["BulkTransferException.java"],
+    deps = [
+        ":cache_not_found_exception",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "cache_not_found_exception",
     srcs = ["CacheNotFoundException.java"],
     deps = [
@@ -23,10 +32,12 @@ java_library(
     name = "common",
     srcs = glob(
         ["*.java"],
-        exclude = ["CacheNotFoundException.java"],
+        exclude = [
+            "BulkTransferException.java",
+            "CacheNotFoundException.java",
+        ],
     ),
     deps = [
-        ":cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

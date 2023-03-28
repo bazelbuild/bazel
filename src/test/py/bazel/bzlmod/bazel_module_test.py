@@ -389,7 +389,8 @@ class BazelModuleTest(test_base.TestBase):
             in line for line in stderr
         ]))
 
-  def testCommandLineModuleOverride(self):
+  def testCmdAbsoluteModuleOverride(self):
+    # test commandline_overrides takes precedence over local_path_override
     self.ScratchFile('MODULE.bazel', [
         'bazel_dep(name = "ss", version = "1.0")',
         'local_path_override(',
@@ -416,14 +417,92 @@ class BazelModuleTest(test_base.TestBase):
     ])
     self.ScratchFile('bb/WORKSPACE')
 
-    _, _, stderr = self.RunBazel([
-        'build', '--experimental_enable_bzlmod', '@ss//:all',
-        '--override_module', 'ss=' + self.Path('bb')
-    ],
-                                 allow_failure=False)
+    _, _, stderr = self.RunBazel(
+        ['build', '@ss//:all', '--override_module', 'ss=' + self.Path('bb')],
+        allow_failure=False,
+    )
     # module file override should be ignored, and bb directory should be used
     self.assertIn(
         'Target @ss~override//:choose_me up-to-date (nothing to build)', stderr)
+
+  def testCmdRelativeModuleOverride(self):
+    self.ScratchFile('aa/WORKSPACE')
+    self.ScratchFile(
+        'aa/MODULE.bazel',
+        [
+            'bazel_dep(name = "ss", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('aa/BUILD')
+
+    self.ScratchFile('aa/cc/BUILD')
+
+    self.ScratchFile('bb/WORKSPACE')
+    self.ScratchFile(
+        'bb/MODULE.bazel',
+        [
+            'module(name="ss")',
+        ],
+    )
+    self.ScratchFile(
+        'bb/BUILD',
+        [
+            'filegroup(name = "choose_me")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@ss//:all',
+            '--override_module',
+            'ss=../../bb',
+            '--enable_bzlmod',
+        ],
+        cwd=self.Path('aa/cc'),
+        allow_failure=False,
+    )
+    self.assertIn(
+        'Target @ss~override//:choose_me up-to-date (nothing to build)', stderr
+    )
+
+  def testCmdWorkspaceRelativeModuleOverride(self):
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "ss", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('aa/BUILD')
+    self.ScratchFile('bb/WORKSPACE')
+    self.ScratchFile(
+        'bb/MODULE.bazel',
+        [
+            'module(name="ss")',
+        ],
+    )
+    self.ScratchFile(
+        'bb/BUILD',
+        [
+            'filegroup(name = "choose_me")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            '@ss//:all',
+            '--override_module',
+            'ss=%workspace%/bb',
+        ],
+        cwd=self.Path('aa'),
+        allow_failure=False,
+    )
+    self.assertIn(
+        'Target @ss~override//:choose_me up-to-date (nothing to build)', stderr
+    )
 
   def testDownload(self):
     data_path = self.ScratchFile('data.txt', ['some data'])
@@ -1006,6 +1085,147 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 
     _, _, stderr = self.RunBazel(['build', ':a'], allow_failure=False)
     self.assertIn('I LUV U!', '\n'.join(stderr))
+
+  def testArchiveWithArchiveType(self):
+    # make the archive without the .zip extension
+    self.main_registry.createCcModule(
+        'aaa', '1.2', archive_pattern='%s.%s', archive_type='zip'
+    )
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.2")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@aaa//:lib_aaa"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("main function");',
+            '}',
+        ],
+    )
+    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    self.assertIn('main function => aaa@1.2', stdout)
+
+  def testNativeModuleNameAndVersion(self):
+    self.main_registry.setModuleBasePath('projects')
+    projects_dir = self.main_registry.projects
+
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="root",version="0.1")',
+            'bazel_dep(name="foo",version="1.0")',
+            'report_ext = use_extension("@foo//:ext.bzl", "report_ext")',
+            'use_repo(report_ext, "report_repo")',
+            'bazel_dep(name="bar")',
+            'local_path_override(module_name="bar",path="bar")',
+        ],
+    )
+    self.ScratchFile('WORKSPACE')
+    self.ScratchFile(
+        'WORKSPACE.bzlmod', ['local_repository(name="quux",path="quux")']
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@foo//:report.bzl", "report")',
+            'report()',
+        ],
+    )
+    # foo: a repo defined by a normal Bazel module. Also hosts the extension
+    #      `report_ext` which generates a repo `report_repo`.
+    self.main_registry.createLocalPathModule('foo', '1.0', 'foo')
+    projects_dir.joinpath('foo').mkdir(exist_ok=True)
+    scratchFile(projects_dir.joinpath('foo', 'WORKSPACE'))
+    scratchFile(
+        projects_dir.joinpath('foo', 'BUILD'),
+        [
+            'load(":report.bzl", "report")',
+            'report()',
+        ],
+    )
+    scratchFile(
+        projects_dir.joinpath('foo', 'report.bzl'),
+        [
+            'def report():',
+            '  repo = native.repository_name()',
+            '  name = str(native.module_name())',
+            '  version = str(native.module_version())',
+            '  print("@" + repo + " reporting in: " + name + "@" + version)',
+            '  native.filegroup(name="a")',
+        ],
+    )
+    scratchFile(
+        projects_dir.joinpath('foo', 'ext.bzl'),
+        [
+            'def _report_repo(rctx):',
+            '  rctx.file("BUILD",',
+            '    "load(\\"@foo//:report.bzl\\", \\"report\\")\\n" +',
+            '    "report()")',
+            'report_repo = repository_rule(_report_repo)',
+            'report_ext = module_extension(',
+            '  lambda mctx: report_repo(name="report_repo"))',
+        ],
+    )
+    # bar: a repo defined by a Bazel module with a non-registry override
+    self.ScratchFile('bar/WORKSPACE')
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        [
+            'module(name="bar", version="2.0")',
+            'bazel_dep(name="foo",version="1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'bar/BUILD',
+        [
+            'load("@foo//:report.bzl", "report")',
+            'report()',
+        ],
+    )
+    # quux: a repo defined by WORKSPACE
+    self.ScratchFile('quux/WORKSPACE')
+    self.ScratchFile(
+        'quux/BUILD',
+        [
+            'load("@foo//:report.bzl", "report")',
+            'report()',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(
+        [
+            'build',
+            ':a',
+            '@foo//:a',
+            '@report_repo//:a',
+            '@bar//:a',
+            '@quux//:a',
+        ],
+        allow_failure=False,
+    )
+    stderr = '\n'.join(stderr)
+    self.assertIn('@@ reporting in: root@0.1', stderr)
+    self.assertIn('@@foo~1.0 reporting in: foo@1.0', stderr)
+    self.assertIn(
+        '@@foo~1.0~report_ext~report_repo reporting in: foo@1.0', stderr
+    )
+    self.assertIn('@@bar~override reporting in: bar@2.0', stderr)
+    self.assertIn('@@quux reporting in: None@None', stderr)
 
 
 if __name__ == '__main__':

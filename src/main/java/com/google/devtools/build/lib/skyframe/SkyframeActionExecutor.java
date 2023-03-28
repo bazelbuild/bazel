@@ -13,7 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -113,6 +117,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentMap;
@@ -262,8 +267,8 @@ public final class SkyframeActionExecutor {
       ActionCacheChecker actionCacheChecker,
       OutputService outputService,
       boolean trackIncrementalState) {
-    this.reporter = Preconditions.checkNotNull(reporter);
-    this.executorEngine = Preconditions.checkNotNull(executor);
+    this.reporter = checkNotNull(reporter);
+    this.executorEngine = checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
 
     // Start with a new map each build so there's no issue with internal resizing.
@@ -271,7 +276,7 @@ public final class SkyframeActionExecutor {
     this.completedAndResetActions = Sets.newConcurrentHashSet();
     this.lostDiscoveredInputsMap = Maps.newConcurrentMap();
     this.hadExecutionError = false;
-    this.actionCacheChecker = Preconditions.checkNotNull(actionCacheChecker);
+    this.actionCacheChecker = checkNotNull(actionCacheChecker);
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
@@ -595,8 +600,7 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv,
-      ArtifactPathResolver pathResolver)
+      Map<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
     RemoteOptions remoteOptions;
@@ -1140,7 +1144,7 @@ public final class SkyframeActionExecutor {
       Artifact primaryOutput = action.getPrimaryOutput();
       Path primaryOutputPath = actionExecutionContext.getInputPath(primaryOutput);
       try {
-        Preconditions.checkState(
+        checkState(
             action.inputsDiscovered(),
             "Action %s successfully executed, but inputs still not known",
             action);
@@ -1234,17 +1238,17 @@ public final class SkyframeActionExecutor {
           fileOutErr,
           ErrorTiming.NO_ERROR);
 
-      Preconditions.checkState(
-          actionExecutionContext.getOutputSymlinks() == null
-              || action instanceof SkyframeAwareAction,
-          "Unexpected to find outputSymlinks set"
-              + " in an action which is not a SkyframeAwareAction. Action: %s\n symlinks:%s",
+      ImmutableList<FilesetOutputSymlink> outputSymlinks =
+          actionExecutionContext.getOutputSymlinks();
+      checkState(
+          outputSymlinks.isEmpty() || action instanceof SkyframeAwareAction,
+          "Unexpected to find outputSymlinks set in an action which is not a SkyframeAwareAction."
+              + "\nAction: %s"
+              + "\nSymlinks: %s",
           action,
-          actionExecutionContext.getOutputSymlinks());
+          outputSymlinks);
       return ActionExecutionValue.createFromOutputStore(
-          this.metadataHandler.getOutputStore(),
-          actionExecutionContext.getOutputSymlinks(),
-          action);
+          this.metadataHandler.getOutputStore(), outputSymlinks, action);
     }
 
     /**
@@ -1350,7 +1354,7 @@ public final class SkyframeActionExecutor {
       ActionExecutionException e,
       FileOutErr outErrBuffer,
       ErrorTiming errorTiming) {
-    Preconditions.checkArgument(
+    checkArgument(
         !(e instanceof LostInputsActionExecutionException),
         "unexpected LostInputs exception: %s",
         e);
@@ -1674,9 +1678,9 @@ public final class SkyframeActionExecutor {
     if (actionResult != null) {
       logs =
           actionResult.spawnResults().stream()
-              .filter(spawnResult -> spawnResult.getActionMetadataLog() != null)
               .map(SpawnResult::getActionMetadataLog)
-              .collect(ImmutableList.toImmutableList());
+              .filter(Objects::nonNull)
+              .collect(toImmutableList());
     }
     eventHandler.post(
         new ActionExecutedEvent(
@@ -1706,7 +1710,7 @@ public final class SkyframeActionExecutor {
     void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action);
   }
 
-  public void setActionExecutionProgressReportingObjects(
+  void setActionExecutionProgressReportingObjects(
       @Nullable ProgressSupplier progressSupplier,
       @Nullable ActionCompletedReceiver completionReceiver) {
     this.progressSupplier = progressSupplier;

@@ -38,7 +38,8 @@ public class JavaRuntimeInfoTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             null,
             null,
-            ImmutableList.of());
+            ImmutableList.of(),
+            17);
     JavaRuntimeInfo b =
         JavaRuntimeInfo.create(
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -49,7 +50,8 @@ public class JavaRuntimeInfoTest {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             null,
             null,
-            ImmutableList.of());
+            ImmutableList.of(),
+            17);
 
     new EqualsTester().addEqualityGroup(a).addEqualityGroup(b).testEquals();
   }

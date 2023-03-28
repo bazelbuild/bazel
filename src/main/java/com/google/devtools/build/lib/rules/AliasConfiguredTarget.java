@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupC
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -194,6 +195,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
   @Override
   public Label getOriginalLabel() {
     return label;
+  }
+
+  @Override
+  public Dict<String, Object> getProvidersDict() {
+    return actual.getProvidersDict();
   }
 
   @Override

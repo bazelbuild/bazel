@@ -194,8 +194,7 @@ public class WorkerModule extends BlazeModule {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(
-        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions.verboseFailures),
-        "worker");
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "worker");
   }
 
   @Subscribe

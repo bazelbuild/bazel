@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -333,7 +334,7 @@ public final class TargetUtils {
   }
 
   private static boolean isExplicitDependency(Rule rule, Label label) {
-    if (rule.getVisibility().getDependencyLabels().contains(label)) {
+    if (Iterables.contains(rule.getVisibilityDependencyLabels(), label)) {
       return true;
     }
 

@@ -10,13 +10,13 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -108,6 +108,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_custom_command_line",

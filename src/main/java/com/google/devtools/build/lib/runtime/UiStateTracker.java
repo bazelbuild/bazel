@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.primitives.Booleans.trueFirst;
+import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
@@ -59,7 +61,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -170,6 +171,36 @@ class UiStateTracker {
   private static final StrategyIds strategyIds = new StrategyIds();
 
   /**
+   * The various phases of action execution.
+   *
+   * <p>The typical progression is:
+   *
+   * <pre>
+   * Preparing > Scanning > Preparing > Caching > Scheduling > Running
+   * </pre>
+   *
+   * <p>Some actions may not go through every phase (e.g. scanning).
+   */
+  private enum ActionPhase {
+    PREPARING("Preparing"),
+    SCANNING("Scanning"),
+    CACHING("Caching"),
+    SCHEDULING("Scheduling"),
+    RUNNING("Running");
+
+    final String description;
+
+    ActionPhase(String description) {
+      this.description = description;
+    }
+
+    /** Returns a human-readable description of this phase. */
+    String describe() {
+      return description;
+    }
+  };
+
+  /**
    * Tracks all details for an action that we have heard about.
    *
    * <p>We cannot make assumptions on the order in which action state events come in, so this class
@@ -188,34 +219,15 @@ class UiStateTracker {
     long nanoStartTime;
 
     /**
-     * Whether this action is in the scanning state or not.
+     * The phase this action is currently in.
      *
-     * <p>If true, implies that {@link #schedulingStrategiesBitmap} and {@link
-     * #runningStrategiesBitmap} are both zero. The opposite is not necessarily true: if false, the
-     * bitmaps can be zero as well to represent that the action is still in the preparation stage.
+     * <p>When multiple strategies are applied, this is the phase of the strategy that has made the
+     * most progress.
      */
-    boolean scanning;
+    ActionPhase currentPhase = ActionPhase.PREPARING;
 
-    /**
-     * Bitmap of strategies that are checking the cache of this action.
-     *
-     * <p>If non-zero, implies that {@link #scanning} is false.
-     */
-    int cachingStrategiesBitmap = 0;
-
-    /**
-     * Bitmap of strategies that are scheduling this action.
-     *
-     * <p>If non-zero, implies that {@link #scanning} is false.
-     */
-    int schedulingStrategiesBitmap = 0;
-
-    /**
-     * Bitmap of strategies that are running this action.
-     *
-     * <p>If non-zero, implies that {@link #scanning} is false.
-     */
-    int runningStrategiesBitmap = 0;
+    /** The set of strategies that have been applied to this action. */
+    int strategyBitmap = 0;
 
     private static class ProgressState {
       final String id;
@@ -235,24 +247,25 @@ class UiStateTracker {
       this.nanoStartTime = nanoStartTime;
     }
 
-    /** Computes the weight of this action for the global active actions counter. */
-    synchronized int countActions() {
-      int activeStrategies =
-          Integer.bitCount(schedulingStrategiesBitmap) + Integer.bitCount(runningStrategiesBitmap);
-      return activeStrategies > 0 ? activeStrategies : 1;
+    /** Returns the phase this action is currently in. */
+    synchronized ActionPhase getPhase() {
+      return currentPhase;
+    }
+
+    /** Returns the set of strategies currently applied to this action. */
+    synchronized int getStrategyBitmap() {
+      return strategyBitmap;
     }
 
     /**
      * Marks the action as scanning.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * scheduled or running.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already caching, scheduling or running for any strategy.
      */
     synchronized void setScanning(long nanoChangeTime) {
-      if (cachingStrategiesBitmap == 0
-          && schedulingStrategiesBitmap == 0
-          && runningStrategiesBitmap == 0) {
-        scanning = true;
+      if (currentPhase.compareTo(ActionPhase.SCANNING) < 0) {
+        currentPhase = ActionPhase.SCANNING;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -260,14 +273,12 @@ class UiStateTracker {
     /**
      * Marks the action as no longer scanning.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * scheduled or running.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already caching, scheduling or running for any strategy.
      */
     synchronized void setStopScanning(long nanoChangeTime) {
-      if (cachingStrategiesBitmap == 0
-          && schedulingStrategiesBitmap == 0
-          && runningStrategiesBitmap == 0) {
-        scanning = false;
+      if (currentPhase.compareTo(ActionPhase.CACHING) < 0) {
+        currentPhase = ActionPhase.PREPARING;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -275,14 +286,13 @@ class UiStateTracker {
     /**
      * Marks the action as caching with the given strategy.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * scheduled or running with this strategy.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already caching, scheduling or running for any other strategy.
      */
     synchronized void setCaching(String strategy, long nanoChangeTime) {
-      int id = strategyIds.getId(strategy);
-      if ((schedulingStrategiesBitmap & id) == 0 && (runningStrategiesBitmap & id) == 0) {
-        scanning = false;
-        cachingStrategiesBitmap |= id;
+      strategyBitmap |= strategyIds.getId(strategy);
+      if (currentPhase.compareTo(ActionPhase.CACHING) < 0) {
+        currentPhase = ActionPhase.CACHING;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -290,15 +300,13 @@ class UiStateTracker {
     /**
      * Marks the action as scheduling with the given strategy.
      *
-     * <p>Because we may receive events out of order, this does nothing if the action is already
-     * running with this strategy.
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already scheduling or running for any other strategy.
      */
     synchronized void setScheduling(String strategy, long nanoChangeTime) {
-      int id = strategyIds.getId(strategy);
-      if ((runningStrategiesBitmap & id) == 0) {
-        scanning = false;
-        cachingStrategiesBitmap &= ~id;
-        schedulingStrategiesBitmap |= id;
+      strategyBitmap |= strategyIds.getId(strategy);
+      if (currentPhase.compareTo(ActionPhase.SCHEDULING) < 0) {
+        currentPhase = ActionPhase.SCHEDULING;
         nanoStartTime = nanoChangeTime;
       }
     }
@@ -306,16 +314,15 @@ class UiStateTracker {
     /**
      * Marks the action as running with the given strategy.
      *
-     * <p>Because "running" is a terminal state, this forcibly updates the state to running
-     * regardless of any other events (which may come out of order).
+     * <p>Because we may receive events out of order, this does not affect the current phase if the
+     * action is already running for any other strategy.
      */
     synchronized void setRunning(String strategy, long nanoChangeTime) {
-      scanning = false;
-      int id = strategyIds.getId(strategy);
-      cachingStrategiesBitmap &= ~id;
-      schedulingStrategiesBitmap &= ~id;
-      runningStrategiesBitmap |= id;
-      nanoStartTime = nanoChangeTime;
+      strategyBitmap |= strategyIds.getId(strategy);
+      if (currentPhase.compareTo(ActionPhase.RUNNING) < 0) {
+        currentPhase = ActionPhase.RUNNING;
+        nanoStartTime = nanoChangeTime;
+      }
     }
 
     /** Handles the progress event for the action. */
@@ -336,21 +343,6 @@ class UiStateTracker {
         return Optional.empty();
       }
       return Optional.of(runningProgresses.entrySet().iterator().next().getValue());
-    }
-
-    /** Generates a human-readable description of this action's state. */
-    synchronized String describe() {
-      if (runningStrategiesBitmap != 0) {
-        return "Running";
-      } else if (schedulingStrategiesBitmap != 0) {
-        return "Scheduling";
-      } else if (cachingStrategiesBitmap != 0) {
-        return "Caching";
-      } else if (scanning) {
-        return "Scanning";
-      } else {
-        return "Preparing";
-      }
     }
   }
 
@@ -711,8 +703,9 @@ class UiStateTracker {
       }
       long nanoRuntime = nanoTime - actionState.nanoStartTime;
       long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
+      ActionPhase phase = actionState.getPhase();
       String text =
-          actionState.runningStrategiesBitmap == 0
+          phase.compareTo(ActionPhase.RUNNING) < 0
               ? sep + "[" + runtimeSeconds + "s]"
               : sep + runtimeSeconds + "s";
       if (remainingWidth < text.length()) {
@@ -773,12 +766,11 @@ class UiStateTracker {
     long nanoRuntime = nanoTime - actionState.nanoStartTime;
     long runtimeSeconds = nanoRuntime / NANOS_PER_SECOND;
     String strategy = null;
-    if (actionState.runningStrategiesBitmap != 0) {
-      strategy = strategyIds.formatNames(actionState.runningStrategiesBitmap);
-    } else if (actionState.cachingStrategiesBitmap != 0) {
-      strategy = strategyIds.formatNames(actionState.cachingStrategiesBitmap);
+    ActionPhase phase = actionState.getPhase();
+    if (phase.equals(ActionPhase.CACHING) || phase.equals(ActionPhase.RUNNING)) {
+      strategy = strategyIds.formatNames(actionState.getStrategyBitmap());
     } else {
-      String status = actionState.describe();
+      String status = phase.describe();
       if (status == null) {
         status = NO_STATUS;
       }
@@ -885,8 +877,10 @@ class UiStateTracker {
     int actionsCount = 0;
     int executingActionsCount = 0;
     for (ActionState actionState : activeActions.values()) {
-      actionsCount += actionState.countActions();
-      executingActionsCount += Integer.bitCount(actionState.runningStrategiesBitmap);
+      actionsCount++;
+      if (actionState.getPhase().equals(ActionPhase.RUNNING)) {
+        executingActionsCount++;
+      }
     }
 
     if (actionsCount == 1) {
@@ -910,10 +904,11 @@ class UiStateTracker {
     PriorityQueue<Map.Entry<Artifact, ActionState>> priorityHeap =
         new PriorityQueue<>(
             // The 'initialCapacity' parameter must be positive.
-            /*initialCapacity=*/ Math.max(racyActiveActionsCount, 1),
-            Comparator.comparing(
+            /* initialCapacity= */ Math.max(racyActiveActionsCount, 1),
+            comparing(
                     (Map.Entry<Artifact, ActionState> entry) ->
-                        entry.getValue().runningStrategiesBitmap == 0)
+                        entry.getValue().getPhase().equals(ActionPhase.RUNNING),
+                    trueFirst())
                 .thenComparingLong(entry -> entry.getValue().nanoStartTime)
                 .thenComparingInt(entry -> entry.getValue().hashCode()));
     priorityHeap.addAll(activeActions.entrySet());

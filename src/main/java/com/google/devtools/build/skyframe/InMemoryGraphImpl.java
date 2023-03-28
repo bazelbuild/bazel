@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -44,21 +43,22 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   protected final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> nodeMap;
   private final NodeBatch getBatch;
   private final NodeBatch createIfAbsentBatch;
-
-  // TODO(b/250641010): Remove this class member along with the startup flag.
   private final boolean usePooledSkyKeyInterning;
 
   InMemoryGraphImpl() {
     this(/* initialCapacity= */ 1 << 10);
   }
 
-  @VisibleForTesting
-  public InMemoryGraphImpl(boolean usePooledSkyKeyInterning) {
+  /**
+   * For some shell integration tests, we don't want to apply {@link SkyKeyInterner} created and
+   * bind {@code SkyKeyInterner#globalPool} to the second {@link InMemoryGraph}.
+   */
+  InMemoryGraphImpl(boolean usePooledSkyKeyInterning) {
     this(/* initialCapacity= */ 1 << 10, usePooledSkyKeyInterning);
   }
 
   protected InMemoryGraphImpl(int initialCapacity) {
-    this(initialCapacity, UsePooledSkyKeyInterningFlag.usePooledSkyKeyInterningFlag());
+    this(initialCapacity, /* usePooledSkyKeyInterning= */ true);
   }
 
   private InMemoryGraphImpl(int initialCapacity, boolean usePooledSkyKeyInterning) {
@@ -217,7 +217,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public void cleanupPool() {
     if (!usePooledSkyKeyInterning) {
-      // No clean up is needed when UseSkyKeyInternerFlag startup flag is off.
+      // No clean up is needed when `usePooledSkyKeyInterning` is false for shell integration tests.
       return;
     }
     try (AutoProfiler ignored =
@@ -231,11 +231,6 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   static final class EdgelessInMemoryGraphImpl extends InMemoryGraphImpl {
 
-    public EdgelessInMemoryGraphImpl() {
-      super();
-    }
-
-    @VisibleForTesting
     public EdgelessInMemoryGraphImpl(boolean usePooledSkyKeyInterning) {
       super(usePooledSkyKeyInterning);
     }

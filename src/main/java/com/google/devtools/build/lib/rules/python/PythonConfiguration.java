@@ -20,6 +20,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
@@ -53,6 +55,8 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final boolean defaultToExplicitInitPy;
   private final boolean disablePy2;
+  @Nullable private final Label nativeRulesAllowlist;
+  private final boolean disallowNativeRules;
 
   public PythonConfiguration(BuildOptions buildOptions) {
     PythonOptions pythonOptions = buildOptions.get(PythonOptions.class);
@@ -66,6 +70,8 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.useToolchains = pythonOptions.incompatibleUsePythonToolchains;
     this.defaultToExplicitInitPy = pythonOptions.incompatibleDefaultToExplicitInitPy;
     this.disablePy2 = pythonOptions.disablePy2;
+    this.nativeRulesAllowlist = pythonOptions.nativeRulesAllowlist;
+    this.disallowNativeRules = pythonOptions.disallowNativeRules;
   }
 
   @Override
@@ -181,5 +187,21 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
       doc = "The value of the --incompatible_python_disable_py2 flag.")
   public boolean getDisablePy2() {
     return disablePy2;
+  }
+
+  @StarlarkMethod(
+      name = "disallow_native_rules",
+      structField = true,
+      doc = "The value of the --incompatible_python_disallow_native_rules flag.")
+  public boolean getDisallowNativeRules() {
+    return disallowNativeRules;
+  }
+
+  @StarlarkConfigurationField(
+      name = "native_rules_allowlist",
+      doc = "The value of --python_native_rules_allowlist; may be None if not specified")
+  @Nullable
+  public Label getNativeRulesAllowlist() {
+    return nativeRulesAllowlist;
   }
 }

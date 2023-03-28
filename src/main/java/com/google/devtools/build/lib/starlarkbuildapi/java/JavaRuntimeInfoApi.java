@@ -104,4 +104,11 @@ public interface JavaRuntimeInfoApi extends StructApi {
       doc = "Returns the JDK static libraries.",
       structField = true)
   Sequence<CcInfo> starlarkHermeticStaticLibs();
+
+  /** The Java feature version of the runtime. This is 0 if the version is unknown. */
+  @StarlarkMethod(
+      name = "version",
+      doc = "The Java feature version of the runtime. This is 0 if the version is unknown.",
+      structField = true)
+  int version();
 }

@@ -63,13 +63,13 @@ import net.starlark.java.syntax.Location;
 public final class CompletionFunction<
         ValueT extends ConfiguredObjectValue,
         ResultT extends SkyValue,
-        KeyT extends TopLevelActionLookupKey,
+        KeyT extends TopLevelActionLookupKeyWrapper,
         FailureT>
     implements SkyFunction {
 
   /** A strategy for completing the build. */
   interface Completor<
-      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKey, FailureT> {
+      ValueT, ResultT extends SkyValue, KeyT extends TopLevelActionLookupKeyWrapper, FailureT> {
 
     /** Creates an event reporting an absent input artifact. */
     Event getRootCauseError(ValueT value, KeyT key, LabelCause rootCause, Environment env)
@@ -326,7 +326,7 @@ public final class CompletionFunction<
   @Nullable
   static <ValueT extends ConfiguredObjectValue>
       Pair<ValueT, ArtifactsToBuild> getValueAndArtifactsToBuild(
-          TopLevelActionLookupKey key, Environment env) throws InterruptedException {
+          TopLevelActionLookupKeyWrapper key, Environment env) throws InterruptedException {
     @SuppressWarnings("unchecked")
     ValueT value = (ValueT) env.getValue(key.actionLookupKey());
     if (env.valuesMissing()) {
@@ -341,7 +341,7 @@ public final class CompletionFunction<
 
   @Override
   public String extractTag(SkyKey skyKey) {
-    return Label.print(((TopLevelActionLookupKey) skyKey).actionLookupKey().getLabel());
+    return Label.print(((TopLevelActionLookupKeyWrapper) skyKey).actionLookupKey().getLabel());
   }
 
   private static final class CompletionFunctionException extends SkyFunctionException {

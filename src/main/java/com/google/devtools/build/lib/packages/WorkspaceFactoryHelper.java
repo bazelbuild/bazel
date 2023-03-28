@@ -26,36 +26,37 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A helper for the {@link WorkspaceFactory} to create repository rules */
-public class WorkspaceFactoryHelper {
+public final class WorkspaceFactoryHelper {
 
+  @CanIgnoreReturnValue
   public static Rule createAndAddRepositoryRule(
       Package.Builder pkg,
       RuleClass ruleClass,
       RuleClass bindRuleClass,
       Map<String, Object> kwargs,
-      StarlarkSemantics semantics,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
-      throws RuleFactory.InvalidRuleException, Package.NameConflictException, LabelSyntaxException,
+      throws RuleFactory.InvalidRuleException,
+          Package.NameConflictException,
+          LabelSyntaxException,
           InterruptedException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
-    Rule rule =
-        RuleFactory.createRule(pkg, ruleClass, attributeValues, eventHandler, semantics, callstack);
+    Rule rule = RuleFactory.createRule(pkg, ruleClass, attributeValues, eventHandler, callstack);
     pkg.addEvents(eventHandler.getEvents());
     pkg.addPosts(eventHandler.getPosts());
     overwriteRule(pkg, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
       Label nameLabel = Label.parseCanonical("//external:" + entry.getKey());
-      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), semantics, callstack);
+      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), callstack);
     }
     // NOTE(wyv): What is this madness?? This is the only instance where a repository rule can
     // register toolchains upon being instantiated. We should look into converting
@@ -73,7 +74,7 @@ public class WorkspaceFactoryHelper {
   }
 
   /**
-   * Updates the map of attributes specified by the user to match the set of attributes decared in
+   * Updates the map of attributes specified by the user to match the set of attributes declared in
    * the rule definition.
    */
   public static Map<String, Object> getFinalKwargs(Map<String, Object> kwargs) {
@@ -96,8 +97,7 @@ public class WorkspaceFactoryHelper {
    * Additionally, the labels {@code @foo//:bar} and {@code @//:bar} from an external repository
    * should also evaluate to the same thing.
    */
-  public static void addMainRepoEntry(
-      Package.Builder builder, String externalRepoName, StarlarkSemantics semantics)
+  public static void addMainRepoEntry(Package.Builder builder, String externalRepoName)
       throws LabelSyntaxException {
     if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
       // Create repository names with validation, LabelSyntaxException is thrown is the name
@@ -151,7 +151,6 @@ public class WorkspaceFactoryHelper {
       RuleClass bindRuleClass,
       Label virtual,
       Label actual,
-      StarlarkSemantics semantics,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
 
@@ -165,10 +164,8 @@ public class WorkspaceFactoryHelper {
     StoredEventHandler handler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
-    Rule rule =
-        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, handler, semantics, callstack);
+    Rule rule = RuleFactory.createRule(pkg, bindRuleClass, attributeValues, handler, callstack);
     overwriteRule(pkg, rule);
-    rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }
 
   private static void overwriteRule(Package.Builder pkg, Rule rule)
@@ -184,4 +181,6 @@ public class WorkspaceFactoryHelper {
       pkg.addRule(rule);
     }
   }
+
+  private WorkspaceFactoryHelper() {}
 }

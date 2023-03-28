@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -49,7 +50,7 @@ public class NodeEntryVisitorTest {
 
     nodeEntryVisitor.enqueueEvaluation(nonCPUHeavyKey, Integer.MAX_VALUE, null);
 
-    verify(executor).execute(any(), eq(ThreadPoolType.REGULAR));
+    verify(executor).execute(any(), eq(ThreadPoolType.REGULAR), anyBoolean());
   }
 
   @Test
@@ -60,6 +61,6 @@ public class NodeEntryVisitorTest {
 
     nodeEntryVisitor.enqueueEvaluation(cpuHeavyKey, Integer.MAX_VALUE, null);
 
-    verify(executor).execute(any(), eq(ThreadPoolType.CPU_HEAVY));
+    verify(executor).execute(any(), eq(ThreadPoolType.CPU_HEAVY), anyBoolean());
   }
 }

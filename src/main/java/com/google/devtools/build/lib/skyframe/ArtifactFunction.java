@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFuncti
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -57,8 +56,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -353,28 +350,34 @@ public final class ArtifactFunction implements SkyFunction {
       FileArtifactValue value,
       SkyFunction.Environment env)
       throws InterruptedException {
-    ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> fileInputsBuilder =
-        ImmutableList.builder();
-    ImmutableList.Builder<Pair<Artifact, TreeArtifactValue>> directoryInputsBuilder =
-        ImmutableList.builder();
-    List<Artifact> inputs = action.getInputs().toList();
+    ImmutableList<Artifact> inputs = action.getInputs().toList();
     SkyframeLookupResult values = env.getValuesAndExceptions(Artifact.keys(inputs));
     if (env.valuesMissing()) {
       return null;
     }
-    for (Artifact input : inputs) {
+
+    ImmutableList.Builder<Artifact> files = ImmutableList.builder();
+    ImmutableList.Builder<FileArtifactValue> fileValues = ImmutableList.builder();
+    ImmutableList.Builder<Artifact> trees = ImmutableList.builder();
+    ImmutableList.Builder<TreeArtifactValue> treeValues = ImmutableList.builder();
+
+    // Sort for better equality in RunfilesArtifactValue.
+    ImmutableList<Artifact> sortedInputs =
+        ImmutableList.sortedCopyOf(Artifact.EXEC_PATH_COMPARATOR, inputs);
+    for (Artifact input : sortedInputs) {
       SkyValue inputValue = values.get(Artifact.key(input));
       if (inputValue == null) {
         return null;
       }
       if (inputValue instanceof FileArtifactValue) {
-        fileInputsBuilder.add(Pair.of(input, (FileArtifactValue) inputValue));
+        files.add(input);
+        fileValues.add((FileArtifactValue) inputValue);
       } else if (inputValue instanceof ActionExecutionValue) {
-        fileInputsBuilder.add(
-            Pair.of(
-                input, ((ActionExecutionValue) inputValue).getExistingFileArtifactValue(input)));
+        files.add(input);
+        fileValues.add(((ActionExecutionValue) inputValue).getExistingFileArtifactValue(input));
       } else if (inputValue instanceof TreeArtifactValue) {
-        directoryInputsBuilder.add(Pair.of(input, (TreeArtifactValue) inputValue));
+        trees.add(input);
+        treeValues.add((TreeArtifactValue) inputValue);
       } else {
         // We do not recurse in middleman artifacts.
         Preconditions.checkState(
@@ -386,16 +389,8 @@ public final class ArtifactFunction implements SkyFunction {
       }
     }
 
-    ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs =
-        ImmutableList.sortedCopyOf(
-            Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
-            fileInputsBuilder.build());
-    ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs =
-        ImmutableList.sortedCopyOf(
-            Comparator.comparing(pair -> pair.getFirst().getExecPathString()),
-            directoryInputsBuilder.build());
-
-    return new RunfilesArtifactValue(fileInputs, directoryInputs, value);
+    return new RunfilesArtifactValue(
+        value, files.build(), fileValues.build(), trees.build(), treeValues.build());
   }
 
   /**
@@ -413,7 +408,7 @@ public final class ArtifactFunction implements SkyFunction {
   }
 
   @Nullable
-  public static ActionLookupValue getActionLookupValue(
+  static ActionLookupValue getActionLookupValue(
       ActionLookupKey actionLookupKey, SkyFunction.Environment env) throws InterruptedException {
     ActionLookupValue value = (ActionLookupValue) env.getValue(actionLookupKey);
     if (value == null) {

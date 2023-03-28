@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -281,6 +280,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                           .map(a -> escapeBytestringUtf8(a))
                           .collect(toImmutableList()),
                   /* environment= */ null,
+                  /* environmentVariablesToClear= */ null,
                   /* cwd= */ null,
                   action.getOwner().getConfigurationChecksum(),
                   action.getExecutionPlatform() == null
@@ -322,15 +322,14 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     if (action instanceof TemplateExpansionAction) {
+      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
       stringBuilder
           .append("  Template: ")
-          .append(
-              ((TemplateExpansionAction) action)
-                  .getTemplate()
-                  .getContent(ArtifactPathResolver.IDENTITY))
+          .append(AqueryUtils.getTemplateContent(templateExpansionAction))
           .append("\n");
+
       stringBuilder.append("  Substitutions: [\n");
-      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+      for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         stringBuilder
             .append("    {")
             .append(substitution.getKey())

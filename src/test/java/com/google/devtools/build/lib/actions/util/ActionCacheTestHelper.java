@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import java.io.PrintStream;
+import java.util.function.Predicate;
 
 /**
  * Utilities for tests that use the action cache.
@@ -37,6 +38,9 @@ public class ActionCacheTestHelper {
 
         @Override
         public void remove(String key) {}
+
+        @Override
+        public void removeIf(Predicate<Entry> predicate) {}
 
         @Override
         public long save() {

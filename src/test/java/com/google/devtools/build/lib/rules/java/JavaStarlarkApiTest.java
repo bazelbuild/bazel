@@ -3602,25 +3602,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testUseLegacyJavaTestIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.use_legacy_java_test()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
   public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
     scratch.file(
         "foo/rule.bzl",

@@ -38,7 +38,7 @@ public class InMemoryGraphTest extends GraphTest {
 
   @Override
   protected void makeGraph() {
-    graph = new InMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
+    graph = new InMemoryGraphImpl();
   }
 
   @Override

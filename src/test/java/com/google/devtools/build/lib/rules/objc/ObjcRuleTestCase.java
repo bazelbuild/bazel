@@ -523,7 +523,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     String toolsLoc = toolsRepo + "//tools/objc";
     scratch.file(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/objc/dummy/BUILD",
-        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'])");
+        "objc_library(name = 'dummy_lib', srcs = ['objc_dummy.mm'], alwayslink = False)");
 
     scratch.file(
         "test_starlark/apple_binary_starlark.bzl",

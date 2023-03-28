@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -110,7 +108,7 @@ public abstract class DependencyResolver {
           .setPropagatingAspects(ImmutableList.of());
     }
 
-    public DependencyKey.Builder getDependencyKeyBuilder() {
+    DependencyKey.Builder getDependencyKeyBuilder() {
       return DependencyKey.builder()
           .setLabel(getLabel())
           .setExecutionPlatformLabel(getExecutionPlatformLabel());
@@ -239,17 +237,17 @@ public abstract class DependencyResolver {
       this.attributeMap = attributeMap;
     }
 
-    public OrderedSetMultimap<DependencyKind, Label> labels() {
+    OrderedSetMultimap<DependencyKind, Label> labels() {
       return labels;
     }
 
     @Nullable // Non-null for rules and output files when there are aspects that apply to files.
-    public ConfiguredAttributeMapper attributeMap() {
+    ConfiguredAttributeMapper attributeMap() {
       return attributeMap;
     }
   }
 
-  private final DependencyLabels computeDependencyLabels(
+  private static DependencyLabels computeDependencyLabels(
       TargetAndConfiguration node,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -261,11 +259,11 @@ public abstract class DependencyResolver {
 
     // TODO(bazel-team): Figure out a way to implement the below (and partiallyResolveDependencies)
     // using LabelVisitationUtils.
-    Rule fromRule = null;
+    Rule fromRule;
     ConfiguredAttributeMapper attributeMap = null;
     if (target instanceof OutputFile) {
       Preconditions.checkNotNull(config);
-      visitTargetVisibility(node, outgoingLabels);
+      addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
       Rule rule = ((OutputFile) target).getGeneratingRule();
       outgoingLabels.put(OUTPUT_FILE_RULE_DEPENDENCY, rule.getLabel());
       if (Iterables.any(aspects, a -> a.getDefinition().applyToFiles())) {
@@ -273,10 +271,8 @@ public abstract class DependencyResolver {
         resolveAttributes(getAspectAttributes(aspects), outgoingLabels, rule, attributeMap, config);
       }
       addToolchainDeps(toolchainContexts, outgoingLabels);
-    } else if (target instanceof InputFile) {
-      visitTargetVisibility(node, outgoingLabels);
-    } else if (target instanceof EnvironmentGroup) {
-      visitTargetVisibility(node, outgoingLabels);
+    } else if (target instanceof InputFile || target instanceof EnvironmentGroup) {
+      addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
     } else if (target instanceof Rule) {
       fromRule = (Rule) target;
       attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
@@ -297,7 +293,7 @@ public abstract class DependencyResolver {
    * should <b>NOT</b> get the {@link Target} instances representing the targets of the dependency
    * edges as an argument.
    */
-  private OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
+  private static OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
@@ -442,7 +438,7 @@ public abstract class DependencyResolver {
    * being calculated as an argument or its attributes and it should <b>NOT</b> do anything with the
    * keys of {@code partiallyResolvedDeps} other than passing them on to the output map.
    */
-  private OrderedSetMultimap<DependencyKind, DependencyKey> fullyResolveDependencies(
+  private static OrderedSetMultimap<DependencyKind, DependencyKey> fullyResolveDependencies(
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfigurationValue originalConfiguration,
@@ -496,7 +492,7 @@ public abstract class DependencyResolver {
     }
   }
 
-  private void visitRule(
+  private static void visitRule(
       TargetAndConfiguration node,
       Iterable<Aspect> aspects,
       ConfiguredAttributeMapper attributeMap,
@@ -513,11 +509,12 @@ public abstract class DependencyResolver {
       throw new Failure(rule.getLocation(), ex.getMessage());
     }
 
-    visitTargetVisibility(node, outgoingLabels);
+    Iterable<Label> visibilityDepLabels = rule.getVisibilityDependencyLabels();
+    addVisibilityDepLabels(visibilityDepLabels, outgoingLabels);
     resolveAttributes(getAttributes(rule, aspects), outgoingLabels, rule, attributeMap, ruleConfig);
 
     // Add the rule's visibility labels (which may come from the rule or from package defaults).
-    addExplicitDeps(outgoingLabels, rule, "visibility", rule.getVisibility().getDependencyLabels());
+    addExplicitDeps(outgoingLabels, rule, "visibility", visibilityDepLabels);
 
     // Add package default constraints when the rule doesn't explicitly declare them.
     //
@@ -560,7 +557,7 @@ public abstract class DependencyResolver {
     addToolchainDeps(toolchainContexts, outgoingLabels);
   }
 
-  private void addToolchainDeps(
+  private static void addToolchainDeps(
       ToolchainCollection<ToolchainContext> toolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
     if (toolchainContexts != null) {
@@ -573,7 +570,7 @@ public abstract class DependencyResolver {
     }
   }
 
-  private void resolveAttributes(
+  private static void resolveAttributes(
       Iterable<AttributeDependencyKind> attributeDependencyKinds,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
@@ -581,17 +578,15 @@ public abstract class DependencyResolver {
       BuildConfigurationValue ruleConfig) {
     for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
-      if (!attribute.getCondition().apply(attributeMap)
-          // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
-          // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
-          // breaks trimming as shown by
-          // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
-          // because it resolves a dep that trimming (correctly) doesn't account for because it's
-          // part of an unchosen select() branch.
-          || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
+      // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
+      // place they're used is in ConfiguredTargetFunction.getConfigConditions, but it actually
+      // breaks trimming as shown by
+      // FeatureFlagManualTrimmingTest#featureFlagInUnusedSelectBranchButNotInTransitiveConfigs_DoesNotError
+      // because it resolves a dep that trimming (correctly) doesn't account for because it's part
+      // of an unchosen select() branch.
+      if (attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
         continue;
       }
-
       Type<?> type = attribute.getType();
       if (type == BuildType.OUTPUT
           || type == BuildType.OUTPUT_LIST
@@ -610,7 +605,7 @@ public abstract class DependencyResolver {
     }
   }
 
-  private <T> void resolveAttribute(
+  private static <T> void resolveAttribute(
       Attribute attribute,
       Type<T> type,
       AttributeDependencyKind dependencyKind,
@@ -627,7 +622,7 @@ public abstract class DependencyResolver {
       if (dependencyKind.getOwningAspect() == null) {
         attributeValue = attributeMap.get(attribute.getName(), type);
       } else {
-        Object defaultValue = attribute.getDefaultValue(rule);
+        Object defaultValue = attribute.getDefaultValue();
         attributeValue =
             type.cast(
                 defaultValue instanceof ComputedDefault
@@ -656,7 +651,7 @@ public abstract class DependencyResolver {
 
   @Nullable
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
-  public static <FragmentT> Object resolveLateBoundDefault(
+  static <FragmentT> Object resolveLateBoundDefault(
       Rule rule,
       AttributeMap attributeMap,
       Attribute attribute,
@@ -691,11 +686,11 @@ public abstract class DependencyResolver {
    * @param attrName the name of the attribute to add dependency labels to
    * @param labels the dependencies to add
    */
-  private void addExplicitDeps(
+  private static void addExplicitDeps(
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       String attrName,
-      Collection<Label> labels) {
+      Iterable<Label> labels) {
     if (!rule.isAttrDefined(attrName, BuildType.LABEL_LIST)
         && !rule.isAttrDefined(attrName, BuildType.NODEP_LABEL_LIST)) {
       return;
@@ -753,7 +748,7 @@ public abstract class DependencyResolver {
   }
 
   /** Returns the attributes that should be visited for this rule/aspect combination. */
-  private ImmutableList<AttributeDependencyKind> getAttributes(
+  private static ImmutableList<AttributeDependencyKind> getAttributes(
       Rule rule, Iterable<Aspect> aspects) {
     ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
     // If processing aspects, aspect attribute names may conflict with the attribute names of
@@ -770,13 +765,14 @@ public abstract class DependencyResolver {
     return result.build();
   }
 
-  private ImmutableList<AttributeDependencyKind> getAspectAttributes(Iterable<Aspect> aspects) {
+  private static ImmutableList<AttributeDependencyKind> getAspectAttributes(
+      Iterable<Aspect> aspects) {
     ImmutableList.Builder<AttributeDependencyKind> result = ImmutableList.builder();
     addAspectAttributes(aspects, new HashSet<>(), result);
     return result.build();
   }
 
-  private void addAspectAttributes(
+  private static void addAspectAttributes(
       Iterable<Aspect> aspects,
       Set<String> aspectProcessedAttributes,
       ImmutableList.Builder<AttributeDependencyKind> attributes) {
@@ -837,21 +833,16 @@ public abstract class DependencyResolver {
     }
   }
 
-  private void visitTargetVisibility(
-      TargetAndConfiguration node, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
-    Target target = node.getTarget();
-    outgoingLabels.putAll(VISIBILITY_DEPENDENCY, target.getVisibility().getDependencyLabels());
+  private static void addVisibilityDepLabels(
+      Iterable<Label> labels, OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
+    outgoingLabels.putAll(VISIBILITY_DEPENDENCY, labels);
   }
 
-  private void checkPackageGroupVisibility(Rule fromRule, Map<Label, Target> targetMap)
+  private static void checkPackageGroupVisibility(Rule fromRule, Map<Label, Target> targetMap)
       throws Failure {
-    if (!(fromRule.getVisibility() instanceof PackageGroupsRuleVisibility)) {
-      return;
-    }
-
-    for (Label label : fromRule.getVisibility().getDependencyLabels()) {
-      if (targetMap.get(label) != null
-          && !targetMap.get(label).getTargetKind().equals(PackageGroup.targetKind())) {
+    for (Label label : fromRule.getVisibilityDependencyLabels()) {
+      Target target = targetMap.get(label);
+      if (target != null && !target.getTargetKind().equals(PackageGroup.targetKind())) {
         throw new Failure(
             fromRule.getLocation(),
             String.format("Label '%s' does not refer to a package group.", label));

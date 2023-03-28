@@ -52,6 +52,8 @@ filegroup(
         "cc_api_rules.bzl",
         "remote_helpers.sh",
         "testing_server.py",
+        ":hamcrest_jar",
+        ":junit_jar",
         "//examples:srcs",
         "//src/conditions:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
@@ -71,6 +73,20 @@ filegroup(
     visibility = [
         "//src/test/shell:__subpackages__",
     ],
+)
+
+genrule(
+    name = "junit_jar",
+    srcs = ["@maven//:junit_junit_file"],
+    outs = ["junit.jar"],
+    cmd = "cp $< $@",
+)
+
+genrule(
+    name = "hamcrest_jar",
+    srcs = ["@maven//:org_hamcrest_hamcrest_core_file"],
+    outs = ["hamcrest.jar"],
+    cmd = "cp $< $@",
 )
 
 sh_test(
@@ -934,10 +950,10 @@ sh_test(
 
 sh_test(
     name = "cc_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
-    shard_count = 5,
+    shard_count = 10,
     tags = ["no_windows"],
 )
 

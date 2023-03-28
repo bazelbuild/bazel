@@ -56,7 +56,6 @@ public class WorkspaceFactory {
   private final Path defaultSystemJavabaseDir;
   private final Mutability mutability;
 
-  private final WorkspaceGlobals workspaceGlobals;
   private final StarlarkSemantics starlarkSemantics;
   private final ImmutableMap<String, Object> workspaceFunctions;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
@@ -91,12 +90,14 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
     this.environmentExtensions = environmentExtensions;
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
     this.starlarkSemantics = starlarkSemantics;
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceFunctions =
         createWorkspaceFunctions(
-            allowOverride, ruleFactory, this.workspaceGlobals, starlarkSemantics);
+            allowOverride,
+            ruleFactory,
+            new WorkspaceGlobals(allowOverride, ruleFactory),
+            starlarkSemantics);
   }
 
   /**
@@ -219,8 +220,8 @@ public class WorkspaceFactory {
                 rule.getLabel(),
                 rule.getRuleClassObject(),
                 rule.getLocation(),
-                rule.getCallStack().toList(),
-                rule.getAttributeContainer());
+                rule.getCallStack().toList());
+        newRule.copyAttributesFrom(rule);
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
         if (rule.containsErrors()) {
           newRule.setContainsErrors();
@@ -281,7 +282,7 @@ public class WorkspaceFactory {
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
-          WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
+          WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName);
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
@@ -291,7 +292,6 @@ public class WorkspaceFactory {
                   ruleClass,
                   bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                  thread.getSemantics(),
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());
         } catch (RuleFactory.InvalidRuleException

@@ -673,7 +673,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
     private Object executableArg;
-    private CustomCommandLine.Builder executableArgs;
+    @Nullable private CustomCommandLine.Builder executableArgs;
     private List<CommandLineAndParamFileInfo> commandLines = new ArrayList<>();
 
     private CharSequence progressMessage;
@@ -737,7 +737,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CommandLines.Builder result = CommandLines.builder();
       if (executableArg != null) {
         result.addSingleArgument(executableArg);
-      } else {
+      } else if (executableArgs != null) {
         result.addCommandLine(executableArgs.build());
       }
       for (CommandLineAndParamFileInfo pair : this.commandLines) {

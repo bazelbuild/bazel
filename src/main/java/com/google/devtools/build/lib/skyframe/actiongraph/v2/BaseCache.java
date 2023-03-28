@@ -14,14 +14,14 @@
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Basic class to abstract action graph cache functionality.
  */
 abstract class BaseCache<K, P> {
-  private final Map<K, Integer> cache = new HashMap<>();
+  private final Map<K, Integer> cache = new ConcurrentHashMap<>();
   protected final AqueryOutputHandler aqueryOutputHandler;
 
   BaseCache(AqueryOutputHandler aqueryOutputHandler) {

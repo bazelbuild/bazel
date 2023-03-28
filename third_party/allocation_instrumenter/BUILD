@@ -1,5 +1,4 @@
 load("@rules_license//rules:license.bzl", "license")
-load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 package(
     default_applicable_licenses = [":license"],

@@ -21,8 +21,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 function test_build_objc_tools() {
   # TODO(cparsons): Test building tools/objc/...
-  bazel build @bazel_tools//tools/objc:make_hashed_objlist.py \
-      || fail "should build tools/objc/make_hashed_objlist.py"
+  bazel build @bazel_tools//tools/objc:j2objc_dead_code_pruner_binary.py \
+      || fail "should build tools/objc/j2objc_dead_code_pruner_binary.py"
 }
 
 # Test that verifies @bazel_tools//tools:bzl_srcs contains all .bzl source

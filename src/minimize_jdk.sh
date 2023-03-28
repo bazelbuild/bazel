@@ -45,7 +45,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   set -x
   mkdir "tmp.$$"
   cd "tmp.$$"
-  unzip "../$fulljdk"
+  unzip -q "../$fulljdk"
   cd $FULL_JDK_DIR
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore

@@ -324,8 +324,8 @@ public class BuildTool {
 
     if (request.getBuildOptions().performAnalysisPhase) {
       ExecutionTool executionTool = new ExecutionTool(env, request);
-      // This timer measures time for loading + analysis + execution.
-      Stopwatch timer = Stopwatch.createStarted();
+      // This timer measures time from the first execution activity to the last.
+      Stopwatch executionTimer = Stopwatch.createUnstarted();
 
       // TODO(b/199053098): implement support for --nobuild.
       AnalysisAndExecutionResult analysisAndExecutionResult;
@@ -337,7 +337,7 @@ public class BuildTool {
                 request,
                 buildOptions,
                 loadingResult,
-                () -> executionTool.prepareForExecution(request.getId()),
+                () -> executionTool.prepareForExecution(request.getId(), executionTimer),
                 result::setBuildConfiguration,
                 new BuildDriverKeyTestContext() {
                   @Override
@@ -372,7 +372,8 @@ public class BuildTool {
         hasCatastrophe = true;
         throw e;
       } finally {
-        executionTool.unconditionalExecutionPhaseFinalizations(timer, env.getSkyframeExecutor());
+        executionTool.unconditionalExecutionPhaseFinalizations(
+            executionTimer, env.getSkyframeExecutor());
 
         // For the --noskymeld code path, this is done after the analysis phase.
         BuildResultListener buildResultListener = env.getBuildResultListener();

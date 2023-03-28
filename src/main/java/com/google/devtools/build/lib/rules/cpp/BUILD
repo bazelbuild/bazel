@@ -70,6 +70,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:template_variable_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",

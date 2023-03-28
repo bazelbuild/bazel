@@ -275,7 +275,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                         null,
                         null,
                         null,
-                        /*packageProgress=*/ null,
+                        /* packageProgress= */ null,
                         PackageFunction.ActionOnIOExceptionReadingBuildFile.UseOriginalIOException
                             .INSTANCE,
                         GlobbingStrategy.SKYFRAME_HYBRID,
@@ -295,7 +295,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                             .builder(directories)
                             .build(TestRuleClassProvider.getRuleClassProvider(), fileSystem),
                         directories,
-                        /*bzlLoadFunctionForInlining=*/ null))
+                        /* bzlLoadFunctionForInlining= */ null))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(
@@ -306,14 +306,15 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(
                     SkyFunctions.ARTIFACT_NESTED_SET,
                     ArtifactNestedSetFunction.createInstance(
-                        /*valueBasedChangePruningEnabled=*/ true))
+                        /* valueBasedChangePruningEnabled= */ true))
                 .buildOrThrow(),
             differencer,
             evaluationProgressReceiver,
             graphInconsistencyReceiver,
             EventFilter.FULL_STORAGE,
             new NestedSetVisitor.VisitedState(),
-            /*keepEdges=*/ true);
+            /* keepEdges= */ true,
+            /* usePooledSkyKeyInterning= */ true);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
@@ -578,6 +579,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     @Override
     public synchronized void remove(String key) {
       actionCache.remove(key);
+    }
+
+    @Override
+    public void removeIf(java.util.function.Predicate<Entry> predicate) {
+      actionCache.values().removeIf(predicate);
     }
 
     public synchronized void reset() {

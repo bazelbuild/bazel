@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -225,17 +224,14 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
-        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name, thread.getSemantics());
+        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name);
         WorkspaceFactoryHelper.addRepoMappings(packageBuilder, kwargs, name);
-        Rule rule =
-            WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                context.getBuilder(),
-                ruleClass,
-                /* bindRuleClass= */ null,
-                WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                thread.getSemantics(),
-                thread.getCallStack());
-        return rule;
+        return WorkspaceFactoryHelper.createAndAddRepositoryRule(
+            context.getBuilder(),
+            ruleClass,
+            /* bindRuleClass= */ null,
+            WorkspaceFactoryHelper.getFinalKwargs(kwargs),
+            thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }

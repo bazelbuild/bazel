@@ -120,6 +120,16 @@ public abstract class PyBuiltins implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "get_rule_name",
+      doc = "Get the name of the rule for the given ctx",
+      parameters = {
+        @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound")
+      })
+  public String getRuleName(StarlarkRuleContext starlarkCtx) throws EvalException {
+    return starlarkCtx.getRuleContext().getRule().getRuleClass();
+  }
+
+  @StarlarkMethod(
       name = "get_current_os_name",
       doc = "Get the name of the OS Bazel itself is running on.",
       parameters = {})

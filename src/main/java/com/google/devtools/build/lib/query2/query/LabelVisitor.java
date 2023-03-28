@@ -85,7 +85,7 @@ final class LabelVisitor {
     /** Returns true if and only if this visitation attribute is still up-to-date. */
     boolean current(VisitationAttributes lastVisitation) {
       return targetsToVisit.equals(lastVisitation.targetsToVisit)
-          && (!lastVisitation.maxDepth.isPresent()
+          && (lastVisitation.maxDepth.isEmpty()
               || !QueryEnvironment.shouldVisit(maxDepth, lastVisitation.maxDepth.getAsInt()));
     }
   }
@@ -361,7 +361,6 @@ final class LabelVisitor {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              fromRule,
               aspect,
               edgeFilter,
               (aspectAttribute, aspectLabel) ->
@@ -383,7 +382,7 @@ final class LabelVisitor {
         // has already been built, and we can skip it.
         // Also special case no depth bound, where we never want to revisit targets.
         // (This avoids loading phase overhead outside of queries).
-        if (!maxDepth.isPresent() || minTargetDepth <= depth) {
+        if (maxDepth.isEmpty() || minTargetDepth <= depth) {
           return;
         }
         // Check again in case it was overwritten by another thread.
