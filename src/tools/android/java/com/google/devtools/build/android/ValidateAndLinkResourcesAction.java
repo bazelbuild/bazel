@@ -163,14 +163,14 @@ public final class ValidateAndLinkResourcesAction {
     public Path sourceJarOut;
 
     @Option(
-        name = "additionalApksToLinkAgainst",
+        name = "resourceApks",
         defaultValue = "null",
         category = "input",
         converter = PathListConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        help = "List of APKs used during linking.")
-    public List<Path> additionalApksToLinkAgainst;
+        help = "List of reource only APK files to link against.")
+    public List<Path> resourceApks;
   }
 
   public static void main(String[] args) throws Exception {
@@ -214,15 +214,10 @@ public final class ValidateAndLinkResourcesAction {
       checkVisibilityOfResourceReferences(
           /* androidManifest= */ XmlNode.getDefaultInstance(), resources, includes);
 
-      ImmutableList.Builder<StaticLibrary> dependencies = ImmutableList.builder();
-      dependencies.addAll(
-          Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries));
-
-      if (options.additionalApksToLinkAgainst != null) {
-        dependencies.addAll(
-            options.additionalApksToLinkAgainst.stream()
-                .map(StaticLibrary::from)
-                .collect(toImmutableList()));
+      ImmutableList<StaticLibrary> resourceApks = ImmutableList.of();
+      if (options.resourceApks != null) {
+        resourceApks =
+            options.resourceApks.stream().map(StaticLibrary::from).collect(toImmutableList());
       }
 
       profiler.recordEndOf("validate").startTask("link");
@@ -231,8 +226,10 @@ public final class ValidateAndLinkResourcesAction {
           // NB: these names are really confusing.
           //   .dependencies is meant for linking in android.jar
           //   .include is meant for regular dependencies
-          .dependencies(dependencies.build())
+          //   .resourceApks is meant for linking runtime resource only apks
+          .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
           .include(includes)
+          .resourceApks(resourceApks)
           .buildVersion(aapt2Options.buildToolsVersion)
           .outputAsProto(aapt2Options.resourceTableAsProto)
           .linkStatically(resources)

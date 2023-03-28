@@ -289,7 +289,7 @@ public interface AndroidDataProcessingApi<
                 "Targets containing raw resources from dependencies. These resources will be merged"
                     + " together with each other and this target's resources."),
         @Param(
-            name = "validation_res_apks",
+            name = "validation_resource_apks",
             positional = false,
             defaultValue = "[]",
             allowedTypes = {
@@ -297,8 +297,8 @@ public interface AndroidDataProcessingApi<
             },
             named = true,
             doc =
-                "Resource APK deps to be used for validation only. Not fully supported in the"
-                    + " native resource pipeline."),
+                "List of resource only APK files to be used for validation only. Not fully"
+                    + " supported in the native resource pipeline."),
         @Param(
             name = "neverlink",
             positional = false,

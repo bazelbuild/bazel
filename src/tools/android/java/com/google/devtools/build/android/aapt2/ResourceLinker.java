@@ -156,6 +156,7 @@ public class ResourceLinker {
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
   private boolean includeProguardLocationReferences = false;
+  private List<StaticLibrary> resourceApks = ImmutableList.of();
 
   private ResourceLinker(
       Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
@@ -244,6 +245,12 @@ public class ResourceLinker {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public ResourceLinker resourceApks(List<StaticLibrary> resourceApks) {
+    this.resourceApks = resourceApks;
+    return this;
+  }
+
   /**
    * Statically links the {@link CompiledResources} with the dependencies to produce a {@link
    * StaticLibrary}.
@@ -256,6 +263,8 @@ public class ResourceLinker {
       Path javaSourceDirectory = workingDirectory.resolve("java");
       profiler.startTask("linkstatic");
       final Collection<String> pathsToLinkAgainst = StaticLibrary.toPathStrings(linkAgainst);
+      final Collection<String> resourceApkPathsToLinkAgainst =
+          StaticLibrary.toPathStrings(resourceApks);
       logger.finer(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
@@ -274,6 +283,7 @@ public class ResourceLinker {
               .addParameterableRepeated(
                   "-R", compiledResourcesToPaths(compiled, IS_FLAT_FILE), workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)
+              .addRepeated("-I", resourceApkPathsToLinkAgainst)
               .add("--auto-add-overlay")
               .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
               .thenAdd("--override-styles-instead-of-overlaying")
@@ -300,6 +310,7 @@ public class ResourceLinker {
                 .thenAdd("--proto-format")
                 // only link against jars
                 .addRepeated("-I", pathsToLinkAgainst.stream().filter(IS_JAR).collect(toList()))
+                .addRepeated("-I", resourceApkPathsToLinkAgainst)
                 .add("-R", outPath)
                 // only include non-jars
                 .addRepeated(
@@ -443,6 +454,7 @@ public class ResourceLinker {
                         compiled.getAssetsStrings().stream())
                     .collect(toList()))
             .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
+            .addRepeated("-I", StaticLibrary.toPathStrings(resourceApks))
             .addParameterableRepeated(
                 "-R",
                 compiledResourcesToPaths(
