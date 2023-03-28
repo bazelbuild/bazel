@@ -37,7 +37,6 @@ public class JavaRuntimeInfoTest {
             PathFragment.create(""),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             null,
-            null,
             ImmutableList.of(),
             17);
     JavaRuntimeInfo b =
@@ -48,7 +47,6 @@ public class JavaRuntimeInfoTest {
             PathFragment.create(""),
             PathFragment.create(""),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            null,
             null,
             ImmutableList.of(),
             17);
