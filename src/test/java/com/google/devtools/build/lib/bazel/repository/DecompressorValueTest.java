@@ -57,6 +57,8 @@ public class DecompressorValueTest {
     unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.bz2");
     unused = DecompressorValue.getDecompressor(path);
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tbz");
+    unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.ar");
     unused = DecompressorValue.getDecompressor(path);
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.deb");
