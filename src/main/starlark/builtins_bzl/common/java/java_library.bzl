@@ -170,10 +170,7 @@ JAVA_LIBRARY_ATTRS = merge_attrs(
 
 java_library = rule(
     _proxy,
-    attrs = merge_attrs(
-        JAVA_LIBRARY_ATTRS,
-        {"_use_auto_exec_groups": attr.bool(default = True)},
-    ),
+    attrs = JAVA_LIBRARY_ATTRS,
     provides = [JavaInfo],
     outputs = {
         "classjar": "lib%{name}.jar",
