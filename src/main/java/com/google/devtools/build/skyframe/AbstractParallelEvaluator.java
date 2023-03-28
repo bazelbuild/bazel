@@ -454,13 +454,12 @@ abstract class AbstractParallelEvaluator {
     public void run() {
       SkyFunctionEnvironment env = null;
       try {
-        NodeEntry nodeEntry = checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
-        if (nodeEntry.isDone()) {
+        NodeEntry nodeEntry = graph.get(null, Reason.EVALUATION, skyKey);
+        if (nodeEntry == null || nodeEntry.isDone() || !nodeEntry.isReadyToEvaluate()) {
           checkState(skyKey.supportsPartialReevaluation(), "%s %s", skyKey, nodeEntry);
           evaluatorContext.getProgressReceiver().removeFromInflight(skyKey);
           return;
         }
-        checkState(nodeEntry.isReadyToEvaluate(), "%s %s", skyKey, nodeEntry);
         try {
           evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
           if (maybeHandleDirtyNode(nodeEntry) == DirtyOutcome.ALREADY_PROCESSED) {

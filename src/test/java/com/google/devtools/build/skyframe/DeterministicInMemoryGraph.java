@@ -88,4 +88,9 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   public void cleanupPool() {
     ((InMemoryGraph) delegate).cleanupPool();
   }
+
+  @Override
+  public void removeIfDone(SkyKey key) {
+    ((InMemoryGraph) delegate).removeIfDone(key);
+  }
 }

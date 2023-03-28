@@ -86,4 +86,9 @@ public interface InMemoryGraph extends ProcessableGraph, SkyKeyPool {
 
   /** Applies the given consumer to each node in the graph, potentially in parallel. */
   void parallelForEach(Consumer<InMemoryNodeEntry> consumer);
+
+  /**
+   * Removes the node entry associated with the given {@link SkyKey} from the graph if it is done.
+   */
+  void removeIfDone(SkyKey key);
 }

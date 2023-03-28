@@ -95,4 +95,9 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   public void cleanupPool() {
     ((InMemoryGraph) delegate).cleanupPool();
   }
+
+  @Override
+  public void removeIfDone(SkyKey key) {
+    ((InMemoryGraph) delegate).removeIfDone(key);
+  }
 }

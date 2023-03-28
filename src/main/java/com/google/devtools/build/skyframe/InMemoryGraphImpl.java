@@ -77,6 +77,19 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     nodeMap.remove(skyKey);
   }
 
+  @Override
+  public void removeIfDone(SkyKey key) {
+    nodeMap.computeIfPresent(
+        key,
+        (k, e) -> {
+          if (e.isDone()) {
+            weakIntern(k);
+            return null;
+          }
+          return e;
+        });
+  }
+
   private void weakIntern(SkyKey skyKey) {
     if (!usePooledSkyKeyInterning) {
       return;
