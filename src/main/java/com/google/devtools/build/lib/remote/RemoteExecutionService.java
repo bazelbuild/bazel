@@ -1482,6 +1482,7 @@ public class RemoteExecutionService {
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()
             .setInstanceName(remoteOptions.remoteInstanceName)
+            .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(action.getActionKey().getDigest())
             .setSkipCacheLookup(!acceptCachedResult);
     if (remoteOptions.remoteResultCachePriority != 0) {

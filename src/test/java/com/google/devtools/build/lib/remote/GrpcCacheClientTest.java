@@ -30,6 +30,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
@@ -799,6 +800,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             assertThat(request)
                 .isEqualTo(
                     UpdateActionResultRequest.newBuilder()
+                        .setDigestFunction(DigestFunction.Value.SHA256)
                         .setActionDigest(fooDigest)
                         .setActionResult(result)
                         .build());
