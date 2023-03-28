@@ -117,7 +117,6 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             javaBinaryRunfilesPath,
             hermeticInputs,
             libModules,
-            defaultCDS,
             hermeticStaticLibs,
             ruleContext.attributes().get("version", INTEGER).toIntUnchecked());
 
