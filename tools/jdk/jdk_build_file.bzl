@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A templated BUILD file for Java repositories."""
-
 JDK_BUILD_TEMPLATE = """load("@rules_java//java:defs.bzl", "java_runtime")
 
 package(default_visibility = ["//visibility:public"])
