@@ -51,15 +51,21 @@ public class TargetPatternTest {
     parse("@repo//foo:bar");
     parse("@repo//foo:all");
     parse("@repo//:bar");
+    parse("@repo");
     parse("@@repo//foo:all");
     parse("@@repo//:bar");
   }
 
   @Test
-  public void testInvalidPatterns() throws TargetParsingException {
+  public void testInvalidPatterns() {
     expectError("Bar\\java");
     expectError("");
     expectError("\\");
+    expectError("@");
+    expectError("@@");
+    expectError("@@repo");
+    expectError("@repo//");
+    expectError("@repo:");
   }
 
   @Test
@@ -180,7 +186,9 @@ public class TargetPatternTest {
 
     // Expecting renaming
     assertThat(parser.parse("@foo//package:target").getRepository().getName()).isEqualTo("bar");
+    assertThat(parser.parse("@foo").getRepository().getName()).isEqualTo("bar");
     assertThat(parser.parse("@myworkspace//package:target").getRepository().isMain()).isTrue();
+    assertThat(parser.parse("@myworkspace").getRepository().isMain()).isTrue();
     assertThat(parser.parse("@foo//foo/...").getRepository().getName()).isEqualTo("bar");
     assertThat(parser.parse("@myworkspace//foo/...").getRepository().isMain()).isTrue();
 
@@ -189,8 +197,26 @@ public class TargetPatternTest {
     assertThat(parser.parse("@@foo//package:target").getRepository().getName()).isEqualTo("foo");
     assertThat(parser.parse("@unrelated//package:target").getRepository().getName())
         .isEqualTo("unrelated");
+    assertThat(parser.parse("@unrelated").getRepository().getName()).isEqualTo("unrelated");
     assertThat(parser.parse("foo/package:target").getRepository().getName()).isEqualTo("myrepo");
     assertThat(parser.parse("foo/...").getRepository().getName()).isEqualTo("myrepo");
+  }
+
+  @Test
+  public void testRepoOnlyShorthand() throws TargetParsingException, LabelSyntaxException {
+    RepositoryMapping renaming =
+        RepositoryMapping.createAllowingFallback(
+            ImmutableMap.of(
+                "foo", RepositoryName.create("bar"),
+                "myworkspace", RepositoryName.create("")));
+    TargetPattern.Parser parser =
+        new TargetPattern.Parser(
+            PathFragment.EMPTY_FRAGMENT, RepositoryName.createUnvalidated("myrepo"), renaming);
+
+    assertThat(parser.parse("@foo").getSingleTargetLabel()).isEqualTo(
+        Label.parseCanonicalUnchecked("@@bar//:foo"));
+    assertThat(parser.parse("@myworkspace").getSingleTargetLabel()).isEqualTo(
+        Label.parseCanonicalUnchecked("@@//:myworkspace"));
   }
 
   private static TargetPattern parse(String pattern) throws TargetParsingException {

@@ -908,8 +908,7 @@ public abstract class TargetPattern {
       } else {
         int pkgStart = pattern.indexOf("//");
         if (pkgStart < 0) {
-          throw new TargetParsingException(
-              "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
+          pkgStart = pattern.length();
         }
         boolean isCanonicalRepoName = pattern.startsWith("@@");
         String repoPart = pattern.substring(isCanonicalRepoName ? 2 : 1, pkgStart);
@@ -932,13 +931,25 @@ public abstract class TargetPattern {
         }
 
         pattern = pattern.substring(pkgStart);
+        if (pattern.isEmpty()) {
+          if (isCanonicalRepoName) {
+            throw new TargetParsingException(
+                String.format(
+                    "Canonical repository name '@@%s' without a package part is not a valid "
+                        + "target pattern", repoPart),
+                Code.PACKAGE_NOT_FOUND);
+          }
+          // pattern is of the form @my_repo, which is a shorthand for @my_repo//:my_repo, even if
+          // "my_repo" maps to "repo" under the repository mapping.
+          pattern = "//:" + repoPart;
+        }
       }
 
       if (!VALID_SLASH_PREFIX.matcher(pattern).lookingAt()) {
         throw new TargetParsingException(
             "not a valid absolute pattern (absolute target patterns "
                 + "must start with exactly two slashes): '"
-                + pattern
+                + originalPattern
                 + "'",
             TargetPatterns.Code.ABSOLUTE_TARGET_PATTERN_INVALID);
       }
