@@ -85,6 +85,7 @@ java_library(
     srcs = [
         "AbridgedModule.java",
         "ArchiveOverride.java",
+        "BazelDepGraphValue.java",
         "BazelModuleResolutionValue.java",
         "GitOverride.java",
         "LocalPathOverride.java",
@@ -125,6 +126,7 @@ java_library(
 java_library(
     name = "resolution_impl",
     srcs = [
+        "BazelDepGraphFunction.java",
         "BazelModuleResolutionFunction.java",
         "Discovery.java",
         "ModuleExtensionContext.java",
@@ -188,24 +190,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "repo_rule_helper",
-    srcs = [
-        "BzlmodRepoRuleHelper.java",
-        "BzlmodRepoRuleHelperImpl.java",
-    ],
-    deps = [
-        ":common",
-        ":registry",
-        ":resolution",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
