@@ -210,10 +210,7 @@ void Md5Digest::Transform(
 // SET reads 4 input bytes in little-endian byte order and stores them
 // in a properly aligned word in host byte order.
 #define SET(n) \
-      (x[(n)] =  (uint32_t) bufferp[(n) * 4] | \
-          ((uint32_t) bufferp[(n) * 4 + 1] << 8) | \
-          ((uint32_t) bufferp[(n) * 4 + 2] << 16) | \
-          ((uint32_t) bufferp[(n) * 4 + 3] << 24))
+      (x[(n)] = le32toh(bufferp[(n)]))
 
   // FF, GG, HH, and II transformations for rounds 1, 2, 3, and 4.
   // Rotation is separate from addition to prevent recomputation.
@@ -251,7 +248,7 @@ void Md5Digest::Transform(
   uint32_t d = state[3];
   uint32_t x[16];
 
-  const uint8_t *bufferp = reinterpret_cast<const uint8_t*>(buffer);
+  const uint32_t *bufferp = reinterpret_cast<const uint32_t*>(buffer);
 
   do {
     uint32_t prev_a = a;
@@ -335,7 +332,7 @@ void Md5Digest::Transform(
     b += prev_b;
     c += prev_c;
     d += prev_d;
-    bufferp += 64;
+    bufferp += 16;
   } while (len -= 64);
 
   state[0] = a;

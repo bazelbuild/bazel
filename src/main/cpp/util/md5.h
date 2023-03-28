@@ -31,6 +31,7 @@
 #elif defined(__APPLE__) || defined(_WIN32)
 // Hopefully OSX and Windows will keep running solely on little endian CPUs, so:
 #define htole32(x) (x)
+#define le32toh(x) (x)
 #else
 #error "This platform is not supported."
 #endif
