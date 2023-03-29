@@ -45,21 +45,22 @@ public class RepositoryOptionsTest {
   public void testOverrideConverter() throws Exception {
     RepositoryOverride actual = converter.convert("foo=/bar");
     assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
-    assertThat(actual.path()).isEqualTo(PathFragment.create("/bar"));
+    assertThat(PathFragment.create(actual.path())).isEqualTo(PathFragment.create("/bar"));
   }
 
   @Test
   public void testOverridePathWithEqualsSign() throws Exception {
     RepositoryOverride actual = converter.convert("foo=/bar=/baz");
     assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
-    assertThat(actual.path()).isEqualTo(PathFragment.create("/bar=/baz"));
+    assertThat(PathFragment.create(actual.path())).isEqualTo(PathFragment.create("/bar=/baz"));
   }
 
   @Test
   public void testOverridePathWithTilde() throws Exception {
     RepositoryOverride actual = converter.convert("foo=~/bar");
     assertThat(actual.repositoryName()).isEqualTo(RepositoryName.createUnvalidated("foo"));
-    assertThat(actual.path()).isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
+    assertThat(PathFragment.create(actual.path()))
+        .isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
   }
 
   @Test
@@ -68,6 +69,15 @@ public class RepositoryOptionsTest {
     ModuleOverride actual = converter.convert("foo=~/bar");
     assertThat(PathFragment.create(actual.path()))
         .isEqualTo(PathFragment.create(USER_HOME.value() + "/bar"));
+  }
+
+  @Test
+  public void testModuleOverrideRelativePath() throws Exception {
+    var converter = new ModuleOverrideConverter();
+    ModuleOverride actual = converter.convert("foo=%workspace%/bar");
+    assertThat(actual.path()).isEqualTo("%workspace%/bar");
+    actual = converter.convert("foo=../../bar");
+    assertThat(actual.path()).isEqualTo("../../bar");
   }
 
   @Test
@@ -85,10 +95,4 @@ public class RepositoryOptionsTest {
     converter.convert("foo/bar=/baz");
   }
 
-  @Test
-  public void testInvalidPathOverride() throws Exception {
-    expectedException.expect(OptionsParsingException.class);
-    expectedException.expectMessage("Repository override directory must be an absolute path");
-    converter.convert("foo=bar");
-  }
 }
