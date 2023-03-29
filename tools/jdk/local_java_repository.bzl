@@ -152,7 +152,7 @@ def _local_java_repository_impl(repository_ctx):
         build_file = repository_ctx.read(repository_ctx.path(repository_ctx.attr.build_file))
     else:
         build_file = ""
-    build_file = build_file.replace("___RUNTIME_VERSION___" , version if version.isdigit() else "0")
+    build_file = build_file.replace("___RUNTIME_VERSION___", version if version.isdigit() else "0")
 
     runtime_name = '"jdk"' if build_file else None
     local_java_runtime_macro = """
