@@ -473,7 +473,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setRegistry(registry)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
@@ -491,7 +491,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .build())
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
@@ -582,7 +582,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setKey(ModuleKey.ROOT)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setLocation(Location.fromFileLineColumn("<root>/MODULE.bazel", 1, 23))
                         .setImports(
@@ -672,7 +672,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setRegistry(registry)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))

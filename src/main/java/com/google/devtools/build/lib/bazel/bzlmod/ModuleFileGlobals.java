@@ -382,9 +382,12 @@ public class ModuleFileGlobals {
             defaultValue = "False"),
       },
       useStarlarkThread = true)
-  public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread) {
+  public ModuleExtensionProxy useExtension(String rawExtensionBzlFile, String extensionName,
+      boolean devDependency, StarlarkThread thread) {
     hadNonModuleCall = true;
+
+    String extensionBzlFile = normalizeLabelString(rawExtensionBzlFile);
+
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
             extensionBzlFile, extensionName, thread.getCallerLocation());
@@ -405,6 +408,22 @@ public class ModuleFileGlobals {
     // If no such proxy exists, we can just use a new one.
     extensionUsageBuilders.add(newUsageBuilder);
     return newUsageBuilder.getProxy(devDependency);
+  }
+
+  private String normalizeLabelString(String rawExtensionBzlFile) {
+    // Normalize the label by adding the current module's repo_name if the label doesn't specify a
+    // repository name. This is necessary as ModuleExtensionUsages are grouped by the string value
+    // of this label, but later mapped to their Label representation. If multiple strings map to the
+    // same Label, this would result in a crash.
+    // ownName can't change anymore as calling module() after this results in an error.
+    String ownName = module.getRepoName().orElse(module.getName());
+    if (module.getKey().equals(ModuleKey.ROOT) && rawExtensionBzlFile.startsWith("@//")) {
+      return "@" + ownName + rawExtensionBzlFile.substring(1);
+    } else if (rawExtensionBzlFile.startsWith("//")) {
+      return "@" + ownName + rawExtensionBzlFile;
+    } else {
+      return rawExtensionBzlFile;
+    }
   }
 
   class ModuleExtensionUsageBuilder {

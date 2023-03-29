@@ -242,6 +242,8 @@ public abstract class Module {
       return this;
     }
 
+    abstract ModuleKey getKey();
+
     abstract String getName();
 
     abstract Optional<String> getRepoName();
