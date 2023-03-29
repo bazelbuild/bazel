@@ -1456,4 +1456,158 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "|   @_main~my_ext~candy1//:data.bzl\n"
             + "`-- @_main~my_ext~candy1");
   }
+
+  @Test
+  public void extensionMetadata_exactlyOneArgIsNone() throws Exception {
+    var result = evaluateSimpleModuleExtension("return ctx.extension_metadata(root_module_direct_deps=['foo'])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("root_module_direct_deps and root_module_direct_dev_deps must both be specified or both be unspecified");
+  }
+
+  @Test
+  public void extensionMetadata_exactlyOneArgIsNoneDev() throws Exception {
+    var result = evaluateSimpleModuleExtension("return ctx.extension_metadata(root_module_direct_dev_deps=['foo'])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("root_module_direct_deps and root_module_direct_dev_deps must both be specified or both be unspecified");
+  }
+
+  @Test
+  public void extensionMetadata_allUsedTwice() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps='all',root_module_direct_dev_deps='all')");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("if one of root_module_direct_deps and root_module_direct_dev_deps is \"all\", the other must be an empty list");
+  }
+
+  @Test
+  public void extensionMetadata_allAndNone() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps='all')");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("if one of root_module_direct_deps and root_module_direct_dev_deps is \"all\", the other must be an empty list");
+  }
+
+  @Test
+  public void extensionMetadata_unsupportedString() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps='not_all')");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("root_module_direct_deps and root_module_direct_dev_deps must be None, \"all\", or a list of strings");
+  }
+
+  @Test
+  public void extensionMetadata_unsupportedStringDev() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_dev_deps='not_all')");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("root_module_direct_deps and root_module_direct_dev_deps must be None, \"all\", or a list of strings");
+  }
+
+  @Test
+  public void extensionMetadata_invalidRepoName() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps=['~invalid'],root_module_direct_dev_deps=[])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in root_module_direct_deps: invalid user-provided repo name '~invalid': valid names may contain only A-Z, a-z, 0-9, '-', '_', '.', and must start with a letter");
+  }
+
+  @Test
+  public void extensionMetadata_invalidDevRepoName() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_dev_deps=['~invalid'],root_module_direct_deps=[])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in root_module_direct_dev_deps: invalid user-provided repo name '~invalid': valid names may contain only A-Z, a-z, 0-9, '-', '_', '.', and must start with a letter");
+  }
+
+  @Test
+  public void extensionMetadata_duplicateRepo() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps=['dep','dep'],root_module_direct_dev_deps=[])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in root_module_direct_deps: duplicate entry 'dep'");
+  }
+
+  @Test
+  public void extensionMetadata_duplicateDevRepo() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps=[],root_module_direct_dev_deps=['dep','dep'])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in root_module_direct_dev_deps: duplicate entry 'dep'");
+  }
+
+  @Test
+  public void extensionMetadata_duplicateRepoAcrossTypes() throws Exception {
+    var result = evaluateSimpleModuleExtension(
+        "return ctx.extension_metadata(root_module_direct_deps=['dep'],root_module_direct_dev_deps=['dep'])");
+
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "in root_module_direct_dev_deps: entry 'dep' is also in root_module_direct_deps");
+  }
+
+  @Test
+  public void extensionMetadata() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext', version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('@ext//:defs.bzl', 'ext')",
+        "use_repo(ext, 'indirect_dep', 'indirect_dep', 'indirect_dev_dep', 'indirect_dev_dep', 'invalid_dep', 'invalid_dep', 'invalid_dev_dep', 'invalid_dev_dep')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='summarized_candy')",
+        "my_ext=module_extension(implementation=_ext_impl)");
+
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@summarized_candy//:data.bzl', data='data')",
+        "candy_data = 'candy: ' + data");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='candy', data='cotton candy')",
+        "  data_repo(name='exposed_candy', data='lollipops')",
+        "ext = module_extension(implementation=_ext_impl)");
+  }
+
+  private EvaluationResult<SingleExtensionEvalValue> evaluateSimpleModuleExtension(
+      String returnStatement)
+      throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl', 'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _ext_impl(ctx):",
+        "  " + returnStatement,
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+
+    ModuleExtensionId extensionId = ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"),
+        "ext");
+    reporter.removeHandler(failFastHandler);
+    return evaluator.evaluate(ImmutableList.of(SingleExtensionEvalValue.key(extensionId)),
+        evaluationContext);
+  }
 }

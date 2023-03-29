@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_BIMAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_LIST;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
+import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
@@ -96,6 +97,7 @@ public final class GsonTypeAdapterUtil {
           .registerTypeAdapterFactory(IMMUTABLE_MAP)
           .registerTypeAdapterFactory(IMMUTABLE_LIST)
           .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
+          .registerTypeAdapterFactory(IMMUTABLE_SET)
           .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
           .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
           .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())

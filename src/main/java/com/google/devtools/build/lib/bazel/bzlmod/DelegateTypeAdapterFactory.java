@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.TypeAdapterFactory;
@@ -29,8 +30,10 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -91,6 +94,14 @@ public final class DelegateTypeAdapterFactory<I, R extends I, D extends I>
           ArrayList.class,
           raw -> new ArrayList<>((List<?>) raw),
           delegate -> ImmutableList.copyOf((List<?>) delegate));
+
+  public static final TypeAdapterFactory IMMUTABLE_SET =
+      new DelegateTypeAdapterFactory<>(
+          ImmutableSet.class,
+          Set.class,
+          LinkedHashSet.class,
+          raw -> new LinkedHashSet<>((Set<?>) raw),
+          delegate -> ImmutableSet.copyOf((Set<?>) delegate));
 
   @SuppressWarnings("unchecked")
   @Override

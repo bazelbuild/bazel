@@ -15,8 +15,10 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import net.starlark.java.syntax.Location;
@@ -48,14 +50,34 @@ public abstract class ModuleExtensionUsage {
    */
   public abstract ImmutableBiMap<String, String> getImports();
 
-  /** All the tags specified by this module for this extension. */
+  /**
+   * The repo names as exported by the module extension that were imported using a proxy marked as
+   * a dev dependency.
+   */
+  public abstract ImmutableSet<String> getDevImports();
+
+  /**
+   * All the tags specified by this module for this extension.
+   */
   public abstract ImmutableList<Tag> getTags();
+
+  public ModuleKey getModuleKey() {
+    String file = getLocation().file();
+    Preconditions.checkState(file.endsWith("/MODULE.bazel"));
+    try {
+      return ModuleKey.fromString(file.substring(0, file.length() - "/MODULE.bazel".length()));
+    } catch (Version.ParseException e) {
+      throw new IllegalStateException("Unexpected location for module extension usage: " + file, e);
+    }
+  }
 
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
   }
 
-  /** Builder for {@link ModuleExtensionUsage}. */
+  /**
+   * Builder for {@link ModuleExtensionUsage}.
+   */
   @AutoValue.Builder
   public abstract static class Builder {
 
@@ -66,6 +88,8 @@ public abstract class ModuleExtensionUsage {
     public abstract Builder setLocation(Location value);
 
     public abstract Builder setImports(ImmutableBiMap<String, String> value);
+
+    public abstract Builder setDevImports(ImmutableSet<String> value);
 
     public abstract Builder setTags(ImmutableList<Tag> value);
 

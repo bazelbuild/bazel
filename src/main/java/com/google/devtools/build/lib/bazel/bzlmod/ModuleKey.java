@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.Comparator;
 
@@ -62,6 +63,19 @@ public abstract class ModuleKey {
       return "<root>";
     }
     return getName() + "@" + (getVersion().isEmpty() ? "_" : getVersion().toString());
+  }
+
+  public static ModuleKey fromString(String s) throws ParseException {
+    if (s.equals("<root>")) {
+      return ROOT;
+    }
+    int at = s.indexOf('@');
+    if (at == -1) {
+      throw new ParseException("Failed to parse version from non-root module key string");
+    }
+    String name = s.substring(0, at);
+    String version = s.substring(at + 1);
+    return create(name, version.equals("_") ? Version.EMPTY : Version.parse(version));
   }
 
   /** Returns the canonical name of the repo backing this module. */

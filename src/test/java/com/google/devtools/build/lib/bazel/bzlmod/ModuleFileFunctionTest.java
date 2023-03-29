@@ -477,6 +477,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext1")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -496,6 +497,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext2")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
@@ -528,6 +530,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 10, 22))
                         .setImports(
                             ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
@@ -594,6 +597,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             ImmutableBiMap.of(
                                 "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
                                 "delta"))
+                        .setDevImports(ImmutableSet.of("alpha", "gamma"))
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -685,6 +689,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionName("myext")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")

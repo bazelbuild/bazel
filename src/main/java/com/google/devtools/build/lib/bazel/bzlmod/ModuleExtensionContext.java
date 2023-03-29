@@ -29,6 +29,9 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
+import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -119,5 +122,36 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       })
   public boolean isDevDependency(TypeCheckedTag tag) {
     return tag.isDevDependency();
+  }
+
+  @StarlarkMethod(
+      name = "extension_metadata",
+      doc = "foo",
+      parameters = {
+          @Param(
+              name = "root_module_direct_deps",
+              doc = "foo",
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {
+                  @ParamType(type = Sequence.class, generic1 = String.class),
+                  @ParamType(type = String.class),
+                  @ParamType(type = NoneType.class)}),
+          @Param(
+              name = "root_module_direct_dev_deps",
+              doc = "foo",
+              positional = false,
+              named = true,
+              defaultValue = "None",
+              allowedTypes = {
+                  @ParamType(type = Sequence.class, generic1 = String.class),
+                  @ParamType(type = String.class),
+                  @ParamType(type = NoneType.class)}),
+      })
+  public ModuleExtensionMetadata extensionMetadata(Object rootModuleDirectDepsUnchecked,
+      Object rootModuleDirectDevDepsUnchecked) throws EvalException {
+    return ModuleExtensionMetadata.create(rootModuleDirectDepsUnchecked,
+        rootModuleDirectDevDepsUnchecked);
   }
 }

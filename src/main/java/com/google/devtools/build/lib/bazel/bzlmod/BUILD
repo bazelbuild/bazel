@@ -141,6 +141,7 @@ java_library(
         "Discovery.java",
         "GsonTypeAdapterUtil.java",
         "ModuleExtensionContext.java",
+        "ModuleExtensionMetadata.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
         "Selection.java",
