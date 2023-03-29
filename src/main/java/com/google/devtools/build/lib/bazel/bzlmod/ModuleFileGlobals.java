@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionProxyBuilder.ModuleExtensionProxy;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionUsageBuilder.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
@@ -64,7 +64,7 @@ public class ModuleFileGlobals {
   private final boolean ignoreDevDeps;
   private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
-  private final List<ModuleExtensionProxyBuilder> extensionProxyBuilders = new ArrayList<>();
+  private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
@@ -377,36 +377,35 @@ public class ModuleFileGlobals {
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
       String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread) {
-    ModuleExtensionProxyBuilder newProxyBuilder = new ModuleExtensionProxyBuilder(extensionBzlFile,
+    ModuleExtensionUsageBuilder newUsageBuilder = new ModuleExtensionUsageBuilder(extensionBzlFile,
         extensionName, thread.getCallerLocation());
 
     if (ignoreDevDeps && devDependency) {
       // This is a no-op proxy.
-      return newProxyBuilder.getProxy(devDependency);
+      return newUsageBuilder.getProxy(devDependency);
     }
 
-    // Find an existing proxy builder corresponding to this extension.
-    for (ModuleExtensionProxyBuilder proxyBuilder : extensionProxyBuilders) {
-      if (proxyBuilder.extensionBzlFile.equals(extensionBzlFile)
-          && proxyBuilder.extensionName.equals(extensionName)) {
-        // All proxies returned by withDevDependency share a common set of imports and tags.
-        return proxyBuilder.getProxy(devDependency);
+    // Find an existing usage builder corresponding to this extension.
+    for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
+      if (usageBuilder.extensionBzlFile.equals(extensionBzlFile)
+          && usageBuilder.extensionName.equals(extensionName)) {
+        return usageBuilder.getProxy(devDependency);
       }
     }
 
     // If no such proxy exists, we can just use a new one.
-    extensionProxyBuilders.add(newProxyBuilder);
-    return newProxyBuilder.getProxy(devDependency);
+    extensionUsageBuilders.add(newUsageBuilder);
+    return newUsageBuilder.getProxy(devDependency);
   }
 
-  class ModuleExtensionProxyBuilder {
+  class ModuleExtensionUsageBuilder {
     private final String extensionBzlFile;
     private final String extensionName;
     private final Location location;
     private final HashBiMap<String, String> imports;
     private final ImmutableList.Builder<Tag> tags;
 
-    ModuleExtensionProxyBuilder(String extensionBzlFile, String extensionName, Location location) {
+    ModuleExtensionUsageBuilder(String extensionBzlFile, String extensionName, Location location) {
       this.extensionBzlFile = extensionBzlFile;
       this.extensionName = extensionName;
       this.location = location;
@@ -843,8 +842,8 @@ public class ModuleFileGlobals {
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(
-            extensionProxyBuilders.stream()
-                .map(ModuleExtensionProxyBuilder::buildUsage)
+            extensionUsageBuilders.stream()
+                .map(ModuleExtensionUsageBuilder::buildUsage)
                 .collect(toImmutableList()))
         .build();
   }
