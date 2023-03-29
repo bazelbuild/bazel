@@ -216,7 +216,7 @@ java_runtime(
         ":jdk-lib",
         ":jre-default",
     ],
-    version = {RUNTIME_VERSION},
+    version = ___RUNTIME_VERSION___,
 )
 
 config_setting(

@@ -48,7 +48,7 @@ def remote_java_repository(name, version, target_compatible_with = None, prefix 
     """
     http_archive(
         name = name,
-        build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = version),
+        build_file_content = JDK_BUILD_TEMPLATE.replace("___RUNTIME_VERSION___", version),
         **kwargs
     )
     _toolchain_config(
