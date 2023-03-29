@@ -956,4 +956,34 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
 
     assertContainsEvent("The repo name 'bbb' is already being used as the module's own repo name");
   }
+
+  @Test
+  public void module_calledTwice() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1',repo_name='bbb')",
+        "module(name='aaa',version='0.1',repo_name='bbb')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("the module() directive can only be called once");
+  }
+
+  @Test
+  public void module_calledLate() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "use_extension('//:extensions.bzl', 'my_ext')",
+        "module(name='aaa',version='0.1',repo_name='bbb')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("if module() is called, it must be called before any other functions");
+  }
 }
