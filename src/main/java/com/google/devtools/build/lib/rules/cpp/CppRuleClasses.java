@@ -534,7 +534,7 @@ public class CppRuleClasses {
       if (addGrepIncludes) {
         builder.add(
             attr("$grep_includes", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/cpp:grep-includes")));
       }
       return builder.build();

@@ -103,12 +103,12 @@ public final class AttributeTest {
     Attribute.Builder<String> builder =
         attr("x", STRING)
             .mandatory()
-            .cfg(ExecutionTransitionFactory.create())
+            .cfg(ExecutionTransitionFactory.createFactory())
             .undocumented("")
             .value("y");
     assertThrows(IllegalStateException.class, builder::mandatory);
     assertThrows(
-        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.create()));
+        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.createFactory()));
     assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
     assertThrows(IllegalStateException.class, () -> builder.value("z"));
 
@@ -277,7 +277,10 @@ public final class AttributeTest {
   @Test
   public void testExecTransition() {
     Attribute attr =
-        attr("foo", LABEL).cfg(ExecutionTransitionFactory.create()).allowedFileTypes().build();
+        attr("foo", LABEL)
+            .cfg(ExecutionTransitionFactory.createFactory())
+            .allowedFileTypes()
+            .build();
     assertThat(attr.getTransitionFactory().isTool()).isTrue();
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }

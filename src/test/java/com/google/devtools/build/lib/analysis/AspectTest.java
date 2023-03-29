@@ -516,7 +516,7 @@ public class AspectTest extends AnalysisTestCase {
                                     .aspect(AspectThatRegistersAction.INSTANCE))
                             .add(
                                 attr(":action_listener", LABEL_LIST)
-                                    .cfg(ExecutionTransitionFactory.create())
+                                    .cfg(ExecutionTransitionFactory.createFactory())
                                     .value(ACTION_LISTENER)));
 
     public static class AspectThatRegistersAction extends NativeAspectClass

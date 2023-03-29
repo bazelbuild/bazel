@@ -50,11 +50,11 @@ public final class BazelCcTestRule implements RuleDefinition {
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .add(
             attr(":lcov_merger", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();

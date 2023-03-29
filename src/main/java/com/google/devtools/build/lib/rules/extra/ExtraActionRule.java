@@ -58,7 +58,7 @@ public final class ExtraActionRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes()
                 .exec())
         /*<!-- #BLAZE_RULE(extra_action).ATTRIBUTE(out_templates) -->

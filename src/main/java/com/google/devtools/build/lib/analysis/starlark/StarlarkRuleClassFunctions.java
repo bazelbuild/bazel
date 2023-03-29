@@ -195,39 +195,39 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             // Input files for every test action
             .add(
                 attr("$test_wrapper", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_wrapper")))
             .add(
                 attr("$xml_writer", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:xml_writer")))
             .add(
                 attr("$test_runtime", LABEL_LIST)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     // Getting this default value through the getTestRuntimeLabelList helper ensures
                     // we reuse the same ImmutableList<Label> instance for each $test_runtime attr.
                     .value(getTestRuntimeLabelList(env)))
             .add(
                 attr("$test_setup_script", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_setup")))
             .add(
                 attr("$xml_generator_script", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:test_xml_generator")))
             .add(
                 attr("$collect_coverage_script", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .singleArtifact()
                     .value(labelCache.get(toolsRepository + "//tools/test:collect_coverage")))
             // Input files for test actions collecting code coverage
             .add(
                 attr(":coverage_support", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .value(
                         BaseRuleClasses.coverageSupportAttribute(
                             labelCache.get(
@@ -235,7 +235,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
             // Used in the one-per-build coverage report generation action.
             .add(
                 attr(":coverage_report_generator", LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .value(
                         BaseRuleClasses.coverageReportGeneratorAttribute(
                             labelCache.get(

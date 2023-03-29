@@ -82,7 +82,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
@@ -96,7 +96,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exec_tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .dontCheckConstraints())
 

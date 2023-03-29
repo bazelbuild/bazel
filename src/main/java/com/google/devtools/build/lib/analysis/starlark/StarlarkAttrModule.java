@@ -244,9 +244,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
               "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
                   + "'cfg = \"exec\"' instead.");
         }
-        builder.cfg(ExecutionTransitionFactory.create());
+        builder.cfg(ExecutionTransitionFactory.createFactory());
       } else if (trans.equals("exec")) {
-        builder.cfg(ExecutionTransitionFactory.create());
+        builder.cfg(ExecutionTransitionFactory.createFactory());
       } else if (trans instanceof ExecutionTransitionFactory) {
         builder.cfg((ExecutionTransitionFactory) trans);
       } else if (trans instanceof SplitTransition) {

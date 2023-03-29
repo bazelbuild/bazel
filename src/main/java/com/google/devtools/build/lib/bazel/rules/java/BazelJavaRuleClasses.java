@@ -239,12 +239,12 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr("plugins", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .legacyAllowAnyFileType())
           .add(
               attr(":java_plugins", LABEL_LIST)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                   .silentRuleClassFilter()
                   .value(JavaSemantics.JAVA_PLUGINS))
@@ -441,7 +441,7 @@ public class BazelJavaRuleClasses {
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER)) // blaze flag
           .add(
               attr("$launcher", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .value(env.getToolsLabel("//tools/launcher:launcher")))
           .build();
     }

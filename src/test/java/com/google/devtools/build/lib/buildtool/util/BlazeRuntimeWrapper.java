@@ -414,7 +414,7 @@ public class BlazeRuntimeWrapper {
     BuildOptions targetOptions = targetConfig.getOptions();
     BuildOptions execOptions =
         Iterables.getOnlyElement(
-            ExecutionTransitionFactory.create()
+            ExecutionTransitionFactory.createFactory()
                 .create(
                     AttributeTransitionData.builder()
                         .attributes(FakeAttributeMapper.empty())
