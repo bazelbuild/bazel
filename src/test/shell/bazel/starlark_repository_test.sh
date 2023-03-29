@@ -1451,9 +1451,9 @@ EOF
   echo "new value" > reference.txt.shadow
   bazel sync --configure --experimental_repository_resolved_file=resolved.bzl \
         2>&1 || fail "Expected sync --configure to succeed"
-  grep -q 'name.*configure' resolved.bzl \
+  grep -q '"name": "configure"' resolved.bzl \
       || fail "Expected 'configure' to be synced"
-  grep -q 'name.*source' resolved.bzl \
+  grep -q '"name": "source"' resolved.bzl \
       && fail "Expected 'source' not to be synced" || :
 
   bazel build //:source //:configure
