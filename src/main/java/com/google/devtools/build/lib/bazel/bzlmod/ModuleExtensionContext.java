@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -98,5 +100,20 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
               + " guaranteed to be the same as breadth-first search starting from the root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
+  }
+
+  @StarlarkMethod(
+      name = "is_dev_dependency",
+      doc = "Returns whether the given tag was specified on the result of a <a "
+          + "href=\"globals.html#use_extension\">use_extension</a> call with "
+          + "<code>devDependency = True</code>.",
+      parameters = {
+          @Param(
+              name = "tag",
+              doc = "A tag obtained from <a href=\"bazel_module.html#tags\">bazel_module.tags</a>.",
+              allowedTypes = {@ParamType(type = TypeCheckedTag.class)})
+      })
+  public boolean isDevDependency(TypeCheckedTag tag) {
+    return tag.isDevDependency();
   }
 }

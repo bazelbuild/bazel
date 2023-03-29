@@ -33,6 +33,9 @@ public abstract class Tag {
   /** All keyword arguments supplied to the tag instance. */
   public abstract Dict<String, Object> getAttributeValues();
 
+  /** Whether this tag was created using a proxy created with dev_dependency = True. */
+  public abstract boolean isDevDependency();
+
   /** The source location in the module file where this tag was created. */
   public abstract Location getLocation();
 
@@ -47,6 +50,8 @@ public abstract class Tag {
     public abstract Builder setTagName(String value);
 
     public abstract Builder setAttributeValues(Dict<String, Object> value);
+
+    public abstract Builder setDevDependency(boolean value);
 
     public abstract Builder setLocation(Location value);
 

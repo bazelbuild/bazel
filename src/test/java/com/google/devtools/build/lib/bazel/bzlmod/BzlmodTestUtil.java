@@ -283,6 +283,7 @@ public final class BzlmodTestUtil {
   public static class TestTagBuilder {
     private final Dict.Builder<String, Object> attrValuesBuilder = Dict.builder();
     private final String tagName;
+    private boolean devDependency = false;
 
     private TestTagBuilder(String tagName) {
       this.tagName = tagName;
@@ -294,11 +295,18 @@ public final class BzlmodTestUtil {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public TestTagBuilder setDevDependency() {
+      devDependency = true;
+      return this;
+    }
+
     public Tag build() {
       return Tag.builder()
           .setTagName(tagName)
           .setLocation(Location.BUILTIN)
           .setAttributeValues(attrValuesBuilder.buildImmutable())
+          .setDevDependency(devDependency)
           .build();
     }
   }

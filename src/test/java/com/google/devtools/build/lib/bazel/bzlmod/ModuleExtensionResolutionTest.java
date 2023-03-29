@@ -446,7 +446,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  data_str = 'modules:'",
         "  for mod in ctx.modules:",
         "    for tag in mod.tags.tag:",
-        "      data_str += ' ' + tag.data",
+        "      data_str += ' ' + tag.data + ' ' + str(ctx.is_dev_dependency(tag))",
         "  data_repo(name='ext_repo',data=data_str)",
         "tag=tag_class(attrs={'data':attr.string()})",
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
@@ -457,7 +457,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("modules: root bar@2.0");
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("modules: root True bar@2.0 False");
   }
 
   @Test
@@ -497,7 +497,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  data_str = 'modules:'",
         "  for mod in ctx.modules:",
         "    for tag in mod.tags.tag:",
-        "      data_str += ' ' + tag.data",
+        "      data_str += ' ' + tag.data + ' ' + str(ctx.is_dev_dependency(tag))",
         "  data_repo(name='ext_repo',data=data_str)",
         "tag=tag_class(attrs={'data':attr.string()})",
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
@@ -511,7 +511,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("modules: bar@2.0");
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("modules: bar@2.0 False");
   }
 
   @Test

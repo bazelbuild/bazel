@@ -375,27 +375,26 @@ public class ModuleFileGlobals {
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread)
-      throws EvalException {
+      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread) {
     ModuleExtensionProxy newProxy =
         new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
 
     if (ignoreDevDeps && devDependency) {
       // This is a no-op proxy.
-      return newProxy;
+      return newProxy.withDevDependency(devDependency);
     }
 
     // Find an existing proxy object corresponding to this extension.
     for (ModuleExtensionProxy proxy : extensionProxies) {
       if (proxy.extensionBzlFile.equals(extensionBzlFile)
           && proxy.extensionName.equals(extensionName)) {
-        return proxy;
+        return proxy.withDevDependency(devDependency);
       }
     }
 
     // If no such proxy exists, we can just use a new one.
     extensionProxies.add(newProxy);
-    return newProxy;
+    return newProxy.withDevDependency(devDependency);
   }
 
   @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
@@ -405,6 +404,7 @@ public class ModuleFileGlobals {
     private final Location location;
     private final HashBiMap<String, String> imports;
     private final ImmutableList.Builder<Tag> tags;
+    private final boolean devDependency;
 
     ModuleExtensionProxy(String extensionBzlFile, String extensionName, Location location) {
       this.extensionBzlFile = extensionBzlFile;
@@ -412,6 +412,24 @@ public class ModuleFileGlobals {
       this.location = location;
       this.imports = HashBiMap.create();
       this.tags = ImmutableList.builder();
+      this.devDependency = false;
+    }
+
+    private ModuleExtensionProxy(ModuleExtensionProxy other, boolean devDependency) {
+      this.extensionBzlFile = other.extensionBzlFile;
+      this.extensionName = other.extensionName;
+      this.location = other.location;
+      this.imports = other.imports;
+      this.tags = other.tags;
+      this.devDependency = devDependency;
+    }
+
+    /**
+     * Creates a proxy with the specified devDependency bit that shares accumulated imports and tags
+     * with the current one, thus preserving tag specification order.
+     */
+    ModuleExtensionProxy withDevDependency(boolean devDependency) {
+      return devDependency ? new ModuleExtensionProxy(this, true) : this;
     }
 
     ModuleExtensionUsage buildUsage() {
@@ -453,6 +471,7 @@ public class ModuleFileGlobals {
               Tag.builder()
                   .setTagName(tagName)
                   .setAttributeValues(kwargs)
+                  .setDevDependency(devDependency)
                   .setLocation(thread.getCallerLocation())
                   .build());
         }
