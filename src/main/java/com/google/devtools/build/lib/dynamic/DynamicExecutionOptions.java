@@ -74,9 +74,10 @@ public class DynamicExecutionOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The local strategies, in order, to use for the given mnemonic. Passing"
-              + " 'local' as the mnemonic sets the default for unspecified mnemonics. Takes"
-              + " [mnemonic=]local_strategy[,local_strategy,...]")
+          "The local strategies, in order, to use for the given mnemonic. If no mnemonic is given, "
+              + "the list of strategies is used as the fallback for all mnemonics. Using "
+              + "'local' as the mnemonic sets the default for unspecified mnemonics. Takes "
+              + "[mnemonic=]local_strategy[,local_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 
   @Option(
