@@ -134,11 +134,13 @@ public class BuildEventServiceOptions extends OptionsBase {
       name = "bes_upload_mode",
       defaultValue = "wait_for_upload_complete",
       converter = BesUploadModeConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT},
       help =
           "Specifies whether the Build Event Service upload should block the build completion "
-              + "or should end the invocation immediately and finish the upload in the background.")
+              + "or should end the invocation immediately and finish the upload in the background. "
+              + "Either 'wait_for_upload_complete' (default), 'nowait_for_upload_complete', "
+              + "or 'fully_async'.")
   public BesUploadMode besUploadMode;
 
   @Option(
