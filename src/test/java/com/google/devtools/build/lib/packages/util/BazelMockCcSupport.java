@@ -35,7 +35,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
   private BazelMockCcSupport() {}
 
   private static final ImmutableList<String> CROSSTOOL_ARCHS =
-      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin");
+      ImmutableList.of("piii", "k8", "armeabi-v7a", "ppc", "darwin_x86_64");
 
   @Override
   protected String getRealFilesystemCrosstoolTopPath() {
@@ -94,7 +94,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     result.add(CcToolchainConfig.builder().build());
 
     if (OS.getCurrent() == OS.DARWIN) {
-      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin"));
+      result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_x86_64"));
       result.add(CcToolchainConfig.getCcToolchainConfigForCpu("darwin_arm64"));
     }
 
