@@ -20,7 +20,6 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.skyframe.HighWaterMarkLimiter;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.errorprone.annotations.Keep;
 
@@ -47,7 +46,7 @@ public final class MemoryPressureModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+  public void beforeCommand(CommandEnvironment env) {
     eventBus = env.getEventBus();
     memoryPressureListener.setEventBus(eventBus);
 

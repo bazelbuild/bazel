@@ -25,10 +25,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.MemoryOptions;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.Options;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -74,23 +70,8 @@ final class RetainedHeapLimiter implements MemoryPressureStatCollector {
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
-  void setOptions(MemoryPressureOptions options) throws AbruptExitException {
-    if (options.oomMoreEagerlyThreshold < 0 || options.oomMoreEagerlyThreshold > 100) {
-      throw createExitException(
-          "--experimental_oom_more_eagerly_threshold must be a percent between 0 and 100 but was "
-              + options.oomMoreEagerlyThreshold,
-          MemoryOptions.Code.EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE);
-    }
+  void setOptions(MemoryPressureOptions options) {
     this.options = options;
-  }
-
-  private static AbruptExitException createExitException(String message, MemoryOptions.Code code) {
-    return new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setMemoryOptions(MemoryOptions.newBuilder().setCode(code))
-                .build()));
   }
 
   // Can be called concurrently, handles concurrent calls with #setThreshold gracefully.

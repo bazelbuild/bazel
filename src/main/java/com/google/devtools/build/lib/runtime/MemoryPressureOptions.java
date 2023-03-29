@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.PercentageConverter;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -28,6 +29,7 @@ public final class MemoryPressureOptions extends OptionsBase {
       defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
       help =
           "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
               + "more than this percentage of the (old gen) heap is still occupied.")
@@ -89,8 +91,8 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " threshold is exceeded.")
   public int skyframeHighWaterMarkFullGcDropsPerInvocation;
 
-  static class NonNegativeIntegerConverter extends Converters.RangeConverter {
-    public NonNegativeIntegerConverter() {
+  static final class NonNegativeIntegerConverter extends RangeConverter {
+    NonNegativeIntegerConverter() {
       super(0, Integer.MAX_VALUE);
     }
   }

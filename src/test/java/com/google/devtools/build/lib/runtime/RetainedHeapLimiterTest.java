@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
-import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -27,11 +26,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
-import com.google.devtools.build.lib.server.FailureDetails.MemoryOptions.Code;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.common.options.Options;
-import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.lang.ref.WeakReference;
 import java.time.Duration;
@@ -64,7 +60,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void underThreshold_noOom() throws Exception {
+  public void underThreshold_noOom() {
     options.oomMoreEagerlyThreshold = 99;
     underTest.setOptions(options);
 
@@ -76,7 +72,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void overThreshold_oom() throws Exception {
+  public void overThreshold_oom() {
     options.oomMoreEagerlyThreshold = 90;
     underTest.setOptions(options);
 
@@ -95,7 +91,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void inactiveAfterOom() throws Exception {
+  public void inactiveAfterOom() {
     options.oomMoreEagerlyThreshold = 90;
     options.minTimeBetweenTriggeredGc = Duration.ZERO;
     underTest.setOptions(options);
@@ -116,7 +112,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void externalGcNoTrigger() throws Exception {
+  public void externalGcNoTrigger() {
     options.oomMoreEagerlyThreshold = 90;
     underTest.setOptions(options);
 
@@ -131,7 +127,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void triggerReset() throws Exception {
+  public void triggerReset() {
     options.oomMoreEagerlyThreshold = 90;
     underTest.setOptions(options);
 
@@ -146,7 +142,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void triggerRaceWithOtherGc() throws Exception {
+  public void triggerRaceWithOtherGc() {
     options.oomMoreEagerlyThreshold = 90;
     underTest.setOptions(options);
 
@@ -160,7 +156,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void minTimeBetweenGc_lessThan_noGc() throws Exception {
+  public void minTimeBetweenGc_lessThan_noGc() {
     options.oomMoreEagerlyThreshold = 90;
     options.minTimeBetweenTriggeredGc = Duration.ofMinutes(1);
     underTest.setOptions(options);
@@ -182,7 +178,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void minTimeBetweenGc_greaterThan_gc() throws Exception {
+  public void minTimeBetweenGc_greaterThan_gc() {
     options.oomMoreEagerlyThreshold = 90;
     options.minTimeBetweenTriggeredGc = Duration.ofMinutes(1);
     underTest.setOptions(options);
@@ -204,7 +200,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void gcLockerDefersManualGc_timeoutCancelled() throws Exception {
+  public void gcLockerDefersManualGc_timeoutCancelled() {
     options.oomMoreEagerlyThreshold = 90;
     options.minTimeBetweenTriggeredGc = Duration.ofMinutes(1);
     underTest.setOptions(options);
@@ -218,7 +214,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void gcLockerAfterSuccessfulManualGc_timeoutPreserved() throws Exception {
+  public void gcLockerAfterSuccessfulManualGc_timeoutPreserved() {
     options.oomMoreEagerlyThreshold = 90;
     options.minTimeBetweenTriggeredGc = Duration.ofMinutes(1);
     underTest.setOptions(options);
@@ -233,7 +229,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void reportsMaxConsecutiveIgnored() throws Exception {
+  public void reportsMaxConsecutiveIgnored() {
     options.oomMoreEagerlyThreshold = 90;
     options.minTimeBetweenTriggeredGc = Duration.ofMinutes(1);
     underTest.setOptions(options);
@@ -269,7 +265,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void threshold100_noGcTriggeredEvenWithNonsenseStats() throws Exception {
+  public void threshold100_noGcTriggeredEvenWithNonsenseStats() {
     options.oomMoreEagerlyThreshold = 100;
     underTest.setOptions(options);
     WeakReference<?> ref = new WeakReference<>(new Object());
@@ -287,7 +283,7 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void statsReset() throws Exception {
+  public void statsReset() {
     options.oomMoreEagerlyThreshold = 90;
     underTest.setOptions(options);
 
@@ -295,15 +291,6 @@ public final class RetainedHeapLimiterTest {
 
     assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(1));
     assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
-  }
-
-  @Test
-  public void invalidThreshold_throws(@TestParameter({"-1", "101"}) int threshold) {
-    options.oomMoreEagerlyThreshold = threshold;
-    AbruptExitException e =
-        assertThrows(AbruptExitException.class, () -> underTest.setOptions(options));
-    assertThat(e.getDetailedExitCode().getFailureDetail().getMemoryOptions().getCode())
-        .isEqualTo(Code.EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE);
   }
 
   private static MemoryPressureEvent percentUsedAfterManualGc(int percentUsed) {
