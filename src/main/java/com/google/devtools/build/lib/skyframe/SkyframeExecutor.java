@@ -876,6 +876,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
     progressReceiver.globDeps = new ConcurrentHashMap<>();
     globFunction.complete();
+    clearSyscallCache();
   }
 
   /**
@@ -1349,7 +1350,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT));
     setPackageLocator(pkgLocator);
 
-    clearSyscallCache();
     this.pkgFactory.setGlobbingThreads(executors.globbingParallelism());
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageOptions.maxDirectoriesToEagerlyVisitInGlobbing);
