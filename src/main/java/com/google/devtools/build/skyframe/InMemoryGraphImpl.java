@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
@@ -67,7 +68,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     this.createIfAbsentBatch = this::createIfAbsent;
     this.usePooledSkyKeyInterning = usePooledSkyKeyInterning;
     if (usePooledSkyKeyInterning) {
-      SkyKeyInterner.setGlobalPool(this);
+      SkyKeyInterner.setGlobalPool(new SkyKeyPool());
     }
   }
 
@@ -96,7 +97,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     }
     SkyKeyInterner<?> interner = skyKey.getSkyKeyInterner();
     if (interner != null) {
-      interner.weakIntern(skyKey);
+      interner.weakInternUnchecked(skyKey);
     }
   }
 
@@ -203,32 +204,15 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     nodeMap.forEachValue(PARALLELISM_THRESHOLD, consumer);
   }
 
-  @Override
-  public SkyKey getOrWeakIntern(SkyKey key) {
-    // Use computeIfAbsent not to mutate the map, but to call weakIntern under synchronization. This
-    // ensures that the canonical instance isn't being transferred to the node map concurrently in
-    // createIfAbsent. In the common case that the key is already present in the node map, this is a
-    // lock-free lookup.
-    SkyKey[] weakInterned = new SkyKey[1];
-    InMemoryNodeEntry nodeEntry =
-        nodeMap.computeIfAbsent(
-            key,
-            k -> {
-              weakInterned[0] = k.getSkyKeyInterner().weakIntern(k);
-              return null; // Don't actually store a mapping.
-            });
-    return nodeEntry != null ? nodeEntry.getKey() : weakInterned[0];
-  }
-
   /**
    * Re-interns {@link SkyKey} instances that use {@link SkyKeyInterner} in node map back to the
    * {@link SkyKeyInterner}'s weak interner.
    *
-   * <p>Also uninstalls this {@link InMemoryGraphImpl} instance from being {@link SkyKeyInterner}'s
+   * <p>Also uninstalls current {@link SkyKeyPool} instance from being {@link SkyKeyInterner}'s
    * static global pool.
    */
   @Override
-  public void cleanupPool() {
+  public void cleanupInterningPool() {
     if (!usePooledSkyKeyInterning) {
       // No clean up is needed when `usePooledSkyKeyInterning` is false for shell integration tests.
       return;
@@ -253,4 +237,27 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       return new EdgelessInMemoryNodeEntry(key);
     }
   }
+
+  /** {@link PooledInterner.Pool} for {@link SkyKey}s */
+  final class SkyKeyPool implements PooledInterner.Pool<SkyKey> {
+    @Override
+    public SkyKey getOrWeakIntern(SkyKey sample) {
+      // Use computeIfAbsent not to mutate the map, but to call weakIntern under synchronization.
+      // This ensures that the canonical instance isn't being transferred to the node map
+      // concurrently in createIfAbsent. In the common case that the key is already present in the
+      // node map, this is a lock-free lookup.
+      SkyKey[] weakInterned = new SkyKey[1];
+      InMemoryNodeEntry nodeEntry =
+          nodeMap.computeIfAbsent(
+              sample,
+              k -> {
+                weakInterned[0] = k.getSkyKeyInterner().weakInternUnchecked(k);
+                return null; // Don't actually store a mapping.
+              });
+      return nodeEntry != null ? nodeEntry.getKey() : weakInterned[0];
+    }
+  }
+
+  // TODO(b/250641010): Implement `LabelPool` which accesses `Label` instance deeply stored in
+  //  nodeMap.
 }
