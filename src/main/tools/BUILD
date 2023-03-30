@@ -50,8 +50,8 @@ cc_binary(
     deps = select({
         "//src/conditions:windows": [],
         "//conditions:default": [
-            ":process-tools",
             ":logging",
+            ":process-tools",
         ],
     }),
 )

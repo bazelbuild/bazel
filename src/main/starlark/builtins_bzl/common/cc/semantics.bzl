@@ -76,9 +76,6 @@ def _get_grep_includes():
 def _get_runtimes_toolchain():
     return []
 
-def _get_test_toolchain_attr():
-    return {}
-
 def _get_test_malloc_attr():
     return {}
 
@@ -140,9 +137,6 @@ def _get_cc_runtimes(ctx, is_library):
 
     return runtimes
 
-def _should_use_legacy_cc_test(_):
-    return True
-
 def _get_implementation_deps_allowed_attr():
     return {}
 
@@ -203,9 +197,7 @@ semantics = struct(
     get_linkstatic_default = _get_linkstatic_default,
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
-    get_test_toolchain_attr = _get_test_toolchain_attr,
     get_cc_runtimes = _get_cc_runtimes,
-    should_use_legacy_cc_test = _should_use_legacy_cc_test,
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,

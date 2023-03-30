@@ -21,8 +21,11 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 
 cc_internal = _builtins.internal.cc_internal
+config_common = _builtins.toplevel.config_common
 platform_common = _builtins.toplevel.platform_common
 testing = _builtins.toplevel.testing
+
+_CC_TEST_TOOLCHAIN_TYPE = "@" + semantics.get_repo() + "//tools/cpp:test_runner_toolchain_type"
 
 def _cc_test_impl(ctx):
     binary_info, providers = cc_binary_impl(ctx, [])
@@ -55,11 +58,12 @@ def _cc_test_impl(ctx):
     return providers
 
 def _impl(ctx):
-    if semantics.should_use_legacy_cc_test(ctx):
+    cc_test_toolchain = ctx.exec_groups["test"].toolchains[_CC_TEST_TOOLCHAIN_TYPE]
+    if cc_test_toolchain:
+        cc_test_info = cc_test_toolchain.cc_test_info
+    else:
         # This is the "legacy" cc_test flow
         return _cc_test_impl(ctx)
-
-    cc_test_info = ctx.attr._test_toolchain[cc_internal.CcTestRunnerInfo]
 
     binary_info, providers = cc_binary_impl(ctx, cc_test_info.linkopts)
     processed_environment = cc_helper.get_expanded_env(ctx, {})
@@ -113,7 +117,6 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
         linkstatic = attr.bool(default = False),
     )
     _cc_test_attrs.update(semantics.get_test_malloc_attr())
-    _cc_test_attrs.update(semantics.get_test_toolchain_attr())
     _cc_test_attrs.update(semantics.get_coverage_attrs())
 
     _cc_test_attrs.update(
@@ -130,8 +133,11 @@ def make_cc_test(with_linkstatic = False, with_aspects = False):
         fragments = ["google_cpp", "cpp", "coverage"],
         exec_groups = {
             "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
+            # testing.ExecutionInfo defaults to an exec_group of "test".
+            "test": exec_group(toolchains = [config_common.toolchain_type(_CC_TEST_TOOLCHAIN_TYPE, mandatory = False)]),
         },
-        toolchains = cc_helper.use_cpp_toolchain() +
+        toolchains = [] +
+                     cc_helper.use_cpp_toolchain() +
                      semantics.get_runtimes_toolchain(),
         incompatible_use_toolchain_transition = True,
         test = True,
