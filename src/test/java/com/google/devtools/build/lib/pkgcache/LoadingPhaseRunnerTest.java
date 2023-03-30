@@ -1170,9 +1170,7 @@ public final class LoadingPhaseRunnerTest {
 
   @Test
   public void testPatternStartingWithDotDotSlash() {
-    expectError(
-        "../foo",
-        "Bad target pattern '../foo': package name component contains only '.' characters");
+    expectError("../foo", "couldn't determine target from filename '../foo'");
   }
 
   private void runTestPackageLoadingError(boolean keepGoing, String... patterns) throws Exception {

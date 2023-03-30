@@ -19,6 +19,8 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -257,11 +259,17 @@ public abstract class TargetPattern {
    */
   public abstract boolean getRulesOnly();
 
-  private static final class SingleTarget extends TargetPattern {
+  protected final ToStringHelper toStringHelper() {
+    return MoreObjects.toStringHelper(this).add("originalPattern", originalPattern);
+  }
+
+  @VisibleForTesting
+  static final class SingleTarget extends TargetPattern {
 
     private final Label target;
 
-    private SingleTarget(Label target, String originalPattern) {
+    @VisibleForTesting
+    SingleTarget(String originalPattern, Label target) {
       super(originalPattern);
       this.target = Preconditions.checkNotNull(target);
     }
@@ -318,12 +326,19 @@ public abstract class TargetPattern {
     public int hashCode() {
       return Objects.hash(getType(), target);
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper().add("target", target).toString();
+    }
   }
 
-  private static final class InterpretPathAsTarget extends TargetPattern {
+  @VisibleForTesting
+  static final class InterpretPathAsTarget extends TargetPattern {
     private final String path;
 
-    private InterpretPathAsTarget(String path, String originalPattern) {
+    @VisibleForTesting
+    InterpretPathAsTarget(String originalPattern, String path) {
       super(originalPattern);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
@@ -403,28 +418,32 @@ public abstract class TargetPattern {
     public int hashCode() {
       return Objects.hash(getType(), path);
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper().add("path", path).toString();
+    }
   }
 
-  private static final class TargetsInPackage extends TargetPattern {
+  @VisibleForTesting
+  static final class TargetsInPackage extends TargetPattern {
     private final PackageIdentifier packageIdentifier;
     private final String suffix;
     private final boolean wasOriginallyAbsolute;
     private final boolean rulesOnly;
-    private final boolean checkWildcardConflict;
 
-    private TargetsInPackage(
+    @VisibleForTesting
+    TargetsInPackage(
         String originalPattern,
         PackageIdentifier packageIdentifier,
         String suffix,
         boolean wasOriginallyAbsolute,
-        boolean rulesOnly,
-        boolean checkWildcardConflict) {
+        boolean rulesOnly) {
       super(originalPattern);
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
       this.wasOriginallyAbsolute = wasOriginallyAbsolute;
       this.rulesOnly = rulesOnly;
-      this.checkWildcardConflict = checkWildcardConflict;
     }
 
     @Override
@@ -435,12 +454,10 @@ public abstract class TargetPattern {
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException, InconsistentFilesystemException {
-      if (checkWildcardConflict) {
-        ResolvedTargets<T> targets = getWildcardConflict(resolver);
-        if (targets != null) {
-          callback.process(targets.getTargets());
-          return;
-        }
+      ResolvedTargets<T> targets = getWildcardConflict(resolver);
+      if (targets != null) {
+        callback.process(targets.getTargets());
+        return;
       }
 
       callback.process(
@@ -478,7 +495,6 @@ public abstract class TargetPattern {
       TargetsInPackage that = (TargetsInPackage) o;
       return wasOriginallyAbsolute == that.wasOriginallyAbsolute
           && rulesOnly == that.rulesOnly
-          && checkWildcardConflict == that.checkWildcardConflict
           && getOriginalPattern().equals(that.getOriginalPattern())
           && packageIdentifier.equals(that.packageIdentifier)
           && suffix.equals(that.suffix);
@@ -492,8 +508,17 @@ public abstract class TargetPattern {
           packageIdentifier,
           suffix,
           wasOriginallyAbsolute,
-          rulesOnly,
-          checkWildcardConflict);
+          rulesOnly);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper()
+          .add("packageIdentifier", packageIdentifier)
+          .add("suffix", suffix)
+          .add("wasOriginallyAbsolute", wasOriginallyAbsolute)
+          .add("rulesOnly", rulesOnly)
+          .toString();
     }
 
     /**
@@ -547,8 +572,8 @@ public abstract class TargetPattern {
     private final PackageIdentifier directory;
     private final boolean rulesOnly;
 
-    private TargetsBelowDirectory(
-        String originalPattern, PackageIdentifier directory, boolean rulesOnly) {
+    @VisibleForTesting
+    TargetsBelowDirectory(String originalPattern, PackageIdentifier directory, boolean rulesOnly) {
       super(originalPattern);
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
@@ -816,6 +841,11 @@ public abstract class TargetPattern {
     public int hashCode() {
       return Objects.hash(getType(), getOriginalPattern(), directory, rulesOnly);
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper().add("directory", directory).add("rulesOnly", rulesOnly).toString();
+    }
   }
 
   @Immutable
@@ -885,6 +915,9 @@ public abstract class TargetPattern {
     /** Creates a new parser with the given offset for relative patterns. */
     public Parser(
         PathFragment relativeDirectory, RepositoryName currentRepo, RepositoryMapping repoMapping) {
+      Preconditions.checkArgument(
+          currentRepo.isMain() || relativeDirectory.isEmpty(),
+          "parsing target patterns in a non-main repo with a relative directory is unsupported");
       this.relativeDirectory = relativeDirectory;
       this.currentRepo = currentRepo;
       this.repoMapping = repoMapping;
@@ -983,7 +1016,6 @@ public abstract class TargetPattern {
             createPackageIdentifier(repository, packagePart),
             targetPart,
             wasOriginallyAbsolute,
-            true,
             true);
       }
 
@@ -993,11 +1025,10 @@ public abstract class TargetPattern {
             createPackageIdentifier(repository, packagePart),
             targetPart,
             wasOriginallyAbsolute,
-            false,
-            true);
+            false);
       }
 
-      if (includesRepo || wasOriginallyAbsolute || pattern.contains(":")) {
+      if (includesRepo || !repository.isMain() || wasOriginallyAbsolute || pattern.contains(":")) {
         Label label;
         try {
           label = Label.parseCanonical(repository.getNameWithAt() + "//" + pattern);
@@ -1006,30 +1037,18 @@ public abstract class TargetPattern {
               "invalid target format '" + originalPattern + "': " + e.getMessage(),
               TargetPatterns.Code.TARGET_FORMAT_INVALID);
         }
-        return new SingleTarget(label, originalPattern);
+        return new SingleTarget(originalPattern, label);
       }
 
-      // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic
-      // relative path. e.g. "foo/bar/Wiz.java". The strictest correct check we can do here (without
-      // I/O) is just to ensure that there is *some* prefix that is a valid package-name. It's
-      // sufficient to test the first segment. This is really a rather weak check; perhaps we should
-      // just eliminate it.
-      int slashIndex = pattern.indexOf('/');
-      String packageName = pattern;
-      if (slashIndex > 0) {
-        packageName = pattern.substring(0, slashIndex);
-      }
-      String pkgError = LabelValidator.validatePackageName(packageName);
-      if (pkgError != null) {
-        throw new TargetParsingException(
-            "Bad target pattern '" + originalPattern + "': " + pkgError,
-            TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-      }
-      return new InterpretPathAsTarget(pattern, originalPattern);
+      return new InterpretPathAsTarget(originalPattern, pattern);
     }
 
     public RepositoryMapping getRepoMapping() {
       return repoMapping;
+    }
+
+    public RepositoryName getCurrentRepo() {
+      return currentRepo;
     }
 
     public PathFragment getRelativeDirectory() {
