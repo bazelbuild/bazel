@@ -259,15 +259,6 @@ public class BlazeRuntimeWrapper {
     additionalOptionsClasses.add(optionsClass);
   }
 
-  public boolean workspaceSetupWarningsContains(String message) {
-    for (String warning : workspaceSetupWarnings) {
-      if (warning.contains(message)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   void finalizeBuildResult(@SuppressWarnings("unused") BuildResult request) {}
 
   /**

@@ -2380,6 +2380,17 @@ java_library(
 )
 
 java_library(
+    name = "skymeld_module",
+    srcs = ["SkymeldModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+    ],
+)
+
+java_library(
     name = "bzl_load_cycle_reporter",
     srcs = ["BzlLoadCycleReporter.java"],
     deps = [
