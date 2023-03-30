@@ -484,6 +484,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Dict.<String, Object>builder()
                                         .put("key", "val")
                                         .buildImmutable())
+                                .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 4, 11))
                                 .build())
@@ -501,6 +502,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Dict.<String, Object>builder()
                                         .put("key1", "val1")
                                         .buildImmutable())
+                                .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 7, 12))
                                 .build())
@@ -511,6 +513,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Dict.<String, Object>builder()
                                         .put("key2", "val2")
                                         .buildImmutable())
+                                .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 8, 12))
                                 .build())
@@ -529,6 +532,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Dict.<String, Object>builder()
                                         .put("coord", "junit")
                                         .buildImmutable())
+                                .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 12, 10))
                                 .build())
@@ -539,6 +543,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                                     Dict.<String, Object>builder()
                                         .put("coord", "guava")
                                         .buildImmutable())
+                                .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 14, 10))
                                 .build())
@@ -551,12 +556,16 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "myext1 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+        "myext1.tag(name = 'tag1')",
         "use_repo(myext1, 'alpha')",
         "myext2 = use_extension('//:defs.bzl','myext')",
+        "myext2.tag(name = 'tag2')",
         "use_repo(myext2, 'beta')",
         "myext3 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+        "myext3.tag(name = 'tag3')",
         "use_repo(myext3, 'gamma')",
         "myext4 = use_extension('//:defs.bzl','myext')",
+        "myext4.tag(name = 'tag4')",
         "use_repo(myext4, 'delta')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
 
@@ -580,6 +589,50 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             ImmutableBiMap.of(
                                 "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
                                 "delta"))
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("tag")
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
+                                        .put("name", "tag1")
+                                        .buildImmutable())
+                                .setDevDependency(true)
+                                .setLocation(
+                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 2, 11))
+                                .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("tag")
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
+                                        .put("name", "tag2")
+                                        .buildImmutable())
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 5, 11))
+                                .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("tag")
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
+                                        .put("name", "tag3")
+                                        .buildImmutable())
+                                .setDevDependency(true)
+                                .setLocation(
+                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 8, 11))
+                                .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("tag")
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
+                                        .put("name", "tag4")
+                                        .buildImmutable())
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("<root>/MODULE.bazel", 11, 11))
+                                .build())
                         .build())
                 .build());
   }
@@ -593,12 +646,16 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 createModuleKey("mymod", "1.0"),
                 "module(name='mymod',version='1.0')",
                 "myext1 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+                "myext1.tag(name = 'tag1')",
                 "use_repo(myext1, 'alpha')",
                 "myext2 = use_extension('//:defs.bzl','myext')",
+                "myext2.tag(name = 'tag2')",
                 "use_repo(myext2, 'beta')",
                 "myext3 = use_extension('//:defs.bzl','myext',dev_dependency=True)",
+                "myext3.tag(name = 'tag3')",
                 "use_repo(myext3, 'gamma')",
                 "myext4 = use_extension('//:defs.bzl','myext')",
+                "myext4.tag(name = 'tag4')",
                 "use_repo(myext4, 'delta')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
@@ -617,8 +674,30 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("//:defs.bzl")
                         .setExtensionName("myext")
-                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 4, 23))
+                        .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("tag")
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
+                                        .put("name", "tag2")
+                                        .buildImmutable())
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 6, 11))
+                                .build())
+                        .addTag(
+                            Tag.builder()
+                                .setTagName("tag")
+                                .setAttributeValues(
+                                    Dict.<String, Object>builder()
+                                        .put("name", "tag4")
+                                        .buildImmutable())
+                                .setDevDependency(false)
+                                .setLocation(
+                                    Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 12, 11))
+                                .build())
                         .build())
                 .build());
   }
