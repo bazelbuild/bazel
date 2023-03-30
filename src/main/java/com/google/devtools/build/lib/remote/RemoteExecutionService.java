@@ -336,11 +336,18 @@ public class RemoteExecutionService {
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
   }
 
-  /** Returns {@code true} if the spawn may be executed remotely. */
+  /**
+   * Returns {@code true} if the spawn may be executed remotely.
+   */
   public boolean mayBeExecutedRemotely(Spawn spawn) {
     return remoteCache instanceof RemoteExecutionCache
         && remoteExecutor != null
         && Spawns.mayBeExecutedRemotely(spawn);
+  }
+
+  @VisibleForTesting
+  Cache<Object, MerkleTree> getMerkleTreeCache() {
+    return merkleTreeCache;
   }
 
   private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {

@@ -13,15 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
@@ -264,16 +267,30 @@ public class SpawnInputExpander {
     return inputMap;
   }
 
-  /** The interface for accessing part of the input hierarchy. */
+  /**
+   * The interface for accessing part of the input hierarchy.
+   */
   public interface InputWalker {
+
+    /**
+     * Returns the leaf nodes at this point in the hierarchy.
+     */
     SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
         throws IOException, ForbiddenActionInputException;
 
-    void visitNonLeaves(InputVisitor visitor) throws IOException, ForbiddenActionInputException;
+    /**
+     * Invokes the visitor on the non-leaf nodes at this point in the hierarchy.
+     */
+    default void visitNonLeaves(InputVisitor visitor)
+        throws IOException, ForbiddenActionInputException {
+    }
   }
 
-  /** The interface for visiting part of the input hierarchy. */
+  /**
+   * The interface for visiting part of the input hierarchy.
+   */
   public interface InputVisitor {
+
     /**
      * Visits a part of the input hierarchy.
      *
@@ -305,13 +322,8 @@ public class SpawnInputExpander {
 
     RunfilesSupplier runfilesSupplier = spawn.getRunfilesSupplier();
     visitor.visit(
-        // The list of variables affecting the functional expressions below.
-        Arrays.asList(
-            // Assuming that artifactExpander and actionInputFileCache, different for each spawn,
-            // always expand the same way.
-            this, // For accessing addRunfilesToInputs.
-            runfilesSupplier,
-            baseDirectory),
+        // Cache key for the sub-mapping containing the runfiles inputs for this spawn.
+        ImmutableList.of(runfilesSupplier, baseDirectory),
         new InputWalker() {
           @Override
           public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
@@ -321,20 +333,14 @@ public class SpawnInputExpander {
                 inputMap, runfilesSupplier, actionInputFileCache, artifactExpander, baseDirectory);
             return inputMap;
           }
-
-          @Override
-          public void visitNonLeaves(InputVisitor childVisitor) {}
         });
 
     Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = spawn.getFilesetMappings();
     // filesetMappings is assumed to be very small, so no need to implement visitNonLeaves() for
     // improved runtime.
     visitor.visit(
-        // The list of variables affecting the functional expressions below.
-        Arrays.asList(
-            this, // For accessing addFilesetManifests.
-            filesetMappings,
-            baseDirectory),
+        // Cache key for the sub-mapping containing the fileset inputs for this spawn.
+        ImmutableList.of(filesetMappings, baseDirectory),
         new InputWalker() {
           @Override
           public SortedMap<PathFragment, ActionInput> getLeavesInputMapping()
@@ -343,13 +349,12 @@ public class SpawnInputExpander {
             addFilesetManifests(filesetMappings, inputMap, baseDirectory);
             return inputMap;
           }
-
-          @Override
-          public void visitNonLeaves(InputVisitor childVisitor) {}
         });
   }
 
-  /** Walks through one level of a {@link NestedSet} of {@link ActionInput}s. */
+  /**
+   * Visits a {@link NestedSet} occurring in {@link Spawn#getInputFiles}.
+   */
   private void walkNestedSetInputs(
       PathFragment baseDirectory,
       NestedSet<? extends ActionInput> someInputFiles,
@@ -357,18 +362,19 @@ public class SpawnInputExpander {
       InputVisitor visitor)
       throws IOException, ForbiddenActionInputException {
     visitor.visit(
-        // addInputs is static so no need to add 'this' as dependent key.
-        Arrays.asList(
-            // Assuming that artifactExpander, different for each spawn, always expands the same
-            // way.
-            someInputFiles.toNode(), baseDirectory),
+        // Cache key for the sub-mapping containing this nested set's leaves (except trees).
+        ImmutableList.of(someInputFiles.toNode(), baseDirectory),
         new InputWalker() {
           @Override
           public SortedMap<PathFragment, ActionInput> getLeavesInputMapping() {
             TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+            // Consider files inside tree artifacts to be non-leaves. This caches better when a
+            // large tree is not the sole direct child of a nested set.
+            ImmutableList<? extends ActionInput> leaves = someInputFiles.getLeaves().stream()
+                .filter(a -> !isTreeArtifact(a)).collect(toImmutableList());
             addInputs(
                 inputMap,
-                NestedSetBuilder.wrap(someInputFiles.getOrder(), someInputFiles.getLeaves()),
+                NestedSetBuilder.wrap(someInputFiles.getOrder(), leaves),
                 artifactExpander,
                 baseDirectory);
             return inputMap;
@@ -377,6 +383,12 @@ public class SpawnInputExpander {
           @Override
           public void visitNonLeaves(InputVisitor childVisitor)
               throws IOException, ForbiddenActionInputException {
+            for (ActionInput input : someInputFiles.getLeaves()) {
+              if (isTreeArtifact(input)) {
+                walkTreeInputs(baseDirectory, (SpecialArtifact) input, artifactExpander,
+                    childVisitor);
+              }
+            }
             for (NestedSet<? extends ActionInput> subInputs : someInputFiles.getNonLeaves()) {
               walkNestedSetInputs(baseDirectory, subInputs, artifactExpander, childVisitor);
             }
@@ -385,10 +397,37 @@ public class SpawnInputExpander {
   }
 
   /**
+   * Visits a tree artifact occurring in {@link Spawn#getInputFiles}.
+   */
+  private void walkTreeInputs(PathFragment baseDirectory,
+      SpecialArtifact tree, ArtifactExpander artifactExpander, InputVisitor visitor) throws
+      IOException, ForbiddenActionInputException {
+    visitor.visit(
+        // Cache key for the sub-mapping containing the files in this tree artifact.
+        ImmutableList.of(tree, baseDirectory),
+        new InputWalker() {
+          @Override
+          public SortedMap<PathFragment, ActionInput> getLeavesInputMapping() {
+            TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
+            addInputs(inputMap,
+                NestedSetBuilder.create(Order.STABLE_ORDER, tree), artifactExpander, baseDirectory);
+            return
+                inputMap;
+          }
+        });
+  }
+
+  private static boolean isTreeArtifact(ActionInput input) {
+    return input instanceof
+        SpecialArtifact && ((SpecialArtifact) input).isTreeArtifact();
+  }
+
+  /**
    * Exception signaling that an input was not a regular file: most likely a directory. This
    * exception is currently never thrown in practice since we do not enforce "strict" mode.
    */
   private static final class ForbiddenNonFileException extends ForbiddenActionInputException {
+
     ForbiddenNonFileException(ActionInput input) {
       super("Not a file: " + input.getExecPathString());
     }
