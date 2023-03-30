@@ -329,6 +329,23 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 "dep~2.0~myext2~myext"));
   }
 
+  @Test
+  public void useExtensionBadLabelFails() throws Exception {
+    Module root =
+        Module.builder()
+            .addExtensionUsage(createModuleExtensionUsage("@foo//:defs.bzl", "bar"))
+            .build();
+    ImmutableMap<ModuleKey, Module> depGraph = ImmutableMap.of(ModuleKey.ROOT, root);
+
+    resolutionFunctionMock.setDepGraph(depGraph);
+    EvaluationResult<BazelDepGraphValue> result =
+        evaluator.evaluate(ImmutableList.of(BazelDepGraphValue.KEY), evaluationContext);
+    if (!result.hasError()) {
+      fail("expected error about @foo not being visible, but succeeded");
+    }
+    assertThat(result.getError().toString()).contains("no repo visible as '@foo' here");
+  }
+
   private static class BazelModuleResolutionFunctionMock implements SkyFunction {
 
     private ImmutableMap<ModuleKey, Module> depGraph = ImmutableMap.of();
