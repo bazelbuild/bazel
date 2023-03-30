@@ -50,8 +50,8 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   private final StarlarkAspectClass starlarkCcProtoAspect =
       new StarlarkAspectClass(
-          Label.parseAbsoluteUnchecked("@_builtins//:common/cc/cc_proto_library.bzl"),
-          "_cc_proto_aspect");
+          Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_proto_library.bzl"),
+          "cc_proto_aspect");
 
   @Before
   public void setUp() throws Exception {
