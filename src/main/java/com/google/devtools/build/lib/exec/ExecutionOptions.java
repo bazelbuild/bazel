@@ -494,6 +494,17 @@ public class ExecutionOptions extends OptionsBase {
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
 
+  @Option(
+      name = "experimental_remote_cache_eviction_retries",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The maximum number of attempts to retry if the build encountered remote cache eviction"
+              + " error. A non-zero value will implicitly set"
+              + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true.")
+  public int remoteRetryOnCacheEviction;
+
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
     SUMMARY, // Provide summary output only.
