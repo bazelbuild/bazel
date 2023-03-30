@@ -76,7 +76,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       help =
           "The local strategies, in order, to use for the given mnemonic - the first applicable "
               + "strategy is used. For example, `worker,sandboxed` runs actions that support "
-              + "persistent workers using the worker strategy all others using the sandboxed "
+              + "persistent workers using the worker strategy, and all others using the sandboxed "
               + "strategy. If no mnemonic is given, the list of strategies is used as the "
               + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`. "
               + "Takes [mnemonic=]local_strategy[,local_strategy,...]")
