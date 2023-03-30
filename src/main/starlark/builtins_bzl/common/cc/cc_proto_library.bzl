@@ -255,7 +255,7 @@ def _aspect_impl(target, ctx):
         providers.append(header_provider)
     return providers
 
-_cc_proto_aspect = aspect(
+cc_proto_aspect = aspect(
     implementation = _aspect_impl,
     attr_aspects = ["deps"],
     fragments = ["cpp", "proto"],
@@ -289,7 +289,7 @@ cc_proto_library = rule(
     implementation = _impl,
     attrs = {
         "deps": attr.label_list(
-            aspects = [_cc_proto_aspect],
+            aspects = [cc_proto_aspect],
             allow_rules = ["proto_library"],
             allow_files = False,
         ),
