@@ -466,9 +466,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: Exit code is 39
     assertThat(error)
         .hasMessageThat()
-        .contains(
-            "Build without the Bytes does not work if your remote cache evicts blobs"
-                + " during builds");
+        .contains("Failed to fetch blobs because they do not exist remotely");
     assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
   }
