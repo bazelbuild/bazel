@@ -691,6 +691,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " seconds.")
   public Duration remoteFailureWindowInterval;
 
+  @Option(
+      name = "experimental_remote_cache_lease_extension",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "If set to true, Bazel will extend the lease for outputs that were downloaded during the"
+              + " build by sending `FindMissingBlobs` calls to remote cache.")
+  public boolean remoteCacheLeaseExtension;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
