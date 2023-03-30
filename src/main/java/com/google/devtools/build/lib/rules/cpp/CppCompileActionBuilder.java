@@ -346,6 +346,10 @@ public class CppCompileActionBuilder {
     return result.build();
   }
 
+  private boolean shouldParseShowIncludes() {
+    return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+  }
+
   /**
    * Returns the list of mandatory inputs for the {@link CppCompileAction} as configured.
    */
@@ -361,7 +365,7 @@ public class CppCompileActionBuilder {
     if (grepIncludes != null) {
       realMandatoryInputsBuilder.add(grepIncludes);
     }
-    if (!shouldScanIncludes && dotdFile == null) {
+    if (!shouldScanIncludes && dotdFile == null && !shouldParseShowIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
       realMandatoryInputsBuilder.addTransitive(additionalPrunableHeaders);
     }
@@ -483,7 +487,7 @@ public class CppCompileActionBuilder {
 
   public boolean dotdFilesEnabled() {
     return cppSemantics.needsDotdInputPruning(configuration)
-        && !featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
+        && !shouldParseShowIncludes();
   }
 
   public boolean serializedDiagnosticsFilesEnabled() {
