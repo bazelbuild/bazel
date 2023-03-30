@@ -22,10 +22,10 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -373,11 +373,11 @@ public class CustomCommandLine extends CommandLine {
       }
 
       private String expandToCommandLine(Object object, PathStripper.CommandAdjuster pathStripper) {
-        // It'd be nice to build this into DerivedArtifact's CommandLine interface so we don't have
-        // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
-        // a lot more dependencies on the Java library DerivedArtifact is built into.
-        return pathStripper != null && object instanceof DerivedArtifact
-            ? pathStripper.strip((DerivedArtifact) object)
+        // It'd be nice to build this into ActionInput's CommandLine interface so we don't have
+        // to explicitly check if an object is a ActionInput. Unfortunately that would require
+        // a lot more dependencies on the Java library ActionInput is built into.
+        return pathStripper != null && object instanceof ActionInput
+            ? pathStripper.getMappedExecPathString((ActionInput) object)
             : CommandLineItem.expandToCommandLine(object);
       }
 
@@ -1324,10 +1324,10 @@ public class CustomCommandLine extends CommandLine {
         } else {
           i = ((ArgvFragment) substitutedArg).eval(arguments, i, builder, getPathStripper());
         }
-      } else if (substitutedArg instanceof DerivedArtifact) {
-        builder.add(getPathStripper().strip((DerivedArtifact) substitutedArg));
+      } else if (substitutedArg instanceof ActionInput) {
+        builder.add(getPathStripper().getMappedExecPathString((ActionInput) substitutedArg));
       } else if (substitutedArg instanceof PathFragment) {
-        builder.add(getPathStripper().strip(((PathFragment) substitutedArg)).getPathString());
+        builder.add(getPathStripper().map(((PathFragment) substitutedArg)).getPathString());
       } else {
         builder.add(CommandLineItem.expandToCommandLine(substitutedArg));
       }
@@ -1338,8 +1338,8 @@ public class CustomCommandLine extends CommandLine {
   private void evalSimpleVectorArg(Iterable<?> arg, ImmutableList.Builder<String> builder) {
     for (Object value : arg) {
       builder.add(
-          value instanceof DerivedArtifact
-              ? getPathStripper().strip((DerivedArtifact) value)
+          value instanceof ActionInput
+              ? getPathStripper().getMappedExecPathString((ActionInput) value)
               : CommandLineItem.expandToCommandLine(value));
     }
   }
