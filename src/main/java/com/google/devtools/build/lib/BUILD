@@ -224,14 +224,18 @@ java_library(
 java_library(
     name = "runtime/memory_pressure",
     srcs = [
+        "runtime/GcThrashingDetector.java",
         "runtime/MemoryPressureEvent.java",
         "runtime/MemoryPressureOptions.java",
         "runtime/MemoryPressureStatCollector.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:memory_pressure_java_proto",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -263,6 +267,7 @@ java_library(
             "runtime/BlazeCommandResult.java",
             "runtime/CommandDispatcher.java",
             "runtime/CommandLinePathFactory.java",
+            "runtime/GcThrashingDetector.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
             "runtime/MemoryPressureEvent.java",

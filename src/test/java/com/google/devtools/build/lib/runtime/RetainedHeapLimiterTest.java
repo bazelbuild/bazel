@@ -23,8 +23,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.runtime.GcThrashingDetector.Limit;
 import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.common.options.Options;
@@ -277,9 +279,33 @@ public final class RetainedHeapLimiterTest {
   }
 
   @Test
-  public void worksWithoutSettingOptions() {
-    underTest.handle(percentUsedAfterOrganicFullGc(95));
+  public void optionsNotSet_disabled() {
+    underTest.handle(percentUsedAfterOrganicFullGc(99));
     assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
+  }
+
+  @Test
+  public void gcThrashingLimitsSet_mutuallyExclusive_disabled() {
+    options.oomMoreEagerlyThreshold = 90;
+    options.gcThrashingLimits = ImmutableList.of(Limit.of(Duration.ofMinutes(1), 2));
+    options.gcThrashingLimitsRetainedHeapLimiterMutuallyExclusive = true;
+    underTest.setOptions(options);
+
+    underTest.handle(percentUsedAfterOrganicFullGc(99));
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(0));
+  }
+
+  @Test
+  public void gcThrashingLimitsSet_mutuallyInclusive_enabled() {
+    options.oomMoreEagerlyThreshold = 90;
+    options.gcThrashingLimits = ImmutableList.of(Limit.of(Duration.ofMinutes(1), 2));
+    options.gcThrashingLimitsRetainedHeapLimiterMutuallyExclusive = false;
+    underTest.setOptions(options);
+
+    underTest.handle(percentUsedAfterOrganicFullGc(99));
+
+    assertStats(MemoryPressureStats.newBuilder().setManuallyTriggeredGcs(1));
   }
 
   @Test

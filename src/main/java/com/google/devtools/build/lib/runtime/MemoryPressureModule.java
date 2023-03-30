@@ -53,7 +53,7 @@ public final class MemoryPressureModule extends BlazeModule {
     MemoryPressureOptions options = env.getOptions().getOptions(MemoryPressureOptions.class);
     highWaterMarkLimiter =
         new HighWaterMarkLimiter(env.getSkyframeExecutor(), env.getSyscallCache(), options);
-
+    GcThrashingDetector.configureForCommand(options, eventBus);
     retainedHeapLimiter.setOptions(options);
 
     eventBus.register(this);

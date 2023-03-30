@@ -45,7 +45,7 @@ final class RetainedHeapLimiter implements MemoryPressureStatCollector {
   private final BugReporter bugReporter;
   private final Clock clock;
 
-  private volatile MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
+  private volatile MemoryPressureOptions options = inactiveOptions();
 
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
   private final AtomicBoolean heapLimiterTriggeredGc = new AtomicBoolean(false);
@@ -71,7 +71,12 @@ final class RetainedHeapLimiter implements MemoryPressureStatCollector {
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
   void setOptions(MemoryPressureOptions options) {
-    this.options = options;
+    if (options.gcThrashingLimitsRetainedHeapLimiterMutuallyExclusive
+        && !options.gcThrashingLimits.isEmpty()) {
+      this.options = inactiveOptions();
+    } else {
+      this.options = options;
+    }
   }
 
   // Can be called concurrently, handles concurrent calls with #setThreshold gracefully.
@@ -168,5 +173,11 @@ final class RetainedHeapLimiter implements MemoryPressureStatCollector {
         .setMaxConsecutiveIgnoredGcsOverThreshold(
             maxConsecutiveIgnoredFullGcsOverThreshold.getAndSet(0));
     consecutiveIgnoredFullGcsOverThreshold.set(0);
+  }
+
+  private static MemoryPressureOptions inactiveOptions() {
+    var options = Options.getDefaults(MemoryPressureOptions.class);
+    options.oomMoreEagerlyThreshold = 100;
+    return options;
   }
 }
