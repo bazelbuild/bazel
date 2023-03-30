@@ -69,11 +69,11 @@ public class BazelDepGraphFunction implements SkyFunction {
               PackageIdentifier.create(module.getCanonicalRepoName(), PathFragment.EMPTY_FRAGMENT),
               module.getRepoMappingWithBazelDepsOnly());
       for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
+        ModuleExtensionId moduleExtensionId;
         try {
-          ModuleExtensionId moduleExtensionId =
+          moduleExtensionId =
               ModuleExtensionId.create(
                   labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName());
-          extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
         } catch (LabelSyntaxException e) {
           throw new BazelModuleResolutionFunctionException(
               ExternalDepsException.withCauseAndMessage(
@@ -83,6 +83,16 @@ public class BazelDepGraphFunction implements SkyFunction {
                   usage.getLocation()),
               Transience.PERSISTENT);
         }
+        if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
+          throw new BazelModuleResolutionFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "invalid label for module extension found at %s: no repo visible as '@%s' here",
+                  usage.getLocation(),
+                  moduleExtensionId.getBzlFileLabel().getRepository().getName()),
+              Transience.PERSISTENT);
+        }
+        extensionUsagesTableBuilder.put(moduleExtensionId, module.getKey(), usage);
       }
     }
     ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesById =
