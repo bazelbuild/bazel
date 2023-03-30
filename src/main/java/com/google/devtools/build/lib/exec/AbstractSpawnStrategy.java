@@ -243,12 +243,33 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public ListenableFuture<Void> prefetchInputs()
         throws IOException, ForbiddenActionInputException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-        return actionExecutionContext
-            .getActionInputPrefetcher()
-            .prefetchFiles(
-                getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
-                    .values(),
-                getMetadataProvider());
+        return Futures.catchingAsync(
+            actionExecutionContext
+                .getActionInputPrefetcher()
+                .prefetchFiles(
+                    getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
+                        .values(),
+                    getMetadataProvider(),
+                    Priority.MEDIUM),
+            BulkTransferException.class,
+            (BulkTransferException e) -> {
+              if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
+                var code =
+                    (executionOptions.useNewExitCodeForLostInputs
+                            || executionOptions.remoteRetryOnCacheEviction > 0)
+                        ? Code.REMOTE_CACHE_EVICTED
+                        : Code.REMOTE_CACHE_FAILED;
+                throw new EnvironmentalExecException(
+                    e,
+                    FailureDetail.newBuilder()
+                        .setMessage("Failed to fetch blobs because they do not exist remotely.")
+                        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
+                        .build());
+              } else {
+                throw e;
+              }
+            },
+            directExecutor());
       }
 
       return immediateVoidFuture();
