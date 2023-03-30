@@ -998,7 +998,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
   @Nullable
-  protected Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
+  public Root getForcedSingleSourceRootIfNoExecrootSymlinkCreation() {
     return null;
   }
 

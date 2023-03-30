@@ -181,7 +181,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     throw new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage("Failed to prepare the symlink forest")
+                .setMessage("Failed to prepare the symlink forest: " + e)
                 .setSymlinkForest(
                     FailureDetails.SymlinkForest.newBuilder()
                         .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
