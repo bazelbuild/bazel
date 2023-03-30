@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionUsageBuilder.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import java.util.ArrayList;
@@ -63,7 +64,7 @@ public class ModuleFileGlobals {
   private final boolean ignoreDevDeps;
   private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
-  private final List<ModuleExtensionProxy> extensionProxies = new ArrayList<>();
+  private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
@@ -373,38 +374,37 @@ public class ModuleFileGlobals {
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread)
-      throws EvalException {
-    ModuleExtensionProxy newProxy =
-        new ModuleExtensionProxy(extensionBzlFile, extensionName, thread.getCallerLocation());
+      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread) {
+    ModuleExtensionUsageBuilder newUsageBuilder =
+        new ModuleExtensionUsageBuilder(
+            extensionBzlFile, extensionName, thread.getCallerLocation());
 
     if (ignoreDevDeps && devDependency) {
       // This is a no-op proxy.
-      return newProxy;
+      return newUsageBuilder.getProxy(devDependency);
     }
 
-    // Find an existing proxy object corresponding to this extension.
-    for (ModuleExtensionProxy proxy : extensionProxies) {
-      if (proxy.extensionBzlFile.equals(extensionBzlFile)
-          && proxy.extensionName.equals(extensionName)) {
-        return proxy;
+    // Find an existing usage builder corresponding to this extension.
+    for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
+      if (usageBuilder.extensionBzlFile.equals(extensionBzlFile)
+          && usageBuilder.extensionName.equals(extensionName)) {
+        return usageBuilder.getProxy(devDependency);
       }
     }
 
     // If no such proxy exists, we can just use a new one.
-    extensionProxies.add(newProxy);
-    return newProxy;
+    extensionUsageBuilders.add(newUsageBuilder);
+    return newUsageBuilder.getProxy(devDependency);
   }
 
-  @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
-  class ModuleExtensionProxy implements Structure {
+  class ModuleExtensionUsageBuilder {
     private final String extensionBzlFile;
     private final String extensionName;
     private final Location location;
     private final HashBiMap<String, String> imports;
     private final ImmutableList.Builder<Tag> tags;
 
-    ModuleExtensionProxy(String extensionBzlFile, String extensionName, Location location) {
+    ModuleExtensionUsageBuilder(String extensionBzlFile, String extensionName, Location location) {
       this.extensionBzlFile = extensionBzlFile;
       this.extensionName = extensionName;
       this.location = location;
@@ -422,50 +422,69 @@ public class ModuleFileGlobals {
           .build();
     }
 
-    void addImport(String localRepoName, String exportedName, Location location)
-        throws EvalException {
-      RepositoryName.validateUserProvidedRepoName(localRepoName);
-      RepositoryName.validateUserProvidedRepoName(exportedName);
-      addRepoNameUsage(localRepoName, "by a use_repo() call", location);
-      if (imports.containsValue(exportedName)) {
-        String collisionRepoName = imports.inverse().get(exportedName);
-        throw Starlark.errorf(
-            "The repo exported as '%s' by module extension '%s' is already imported at %s",
-            exportedName, extensionName, repoNameUsages.get(collisionRepoName).getWhere());
+    /**
+     * Creates a proxy with the specified dev_dependency bit that shares accumulated imports and
+     * tags with all other such proxies, thus preserving their order across dev/non-dev deps.
+     */
+    ModuleExtensionProxy getProxy(boolean devDependency) {
+      return new ModuleExtensionProxy(devDependency);
+    }
+
+    @StarlarkBuiltin(name = "module_extension_proxy", documented = false)
+    class ModuleExtensionProxy implements Structure {
+
+      private final boolean devDependency;
+
+      private ModuleExtensionProxy(boolean devDependency) {
+        this.devDependency = devDependency;
       }
-      imports.put(localRepoName, exportedName);
-    }
 
-    @Nullable
-    @Override
-    public Object getValue(String tagName) throws EvalException {
-      return new StarlarkValue() {
-        @StarlarkMethod(
-            name = "call",
-            selfCall = true,
-            documented = false,
-            extraKeywords = @Param(name = "kwargs"),
-            useStarlarkThread = true)
-        public void call(Dict<String, Object> kwargs, StarlarkThread thread) {
-          tags.add(
-              Tag.builder()
-                  .setTagName(tagName)
-                  .setAttributeValues(kwargs)
-                  .setLocation(thread.getCallerLocation())
-                  .build());
+      void addImport(String localRepoName, String exportedName, Location location)
+          throws EvalException {
+        RepositoryName.validateUserProvidedRepoName(localRepoName);
+        RepositoryName.validateUserProvidedRepoName(exportedName);
+        addRepoNameUsage(localRepoName, "by a use_repo() call", location);
+        if (imports.containsValue(exportedName)) {
+          String collisionRepoName = imports.inverse().get(exportedName);
+          throw Starlark.errorf(
+              "The repo exported as '%s' by module extension '%s' is already imported at %s",
+              exportedName, extensionName, repoNameUsages.get(collisionRepoName).getWhere());
         }
-      };
-    }
+        imports.put(localRepoName, exportedName);
+      }
 
-    @Override
-    public ImmutableCollection<String> getFieldNames() {
-      return ImmutableList.of();
-    }
+      @Nullable
+      @Override
+      public Object getValue(String tagName) throws EvalException {
+        return new StarlarkValue() {
+          @StarlarkMethod(
+              name = "call",
+              selfCall = true,
+              documented = false,
+              extraKeywords = @Param(name = "kwargs"),
+              useStarlarkThread = true)
+          public void call(Dict<String, Object> kwargs, StarlarkThread thread) {
+            tags.add(
+                Tag.builder()
+                    .setTagName(tagName)
+                    .setAttributeValues(kwargs)
+                    .setDevDependency(devDependency)
+                    .setLocation(thread.getCallerLocation())
+                    .build());
+          }
+        };
+      }
 
-    @Nullable
-    @Override
-    public String getErrorMessageForUnknownField(String field) {
-      return null;
+      @Override
+      public ImmutableCollection<String> getFieldNames() {
+        return ImmutableList.of();
+      }
+
+      @Nullable
+      @Override
+      public String getErrorMessageForUnknownField(String field) {
+        return null;
+      }
     }
   }
 
@@ -821,8 +840,8 @@ public class ModuleFileGlobals {
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))
         .setExtensionUsages(
-            extensionProxies.stream()
-                .map(ModuleExtensionProxy::buildUsage)
+            extensionUsageBuilders.stream()
+                .map(ModuleExtensionUsageBuilder::buildUsage)
                 .collect(toImmutableList()))
         .build();
   }
