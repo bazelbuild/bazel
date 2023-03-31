@@ -317,7 +317,8 @@ public class ActionCacheChecker {
   }
 
   private static CachedOutputMetadata loadCachedOutputMetadata(
-      Action action, ActionCache.Entry entry, MetadataHandler metadataHandler) {
+      Action action, ActionCache.Entry entry, MetadataHandler metadataHandler)
+      throws InterruptedException {
     Instant now = Instant.now();
     ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata =
         ImmutableMap.builder();
@@ -345,7 +346,7 @@ public class ActionCacheChecker {
 
         TreeArtifactValue localTreeMetadata;
         try {
-          localTreeMetadata = metadataHandler.getTreeArtifactValue(parent);
+          localTreeMetadata = metadataHandler.getTreeArtifactValue(parent, true);
         } catch (IOException e) {
           // Ignore the cached metadata if we encountered an error when loading corresponding
           // local one.
@@ -625,7 +626,7 @@ public class ActionCacheChecker {
       if (!metadataHandler.artifactOmitted(output)) {
         if (output.isTreeArtifact()) {
           SpecialArtifact parent = (SpecialArtifact) output;
-          TreeArtifactValue metadata = metadataHandler.getTreeArtifactValue(parent);
+          TreeArtifactValue metadata = metadataHandler.getTreeArtifactValue(parent, true);
           entry.addOutputTree(parent, metadata, cacheConfig.storeOutputMetadata());
         } else {
           // Output files *must* exist and be accessible after successful action execution. We use

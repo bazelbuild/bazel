@@ -62,7 +62,8 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
 
   /** Retrieves the metadata for this tree artifact. Data should already be available. */
-  TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException;
+  TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact, boolean interruptible)
+      throws IOException, InterruptedException;
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.

@@ -373,7 +373,8 @@ public final class TreeArtifactValueTest {
     scratch.resolve("tree/a/b/dangling_link").createSymbolicLink(PathFragment.create("?"));
     List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
-    TreeArtifactValue.visitTree(treeDir, (child, type) -> children.add(Pair.of(child, type)));
+    TreeArtifactValue.visitTree(
+        treeDir, (child, type) -> children.add(Pair.of(child, type)), false);
 
     assertThat(children)
         .containsExactly(
@@ -403,7 +404,7 @@ public final class TreeArtifactValueTest {
             IOException.class,
             () ->
                 TreeArtifactValue.visitTree(
-                    treeDir, (child, type) -> fail("Should not be called")));
+                    treeDir, (child, type) -> fail("Should not be called"), false));
     assertThat(e).hasMessageThat().contains("Could not determine type of file for ? under /tree");
   }
 
@@ -423,7 +424,8 @@ public final class TreeArtifactValueTest {
                       assertThat(child).isEqualTo(PathFragment.create("file"));
                       assertThat(type).isEqualTo(Dirent.Type.FILE);
                       throw e;
-                    }));
+                    },
+                    false));
     assertThat(thrown).isSameInstanceAs(e);
   }
 
@@ -435,7 +437,8 @@ public final class TreeArtifactValueTest {
     scratch.resolve("tree/a/up_link").createSymbolicLink(PathFragment.create("../file"));
     List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
-    TreeArtifactValue.visitTree(treeDir, (child, type) -> children.add(Pair.of(child, type)));
+    TreeArtifactValue.visitTree(
+        treeDir, (child, type) -> children.add(Pair.of(child, type)), false);
 
     assertThat(children)
         .containsExactly(
@@ -450,7 +453,8 @@ public final class TreeArtifactValueTest {
     scratch.resolve("tree/absolute_link").createSymbolicLink(PathFragment.create("/tmp"));
     List<Pair<PathFragment, Dirent.Type>> children = new ArrayList<>();
 
-    TreeArtifactValue.visitTree(treeDir, (child, type) -> children.add(Pair.of(child, type)));
+    TreeArtifactValue.visitTree(
+        treeDir, (child, type) -> children.add(Pair.of(child, type)), false);
 
     assertThat(children)
         .containsExactly(Pair.of(PathFragment.create("absolute_link"), Dirent.Type.SYMLINK));
@@ -467,7 +471,7 @@ public final class TreeArtifactValueTest {
             IOException.class,
             () ->
                 TreeArtifactValue.visitTree(
-                    treeDir, (child, type) -> fail("Should not be called")));
+                    treeDir, (child, type) -> fail("Should not be called"), false));
     assertThat(e).hasMessageThat().contains("/tree/link pointing to ../outside");
   }
 
@@ -486,7 +490,8 @@ public final class TreeArtifactValueTest {
                     (child, type) -> {
                       assertThat(child).isEqualTo(PathFragment.create("file"));
                       assertThat(type).isEqualTo(Dirent.Type.FILE);
-                    }));
+                    },
+                    false));
     assertThat(e).hasMessageThat().contains("/tree/link pointing to ../tree/file");
   }
 

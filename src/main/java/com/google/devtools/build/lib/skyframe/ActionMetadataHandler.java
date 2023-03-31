@@ -270,15 +270,27 @@ final class ActionMetadataHandler implements MetadataHandler {
       return FileArtifactValue.DEFAULT_MIDDLEMAN;
     }
 
+    // We should propagate InterruptedException because computing metadata for tree artifacts can
+    // take a long time, but getMetadata() is called from way too many places, a lot of which do
+    // not currently throw InterruptedException, so we'll just tell getTreeArtifactValue() to not
+    // do so.
     if (artifact.isTreeArtifact()) {
-      TreeArtifactValue tree = getTreeArtifactValue((SpecialArtifact) artifact);
-      return tree.getMetadata();
+      try {
+        TreeArtifactValue tree = getTreeArtifactValue((SpecialArtifact) artifact, false);
+        return tree.getMetadata();
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("uninterruptible getTreeArtifactValue() got interrupted");
+      }
     }
 
     if (artifact.isChildOfDeclaredDirectory()) {
-      TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent());
-      value = tree.getChildValues().getOrDefault(artifact, FileArtifactValue.MISSING_FILE_MARKER);
-      return checkExists(value, artifact);
+      try {
+        TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent(), false);
+        value = tree.getChildValues().getOrDefault(artifact, FileArtifactValue.MISSING_FILE_MARKER);
+        return checkExists(value, artifact);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("uninterruptible getTreeArtifactValue() got interrupted");
+      }
     }
 
     value = store.getArtifactData(artifact);
@@ -315,7 +327,8 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
+  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact, boolean interruptible)
+      throws IOException, InterruptedException {
     checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
 
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
@@ -323,13 +336,13 @@ final class ActionMetadataHandler implements MetadataHandler {
       return checkExists(value, artifact);
     }
 
-    value = constructTreeArtifactValueFromFilesystem(artifact);
+    value = constructTreeArtifactValueFromFilesystem(artifact, interruptible);
     store.putTreeArtifactData(artifact, value);
     return checkExists(value, artifact);
   }
 
-  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
-      throws IOException {
+  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(
+      SpecialArtifact parent, boolean interruptible) throws IOException, InterruptedException {
     Path treeDir = artifactPathResolver.toPath(parent);
     boolean chmod = executionMode.get();
 
@@ -370,8 +383,11 @@ final class ActionMetadataHandler implements MetadataHandler {
             throw new IOException(errorMessage, e);
           }
 
-          tree.putChild(child, metadata);
-        });
+          synchronized (tree) {
+            tree.putChild(child, metadata);
+          }
+        },
+        interruptible);
 
     if (archivedTreeArtifactsEnabled) {
       ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(parent);

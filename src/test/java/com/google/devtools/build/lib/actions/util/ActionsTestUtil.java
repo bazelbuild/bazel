@@ -1077,7 +1077,9 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException {
+    public TreeArtifactValue getTreeArtifactValue(
+        SpecialArtifact treeArtifact, boolean interruptible)
+        throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 

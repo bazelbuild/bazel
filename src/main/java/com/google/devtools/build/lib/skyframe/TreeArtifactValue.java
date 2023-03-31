@@ -35,10 +35,14 @@ import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.MetadataDigestUtils;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -51,6 +55,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 
 /**
@@ -58,7 +63,8 @@ import javax.annotation.Nullable;
  * {@link TreeFileArtifact}s.
  */
 public class TreeArtifactValue implements HasDigest, SkyValue {
-
+  private static final ForkJoinPool VISITOR_POOL =
+      NamedForkJoinPool.newNamedPool("tree artifact visitor pool", 64);
   /**
    * Comparator based on exec path which works on {@link ActionInput} as opposed to {@link
    * com.google.devtools.build.lib.actions.Artifact}. This way, we can use an {@link ActionInput} to
@@ -490,6 +496,59 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     void visit(PathFragment parentRelativePath, Dirent.Type type) throws IOException;
   }
 
+  static class QueueVisitor extends AbstractQueueVisitor {
+    private Path parentDir;
+    private TreeArtifactVisitor visitor;
+    private boolean interruptWorkers;
+
+    QueueVisitor(Path parentDir, TreeArtifactVisitor visitor, boolean interruptWorkers) {
+      super(VISITOR_POOL, false, true, ErrorClassifier.DEFAULT);
+      this.parentDir = parentDir;
+      this.visitor = visitor;
+      this.interruptWorkers = interruptWorkers;
+    }
+
+    void run() throws IOException, InterruptedException {
+      execute(() -> visitTree(PathFragment.EMPTY_FRAGMENT));
+      try {
+        awaitQuiescence(interruptWorkers);
+      } catch (IORuntimeException e) {
+        throw e.getCauseIOException();
+      }
+    }
+
+    // IOExceptions are wrapped in IORuntimeException so that it can be propagated to the main
+    // thread
+    private void visitTree(PathFragment subdir) {
+      try {
+        for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
+          PathFragment parentRelativePath = subdir.getChild(dirent.getName());
+          Dirent.Type type = dirent.getType();
+
+          if (type == Dirent.Type.UNKNOWN) {
+            throw new IOException(
+                "Could not determine type of file for "
+                    + parentRelativePath
+                    + " under "
+                    + parentDir);
+          }
+
+          if (type == Dirent.Type.SYMLINK) {
+            checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
+          }
+
+          visitor.visit(parentRelativePath, type);
+
+          if (type == Dirent.Type.DIRECTORY) {
+            execute(() -> visitTree(parentRelativePath));
+          }
+        }
+      } catch (IOException e) {
+        throw new IORuntimeException(e);
+      }
+    }
+  }
+
   /**
    * Recursively visits all descendants under a directory.
    *
@@ -504,30 +563,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * @throws IOException if there is any problem reading or validating outputs under the given tree
    *     artifact directory, or if {@link TreeArtifactVisitor#visit} throws {@link IOException}
    */
-  public static void visitTree(Path parentDir, TreeArtifactVisitor visitor) throws IOException {
-    visitTree(parentDir, PathFragment.EMPTY_FRAGMENT, checkNotNull(visitor));
-  }
+  public static void visitTree(Path parentDir, TreeArtifactVisitor visitor, boolean interruptible)
+      throws IOException, InterruptedException {
+    QueueVisitor qv = new QueueVisitor(parentDir, checkNotNull(visitor), interruptible);
 
-  private static void visitTree(Path parentDir, PathFragment subdir, TreeArtifactVisitor visitor)
-      throws IOException {
-    for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
-      PathFragment parentRelativePath = subdir.getChild(dirent.getName());
-      Dirent.Type type = dirent.getType();
-
-      if (type == Dirent.Type.UNKNOWN) {
-        throw new IOException(
-            "Could not determine type of file for " + parentRelativePath + " under " + parentDir);
-      }
-
-      if (type == Dirent.Type.SYMLINK) {
-        checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
-      }
-
-      visitor.visit(parentRelativePath, type);
-
-      if (type == Dirent.Type.DIRECTORY) {
-        visitTree(parentDir, parentRelativePath, visitor);
-      }
+    try {
+      qv.run();
+    } catch (IORuntimeException e) {
+      throw e;
     }
   }
 

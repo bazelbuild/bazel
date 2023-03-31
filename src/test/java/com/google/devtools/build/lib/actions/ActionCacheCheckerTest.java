@@ -936,7 +936,7 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
-    assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+    assertThat(metadataHandler.getTreeArtifactValue(output, false)).isEqualTo(expectedMetadata);
   }
 
   @Test
@@ -991,7 +991,7 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
-    assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+    assertThat(metadataHandler.getTreeArtifactValue(output, false)).isEqualTo(expectedMetadata);
   }
 
   @Test
@@ -1036,7 +1036,7 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
-    assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+    assertThat(metadataHandler.getTreeArtifactValue(output, false)).isEqualTo(expectedMetadata);
   }
 
   @Test
@@ -1178,7 +1178,7 @@ public class ActionCacheCheckerTest {
         .isEqualTo(
             SerializableTreeArtifactValue.create(
                 children, /* archivedFileValue= */ Optional.empty(), materializationExecPath));
-    assertThat(metadataHandler.getTreeArtifactValue(output))
+    assertThat(metadataHandler.getTreeArtifactValue(output, false))
         .isEqualTo(
             createTreeMetadata(
                 output,
@@ -1224,7 +1224,7 @@ public class ActionCacheCheckerTest {
     assertThat(entry).isNotNull();
     assertThat(entry.getOutputTree(output))
         .isEqualTo(SerializableTreeArtifactValue.createSerializable(expectedMetadata).get());
-    assertThat(metadataHandler.getTreeArtifactValue(output)).isEqualTo(expectedMetadata);
+    assertThat(metadataHandler.getTreeArtifactValue(output, false)).isEqualTo(expectedMetadata);
   }
 
   /** An {@link ActionCache} that allows injecting corruption for testing. */
@@ -1328,7 +1328,12 @@ public class ActionCacheCheckerTest {
       Artifact output = (Artifact) input;
 
       if (output.isTreeArtifact()) {
-        TreeArtifactValue treeArtifactValue = getTreeArtifactValue((SpecialArtifact) output);
+        TreeArtifactValue treeArtifactValue;
+        try {
+          treeArtifactValue = getTreeArtifactValue((SpecialArtifact) output, false);
+        } catch (InterruptedException e) {
+          throw new IllegalStateException(e);
+        }
         if (treeArtifactValue != null) {
           return treeArtifactValue.getMetadata();
         } else {
@@ -1343,7 +1348,8 @@ public class ActionCacheCheckerTest {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact output) throws IOException {
+    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact output, boolean interruptible)
+        throws IOException, InterruptedException {
       if (treeMetadata.containsKey(output)) {
         return treeMetadata.get(output);
       }
@@ -1363,7 +1369,8 @@ public class ActionCacheCheckerTest {
               FileArtifactValue metadata =
                   FileArtifactValue.createForTesting(treeDir.getRelative(parentRelativePath));
               tree.putChild(child, metadata);
-            });
+            },
+            interruptible);
       }
 
       ArchivedTreeArtifact archivedTreeArtifact = ArchivedTreeArtifact.createForTree(output);
