@@ -55,6 +55,7 @@ public class TargetPatternTest {
                 ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
                 RepositoryName.MAIN));
 
+    assertThat(parser.parse(":foo")).isEqualTo(new SingleTarget(":foo", label("@@//:foo")));
     assertThat(parser.parse("foo:bar"))
         .isEqualTo(new SingleTarget("foo:bar", label("@@//foo:bar")));
     assertThat(parser.parse("foo:all"))
@@ -80,6 +81,8 @@ public class TargetPatternTest {
     assertThat(parser.parse("//..."))
         .isEqualTo(new TargetsBelowDirectory("//...", pkg("@@//"), true));
 
+    assertThat(parser.parse("@repo"))
+        .isEqualTo(new SingleTarget("@repo", label("@@canonical_repo//:repo")));
     assertThat(parser.parse("@repo//foo:bar"))
         .isEqualTo(new SingleTarget("@repo//foo:bar", label("@@canonical_repo//foo:bar")));
     assertThat(parser.parse("@repo//foo:all"))
@@ -90,6 +93,9 @@ public class TargetPatternTest {
         .isEqualTo(new SingleTarget("@repo//:bar", label("@@canonical_repo//:bar")));
     assertThat(parser.parse("@repo//..."))
         .isEqualTo(new TargetsBelowDirectory("@repo//...", pkg("@@canonical_repo//"), true));
+
+    assertThat(parser.parse("@@repo"))
+        .isEqualTo(new SingleTarget("@@repo", label("@@repo//:repo")));
     assertThat(parser.parse("@@repo//foo:all"))
         .isEqualTo(new TargetsInPackage("@@repo//foo:all", pkg("@@repo//foo"), "all", true, true));
     assertThat(parser.parse("@@repo//:bar"))
@@ -106,6 +112,7 @@ public class TargetPatternTest {
                 ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
                 RepositoryName.MAIN));
 
+    assertThat(parser.parse(":foo")).isEqualTo(new SingleTarget(":foo", label("@@//base:foo")));
     assertThat(parser.parse("foo:bar"))
         .isEqualTo(new SingleTarget("foo:bar", label("@@//base/foo:bar")));
     assertThat(parser.parse("foo:all"))
@@ -133,6 +140,8 @@ public class TargetPatternTest {
     assertThat(parser.parse("//..."))
         .isEqualTo(new TargetsBelowDirectory("//...", pkg("@@//"), true));
 
+    assertThat(parser.parse("@repo"))
+        .isEqualTo(new SingleTarget("@repo", label("@@canonical_repo//:repo")));
     assertThat(parser.parse("@repo//foo:bar"))
         .isEqualTo(new SingleTarget("@repo//foo:bar", label("@@canonical_repo//foo:bar")));
     assertThat(parser.parse("@repo//foo:all"))
@@ -143,6 +152,9 @@ public class TargetPatternTest {
         .isEqualTo(new SingleTarget("@repo//:bar", label("@@canonical_repo//:bar")));
     assertThat(parser.parse("@repo//..."))
         .isEqualTo(new TargetsBelowDirectory("@repo//...", pkg("@@canonical_repo//"), true));
+
+    assertThat(parser.parse("@@repo"))
+        .isEqualTo(new SingleTarget("@@repo", label("@@repo//:repo")));
     assertThat(parser.parse("@@repo//foo:all"))
         .isEqualTo(new TargetsInPackage("@@repo//foo:all", pkg("@@repo//foo"), "all", true, true));
     assertThat(parser.parse("@@repo//:bar"))
@@ -159,6 +171,7 @@ public class TargetPatternTest {
                 ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo")),
                 RepositoryName.createUnvalidated("my_repo")));
 
+    assertThat(parser.parse(":foo")).isEqualTo(new SingleTarget(":foo", label("@@my_repo//:foo")));
     assertThat(parser.parse("foo:bar"))
         .isEqualTo(new SingleTarget("foo:bar", label("@@my_repo//foo:bar")));
     assertThat(parser.parse("foo:all"))
@@ -167,15 +180,11 @@ public class TargetPatternTest {
         .isEqualTo(new TargetsBelowDirectory("foo/...:all", pkg("@@my_repo//foo"), true));
     assertThat(parser.parse("foo:*"))
         .isEqualTo(new TargetsInPackage("foo:*", pkg("@@my_repo//foo"), "*", false, false));
-    // TODO(wyv): This is surprising. This means that in a non-main repo,
-    //  `register_toolchains("foo")` is equivalent to `r_t("//foo:foo")`, but in the main repo, it's
-    //  equivalent to `r_t("//:foo")` (which is the more intuitive behavior).
-    //  Granted, nobody probably ever writes this, but we should look into fixing it nonetheless.
-    assertThat(parser.parse("foo")).isEqualTo(new SingleTarget("foo", label("@@my_repo//foo:foo")));
+    assertThat(parser.parse("foo")).isEqualTo(new SingleTarget("foo", label("@@my_repo//:foo")));
     assertThat(parser.parse("..."))
         .isEqualTo(new TargetsBelowDirectory("...", pkg("@@my_repo//"), true));
     assertThat(parser.parse("foo/bar"))
-        .isEqualTo(new SingleTarget("foo/bar", label("@@my_repo//foo/bar:bar")));
+        .isEqualTo(new SingleTarget("foo/bar", label("@@my_repo//:foo/bar")));
 
     assertThat(parser.parse("//foo"))
         .isEqualTo(new SingleTarget("//foo", label("@@my_repo//foo:foo")));
@@ -191,6 +200,8 @@ public class TargetPatternTest {
     assertThat(parser.parse("//..."))
         .isEqualTo(new TargetsBelowDirectory("//...", pkg("@@my_repo//"), true));
 
+    assertThat(parser.parse("@repo"))
+        .isEqualTo(new SingleTarget("@repo", label("@@canonical_repo//:repo")));
     assertThat(parser.parse("@repo//foo:bar"))
         .isEqualTo(new SingleTarget("@repo//foo:bar", label("@@canonical_repo//foo:bar")));
     assertThat(parser.parse("@repo//foo:all"))
@@ -201,6 +212,9 @@ public class TargetPatternTest {
         .isEqualTo(new SingleTarget("@repo//:bar", label("@@canonical_repo//:bar")));
     assertThat(parser.parse("@repo//..."))
         .isEqualTo(new TargetsBelowDirectory("@repo//...", pkg("@@canonical_repo//"), true));
+
+    assertThat(parser.parse("@@repo"))
+        .isEqualTo(new SingleTarget("@@repo", label("@@repo//:repo")));
     assertThat(parser.parse("@@repo//foo:all"))
         .isEqualTo(new TargetsInPackage("@@repo//foo:all", pkg("@@repo//foo"), "all", true, true));
     assertThat(parser.parse("@@repo//:bar"))
@@ -210,7 +224,7 @@ public class TargetPatternTest {
   @Test
   public void invalidPatterns() throws Exception {
     ImmutableList<String> badPatterns =
-        ImmutableList.of("//Bar\\java", "", "@", "@foo", "@foo//", "@@", "@@foo");
+        ImmutableList.of("//Bar\\java", "", "/foo", "///foo", "@", "@foo//", "@@");
     ImmutableMap<String, RepositoryName> repoMappingEntries =
         ImmutableMap.of("repo", RepositoryName.createUnvalidated("canonical_repo"));
     for (TargetPattern.Parser parser :
