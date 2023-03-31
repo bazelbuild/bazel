@@ -342,6 +342,12 @@ def _create_windows_exe_launcher(
         use_default_shell_env = True,
     )
 
+def _map_zip_runfiles_symlink(prefix, symlink):
+    return "{}/{}={}".format(prefix, symlink.path, symlink.target_file.path)
+
+def _map_zip_runfiles_root_symlink(symlink):
+    return _map_zip_runfiles_symlink(_ZIP_RUNFILES_DIRECTORY_NAME, symlink)
+
 def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_zip_file, runfiles):
     workspace_name = ctx.workspace_name
     legacy_external_runfiles = _py_builtins.get_legacy_external_runfiles(ctx)
@@ -370,6 +376,16 @@ def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_
             return None
 
     manifest.add_all(runfiles.files, map_each = map_zip_runfiles, allow_closure = True)
+    manifest.add_all(
+        runfiles.symlinks,
+        map_each = lambda symlink: _map_zip_runfiles_symlink(
+            _ZIP_RUNFILES_DIRECTORY_NAME + "/" + workspace_name,
+            symlink,
+        ),
+        allow_closure = True,
+    )
+    manifest.add_all(runfiles.root_symlinks, map_each = _map_zip_runfiles_root_symlink)
+
     inputs = [executable_for_zip_file]
     for artifact in runfiles.files.to_list():
         # Don't include the original executable because it isn't used by the
