@@ -551,7 +551,7 @@ public final class AnalysisTestUtil {
   public static BuildOptions execOptions(BuildOptions targetOptions, EventHandler handler)
       throws InterruptedException {
     return Iterables.getOnlyElement(
-        ExecutionTransitionFactory.create()
+        ExecutionTransitionFactory.createFactory()
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())

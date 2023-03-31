@@ -259,7 +259,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     EvaluationResult<PackageValue> evaluationResult = eval(key);
     Package pkg = evaluationResult.get(key).getPackage();
     assertThat(pkg.containsErrors()).isTrue();
-    assertContainsEvent("not a valid absolute pattern");
+    assertContainsEvent("error parsing target pattern");
   }
 
   @Test

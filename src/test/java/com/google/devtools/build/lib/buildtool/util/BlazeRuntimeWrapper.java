@@ -259,15 +259,6 @@ public class BlazeRuntimeWrapper {
     additionalOptionsClasses.add(optionsClass);
   }
 
-  public boolean workspaceSetupWarningsContains(String message) {
-    for (String warning : workspaceSetupWarnings) {
-      if (warning.contains(message)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   void finalizeBuildResult(@SuppressWarnings("unused") BuildResult request) {}
 
   /**
@@ -414,7 +405,7 @@ public class BlazeRuntimeWrapper {
     BuildOptions targetOptions = targetConfig.getOptions();
     BuildOptions execOptions =
         Iterables.getOnlyElement(
-            ExecutionTransitionFactory.create()
+            ExecutionTransitionFactory.createFactory()
                 .create(
                     AttributeTransitionData.builder()
                         .attributes(FakeAttributeMapper.empty())

@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.EnumConverter;
@@ -86,7 +87,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Blaze module that writes a partial execution graph with performance data. */
+/**
+ * Blaze module that writes a partial execution graph with performance data. The file will be zstd
+ * compressed, length-delimited binary execution_graph.Node protos.
+ */
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
@@ -96,16 +100,30 @@ public class ExecutionGraphModule extends BlazeModule {
   /** Options for the generated execution graph. */
   public static class ExecutionGraphOptions extends OptionsBase {
     @Option(
-        name = "experimental_execution_graph_log",
+        name = "experimental_enable_execution_graph_log",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        defaultValue = "",
+        defaultValue = "false",
         help =
             "Enabling this flag makes Blaze write a file of all actions executed during a build. "
                 + "Note that this dump may use a different granularity of actions than other APIs, "
                 + "and may also contain additional information as necessary to reconstruct the "
                 + "full dependency graph in combination with other sources of data.")
-    public String executionGraphLogFile;
+    public boolean enableExecutionGraphLog;
+
+    @Option(
+        name = "experimental_execution_graph_log_path",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        defaultValue = "",
+        help =
+            "Local path at which the execution path will be written. If this is set, the log will"
+                + " only be written locally, and not to BEP. If this is set when"
+                + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
+                + " this is unset while BEP uploads are disabled and"
+                + " experimental_enable_execution_graph_log is enabled, the log will be written to"
+                + " a local default.")
+    public String executionGraphLogPath;
 
     @Option(
         name = "experimental_execution_graph_log_dep_type",
@@ -215,8 +233,21 @@ public class ExecutionGraphModule extends BlazeModule {
           checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
               "ExecutionGraphOptions must be present for ExecutionGraphModule");
-      if (!options.executionGraphLogFile.isBlank()) {
+      if (options.enableExecutionGraphLog) {
         env.getEventBus().register(this);
+      } else if (!options.executionGraphLogPath.isBlank()) {
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    DetailedExitCode.of(
+                        ExitCode.COMMAND_LINE_ERROR,
+                        FailureDetail.newBuilder()
+                            .setMessage(
+                                "experimental_execution_graph_log_path cannot be set when"
+                                    + " experimental_enable_execution_graph_log is false")
+                            .setBuildReport(
+                                BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
+                            .build())));
       }
       this.options = options;
     }
@@ -790,7 +821,8 @@ public class ExecutionGraphModule extends BlazeModule {
         checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
         checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
-    if (bepOptions.streamingLogFileUploads) {
+    if (bepOptions.streamingLogFileUploads
+        && executionGraphOptions.executionGraphLogPath.isBlank()) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
@@ -801,8 +833,11 @@ public class ExecutionGraphModule extends BlazeModule {
           executionGraphOptions.queueSize);
     }
 
-    Path actionGraphFile =
-        env.getWorkingDirectory().getRelative(executionGraphOptions.executionGraphLogFile);
+    String path = executionGraphOptions.executionGraphLogPath;
+    if (path.isBlank()) {
+      path = ACTION_DUMP_NAME;
+    }
+    Path actionGraphFile = env.getWorkingDirectory().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),

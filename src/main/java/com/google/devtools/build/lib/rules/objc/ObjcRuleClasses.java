@@ -475,7 +475,7 @@ public class ObjcRuleClasses {
       return builder
           .add(
               attr("$xcrunwrapper", LABEL)
-                  .cfg(ExecutionTransitionFactory.create())
+                  .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/objc:xcrunwrapper")))
           .build();

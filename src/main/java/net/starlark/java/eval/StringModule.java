@@ -55,7 +55,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "Strings are not directly iterable, use the <code>.elems()</code> "
             + "method to iterate over their characters. Examples:<br>"
             + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-            + "x = [s for s.elems() in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "x = [c for c in \"abc\".elems()]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
             + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
             + "operator instead. Comparison operators perform a lexicographical comparison; "
             + "use <code>==</code> to test for equality.")

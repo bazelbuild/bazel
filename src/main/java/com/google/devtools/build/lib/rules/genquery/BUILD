@@ -17,11 +17,11 @@ java_library(
     name = "genquery",
     srcs = [
         "GenQuery.java",
-        "GenQueryConfiguration.java",
         "GenQueryOutputStream.java",
         "GenQueryRule.java",
     ],
     deps = [
+        ":genquery_configuration",
         ":genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib:keep-going-option",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -29,10 +29,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -65,6 +62,17 @@ java_library(
 )
 
 java_library(
+    name = "genquery_configuration",
+    srcs = ["GenQueryConfiguration.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_library(
     name = "genquery_package_providers",
     srcs = [
         "GenQueryDirectPackageProviderFactory.java",
@@ -76,7 +84,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",

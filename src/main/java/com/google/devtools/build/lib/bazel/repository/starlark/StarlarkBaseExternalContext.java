@@ -564,13 +564,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "''",
             named = true,
             doc =
-                "the archive type of the downloaded file."
-                    + " By default, the archive type is determined from the file extension of"
-                    + " the URL."
-                    + " If the file has no extension, you can explicitly specify either \"zip\","
-                    + " \"jar\", \"war\", \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\","
-                    + " \"txz\", \".tar.zst\", \".tzst\", \"tar.bz2\", \".ar\", or \".deb\""
-                    + " here."),
+                "the archive type of the downloaded file. By default, the archive type is"
+                    + " determined from the file extension of the URL. If the file has no"
+                    + " extension, you can explicitly specify either \"zip\", \"jar\", \"war\","
+                    + " \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\", \"txz\", \".tar.zst\","
+                    + " \".tzst\", \"tar.bz2\", \".tbz\", \".ar\", or \".deb\" here."),
         @Param(
             name = "stripPrefix",
             defaultValue = "''",

@@ -45,7 +45,7 @@ public class CcHostToolchainAliasRule implements RuleDefinition {
         .removeAttribute("distribs")
         .add(
             attr("$cc_toolchain_alias", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel("//tools/cpp:current_cc_toolchain")))
         .build();
   }

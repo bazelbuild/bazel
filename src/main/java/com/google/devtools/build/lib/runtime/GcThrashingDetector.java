@@ -18,11 +18,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -60,11 +64,29 @@ final class GcThrashingDetector {
     }
   }
 
+  /**
+   * If enabled in {@link MemoryPressureOptions}, creates a {@link GcThrashingDetector} and
+   * registers it with the {@link EventBus}.
+   */
+  public static void configureForCommand(MemoryPressureOptions options, EventBus eventBus) {
+    if (options.gcThrashingLimits.isEmpty() || options.oomMoreEagerlyThreshold == 100) {
+      return;
+    }
+
+    eventBus.register(
+        new GcThrashingDetector(
+            options.oomMoreEagerlyThreshold,
+            options.gcThrashingLimits,
+            BlazeClock.instance(),
+            BugReporter.defaultInstance()));
+  }
+
   private final int threshold;
   private final ImmutableList<SingleLimitTracker> trackers;
   private final Clock clock;
   private final BugReporter bugReporter;
 
+  @VisibleForTesting
   GcThrashingDetector(int threshold, List<Limit> limits, Clock clock, BugReporter bugReporter) {
     this.threshold = threshold;
     this.trackers = limits.stream().map(SingleLimitTracker::new).collect(toImmutableList());
@@ -72,6 +94,7 @@ final class GcThrashingDetector {
     this.bugReporter = bugReporter;
   }
 
+  @Subscribe // EventBus synchronizes calls by default, making thread safety unnecessary.
   void handle(MemoryPressureEvent event) {
     if (event.percentTenuredSpaceUsed() < threshold) {
       for (var tracker : trackers) {

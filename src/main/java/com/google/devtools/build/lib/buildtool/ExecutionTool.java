@@ -258,7 +258,12 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
 
     try (SilentCloseable c = Profiler.instance().profile("preparingExecroot")) {
-      Root singleSourceRoot = Iterables.getOnlyElement(env.getPackageLocator().getPathEntries());
+      boolean shouldSymlinksBePlanted =
+          skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation() == null;
+      Root singleSourceRoot =
+          shouldSymlinksBePlanted
+              ? Iterables.getOnlyElement(env.getPackageLocator().getPathEntries())
+              : skyframeExecutor.getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
       IncrementalPackageRoots incrementalPackageRoots =
           IncrementalPackageRoots.createAndRegisterToEventBus(
               getExecRoot(),
@@ -267,7 +272,9 @@ public class ExecutionTool {
               env.getDirectories().getProductName() + "-",
               request.getOptions(BuildLanguageOptions.class).experimentalSiblingRepositoryLayout,
               runtime.getWorkspace().doesAllowExternalRepositories());
-      incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
+      if (shouldSymlinksBePlanted) {
+        incrementalPackageRoots.eagerlyPlantSymlinksToSingleSourceRoot();
+      }
 
       // We don't plant the symlinks via the subscribers of this ExecRootPreparedEvent, but rather
       // via IncrementalPackageRoots.

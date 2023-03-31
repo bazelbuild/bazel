@@ -322,6 +322,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = enableBzlmod();
+    buildLanguageOptions.enableLockfile = false;
 
     PathPackageLocator packageLocator =
         skyframeExecutor.createPackageLocator(

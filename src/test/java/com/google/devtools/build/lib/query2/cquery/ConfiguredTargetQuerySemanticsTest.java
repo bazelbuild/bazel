@@ -207,7 +207,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 "rule_with_exec_dep",
                 attr("exec_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(ExecutionTransitionFactory.create()),
+                    .cfg(ExecutionTransitionFactory.createFactory()),
                 attr("$impl_dep", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
                     .value(Label.parseCanonicalUnchecked("//test:other")));
@@ -265,7 +265,7 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
                 attr("target", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE),
                 attr("exec", LABEL)
                     .allowedFileTypes(FileTypeSet.ANY_FILE)
-                    .cfg(ExecutionTransitionFactory.create()),
+                    .cfg(ExecutionTransitionFactory.createFactory()),
                 attr("deps", BuildType.LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE));
     MockRule simpleRule =
         () ->

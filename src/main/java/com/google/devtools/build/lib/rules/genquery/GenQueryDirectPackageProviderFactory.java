@@ -72,7 +72,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
    * rules sharing the same scope will require only one scope traversal to occur.
    */
   @AutoCodec
-  static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<Label>> {
+  public static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<Label>> {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(ImmutableList<Label> arg) {

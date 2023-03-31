@@ -59,7 +59,7 @@ ios_cpus = struct(
     TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
     TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
     CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
-    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"],
+    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"],
 )
 
 cpp_file_types = struct(

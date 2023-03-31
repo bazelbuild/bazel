@@ -26,15 +26,21 @@ import javax.annotation.Nullable;
  * <p>Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative
  * paths.
  *
- * <p>Instances are interned, which results in a large memory benefit (see cl/516855266). In
- * addition to being a {@link SkyKey} itself, {@link RootedPath} is used as a field in several other
- * common {@link SkyKey} types. Interning on the level of those keys does not deduplicate referenced
- * {@link RootedPath} instances which are also used as a {@link SkyKey} directly.
+ * <p>Instances are interned (except on Windows), which results in a large memory benefit (see
+ * cl/516855266). In addition to being a {@link SkyKey} itself, {@link RootedPath} is used as a
+ * field in several other common {@link SkyKey} types. Interning on the level of those keys does not
+ * deduplicate referenced {@link RootedPath} instances which are also used as a {@link SkyKey}
+ * directly.
  */
 @AutoCodec
 public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
 
-  private static final SkyKeyInterner<RootedPath> interner = SkyKey.newInterner();
+  // Interning on Windows (case-insensitive) surfaces a bug where paths that only differ in casing
+  // use the same RootedPath instance.
+  // TODO(#17904): Investigate this bug and add test coverage.
+  @Nullable
+  private static final SkyKeyInterner<RootedPath> interner =
+      OsPathPolicy.getFilePathOs().isCaseSensitive() ? SkyKey.newInterner() : null;
 
   private final Root root;
   private final PathFragment rootRelativePath;
@@ -52,7 +58,8 @@ public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
         "rootRelativePath: %s root: %s",
         rootRelativePath,
         root);
-    return interner.intern(new RootedPath(root, rootRelativePath));
+    var rootedPath = new RootedPath(root, rootRelativePath);
+    return interner != null ? interner.intern(rootedPath) : rootedPath;
   }
 
   private RootedPath(Root root, PathFragment rootRelativePath) {
@@ -153,6 +160,7 @@ public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
   }
 
   @Override
+  @Nullable
   public SkyKeyInterner<?> getSkyKeyInterner() {
     return interner;
   }

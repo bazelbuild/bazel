@@ -424,13 +424,12 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
      * <p>Since we don't currently have a proper Starlark API for this, we hard-code support for
      * specific actions we're interested in.
      *
-     * <p>The difference between this and {@link
-     * PathStripper.CommandAdjuster#stripCustomStarlarkArgs} is this triggers Bazel's standard path
-     * stripping logic for chosen mnemonics while {@link
-     * PathStripper.CommandAdjuster#stripCustomStarlarkArgs} custom-adjusts certain command line
+     * <p>The difference between this and {@link PathStripper.CommandAdjuster#mapCustomStarlarkArgs}
+     * is this triggers Bazel's standard path stripping logic for chosen mnemonics while {@link
+     * PathStripper.CommandAdjuster#mapCustomStarlarkArgs} custom-adjusts certain command line
      * parameters the standard logic can't handle. For example, Starlark rules that only set {@code
      * ctx.actions.args().add(file_handle)} need an entry here but not in {@link
-     * PathStripper.CommandAdjuster#stripCustomStarlarkArgs} because standard path stripping logic
+     * PathStripper.CommandAdjuster#mapCustomStarlarkArgs} because standard path stripping logic
      * handles that interface.
      */
     private static boolean stripOutputPaths(

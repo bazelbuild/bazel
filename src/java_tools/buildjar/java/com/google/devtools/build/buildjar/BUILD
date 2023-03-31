@@ -14,10 +14,10 @@ filegroup(
     srcs = glob(
         ["**"],
     ) + [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

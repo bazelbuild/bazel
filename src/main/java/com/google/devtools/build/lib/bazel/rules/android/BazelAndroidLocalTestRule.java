@@ -86,7 +86,7 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .removeAttribute(":java_launcher") // Input files for test actions collecting code coverage
         .add(
             attr(":lcov_merger", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))

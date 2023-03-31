@@ -249,8 +249,7 @@ public final class LoadingPhaseRunnerTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "invalid target format 'foo//bar:missing': invalid package name 'foo//bar': package"
-                + " names may not contain '//' path separators");
+            "invalid package name 'foo//bar': package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
@@ -258,7 +257,7 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testEmptyTarget() {
     TargetParsingException e = assertThrows(TargetParsingException.class, () -> tester.load(""));
-    assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
+    assertThat(e).hasMessageThat().contains("invalid target name '': empty target name");
   }
 
   @Test
@@ -266,8 +265,7 @@ public final class LoadingPhaseRunnerTest {
     TargetPatternPhaseValue result = tester.loadKeepGoing("foo//bar:missing");
     assertThat(result.hasError()).isTrue();
     tester.assertContainsError(
-        "invalid target format 'foo//bar:missing': invalid package name 'foo//bar': package names"
-            + " may not contain '//' path separators");
+        "invalid package name 'foo//bar': package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
@@ -1143,8 +1141,7 @@ public final class LoadingPhaseRunnerTest {
   public void testPatternWithSingleSlashIsError() {
     expectError(
         "/single/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '/single/slash'");
+        "invalid target name '/single/slash': target names may not start with '/'");
   }
 
   @Test
@@ -1152,28 +1149,26 @@ public final class LoadingPhaseRunnerTest {
     tester.setRelativeWorkingDirectory("base");
     expectError(
         "/single/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '/single/slash'");
+        "invalid target name '/single/slash': target names may not start with '/'");
   }
 
   @Test
   public void testPatternWithTripleSlashIsError() {
     expectError(
         "///triple/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '///triple/slash'");
+        "invalid package name '/triple/slash': package names may not start with '/'");
   }
 
   @Test
   public void testPatternEndingWithSingleSlashIsError() {
-    expectError("foo/", "The package part of 'foo/' should not end in a slash");
+    expectError("foo/", "invalid target name 'foo/': target names may not end with '/'");
   }
 
   @Test
   public void testPatternStartingWithDotDotSlash() {
     expectError(
         "../foo",
-        "Bad target pattern '../foo': package name component contains only '.' characters");
+        "invalid target name '../foo': target names may not contain up-level references '..'");
   }
 
   private void runTestPackageLoadingError(boolean keepGoing, String... patterns) throws Exception {

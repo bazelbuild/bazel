@@ -66,6 +66,7 @@ public class CcRules implements RuleSet {
     builder.addConfigurationFragment(CppConfiguration.class);
     builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
     builder.addStarlarkAccessibleTopLevels("CcSharedLibraryHintInfo", Starlark.NONE);
+    builder.addStarlarkAccessibleTopLevels("cc_proto_aspect", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addNativeAspectClass(graphNodeAspect);

@@ -141,11 +141,9 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     BuildResult result = buildTarget("//foo:foo");
 
     assertThat(result.getSuccess()).isTrue();
-    assertThat(
-            runtimeWrapper.workspaceSetupWarningsContains(
-                "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
-                    + " and will be ignored"))
-        .isTrue();
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
+            + " and will be ignored");
   }
 
   @Test
@@ -488,13 +486,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     assertThat(buildResult.getSuccess()).isTrue();
 
-    assertThat(
-            runtimeWrapper.workspaceSetupWarningsContains(
-                "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
-                    + " --package_path"))
-        .isTrue();
-    assertThat(runtimeWrapper.workspaceSetupWarningsContains("and its value will be ignored."))
-        .isTrue();
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
+            + " --package_path");
+    events.assertContainsWarning("and its value will be ignored.");
   }
 
   // Regression test for b/245919888.

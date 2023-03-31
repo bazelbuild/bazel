@@ -63,7 +63,7 @@ py_test(
 
 py_test(
     name = "py_test",
-    size = "medium",
+    size = "large",
     srcs = ["py_test.py"],
     shard_count = 5,
     deps = [":test_base"],
@@ -212,8 +212,8 @@ py_test(
     }),
     data = select({
         "//src/conditions:windows": [
-            ":printargs",
             "native_test.bzl",
+            ":printargs",
         ],
         "//conditions:default": [],
     }),

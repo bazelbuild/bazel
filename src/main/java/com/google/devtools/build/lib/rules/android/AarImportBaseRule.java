@@ -64,32 +64,32 @@ public class AarImportBaseRule implements RuleDefinition {
                 .direct_compile_time_input())
         .add(
             attr(AAR_EMBEDDED_JARS_EXTACTOR, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_embedded_jars_extractor")))
         .add(
             attr(AAR_EMBEDDED_PROGUARD_EXTACTOR, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_embedded_proguard_extractor")))
         .add(
             attr(AAR_NATIVE_LIBS_ZIP_CREATOR, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_native_libs_zip_creator")))
         .add(
             attr(AAR_RESOURCES_EXTRACTOR, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_resources_extractor")))
         .add(
             attr("$import_deps_checker", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/android:aar_import_deps_checker")))
         .add(
             attr(ZIPPER, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))

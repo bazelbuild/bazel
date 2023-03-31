@@ -87,12 +87,12 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   }
 
   @Override
-  public SkyKey getOrWeakIntern(SkyKey key) {
-    return ((InMemoryGraph) delegate).getOrWeakIntern(key);
+  public void cleanupInterningPool() {
+    ((InMemoryGraph) delegate).cleanupInterningPool();
   }
 
   @Override
-  public void cleanupPool() {
-    ((InMemoryGraph) delegate).cleanupPool();
+  public void removeIfDone(SkyKey key) {
+    ((InMemoryGraph) delegate).removeIfDone(key);
   }
 }

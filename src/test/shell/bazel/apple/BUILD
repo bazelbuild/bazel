@@ -6,11 +6,6 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-config_setting(
-    name = "darwin",
-    values = {"host_cpu": "darwin"},
-)
-
 sh_library(
     name = "apple_common",
     testonly = 1,
@@ -21,7 +16,7 @@ filegroup(
     name = "objc-deps",
     testonly = 1,
     srcs = select({
-        ":darwin": [
+        "//src/conditions:darwin": [
             "//tools/osx:xcode-locator",
         ],
         "//conditions:default": [],

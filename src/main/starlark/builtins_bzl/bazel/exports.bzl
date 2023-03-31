@@ -18,7 +18,7 @@ load("@_builtins//:common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "bazel_j
 load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/java/java_import.bzl", "java_import")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
-load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_library")
+load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_aspect", "cc_proto_library")
 load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary", "java_test")
 load("@_builtins//:common/python/py_binary_macro.bzl", "py_binary")
 load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
@@ -32,6 +32,7 @@ exported_toplevels = {
         bazel_java_library_rule = bazel_java_library_rule,
         JAVA_LIBRARY_ATTRS = JAVA_LIBRARY_ATTRS,
     ),
+    "cc_proto_aspect": cc_proto_aspect,
 }
 exported_rules = {
     "java_library": java_library,

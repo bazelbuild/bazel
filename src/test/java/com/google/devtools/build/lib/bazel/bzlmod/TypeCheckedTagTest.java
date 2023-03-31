@@ -61,10 +61,11 @@ public class TypeCheckedTagTest {
     TypeCheckedTag typeCheckedTag =
         TypeCheckedTag.create(
             createTagClass(attr("foo", Type.INTEGER).build()),
-            buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).build(),
-            /*labelConverter=*/ null);
+            buildTag("tag_name").addAttr("foo", StarlarkInt.of(3)).setDevDependency().build(),
+            /* labelConverter= */ null);
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(StarlarkInt.of(3));
+    assertThat(typeCheckedTag.isDevDependency()).isTrue();
   }
 
   @Test
@@ -87,6 +88,7 @@ public class TypeCheckedTagTest {
                 Label.parseCanonicalUnchecked("@myrepo//mypkg:thing1"),
                 Label.parseCanonicalUnchecked("@myrepo//pkg:thing2"),
                 Label.parseCanonicalUnchecked("@other_repo//pkg:thing3")));
+    assertThat(typeCheckedTag.isDevDependency()).isFalse();
   }
 
   @Test
@@ -95,12 +97,13 @@ public class TypeCheckedTagTest {
         TypeCheckedTag.create(
             createTagClass(
                 attr("foo", BuildType.LABEL).allowedFileTypes(FileTypeSet.ANY_FILE).build()),
-            buildTag("tag_name").build(),
+            buildTag("tag_name").setDevDependency().build(),
             new LabelConverter(
                 PackageIdentifier.parse("@myrepo//mypkg"),
                 createRepositoryMapping(createModuleKey("test", "1.0"), "repo", "other_repo")));
     assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
     assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);
+    assertThat(typeCheckedTag.isDevDependency()).isTrue();
   }
 
   @Test
@@ -119,6 +122,7 @@ public class TypeCheckedTagTest {
             Dict.builder()
                 .put("key", StarlarkList.immutableOf("value1", "value2"))
                 .buildImmutable());
+    assertThat(typeCheckedTag.isDevDependency()).isFalse();
   }
 
   @Test
@@ -139,6 +143,7 @@ public class TypeCheckedTagTest {
     assertThat(getattr(typeCheckedTag, "bar")).isEqualTo(StarlarkInt.of(3));
     assertThat(getattr(typeCheckedTag, "quux"))
         .isEqualTo(StarlarkList.immutableOf("quuxValue1", "quuxValue2"));
+    assertThat(typeCheckedTag.isDevDependency()).isFalse();
   }
 
   @Test

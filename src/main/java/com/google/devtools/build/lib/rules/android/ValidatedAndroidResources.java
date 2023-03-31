@@ -79,7 +79,7 @@ public class ValidatedAndroidResources extends MergedAndroidResources
         // this allows android rules to generate resources outside of the java{,tests} tree.
         .maybeAddFlag("--packageForR", merged.getJavaPackage())
         .addVectoredFlag(
-            "--additionalApksToLinkAgainst",
+            "--resourceApks",
             resApkDeps.stream().map(Artifact::getRootRelativePathString).collect(toImmutableList()))
         .addTransitiveVectoredInput(
             "--compiledDep", merged.getResourceDependencies().getTransitiveCompiledSymbols())
