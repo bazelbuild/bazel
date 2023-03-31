@@ -1,20 +1,8 @@
 # Based on paths provided in the CODEOWNERS file
 
-# Add 'awaiting-review' to any PR opened (starting with just a few teams)
+# Add 'awaiting-review' to any PR opened
 awaiting-review:
-- src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
-- src/test/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
-- src/test/py/bazel/bzlmod/**/*
-- src/main/java/com/google/devtools/build/lib/bazel/repository/**/*
-- src/test/java/com/google/devtools/build/lib/bazel/repository/**/*
-- site/**/*
-- src/main/java/com/google/devtools/build/lib/remote/**/*
-- src/test/java/com/google/devtools/build/lib/remote/**/*
-- src/test/py/bazel/remote/**/*
-- src/test/shell/bazel/remote/**/*
-- src/tools/remote/**/*
-- third_party/remoteapis/build/bazel/remote/**/*
-# - '**/*'
+- '**/*'
 
 team-ExternalDeps:
 - src/main/java/com/google/devtools/build/lib/bazel/bzlmod/**/*
@@ -34,25 +22,28 @@ team-Remote-Exec:
 - src/tools/remote/**/*
 - third_party/remoteapis/build/bazel/remote/**/*
 
+# team-Rules-Python:
+# - src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
+# - src/main/java/com/google/devtools/build/lib/rules/python/**/*
+
+team-Rules-Java:
+- src/java_tools/**/*
+- src/main/java/com/google/devtools/build/lib/rules/java/**/*
+- src/test/java/com/google/devtools/build/lib/rules/java/**/*
+- src/tools/singlejar/**/*
+- tools/java/**/*
+- tools/jdk/**/*
+
+team-Android:
+- src/tools/android/java/com/google/devtools/build/android/**/*
+- src/test/java/com/google/devtools/build/android/**/*
+
 # team-Configurability:
 # - src/main/java/com/google/devtools/build/lib/analysis/**/*
 # - src/test/java/com/google/devtools/build/lib/analysis/**/*
 # - src/main/java/com/google/devtools/build/lib/rules/platform/**/*
 # - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
 # - tools/platforms/**/*
-
-# team-Android:
-# - src/tools/android/java/com/google/devtools/build/android/**/*
-# - src/test/java/com/google/devtools/build/android/**/*
-# - src/tools/android/java/com/google/devtools/build/android/**/*
-# - src/test/java/com/google/devtools/build/android/**/*
-
-# team-Rules-Python:
-# - src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
-# - src/main/java/com/google/devtools/build/lib/rules/python/**/*
-
-# team-Rules-Java:
-# - src/java_tools/buildjar/**/*
 
 # team-Rules-CPP:
 # - tools/cpp/**/*
