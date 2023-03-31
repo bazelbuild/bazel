@@ -61,6 +61,7 @@ public class ModuleFileGlobals {
       Pattern.compile("(>|<|-|<=|>=)(\\d+\\.){2}\\d+");
 
   private boolean moduleCalled = false;
+  private boolean hadNonModuleCall = false;
   private final boolean ignoreDevDeps;
   private final Module.Builder module;
   private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
@@ -208,6 +209,9 @@ public class ModuleFileGlobals {
     if (moduleCalled) {
       throw Starlark.errorf("the module() directive can only be called once");
     }
+    if (hadNonModuleCall) {
+      throw Starlark.errorf("if module() is called, it must be called before any other functions");
+    }
     moduleCalled = true;
     if (!name.isEmpty()) {
       validateModuleName(name);
@@ -298,6 +302,7 @@ public class ModuleFileGlobals {
   public void bazelDep(
       String name, String version, String repoName, boolean devDependency, StarlarkThread thread)
       throws EvalException {
+    hadNonModuleCall = true;
     if (repoName.isEmpty()) {
       repoName = name;
     }
@@ -330,6 +335,7 @@ public class ModuleFileGlobals {
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the platforms to register."))
   public void registerExecutionPlatforms(Sequence<?> platformLabels) throws EvalException {
+    hadNonModuleCall = true;
     module.addExecutionPlatformsToRegister(
         checkAllAbsolutePatterns(platformLabels, "register_execution_platforms"));
   }
@@ -347,6 +353,7 @@ public class ModuleFileGlobals {
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the toolchains to register."))
   public void registerToolchains(Sequence<?> toolchainLabels) throws EvalException {
+    hadNonModuleCall = true;
     module.addToolchainsToRegister(
         checkAllAbsolutePatterns(toolchainLabels, "register_toolchains"));
   }
@@ -376,7 +383,14 @@ public class ModuleFileGlobals {
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
-      String extensionBzlFile, String extensionName, boolean devDependency, StarlarkThread thread) {
+      String rawExtensionBzlFile,
+      String extensionName,
+      boolean devDependency,
+      StarlarkThread thread) {
+    hadNonModuleCall = true;
+
+    String extensionBzlFile = normalizeLabelString(rawExtensionBzlFile);
+
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
             extensionBzlFile, extensionName, thread.getCallerLocation());
@@ -397,6 +411,22 @@ public class ModuleFileGlobals {
     // If no such proxy exists, we can just use a new one.
     extensionUsageBuilders.add(newUsageBuilder);
     return newUsageBuilder.getProxy(devDependency);
+  }
+
+  private String normalizeLabelString(String rawExtensionBzlFile) {
+    // Normalize the label by adding the current module's repo_name if the label doesn't specify a
+    // repository name. This is necessary as ModuleExtensionUsages are grouped by the string value
+    // of this label, but later mapped to their Label representation. If multiple strings map to the
+    // same Label, this would result in a crash.
+    // ownName can't change anymore as calling module() after this results in an error.
+    String ownName = module.getRepoName().orElse(module.getName());
+    if (module.getKey().equals(ModuleKey.ROOT) && rawExtensionBzlFile.startsWith("@//")) {
+      return "@" + ownName + rawExtensionBzlFile.substring(1);
+    } else if (rawExtensionBzlFile.startsWith("//")) {
+      return "@" + ownName + rawExtensionBzlFile;
+    } else {
+      return rawExtensionBzlFile;
+    }
   }
 
   class ModuleExtensionUsageBuilder {
@@ -516,6 +546,7 @@ public class ModuleFileGlobals {
       Dict<String, Object> kwargs,
       StarlarkThread thread)
       throws EvalException {
+    hadNonModuleCall = true;
     Location location = thread.getCallerLocation();
     for (String arg : Sequence.cast(args, String.class, "args")) {
       extensionProxy.addImport(arg, arg, location);
@@ -598,6 +629,7 @@ public class ModuleFileGlobals {
       Iterable<?> patchCmds,
       StarlarkInt patchStrip)
       throws EvalException {
+    hadNonModuleCall = true;
     Version parsedVersion;
     try {
       parsedVersion = Version.parse(version);
@@ -652,6 +684,7 @@ public class ModuleFileGlobals {
       })
   public void multipleVersionOverride(String moduleName, Iterable<?> versions, String registry)
       throws EvalException {
+    hadNonModuleCall = true;
     ImmutableList.Builder<Version> parsedVersionsBuilder = new ImmutableList.Builder<>();
     try {
       for (String version : Sequence.cast(versions, String.class, "versions").getImmutableList()) {
@@ -735,6 +768,7 @@ public class ModuleFileGlobals {
       Iterable<?> patchCmds,
       StarlarkInt patchStrip)
       throws EvalException {
+    hadNonModuleCall = true;
     ImmutableList<String> urlList =
         urls instanceof String
             ? ImmutableList.of((String) urls)
@@ -806,6 +840,7 @@ public class ModuleFileGlobals {
       Iterable<?> patchCmds,
       StarlarkInt patchStrip)
       throws EvalException {
+    hadNonModuleCall = true;
     addOverride(
         moduleName,
         GitOverride.create(
@@ -835,6 +870,7 @@ public class ModuleFileGlobals {
             positional = false),
       })
   public void localPathOverride(String moduleName, String path) throws EvalException {
+    hadNonModuleCall = true;
     addOverride(moduleName, LocalPathOverride.create(path));
   }
 

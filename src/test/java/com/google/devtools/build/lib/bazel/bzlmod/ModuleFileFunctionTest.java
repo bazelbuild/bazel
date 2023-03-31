@@ -473,7 +473,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setRegistry(registry)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
@@ -491,7 +491,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .build())
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
@@ -582,7 +582,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setKey(ModuleKey.ROOT)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setLocation(Location.fromFileLineColumn("<root>/MODULE.bazel", 1, 23))
                         .setImports(
@@ -672,7 +672,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 .setRegistry(registry)
                 .addExtensionUsage(
                     ModuleExtensionUsage.builder()
-                        .setExtensionBzlFile("//:defs.bzl")
+                        .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
@@ -955,5 +955,35 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
 
     assertContainsEvent("The repo name 'bbb' is already being used as the module's own repo name");
+  }
+
+  @Test
+  public void module_calledTwice() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='aaa',version='0.1',repo_name='bbb')",
+        "module(name='aaa',version='0.1',repo_name='bbb')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("the module() directive can only be called once");
+  }
+
+  @Test
+  public void module_calledLate() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "use_extension('//:extensions.bzl', 'my_ext')",
+        "module(name='aaa',version='0.1',repo_name='bbb')");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+
+    reporter.removeHandler(failFastHandler); // expect failures
+    evaluator.evaluate(ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+
+    assertContainsEvent("if module() is called, it must be called before any other functions");
   }
 }
