@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -249,7 +250,12 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(registryFactory, directories.getWorkspace(), builtinModules))
-        .addSkyFunction(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+        .addSkyFunction(
+            SkyFunctions.BAZEL_DEP_GRAPH,
+            new BazelDepGraphFunction(directories.getWorkspace(), registryFactory))
+        .addSkyFunction(
+            SkyFunctions.BAZEL_LOCK_FILE,
+            new BazelLockFileFunction(directories.getWorkspace(), registryFactory))
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)

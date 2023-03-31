@@ -63,6 +63,7 @@ class BazelModuleTest(test_base.TestBase):
             # Set an explicit Java language version
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
+            'common --experimental_enable_bzlmod_lockfile',
         ]
         + (
             [
@@ -1018,6 +1019,149 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.assertIn('4th: @@bar~override//bleb:bleb', stderr)
     self.assertIn('5th: @@bleb//bleb:bleb', stderr)
     self.assertIn('6th: @@//bleb:bleb', stderr)
+
+  def testChangeModuleInRegistryWithoutLockfile(self):
+    # Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    # Create a project with deps on 'sss'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@sss//:lib_sss"],',
+            ')',
+        ],
+    )
+    self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
+
+    # Change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Clean bazel to empty any cache of the deps tree
+    self.RunBazel(['clean', '--expunge'])
+    # Runing again will try to get 'sss' which should produce an error
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--experimental_enable_bzlmod_lockfile=false',
+            '//:main',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: error parsing'
+            ' MODULE.bazel file for sss@1.3'
+        ),
+        stderr,
+    )
+
+  def testChangeModuleInRegistryWithLockfile(self):
+    # Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    # Create a project with deps on 'sss'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@sss//:lib_sss"],',
+            ')',
+        ],
+    )
+    self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '//:main',
+        ],
+        allow_failure=False,
+    )
+
+    # Change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Clean bazel to empty any cache of the deps tree
+    self.RunBazel(['clean', '--expunge'])
+    # Running with the lockfile, should not recognize the registry changes
+    # hence find no errors
+    self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '//:main',
+        ],
+        allow_failure=False,
+    )
+
+  def testChangeFlagWithLockfile(self):
+    # Add module 'sss' to the registry with dep on 'aaa'
+    self.main_registry.createCcModule('sss', '1.3', {'aaa': '1.1'})
+    # Create a project with deps on 'sss'
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "sss", version = "1.3")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = ["@sss//:lib_sss"],',
+            ')',
+        ],
+    )
+    self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '//:main',
+        ],
+        allow_failure=False,
+    )
+
+    # Change registry -> update 'sss' module file (corrupt it)
+    module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
+    scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
+
+    # Clean bazel to empty any cache of the deps tree
+    self.RunBazel(['clean', '--expunge'])
+    # Running with the lockfile, but adding a flag should cause resolution rerun
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--check_direct_dependencies=error',
+            '//:main',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        "ERROR: sss@1.3/MODULE.bazel:1:9: invalid character: '!'", stderr
+    )
 
   def testWorkspaceEvaluatedBzlCanSeeRootModuleMappings(self):
     self.ScratchFile(
