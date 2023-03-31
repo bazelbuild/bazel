@@ -34,10 +34,12 @@ import net.starlark.java.spelling.SpellChecker;
 public class TypeCheckedTag implements Structure {
   private final TagClass tagClass;
   private final Object[] attrValues;
+  private final boolean devDependency;
 
-  private TypeCheckedTag(TagClass tagClass, Object[] attrValues) {
+  private TypeCheckedTag(TagClass tagClass, Object[] attrValues, boolean devDependency) {
     this.tagClass = tagClass;
     this.attrValues = attrValues;
+    this.devDependency = devDependency;
   }
 
   /** Creates a {@link TypeCheckedTag}. */
@@ -95,7 +97,15 @@ public class TypeCheckedTag implements Structure {
         attrValues[i] = Attribute.valueToStarlark(attr.getDefaultValueUnchecked());
       }
     }
-    return new TypeCheckedTag(tagClass, attrValues);
+    return new TypeCheckedTag(tagClass, attrValues, tag.isDevDependency());
+  }
+
+  /**
+   * Whether the tag was specified on an extension proxy created with <code>dev_dependency=True
+   * </code>.
+   */
+  public boolean isDevDependency() {
+    return devDependency;
   }
 
   @Override
