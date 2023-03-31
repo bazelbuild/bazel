@@ -95,19 +95,24 @@ public abstract class Util {
         }
       }
     }
-    // Consider toolchain dependencies.
-    ToolchainContext toolchainContext = ruleContext.getToolchainContext();
-    if (toolchainContext != null) {
-      // This logic should stay up to date with the dep creation logic in
-      // DependencyResolver#partiallyResolveDependencies.
-      BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
-      for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
-        maybeImplicitDeps.add(
-            ConfiguredTargetKey.builder()
-                .setLabel(toolchain)
-                .setConfiguration(targetConfiguration)
-                .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
-                .build());
+
+    ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
+        ruleContext.getToolchainContexts();
+    if (toolchainContexts != null) {
+      for (ResolvedToolchainContext toolchainContext : toolchainContexts.getContextMap().values()) {
+        if (toolchainContext != null) {
+          // This logic should stay up to date with the dep creation logic in
+          // DependencyResolver#partiallyResolveDependencies.
+          BuildConfigurationValue targetConfiguration = ruleContext.getConfiguration();
+          for (Label toolchain : toolchainContext.resolvedToolchainLabels()) {
+            maybeImplicitDeps.add(
+                ConfiguredTargetKey.builder()
+                    .setLabel(toolchain)
+                    .setConfiguration(targetConfiguration)
+                    .setExecutionPlatformLabel(toolchainContext.executionPlatform().label())
+                    .build());
+          }
+        }
       }
     }
     return ImmutableSet.copyOf(Sets.difference(maybeImplicitDeps, explicitDeps));
