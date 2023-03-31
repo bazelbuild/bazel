@@ -318,6 +318,29 @@ public final class PrerequisiteProducer {
     //  would exit this SkyFunction and restart it when permits were available.
     semaphoreLocker.acquireSemaphore();
     try {
+      // Check target compatibility before requesting toolchains - known missing toolchains are a
+      // valid reason for declaring a target incompatible and should not result in the target
+      // failing to build rather than being skipped as incompatible.
+      // Non-rule targets and those that are part of the toolchain resolution system do not support
+      // target compatibility checking anyway.
+      if (targetAndConfiguration.getTarget() instanceof Rule
+          && ((Rule) targetAndConfiguration.getTarget()).useToolchainResolution()) {
+        platformInfo = loadTargetPlatformInfo(env);
+        if (env.valuesMissing()) {
+          return false;
+        }
+
+        configConditions = computeConfigConditions(env, targetAndConfiguration, transitivePackages,
+            platformInfo, transitiveRootCauses);
+        if (configConditions == null) {
+          return false;
+        }
+
+        if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
+          return false;
+        }
+      }
+
       // Determine what toolchains are needed by this target.
       ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
@@ -335,9 +358,14 @@ public final class PrerequisiteProducer {
           unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
-      configConditions =
-          computeConfigConditions(
-              env, targetAndConfiguration, transitivePackages, platformInfo, transitiveRootCauses);
+      // Has been computed as part of checking for incompatible targets at the beginning of this
+      // function unless the current target is not a rule participating in toolchain resolution.
+      if (configConditions == null) {
+        configConditions =
+            computeConfigConditions(
+                env, targetAndConfiguration, transitivePackages, platformInfo,
+                transitiveRootCauses);
+      }
       if (configConditions == null) {
         return false;
       }
@@ -359,10 +387,6 @@ public final class PrerequisiteProducer {
                 "Cannot compute config conditions",
                 causes,
                 getPrioritizedDetailedExitCode(causes)));
-      }
-
-      if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
-        return false;
       }
 
       // Calculate the dependencies of this target.
@@ -403,6 +427,31 @@ public final class PrerequisiteProducer {
       handleException(env, target, e);
     }
     return true;
+  }
+
+  private PlatformInfo loadTargetPlatformInfo(Environment env)
+      throws InterruptedException, ToolchainException {
+    if (!targetAndConfiguration.getConfiguration().hasFragment(PlatformConfiguration.class)) {
+      return null;
+    }
+    // Load target platform info through toolchain resolution with no toolchain types.
+    // ConfiguredTargetFunction later obtains the target platform in the same way, passing in the
+    // actual toolchain types. By going through ToolchainContext here, we prevent a direct Skyframe
+    // dependency on the target platform in addition to the indirect one, which ensures that cquery
+    // output is accurate.
+    ToolchainContextKey toolchainContextKey = ToolchainContextKey.key()
+        .configurationKey(targetAndConfiguration.getConfiguration().getKey())
+        .toolchainTypes()
+        .execConstraintLabels()
+        .debugTarget(false)
+        .build();
+    UnloadedToolchainContext toolchainContext = (UnloadedToolchainContext) env.getValueOrThrow(
+        toolchainContextKey, ToolchainException.class);
+    if (toolchainContext == null) {
+      return null;
+    }
+
+    return toolchainContext.targetPlatform();
   }
 
   /**

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -98,10 +99,12 @@ public class IncompatibleTargetChecker {
    * </ul>
    */
   public static class IncompatibleTargetProducer implements StateMachine, Consumer<SkyValue> {
+
     private final Target target;
     @Nullable // Non-null when the target has an associated rule.
     private final BuildConfigurationValue configuration;
     private final ConfigConditions configConditions;
+    // Non-null when the target has an associated rule and does not opt out of toolchain resolution.
     @Nullable private final PlatformInfo platformInfo;
     @Nullable private final NestedSetBuilder<Package> transitivePackages;
 
@@ -134,7 +137,7 @@ public class IncompatibleTargetChecker {
     @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       Rule rule = target.getAssociatedRule();
-      if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
+      if (rule == null || !rule.useToolchainResolution() || platformInfo == null) {
         sink.accept(Optional.empty());
         return null;
       }
