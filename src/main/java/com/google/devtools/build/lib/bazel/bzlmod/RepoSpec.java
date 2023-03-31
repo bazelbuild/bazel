@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 
 /**
@@ -23,6 +24,7 @@ import java.util.Optional;
  * defined.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class RepoSpec {
 
   /**
