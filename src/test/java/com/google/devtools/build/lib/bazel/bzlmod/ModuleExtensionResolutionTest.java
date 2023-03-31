@@ -335,6 +335,88 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void simpleExtension_nonCanonicalLabel() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_module', version = '1.0')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext1 = use_extension('//:defs.bzl', 'ext')",
+        "ext1.tag(name='foo', data='fu')",
+        "use_repo(ext1, 'foo')",
+        "ext2 = use_extension('@my_module//:defs.bzl', 'ext')",
+        "ext2.tag(name='bar', data='ba')",
+        "use_repo(ext2, 'bar')",
+        "ext3 = use_extension('@//:defs.bzl', 'ext')",
+        "ext3.tag(name='quz', data='qu')",
+        "use_repo(ext3, 'quz')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {'name':attr.string(),'data':attr.string()})",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_repo(name=tag.name,data=tag.data)",
+        "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag})");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@foo//:data.bzl', foo_data='data')",
+        "load('@bar//:data.bzl', bar_data='data')",
+        "load('@quz//:data.bzl', quz_data='data')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data+' quz:'+quz_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo:fu bar:ba quz:qu");
+  }
+
+  @Test
+  public void simpleExtension_nonCanonicalLabel_repoName() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_module', version = '1.0', repo_name='my_name')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "ext1 = use_extension('//:defs.bzl', 'ext')",
+        "ext1.tag(name='foo', data='fu')",
+        "use_repo(ext1, 'foo')",
+        "ext2 = use_extension('@my_name//:defs.bzl', 'ext')",
+        "ext2.tag(name='bar', data='ba')",
+        "use_repo(ext2, 'bar')",
+        "ext3 = use_extension('@//:defs.bzl', 'ext')",
+        "ext3.tag(name='quz', data='qu')",
+        "use_repo(ext3, 'quz')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "tag = tag_class(attrs = {'name':attr.string(),'data':attr.string()})",
+        "def _ext_impl(ctx):",
+        "  for mod in ctx.modules:",
+        "    for tag in mod.tags.tag:",
+        "      data_repo(name=tag.name,data=tag.data)",
+        "ext = module_extension(implementation=_ext_impl, tag_classes={'tag':tag})");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@foo//:data.bzl', foo_data='data')",
+        "load('@bar//:data.bzl', bar_data='data')",
+        "load('@quz//:data.bzl', quz_data='data')",
+        "data = 'foo:'+foo_data+' bar:'+bar_data+' quz:'+quz_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("foo:fu bar:ba quz:qu");
+  }
+
+  @Test
   public void multipleModules() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
