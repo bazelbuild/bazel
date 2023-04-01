@@ -435,7 +435,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
                 "path to the directory where the archive will be unpacked,"
                     + " relative to the repository directory."),
         @Param(
-            name = "stripPrefix",
+            name = "strip_prefix",
             defaultValue = "''",
             named = true,
             doc =
