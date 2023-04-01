@@ -286,6 +286,180 @@ def _impl(ctx):
 
     gnu_extensions_feature = feature(name = "gnu_extensions")
 
+    c89_standard_feature = feature(
+        name = "c89",
+        provides = ["c_standard"],
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c89"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu89"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
+    c90_standard_feature = feature(
+        name = "c90",
+        provides = ["c_standard"],
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c90"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu90"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
+    c99_standard_feature = feature(
+        name = "c99",
+        provides = ["c_standard"],
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c99"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu99"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
+    c11_standard_feature = feature(
+        name = "c11",
+        provides = ["c_standard"],
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c11"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu11"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
+    c17_standard_feature = feature(
+        name = "c17",
+        provides = ["c_standard"],
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c17"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu17"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
+    c2x_standard_feature = feature(
+        name = "c2x",
+        provides = ["c_standard"],
+        flag_sets = [
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c2x"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = [ACTION_NAMES.c_compile],
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu2x"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
     cxx98_standard_feature = feature(
         name = "c++98",
         provides = ["cxx_standard"],
@@ -450,7 +624,7 @@ def _impl(ctx):
                 actions = all_cpp_compile_actions,
                 flag_groups = ([
                     flag_group(
-                        flags = ["-std=gnu++20"],
+                        flags = ["-std=gnu++2b"],
                     ),
                 ]),
                 with_features = [
@@ -1570,6 +1744,12 @@ def _impl(ctx):
         ) + [
             default_compile_flags_feature,
             gnu_extensions_feature,
+            c89_standard_feature,
+            c90_standard_feature,
+            c99_standard_feature,
+            c11_standard_feature,
+            c17_standard_feature,
+            c2x_standard_feature,
             cxx98_standard_feature,
             cxx11_standard_feature,
             cxx14_standard_feature,
@@ -1618,6 +1798,12 @@ def _impl(ctx):
             coverage_feature,
             default_compile_flags_feature,
             gnu_extensions_feature,
+            c89_standard_feature,
+            c90_standard_feature,
+            c99_standard_feature,
+            c11_standard_feature,
+            c17_standard_feature,
+            c2x_standard_feature,
             cxx98_standard_feature,
             cxx11_standard_feature,
             cxx14_standard_feature,

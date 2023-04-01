@@ -678,7 +678,38 @@ def _impl(ctx):
             ],
         )
 
-        # msvc doesn't have flags to specify standards older than 14
+        # msvc doesn't have flags to specify c standards older than 11
+        c11_standard_feature = feature(
+            name = "c11",
+            provides = ["c_standard"],
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.c_compile],
+                    flag_groups = ([
+                        flag_group(
+                            flags = ["/std:c11"],
+                        ),
+                    ]),
+                ),
+            ],
+        )
+
+        c17_standard_feature = feature(
+            name = "c17",
+            provides = ["c_standard"],
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.c_compile],
+                    flag_groups = ([
+                        flag_group(
+                            flags = ["/std:c17"],
+                        ),
+                    ]),
+                ),
+            ],
+        )
+
+        # msvc doesn't have flags to specify c++ standards older than 14
         cxx14_standard_feature = feature(
             name = "c++14",
             provides = ["cxx_standard"],
@@ -1155,6 +1186,8 @@ def _impl(ctx):
             targets_windows_feature,
             copy_dynamic_libraries_to_binary_feature,
             default_compile_flags_feature,
+            c11_standard_feature,
+            c17_standard_feature,
             cxx14_standard_feature,
             cxx17_standard_feature,
             cxx20_standard_feature,
