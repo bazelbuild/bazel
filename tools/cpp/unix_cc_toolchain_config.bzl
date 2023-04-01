@@ -284,6 +284,8 @@ def _impl(ctx):
         ],
     )
 
+    gnu_extensions_feature = feature(name = "gnu_extensions")
+
     cxx98_standard_feature = feature(
         name = "c++98",
         provides = ["cxx_standard"],
@@ -295,6 +297,20 @@ def _impl(ctx):
                         flags = ["-std=c++98"],
                     ),
                 ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu++98"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
             ),
         ],
     )
@@ -310,6 +326,20 @@ def _impl(ctx):
                         flags = ["-std=c++0x"],
                     ),
                 ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu++0x"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
             ),
         ],
     )
@@ -325,6 +355,20 @@ def _impl(ctx):
                         flags = ["-std=c++14"],
                     ),
                 ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu++14"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
             ),
         ],
     )
@@ -340,6 +384,20 @@ def _impl(ctx):
                         flags = ["-std=c++17"],
                     ),
                 ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu++17"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
             ),
         ],
     )
@@ -355,6 +413,49 @@ def _impl(ctx):
                         flags = ["-std=c++20"],
                     ),
                 ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu++20"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
+            ),
+        ],
+    )
+
+    cxx2b_standard_feature = feature(
+        name = "c++2b",
+        provides = ["cxx_standard"],
+        flag_sets = [
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=c++2b"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(not_features = ["gnu_extensions"]),
+                ],
+            ),
+            flag_set(
+                actions = all_cpp_compile_actions,
+                flag_groups = ([
+                    flag_group(
+                        flags = ["-std=gnu++20"],
+                    ),
+                ]),
+                with_features = [
+                    with_feature_set(features = ["gnu_extensions"]),
+                ],
             ),
         ],
     )
@@ -1468,11 +1569,13 @@ def _impl(ctx):
             ] if ctx.attr.supports_start_end_lib else []
         ) + [
             default_compile_flags_feature,
+            gnu_extensions_feature,
             cxx98_standard_feature,
             cxx11_standard_feature,
             cxx14_standard_feature,
             cxx17_standard_feature,
             cxx20_standard_feature,
+            cxx2b_standard_feature,
             default_link_flags_feature,
             libraries_to_link_feature,
             user_link_flags_feature,
@@ -1514,11 +1617,13 @@ def _impl(ctx):
         ) + [
             coverage_feature,
             default_compile_flags_feature,
+            gnu_extensions_feature,
             cxx98_standard_feature,
             cxx11_standard_feature,
             cxx14_standard_feature,
             cxx17_standard_feature,
             cxx20_standard_feature,
+            cxx2b_standard_feature,
             default_link_flags_feature,
             user_link_flags_feature,
             default_link_libs_feature,

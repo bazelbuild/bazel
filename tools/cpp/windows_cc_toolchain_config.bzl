@@ -678,6 +678,67 @@ def _impl(ctx):
             ],
         )
 
+        # msvc doesn't have flags to specify standards older than 14
+        cxx14_standard_feature = feature(
+            name = "c++14",
+            provides = ["cxx_standard"],
+            flag_sets = [
+                flag_set(
+                    actions = all_cpp_compile_actions,
+                    flag_groups = ([
+                        flag_group(
+                            flags = ["/std:c++14"],
+                        ),
+                    ]),
+                ),
+            ],
+        )
+    
+        cxx17_standard_feature = feature(
+            name = "c++17",
+            provides = ["cxx_standard"],
+            flag_sets = [
+                flag_set(
+                    actions = all_cpp_compile_actions,
+                    flag_groups = ([
+                        flag_group(
+                            flags = ["/std:c++17"],
+                        ),
+                    ]),
+                ),
+            ],
+        )
+    
+        cxx20_standard_feature = feature(
+            name = "c++20",
+            provides = ["cxx_standard"],
+            flag_sets = [
+                flag_set(
+                    actions = all_cpp_compile_actions,
+                    flag_groups = ([
+                        flag_group(
+                            flags = ["/std:c++20"],
+                        ),
+                    ]),
+                ),
+            ],
+        )
+
+        cxxlatest_standard_feature = feature(
+            name = "c++latest",
+            provides = ["cxx_standard"],
+            flag_sets = [
+                flag_set(
+                    actions = all_cpp_compile_actions,
+                    flag_groups = ([
+                        flag_group(
+                            flags = ["/std:c++latest"],
+                        ),
+                    ]),
+                ),
+            ],
+        )
+
         msvc_compile_env_feature = feature(
             name = "msvc_compile_env",
             env_sets = [
@@ -1094,6 +1155,10 @@ def _impl(ctx):
             targets_windows_feature,
             copy_dynamic_libraries_to_binary_feature,
             default_compile_flags_feature,
+            cxx14_standard_feature,
+            cxx17_standard_feature,
+            cxx20_standard_feature,
+            cxxlatest_standard_feature,
             msvc_env_feature,
             msvc_compile_env_feature,
             msvc_link_env_feature,
