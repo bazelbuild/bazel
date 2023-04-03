@@ -436,8 +436,6 @@ function setup_javatest_support() {
   setup_javatest_common
   grep -q 'name = "junit4"' third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
-package(default_visibility = ["//visibility:public"])
-
 java_import(
     name = "junit4",
     jars = [
