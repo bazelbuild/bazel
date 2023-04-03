@@ -2,13 +2,13 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/build_defs/cc:srcs",
+        "//tools/build_defs/cc/tests:cc_import_tests_files",
         "//tools/build_defs/cc/whitelists/parse_headers_and_layering_check:srcs",
         "//tools/build_defs/cc/whitelists/starlark_hdrs_check:srcs",
         "//tools/build_defs/hash:srcs",
         "//tools/build_defs/inspect:srcs",
         "//tools/build_defs/pkg:srcs",
         "//tools/build_defs/repo:srcs",
-        "//tools/build_defs/cc/tests:cc_import_tests_files",
     ],
     visibility = ["//tools:__pkg__"],
 )

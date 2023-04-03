@@ -3,9 +3,9 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar:srcs",
         "//src/test/java/com/google/devtools/build/android/dexer:srcs",
+        "//src/test/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/test/java/com/google/devtools/build/android/junctions:srcs",
         "//src/test/java/com/google/devtools/build/android/r8:srcs",
         "//src/test/java/com/google/devtools/build/android/resources:srcs",

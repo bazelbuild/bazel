@@ -31,8 +31,8 @@ cc_test(
     }),
     deps = select({
         "//src/conditions:windows": [
-            "//src/main/native/windows:lib-file",
             ":test_deps",
+            "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
     }),
@@ -47,8 +47,8 @@ cc_test(
     }),
     deps = select({
         "//src/conditions:windows": [
-            "//src/main/native/windows:lib-file",
             ":test_deps",
+            "//src/main/native/windows:lib-file",
         ],
         "//conditions:default": [],
     }),
@@ -65,9 +65,9 @@ cc_test(
     deps = select({
         "//src/conditions:windows": [
             ":test_deps",
+            "//src/main/cpp/util:filesystem",
             "//src/main/native/windows:lib-file",
             "//src/main/native/windows:lib-process",
-            "//src/main/cpp/util:filesystem",
             "@bazel_tools//tools/cpp/runfiles",
         ],
         "//conditions:default": [],
