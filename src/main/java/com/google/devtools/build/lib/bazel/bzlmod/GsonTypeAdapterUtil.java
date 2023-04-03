@@ -110,6 +110,7 @@ public final class GsonTypeAdapterUtil {
   private static final GsonBuilder adapterGson =
       new GsonBuilder()
           .setPrettyPrinting()
+          .disableHtmlEscaping()
           .registerTypeAdapterFactory(GenerateTypeAdapter.FACTORY)
           .registerTypeAdapterFactory(DICT)
           .registerTypeAdapterFactory(IMMUTABLE_MAP)

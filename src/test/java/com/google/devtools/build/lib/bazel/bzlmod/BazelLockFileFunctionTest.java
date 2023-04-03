@@ -198,8 +198,8 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
   @Test
   public void simpleModuleWithFlags() throws Exception {
-    // Test having --ovseride_module, --ignore_dev_dependency, --check_bazel_compatibility &
-    // --check_direct_dependencies
+    // Test having --override_module, --ignore_dev_dependency, --check_bazel_compatibility
+    // --check_direct_dependencies & --registry
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='my_root', version='1.0')");
@@ -218,10 +218,12 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
     LocalPathOverride override = LocalPathOverride.create("override_path");
+    ImmutableList<String> registries = ImmutableList.of("registry1", "registry2");
+    ImmutableMap<String, String> moduleOverride = ImmutableMap.of("my_dep_1", override.getPath());
 
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    ModuleFileFunction.REGISTRIES.set(differencer, registries);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of("my_dep_1", override));
-
     BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, yankedVersions);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.ERROR);
@@ -243,10 +245,12 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     BazelLockFileValue value = result.get(BazelLockFileValue.KEY);
     assertThat(value.getModuleDepGraph()).isEqualTo(depGraph);
     assertThat(value.getFlags().ignoreDevDependency()).isTrue();
-    assertThat(value.getFlags().getAllowedYankedVersions()).isEqualTo(yankedVersions);
-    assertThat(value.getFlags().getDirectDependenciesMode())
+    assertThat(value.getFlags().cmdRegistries()).isEqualTo(registries);
+    assertThat(value.getFlags().cmdModuleOverrides()).isEqualTo(moduleOverride);
+    assertThat(value.getFlags().allowedYankedVersions()).isEqualTo(yankedVersions);
+    assertThat(value.getFlags().directDependenciesMode())
         .isEqualTo(CheckDirectDepsMode.ERROR.toString());
-    assertThat(value.getFlags().getCompatibilityMode())
+    assertThat(value.getFlags().compatibilityMode())
         .isEqualTo(BazelCompatibilityMode.ERROR.toString());
   }
 
