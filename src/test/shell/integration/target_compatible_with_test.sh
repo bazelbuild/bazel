@@ -214,6 +214,8 @@ function set_up_custom_toolchain() {
   cat > target_skipping/custom_tools/BUILD <<'EOF'
 load(":toolchain.bzl", "custom_toolchain")
 
+package(default_visibility = ["//visibility:public"])
+
 toolchain_type(name = "toolchain_type")
 
 custom_toolchain(
@@ -487,7 +489,9 @@ sh_test(
 EOF
 
   mkdir -p buildenv/cpus
-  cat >> buildenv/cpus/BUILD <<EOF
+  cat > buildenv/cpus/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 environment(name = "foo_cpu")
 environment_group(
     name = "cpus",
@@ -1425,6 +1429,7 @@ function test_aquery_incompatible_target() {
 function test_aspect_skipping() {
   cat >> target_skipping/BUILD <<'EOF'
 load(":defs.bzl", "basic_rule", "rule_with_aspect")
+
 # This target is compatible with all platforms and configurations. This target
 # exists to validate the behaviour of aspects running against incompatible
 # targets. The expectation is that the aspect should _not_ propagate to this
