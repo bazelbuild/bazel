@@ -380,6 +380,8 @@ function setup_android_platforms() {
   mkdir -p test_android_platforms
 
   cat > test_android_platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 platform(
     name = "simple",
     constraint_values = [
@@ -434,6 +436,8 @@ function setup_javatest_support() {
   setup_javatest_common
   grep -q 'name = "junit4"' third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
+package(default_visibility = ["//visibility:public"])
+
 java_import(
     name = "junit4",
     jars = [
@@ -465,6 +469,8 @@ function maybe_setup_python_windows_tools() {
   cat > tools/python/windows/BUILD << EOF
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
+package(default_visibility = ["//visibility:public"])
+
 py_runtime(
   name = "py3_runtime",
   interpreter_path = r"C:\Python3\python.exe",
@@ -489,6 +495,8 @@ function setup_starlark_javatest_support() {
   setup_javatest_common
   grep -q "name = \"junit4-jars\"" third_party/BUILD \
     || cat <<EOF >>third_party/BUILD
+package(default_visibility = ["//visibility:public"])
+
 filegroup(
     name = "junit4-jars",
     srcs = [
