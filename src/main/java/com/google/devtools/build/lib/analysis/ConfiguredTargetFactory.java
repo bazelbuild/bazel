@@ -406,6 +406,8 @@ public final class ConfiguredTargetFactory {
           // Starlark evaluation, i.e. using the @_builtins mechanism.
           ruleContext.close();
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/17915): genquery and similar native rules
+        // may return null without setting a ruleContext error to signal a skyframe restart.
         return target != null ? target : erroredConfiguredTarget(ruleContext, null);
       }
     } catch (RuleErrorException ruleErrorException) {
