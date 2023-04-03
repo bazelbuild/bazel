@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -25,14 +24,8 @@ import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.skyframe.Differencer.Diff;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
-import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,32 +40,11 @@ import javax.annotation.Nullable;
  *
  * <p>This memoizing evaluator uses a monotonically increasing {@link IntVersion}.
  */
-public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingEvaluator {
-
-  private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
-  private final DirtyTrackingProgressReceiver progressReceiver;
+public final class InMemoryMemoizingEvaluator
+    extends AbstractIncrementalInMemoryMemoizingEvaluator {
   // Not final only for testing.
   private InMemoryGraph graph;
   private IntVersion lastGraphVersion = null;
-
-  // State related to invalidation and deletion.
-  private Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
-  private Set<SkyKey> valuesToDirty = new LinkedHashSet<>();
-  private Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
-  private final DeletingInvalidationState deleterState = new DeletingInvalidationState();
-  private final Differencer differencer;
-  private final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  private final EventFilter eventFilter;
-
-  // Keep edges in graph. Can be false to save memory, in which case incremental builds are
-  // not possible.
-  private final boolean keepEdges;
-
-  // Values that the caller explicitly specified are assumed to be changed -- they will be
-  // re-evaluated even if none of their children are changed.
-  private final InvalidationState invalidatorState = new DirtyingInvalidationState();
-
-  private final NestedSetVisitor.VisitedState emittedEventState;
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
@@ -105,21 +77,18 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       NestedSetVisitor.VisitedState emittedEventState,
       boolean keepEdges,
       boolean usePooledSkyKeyInterning) {
-    this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
-    this.differencer = Preconditions.checkNotNull(differencer);
-    this.progressReceiver = new DirtyTrackingProgressReceiver(progressReceiver);
-    this.graphInconsistencyReceiver = Preconditions.checkNotNull(graphInconsistencyReceiver);
-    this.eventFilter = eventFilter;
+    super(
+        ImmutableMap.copyOf(skyFunctions),
+        differencer,
+        new DirtyTrackingProgressReceiver(progressReceiver),
+        eventFilter,
+        emittedEventState,
+        graphInconsistencyReceiver,
+        keepEdges);
     this.graph =
         keepEdges
             ? InMemoryGraph.create(usePooledSkyKeyInterning)
             : InMemoryGraph.createEdgeless(usePooledSkyKeyInterning);
-    this.emittedEventState = emittedEventState;
-    this.keepEdges = keepEdges;
-  }
-
-  private void invalidate(Iterable<SkyKey> diff) {
-    Iterables.addAll(valuesToDirty, diff);
   }
 
   private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);
@@ -217,76 +186,6 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       lastGraphVersion = graphVersion;
       setAndCheckEvaluateState(false, roots);
     }
-  }
-
-  /**
-   * Removes entries in {@code valuesToInject} whose values are equal to the present values in the
-   * graph.
-   */
-  private void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
-    for (Iterator<Map.Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
-        it.hasNext(); ) {
-      Map.Entry<SkyKey, SkyValue> entry = it.next();
-      SkyKey key = entry.getKey();
-      SkyValue newValue = entry.getValue();
-      NodeEntry prevEntry = graph.get(null, Reason.OTHER, key);
-      if (prevEntry != null && prevEntry.isDone()) {
-        if (keepEdges) {
-          try {
-            if (!prevEntry.hasAtLeastOneDep()) {
-              if (newValue.equals(prevEntry.getValue())
-                  && !valuesToDirty.contains(key)
-                  && !valuesToDelete.contains(key)) {
-                it.remove();
-              }
-            } else {
-              // Rare situation of an injected dep that depends on another node. Usually the dep is
-              // the error transience node. When working with external repositories, it can also be
-              // an external workspace file. Don't bother injecting it, just invalidate it.
-              // We'll wastefully evaluate the node freshly during evaluation, but this happens very
-              // rarely.
-              valuesToDirty.add(key);
-              it.remove();
-            }
-          } catch (InterruptedException e) {
-            throw new IllegalStateException(
-                "InMemoryGraph does not throw: " + entry + ", " + prevEntry, e);
-          }
-        } else {
-          // No incrementality. Just delete the old value from the graph. The new value is about to
-          // be injected.
-          graph.remove(key);
-        }
-      }
-    }
-  }
-
-  /**
-   * Injects values in {@code valuesToInject} into the graph.
-   */
-  private void injectValues(IntVersion version) {
-    if (valuesToInject.isEmpty()) {
-      return;
-    }
-    try {
-      ParallelEvaluator.injectValues(valuesToInject, version, graph, progressReceiver);
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("InMemoryGraph doesn't throw interrupts", e);
-    }
-    // Start with a new map to avoid bloat since clear() does not downsize the map.
-    valuesToInject = new HashMap<>();
-  }
-
-  private void performInvalidation() throws InterruptedException {
-    EagerInvalidator.delete(graph, valuesToDelete, progressReceiver, deleterState, keepEdges);
-    // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any
-    // build has a large set of dirty values, subsequent operations (even clearing) will be slower.
-    // Instead, just start afresh with a new LinkedHashSet.
-    valuesToDelete = new LinkedHashSet<>();
-
-    EagerInvalidator.invalidate(graph, valuesToDirty, progressReceiver, invalidatorState);
-    // Ditto.
-    valuesToDirty = new LinkedHashSet<>();
   }
 
   private void setAndCheckEvaluateState(boolean newValue, Object requestInfo) {
