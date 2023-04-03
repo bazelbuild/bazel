@@ -63,6 +63,7 @@ def _objc_library_impl(ctx):
         toolchain = cc_toolchain,
         use_pch = True,
         deps = ctx.attr.deps,
+        implementation_deps = ctx.attr.implementation_deps,
         attr_linkopts = ctx.attr.linkopts,
         alwayslink = ctx.fragments.objc.target_should_alwayslink(ctx),
     )
@@ -115,6 +116,7 @@ objc_library = rule(
     attrs = common_attrs.union(
         {
             "data": attr.label_list(allow_files = True),
+            "implementation_deps": attr.label_list(providers = [CcInfo], allow_files = False)
         },
         common_attrs.CC_TOOLCHAIN_RULE,
         common_attrs.LICENSES,
