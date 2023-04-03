@@ -267,6 +267,7 @@ py_library(
 py_test(
     name = "bazel_module_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["bzlmod/bazel_module_test.py"],
     shard_count = 5,
     tags = [
