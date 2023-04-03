@@ -493,6 +493,17 @@ public class ExecutionOptions extends OptionsBase {
               + "Bazel uses a separate action to generate a dummy test.xml file containing the "
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
+  
+  @Option(
+      name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
+              + " blobs during the build.")
+  public boolean useNewExitCodeForLostInputs;
 
   @Option(
       name = "experimental_remote_cache_eviction_retries",
