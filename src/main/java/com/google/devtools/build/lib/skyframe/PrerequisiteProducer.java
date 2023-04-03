@@ -431,27 +431,25 @@ public final class PrerequisiteProducer {
 
   private PlatformInfo loadTargetPlatformInfo(Environment env)
       throws InterruptedException, ToolchainException {
-    if (!targetAndConfiguration.getConfiguration().hasFragment(PlatformConfiguration.class)) {
+    PlatformConfiguration platformConfiguration = targetAndConfiguration.getConfiguration()
+        .getFragment(PlatformConfiguration.class);
+    if (platformConfiguration == null) {
       return null;
     }
-    // Load target platform info through toolchain resolution with no toolchain types.
-    // ConfiguredTargetFunction later obtains the target platform in the same way, passing in the
-    // actual toolchain types. By going through ToolchainContext here, we prevent a direct Skyframe
-    // dependency on the target platform in addition to the indirect one, which ensures that cquery
-    // output is accurate.
-    ToolchainContextKey toolchainContextKey = ToolchainContextKey.key()
-        .configurationKey(targetAndConfiguration.getConfiguration().getKey())
-        .toolchainTypes()
-        .execConstraintLabels()
-        .debugTarget(false)
-        .build();
-    UnloadedToolchainContext toolchainContext = (UnloadedToolchainContext) env.getValueOrThrow(
-        toolchainContextKey, ToolchainException.class);
-    if (toolchainContext == null) {
+    Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
+    ConfiguredTargetKey targetPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(targetAndConfiguration.getConfiguration())
+            .build();
+
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap = PlatformLookupUtil.getPlatformInfo(
+        ImmutableList.of(targetPlatformKey), env);
+    if (platformInfoMap == null) {
       return null;
     }
 
-    return toolchainContext.targetPlatform();
+    return platformInfoMap.get(targetPlatformKey);
   }
 
   /**

@@ -96,6 +96,18 @@ public abstract class Util {
       }
     }
 
+    if (ruleContext.getRule().useToolchainResolution()) {
+      // Rules that participate in toolchain resolution implicitly depend on the target platform to
+      // check whether it matches the constraints in the target_compatible_with attribute.
+      if (ruleContext.getConfiguration().hasFragment(PlatformConfiguration.class)) {
+        PlatformConfiguration platformConfiguration = ruleContext.getConfiguration().getFragment(
+            PlatformConfiguration.class);
+        maybeImplicitDeps.add(
+            ConfiguredTargetKey.builder().setLabel(platformConfiguration.getTargetPlatform())
+                .setConfiguration(ruleContext.getConfiguration()).build());
+      }
+    }
+
     ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
         ruleContext.getToolchainContexts();
     if (toolchainContexts != null) {
