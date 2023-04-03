@@ -121,8 +121,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     }
     LabelParser.Parts parts = LabelParser.Parts.parse(input + ":dummy_target");
     RepositoryName repoName =
-        parts.repo() == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo());
-    return create(repoName, PathFragment.create(parts.pkg()));
+        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
+    return create(repoName, PathFragment.create(parts.pkg));
   }
 
   public RepositoryName getRepository() {
