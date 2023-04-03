@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -150,6 +149,55 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions)
       throws InterruptedException {
+      var remoteCacheEvictionRetries = getRemoteCacheEvictionRetries(args, outErr);
+      while (true) {
+      var result =
+          execOnce(
+              invocationPolicy,
+              args,
+              outErr,
+              lockingMode,
+              clientDescription,
+              firstContactTimeMillis,
+              startupOptionsTaggedWithBazelRc,
+              commandExtensions);
+      if (result.getExitCode() == ExitCode.REMOTE_CACHE_EVICTED && remoteCacheEvictionRetries > 0) {
+        --remoteCacheEvictionRetries;
+        outErr.printErrLn("Found remote cache eviction error, retrying the build...");
+        continue;
+      }
+      return result;
+    }
+  }
+
+  private int getRemoteCacheEvictionRetries(List<String> args, OutErr outErr) {
+    // Since flags are not parsed yet at this point, we manually extract value of the retry flag.
+    var retryFlagPrefix = "--experimental_remote_cache_eviction_retries=";
+    for (var arg : args) {
+      if (arg.startsWith(retryFlagPrefix)) {
+        try {
+          return Integer.parseInt(arg.substring(retryFlagPrefix.length()));
+        } catch (NumberFormatException e) {
+          outErr.printErrLn(
+              String.format(
+                  "Failed to parse retry times: %s, remote cache eviction retry is disabled", e));
+          return 0;
+        }
+      }
+    }
+    return 0;
+  }
+
+  public BlazeCommandResult execOnce(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      LockingMode lockingMode,
+      String clientDescription,
+      long firstContactTimeMillis,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
+      List<Any> commandExtensions)
+      throws InterruptedException {
     OriginalUnstructuredCommandLineEvent originalCommandLine =
         new OriginalUnstructuredCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
@@ -232,29 +280,18 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         return createDetailedCommandResult(
             retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
-      BlazeCommandResult result;
-      int attempt = 0;
-      while (true) {
-        try {
-          result =
-              execExclusively(
-                  originalCommandLine,
-                  invocationPolicy,
-                  args,
-                  outErr,
-                  firstContactTimeMillis,
-                  commandName,
-                  command,
-                  waitTimeInMs,
-                  startupOptionsTaggedWithBazelRc,
-                  commandExtensions,
-                  attempt);
-          break;
-        } catch (RemoteCacheEvictedException e) {
-          outErr.printErrLn("Found remote cache eviction error, retrying the build...");
-          attempt += 1;
-        }
-      }
+      BlazeCommandResult result =
+          execExclusively(
+              originalCommandLine,
+              invocationPolicy,
+              args,
+              outErr,
+              firstContactTimeMillis,
+              commandName,
+              command,
+              waitTimeInMs,
+              startupOptionsTaggedWithBazelRc,
+              commandExtensions);
       if (result.shutdown()) {
         setShutdownReason(
             "Server shut down "
@@ -302,9 +339,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BlazeCommand command,
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions,
-      int attempt)
-      throws RemoteCacheEvictedException {
+      List<Any> commandExtensions) {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
@@ -646,18 +681,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       needToCallAfterCommand = false;
-      var newResult = runtime.afterCommand(env, result);
-      if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
-        var executionOptions =
-            Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attempt < executionOptions.remoteRetryOnCacheEviction) {
-          throw new RemoteCacheEvictedException();
-        }
-      }
-
-      return newResult;
-    } catch (RemoteCacheEvictedException e) {
-      throw e;
+      return runtime.afterCommand(env, result);
     } catch (Throwable e) {
       logger.atSevere().withCause(e).log("Shutting down due to exception");
       Crash crash = Crash.from(e);
@@ -690,8 +714,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
     }
   }
-
-  private static class RemoteCacheEvictedException extends IOException {}
 
   private static void replayEarlyExitEvents(
       OutErr outErr,
