@@ -476,9 +476,21 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void explain_ignoreSkymeldWithWarning() throws Exception {
+    addOptions("--explain=/dev/null");
+    write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
+    BuildResult buildResult = buildTarget("//foo");
+
+    assertThat(buildResult.getSuccess()).isTrue();
+
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with --explain");
+    events.assertContainsWarning("and will be ignored.");
+  }
+
+  @Test
   public void multiplePackagePath_ignoreSkymeldWithWarning() throws Exception {
     write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
-    // write("foo/root.sh");
     write("otherroot/bar/BUILD", "genrule(name = 'bar', outs = ['bar.out'], cmd = 'touch $@')");
     addOptions("--package_path=%workspace%:otherroot");
 
