@@ -125,15 +125,21 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .write();
 
     createLibraryTargetWriter("//objc/lib2")
+        .setAndCreateFiles("srcs", "b.m")
+        .setAndCreateFiles("hdrs", "private.h")
+        .write();
+
+    createLibraryTargetWriter("//objc/lib3")
         .setAndCreateFiles("srcs", "a.m")
         .setAndCreateFiles("hdrs", "hdr.h")
         .setList("deps", "//objc/lib1")
+        .setList("implementation_deps", "//objc/lib2")
         .write();
 
     createLibraryTargetWriter("//objc:x")
         .setAndCreateFiles("srcs", "a.m", "private.h")
         .setAndCreateFiles("hdrs", "hdr.h")
-        .setList("deps", "//objc/lib2:lib2")
+        .setList("deps", "//objc/lib3:lib3")
         .write();
 
     CppCompileAction compileA = (CppCompileAction) compileAction("//objc:x", "a.o");
@@ -1070,24 +1076,33 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
             .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
             .setAndCreateFiles("hdrs", "a.h", "b.h")
             .write();
+    ConfiguredTarget impl_target =
+        createLibraryTargetWriter("//objc_impl:lib")
+            .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+            .setAndCreateFiles("hdrs", "a.h", "b.h")
+            .write();
     ConfiguredTarget depender =
-        createLibraryTargetWriter("//objc2:lib")
+        createLibraryTargetWriter("//objc_depender:lib")
             .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
             .setAndCreateFiles("hdrs", "c.h", "d.h")
             .setList("deps", "//objc:lib")
+            .setList("implementation_deps", "//objc_impl:lib")
             .write();
 
     assertThat(getArifactPaths(target, LIBRARY)).containsExactly("objc/liblib.a");
+    assertThat(getArifactPaths(impl_target, LIBRARY)).containsExactly("objc_impl/liblib.a");
     assertThat(getArifactPaths(depender, LIBRARY)).containsExactly(
-        "objc/liblib.a", "objc2/liblib.a");
+        "objc/liblib.a", "objc_impl/liblib.a", "objc_depender/liblib.a");
     assertThat(getArifactPathsOfLibraries(target)).containsExactly("objc/liblib.a");
     assertThat(getArifactPathsOfLibraries(depender))
-        .containsExactly("objc/liblib.a", "objc2/liblib.a");
+        .containsExactly("objc/liblib.a", "objc_impl/liblib.a", "objc_depender/liblib.a");
     assertThat(getArifactPathsOfHeaders(target))
         .containsExactly("objc/a.h", "objc/b.h", "objc/private.h");
+    assertThat(getArifactPathsOfHeaders(impl_target))
+        .containsExactly("objc_impl/a.h", "objc_impl/b.h", "objc_impl/private.h");
     assertThat(getArifactPathsOfHeaders(depender))
         .containsExactly(
-            "objc/a.h", "objc/b.h", "objc/private.h", "objc2/c.h", "objc2/d.h", "objc2/private.h");
+            "objc/a.h", "objc/b.h", "objc/private.h", "objc_depender/c.h", "objc_depender/d.h", "objc_depender/private.h");
   }
 
   private static Iterable<String> getArifactPaths(
