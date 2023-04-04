@@ -888,7 +888,7 @@ use_toolchain(
 EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
-  expect_log "error parsing target pattern \"/:invalid:label:syntax\": not a valid absolute pattern"
+  expect_log "error parsing target pattern \"/:invalid:label:syntax\": invalid package name '/': package names may not start with '/'"
 }
 
 function test_register_toolchain_error_invalid_target() {
