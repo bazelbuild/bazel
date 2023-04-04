@@ -386,7 +386,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private RemoteOutputsMode lastRemoteOutputsMode;
   private Boolean lastRemoteCacheEnabled;
 
-  private boolean mergedSkyframeAnalysisExecution = false;
+  // This is set once every build and set to null at the end of each.
+  @Nullable private Supplier<Boolean> mergedSkyframeAnalysisExecutionSupplier;
 
   // Reset after each build.
   private IncrementalArtifactConflictFinder incrementalArtifactConflictFinder;
@@ -877,6 +878,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     progressReceiver.globDeps = new ConcurrentHashMap<>();
     globFunction.complete();
     clearSyscallCache();
+
+    // So that the supplier object can be GC-ed.
+    mergedSkyframeAnalysisExecutionSupplier = null;
   }
 
   /**
@@ -1405,8 +1409,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Sets whether this build is done with --experimental_merged_skyframe_analysis_execution. */
-  public void setMergedSkyframeAnalysisExecution(boolean mergedSkyframeAnalysisExecution) {
-    this.mergedSkyframeAnalysisExecution = mergedSkyframeAnalysisExecution;
+  public void setMergedSkyframeAnalysisExecutionSupplier(
+      Supplier<Boolean> mergedSkyframeAnalysisExecutionSupplier) {
+    this.mergedSkyframeAnalysisExecutionSupplier = mergedSkyframeAnalysisExecutionSupplier;
   }
 
   /** Sets the eventBus to use for posting events. */
@@ -3132,7 +3137,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         }
       }
 
-      if (mergedSkyframeAnalysisExecution
+      if (mergedSkyframeAnalysisExecutionSupplier != null
+          && mergedSkyframeAnalysisExecutionSupplier.get()
           && !tracksStateForIncrementality()
           && skyKey instanceof ActionLookupKey
           && newValue != null) {
@@ -3230,7 +3236,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      * <p>This is only used in skymeld mode AND when we don't keep the incremental state.
      */
     public ImmutableMap<SkyKey, SkyValue> getBatchedActionLookupValuesForConflictChecking() {
-      Preconditions.checkState(mergedSkyframeAnalysisExecution && !tracksStateForIncrementality());
+      Preconditions.checkState(
+          Preconditions.checkNotNull(mergedSkyframeAnalysisExecutionSupplier).get()
+              && !tracksStateForIncrementality());
       synchronized (this) {
         ImmutableMap<SkyKey, SkyValue> result =
             ImmutableMap.copyOf(batchedActionLookupValuesForConflictChecking);

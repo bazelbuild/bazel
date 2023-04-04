@@ -433,12 +433,15 @@ public class CommandEnvironment {
    * This should be the source of truth for whether this build should be run with merged analysis
    * and execution phases.
    */
-  public boolean withMergedAnalysisAndExecution() {
+  public boolean withMergedAnalysisAndExecutionSourceOfTruth() {
     return mergedAnalysisAndExecution;
   }
 
   public void setMergedAnalysisAndExecution(boolean value) {
     mergedAnalysisAndExecution = value;
+    getSkyframeExecutor()
+        .setMergedSkyframeAnalysisExecutionSupplier(
+            this::withMergedAnalysisAndExecutionSourceOfTruth);
   }
 
   private Map<String, String> filterClientEnv(Set<String> vars) {
