@@ -757,8 +757,7 @@ public final class RemoteModule extends BlazeModule {
   // Separating the conditions for readability.
   private boolean shouldParseNoCacheOutputs() {
     if (remoteOptions == null
-        || remoteOptions.remoteBuildEventUploadMode != RemoteBuildEventUploadMode.ALL
-        || !remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
+        || remoteOptions.remoteBuildEventUploadMode != RemoteBuildEventUploadMode.ALL) {
       return false;
     }
 

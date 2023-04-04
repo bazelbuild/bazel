@@ -266,9 +266,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       deprecationWarning =
           "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
               + " of --remote_build_event_upload=minimal.",
-      help =
-          "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
-              + " generating action cannot be cached remotely.")
+      help = "Deprecated. No-op. Use --remote_build_event_upload=minimal instead.")
   public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
