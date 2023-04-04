@@ -19,16 +19,7 @@ load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
 load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_aspect", "cc_proto_library")
 
-exported_toplevels = {
-    # This is an experimental export in Bazel. The interface will change in a way
-    # that breaks users. In the future, Build API team will provide an interface
-    # that is conceptually similar to this one and stable.
-    "experimental_java_library_export_do_not_use": struct(
-        bazel_java_library_rule = bazel_java_library_rule,
-        JAVA_LIBRARY_ATTRS = JAVA_LIBRARY_ATTRS,
-    ),
-    "cc_proto_aspect": cc_proto_aspect,
-}
+exported_toplevels = {}
 exported_rules = {
     "java_library": java_library,
     "java_plugin": java_plugin,
