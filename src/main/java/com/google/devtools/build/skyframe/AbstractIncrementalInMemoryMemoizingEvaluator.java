@@ -33,20 +33,20 @@ import java.util.Set;
  * Partial implementation of {@link MemoizingEvaluator} with expanded support for incremental and
  * non-incremental evaluations on an {@link InMemoryGraph}.
  */
-abstract class AbstractIncrementalInMemoryMemoizingEvaluator
+public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
     extends AbstractInMemoryMemoizingEvaluator {
 
-  final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
-  final DirtyTrackingProgressReceiver progressReceiver;
+  protected final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
+  protected final DirtyTrackingProgressReceiver progressReceiver;
 
   // State related to invalidation and deletion.
-  Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
+  protected Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
   private Set<SkyKey> valuesToDirty = new LinkedHashSet<>();
-  Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
+  protected Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
   private final DeletingInvalidationState deleterState = new DeletingInvalidationState();
-  final Differencer differencer;
-  final GraphInconsistencyReceiver graphInconsistencyReceiver;
-  final EventFilter eventFilter;
+  protected final Differencer differencer;
+  protected final GraphInconsistencyReceiver graphInconsistencyReceiver;
+  protected final EventFilter eventFilter;
 
   // Keep edges in graph. Can be false to save memory, in which case incremental builds are
   // not possible.
@@ -56,9 +56,11 @@ abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   // re-evaluated even if none of their children are changed.
   private final InvalidationState invalidatorState = new DirtyingInvalidationState();
 
-  final NestedSetVisitor.VisitedState emittedEventState;
+  protected final NestedSetVisitor.VisitedState emittedEventState;
 
-  AbstractIncrementalInMemoryMemoizingEvaluator(
+  protected IntVersion lastGraphVersion = null;
+
+  protected AbstractIncrementalInMemoryMemoizingEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       Differencer differencer,
       DirtyTrackingProgressReceiver dirtyTrackingProgressReceiver,
@@ -75,7 +77,7 @@ abstract class AbstractIncrementalInMemoryMemoizingEvaluator
     this.keepEdges = keepEdges;
   }
 
-  void invalidate(Iterable<SkyKey> diff) {
+  protected void invalidate(Iterable<SkyKey> diff) {
     Iterables.addAll(valuesToDirty, diff);
   }
 
@@ -83,7 +85,7 @@ abstract class AbstractIncrementalInMemoryMemoizingEvaluator
    * Removes entries in {@code valuesToInject} whose values are equal to the present values in the
    * graph.
    */
-  void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
+  protected void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
     for (Iterator<Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
         it.hasNext(); ) {
       Map.Entry<SkyKey, SkyValue> entry = it.next();
@@ -122,7 +124,7 @@ abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   }
 
   /** Injects values in {@code valuesToInject} into the graph. */
-  void injectValues(IntVersion version) {
+  protected void injectValues(IntVersion version) {
     if (valuesToInject.isEmpty()) {
       return;
     }
@@ -135,7 +137,7 @@ abstract class AbstractIncrementalInMemoryMemoizingEvaluator
     valuesToInject = new HashMap<>();
   }
 
-  void performInvalidation() throws InterruptedException {
+  protected void performInvalidation() throws InterruptedException {
     EagerInvalidator.delete(
         getInMemoryGraph(), valuesToDelete, progressReceiver, deleterState, keepEdges);
     // Note that clearing the valuesToDelete would not do an internal resizing. Therefore, if any

@@ -44,7 +44,6 @@ public final class InMemoryMemoizingEvaluator
     extends AbstractIncrementalInMemoryMemoizingEvaluator {
   // Not final only for testing.
   private InMemoryGraph graph;
-  private IntVersion lastGraphVersion = null;
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
