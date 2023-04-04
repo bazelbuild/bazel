@@ -98,21 +98,18 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
-    AttributesAndLocation generator =
-        generatorAttributesForMacros(pkgBuilder, attributeValues, callstack);
+    // TODO(b/273330483): The location doesn't need to be treated separately from the call stack.
+    Location location = callstack.get(0).location;
+
+    BuildLangTypedAttributeValuesMap attributes =
+        generatorAttributesForMacros(pkgBuilder, attributeValues, location, callstack);
 
     // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
     // Pop the innermost frame for the rule, since it's obvious.
     callstack = callstack.subList(0, callstack.size() - 1); // pop
 
     try {
-      return ruleClass.createRule(
-          pkgBuilder,
-          label,
-          generator.attributes,
-          eventHandler,
-          generator.location, // see b/23974287 for rationale
-          callstack);
+      return ruleClass.createRule(pkgBuilder, label, attributes, eventHandler, location, callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -157,17 +154,6 @@ public class RuleFactory {
   public static class InvalidRuleException extends Exception {
     public InvalidRuleException(String message) {
       super(message);
-    }
-  }
-
-  /** A pair of attributes and location. */
-  private static final class AttributesAndLocation {
-    final BuildLangTypedAttributeValuesMap attributes;
-    final Location location;
-
-    AttributesAndLocation(BuildLangTypedAttributeValuesMap attributes, Location location) {
-      this.attributes = attributes;
-      this.location = location;
     }
   }
 
@@ -236,57 +222,42 @@ public class RuleFactory {
   }
 
   /**
-   * If the rule was created by a macro, this method sets the appropriate values for the attributes
-   * generator_{name, function, location} and returns all attributes.
+   * If the rule was created by a macro, sets the appropriate value for the generator_name attribute
+   * and returns all attributes.
    *
    * <p>Otherwise, it returns the given attributes without any changes.
    */
-  private static AttributesAndLocation generatorAttributesForMacros(
+  private static BuildLangTypedAttributeValuesMap generatorAttributesForMacros(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
+      Location location,
       ImmutableList<CallStackEntry> stack) {
-    // For a callstack [BUILD <toplevel>, .bzl <function>, <rule>],
-    // location is that of the caller of 'rule' (the .bzl function).
-    Location location = stack.size() < 2 ? Location.BUILTIN : stack.get(stack.size() - 2).location;
-
-    boolean hasName = args.containsAttributeNamed("generator_name");
-    boolean hasFunc = args.containsAttributeNamed("generator_function");
-    // TODO(bazel-team): resolve cases in our code where hasName && !hasFunc, or hasFunc && !hasName
-    if (hasName || hasFunc) {
-      return new AttributesAndLocation(args, location);
-    }
-
-    // The "generator" of a rule is the function (sometimes called "macro")
-    // outermost in the call stack.
-    // The stack must contain at least two entries:
+    // The "generator" of a rule is the function (sometimes called "macro") outermost in the call
+    // stack. For rules with generators, the stack must contain at least two entries:
     // 0: the outermost function (e.g. a BUILD file),
     // 1: the function called by it (e.g. a "macro" in a .bzl file).
-    // optionally followed by other Starlark or built-in functions,
-    // and finally the rule instantiation function.
+    // optionally followed by other Starlark or built-in functions, and finally the rule
+    // instantiation function.
     if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
-      return new AttributesAndLocation(args, location); // macro is not a Starlark function
+      return args; // Not instantiated by a Starlark macro.
     }
-    Location generatorLocation = stack.get(0).location; // location of call to generator
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
-      String attributeName = args.getName(attributeAccessor);
-      builder.put(attributeName, args.getValue(attributeAccessor));
+
+    if (args.containsAttributeNamed("generator_name")) {
+      // generator_name is explicitly set. Return early to avoid a map key conflict.
+      // TODO(b/274802222): Should this be prohibited?
+      return args;
     }
-    String generatorName = pkgBuilder.getGeneratorNameByLocation(generatorLocation);
+
+    ImmutableMap.Builder<String, Object> builder =
+        ImmutableMap.builderWithExpectedSize(args.attributeValues.size() + 1);
+    builder.putAll(args.attributeValues);
+
+    String generatorName = pkgBuilder.getGeneratorNameByLocation(location);
     if (generatorName == null) {
       generatorName = (String) args.getAttributeValue("name");
     }
     builder.put("generator_name", generatorName);
 
-    try {
-      args = new BuildLangTypedAttributeValuesMap(builder.buildOrThrow());
-    } catch (IllegalArgumentException unused) {
-      // We just fall back to the default case and swallow any messages.
-    }
-
-    // TODO(adonovan): is it appropriate to use generatorLocation as the rule's main location?
-    // Or would 'location' (the immediate call) be more informative? When there are errors, the
-    // location of the toplevel call of the generator may be quite unrelated to the error message.
-    return new AttributesAndLocation(args, generatorLocation);
+    return new BuildLangTypedAttributeValuesMap(builder.buildOrThrow());
   }
 }

@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -40,9 +42,8 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private final ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
@@ -70,13 +71,19 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testCreateRule() throws Exception {
+  public void testCreateRule(@TestParameter boolean explicitlySetGeneratorAttrs) throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
     attributeValues.put("alwayslink", true);
+
+    // TODO(b/274802222): Should this be prohibited?
+    if (explicitlySetGeneratorAttrs) {
+      attributeValues.put("generator_name", "fake_generator_name");
+      attributeValues.put("generator_function", "fake_generator_function");
+    }
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
     Rule rule =
