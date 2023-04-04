@@ -81,7 +81,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
   private final SpawnRunner spawnRunner;
   private final ExecutionOptions executionOptions;
 
-  protected AbstractSpawnStrategy(Path execRoot, SpawnRunner spawnRunner, boolean verboseFailures) {
+protected AbstractSpawnStrategy(
+      Path execRoot, SpawnRunner spawnRunner, ExecutionOptions executionOptions) {
     this.spawnInputExpander = new SpawnInputExpander(execRoot, false);
     this.spawnRunner = spawnRunner;
     this.executionOptions = executionOptions;
