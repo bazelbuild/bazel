@@ -619,8 +619,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--experimental_merged_skyframe_analysis_execution");
     BuildGraphMetrics expected =
         BuildGraphMetrics.newBuilder()
-            .setActionLookupValueCount(3)
-            .setActionLookupValueCountNotIncludingAspects(3)
+            .setActionLookupValueCount(8)
+            .setActionLookupValueCountNotIncludingAspects(8)
             .setActionCount(2)
             .setActionCountNotIncludingAspects(2)
             .setInputFileConfiguredTargetCount(1)
