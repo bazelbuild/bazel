@@ -326,6 +326,7 @@ public final class PrerequisiteProducer {
       if (targetAndConfiguration.getTarget() instanceof Rule
           && ((Rule) targetAndConfiguration.getTarget()).useToolchainResolution()) {
         platformInfo = loadTargetPlatformInfo(env);
+        // loadTargetPlatformInfo may return null even when no deps are missing.
         if (env.valuesMissing()) {
           return false;
         }
@@ -429,11 +430,13 @@ public final class PrerequisiteProducer {
     return true;
   }
 
+  // May return null even when no deps are missing, use env.valuesMissing() to check.
   private PlatformInfo loadTargetPlatformInfo(Environment env)
       throws InterruptedException, ToolchainException {
     PlatformConfiguration platformConfiguration = targetAndConfiguration.getConfiguration()
         .getFragment(PlatformConfiguration.class);
     if (platformConfiguration == null) {
+      // No restart required in this case.
       return null;
     }
     Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
