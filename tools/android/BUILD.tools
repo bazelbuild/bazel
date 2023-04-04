@@ -47,8 +47,6 @@ java_binary(
     runtime_deps = ["//src/tools/android/java/com/google/devtools/build/android/r8"],
 )
 
-# NOTE: d8 dex builder doesn't support the persistent worker mode at the moment. To use this config,
-# without a build error, --nouse_workers_with_dexbuilder flag must also be specified.
 config_setting(
     name = "d8_incremental_dexing",
     values = {
