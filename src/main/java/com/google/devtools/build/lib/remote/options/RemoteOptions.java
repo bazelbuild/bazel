@@ -265,14 +265,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       deprecationWarning =
           "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
-              + " of --experimental_remote_build_event_upload=minimal.",
+              + " of --remote_build_event_upload=minimal.",
       help =
           "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
               + " generating action cannot be cached remotely.")
   public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
-      name = "experimental_remote_build_event_upload",
+      name = "remote_build_event_upload",
+      oldName = "experimental_remote_build_event_upload",
       defaultValue = "all",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
