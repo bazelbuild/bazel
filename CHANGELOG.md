@@ -1,3 +1,267 @@
+## Release 7.0.0-pre.20230322.4 (2023-04-03)
+
+```
+Baseline: 65b394866a23faa09d22a9bb9defde2b6a57140d
+
+Cherry picks:
+
+   + b9bdcf8611e7e9937314a70380bc6391487e7d50:
+     Enable
+     experimental_execution_graph_enable_edges_from_filewrite_actions
+     by default
+   + 5a4a3404307c9dd4654866e5d225ac9ec7107970:
+     Update documentation for cc_import deps attribute
+   + 577c0621412a1db57e42139fdb149cf42f43be57:
+     Automated rollback of commit
+     ad380dddf49d51d86a8a1698efe76c340aada3c0.
+   + 70c821ad1c2f8029643716cf738cf2aaca7a92a4:
+     starlark: Reduce allocations for `find`/`indexof` without `end`
+   + 233ee2930b66063f5ef2372f1889fe7779925173:
+     Automated rollback of commit
+     0d2e9dae9c64ef783fa79b5b97fe2682499e038e.
+   + 788801a8fd30985a1831de805172d257c6f63691:
+     Enable C++ deps pruning on Windows when PARSE_SHOWINCLUDES is
+     available.
+   + aa2407fe0a0162f3b075eb38b449d3baee3f9cf9:
+     Remove "get" from field names in BzlmodFlagsAndEnvVars class
+     Disable Html escaping for better format
+   + 83c954de9ceeb9954be4921bfcbcf81a5814240a:
+     [Skymeld] Gracefully handle --explain.
+   + 842d23ea7b3227abb85f801c690e65bc2f886587:
+     Automated rollback of commit
+     24f6fe802ebb68da71e1e071c9e84c89b4aa0772.
+   + c71b0b123e34cbbfe80482e85b2ad45e5a5e5ccc:
+     Increase bazel_module_test timeout: it times out on macOS on
+     Bazel CI
+   + f3e11c5bca767489c677875dc218f30ddacf6b62:
+     - Add team-Rules-Java and team-Android to PR labeler - Add
+     awaiting-review to all PRs
+   + 2e219de0206f533772d336facf51678e847dcb6d:
+     Make lockfile human readable
+   + 3b9ec35f5a18afe256f679df1e91796dae720fc3:
+     Module Lockfile
+   + 4c8535670c00116ce7c64f9b2555381b94b12cfc:
+     Fix ProxyHelperTest on JDK@HEAD
+   + b27d1a3b66628ec479cdc4dc8629a4bddc0320d1:
+     Fix regression with implicit deps which Automatic Exec Groups
+     caused
+   + 24f6fe802ebb68da71e1e071c9e84c89b4aa0772:
+     Switch TargetPattern.Parser to use LabelParser
+   + dd822392db96bb7bccdb673414a20c4b91e3dbc1:
+     Canonicalize use_extension label
+   + e97f62d54585c759735487bec78cc2bb6a7d215b:
+     This is specifically for android_binary rule. (prev change was
+     for android_library rule
+     https://github.com/bazelbuild/bazel/commit/98bd4ae81715742ae5aa6c
+     91164cd37396cb7c91)
+   + 75dce1eefd6139b8a395d9ac6ece211e809efe78:
+     Generate loadable dummy .bzl/BUILD/WORKSPACE files
+   + c024b8af09fb7d132a131f99ce5635e4623b8bb2:
+     Automated rollback of commit
+     b2844771164fff2ad6cb2c265ff0da0bd0828906.
+   + 6f12510e39153e316f35ab0a1ec376ece7f1b0a9:
+     Clarify responsibilities of the Configurability team.
+   + 9f93780eafb4f98500f3bc6a828c43b6da363089:
+     Create an option to enable `GcThrashingDetector`.
+   + b2844771164fff2ad6cb2c265ff0da0bd0828906:
+     Automated rollback of commit
+     9353955f016b4b918c1543018379a933932586b8.
+   + e2639459bde1283d72887cfa90d7558a4d22b3a7:
+     Label Interner Part I -- Create `PooledInterner` and make
+     `SkyKeyInterner` as its subclass
+   + 99b672b631a075b25fe9215709f53703924dccf0:
+     Simplify cc_test rules by leveraging optional toolchains.
+   + e54564fdbce4a0aff6d753a383bce4ddeba5d16b:
+     Restructure ActionStager and CommandAdjuster
+   + 1a719cea3f9bf7ee427620d779b6c287f885eff8:
+     Add `module_ctx.is_dev_dependency`
+   + 986ef7b68d61b1573d9c2bb1200585d07ad24691:
+     [Skymeld] Move the various skymeld flag check to SkymeldModule.
+   + 03266a86fb9b52cfc45ad0b0404561bd7c218680:
+     Tests for TargetPattern parsing, and some sanity fixes
+   + 109b29019882811d1beb97a60f8cda668442e8e8:
+     Fail early if `use_extension` has a bad label
+   + 9353955f016b4b918c1543018379a933932586b8:
+     Unconditionally clear the syscall cache at the end of the build.
+   + 2aa06cf227fe349195191107286167035f0c5431:
+     Expose cc_proto_aspect as a toplevel symbol.
+   + 24b45890c431de98d586fdfe5777031612049135:
+     Automatically retry the build if encountered remote cache
+     eviction error
+   + a9dfbae320da3a83c52359069ca7d2214514caaa:
+     Increase the test size for //src/test/py/bazel:py_test to
+     prevent flakily timing out on BazelCI.
+   + f63ce7973b8f3f2560f41daf7321a40d20b22fab:
+     Avoid unnecessary copying when building Merkle trees.
+   + 6146e4a993c07713aca486fd58f29decfea94aa6:
+     [Skymeld] Include the underlying IOException's details if it
+     happens while planting the SymlinkForest.
+   + 79e22a3278b084b386ce00bd33b31d9526884801:
+     Update docs on cached print statement behavior
+   + f7829f855bc31aaf0c0fcef55ef56adec84daa9e:
+     Rename Factory-level ExecutionTransitionFactory.create to
+     createFactory
+   + 57426bcdd2853f65b6381b11f6253111abc8c8da:
+     Fix iterating over string example
+   + 4097d9c5e81413cdacb30d628340e15e06024402:
+     Use `PercentageConverter` to automatically validate the value of
+     `--experimental_oom_more_eagerly_threshold`.
+   + 576a497d0215a0d05debd302b6c0aa74d49c7ee8:
+     Delete unused PackageIdentifierAndLong
+   + fa7bfa3512029e7abe0e67a9b7831595c30368c5:
+     Automatic code cleanup.
+   + c89ca0d4d772b08fd852bcd35efd077253b02cc9:
+     Update D8/R8 dependency in bazel to 8.0.40
+   + cee754ced7168f3cdac82ae0c578a4ea999d473e:
+     Add team-Remote-Exec & team-Documentation to PR labeler
+   + 0882effbc746c0a40cd21b9a8e06b2a060b32e1c:
+     Include --bes_upload_mode in docs
+   + d1b4fb746e7c1865ce9631636c227e1aaca732d0:
+     Remove 'darwin' CPU value
+   + 02846a81bbc75ee39cd065c6c91dcf72adbc3fd7:
+     Remove 'darwin' CPU value
+   + 0ddf9bf223616f91dc981ed6aea8866624ced3af:
+     Remove unneeded use CompilationFailedException.
+   + aaf1d0696ffe8a6abe66c3d40947ff4f88a11ca0:
+     Don't intern `RootedPath` on Windows.
+   + 98bd4ae81715742ae5aa6c91164cd37396cb7c91:
+     Native changes required to support linking against resource apks.
+   + 0a8380bec9dceae1bffabddcccd459e82d8674b1:
+     Set the digest_function field as part of all relevant gRPC
+     requests
+   + 6e01b25954d974a36bd345be730611507df902cd:
+     Add support for .tbz file extension in
+     repository_ctx.download_and_extract
+   + 8ab9c6e5497ccfe88fdedb2c86ce0ae9461115dc:
+     Add a boolean flag which controls whether ExecutionGraphModule
+     is on.
+   + 753f5d38bc17c0c61fd50f02b106c8fe33d5035a:
+     Enable heuristically dropping GENQUERY_SCOPE nodes
+   + 57f954d34b8811af4c96ed5c492f59dac81b5abb:
+     Update stale workflow #s
+   + 8c712c824fbf8e6b5c48bece78e2cdd0c14906b7:
+     Fix formatting issue in http.bzl
+   + 0d2e9dae9c64ef783fa79b5b97fe2682499e038e:
+     Automated rollback of commit
+     f548d56bc7f5c664fe6de5070a47e24720d35597.
+   + ad380dddf49d51d86a8a1698efe76c340aada3c0:
+     Automated rollback of commit
+     602794efa7fa2d56013e14903578a82860505006.
+   + e69aad7a6f607ab310ae918b0271867cc7ea44c6:
+     Automatic code cleanup.
+   + a691e974d2e4c5fa4a469e1321b18d15ac7e9cfa:
+     Create a `GcThrashingDetector`.
+   + abc13e32c0c2cb3bb21efb497a788dec8dc8bd44:
+     Release 7.0.0-pre.20230316.2 (2023-03-27)
+   + f4b3165b58b4dfcd8305d268d5ffe4e55e8c525a:
+     Detect when `GCLocker` defers a `System.gc()` call.
+   + 3c1c0c09e68420c813d6258b90ff96641dbd1151:
+     Add suggestions to invalid tag class errors
+   + 81f312102ff25b89e3afadf05620785ace319ae0:
+     [Skymeld] Don't use SkyKeyComputeState to manage conflict
+     checking in BuildDriverFunction.
+   + 602794efa7fa2d56013e14903578a82860505006:
+     Flip Automatic Exec Groups inside java_binary
+   + f7627e00bf96c9159ab79a32afc4f6a622f0deeb:
+     Support (workspace) relative paths in --override_module closes
+     https://github.com/bazelbuild/bazel/issues/17551
+   + 16c639ca3a2dacf9ed47e60fc4e13d2983579e5e:
+     Trigger labeler when a PR is ready for review (removed from
+     draft mode)
+   + 5a972e0ac2b55eebee29f61e7e7743cb85695f05:
+     Set `use_default_shell_env` for windows launcher maker action
+   + 165e7684a1c05d118baaf16449d97f895855db80:
+     Fix windows launcher maker compilation with mingw-gcc
+   + 136a1ee4be934f91bb1388dc289338f213fac181:
+     Add `--skip_incompatible_explicit_targets` option
+   + 130703a37382e411390e6db171e9100a8f95cf38:
+     Delete old dependency to bazel's //tools/objc
+   + 7917b9ae26d0d600ac10d600fc029291baf76e6b:
+     Automated rollback of commit
+     2a3ab5c45b42321cf1495be7e294e5ec01298ca1.
+   + 33d2dc907d304679e303c37e9bfb69cba177bb8d:
+     Shard bazel_module_test and py_test
+   + 27a16f74a9fbd9ac85db7720322743bcb1d9d495:
+     Increase test sizes and shard counts to prevent timing out on
+     BazelCI.
+   + 09adb348446ffc41f0c4da5c6a8dc97a27dcfd88:
+     [Skymeld] Make the execution timer more precise.
+   + aa4f3580d277e50757ea696e3a312c0921c304f2:
+     Clean up third_party directory
+   + d910f361ad05edfffeffdd751900c112aa293c63:
+     Updates to PR labeler
+   + f35fde47e6d8844816a6c08ee7a3cf33ead7681a:
+     Update rules_java and remove references to
+     "remote_java_tools_darwin"
+   + 718a916236b90727b10622fa3f52fe8336d8cceb:
+     Use concrete collections, not lazy set
+     difference/intersection/filter views, on hot codepaths in the
+     Skyframe engine code, when we'll be iterating more than once.
+   + a30e2555e2f22b3d520a1ef460a9541f7e33c248:
+     Fix code warnings around rule/package factories.
+   + 2aee015fe6e2e0671241ac44c73e88fd7511fa2b:
+     Optimize storage of output files in `Rule`.
+   + 50e5e6ced388d1f66a395c3e75d3fbc12b45d6db:
+     Updating assignees in all issue templates to individual GitHub
+     handles.
+   + 97aec0f2151194d6605d38c84840af1066da39b3:
+     Update templates to include assignees & labels
+   + 7556e1107b666d10b660470a571631463c7eb4ec:
+     Add version to JavaRuntimeInfo.
+   + bcf309b88949fe1bbff1776d88fdaa5c3e1d2d37:
+     Add native.module_{name,version}
+   + 144ad7b215d4a0fc77fec73fc5dd83a0bc386847:
+     Ignore empty symlinks depsets in ctx.runfiles()
+   + cb55c5b99e18e131d4f689062b68c11a4ec848e0:
+     [Skymeld] Skip checking for external repos when it's clear that
+     we don't expect any.
+   + a151696e1aca27e85dee8e758f9abc73fc78933f:
+     Mirgate jar dependencies for testing to rules_jvm_external
+     (third_party)
+   + 35f2d49e51a853bbf2261da0ae2ac658451e3883:
+     Update issue templates to mention about GitHub Discussions
+   + 6a174577835e713415d135ad476f7d27cd1f57a9:
+     Introduce --experimental_parallel_aquery_output.
+   + 70ce8378638290295e17fb62e735a239f22672e6:
+     Add attribute 'provides = [CcInfo]' to '_cc_proto_aspect'
+   + c04f0d41317bfe1f6ff42da94dddb4023587fc26:
+     Use less subshells and `tee`s in running tests with `bazel run`.
+   + c82168eea66609bd0fc3acbc02e837f6a65c3b1b:
+     Avoid storing `LateBoundDefault` attribute values in `Rule`.
+   + 745ca288770253225d5d96069038a5d735eda69b:
+     Suggest alternatives for typoed rule attribute names
+   + 187f3e499060a467db65087ef9dd89b172c8aa40:
+     Add a cache for command lines of tools in Java toolchain.
+   + 6cbe0f1ad6db2cacedd02e517f24f7d93df62803:
+     Mirgate jar dependencies for testing to rules_jvm_external
+   + 2a3ab5c45b42321cf1495be7e294e5ec01298ca1:
+     Enable heuristically dropping GENQUERY_SCOPE nodes
+   + 699e40373f95e42390a85f29dfa1098636336103:
+     Automated rollback of commit
+     a50cca561fe0a77c3750101e505171ddcc16db72.
+   + b0fc11d8f386141d2c5efd39cbeed316d620888a:
+     Add .bazelversion at the correct location
+   + c8388e3dd5d9e6a371482133fb08ae37c2a4890c:
+     Delete some dead code
+   + a47a59237c816845b5881b7ce883e29702dc0267:
+     Update ResolvedToolchainContext to take an ImmutableSet.
+   + 0d2e9dae9c64ef783fa79b5b97fe2682499e038e:
+     Automated rollback of commit
+     f548d56bc7f5c664fe6de5070a47e24720d35597.
+```
+
+Incompatible changes:
+
+  - --legacy_bazel_java_test is now a no-op
+  - --legacy_bazel_java_test is now a no-op
+
+Important changes:
+
+  - The flag `--distinct_host_configuration` is removed. It has been
+    a no-op since Bazel 6.0.0.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Eagle, Benjamin Peterson, Ed Schouten, Fabian Meumertzheim, hvd, Jon Landis, something_vague.
+
 ## Release 7.0.0-pre.20230316.2 (2023-03-27)
 
 ```

@@ -24,8 +24,8 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src/conditions:darwin": [
-            "darwin/fsevents.cc",
             "darwin/file_jni.cc",
+            "darwin/fsevents.cc",
             "darwin/sleep_prevention_jni.cc",
             "darwin/system_cpu_speed_monitor_jni.cc",
             "darwin/system_disk_space_monitor_jni.cc",

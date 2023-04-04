@@ -111,11 +111,11 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "test-setup.sh",
-        "generate-xml.sh",
-        "collect_coverage.sh",
         "collect_cc_coverage.sh",
+        "collect_coverage.sh",
         "extensions.bzl",
+        "generate-xml.sh",
+        "test-setup.sh",
     ] + select({
         "@bazel_tools//src/conditions:windows": [
             "tw",

@@ -175,7 +175,7 @@ public class ExecutionGraphModule extends BlazeModule {
         name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "false",
+        defaultValue = "true",
         help = "Handle edges from filewrite actions to their inputs correctly.")
     public boolean logFileWriteEdges;
   }

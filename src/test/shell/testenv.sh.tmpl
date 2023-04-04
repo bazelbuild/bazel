@@ -380,6 +380,8 @@ function setup_android_platforms() {
   mkdir -p test_android_platforms
 
   cat > test_android_platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 platform(
     name = "simple",
     constraint_values = [
@@ -464,6 +466,8 @@ function maybe_setup_python_windows_tools() {
   mkdir -p tools/python/windows
   cat > tools/python/windows/BUILD << EOF
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+
+package(default_visibility = ["//visibility:public"])
 
 py_runtime(
   name = "py3_runtime",

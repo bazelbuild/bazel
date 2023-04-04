@@ -120,12 +120,11 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    */
   public static Label parseCanonical(String raw) throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
-    parts.checkPkgDoesNotEndWithTripleDots();
     parts.checkPkgIsAbsolute();
     RepositoryName repoName =
-        parts.repo() == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo());
+        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
     return createUnvalidated(
-        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg())), parts.target());
+        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
   /** Like {@link #parseCanonical}, but throws an unchecked exception instead. */
@@ -140,18 +139,18 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   /** Computes the repo name for the label, within the context of a current repo. */
   private static RepositoryName computeRepoNameWithRepoContext(
       Parts parts, RepoContext repoContext) {
-    if (parts.repo() == null) {
+    if (parts.repo == null) {
       // Certain package names when used without a "@" part are always absolutely in the main repo,
       // disregarding the current repo and repo mappings.
-      return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg())
+      return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg)
           ? RepositoryName.MAIN
           : repoContext.currentRepo();
     }
-    if (parts.repoIsCanonical()) {
+    if (parts.repoIsCanonical) {
       // This label uses the canonical label literal syntax starting with two @'s ("@@foo//bar").
-      return RepositoryName.createUnvalidated(parts.repo());
+      return RepositoryName.createUnvalidated(parts.repo);
     }
-    return repoContext.repoMapping().get(parts.repo());
+    return repoContext.repoMapping().get(parts.repo);
   }
 
   /**
@@ -163,11 +162,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static Label parseWithRepoContext(String raw, RepoContext repoContext)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
-    parts.checkPkgDoesNotEndWithTripleDots();
     parts.checkPkgIsAbsolute();
     RepositoryName repoName = computeRepoNameWithRepoContext(parts, repoContext);
     return createUnvalidated(
-        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg())), parts.target());
+        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
   }
 
   /**
@@ -180,15 +178,14 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static Label parseWithPackageContext(String raw, PackageContext packageContext)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
-    parts.checkPkgDoesNotEndWithTripleDots();
     // pkg is either absolute or empty
-    if (!parts.pkg().isEmpty()) {
+    if (!parts.pkg.isEmpty()) {
       parts.checkPkgIsAbsolute();
     }
     RepositoryName repoName = computeRepoNameWithRepoContext(parts, packageContext);
     PathFragment pkgFragment =
-        parts.pkgIsAbsolute() ? PathFragment.create(parts.pkg()) : packageContext.packageFragment();
-    return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target());
+        parts.pkgIsAbsolute ? PathFragment.create(parts.pkg) : packageContext.packageFragment();
+    return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target);
   }
 
   /**
@@ -203,7 +200,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
     return createUnvalidated(
         PackageIdentifier.parse(packageName),
-        validateAndProcessTargetName(packageName, targetName, /* pkgEndsWithTripleDots= */ false));
+        validateAndProcessTargetName(packageName, targetName));
   }
 
   /**
@@ -214,10 +211,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       throws LabelSyntaxException {
     return createUnvalidated(
         packageId,
-        validateAndProcessTargetName(
-            packageId.getPackageFragment().getPathString(),
-            targetName,
-            /* pkgEndsWithTripleDots= */ false));
+        validateAndProcessTargetName(packageId.getPackageFragment().getPathString(), targetName));
   }
 
   /**
