@@ -983,7 +983,6 @@ public class Package {
     private final Package pkg;
 
     private final boolean noImplicitFileExport;
-    private static final CallStack.Factory callStackFactory = new CallStack.Factory();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
@@ -1533,7 +1532,7 @@ public class Package {
         RuleClass ruleClass,
         Location location,
         List<StarlarkThread.CallStackEntry> callstack) {
-      return new Rule(pkg, label, ruleClass, location, callStackFactory.createFrom(callstack));
+      return new Rule(pkg, label, ruleClass, location, CallStack.createFrom(callstack));
     }
 
     @Nullable

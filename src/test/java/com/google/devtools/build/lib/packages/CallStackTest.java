@@ -44,8 +44,7 @@ public class CallStackTest {
 
   @Test
   public void testCreateFromEmptyCallStack() {
-    CallStack.Factory factory = new CallStack.Factory();
-    CallStack result = factory.createFrom(ImmutableList.of());
+    CallStack result = CallStack.createFrom(ImmutableList.of());
 
     assertThat(result.size()).isEqualTo(0);
     assertThat(result.toList()).isEmpty();
@@ -53,20 +52,16 @@ public class CallStackTest {
 
   @Test
   public void testCreateFromSimpleCallStack() {
-    CallStack.Factory factory = new CallStack.Factory();
-
     ImmutableList<StarlarkThread.CallStackEntry> stack =
         ImmutableList.of(
             entryFromNameAndLocation("func1", "file1.bzl", 10, 20),
             entryFromNameAndLocation("func2", "file2.bzl", 20, 30));
 
-    assertCallStackContents(factory.createFrom(stack), stack);
+    assertCallStackContents(CallStack.createFrom(stack), stack);
   }
 
   @Test
   public void testCreateFromCallStackWithLoops() {
-    CallStack.Factory factory = new CallStack.Factory();
-
     StarlarkThread.CallStackEntry loopEntry1 =
         entryFromNameAndLocation("loop1", "file1.bzl", 10, 20);
     StarlarkThread.CallStackEntry loopEntry2 =
@@ -75,13 +70,11 @@ public class CallStackTest {
     ImmutableList<StarlarkThread.CallStackEntry> stack =
         ImmutableList.of(loopEntry1, loopEntry2, loopEntry1, loopEntry2);
 
-    assertCallStackContents(factory.createFrom(stack), stack);
+    assertCallStackContents(CallStack.createFrom(stack), stack);
   }
 
   @Test
   public void testCreateFromConsecutiveCalls() {
-    CallStack.Factory factory = new CallStack.Factory();
-
     ImmutableList.Builder<StarlarkThread.CallStackEntry> stackBuilder =
         ImmutableList.<StarlarkThread.CallStackEntry>builder()
             .add(entryFromNameAndLocation("f1", "f.bzl", 1, 2))
@@ -90,13 +83,12 @@ public class CallStackTest {
     ImmutableList<StarlarkThread.CallStackEntry> stack2 =
         stackBuilder.add(entryFromNameAndLocation("h1", "h.bzl", 3, 4)).build();
 
-    assertCallStackContents(factory.createFrom(stack1), stack1);
-    assertCallStackContents(factory.createFrom(stack2), stack2);
+    assertCallStackContents(CallStack.createFrom(stack1), stack1);
+    assertCallStackContents(CallStack.createFrom(stack2), stack2);
   }
 
   @Test
-  public void callStackFactory_tailOptimisation() {
-    CallStack.Factory factory = new CallStack.Factory();
+  public void sharesCommonTail() {
     ImmutableList<StarlarkThread.CallStackEntry> stack1 =
         ImmutableList.of(
             entryFromNameAndLocation("target1", "a/BUILD", 1, 2),
@@ -108,19 +100,18 @@ public class CallStackTest {
             entryFromNameAndLocation("java_library_macro", "java_library_macro.bzl", 2, 3),
             entryFromNameAndLocation("java_library", "java_library.bzl", 4, 5));
 
-    CallStack optimisedStack1 = factory.createFrom(stack1);
-    CallStack optimisedStack2 = factory.createFrom(stack2);
+    CallStack optimisedStack1 = CallStack.createFrom(stack1);
+    CallStack optimisedStack2 = CallStack.createFrom(stack2);
 
     assertCallStackContents(optimisedStack1, stack1);
     assertCallStackContents(optimisedStack2, stack2);
-    assertThat(optimisedStack1.head.child).isSameInstanceAs(optimisedStack2.head.child);
-    assertThat(optimisedStack1.head.child.child).isSameInstanceAs(optimisedStack2.head.child.child);
+    assertThat(optimisedStack1.head.next()).isSameInstanceAs(optimisedStack2.head.next());
+    assertThat(optimisedStack1.head.next().next())
+        .isSameInstanceAs(optimisedStack2.head.next().next());
   }
 
   @Test
   public void testSerialization() throws Exception {
-    CallStack.Factory factory = new CallStack.Factory();
-
     ImmutableList<StarlarkThread.CallStackEntry> stackEntries1 =
         ImmutableList.of(
             entryFromNameAndLocation("somename", "f1.bzl", 1, 2),
@@ -131,8 +122,8 @@ public class CallStackTest {
     ImmutableList<StarlarkThread.CallStackEntry> stackEntries2 =
         ImmutableList.of(entryFromNameAndLocation("shortStack", "short.bzl", 9, 10));
 
-    CallStack callStack1 = factory.createFrom(stackEntries1);
-    CallStack callStack2 = factory.createFrom(stackEntries2);
+    CallStack callStack1 = CallStack.createFrom(stackEntries1);
+    CallStack callStack2 = CallStack.createFrom(stackEntries2);
 
     CallStack.Serializer serializer = new CallStack.Serializer();
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
