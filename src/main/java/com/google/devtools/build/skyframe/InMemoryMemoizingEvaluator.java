@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -62,7 +61,7 @@ public final class InMemoryMemoizingEvaluator
         progressReceiver,
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
-        new NestedSetVisitor.VisitedState(),
+        new EmittedEventState(),
         /* keepEdges= */ true,
         /* usePooledSkyKeyInterning= */ true);
   }
@@ -73,7 +72,7 @@ public final class InMemoryMemoizingEvaluator
       @Nullable EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       EventFilter eventFilter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       boolean keepEdges,
       boolean usePooledSkyKeyInterning) {
     super(

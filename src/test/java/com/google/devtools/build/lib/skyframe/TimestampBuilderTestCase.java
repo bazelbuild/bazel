@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -101,6 +100,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -312,7 +312,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             evaluationProgressReceiver,
             graphInconsistencyReceiver,
             EventFilter.FULL_STORAGE,
-            new NestedSetVisitor.VisitedState(),
+            new EmittedEventState(),
             /* keepEdges= */ true,
             /* usePooledSkyKeyInterning= */ true);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());

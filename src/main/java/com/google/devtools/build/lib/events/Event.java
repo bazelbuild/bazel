@@ -73,7 +73,10 @@ public final class Event implements Reportable {
 
   @Override
   public boolean storeForReplay() {
-    return kind != EventKind.PROGRESS && kind != EventKind.INFO && kind != EventKind.DEBUG;
+    return kind != EventKind.PROGRESS
+        && kind != EventKind.WARNING
+        && kind != EventKind.INFO
+        && kind != EventKind.DEBUG;
   }
 
   public EventKind getKind() {

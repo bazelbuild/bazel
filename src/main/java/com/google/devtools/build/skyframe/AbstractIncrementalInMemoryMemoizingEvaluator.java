@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
@@ -56,7 +55,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   // re-evaluated even if none of their children are changed.
   private final InvalidationState invalidatorState = new DirtyingInvalidationState();
 
-  protected final NestedSetVisitor.VisitedState emittedEventState;
+  final EmittedEventState emittedEventState;
 
   protected IntVersion lastGraphVersion = null;
 
@@ -65,7 +64,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
       Differencer differencer,
       DirtyTrackingProgressReceiver dirtyTrackingProgressReceiver,
       EventFilter eventFilter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       boolean keepEdges) {
     this.skyFunctions = checkNotNull(skyFunctions);

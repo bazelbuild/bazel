@@ -121,6 +121,9 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().handle(Event.progress(builder.progress));
         }
+        if (builder.errorEvent != null) {
+          env.getListener().handle(Event.error(builder.errorEvent));
+        }
         if (builder.postable != null) {
           env.getListener().post(builder.postable);
         }
@@ -262,6 +265,7 @@ public class GraphTester {
 
     private String warning;
     private String progress;
+    private String errorEvent;
     private Postable postable;
 
     private String tag;
@@ -334,6 +338,7 @@ public class GraphTester {
       Preconditions.checkState(!hasError);
       Preconditions.checkState(warning == null);
       Preconditions.checkState(progress == null);
+      Preconditions.checkState(errorEvent == null);
       Preconditions.checkState(tag == null);
       this.builder = builder;
       return this;
@@ -367,6 +372,16 @@ public class GraphTester {
     @CanIgnoreReturnValue
     public TestFunction setProgress(String info) {
       this.progress = info;
+      return this;
+    }
+
+    /**
+     * Sets an error message to emit as an {@link Event}. Does not imply that the function throws an
+     * error.
+     */
+    @CanIgnoreReturnValue
+    public TestFunction setErrorEvent(String error) {
+      this.errorEvent = error;
       return this;
     }
 
