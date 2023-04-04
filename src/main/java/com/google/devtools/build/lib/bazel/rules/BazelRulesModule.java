@@ -362,6 +362,15 @@ public final class BazelRulesModule extends BlazeModule {
         help = "This option is deprecated and has no effect.")
     public boolean shortenObjFilePath;
 
+    @Deprecated
+    @Option(
+        name = "use_workers_with_dexbuilder",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "This option is deprecated and has no effect.")
+    public boolean useWorkersWithDexbuilder;
+
     @Option(
         name = "force_ignore_dash_static",
         defaultValue = "false",
