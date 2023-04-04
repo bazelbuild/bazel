@@ -158,7 +158,7 @@ tasks:
       - build
       - test
   macos:
-    xcode_version: "13.0"
+    xcode_version: "14.2"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -214,6 +214,12 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # https://github.com/bazelbuild/bazel/issues/17411
       - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17447
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17456
+      - "-//src/test/shell/bazel:bazel_determinism_test"
+      # https://github.com/bazelbuild/bazel/issues/17457
+      - "-//src/test/shell/bazel:jdeps_test"
     include_json_profile:
       - build
       - test
