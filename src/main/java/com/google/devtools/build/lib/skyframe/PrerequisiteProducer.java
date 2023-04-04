@@ -337,7 +337,8 @@ public final class PrerequisiteProducer {
           return false;
         }
 
-        if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
+        if (!checkForIncompatibleTarget(env, state, targetAndConfiguration, configConditions,
+            platformInfo, transitivePackages)) {
           return false;
         }
       }
@@ -460,8 +461,10 @@ public final class PrerequisiteProducer {
    *
    * @return false if a {@code Skyframe} restart is needed.
    */
-  private boolean checkForIncompatibleTarget(
-      Environment env, State state, @Nullable NestedSetBuilder<Package> transitivePackages)
+  private static boolean checkForIncompatibleTarget(
+      Environment env, State state, TargetAndConfiguration targetAndConfiguration,
+      @Nullable ConfigConditions configConditions, @Nullable PlatformInfo targetPlatformInfo,
+      @Nullable NestedSetBuilder<Package> transitivePackages)
       throws InterruptedException, IncompatibleTargetException {
     if (state.incompatibleTarget == null) {
       if (state.incompatibleTargetProducer == null) {
@@ -471,7 +474,7 @@ public final class PrerequisiteProducer {
                     targetAndConfiguration.getTarget(),
                     targetAndConfiguration.getConfiguration(),
                     configConditions,
-                    platformInfo,
+                    targetPlatformInfo,
                     transitivePackages,
                     state));
       }
