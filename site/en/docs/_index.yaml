@@ -120,13 +120,13 @@ landing_page:
     - heading: Using Bazel on Windows
       path: /configure/windows
     - heading: Extracting build performance metrics
-      path: /configure/build-performance-metrics
+      path: /advanced/performance/build-performance-metrics
     - heading: Breaking down build performance
-      path: /configure/build-performance-breakdown
+      path: /advanced/performance/build-performance-breakdown
     - heading: JSON trace profile
-      path: /configure/json-trace-profile
+      path: /advanced/performance/json-trace-profile
     - heading: Optimize memory
-      path: /configure/memory
+      path: /advanced/performance/memory
 
   # Remote distrubution row
   - options:
