@@ -24,8 +24,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
-import net.starlark.java.eval.FlagGuardedValue;
+import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
@@ -37,42 +36,9 @@ public class CcBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_cc", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/cc"));
 
-  private final CcModuleApi<
-          ? extends StarlarkActionFactoryApi,
-          ? extends FileApi,
-          ? extends FdoContextApi<?>,
-          ? extends
-              CcToolchainProviderApi<
-                  ? extends FeatureConfigurationApi, ?, ? extends FdoContextApi<?>>,
-          ? extends FeatureConfigurationApi,
-          ? extends CcCompilationContextApi<? extends FileApi>,
-          ? extends LtoBackendArtifactsApi<? extends FileApi>,
-          ? extends
-              LinkerInputApi<
-                  ? extends
-                      LibraryToLinkApi<
-                          ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
-                  ? extends LtoBackendArtifactsApi<? extends FileApi>,
-                  ? extends FileApi>,
-          ? extends CcLinkingContextApi<? extends FileApi>,
-          ? extends
-              LibraryToLinkApi<
-                  ? extends FileApi, ? extends LtoBackendArtifactsApi<? extends FileApi>>,
-          ? extends CcToolchainVariablesApi,
-          ? extends ConstraintValueInfoApi,
-          ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
-          ? extends CcToolchainConfigInfoApi,
-          ? extends CcCompilationOutputsApi<? extends FileApi>,
-          ? extends CcDebugInfoContextApi,
-          ? extends CppModuleMapApi<? extends FileApi>>
-      ccModule;
-
   private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
   private final DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
-  private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
-  private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
-  private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
   public CcBootstrap(
       CcModuleApi<
@@ -81,7 +47,14 @@ public class CcBootstrap implements Bootstrap {
               ? extends FdoContextApi<?>,
               ? extends
                   CcToolchainProviderApi<
-                      ? extends FeatureConfigurationApi, ?, ? extends FdoContextApi<?>>,
+                      ? extends FeatureConfigurationApi,
+                      ?,
+                      ? extends FdoContextApi<?>,
+                      ?,
+                      ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
+                      ?,
+                      ? extends CppConfigurationApi<?>,
+                      ?>,
               ? extends FeatureConfigurationApi,
               ? extends CcCompilationContextApi<? extends FileApi>,
               ? extends LtoBackendArtifactsApi<? extends FileApi>,
@@ -103,21 +76,15 @@ public class CcBootstrap implements Bootstrap {
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>,
               ? extends CcDebugInfoContextApi,
-              ? extends CppModuleMapApi<? extends FileApi>>
+              ? extends CppModuleMapApi<? extends FileApi>,
+              ? extends CcLinkingOutputsApi<?, ?>>
           ccModule,
       CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
       DebugPackageInfoApi.Provider<? extends FileApi> debugPackageInfoProvider,
-      CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
-      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
-      PyWrapCcInfoApi.Provider pyWrapCcInfoProvider,
-      PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
-    this.ccModule = ccModule;
+      CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider) {
     this.ccInfoProvider = ccInfoProvider;
     this.debugPackageInfoProvider = debugPackageInfoProvider;
     this.ccToolchainConfigInfoProvider = ccToolchainConfigInfoProvider;
-    this.pyWrapCcHelper = pyWrapCcHelper;
-    this.pyWrapCcInfoProvider = pyWrapCcInfoProvider;
-    this.pyCcLinkInfoParamsInfoProvider = pyCcLinkInfoParamsInfoProvider;
   }
 
   @Override
@@ -126,7 +93,7 @@ public class CcBootstrap implements Bootstrap {
         "cc_common",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            ccModule,
+            Starlark.NONE,
             allowedRepositories));
     builder.put(
         "CcInfo",
@@ -146,21 +113,5 @@ public class CcBootstrap implements Bootstrap {
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
             ccToolchainConfigInfoProvider,
             allowedRepositories));
-    builder.put(
-        "py_wrap_cc_helper_do_not_use",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyWrapCcHelper));
-    builder.put(
-        "PyWrapCcInfo",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            pyWrapCcInfoProvider,
-            PyBootstrap.allowedRepositories));
-    builder.put(
-        "PyCcLinkParamsProvider",
-        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
-            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            pyCcLinkInfoParamsInfoProvider,
-            PyBootstrap.allowedRepositories));
   }
 }

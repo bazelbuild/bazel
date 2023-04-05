@@ -29,6 +29,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   private final TestType testType;
   private final boolean strictActionConflictCheck;
   private final boolean explicitlyRequested;
+  private final boolean skipIncompatibleExplicitTargets;
   private final boolean isTopLevelAspectDriver;
 
   private BuildDriverKey(
@@ -36,12 +37,14 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets,
       boolean isTopLevelAspectDriver,
       TestType testType) {
     this.actionLookupKey = actionLookupKey;
     this.topLevelArtifactContext = topLevelArtifactContext;
     this.strictActionConflictCheck = strictActionConflictCheck;
     this.explicitlyRequested = explicitlyRequested;
+    this.skipIncompatibleExplicitTargets = skipIncompatibleExplicitTargets;
     this.isTopLevelAspectDriver = isTopLevelAspectDriver;
     this.testType = testType;
   }
@@ -50,13 +53,15 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
       ActionLookupKey actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
-      boolean explicitlyRequested) {
+      boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets) {
     return new BuildDriverKey(
         actionLookupKey,
         topLevelArtifactContext,
         strictActionConflictCheck,
         explicitlyRequested,
-        /*isTopLevelAspectDriver=*/ true,
+        skipIncompatibleExplicitTargets,
+        /* isTopLevelAspectDriver= */ true,
         TestType.NOT_TEST);
   }
 
@@ -65,13 +70,15 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets,
       TestType testType) {
     return new BuildDriverKey(
         actionLookupKey,
         topLevelArtifactContext,
         strictActionConflictCheck,
         explicitlyRequested,
-        /*isTopLevelAspectDriver=*/ false,
+        skipIncompatibleExplicitTargets,
+        /* isTopLevelAspectDriver= */ false,
         testType);
   }
 
@@ -97,6 +104,10 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
 
   public boolean isExplicitlyRequested() {
     return explicitlyRequested;
+  }
+
+  public boolean shouldSkipIncompatibleExplicitTargets() {
+    return skipIncompatibleExplicitTargets;
   }
 
   public boolean isTopLevelAspectDriver() {
@@ -145,9 +156,19 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   }
 
   enum TestType {
-    NOT_TEST,
-    PARALLEL,
-    EXCLUSIVE,
-    EXCLUSIVE_IF_LOCAL
+    NOT_TEST("not-test"),
+    PARALLEL("parallel"),
+    EXCLUSIVE("exclusive"),
+    EXCLUSIVE_IF_LOCAL("exclusive-if-local");
+
+    private final String msg;
+
+    TestType(String msg) {
+      this.msg = msg;
+    }
+
+    public String getMsg() {
+      return msg;
+    }
   }
 }

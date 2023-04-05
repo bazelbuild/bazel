@@ -279,7 +279,7 @@ function test_untokenizable_jvm_flag_when_escaping_is_enabled() {
     # On Windows, Bazel will check the flag.
     bazel build --verbose_failures "${pkg}:cannot_tokenize" \
       2>"$TEST_log" && fail "expected failure" || true
-    expect_log "ERROR:.*in jvm_flags attribute of java_binary rule"
+    expect_log "Error in tokenize: unterminated quotation"
   else
     # On other platforms, Bazel will build the target but it fails to run.
     bazel build --verbose_failures "${pkg}:cannot_tokenize" \

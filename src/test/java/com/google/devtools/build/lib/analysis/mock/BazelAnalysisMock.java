@@ -125,7 +125,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
     Runfiles runfiles = Runfiles.create();
-    for (String filename : Arrays.asList("tools/jdk/java_toolchain_alias.bzl")) {
+    for (String filename :
+        Arrays.asList("tools/jdk/java_toolchain_alias.bzl", "tools/jdk/java_stub_template.txt")) {
       java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
       if (!Files.exists(path)) {
         continue; // the io_bazel workspace root only exists for Bazel
@@ -384,7 +385,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "embedded_tools/tools/launcher/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "load('@bazel_tools//third_party/cc_rules/macros:defs.bzl', 'cc_binary')",
-        "cc_binary(name='launcher', srcs=['launcher_main.cc'])");
+        "cc_binary(name='launcher', srcs=['launcher_main.cc'])",
+        "cc_binary(name='launcher_maker', srcs=['launcher_maker.cc'])");
 
     config.create(
         "embedded_tools/tools/def_parser/BUILD",
@@ -578,6 +580,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "",
         "def http_jar(**kwargs):",
         "  pass");
+    config.create("embedded_tools/tools/jdk/jdk_build_file.bzl", "JDK_BUILD_TEMPLATE = ''");
     config.create(
         "embedded_tools/tools/jdk/local_java_repository.bzl",
         "def local_java_repository(**kwargs):",

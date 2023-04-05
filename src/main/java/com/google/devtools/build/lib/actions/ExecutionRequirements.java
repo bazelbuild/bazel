@@ -154,6 +154,30 @@ public class ExecutionRequirements {
             return null;
           });
 
+  /** How many extra resources an action requires for execution. */
+  public static final ParseableRequirement RESOURCES =
+      ParseableRequirement.create(
+          "resources:<str>:<float>",
+          Pattern.compile("resources:(.+:.+)"),
+          s -> {
+            Preconditions.checkNotNull(s);
+
+            int splitIndex = s.indexOf(":");
+            String resourceCount = s.substring(splitIndex + 1);
+            float value;
+            try {
+              value = Float.parseFloat(resourceCount);
+            } catch (NumberFormatException e) {
+              return "can't be parsed as a float";
+            }
+
+            if (value < 0) {
+              return "can't be negative";
+            }
+
+            return null;
+          });
+
   /** If an action supports running in persistent worker mode. */
   public static final String SUPPORTS_WORKERS = "supports-workers";
 

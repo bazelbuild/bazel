@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Getting Help
 
+{% include "_buttons.html" %}
+
 This page lists Bazel resources beyond the documentation and covers how to get
 support from the Bazel team and community.
 

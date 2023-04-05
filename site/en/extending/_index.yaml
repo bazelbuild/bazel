@@ -60,7 +60,7 @@ landing_page:
       path: /extending/aspects
     - heading: Repository rules
       path: /extending/repo
-    - heading: Configuring
+    - heading: Configurations
       path: /extending/config
 
   # Writing rules row

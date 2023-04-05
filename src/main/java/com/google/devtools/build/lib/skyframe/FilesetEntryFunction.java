@@ -176,7 +176,6 @@ public final class FilesetEntryFunction implements SkyFunction {
           targetName,
           f.getMetadata(),
           params.getDestPath(),
-          direct.isGenerated(),
           outputSymlinks,
           getExecRoot.apply(workspaceNameValue.getName()));
     }
@@ -190,22 +189,20 @@ public final class FilesetEntryFunction implements SkyFunction {
       PathFragment linkTarget,
       HasDigest metadata,
       PathFragment destPath,
-      boolean isGenerated,
       Map<PathFragment, FilesetOutputSymlink> result,
       Path execRoot) {
     linkName = destPath.getRelative(linkName);
     if (!result.containsKey(linkName)) {
       result.put(
           linkName,
-          FilesetOutputSymlink.create(
-              linkName, linkTarget, metadata, isGenerated, execRoot.asFragment()));
+          FilesetOutputSymlink.create(linkName, linkTarget, metadata, execRoot.asFragment()));
     }
   }
 
   /**
    * Returns the {@link TraversalRequest} node used to compute the Skyframe value for {@code
    * filesetEntryKey}. Should only be called to determine which nodes need to be rewound, and only
-   * when {@code filesetEntryKey.isGenerated()}.
+   * when {@code DirectTraversal.isGenerated()}.
    */
   public static TraversalRequest getDependencyForRewinding(FilesetEntryKey key) {
     FilesetTraversalParams params = checkParams(key);

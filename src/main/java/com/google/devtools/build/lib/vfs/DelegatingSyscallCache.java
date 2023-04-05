@@ -14,16 +14,18 @@
 
 package com.google.devtools.build.lib.vfs;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import java.io.IOException;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
 /** {@link SyscallCache} that delegates to an injectable one. */
 public class DelegatingSyscallCache implements SyscallCache {
-  private SyscallCache delegate;
+  private SyscallCache delegate = SyscallCache.NO_CACHE;
 
   public void setDelegate(SyscallCache syscallCache) {
-    this.delegate = syscallCache;
+    this.delegate = checkNotNull(syscallCache);
   }
 
   @Override
@@ -31,6 +33,7 @@ public class DelegatingSyscallCache implements SyscallCache {
     return delegate.readdir(path);
   }
 
+  @Nullable
   @Override
   public FileStatus statIfFound(Path path, Symlinks symlinks) throws IOException {
     return delegate.statIfFound(path, symlinks);
@@ -65,10 +68,5 @@ public class DelegatingSyscallCache implements SyscallCache {
   @Override
   public void clear() {
     delegate.clear();
-  }
-
-  /** Returns the delegate {@link SyscallCache}. */
-  public SyscallCache getDelegate() {
-    return delegate;
   }
 }

@@ -50,7 +50,7 @@ public final class Allowlist {
   public static Attribute.Builder<Label> getAttributeFromAllowlistName(String allowlistName) {
     String attributeName = getAttributeNameFromAllowlistName(allowlistName).iterator().next();
     return attr(attributeName, LABEL)
-        .cfg(ExecutionTransitionFactory.create())
+        .cfg(ExecutionTransitionFactory.createFactory())
         .mandatoryProviders(PackageGroupConfiguredTarget.PROVIDER.id());
   }
 

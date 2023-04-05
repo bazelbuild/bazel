@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Execution Overview
 
+{% include "_buttons.html" %}
+
 This page covers the benefits, requirements, and options for running Bazel
 with remote execution.
 
@@ -29,4 +31,4 @@ self-service tools, see
 
 Remote execution of Bazel builds imposes a set of mandatory configuration
 constraints on the build. For more information, see
-[Adapting Bazel Rules for Remote Execution](/docs/remote-execution-rules).
+[Adapting Bazel Rules for Remote Execution](/remote/rules).

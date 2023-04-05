@@ -122,7 +122,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       return canonicalizedString;
     }
     canonicalizedString =
-        parentLabel.getRelativeWithRemapping(setting, repoMapping).getUnambiguousCanonicalForm();
+        Label.parseWithPackageContext(
+                setting, PackageContext.of(parentLabel.getPackageIdentifier(), repoMapping))
+            .getUnambiguousCanonicalForm();
     return canonicalizedString;
   }
 

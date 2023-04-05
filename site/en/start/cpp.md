@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build a C++ Project
 
+{% include "_buttons.html" %}
+
 ## Introduction
 
 New to Bazel? You’re in the right place. Follow this First Build tutorial for a
@@ -67,7 +69,7 @@ There are three sets of files, each set representing a stage in this tutorial.
 In the first stage, you will build a single [target]
 (https://bazel.build/reference/glossary#target) residing in a single [package]
 (https://bazel.build/reference/glossary#package). In the second stage, you will
-you will build both a binary and a library from a single package. In
+build both a binary and a library from a single package. In
 the third and final stage, you will build a project with multiple packages and
 build it with multiple targets.
 
@@ -124,9 +126,9 @@ cc_binary(
 )
 ```
 
-In our example, the `hello-world` target instantiates Bazel's built-in 
+In our example, the `hello-world` target instantiates Bazel's built-in
 <code>[cc_binary rule](https://bazel.build/reference/be/c-cpp#cc_binary)</code>.
-The rule tells Bazel to build a self-contained executable binary from the 
+The rule tells Bazel to build a self-contained executable binary from the
 <code>hello-world.cc</code> source file with no dependencies.
 
 ### Summary: getting started
@@ -165,7 +167,7 @@ bazel build //main:hello-world
 
 In the target label, the `//main:` part is the location of the `BUILD` file
 relative to the root of the workspace, and `hello-world` is the target name in
-the `BUILD` file. 
+the `BUILD` file.
 
 Bazel produces something that looks like this:
 
@@ -397,8 +399,8 @@ start. Here are some more resources to continue learning with Bazel:
 
 *   To keep focusing on C++, read about common [C++ build use cases](https://bazel.build/tutorials/cpp-use-cases).
 *   To get started with building other applications with Bazel, see the tutorials
-for [Java](https://bazel.build/tutorials/java), [Android application](https://bazel.build/tutorials/android-app),
-or [iOS application](https://bazel.build/tutorials/ios-app).
+for [Java](https://bazel.build/start/java), [Android application](https://bazel.build/start/android-app ),
+or [iOS application](https://bazel.build/start/ios-app)).
 *   To learn more about working with local and remote repositories, read about
 [external dependencies](https://bazel.build/docs/external).
 *   To learn more about Bazel’s other rules, see this [reference guide](https://bazel.build/rules).

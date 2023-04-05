@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Best Practices
 
+{% include "_buttons.html" %}
+
 This page assumes you are familiar with Bazel and provides guidelines and
 advice on structuring your projects to take full advantage of Bazel's features.
 
@@ -66,7 +68,7 @@ then the `BUILD` files are misleading.
 ## Using the `.bazelrc` file {:#bazelrc-file}
 
 For project-specific options, use the configuration file your
-`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/docs/bazelrc)).
+`{{ '<var>' }}workspace{{ '</var>' }}/.bazelrc` (see [bazelrc format](/run/bazelrc)).
 
 If you want to support per-user options for your project that you **do not**
 want to check into source control, include the line:

@@ -76,56 +76,76 @@ function has_utf8_locale() {
   [[ "${charmap}" == "UTF-8" ]]
 }
 
-function setup_credential_helper() {
+function setup_credential_helper_test() {
+  # Each helper call atomically writes one byte to this file.
+  # We can later read the file to determine how many calls were made.
+  cat > "${TEST_TMPDIR}/credhelper_log"
+
   cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
 #!/usr/bin/env python3
+import os
+
+path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper_log")
+fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
+os.write(fd, b"1")
+os.close(fd)
+
 print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
 EOF
   chmod +x "${TEST_TMPDIR}/credhelper"
+
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+[genrule(
+  name = x,
+  outs = [x + ".txt"],
+  cmd = "touch $(OUTS)",
+) for x in ["a", "b"]]
+EOF
+
+  stop_worker
+  start_worker --expected_authorization_token=secret_token
+}
+
+function expect_credential_helper_calls() {
+  local -r expected=$1
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
+  if [[ "$expected" != "$actual" ]]; then
+    fail "expected $expected instead of $actual credential helper calls"
+  fi
 }
 
 function test_credential_helper_remote_cache() {
-  setup_credential_helper
-
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
-  cmd = "touch $(OUTS)",
-)
-EOF
-
-  stop_worker
-  start_worker --expected_authorization_token=secret_token
+  setup_credential_helper_test
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
 
+  # Helper shouldn't have been called yet.
+  expect_credential_helper_calls 0
+
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # First build should have called helper for 4 distinct URIs.
+  expect_credential_helper_calls 4
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Second build should have hit the credentials cache.
+  expect_credential_helper_calls 4
 }
 
 function test_credential_helper_remote_execution() {
-  setup_credential_helper
-
-  mkdir -p a
-
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "a",
-  outs = ["a.txt"],
-  cmd = "touch $(OUTS)",
-)
-EOF
-
-  stop_worker
-  start_worker --expected_authorization_token=secret_token
+  setup_credential_helper_test
 
   bazel build \
       --spawn_strategy=remote \
@@ -133,11 +153,49 @@ EOF
       //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
 
+  # Helper shouldn't have been called yet.
+  expect_credential_helper_calls 0
+
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # First build should have called helper for 5 distinct URIs.
+  expect_credential_helper_calls 5
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Second build should have hit the credentials cache.
+  expect_credential_helper_calls 5
+}
+
+function test_credential_helper_clear_cache() {
+  setup_credential_helper_test
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  expect_credential_helper_calls 5
+
+  bazel clean
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
+
+  # Build after clean should have called helper again.
+  expect_credential_helper_calls 10
 }
 
 function test_remote_grpc_cache_with_protocol() {
@@ -1987,12 +2045,10 @@ sh_test(
 EOF
 
   bazel test \
-    --incompatible_exclusive_test_sandboxed \
     --remote_cache=grpc://localhost:${worker_port} \
     //a:success_test || fail "Failed to test //a:success_test"
 
   bazel test \
-    --incompatible_exclusive_test_sandboxed \
     --remote_cache=grpc://localhost:${worker_port} \
     --nocache_test_results \
     //a:success_test >& $TEST_log || fail "Failed to test //a:success_test"
@@ -2145,6 +2201,13 @@ function test_empty_tree_artifact_as_inputs() {
   bazel build \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
     --experimental_sibling_repository_layout \
     //pkg:a &>$TEST_log || fail "expected build to succeed with sibling repository layout"
 }
@@ -2212,6 +2275,15 @@ function test_create_tree_artifact_outputs() {
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+  [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
+  [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+
+  bazel clean --expunge
+  bazel build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:a &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 
@@ -3022,7 +3094,6 @@ EOF
   bazel \
     --windows_enable_symlinks \
     build \
-    --experimental_allow_unresolved_symlinks \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     //pkg:b &>$TEST_log || fail "expected build to succeed"
@@ -3035,11 +3106,19 @@ EOF
   bazel \
     --windows_enable_symlinks \
     build \
-    --experimental_allow_unresolved_symlinks \
     --spawn_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_remote_merkle_tree_cache \
     //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree cache"
+
+  bazel clean --expunge
+  bazel \
+    --windows_enable_symlinks \
+    build \
+    --spawn_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_remote_discard_merkle_trees \
+    //pkg:b &>$TEST_log || fail "expected build to succeed with Merkle tree discarding"
 
   if [[ "$(cat bazel-bin/pkg/b.txt)" != "$link_target" ]]; then
     fail "expected symlink target to be $link_target"

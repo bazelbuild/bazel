@@ -152,9 +152,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
           .that(getGeneratingLabelForArtifact(copiedLib))
           .isNotEqualTo(target.getLabel());
     }
-    assertThat(
-            AnalysisTestUtil.artifactsToStrings(
-                targetConfiguration, getHostConfiguration(), copiedLibs))
+    assertThat(AnalysisTestUtil.artifactsToStrings(targetConfiguration, copiedLibs))
         .containsAtLeastElementsIn(ImmutableSet.copyOf(Arrays.asList(expectedLibNames)));
   }
 
@@ -241,7 +239,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
               return javaOutput
                   .getClassJar()
                   .getFilename()
-                  .equals(target.getTarget().getName() + "_resources.jar");
+                  .equals(target.getTargetForTesting().getName() + "_resources.jar");
             })
         .getClassJar();
   }

@@ -19,6 +19,24 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_toolchain", "cc_toolchain_suite
 
 package(default_visibility = ["//visibility:public"])
 
+cc_library(name = "empty_lib")
+
+# Label flag for extra libraries to be linked into every binary.
+# TODO(bazel-team): Support passing flag multiple times to build a list.
+label_flag(
+    name = "link_extra_libs",
+    build_setting_default = ":empty_lib",
+)
+
+# The final extra library to be linked into every binary target. This collects
+# the above flag, but may also include more libraries depending on config.
+cc_library(
+    name = "link_extra_lib",
+    deps = [
+        ":link_extra_libs",
+    ],
+)
+
 cc_library(
     name = "malloc",
 )

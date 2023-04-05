@@ -226,6 +226,7 @@ message Spawn {
     //   refactored to prohibit undetailed failures
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
     FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
+    REMOTE_CACHE_EVICTED = 14 [(metadata) = { exit_code: 39 }];
   }
   Code code = 1;
 
@@ -318,6 +319,11 @@ message Crash {
   // The cause chain of the crash, with the outermost throwable first. Limited
   // to the outermost exception and at most 4 nested causes (so, max size of 5).
   repeated Throwable causes = 2;
+
+  // True when the root cause of the crash was not an OutOfMemoryError, but
+  // CRASH_OOM was chosen because an OutOfMemoryError was detected prior to the
+  // crash.
+  bool oom_detector_override = 3;
 }
 
 message Throwable {
@@ -624,10 +630,12 @@ message InfoCommand {
 message MemoryOptions {
   enum Code {
     MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
-        [(metadata) = { exit_code: 2 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
-        [(metadata) = { exit_code: 2 }];
+    // Deprecated: validation is now implemented by the option converter.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }, deprecated = true];
+    // Deprecated: no tenured collectors found is now a crash on startup.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
+        [(metadata) = { exit_code: 2 }, deprecated = true];
   }
 
   Code code = 1;

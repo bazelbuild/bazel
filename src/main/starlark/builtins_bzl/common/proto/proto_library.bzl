@@ -18,10 +18,8 @@ Definition of proto_library rule.
 
 load(":common/proto/proto_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_info.bzl", "ProtoInfo", "ProtoSourceInfo")
 load(":common/paths.bzl", "paths")
-
-ProtoInfo = _builtins.toplevel.ProtoInfo
-native_proto_common = _builtins.toplevel.proto_common
 
 def _check_srcs_package(target_package, srcs):
     """Check that .proto files in sources are from the same package.
@@ -92,7 +90,7 @@ def _proto_library_impl(ctx):
     ]
 
 def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
-    """Transforms Files in srcs to ProtoSources, optionally symlinking them to _virtual_imports.
+    """Transforms Files in srcs to ProtoSourceInfos, optionally symlinking them to _virtual_imports.
 
     Returns:
       A pair proto_path, directs_sources.
@@ -114,7 +112,7 @@ def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
             else:
                 # source_root == ''|'bazel-out/foo/k8-fastbuild/bin' / 'external/repo'
                 source_root = _join(src.root.path, ctx.label.workspace_root)
-            direct_sources.append(native_proto_common.ProtoSource(src, src, source_root))
+            direct_sources.append(ProtoSourceInfo(_source_file = src, _original_source_file = src, _proto_path = source_root))
 
         return ctx.label.workspace_root if ctx.label.workspace_root else ".", direct_sources
 
@@ -157,7 +155,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
             target_file = src,
             progress_message = "Symlinking virtual .proto sources for %{label}",
         )
-        direct_sources.append(native_proto_common.ProtoSource(virtual_src, src, proto_path))
+        direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _original_source_file = src, _proto_path = proto_path))
     return proto_path, direct_sources
 
 def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set):
@@ -166,11 +164,11 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
     # Construct ProtoInfo
     transitive_proto_sources = depset(
         direct = direct_sources,
-        transitive = [dep.transitive_proto_sources() for dep in deps],
+        transitive = [dep._transitive_proto_sources for dep in deps],
         order = "preorder",
     )
     transitive_sources = depset(
-        direct = [src.source_file() for src in direct_sources],
+        direct = [src._source_file for src in direct_sources],
         transitive = [dep.transitive_sources for dep in deps],
         order = "preorder",
     )
@@ -179,7 +177,7 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
         transitive = [dep.transitive_proto_path for dep in deps],
     )
     if direct_sources:
-        check_deps_sources = depset(direct = [src.source_file() for src in direct_sources])
+        check_deps_sources = depset(direct = [src._source_file for src in direct_sources])
     else:
         check_deps_sources = depset(transitive = [dep.check_deps_sources for dep in deps])
 
@@ -192,22 +190,24 @@ def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descripto
     if direct_sources:
         exported_sources = depset(direct = direct_sources)
     else:
-        exported_sources = depset(transitive = [dep.exported_sources() for dep in deps])
+        exported_sources = depset(transitive = [dep._exported_sources for dep in deps])
 
-    return native_proto_common.ProtoInfo(
-        direct_sources,
-        proto_path,
-        transitive_sources,
-        transitive_proto_sources,
-        transitive_proto_path,
-        check_deps_sources,
-        descriptor_set,
-        transitive_descriptor_sets,
-        exported_sources,
+    return ProtoInfo(
+        direct_sources = [src._source_file for src in direct_sources],
+        transitive_sources = transitive_sources,
+        direct_descriptor_set = descriptor_set,
+        transitive_descriptor_sets = transitive_descriptor_sets,
+        proto_source_root = proto_path,
+        transitive_proto_path = transitive_proto_path,
+        check_deps_sources = check_deps_sources,
+        transitive_imports = transitive_sources,
+        _direct_proto_sources = direct_sources,
+        _transitive_proto_sources = transitive_proto_sources,
+        _exported_sources = exported_sources,
     )
 
 def _get_import_path(proto_source):
-    return proto_source.import_path()
+    return paths.relativize(proto_source._source_file.path, proto_source._proto_path)
 
 def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set):
     """Writes descriptor set."""
@@ -220,6 +220,8 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
     args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
         args.add("--include_source_info")
+    if hasattr(ctx.attr, "_retain_options") and ctx.attr._retain_options:
+        args.add("--retain_options")
 
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
@@ -227,7 +229,7 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
         if direct_sources:
             strict_importable_sources = depset(
                 direct = direct_sources,
-                transitive = [dep.exported_sources() for dep in deps],
+                transitive = [dep._exported_sources for dep in deps],
             )
         else:
             strict_importable_sources = None
@@ -245,7 +247,7 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
     strict_public_imports_mode = ctx.fragments.proto.strict_public_imports()
     strict_imports = strict_public_imports_mode != "OFF" and strict_public_imports_mode != "DEFAULT"
     if strict_imports:
-        public_import_protos = depset(transitive = [export.exported_sources() for export in exports])
+        public_import_protos = depset(transitive = [export._exported_sources for export in exports])
         if not public_import_protos:
             # This line is necessary to trigger the check.
             args.add("--allowed_public_imports=")
@@ -298,4 +300,5 @@ proto_library = rule(
     fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
     provides = [ProtoInfo],
     output_to_genfiles = True,  # TODO(b/204266604) move to bin dir
+    exec_groups = semantics.EXEC_GROUPS,
 )

@@ -148,16 +148,14 @@ public final class ActionInputHelper {
       ArtifactExpander artifactExpander,
       boolean keepEmptyTreeArtifacts) {
     List<ActionInput> result = new ArrayList<>();
-    List<Artifact> containedArtifacts = new ArrayList<>();
     for (ActionInput input : inputs.toList()) {
-      if (!(input instanceof Artifact)) {
+      if (input instanceof Artifact) {
+        Artifact.addExpandedArtifact(
+            (Artifact) input, result, artifactExpander, keepEmptyTreeArtifacts);
+      } else {
         result.add(input);
-        continue;
       }
-      containedArtifacts.add((Artifact) input);
     }
-    Artifact.addExpandedArtifacts(
-        containedArtifacts, result, artifactExpander, keepEmptyTreeArtifacts);
     return result;
   }
 

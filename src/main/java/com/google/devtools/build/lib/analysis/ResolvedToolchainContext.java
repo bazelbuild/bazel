@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -46,7 +47,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
   public static ResolvedToolchainContext load(
       UnloadedToolchainContext unloadedToolchainContext,
       String targetDescription,
-      Iterable<ConfiguredTargetAndData> toolchainTargets)
+      ImmutableSet<ConfiguredTargetAndData> toolchainTargets)
       throws ToolchainException {
 
     ImmutableMap.Builder<ToolchainTypeInfo, ToolchainInfo> toolchainsBuilder =

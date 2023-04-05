@@ -30,12 +30,14 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Options affecting the execution phase of a build.
@@ -110,7 +112,7 @@ public class ExecutionOptions extends OptionsBase {
           "Override which spawn strategy should be used to execute spawn actions that have "
               + "descriptions matching a certain regex_filter. See --per_file_copt for details on"
               + "regex_filter matching. "
-              + "The first regex_filter that matches the description is used. "
+              + "The last regex_filter that matches the description is used. "
               + "This option overrides other flags for specifying strategy. "
               + "Example: --strategy_regexp=//foo.*\\.cc,-//foo/bar=local means to run actions "
               + "using local strategy if their descriptions match //foo.*.cc but not //foo/bar. "
@@ -326,6 +328,23 @@ public class ExecutionOptions extends OptionsBase {
   public float localRamResources;
 
   @Option(
+      name = "local_extra_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Set the number of extra resources available to Bazel. "
+              + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+              + "types of extra resources. Bazel will limit concurrently running actions "
+              + "based on the available extra resources and the extra resources required. "
+              + "Tests can declare the amount of extra resources they need "
+              + "by using a tag of the \"resources:<resoucename>:<amount>\" format. "
+              + "Available CPU, RAM and resources cannot be set with this flag.",
+      converter = Converters.StringToFloatAssignmentConverter.class)
+  public List<Map.Entry<String, Float>> localExtraResources;
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,
@@ -456,6 +475,17 @@ public class ExecutionOptions extends OptionsBase {
   public PathFragment executionLogJsonFile;
 
   @Option(
+      name = "execution_log_sort",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to sort the execution log. Set to false to improve memory"
+              + " performance, at the cost of producing the log in nondeterministic"
+              + " order.")
+  public boolean executionLogSort;
+
+  @Option(
       name = "experimental_split_xml_generation",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -465,6 +495,28 @@ public class ExecutionOptions extends OptionsBase {
               + "Bazel uses a separate action to generate a dummy test.xml file containing the "
               + "test log. Otherwise, Bazel generates a test.xml as part of the test action.")
   public boolean splitXmlGeneration;
+
+  @Option(
+      name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
+              + " blobs during the build.")
+  public boolean useNewExitCodeForLostInputs;
+
+  @Option(
+      name = "experimental_remote_cache_eviction_retries",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "The maximum number of attempts to retry if the build encountered remote cache eviction"
+              + " error. A non-zero value will implicitly set"
+              + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true.")
+  public int remoteRetryOnCacheEviction;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
@@ -504,16 +556,13 @@ public class ExecutionOptions extends OptionsBase {
     private static final int MAX_VALUE = 10;
 
     private void validateInput(String input) throws OptionsParsingException {
-      if ("default".equals(input)) {
-        return;
-      } else {
-        Integer value = Integer.parseInt(input);
+      if (!Objects.equals(input, "default")) {
+        int value = Integer.parseInt(input);
         if (value < MIN_VALUE) {
           throw new OptionsParsingException("'" + input + "' should be >= " + MIN_VALUE);
-        } else if (value < MIN_VALUE || value > MAX_VALUE) {
+        } else if (value > MAX_VALUE) {
           throw new OptionsParsingException("'" + input + "' should be <= " + MAX_VALUE);
         }
-        return;
       }
     }
 

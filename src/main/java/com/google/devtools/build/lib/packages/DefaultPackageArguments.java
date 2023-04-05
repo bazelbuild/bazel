@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import java.util.Set;
 import net.starlark.java.eval.EvalException;
@@ -30,15 +31,16 @@ final class DefaultPackageArguments {
   /** Returns the default set of {@link PackageArgument}s. */
   static ImmutableList<PackageArgument<?>> get() {
     return ImmutableList.of(
-            new DefaultDeprecation(),
-            new DefaultDistribs(),
-            new DefaultApplicableLicenses(),
-            new DefaultLicenses(),
-            new DefaultTestOnly(),
-            new DefaultVisibility(),
-            new Features(),
-            new DefaultCompatibleWith(),
-            new DefaultRestrictedTo());
+        new DefaultDeprecation(),
+        new DefaultDistribs(),
+        new DefaultApplicableLicenses(),
+        new DefaultPackageMetadata(),
+        new DefaultLicenses(),
+        new DefaultTestOnly(),
+        new DefaultVisibility(),
+        new Features(),
+        new DefaultCompatibleWith(),
+        new DefaultRestrictedTo());
   }
 
   private static class DefaultVisibility extends PackageArgument<List<Label>> {
@@ -47,9 +49,9 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        List<Label> value) throws EvalException {
-      pkgBuilder.setDefaultVisibility(PackageUtils.getVisibility(value));
+    protected void process(Package.Builder pkgBuilder, Location location, List<Label> value)
+        throws EvalException {
+      pkgBuilder.setDefaultVisibility(RuleVisibility.parse(value));
     }
   }
 
@@ -95,17 +97,48 @@ final class DefaultPackageArguments {
    * specified.
    */
   private static class DefaultApplicableLicenses extends PackageArgument<List<Label>> {
-    private static final String DEFAULT_APPLICABLE_LICENSES_ATTRIBUTE =
-        "default_applicable_licenses";
-
     private DefaultApplicableLicenses() {
-      super(DEFAULT_APPLICABLE_LICENSES_ATTRIBUTE, BuildType.LABEL_LIST);
+      super("default_applicable_licenses", BuildType.LABEL_LIST);
     }
 
     @Override
     protected void process(Package.Builder pkgBuilder, Location location, List<Label> value) {
-      pkgBuilder.setDefaultApplicableLicenses(
-          value, DEFAULT_APPLICABLE_LICENSES_ATTRIBUTE, location);
+      if (!pkgBuilder.getDefaultPackageMetadata().isEmpty()) {
+        pkgBuilder.addEvent(
+            Package.error(
+                location,
+                "Can not set both default_package_metadata and default_applicable_licenses."
+                    + " Move all declarations to default_package_metadata.",
+                Code.INVALID_PACKAGE_SPECIFICATION));
+      }
+
+      pkgBuilder.setDefaultPackageMetadata(value, "default_package_metadata", location);
+    }
+  }
+
+  /**
+   * Declares the package() attribute specifying the default value for {@link
+   * com.google.devtools.build.lib.packages.RuleClass#APPLICABLE_LICENSES_ATTR} when not explicitly
+   * specified.
+   */
+  private static class DefaultPackageMetadata extends PackageArgument<List<Label>> {
+    private static final String DEFAULT_PACKAGE_METADATA_ATTRIBUTE = "default_package_metadata";
+
+    private DefaultPackageMetadata() {
+      super(DEFAULT_PACKAGE_METADATA_ATTRIBUTE, BuildType.LABEL_LIST);
+    }
+
+    @Override
+    protected void process(Package.Builder pkgBuilder, Location location, List<Label> value) {
+      if (!pkgBuilder.getDefaultPackageMetadata().isEmpty()) {
+        pkgBuilder.addEvent(
+            Package.error(
+                location,
+                "Can not set both default_package_metadata and default_applicable_licenses."
+                    + " Move all declarations to default_package_metadata.",
+                Code.INVALID_PACKAGE_SPECIFICATION));
+      }
+      pkgBuilder.setDefaultPackageMetadata(value, DEFAULT_PACKAGE_METADATA_ATTRIBUTE, location);
     }
   }
 

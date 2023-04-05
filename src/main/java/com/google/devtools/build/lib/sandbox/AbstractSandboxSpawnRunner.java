@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -106,12 +105,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       }
     } catch (IOException e) {
       FailureDetail failureDetail =
-          createFailureDetail(
+          SandboxHelpers.createFailureDetail(
               "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
       throw new UserExecException(e, failureDetail);
     } catch (ForbiddenActionInputException e) {
       FailureDetail failureDetail =
-          createFailureDetail(
+          SandboxHelpers.createFailureDetail(
               "Forbidden input found during sandboxed execution", Code.FORBIDDEN_INPUT);
       throw new UserExecException(e, failureDetail);
     }
@@ -219,7 +218,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
           .setFailureMessage(message)
-          .setFailureDetail(createFailureDetail(message, Code.SUBPROCESS_START_FAILED))
+          .setFailureDetail(
+              SandboxHelpers.createFailureDetail(message, Code.SUBPROCESS_START_FAILED))
           .build();
     }
 
@@ -269,7 +269,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setStartTime(startTime)
-            .setWallTime(wallTime)
+            .setWallTimeInMs((int) wallTime.toMillis())
             .setFailureMessage(failureMessage);
 
     if (failureDetail != null) {
@@ -281,8 +281,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       ExecutionStatistics.getResourceUsage(statisticsPath)
           .ifPresent(
               resourceUsage -> {
-                spawnResultBuilder.setUserTime(resourceUsage.getUserExecutionTime());
-                spawnResultBuilder.setSystemTime(resourceUsage.getSystemExecutionTime());
+                spawnResultBuilder.setUserTimeInMs(
+                    (int) resourceUsage.getUserExecutionTime().toMillis());
+                spawnResultBuilder.setSystemTimeInMs(
+                    (int) resourceUsage.getSystemExecutionTime().toMillis());
                 spawnResultBuilder.setNumBlockOutputOperations(
                     resourceUsage.getBlockOutputOperations());
                 spawnResultBuilder.setNumBlockInputOperations(
@@ -310,9 +312,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   /**
    * Gets the list of directories that the spawn will assume to be writable.
    *
+   * @param sandboxExecRoot the exec root of the sandbox from the point of view of the Bazel process
+   * @param withinSandboxExecRoot the exec root from the point of view of the sandboxed processes
+   * @param env the environment of the sandboxed processes
    * @throws IOException because we might resolve symlinks, which throws {@link IOException}.
    */
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+  protected ImmutableSet<Path> getWritableDirs(
+      Path sandboxExecRoot, Path withinSandboxExecRoot, Map<String, String> env)
       throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
@@ -320,7 +326,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     // On Windows, sandboxExecRoot is actually the main execroot. We will specify
     // exactly which output path is writable.
     if (OS.getCurrent() != OS.WINDOWS) {
-      writablePaths.add(sandboxExecRoot);
+      writablePaths.add(withinSandboxExecRoot);
     }
 
     String testTmpdir = env.get("TEST_TMPDIR");
@@ -414,10 +420,4 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     }
   }
 
-  static FailureDetail createFailureDetail(String message, Code detailedCode) {
-    return FailureDetail.newBuilder()
-        .setMessage(message)
-        .setSandbox(Sandbox.newBuilder().setCode(detailedCode))
-        .build();
-  }
 }

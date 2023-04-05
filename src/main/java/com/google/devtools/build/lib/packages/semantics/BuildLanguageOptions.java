@@ -56,6 +56,14 @@ import net.starlark.java.eval.StarlarkSemantics;
  * </ul>
  */
 public final class BuildLanguageOptions extends OptionsBase {
+  @Option(
+      name = "experimental_java_library_export",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help = "If enabled, experimental_java_library_export_do_not_use module is available.")
+  public boolean experimentalJavaLibraryExport;
 
   @Option(
       name = "incompatible_stop_exporting_language_modules",
@@ -198,6 +206,14 @@ public final class BuildLanguageOptions extends OptionsBase {
           "If true, enables the Bzlmod dependency management system, taking precedence over"
               + " WORKSPACE. See https://bazel.build/docs/bzlmod for more information.")
   public boolean enableBzlmod;
+
+  @Option(
+      name = "experimental_enable_bzlmod_lockfile",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help = "If true, enables the Bzlmod lockfile caching the module contents.")
+  public boolean enableLockfile;
 
   @Option(
       name = "experimental_java_proto_library_default_has_services",
@@ -654,6 +670,7 @@ public final class BuildLanguageOptions extends OptionsBase {
     // This function connects command-line flags to their corresponding StarlarkSemantics keys.
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
+            .setBool(EXPERIMENTAL_JAVA_LIBRARY_EXPORT, experimentalJavaLibraryExport)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                 incompatibleStopExportingLanguageModules)
@@ -669,6 +686,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
+            .setBool(ENABLE_LOCKFILE, enableLockfile)
             .setBool(
                 EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
                 experimentalJavaProtoLibraryDefaultHasServices)
@@ -744,6 +762,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   // (In principle, a key not associated with a command-line flag may be declared anywhere.)
 
   // booleans: the +/- prefix indicates the default value (true/false).
+  public static final String EXPERIMENTAL_JAVA_LIBRARY_EXPORT = "-experimental_java_library_export";
   public static final String INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES =
       "-incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
@@ -761,6 +780,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
   public static final String ENABLE_BZLMOD = "-enable_bzlmod";
+  public static final String ENABLE_LOCKFILE = "-experimental_enable_bzlmod_lockfile";
   public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
       "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =

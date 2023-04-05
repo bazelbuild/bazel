@@ -128,8 +128,7 @@ public class AppleBinary {
       BuildConfigurationValue childConfig = dependencySpecificConfiguration.config();
       CppConfiguration childCppConfig = childConfig.getFragment(CppConfiguration.class);
       IntermediateArtifacts intermediateArtifacts =
-          new IntermediateArtifacts(
-              ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
+          new IntermediateArtifacts(ruleContext, childConfig);
 
       List<? extends TransitiveInfoCollection> propagatedDeps =
           MultiArchBinarySupport.getProvidersFromCtads(splitDeps.get(splitTransitionKey));

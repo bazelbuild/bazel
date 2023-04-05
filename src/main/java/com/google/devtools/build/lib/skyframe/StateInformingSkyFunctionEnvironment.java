@@ -15,11 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.devtools.build.skyframe.GroupedDeps;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.Version;
 import java.util.function.Supplier;
@@ -127,17 +126,6 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   }
 
   @Override
-  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    preFetch.inform();
-    try {
-      return delegate.getOrderedValuesAndExceptions(depKeys);
-    } finally {
-      postFetch.inform();
-    }
-  }
-
-  @Override
   public ExtendedEventHandler getListener() {
     return delegate.getListener();
   }
@@ -149,7 +137,7 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
 
   @Nullable
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
   }
 
@@ -171,6 +159,11 @@ final class StateInformingSkyFunctionEnvironment implements SkyFunction.Environm
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }
 
   @Override

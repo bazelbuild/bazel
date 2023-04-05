@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
@@ -66,7 +67,6 @@ import io.grpc.util.MutableHandlerRegistry;
 import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -172,7 +172,6 @@ public class GrpcRemoteDownloaderTest {
       guavaChecksum = com.google.common.base.Optional.<Checksum>of(checksum.get());
     }
 
-    final ImmutableMap<URI, Map<String, List<String>>> authHeaders = ImmutableMap.of();
     final String canonicalId = "";
     final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
     final Map<String, String> clientEnv = ImmutableMap.of();
@@ -181,7 +180,7 @@ public class GrpcRemoteDownloaderTest {
     final Path destination = scratch.resolve("output file path");
     downloader.download(
         urls,
-        authHeaders,
+        StaticCredentials.EMPTY,
         guavaChecksum,
         canonicalId,
         destination,
@@ -350,29 +349,10 @@ public class GrpcRemoteDownloaderTest {
                 new URL("http://example.com/a"),
                 new URL("http://example.com/b"),
                 new URL("file:/not/limited/to/http")),
-            ImmutableMap.of(
-                new URI("http://example.com"),
-                ImmutableMap.of(
-                    "Some-Header", ImmutableList.of("some header content"),
-                    "Another-Header",
-                        ImmutableList.of("another header content", "even more header content")),
-                new URI("http://example.org"),
-                ImmutableMap.of(
-                    "Org-Header",
-                    ImmutableList.of("org header content", "and a second one", "and a third one"))),
             com.google.common.base.Optional.<Checksum>of(
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
-            "canonical ID",
-            /* includeAllHeaders= */ false);
-
-    final String expectedAuthHeadersJson =
-        "{"
-            + "\"http://example.com\":{"
-            + "\"Another-Header\":\"another header content\","
-            + "\"Some-Header\":\"some header content\""
-            + "}"
-            + "}";
+            "canonical ID");
 
     assertThat(request)
         .isEqualTo(
@@ -387,63 +367,6 @@ public class GrpcRemoteDownloaderTest {
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
-                .addQualifiers(
-                    Qualifier.newBuilder()
-                        .setName("bazel.auth_headers")
-                        .setValue(expectedAuthHeadersJson))
-                .build());
-  }
-
-  @Test
-  public void testFetchBlobRequestWithAllHeaders() throws Exception {
-    FetchBlobRequest request =
-        GrpcRemoteDownloader.newFetchBlobRequest(
-            "instance name",
-            ImmutableList.of(
-                new URL("http://example.com/a"),
-                new URL("http://example.com/b"),
-                new URL("file:/not/limited/to/http")),
-            ImmutableMap.of(
-                new URI("http://example.com"),
-                ImmutableMap.of(
-                    "Some-Header", ImmutableList.of("some header content"),
-                    "Another-Header",
-                        ImmutableList.of("another header content", "even more header content")),
-                new URI("http://example.org"),
-                ImmutableMap.of(
-                    "Org-Header",
-                    ImmutableList.of("org header content", "and a second one", "and a third one"))),
-            com.google.common.base.Optional.<Checksum>of(
-                Checksum.fromSubresourceIntegrity(
-                    "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
-            "canonical ID",
-            /* includeAllHeaders= */ true);
-
-    final String expectedAuthHeadersJson =
-        "{"
-            + "\"http://example.com\":{"
-            + "\"Another-Header\":[\"another header content\",\"even more header content\"],"
-            + "\"Some-Header\":[\"some header content\"]"
-            + "}"
-            + "}";
-
-    assertThat(request)
-        .isEqualTo(
-            FetchBlobRequest.newBuilder()
-                .setInstanceName("instance name")
-                .addUris("http://example.com/a")
-                .addUris("http://example.com/b")
-                .addUris("file:/not/limited/to/http")
-                .addQualifiers(
-                    Qualifier.newBuilder()
-                        .setName("checksum.sri")
-                        .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
-                .addQualifiers(
-                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
-                .addQualifiers(
-                    Qualifier.newBuilder()
-                        .setName("bazel.auth_headers")
-                        .setValue(expectedAuthHeadersJson))
                 .build());
   }
 }

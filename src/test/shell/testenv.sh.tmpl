@@ -116,11 +116,11 @@ protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
 skylib_package="@bazel_skylib//"
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
-  junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
-  hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
+  junit_jar="${BAZEL_RUNFILES}/src/test/shell/bazel/junit.jar"
+  hamcrest_jar="${BAZEL_RUNFILES}/src/test/shell/bazel/hamcrest.jar"
 else
-  junit_jar=$(rlocation io_bazel/third_party/junit/junit-.*.jar)
-  hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
+  junit_jar=$(rlocation io_bazel/src/test/shell/bazel/junit.jar)
+  hamcrest_jar=$(rlocation io_bazel/src/test/shell/bazel/hamcrest.jar)
 fi
 
 
@@ -279,28 +279,27 @@ EOF
         "openjdk11_darwin_archive"
         "openjdk11_darwin_aarch64_archive"
         "openjdk11_linux_archive"
+        "openjdk11_linux_s390x_archive"
         "openjdk11_windows_archive"
         "openjdk11_windows_arm64_archive"
         "openjdk17_darwin_archive"
         "openjdk17_darwin_aarch64_archive"
         "openjdk17_linux_archive"
+        "openjdk17_linux_s390x_archive"
         "openjdk17_windows_archive"
         "openjdk17_windows_arm64_archive"
-        "openjdk18_darwin_archive"
-        "openjdk18_darwin_aarch64_archive"
-        "openjdk18_linux_archive"
-        "openjdk18_windows_archive"
-        "openjdk18_windows_arm64_archive"
-        "openjdk_linux_aarch64_minimal"
-        "openjdk_linux_minimal"
-        "openjdk_macos_x86_64_minimal"
-        "openjdk_macos_aarch64_minimal"
-        "openjdk_win_minimal"
+        "openjdk19_darwin_archive"
+        "openjdk19_darwin_aarch64_archive"
+        "openjdk19_linux_archive"
+        "openjdk19_linux_s390x_archive"
+        "openjdk19_windows_archive"
         "remote_coverage_tools"
         "remote_java_tools_for_testing"
-        "remote_java_tools_darwin_for_testing"
+        "remote_java_tools_darwin_x86_64_for_testing"
+        "remote_java_tools_darwin_arm64_for_testing"
         "remote_java_tools_test"
-        "remote_java_tools_test_darwin"
+        "remote_java_tools_test_darwin_x86_64"
+        "remote_java_tools_test_darwin_arm64"
         "remote_java_tools_test_linux"
         "remote_java_tools_test_windows"
         "remote_java_tools_linux_for_testing"
@@ -314,20 +313,23 @@ EOF
         "remotejdk11_win_for_testing"
         "remotejdk11_win_arm64_for_testing"
         "remotejdk17_linux_for_testing"
+        "remotejdk17_linux_s390x_for_testing"
         "remotejdk17_macos_for_testing"
         "remotejdk17_macos_aarch64_for_testing"
         "remotejdk17_win_for_testing"
         "remotejdk17_win_arm64_for_testing"
-        "remotejdk18_linux_for_testing"
-        "remotejdk18_macos_for_testing"
-        "remotejdk18_macos_aarch64_for_testing"
-        "remotejdk18_win_for_testing"
-        "remotejdk18_win_arm64_for_testing"
+        "remotejdk19_linux_for_testing"
+        "remotejdk19_linux_s390x_for_testing"
+        "remotejdk19_macos_for_testing"
+        "remotejdk19_macos_aarch64_for_testing"
+        "remotejdk19_win_for_testing"
+        "remotejdk19_win_arm64_for_testing"
         "rules_cc"
         "rules_java"
         "rules_license"
         "rules_proto"
         "rules_python"
+        "rules_pkg"
     )
     for repo in "${repos[@]}"; do
       reponame="${repo%"_for_testing"}"
@@ -378,6 +380,8 @@ function setup_android_platforms() {
   mkdir -p test_android_platforms
 
   cat > test_android_platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 platform(
     name = "simple",
     constraint_values = [
@@ -463,11 +467,7 @@ function maybe_setup_python_windows_tools() {
   cat > tools/python/windows/BUILD << EOF
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
-py_runtime(
-  name = "py2_runtime",
-  interpreter_path = r"C:\Python2\python.exe",
-  python_version = "PY2",
-)
+package(default_visibility = ["//visibility:public"])
 
 py_runtime(
   name = "py3_runtime",
@@ -477,7 +477,6 @@ py_runtime(
 
 py_runtime_pair(
   name = "py_runtime_pair",
-  py2_runtime = ":py2_runtime",
   py3_runtime = ":py3_runtime",
 )
 
@@ -552,11 +551,27 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 EOF
 }
 
+function add_rules_pkg_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_pkg}
+EOF
+}
+
 function add_rules_proto_to_workspace() {
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 {rules_proto}
+EOF
+}
+
+function add_rules_python_to_workspace() {
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_python}
 EOF
 }
 
@@ -573,7 +588,9 @@ EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_java_to_workspace "WORKSPACE"
   add_rules_license_to_workspace "WORKSPACE"
+  add_rules_pkg_to_workspace "WORKSPACE"
   add_rules_proto_to_workspace "WORKSPACE"
+  add_rules_python_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }
@@ -759,10 +776,8 @@ function use_fake_python_runtimes_for_testsuite() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
   if [[ $PLATFORM =~ msys ]]; then
-    PYTHON2_FILENAME="python2.bat"
     PYTHON3_FILENAME="python3.bat"
   else
-    PYTHON2_FILENAME="python2.sh"
     PYTHON3_FILENAME="python3.sh"
   fi
 
@@ -781,12 +796,6 @@ sh_binary(
 )
 
 py_runtime(
-    name = "fake_py2_interpreter",
-    interpreter = ":${PYTHON2_FILENAME}",
-    python_version = "PY2",
-)
-
-py_runtime(
     name = "fake_py3_interpreter",
     interpreter = ":${PYTHON3_FILENAME}",
     python_version = "PY3",
@@ -794,7 +803,6 @@ py_runtime(
 
 py_runtime_pair(
     name = "fake_py_runtime_pair",
-    py2_runtime = ":fake_py2_interpreter",
     py3_runtime = ":fake_py3_interpreter",
 )
 
@@ -807,21 +815,14 @@ EOF
 
   # Windows .bat has uppercase ECHO and no shebang.
   if [[ $PLATFORM =~ msys ]]; then
-    cat > tools/python/$PYTHON2_FILENAME << EOF
-@ECHO I am Python 2
-EOF
     cat > tools/python/$PYTHON3_FILENAME << EOF
 @ECHO I am Python 3
 EOF
   else
-    cat > tools/python/$PYTHON2_FILENAME << EOF
-#!/bin/sh
-echo 'I am Python 2'
-EOF
     cat > tools/python/$PYTHON3_FILENAME << EOF
 #!/bin/sh
 echo 'I am Python 3'
 EOF
-    chmod +x tools/python/$PYTHON2_FILENAME tools/python/$PYTHON3_FILENAME
+    chmod +x tools/python/$PYTHON3_FILENAME
   fi
 }

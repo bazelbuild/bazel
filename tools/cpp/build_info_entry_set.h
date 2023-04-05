@@ -71,6 +71,8 @@ class BuildInfoEntrySet {
                    std::unordered_map<std::string, KeyDescription>& keys,
                    std::unordered_map<std::string, std::string>& values,
                    std::string& result);
+
+  void AddSlashes(std::string& key);
 };
 
 }  // namespace cpp

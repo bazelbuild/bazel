@@ -39,17 +39,18 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -122,7 +123,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
       BuildLanguageOptions buildLanguageOptions, Path... roots) {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
@@ -135,6 +136,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             buildLanguageOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
   }
@@ -430,8 +432,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackageWithoutErrors(skyKey);
     assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:b.txt"),
-            Label.parseAbsoluteUnchecked("//foo:c/c.txt"))
+            Label.parseCanonicalUnchecked("//foo:b.txt"),
+            Label.parseCanonicalUnchecked("//foo:c/c.txt"))
         .inOrder();
     scratch.file("foo/d.txt");
     getSkyframeExecutor()
@@ -442,9 +444,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackageWithoutErrors(skyKey);
     assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//foo:b.txt"),
-            Label.parseAbsoluteUnchecked("//foo:c/c.txt"),
-            Label.parseAbsoluteUnchecked("//foo:d.txt"))
+            Label.parseCanonicalUnchecked("//foo:b.txt"),
+            Label.parseCanonicalUnchecked("//foo:c/c.txt"),
+            Label.parseCanonicalUnchecked("//foo:d.txt"))
         .inOrder();
   }
 
@@ -474,7 +476,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
@@ -487,6 +489,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            QuiescingExecutorsImpl.forTesting(),
             tsgm);
     getSkyframeExecutor().setActionEnv(ImmutableMap.<String, String>of());
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
@@ -556,7 +559,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
       throws NoSuchTargetException {
     List<Label> expectedLabels = new ArrayList<>();
     for (String item : expected) {
-      expectedLabels.add(Label.parseAbsoluteUnchecked(item));
+      expectedLabels.add(Label.parseCanonicalUnchecked(item));
     }
     assertThat(getSrcs(pkg, targetName)).containsExactlyElementsIn(expectedLabels).inOrder();
   }

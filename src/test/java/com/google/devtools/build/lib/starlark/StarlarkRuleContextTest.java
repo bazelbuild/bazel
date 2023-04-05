@@ -1019,14 +1019,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testHostConfiguration() throws Exception {
-    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    setRuleContext(ruleContext);
-    Object result = ev.eval("ruleContext.host_configuration");
-    assertThat(ruleContext.getRuleContext().getHostConfiguration()).isSameInstanceAs(result);
-  }
-
-  @Test
   public void testWorkspaceName() throws Exception {
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotNull();
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
@@ -1727,7 +1719,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(
             (List)
                 getConfiguredTargetAndData("@foo//:baz")
-                    .getTarget()
+                    .getTargetForTesting()
                     .getAssociatedRule()
                     .getAttr("srcs"))
         .contains(Label.parseCanonical("@foo//:baz.txt"));
@@ -2874,9 +2866,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "workspace_name",
           "label",
           "fragments",
-          "host_fragments",
           "configuration",
-          "host_configuration",
           "coverage_instrumented(dep)",
           "features",
           "bin_dir",
@@ -3287,7 +3277,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   private void createPlatforms() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "constraint_setting(name = 'setting')",
         "constraint_value(",
@@ -3432,7 +3422,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
+                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
@@ -3442,7 +3432,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).toolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:foo"));
   }
 
   // Tests for an error that occurs when two exec groups have different requirements (toolchain
@@ -3488,7 +3478,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
+                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
@@ -3499,9 +3489,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         .containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit", "passionfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).toolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:foo"));
     assertThat(toolchainContexts.get("passionfruit").resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+        .containsExactly(Label.parseCanonicalUnchecked("//toolchain:foo"));
   }
 
   @Test
@@ -3626,7 +3616,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         "def _artifact_to_basename(file):",
-        "  return file.basename",
+        "  return file.basename if file.basename != 'ignored.txt' else None",
         "",
         "def _undertest_impl(ctx):",
         "  template_dict = ctx.actions.template_dict()",
@@ -3634,6 +3624,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  template_dict.add_joined('td_files_key', depset(ctx.files.srcs),",
         "                           map_each = _artifact_to_basename,",
         "                           join_with = '%%',",
+        "                           format_joined = 'header/%s/footer',",
         "                          )",
         "  ctx.actions.expand_template(output=ctx.outputs.out,",
         "                              template=ctx.file.template,",
@@ -3656,7 +3647,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "undertest_rule(",
         "    name = 'undertest',",
         "    template = ':template.txt',",
-        "    srcs = ['foo.txt', 'bar.txt', 'baz.txt'],",
+        "    srcs = ['foo.txt', 'bar.txt', 'baz.txt', 'ignored.txt'],",
         ")",
         "testing_rule(",
         "    name = 'testing',",
@@ -3671,7 +3662,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     Object contentUnchecked = ev.eval("action.content");
     assertThat(contentUnchecked).isInstanceOf(String.class);
-    assertThat(contentUnchecked).isEqualTo("XXXXX\nYYY-pqr\nfoo.txt%%bar.txt%%baz.txt\n");
+    assertThat(contentUnchecked)
+        .isEqualTo("XXXXX\nYYY-pqr\nheader/foo.txt%%bar.txt%%baz.txt/footer\n");
 
     Object substitutionsUnchecked = ev.eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
@@ -3680,7 +3672,126 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             ImmutableMap.of(
                 "a", "X",
                 "b", "Y",
-                "td_files_key", "foo.txt%%bar.txt%%baz.txt"));
+                "td_files_key", "header/foo.txt%%bar.txt%%baz.txt/footer"));
+  }
+
+  @Test
+  public void testTemplateExpansionComputedSubstitutionWithUniquify() throws Exception {
+    setBuildLanguageOptions("--experimental_lazy_template_expansion");
+    scratch.file(
+        "test/rules.bzl",
+        "def _artifact_to_extension(file):",
+        "  return file.extension",
+        "",
+        "def _undertest_impl(ctx):",
+        "  template_dict = ctx.actions.template_dict()",
+        "  template_dict.add_joined('exts', depset(ctx.files.srcs),",
+        "                           map_each = _artifact_to_extension,",
+        "                           uniquify = True,",
+        "                           join_with = '%%',",
+        "                          )",
+        "  ctx.actions.expand_template(output=ctx.outputs.out,",
+        "                              template=ctx.file.template,",
+        "                              computed_substitutions=template_dict,",
+        "                              )",
+        "undertest_rule = rule(",
+        "  implementation = _undertest_impl,",
+        "  outputs = {'out': '%{name}.txt'},",
+        "  attrs = {'template': attr.label(allow_single_file=True),",
+        "           'srcs':attr.label_list(allow_files=True)",
+        "           },",
+        "  _skylark_testable = True,",
+        ")",
+        testingRuleDefinition);
+    scratch.file("test/template.txt", "exts", "exts");
+    scratch.file(
+        "test/BUILD",
+        "load(':rules.bzl', 'undertest_rule', 'testing_rule')",
+        "undertest_rule(",
+        "    name = 'undertest',",
+        "    template = ':template.txt',",
+        "    srcs = ['foo.txt', 'bar.log', 'baz.txt', 'bak.exe', 'far.sh', 'boo.sh'],",
+        ")",
+        "testing_rule(",
+        "    name = 'testing',",
+        "    dep = ':undertest',",
+        ")");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    assertThat(contentUnchecked).isEqualTo("txt%%log%%exe%%sh\ntxt%%log%%exe%%sh\n");
+
+    Object substitutionsUnchecked = ev.eval("action.substitutions");
+    assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
+    assertThat(substitutionsUnchecked).isEqualTo(ImmutableMap.of("exts", "txt%%log%%exe%%sh"));
+  }
+
+  @Test
+  public void testTemplateExpansionComputedSubstitutionWithUniquifyAndListMapEach()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_lazy_template_expansion");
+    scratch.file(
+        "test/rules.bzl",
+        "def _artifact_to_extension(file):",
+        "  if file.extension == 'sh':",
+        "    return [file.extension]",
+        "  return [file.extension, '.' + file.extension]",
+        "",
+        "def _undertest_impl(ctx):",
+        "  template_dict = ctx.actions.template_dict()",
+        "  template_dict.add_joined('exts', depset(ctx.files.srcs),",
+        "                           map_each = _artifact_to_extension,",
+        "                           uniquify = True,",
+        "                           join_with = '%%',",
+        "                          )",
+        "  ctx.actions.expand_template(output=ctx.outputs.out,",
+        "                              template=ctx.file.template,",
+        "                              computed_substitutions=template_dict,",
+        "                              )",
+        "undertest_rule = rule(",
+        "  implementation = _undertest_impl,",
+        "  outputs = {'out': '%{name}.txt'},",
+        "  attrs = {'template': attr.label(allow_single_file=True),",
+        "           'srcs':attr.label_list(allow_files=True)",
+        "           },",
+        "  _skylark_testable = True,",
+        ")",
+        testingRuleDefinition);
+    scratch.file("test/template.txt", "exts", "exts");
+    scratch.file(
+        "test/BUILD",
+        "load(':rules.bzl', 'undertest_rule', 'testing_rule')",
+        "undertest_rule(",
+        "    name = 'undertest',",
+        "    template = ':template.txt',",
+        "    srcs = ['foo.txt', 'bar.log', 'baz.txt', 'bak.exe', 'far.sh', 'boo.sh'],",
+        ")",
+        "testing_rule(",
+        "    name = 'testing',",
+        "    dep = ':undertest',",
+        ")");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    assertThat(ev.eval("type(action)")).isEqualTo("Action");
+
+    Object contentUnchecked = ev.eval("action.content");
+    assertThat(contentUnchecked).isInstanceOf(String.class);
+    assertThat(contentUnchecked)
+        .isEqualTo("txt%%.txt%%log%%.log%%exe%%.exe%%sh\ntxt%%.txt%%log%%.log%%exe%%.exe%%sh\n");
+
+    Object substitutionsUnchecked = ev.eval("action.substitutions");
+    assertThat(substitutionsUnchecked).isInstanceOf(Dict.class);
+    assertThat(substitutionsUnchecked)
+        .isEqualTo(ImmutableMap.of("exts", "txt%%.txt%%log%%.log%%exe%%.exe%%sh"));
   }
 
   @Test
@@ -3855,8 +3966,60 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(evalException)
         .hasMessageThat()
         .isEqualTo(
-            "Function provided to map_each must return a String, but returned type Label for key:"
-                + " %files%");
+            "Function provided to map_each must return string, None, or list of strings, "
+                + "but returned type Label for key '%files%' and value: "
+                + "File:[/workspace[source]]test/template.txt");
+  }
+
+  @Test
+  public void testTemplateExpansionComputedSubstitutionMapEachBadListReturnType() throws Exception {
+    setBuildLanguageOptions("--experimental_lazy_template_expansion");
+    scratch.file(
+        "test/rules.bzl",
+        "def file_to_owner_label(file):",
+        "  return [file.owner]",
+        "",
+        "def _undertest_impl(ctx):",
+        "  template_dict = ctx.actions.template_dict()",
+        "  template_dict.add_joined('%files%', depset(ctx.files.template),",
+        "                           map_each = file_to_owner_label,",
+        "                           join_with = '')",
+        "  ctx.actions.expand_template(output=ctx.outputs.out,",
+        "                              template=ctx.file.template,",
+        "                              computed_substitutions=template_dict,",
+        "                              )",
+        "undertest_rule = rule(",
+        "  implementation = _undertest_impl,",
+        "  outputs = {'out': '%{name}.txt'},",
+        "  attrs = {'template': attr.label(allow_single_file=True),},",
+        "  _skylark_testable = True,",
+        ")",
+        testingRuleDefinition);
+    scratch.file("test/template.txt");
+    scratch.file(
+        "test/BUILD",
+        "load(':rules.bzl', 'undertest_rule', 'testing_rule')",
+        "undertest_rule(",
+        "    name = 'undertest',",
+        "    template = ':template.txt',",
+        ")",
+        "testing_rule(",
+        "    name = 'testing',",
+        "    dep = ':undertest',",
+        ")");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+    ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
+    ev.update("action", ev.eval("ruleContext.attr.dep[Actions].by_file[file]"));
+
+    EvalException evalException =
+        assertThrows(EvalException.class, () -> ev.eval("action.content"));
+    assertThat(evalException)
+        .hasMessageThat()
+        .isEqualTo(
+            "Function provided to map_each must return string, None, or list of strings, "
+                + "but returned list containing element '//test:template.txt' of type Label for "
+                + "key '%files%' and value: File:[/workspace[source]]test/template.txt");
   }
 
   @Test

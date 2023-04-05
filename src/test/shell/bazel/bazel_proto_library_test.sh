@@ -48,19 +48,6 @@ function write_workspace() {
     mkdir -p "$workspace"
   fi
 
-  cat >> "$workspace"WORKSPACE << EOF
-# TODO(#9029): May require some adjustment if/when we depend on the real
-# @rules_python in the real source tree, since this third_party/ package won't
-# be available.
-new_local_repository(
-    name = "rules_python",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))",
-    build_file = "$(rlocation io_bazel/third_party/rules_python/BUILD)",
-    workspace_file = "$(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE)",
-)
-
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-EOF
   cat $(rlocation io_bazel/src/tests/shell/bazel/rules_proto_stanza.txt) >> "$workspace"WORKSPACE
   cat >> "$workspace"WORKSPACE << EOF
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
@@ -70,7 +57,7 @@ rules_proto_toolchains()
 # @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
 new_local_repository(
     name = "io_bazel",
-    path = "$(dirname $(rlocation io_bazel/third_party/rules_python/rules_python.WORKSPACE))/../..",
+    path = "$(dirname $(rlocation io_bazel/third_party/zlib))/..",
     build_file_content = "# Intentionally left empty.",
     workspace_file_content = "workspace(name = 'io_bazel')",
 )
@@ -563,6 +550,35 @@ void f() {
 EOF
 
   bazel build //a:c || fail "build failed"
+}
+
+function test_cc_proto_library_with_toolchain_resolution() {
+  write_workspace ""
+  mkdir -p a
+  cat > a/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(name='p', srcs=['p.proto'])
+cc_proto_library(name='cp', deps=[':p'])
+cc_library(name='c', srcs=['c.cc'], deps=[':cp'])
+EOF
+
+  cat > a/p.proto <<EOF
+syntax = "proto2";
+package a;
+message A {
+  optional int32 a = 1;
+}
+EOF
+
+  cat > a/c.cc <<EOF
+#include "a/p.pb.h"
+
+void f() {
+  a::A a;
+}
+EOF
+
+  bazel build --incompatible_enable_cc_toolchain_resolution //a:c || fail "build failed"
 }
 
 function test_cc_proto_library_import_prefix_stripping() {

@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -16,6 +19,11 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "resource_estimator",
+    srcs = ["ResourceEstimator.java"],
 )
 
 # Action graph and cache.
@@ -57,6 +65,8 @@ java_library(
             "ResourceManager.java",
             "ResourceSet.java",
             "ResourceSetOrBuilder.java",
+            "RemoteFileStatus.java",
+            "SharedActionEvent.java",
             "PackageRootResolver.java",
             "PackageRoots.java",
             "ThreadStateReceiver.java",
@@ -226,6 +236,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
@@ -263,6 +274,7 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
+        "RemoteFileStatus.java",
         "cache/MetadataDigestUtils.java",
     ],
     deps = [
@@ -367,12 +379,21 @@ java_library(
         ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
         "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/worker",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_key",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "shared_action_event",
+    srcs = ["SharedActionEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
+        "//third_party:guava",
     ],
 )

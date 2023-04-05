@@ -103,7 +103,7 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
 
     useConfiguration("--swiftcopt=foo", "--host_swiftcopt=bar", "--host_swiftcopt=baz");
     ConfiguredTarget target =
-        getConfiguredTarget("//examples/swift_starlark:my_target", getHostConfiguration());
+        getConfiguredTarget("//examples/swift_starlark:my_target", getExecConfiguration());
 
     @SuppressWarnings("unchecked")
     List<String> copts = (List<String>) getMyInfoFromTarget(target).getValue("copts");

@@ -22,9 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -42,7 +40,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
+import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -275,15 +273,18 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   @Override
-  @ThreadCompatible
-  public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Spawn spawn = createSpawn(actionExecutionContext);
-    SpawnContinuation spawnContinuation =
-        actionExecutionContext
-            .getContext(SpawnStrategyResolver.class)
-            .beginExecution(spawn, actionExecutionContext);
-    return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation);
+    try {
+      ImmutableList<SpawnResult> spawnResult =
+          actionExecutionContext
+              .getContext(SpawnStrategyResolver.class)
+              .exec(spawn, actionExecutionContext);
+      return ActionResult.create(spawnResult);
+    } catch (ExecException e) {
+      throw ActionExecutionException.fromExecException(e, CppLinkAction.this);
+    }
   }
 
   private Spawn createSpawn(ActionExecutionContext actionExecutionContext)
@@ -425,36 +426,6 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
             /* memoryMb= */ Math.max(50, -100 + 0.1 * inputs), /* cpuUsage= */ 1);
       default:
         return ResourceSet.createWithRamCpu(/* memoryMb= */ 1500 + inputs, /* cpuUsage= */ 1);
-    }
-  }
-
-  private final class CppLinkActionContinuation extends ActionContinuationOrResult {
-    private final ActionExecutionContext actionExecutionContext;
-    private final SpawnContinuation spawnContinuation;
-
-    public CppLinkActionContinuation(
-        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
-      this.actionExecutionContext = actionExecutionContext;
-      this.spawnContinuation = spawnContinuation;
-    }
-
-    @Override
-    public ListenableFuture<?> getFuture() {
-      return spawnContinuation.getFuture();
-    }
-
-    @Override
-    public ActionContinuationOrResult execute()
-        throws ActionExecutionException, InterruptedException {
-      try {
-        SpawnContinuation nextContinuation = spawnContinuation.execute();
-        if (!nextContinuation.isDone()) {
-          return new CppLinkActionContinuation(actionExecutionContext, nextContinuation);
-        }
-        return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
-      } catch (ExecException e) {
-        throw ActionExecutionException.fromExecException(e, CppLinkAction.this);
-      }
     }
   }
 

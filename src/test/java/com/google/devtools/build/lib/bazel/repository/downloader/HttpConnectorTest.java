@@ -126,7 +126,7 @@ public class HttpConnectorTest {
   public void normalRequest() throws Exception {
     final Map<String, List<String>> headers = new ConcurrentHashMap<>();
     try (ServerSocket server = new ServerSocket(0, 1, InetAddress.getByName(null))) {
-      @SuppressWarnings("unused") 
+      @SuppressWarnings("unused")
       Future<?> possiblyIgnoredError =
           executor.submit(
               new Callable<Object>() {
@@ -208,7 +208,8 @@ public class HttpConnectorTest {
                   .getInputStream(),
               ISO_8859_1)) {
         assertThat(CharStreams.toString(payload)).isEqualTo("hello");
-        assertThat(clock.currentTimeMillis()).isEqualTo(100L);
+        assertThat(clock.currentTimeMillis()).isGreaterThan(50L);
+        assertThat(clock.currentTimeMillis()).isLessThan(150L);
       }
     }
   }

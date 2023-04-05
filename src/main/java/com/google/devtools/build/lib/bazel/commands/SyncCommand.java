@@ -124,7 +124,7 @@ public final class SyncCommand implements BlazeCommand {
       LoadingPhaseThreadsOption threadsOption = options.getOptions(LoadingPhaseThreadsOption.class);
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
-              .setNumThreads(threadsOption.threads)
+              .setParallelism(threadsOption.threads)
               .setEventHandler(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =

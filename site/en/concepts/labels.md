@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Labels
 
+{% include "_buttons.html" %}
 
 All targets belong to exactly one package. The name of a target is
 called its _label_.  Every label uniquely identifies a target. A
@@ -99,14 +100,14 @@ repository that refer to targets in the main repository, and will be
 used from external repositories.
 
 For information about the different ways you can refer to targets, see
-[target patterns](/docs/build#specifying-build-targets).
+[target patterns](/run/build#specifying-build-targets).
 
 ### Lexical specification of a label {:#labels-lexical-specification}
 
 Label syntax discourages use of metacharacters that have special meaning to the
 shell. This helps to avoid inadvertent quoting problems, and makes it easier to
 construct tools and scripts that manipulate labels, such as the
-[Bazel Query Language](/reference/query).
+[Bazel Query Language](/query/language).
 
 The precise details of allowed target names are below.
 
@@ -214,7 +215,7 @@ the build.
 
 This directed acyclic graph over targets is called the _target graph_ or
 _build dependency graph_, and is the domain over which the
-[Bazel Query tool](/docs/query-how-to) operates.
+[Bazel Query tool](/query/guide) operates.
 
 <table class="columns">
   <tr>

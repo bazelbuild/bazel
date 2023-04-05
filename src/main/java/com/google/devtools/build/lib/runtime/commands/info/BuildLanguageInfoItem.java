@@ -87,7 +87,6 @@ public final class BuildLanguageInfoItem extends InfoItem {
         attrPb.setAllowEmpty(!attr.isNonEmpty());
         attrPb.setAllowSingleFile(attr.isSingleArtifact());
         attrPb.setConfigurable(attr.isConfigurable());
-        attrPb.setCfgIsHost(attr.getTransitionFactory().isHost());
 
         // Encode default value, if simple.
         Object v = attr.getDefaultValueUnchecked();
@@ -154,10 +153,11 @@ public final class BuildLanguageInfoItem extends InfoItem {
     AllowedRuleClassInfo.Builder info = AllowedRuleClassInfo.newBuilder();
     info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.ANY);
 
+    Predicate<RuleClass> filter;
     if (attr.isStrictLabelCheckingEnabled()
-        && attr.getAllowedRuleClassesPredicate() != Predicates.<RuleClass>alwaysTrue()) {
+        && (filter = attr.getAllowedRuleClassObjectPredicate())
+            != Predicates.<RuleClass>alwaysTrue()) {
       info.setPolicy(AllowedRuleClassInfo.AllowedRuleClasses.SPECIFIED);
-      Predicate<RuleClass> filter = attr.getAllowedRuleClassesPredicate();
       for (RuleClass otherClass : Iterables.filter(ruleClasses, filter)) {
         if (!isAbstractRule(otherClass)) {
           info.addAllowedRuleClass(otherClass.getName());

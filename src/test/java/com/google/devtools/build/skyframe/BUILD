@@ -3,6 +3,7 @@ load("@rules_java//java:defs.bzl", "java_library", "java_test")
 # Description:
 #   Skyframe tests.
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -19,7 +20,6 @@ TESTUTIL_FILES = [
     "TrackingAwaiter.java",
     "GraphTester.java",
     "GenericFunctionException.java",
-    "SimpleSkyframeIterableResult.java",
     "SimpleSkyframeLookupResult.java",
     "SomeErrorException.java",
     "TrackingProgressReceiver.java",
@@ -71,6 +71,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

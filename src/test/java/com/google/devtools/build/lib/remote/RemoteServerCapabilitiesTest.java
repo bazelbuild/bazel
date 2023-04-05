@@ -308,8 +308,7 @@ public class RemoteServerCapabilitiesTest {
   }
 
   @Test
-  public void testCheckClientServerCompatibility_remoteCacheDoesNotSupportUpdate()
-      throws Exception {
+  public void testCheckClientServerCompatibility_remoteCacheDoesNotSupportUpdate() {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
             .setLowApiVersion(ApiVersion.current.toSemVer())
@@ -324,9 +323,10 @@ public class RemoteServerCapabilitiesTest {
     RemoteServerCapabilities.ClientServerCompatibilityStatus st =
         RemoteServerCapabilities.checkClientServerCompatibility(
             caps, remoteOptions, DigestFunction.Value.SHA256, ServerCapabilitiesRequirement.CACHE);
-    assertThat(st.getErrors()).hasSize(1);
-    assertThat(st.getErrors().get(0))
-        .containsMatch("not authorized to write local results to the remote cache");
+    assertThat(st.getErrors()).isEmpty();
+    assertThat(st.getWarnings()).hasSize(1);
+    assertThat(st.getWarnings().get(0))
+        .contains("remote cache does not support uploading action results");
 
     // Ignored when no local upload.
     remoteOptions.remoteUploadLocalResults = false;
@@ -398,8 +398,7 @@ public class RemoteServerCapabilitiesTest {
   }
 
   @Test
-  public void testCheckClientServerCompatibility_localFallbackNoRemoteCacheUpdate()
-      throws Exception {
+  public void testCheckClientServerCompatibility_localFallbackNoRemoteCacheUpdate() {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
             .setLowApiVersion(ApiVersion.current.toSemVer())
@@ -423,9 +422,10 @@ public class RemoteServerCapabilitiesTest {
             remoteOptions,
             DigestFunction.Value.SHA256,
             ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
-    assertThat(st.getErrors()).hasSize(1);
-    assertThat(st.getErrors().get(0))
-        .containsMatch("not authorized to write local results to the remote cache");
+    assertThat(st.getErrors()).isEmpty();
+    assertThat(st.getWarnings()).hasSize(1);
+    assertThat(st.getWarnings().get(0))
+        .contains("remote cache does not support uploading action results");
 
     // Ignored when no fallback.
     remoteOptions.remoteLocalFallback = false;
@@ -435,7 +435,10 @@ public class RemoteServerCapabilitiesTest {
             remoteOptions,
             DigestFunction.Value.SHA256,
             ServerCapabilitiesRequirement.EXECUTION_AND_CACHE);
-    assertThat(st.isOk()).isTrue();
+    assertThat(st.getErrors()).isEmpty();
+    assertThat(st.getWarnings()).hasSize(1);
+    assertThat(st.getWarnings().get(0))
+        .contains("remote cache does not support uploading action results");
 
     // Ignored when no uploading local results.
     remoteOptions.remoteLocalFallback = true;
@@ -565,6 +568,31 @@ public class RemoteServerCapabilitiesTest {
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder()
                     .setDigestFunction(DigestFunction.Value.SHA256)
+                    .setExecEnabled(true)
+                    .build())
+            .build();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteExecutor = "server:port";
+    RemoteServerCapabilities.ClientServerCompatibilityStatus st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps,
+            remoteOptions,
+            DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION);
+    assertThat(st.isOk()).isTrue();
+  }
+
+  @Test
+  public void testCheckClientServerCompatibility_executionCapsDigestFunctionsList()
+      throws Exception {
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder()
+                    .addDigestFunctions(DigestFunction.Value.MD5)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
                     .setExecEnabled(true)
                     .build())
             .build();

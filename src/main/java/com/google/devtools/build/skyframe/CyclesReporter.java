@@ -115,7 +115,7 @@ public class CyclesReporter {
             "Cycle detected but could not be properly displayed due to an internal problem. Please"
                 + " file an issue. Raw display: "
                 + rawCycle));
-    BugReport.sendBugReport(new IllegalStateException(rawCycle + "\n" + cycleReporters));
+    BugReport.sendNonFatalBugReport(new IllegalStateException(rawCycle + "\n" + cycleReporters));
     return true;
   }
 

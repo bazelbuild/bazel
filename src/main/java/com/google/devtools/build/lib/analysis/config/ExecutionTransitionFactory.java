@@ -44,7 +44,7 @@ public class ExecutionTransitionFactory
    * Returns a new {@link ExecutionTransitionFactory} for the default {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
    */
-  public static ExecutionTransitionFactory create() {
+  public static ExecutionTransitionFactory createFactory() {
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
@@ -52,7 +52,7 @@ public class ExecutionTransitionFactory
    * Returns a new {@link ExecutionTransitionFactory} for the given {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
    */
-  public static ExecutionTransitionFactory create(String execGroup) {
+  public static ExecutionTransitionFactory createFactory(String execGroup) {
     return new ExecutionTransitionFactory(execGroup);
   }
 
@@ -120,16 +120,14 @@ public class ExecutionTransitionFactory
     }
 
     private static BuildOptions transitionImpl(BuildOptionsView options, Label executionPlatform) {
-      // Start by converting to host options.
+      // Start by converting to exec options.
       BuildOptionsView execOptions =
-          new BuildOptionsView(options.underlying().createHostOptions(), FRAGMENTS);
+          new BuildOptionsView(options.underlying().createExecOptions(), FRAGMENTS);
 
-      // Then unset isHost.
       CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
-      coreOptions.isHost = false;
       coreOptions.isExec = true;
       // Disable extra actions
-      coreOptions.actionListeners = null;
+      coreOptions.actionListeners = ImmutableList.of();
 
       // Then set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);

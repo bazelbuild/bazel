@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -93,7 +94,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   private static ImmutableAttributeFactory createAttributeFactory(
-      Type<?> type, String doc, Map<String, Object> arguments, StarlarkThread thread)
+      Type<?> type, Optional<String> doc, Map<String, Object> arguments, StarlarkThread thread)
       throws EvalException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Starlark (builtin rules should not use it).
@@ -102,7 +103,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   private static ImmutableAttributeFactory createAttributeFactory(
       Type<?> type,
-      String doc,
+      Optional<String> doc,
       Map<String, Object> arguments,
       StarlarkThread thread,
       String name)
@@ -113,12 +114,13 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @SuppressWarnings("unchecked")
   private static Attribute.Builder<?> createAttribute(
       Type<?> type,
-      String doc,
+      Optional<String> doc,
       Map<String, Object> arguments,
       StarlarkThread thread,
       String name)
       throws EvalException {
-    Attribute.Builder<?> builder = Attribute.attr(name, type).setDoc(doc);
+    Attribute.Builder<?> builder = Attribute.attr(name, type).starlarkDefined();
+    doc.ifPresent(builder::setDoc);
 
     Object defaultValue = arguments.get(DEFAULT_ARG);
     if (!Starlark.isNullOrNone(defaultValue)) {
@@ -169,7 +171,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
         throw Starlark.errorf(
             "cfg parameter is mandatory when executable=True is provided. Please see "
-                + "https://bazel.build/rules/rules#configurations "
+                + "https://bazel.build/extending/rules#configurations "
                 + "for more details.");
       }
     }
@@ -231,7 +233,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
-      // TODO(b/203203933): Officially deprecate HOST transition and remove this.
+      // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
       if (trans.equals("host")) {
         boolean disableStarlarkHostTransitions =
             thread
@@ -242,9 +244,9 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
               "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
                   + "'cfg = \"exec\"' instead.");
         }
-        builder.cfg(ExecutionTransitionFactory.create());
+        builder.cfg(ExecutionTransitionFactory.createFactory());
       } else if (trans.equals("exec")) {
-        builder.cfg(ExecutionTransitionFactory.create());
+        builder.cfg(ExecutionTransitionFactory.createFactory());
       } else if (trans instanceof ExecutionTransitionFactory) {
         builder.cfg((ExecutionTransitionFactory) trans);
       } else if (trans instanceof SplitTransition) {
@@ -366,10 +368,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   private static Descriptor createAttrDescriptor(
-      String name, Map<String, Object> kwargs, Type<?> type, StarlarkThread thread)
+      String name,
+      Optional<String> doc,
+      Map<String, Object> kwargs,
+      Type<?> type,
+      StarlarkThread thread)
       throws EvalException {
     try {
-      return new Descriptor(name, createAttributeFactory(type, null, kwargs, thread));
+      return new Descriptor(name, createAttributeFactory(type, doc, kwargs, thread));
     } catch (ConversionException e) {
       throw new EvalException(e.getMessage());
     }
@@ -393,7 +399,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   private static Descriptor createNonconfigurableAttrDescriptor(
-      String name, Map<String, Object> kwargs, Type<?> type, StarlarkThread thread)
+      String name,
+      Optional<String> doc,
+      Map<String, Object> kwargs,
+      Type<?> type,
+      StarlarkThread thread)
       throws EvalException {
     String whyNotConfigurableReason =
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
@@ -402,7 +412,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       // This trick makes sense only in the context of Starlark (builtin rules should not use it).
       return new Descriptor(
           name,
-          createAttribute(type, null, kwargs, thread, "")
+          createAttribute(type, doc, kwargs, thread, "")
               .nonconfigurable(whyNotConfigurableReason)
               .buildPartial());
     } catch (ConversionException e) {
@@ -418,7 +428,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor intAttribute(
       StarlarkInt defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
@@ -427,6 +437,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.int");
     return createAttrDescriptor(
         "int",
+        Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, VALUES_ARG, values),
         Type.INTEGER,
         thread);
@@ -434,11 +445,12 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringAttribute(
-      Object defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object defaultValue, Object doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string");
     return createAttrDescriptor(
         "string",
+        Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, VALUES_ARG, values),
         Type.STRING,
         thread);
@@ -447,7 +459,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor labelAttribute(
       Object defaultValue, // Label | String | LateBoundDefaultApi | StarlarkFunction
-      String doc,
+      Object doc,
       Boolean executable,
       Object allowFiles,
       Object allowSingleFile,
@@ -478,7 +490,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
             BuildType.LABEL,
-            doc,
+            Starlark.toJavaOptional(doc, String.class),
             optionMap(
                 DEFAULT_ARG,
                 defaultValue,
@@ -507,18 +519,13 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultValue, String doc, StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultValue, Object doc, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list");
     return createAttrDescriptor(
         "string_list",
-        optionMap(
-            DEFAULT_ARG,
-            defaultValue,
-            MANDATORY_ARG,
-            mandatory,
-            ALLOW_EMPTY_ARG,
-            allowEmpty),
+        Starlark.toJavaOptional(doc, String.class),
+        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
         Type.STRING_LIST,
         thread);
   }
@@ -528,19 +535,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Boolean allowEmpty,
       Sequence<?> defaultValue,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.int_list");
     return createAttrDescriptor(
         "int_list",
-        optionMap(
-            DEFAULT_ARG,
-            defaultValue,
-            MANDATORY_ARG,
-            mandatory,
-            ALLOW_EMPTY_ARG,
-            allowEmpty),
+        Starlark.toJavaOptional(doc, String.class),
+        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
         Type.INTEGER_LIST,
         thread);
   }
@@ -549,7 +551,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
       Object defaultValue, // Sequence | StarlarkFunction
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
@@ -581,7 +583,12 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             ASPECTS_ARG,
             aspects);
     ImmutableAttributeFactory attribute =
-        createAttributeFactory(BuildType.LABEL_LIST, doc, kwargs, thread, "label_list");
+        createAttributeFactory(
+            BuildType.LABEL_LIST,
+            Starlark.toJavaOptional(doc, String.class),
+            kwargs,
+            thread,
+            "label_list");
     return new Descriptor("label_list", attribute);
   }
 
@@ -589,7 +596,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object defaultValue, // Dict | StarlarkFunction
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
@@ -622,50 +629,50 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             aspects);
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
-            BuildType.LABEL_KEYED_STRING_DICT, doc, kwargs, thread, "label_keyed_string_dict");
+            BuildType.LABEL_KEYED_STRING_DICT,
+            Starlark.toJavaOptional(doc, String.class),
+            kwargs,
+            thread,
+            "label_keyed_string_dict");
     return new Descriptor("label_keyed_string_dict", attribute);
   }
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+      Boolean defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.bool");
     return createAttrDescriptor(
         "bool",
+        Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
         Type.BOOLEAN,
         thread);
   }
 
   @Override
-  public Descriptor outputAttribute(
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
+  public Descriptor outputAttribute(Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.output");
 
     return createNonconfigurableAttrDescriptor(
-        "output", optionMap(MANDATORY_ARG, mandatory), BuildType.OUTPUT, thread);
+        "output",
+        Starlark.toJavaOptional(doc, String.class),
+        optionMap(MANDATORY_ARG, mandatory),
+        BuildType.OUTPUT,
+        thread);
   }
 
   @Override
   public Descriptor outputListAttribute(
-      Boolean allowEmpty,
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
+      Boolean allowEmpty, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.output_list");
 
     return createAttrDescriptor(
         "output_list",
-        optionMap(
-            MANDATORY_ARG,
-            mandatory,
-            ALLOW_EMPTY_ARG,
-            allowEmpty),
+        Starlark.toJavaOptional(doc, String.class),
+        optionMap(MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
         BuildType.OUTPUT_LIST,
         thread);
   }
@@ -674,20 +681,15 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Dict<?, ?> defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_dict");
     return createAttrDescriptor(
         "string_dict",
-        optionMap(
-            DEFAULT_ARG,
-            defaultValue,
-            MANDATORY_ARG,
-            mandatory,
-            ALLOW_EMPTY_ARG,
-            allowEmpty),
+        Starlark.toJavaOptional(doc, String.class),
+        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
         Type.STRING_DICT,
         thread);
   }
@@ -696,31 +698,27 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Dict<?, ?> defaultValue,
-      String doc,
+      Object doc,
       Boolean mandatory,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list_dict");
     return createAttrDescriptor(
         "string_list_dict",
-        optionMap(
-            DEFAULT_ARG,
-            defaultValue,
-            MANDATORY_ARG,
-            mandatory,
-            ALLOW_EMPTY_ARG,
-            allowEmpty),
+        Starlark.toJavaOptional(doc, String.class),
+        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
         Type.STRING_LIST_DICT,
         thread);
   }
 
   @Override
   public Descriptor licenseAttribute(
-      Object defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
+      Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.license");
     return createNonconfigurableAttrDescriptor(
         "license",
+        Starlark.toJavaOptional(doc, String.class),
         optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
         BuildType.LICENSE,
         thread);

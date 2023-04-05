@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,7 +71,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<RepositoryName> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(RepositoryName arg) {
       super(arg);
@@ -88,6 +86,11 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.IGNORED_PACKAGE_PREFIXES;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

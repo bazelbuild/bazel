@@ -92,8 +92,9 @@ class OutputJarSimpleTest : public ::testing::Test {
   void SetUp() override { runfiles.reset(Runfiles::CreateForTest()); }
 
   void CreateOutput(const string &out_path, const std::vector<string> &args) {
-    const char *option_list[100] = {"--output", out_path.c_str()};
-    int nargs = 2;
+    const char *option_list[100] = {"--output", out_path.c_str(),
+                                    "--build_target", "//some/target"};
+    int nargs = 4;
     for (auto &arg : args) {
       if (arg.empty()) {
         continue;
@@ -215,7 +216,7 @@ TEST_F(OutputJarSimpleTest, Empty) {
       "\r\n",
       manifest);
   string build_properties = GetEntryContents(out_path, "build-data.properties");
-  EXPECT_PRED2(HasSubstr, build_properties, "build.target=");
+  EXPECT_PRED2(HasSubstr, build_properties, "build.target=//some/target");
 }
 
 // Source jars.

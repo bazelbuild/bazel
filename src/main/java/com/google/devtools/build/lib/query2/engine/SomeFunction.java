@@ -17,13 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.EvaluateExpression;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ThreadSafeMutableSet;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 
 /**
  * A some(x) filter expression, which returns certain number of arbitrary nodes in set x, or fails
@@ -69,52 +70,53 @@ class SomeFunction implements QueryFunction {
     // duplicates.
     ThreadSafeMutableSet<T> targetsSet = env.createThreadSafeMutableSet();
 
-    QueryTaskFuture<Void> operandEvalFuture =
-        env.eval(
-            args.get(0).getExpression(),
-            context,
-            new Callback<T>() {
-              @Override
-              public void process(Iterable<T> partialResult)
-                  throws QueryException, InterruptedException {
-                if (Iterables.isEmpty(partialResult)) {
-                  return;
-                }
+    EvaluateExpression<T> evaluateExpression =
+        env.createEvaluateExpression(args.get(0).getExpression(), context);
+    QueryTaskFuture<Void> queryTaskFuture =
+        evaluateExpression.eval(
+            partialResult -> {
+              if (Iterables.isEmpty(partialResult)) {
+                return;
+              }
 
-                synchronized (targetsSet) {
-                  if (targetsSet.size() >= resultMaxSize) {
-                    return;
-                  }
-                }
-
+              boolean shouldCancel = false;
+              synchronized (targetsSet) {
                 ArrayList<T> current = new ArrayList<>();
                 for (T nextTarget : partialResult) {
-                  synchronized (targetsSet) {
-                    if (targetsSet.size() >= resultMaxSize) {
-                      break;
-                    }
-                    if (targetsSet.add(nextTarget)) {
-                      current.add(nextTarget);
-                    }
+                  if (targetsSet.size() >= resultMaxSize) {
+                    break;
+                  }
+                  if (targetsSet.add(nextTarget)) {
+                    current.add(nextTarget);
                   }
                 }
 
                 if (!current.isEmpty()) {
                   callback.process(current);
                 }
+
+                if (targetsSet.size() >= resultMaxSize) {
+                  shouldCancel = true;
+                }
+              }
+
+              if (shouldCancel) {
+                var unused = evaluateExpression.gracefullyCancel();
               }
             });
-    return env.whenSucceedsCall(
-        operandEvalFuture,
-        new QueryTaskCallable<Void>() {
-          @Override
-          public Void call() throws QueryException {
-            if (targetsSet.isEmpty()) {
-              throw new QueryException(
-                  expression, "argument set is empty", Query.Code.ARGUMENTS_MISSING);
-            }
-            return null;
+
+    return env.whenSucceedsOrIsCancelledCall(
+        queryTaskFuture,
+        () -> {
+          if (evaluateExpression.isUngracefullyCancelled()) {
+            throw new CancellationException();
           }
+
+          if (targetsSet.isEmpty()) {
+            throw new QueryException(
+                expression, "argument set is empty", Query.Code.ARGUMENTS_MISSING);
+          }
+          return null;
         });
   }
 }

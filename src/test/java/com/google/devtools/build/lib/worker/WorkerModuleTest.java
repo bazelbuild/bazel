@@ -319,12 +319,13 @@ public class WorkerModuleTest {
         new BlazeWorkspace(
             blazeRuntime,
             blazeDirectories,
-            null,
+            /* skyframeExecutor= */ null,
             new RecordingExceptionHandler(),
-            null,
+            /* workspaceStatusActionFactory= */ null,
             BinTools.forUnitTesting(blazeDirectories, ImmutableList.of()),
-            null,
-            null);
+            /* allocationTracker= */ null,
+            /* syscallCache= */ null,
+            /* allowExternalRepositories= */ true);
     when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
     when(env.getDirectories()).thenReturn(blazeDirectories);
     EventBus eventBus = new EventBus();

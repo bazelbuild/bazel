@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
@@ -244,8 +245,8 @@ public class TransitionsOutputFormatterTest extends ConfiguredTargetQueryTest {
             /*out=*/ null,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            env.getHostConfiguration(),
-            trimmingTransitionFactory);
+            trimmingTransitionFactory,
+            RepositoryMapping.ALWAYS_FALLBACK);
     env.evaluateQuery(env.transformParsedQuery(QueryParser.parse(queryExpression, env)), callback);
     return callback.getResult();
   }

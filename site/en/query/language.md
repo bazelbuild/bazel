@@ -3,11 +3,13 @@ Book: /_book.yaml
 
 # The Bazel Query Reference
 
+{% include "_buttons.html" %}
+
 This page is the reference manual for the _Bazel Query Language_ used
 when you use `bazel query` to analyze build dependencies. It also
 describes the output formats `bazel query` supports.
 
-For practical use cases, see the [Bazel Query How-To](/docs/query-how-to).
+For practical use cases, see the [Bazel Query How-To](/query/guide).
 
 ## Additional query reference
 
@@ -22,7 +24,7 @@ their relationships. `aquery` is useful when you are interested in the
 properties of the Actions/Artifacts generated from the Configured Target Graph.
 For example, the actual commands run and their inputs, outputs, and mnemonics.
 
-For more details, see the [aquery reference](/docs/aquery).
+For more details, see the [aquery reference](/query/aquery).
 
 ### Configurable query {:#cquery}
 
@@ -33,7 +35,7 @@ and instead returns all possible resolutions of selects. However, the
 configurable query environment, `cquery`, properly handles configurations but
 doesn't provide all of the functionality of this original query.
 
-For more details, see the [cquery reference](/docs/cquery).
+For more details, see the [cquery reference](/query/cquery).
 
 
 ## Examples {:#examples}
@@ -107,7 +109,7 @@ tokens:
   bazel query ' "//foo:bar=wiz" '   # single-quotes for shell, double-quotes for Bazel.
   ```
 
-  Keywords, when quoted, are treated as ordinary words. For example, `some` is a
+  Keywords and operators, when quoted, are treated as ordinary words. For example, `some` is a
   keyword but "some" is a word. Both `foo` and "foo" are words.
 
   However, be careful when using single or double quotes in target names. When
@@ -493,7 +495,7 @@ The query language defines several functions. The name of the function
 determines the number and type of arguments it requires. The following
 functions are available:
 
-* [`allpaths`](#path-operators)
+* [`allpaths`](#somepath-allpaths)
 * [`attr`](#attr)
 * [`buildfiles`](#buildfiles)
 * [`rbuildfiles`](#rbuildfiles)
@@ -507,7 +509,7 @@ functions are available:
 * [`same_pkg_direct_rdeps`](#same_pkg_direct_rdeps)
 * [`siblings`](#siblings)
 * [`some`](#some)
-* [`somepath`](#path-operators)
+* [`somepath`](#somepath-allpaths)
 * [`tests`](#tests)
 * [`visible`](#visible)
 

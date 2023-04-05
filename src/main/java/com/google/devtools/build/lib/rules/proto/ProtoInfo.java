@@ -14,170 +14,96 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Sequence;
 
 /**
  * Configured target classes that implement this class can contribute .proto files to the
  * compilation of proto_library rules.
  */
 @Immutable
-public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact> {
-  /** Provider class for {@link ProtoInfo} objects. */
-  public static class ProtoInfoProvider extends BuiltinProvider<ProtoInfo>
-      implements ProtoInfoProviderApi {
-    public ProtoInfoProvider() {
-      super(ProtoBootstrap.PROTO_INFO_STARLARK_NAME, ProtoInfo.class);
-    }
-  }
-
+public final class ProtoInfo {
   public static final ProtoInfoProvider PROVIDER = new ProtoInfoProvider();
 
-  private static ImmutableList<Artifact> extractProtoSources(ImmutableList<ProtoSource> sources) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (ProtoSource source : sources) {
-      builder.add(source.getSourceFile());
-    }
-    return builder.build();
-  }
-
-  private final ImmutableList<ProtoSource> directSources;
-  private final ImmutableList<Artifact> directProtoSources;
-  private final PathFragment directProtoSourceRoot;
-  private final NestedSet<ProtoSource> transitiveSources;
-  private final NestedSet<Artifact> transitiveProtoSources;
-  private final NestedSet<String> transitiveProtoSourceRoots;
-  private final NestedSet<Artifact> strictImportableProtoSourcesForDependents;
-  private final Artifact directDescriptorSet;
-  private final NestedSet<Artifact> transitiveDescriptorSets;
-  private final NestedSet<ProtoSource> exportedSources;
-
-  public ProtoInfo(
-      ImmutableList<ProtoSource> directSources,
-      PathFragment directProtoSourceRoot,
-      NestedSet<ProtoSource> transitiveSources,
-      NestedSet<Artifact> transitiveProtoSources,
-      NestedSet<String> transitiveProtoSourceRoots,
-      NestedSet<Artifact> strictImportableProtoSourcesForDependents,
-      Artifact directDescriptorSet,
-      NestedSet<Artifact> transitiveDescriptorSets,
-      // Layering checks.
-      NestedSet<ProtoSource> exportedSources) {
-    this.directSources = directSources;
-    this.directProtoSources = extractProtoSources(directSources);
-    this.directProtoSourceRoot = ProtoCommon.memoryEfficientProtoSourceRoot(directProtoSourceRoot);
-    this.transitiveSources = transitiveSources;
-    this.transitiveProtoSources = transitiveProtoSources;
-    this.transitiveProtoSourceRoots = transitiveProtoSourceRoots;
-    this.strictImportableProtoSourcesForDependents = strictImportableProtoSourcesForDependents;
-    this.directDescriptorSet = directDescriptorSet;
-    this.transitiveDescriptorSets = transitiveDescriptorSets;
-
-    // Layering checks.
-    this.exportedSources = exportedSources;
-  }
-
-  /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
-  public ImmutableList<ProtoSource> getDirectSources() {
-    return directSources;
-  }
-
-  @Override
-  public BuiltinProvider<ProtoInfo> getProvider() {
+  public StarlarkProviderWrapper<ProtoInfo> getProvider() {
     return PROVIDER;
   }
 
-  /** The proto source files that are used in compiling this {@code proto_library}. */
-  @Override
-  public ImmutableList<Artifact> getDirectProtoSources() {
-    return directProtoSources;
+  /** Provider class for {@link ProtoInfo} objects. */
+  public static class ProtoInfoProvider extends StarlarkProviderWrapper<ProtoInfo> {
+    public ProtoInfoProvider() {
+      super(Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_info.bzl"), "ProtoInfo");
+    }
+
+    @Override
+    public ProtoInfo wrap(Info value) throws RuleErrorException {
+      try {
+        return new ProtoInfo((StarlarkInfo) value);
+      } catch (EvalException e) {
+        throw new RuleErrorException(e.getMessageWithStack());
+      } catch (TypeException e) {
+        throw new RuleErrorException(e.getMessage());
+      }
+    }
   }
 
-  @Override
-  public ImmutableList<ProtoSource> getDirectProtoSourcesForStarlark(StarlarkThread thread)
-      throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return directSources;
-  }
+  private final StarlarkInfo value;
+  private final NestedSet<Artifact> transitiveProtoSources;
 
-  /**
-   * The source root of the current library.
-   *
-   * <p>For Bazel, this is always a (logical) prefix of all direct sources. For Blaze, this is
-   * currently a lie for {@code proto_library} targets with generated sources.
-   */
-  @Override
-  public String getDirectProtoSourceRoot() {
-    return directProtoSourceRoot.getSafePathString();
-  }
-
-  /** The proto sources in the transitive closure of this rule. */
-  @Override
-  public Depset /*<Artifact>*/ getTransitiveProtoSourcesForStarlark() {
-    return Depset.of(Artifact.TYPE, getTransitiveProtoSources());
-  }
-
-  @Override
-  public Depset getTransitiveSourcesForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(ProtoSource.TYPE, transitiveSources);
-  }
-
-  /**
-   * The {@code .proto} source files in this {@code proto_library}'s {@code srcs} and all of its
-   * transitive dependencies.
-   */
-  public NestedSet<ProtoSource> getTransitiveSources() {
-    return transitiveSources;
+  private ProtoInfo(StarlarkInfo value) throws EvalException, TypeException {
+    this.value = value;
+    transitiveProtoSources =
+        value.getValue("transitive_sources", Depset.class).getSet(Artifact.class);
   }
 
   public NestedSet<Artifact> getTransitiveProtoSources() {
     return transitiveProtoSources;
   }
 
-  /**
-   * The proto source roots of the transitive closure of this rule. These flags will be passed to
-   * {@code protoc} in the specified order, via the {@code --proto_path} flag.
-   */
-  @Override
-  public Depset /*<String>*/ getTransitiveProtoSourceRootsForStarlark() {
-    return Depset.of(Depset.ElementType.STRING, transitiveProtoSourceRoots);
+  /** The {@code .proto} source files in this {@code proto_library}'s {@code srcs}. */
+  @VisibleForTesting
+  public ImmutableList<ProtoSource> getDirectSources() throws Exception {
+    ImmutableList.Builder<ProtoSource> directSources = new ImmutableList.Builder<>();
+    for (StarlarkInfo protoSource :
+        Sequence.cast(
+            value.getValue("_direct_proto_sources", Sequence.class),
+            StarlarkInfo.class,
+            "_direct_proto_sources")) {
+      directSources.add(ProtoSource.create(protoSource));
+    }
+    return directSources.build();
   }
 
-  public NestedSet<String> getTransitiveProtoSourceRoots() {
-    return transitiveProtoSourceRoots;
+  /** The proto source files that are used in compiling this {@code proto_library}. */
+  @VisibleForTesting
+  public ImmutableList<Artifact> getDirectProtoSources() throws Exception {
+    return Sequence.cast(
+            value.getValue("direct_sources", Sequence.class), Artifact.class, "direct_sources")
+        .getImmutableList();
   }
 
-  @Deprecated
-  @Override
-  public Depset /*<Artifact>*/ getTransitiveImports() {
-    return getTransitiveProtoSourcesForStarlark();
+  @VisibleForTesting
+  public NestedSet<String> getTransitiveProtoSourceRoots() throws Exception {
+    return value.getValue("transitive_proto_path", Depset.class).getSet(String.class);
   }
 
-  /**
-   * Returns the set of source files importable by rules directly depending on the rule declaring
-   * this provider if strict dependency checking is in effect.
-   *
-   * <p>(strict dependency checking: when a target can only include / import source files from its
-   * direct dependencies, but not from transitive ones)
-   */
-  @Override
-  public Depset /*<Artifact>*/ getStrictImportableProtoSourcesForDependentsForStarlark() {
-    return Depset.of(Artifact.TYPE, strictImportableProtoSourcesForDependents);
-  }
-
-  public NestedSet<Artifact> getStrictImportableProtoSourcesForDependents() {
-    return strictImportableProtoSourcesForDependents;
+  @VisibleForTesting
+  public NestedSet<Artifact> getStrictImportableProtoSourcesForDependents() throws Exception {
+    return value.getValue("check_deps_sources", Depset.class).getSet(Artifact.class);
   }
 
   /**
@@ -186,37 +112,27 @@ public final class ProtoInfo extends NativeInfo implements ProtoInfoApi<Artifact
    * (remember that proto-compiler reads all transitive .proto files, even when producing the
    * direct-srcs descriptor set)
    */
-  @Override
-  public Artifact getDirectDescriptorSet() {
-    return directDescriptorSet;
+  @VisibleForTesting
+  public Artifact getDirectDescriptorSet() throws Exception {
+    return value.getValue("direct_descriptor_set", Artifact.class);
   }
 
-  /**
-   * Be careful while using this artifact - it is the parsing of the transitive set of .proto files.
-   * It's possible to cause a O(n^2) behavior, where n is the length of a proto chain-graph.
-   * (remember that proto-compiler reads all transitive .proto files, even when producing the
-   * direct-srcs descriptor set)
-   */
-  @Override
-  public Depset /*<Artifact>*/ getTransitiveDescriptorSetsForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveDescriptorSets);
-  }
-
-  public NestedSet<Artifact> getTransitiveDescriptorSets() {
-    return transitiveDescriptorSets;
-  }
-
-  @Override
-  public Depset getExportedSourcesForStarlark(StarlarkThread thread) throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(ProtoSource.TYPE, getExportedSources());
+  @VisibleForTesting
+  public NestedSet<Artifact> getTransitiveDescriptorSets() throws Exception {
+    return value.getValue("transitive_descriptor_sets", Depset.class).getSet(Artifact.class);
   }
 
   /**
    * Returns a set of {@code .proto} sources that may be imported by {@code proto_library} targets
    * directly depending on this {@code ProtoInfo}.
    */
-  public NestedSet<ProtoSource> getExportedSources() {
-    return exportedSources;
+  @VisibleForTesting
+  public NestedSet<ProtoSource> getExportedSources() throws Exception {
+    ImmutableList.Builder<ProtoSource> exportedSources = new ImmutableList.Builder<>();
+    for (StarlarkInfo protoSource :
+        value.getValue("_exported_sources", Depset.class).toList(StarlarkInfo.class)) {
+      exportedSources.add(ProtoSource.create(protoSource));
+    }
+    return NestedSetBuilder.wrap(Order.STABLE_ORDER, exportedSources.build());
   }
 }

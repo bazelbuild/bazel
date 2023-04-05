@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -46,6 +47,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -53,6 +55,16 @@ import org.junit.runners.JUnit4;
 /** Analysis caching tests. */
 @RunWith(JUnit4.class)
 public class AnalysisCachingTest extends AnalysisCachingTestBase {
+
+  @Before
+  public void setup() throws Exception {
+    useConfiguration();
+  }
+
+  @Override
+  public void useConfiguration(String... args) throws Exception {
+    super.useConfiguration(ObjectArrays.concat(args, "--experimental_google_legacy_api"));
+  }
 
   @Test
   public void testSimpleCleanAnalysis() throws Exception {
@@ -659,6 +671,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
           @Override
           public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+            if (options.underlying().hasNoConfig()) {
+              return options.underlying();
+            }
             BuildOptionsView cloned = options.clone();
             cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
             cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
@@ -707,10 +722,10 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public String hostRelevantOption;
 
     @Override
-    public DiffResetOptions getHost() {
-      DiffResetOptions host = ((DiffResetOptions) super.getHost());
-      host.definitelyRelevantOption = hostRelevantOption;
-      return host;
+    public DiffResetOptions getExec() {
+      DiffResetOptions exec = ((DiffResetOptions) super.getExec());
+      exec.definitelyRelevantOption = hostRelevantOption;
+      return exec;
     }
   }
 
@@ -749,7 +764,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "    fragments = ['test_diff_fragment'],",
         "    attrs = {",
         "        'deps': attr.label_list(),",
-        "        'host_deps': attr.label_list(cfg='host'),",
+        "        'host_deps': attr.label_list(cfg='exec'),",
         "    },",
         ")",
         "uses_irrelevant = rule(",
@@ -757,7 +772,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "    fragments = ['test_diff_fragment'],",
         "    attrs = {",
         "        'deps': attr.label_list(),",
-        "        'host_deps': attr.label_list(cfg='host'),",
+        "        'host_deps': attr.label_list(cfg='exec'),",
         "    },",
         ")");
     update();

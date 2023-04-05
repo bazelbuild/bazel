@@ -71,7 +71,7 @@ public class AndroidSdkBase implements RuleConfiguredTargetFactory {
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl");
     TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib");
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar");
-    Artifact sourceProperties = ruleContext.getHostPrerequisiteArtifact("source_properties");
+    Artifact sourceProperties = ruleContext.getPrerequisiteArtifact("source_properties");
     Artifact shrinkedAndroidJar = ruleContext.getPrerequisiteArtifact("shrinked_android_jar");
     Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes");
     BootClassPathInfo system = ruleContext.getPrerequisite("system", BootClassPathInfo.PROVIDER);

@@ -323,17 +323,26 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
   fi
 else
   if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1) <&0 &
+    ("${TEST_PATH}" "$@" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   else
-    ("$1" "$TEST_PATH" "${@:3}" 2> >(tee -a "${XML_OUTPUT_FILE}.log" >&2) 1> >(tee -a "${XML_OUTPUT_FILE}.log") 2>&1) <&0 &
+    ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   fi
 fi
 childPid=$!
 
 # Cleanup helper
-# Assume that we don't have drastically reduced abilities to communicate signals
-# to our parent process. kill()ability means existence.
-( while kill -0 $PPID &> /dev/null; do  # magic 0 sigspec tests deliverability only
+# It would be nice to use `kill -0 $PPID` here, but when whatever called this
+# is running as a different user (as happens in remote execution) that will
+# return an error, causing us to prematurely reap a running test.
+( if ! (ps -p $$ &> /dev/null || [ "`pgrep -a -g $$ 2> /dev/null`" != "" ] ); then
+   # `ps` is known to be unrunnable in the darwin sandbox-exec environment due
+   # to being a set-uid root program. pgrep exists in most environments, but not
+   # universally. In the event that we find ourselves running in an environment
+   # where *neither* exists, we have no reliable way to check if our parent is
+   # still alive - so simply disable this cleanup routine entirely.
+   exit 0
+ fi
+ while ps -p $$ &> /dev/null || [ "`pgrep -a -g $$ 2> /dev/null`" != "" ]; do
     sleep 10
  done
  # Parent process not found - we've been abandoned! Clean up test processes.
@@ -343,13 +352,15 @@ cleanupPid=$!
 
 set +m
 
+# Wait until $childPid fully exits.
+# We need to wait in a loop because wait is interrupted by any incoming trapped
+# signal (https://www.gnu.org/software/bash/manual/bash.html#Signals).
+while kill -0 $childPid 2>/dev/null; do
+  wait $childPid
+done
+# Wait one more time to retrieve the exit code.
 wait $childPid
-# If interrupted by a signal, use the signal as the exit code. But allow
-# the child to actually finish from the signal we sent _it_ via signal_child.
-# (Waiting on a stopped process is a no-op).
-# Only once - if we receive multiple signals (of any sort), give up.
 exitCode=$?
-wait $childPid
 
 # By this point, we have everything we're willing to wait for. Tidy up our own
 # processes and move on.

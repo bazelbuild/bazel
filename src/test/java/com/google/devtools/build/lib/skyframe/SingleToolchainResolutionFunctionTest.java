@@ -55,12 +55,12 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     // This has to happen here so that targetConfiguration is populated.
     linuxCtkey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//platforms:linux"))
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:linux"))
             .setConfiguration(getTargetConfiguration())
             .build();
     macCtkey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//platforms:mac"))
+            .setLabel(Label.parseCanonicalUnchecked("//platforms:mac"))
             .setConfiguration(getTargetConfiguration())
             .build();
   }
@@ -91,7 +91,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
 
     SingleToolchainResolutionValue singleToolchainResolutionValue = result.get(key);
     assertThat(singleToolchainResolutionValue.availableToolchainLabels())
-        .containsExactly(macCtkey, Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"));
+        .containsExactly(macCtkey, Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -123,9 +123,9 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(singleToolchainResolutionValue.availableToolchainLabels())
         .containsExactly(
             linuxCtkey,
-            Label.parseAbsoluteUnchecked("//extra:extra_toolchain_impl"),
+            Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl"),
             macCtkey,
-            Label.parseAbsoluteUnchecked("//toolchain:toolchain_2_impl"));
+            Label.parseCanonicalUnchecked("//toolchain:toolchain_2_impl"));
   }
 
   @Test
@@ -153,34 +153,36 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
             SingleToolchainResolutionValue.create(
                 testToolchainTypeInfo,
                 ImmutableMap.of(
-                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))),
+                    linuxCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_1"))),
             SingleToolchainResolutionValue.create(
                 testToolchainTypeInfo,
                 ImmutableMap.of(
-                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
+                    linuxCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_1"))))
         // Different execution platform, same label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainTypeInfo,
-                ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))))
+                ImmutableMap.of(
+                    macCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_1"))))
         // Same execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainTypeInfo,
                 ImmutableMap.of(
-                    linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
+                    linuxCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_2"))))
         // Different execution platform, different label.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainTypeInfo,
-                ImmutableMap.of(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_2"))))
+                ImmutableMap.of(
+                    macCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_2"))))
         // Multiple execution platforms.
         .addEqualityGroup(
             SingleToolchainResolutionValue.create(
                 testToolchainTypeInfo,
                 ImmutableMap.<ConfiguredTargetKey, Label>builder()
-                    .put(linuxCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
-                    .put(macCtkey, Label.parseAbsoluteUnchecked("//test:toolchain_impl_1"))
+                    .put(linuxCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_1"))
+                    .put(macCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_1"))
                     .buildOrThrow()))
         .testEquals();
   }

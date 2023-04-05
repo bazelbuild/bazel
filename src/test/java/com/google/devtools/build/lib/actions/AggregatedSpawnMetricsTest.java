@@ -28,16 +28,16 @@ public final class AggregatedSpawnMetricsTest {
   public void sumAllMetrics() throws Exception {
     SpawnMetrics metrics1 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(2))
+            .setTotalTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(10))
-            .setExecutionWallTime(Duration.ofSeconds(20))
+            .setTotalTimeInMs(10 * 1000)
+            .setExecutionWallTimeInMs(20 * 1000)
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
@@ -47,8 +47,8 @@ public final class AggregatedSpawnMetricsTest {
     aggregated = aggregated.sumAllMetrics(metrics1);
     aggregated = aggregated.sumAllMetrics(metrics2);
 
-    assertThat(aggregated.getRemoteMetrics().totalTime()).isEqualTo(Duration.ofSeconds(11));
-    assertThat(aggregated.getRemoteMetrics().executionWallTime()).isEqualTo(Duration.ofSeconds(22));
+    assertThat(aggregated.getRemoteMetrics().totalTimeInMs()).isEqualTo(11 * 1000);
+    assertThat(aggregated.getRemoteMetrics().executionWallTimeInMs()).isEqualTo(22 * 1000);
     assertThat(aggregated.getRemoteMetrics().inputBytes()).isEqualTo(110);
     assertThat(aggregated.getRemoteMetrics().inputFiles()).isEqualTo(220);
     assertThat(aggregated.getRemoteMetrics().memoryEstimate()).isEqualTo(330);
@@ -58,16 +58,16 @@ public final class AggregatedSpawnMetricsTest {
   public void sumDurationMetricsMaxOther() throws Exception {
     SpawnMetrics metrics1 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(2))
+            .setTotalTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
             .setInputBytes(10)
             .setInputFiles(20)
             .setMemoryEstimateBytes(30)
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(10))
-            .setExecutionWallTime(Duration.ofSeconds(20))
+            .setTotalTimeInMs(10 * 1000)
+            .setExecutionWallTimeInMs(20 * 1000)
             .setInputBytes(100)
             .setInputFiles(200)
             .setMemoryEstimateBytes(300)
@@ -77,8 +77,8 @@ public final class AggregatedSpawnMetricsTest {
     aggregated = aggregated.sumDurationsMaxOther(metrics1);
     aggregated = aggregated.sumDurationsMaxOther(metrics2);
 
-    assertThat(aggregated.getRemoteMetrics().totalTime()).isEqualTo(Duration.ofSeconds(11));
-    assertThat(aggregated.getRemoteMetrics().executionWallTime()).isEqualTo(Duration.ofSeconds(22));
+    assertThat(aggregated.getRemoteMetrics().totalTimeInMs()).isEqualTo(11 * 1000);
+    assertThat(aggregated.getRemoteMetrics().executionWallTimeInMs()).isEqualTo(22 * 1000);
     assertThat(aggregated.getRemoteMetrics().inputBytes()).isEqualTo(100);
     assertThat(aggregated.getRemoteMetrics().inputFiles()).isEqualTo(200);
     assertThat(aggregated.getRemoteMetrics().memoryEstimate()).isEqualTo(300);
@@ -86,44 +86,41 @@ public final class AggregatedSpawnMetricsTest {
 
   @Test
   public void aggregatingMetrics_preservesExecKind() throws Exception {
-    SpawnMetrics metrics1 =
-        SpawnMetrics.Builder.forLocalExec().setTotalTime(Duration.ofSeconds(1)).build();
-    SpawnMetrics metrics2 =
-        SpawnMetrics.Builder.forRemoteExec().setTotalTime(Duration.ofSeconds(2)).build();
-    SpawnMetrics metrics3 =
-        SpawnMetrics.Builder.forWorkerExec().setTotalTime(Duration.ofSeconds(3)).build();
+    SpawnMetrics metrics1 = SpawnMetrics.Builder.forLocalExec().setTotalTimeInMs(1 * 1000).build();
+    SpawnMetrics metrics2 = SpawnMetrics.Builder.forRemoteExec().setTotalTimeInMs(2 * 1000).build();
+    SpawnMetrics metrics3 = SpawnMetrics.Builder.forWorkerExec().setTotalTimeInMs(3 * 1000).build();
 
     AggregatedSpawnMetrics aggregated = AggregatedSpawnMetrics.EMPTY;
     aggregated = aggregated.sumAllMetrics(metrics1);
     aggregated = aggregated.sumDurationsMaxOther(metrics2);
     aggregated = aggregated.sumDurationsMaxOther(metrics3);
 
-    assertThat(aggregated.getMetrics(SpawnMetrics.ExecKind.LOCAL).totalTime())
-        .isEqualTo(Duration.ofSeconds(1));
-    assertThat(aggregated.getMetrics(SpawnMetrics.ExecKind.REMOTE).totalTime())
-        .isEqualTo(Duration.ofSeconds(2));
-    assertThat(aggregated.getMetrics(SpawnMetrics.ExecKind.WORKER).totalTime())
-        .isEqualTo(Duration.ofSeconds(3));
+    assertThat(aggregated.getMetrics(SpawnMetrics.ExecKind.LOCAL).totalTimeInMs())
+        .isEqualTo(1 * 1000L);
+    assertThat(aggregated.getMetrics(SpawnMetrics.ExecKind.REMOTE).totalTimeInMs())
+        .isEqualTo(2 * 1000L);
+    assertThat(aggregated.getMetrics(SpawnMetrics.ExecKind.WORKER).totalTimeInMs())
+        .isEqualTo(3 * 1000L);
   }
 
   @Test
   public void toString_printsOnlyRemote() throws Exception {
     SpawnMetrics metrics1 =
         SpawnMetrics.Builder.forLocalExec()
-            .setTotalTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(1))
+            .setTotalTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(1 * 1000)
             .build();
     SpawnMetrics metrics2 =
         SpawnMetrics.Builder.forRemoteExec()
-            .setTotalTime(Duration.ofSeconds(2))
-            .setNetworkTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(1))
+            .setTotalTimeInMs(2 * 1000)
+            .setNetworkTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(1 * 1000)
             .build();
     SpawnMetrics metrics3 =
         SpawnMetrics.Builder.forWorkerExec()
-            .setTotalTime(Duration.ofSeconds(3))
-            .setQueueTime(Duration.ofSeconds(1))
-            .setExecutionWallTime(Duration.ofSeconds(2))
+            .setTotalTimeInMs(3 * 1000)
+            .setQueueTimeInMs(1 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
             .build();
 
     AggregatedSpawnMetrics aggregated =

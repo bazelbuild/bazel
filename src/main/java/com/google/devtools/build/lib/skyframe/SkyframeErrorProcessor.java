@@ -93,7 +93,7 @@ public final class SkyframeErrorProcessor {
    * the build, in case of --nokeep_going.
    *
    * <p>The various attributes will be used later on to construct the FailureDetail in {@link
-   * com.google.devtools.build.lib.analysis.BuildView#createFailureDetail}.
+   * com.google.devtools.build.lib.analysis.BuildView#createAnalysisFailureDetail}.
    */
   @AutoValue
   abstract static class ErrorProcessingResult {

@@ -47,8 +47,6 @@ public class ToolchainRule implements RuleDefinition {
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
-        .removeAttribute("deps")
-        .removeAttribute("data")
         .removeAttribute(":action_listener")
         .exemptFromConstraintChecking("this rule *defines* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
@@ -68,7 +66,7 @@ public class ToolchainRule implements RuleDefinition {
         A list of <code>constraint_value</code>s that must be satisfied by an execution platform in
         order for this toolchain to be selected for a target building on that platform.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .override(
+        .add(
             attr(EXEC_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
                 .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
@@ -104,12 +102,12 @@ public class ToolchainRule implements RuleDefinition {
   public RuleDefinition.Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
-        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Toolchain.class)
         .build();
   }
 }
-/*<!-- #BLAZE_RULE (NAME = toolchain, FAMILY = Platform)[GENERIC_RULE] -->
+/*<!-- #BLAZE_RULE (NAME = toolchain, FAMILY = Platforms and Toolchains)[GENERIC_RULE] -->
 
 <p>This rule declares a specific toolchain's type and constraints so that it can be selected
 during toolchain resolution. See the

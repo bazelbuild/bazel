@@ -218,6 +218,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
                       PathFragment.create("a"),
                       Runfiles.EMPTY,
                       artifactA,
+                      /* repoMappingManifest= */ null,
                       /* buildRunfileLinks= */ false,
                       /* runfileLinksEnabled= */ false));
             } else {
@@ -226,6 +227,7 @@ public class LtoBackendActionTest extends BuildViewTestCase {
                       PathFragment.create("a"),
                       Runfiles.EMPTY,
                       artifactB,
+                      /* repoMappingManifest= */ null,
                       /* buildRunfileLinks= */ false,
                       /* runfileLinksEnabled= */ false));
             }

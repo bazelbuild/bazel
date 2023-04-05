@@ -18,16 +18,24 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.sun.management.OperatingSystemMXBean;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -115,8 +123,18 @@ public class WorkRequestHandler implements AutoCloseable {
   final WorkerMessageProcessor messageProcessor;
 
   private final BiConsumer<Integer, Thread> cancelCallback;
-
+  /**
+   * A scheduler that runs garbage collection after a certain amount of CPU time has passed. In our
+   * experience, explicit GC reclaims much more than implicit GC. This scheduler helps make sure
+   * very busy workers don't grow ridiculously large.
+   */
   private final CpuTimeBasedGcScheduler gcScheduler;
+  /**
+   * A scheduler that runs garbage collection after a certain amount of time without any activity.
+   * In our experience, explicit GC reclaims much more than implicit GC. This scheduler helps make
+   * sure workers don't hang on to excessive memory after they are done working.
+   */
+  private final IdleGcScheduler idleGcScheduler;
 
   /**
    * If set, this worker will stop handling requests and shut itself down. This can happen if
@@ -186,7 +204,8 @@ public class WorkRequestHandler implements AutoCloseable {
         stderr,
         messageProcessor,
         cpuUsageBeforeGc,
-        cancelCallback);
+        cancelCallback,
+        Duration.ZERO);
   }
 
   /**
@@ -203,12 +222,14 @@ public class WorkRequestHandler implements AutoCloseable {
       PrintStream stderr,
       WorkerMessageProcessor messageProcessor,
       Duration cpuUsageBeforeGc,
-      BiConsumer<Integer, Thread> cancelCallback) {
+      BiConsumer<Integer, Thread> cancelCallback,
+      Duration idleTimeBeforeGc) {
     this.callback = callback;
     this.stderr = stderr;
     this.messageProcessor = messageProcessor;
     this.gcScheduler = new CpuTimeBasedGcScheduler(cpuUsageBeforeGc);
     this.cancelCallback = cancelCallback;
+    this.idleGcScheduler = new IdleGcScheduler(idleTimeBeforeGc);
   }
 
   /** A wrapper class for the callback BiFunction */
@@ -243,6 +264,7 @@ public class WorkRequestHandler implements AutoCloseable {
     private final WorkerMessageProcessor messageProcessor;
     private Duration cpuUsageBeforeGc = Duration.ZERO;
     private BiConsumer<Integer, Thread> cancelCallback;
+    private Duration idleTimeBeforeGc = Duration.ZERO;
 
     /**
      * Creates a {@code WorkRequestHandlerBuilder}.
@@ -305,10 +327,17 @@ public class WorkRequestHandler implements AutoCloseable {
       return this;
     }
 
+    /** Sets the time without any work that should elapse before forcing a GC. */
+    @CanIgnoreReturnValue
+    public WorkRequestHandlerBuilder setIdleTimeBeforeGc(Duration idleTimeBeforeGc) {
+      this.idleTimeBeforeGc = idleTimeBeforeGc;
+      return this;
+    }
+
     /** Returns a WorkRequestHandler instance with the values in this Builder. */
     public WorkRequestHandler build() {
       return new WorkRequestHandler(
-          callback, stderr, messageProcessor, cpuUsageBeforeGc, cancelCallback);
+          callback, stderr, messageProcessor, cpuUsageBeforeGc, cancelCallback, idleTimeBeforeGc);
     }
   }
 
@@ -317,42 +346,61 @@ public class WorkRequestHandler implements AutoCloseable {
    * then writing the corresponding {@link WorkResponse} to {@code out}. If there is an error
    * reading or writing the requests or responses, it writes an error message on {@code err} and
    * returns. If {@code in} reaches EOF, it also returns.
+   *
+   * <p>This function also wraps the system streams in a {@link WorkerIO} instance that prevents the
+   * underlying tool from writing to {@link System#out} or reading from {@link System#in}, which
+   * would corrupt the worker worker protocol. When the while loop exits, the original system
+   * streams will be swapped back into {@link System}.
    */
   public void processRequests() throws IOException {
+    // Wrap the system streams into a WorkerIO instance to prevent unexpected reads and writes on
+    // stdin/stdout.
+    WorkerIO workerIO = WorkerIO.capture();
+
     try {
       while (!shutdownWorker.get()) {
         WorkRequest request = messageProcessor.readWorkRequest();
+        idleGcScheduler.markActivity(true);
         if (request == null) {
           break;
         }
         if (request.getCancel()) {
           respondToCancelRequest(request);
         } else {
-          startResponseThread(request);
+          startResponseThread(workerIO, request);
         }
       }
     } catch (IOException e) {
       stderr.println("Error reading next WorkRequest: " + e);
       e.printStackTrace(stderr);
-    }
-    // TODO(b/220878242): Give the outstanding requests a chance to send a "shutdown" response,
-    // but also try to kill stuck threads. For now, we just interrupt the remaining threads.
-    // We considered doing System.exit here, but that is hard to test and would deny the callers
-    // of this method a chance to clean up. Instead, we initiate the cleanup of our resources here
-    // and the caller can decide whether to wait for an orderly shutdown or now.
-    for (RequestInfo ri : activeRequests.values()) {
-      if (ri.thread.isAlive()) {
-        try {
-          ri.thread.interrupt();
-        } catch (RuntimeException e) {
-          // If we can't interrupt, we can't do much else.
+    } finally {
+      idleGcScheduler.stop();
+      // TODO(b/220878242): Give the outstanding requests a chance to send a "shutdown" response,
+      // but also try to kill stuck threads. For now, we just interrupt the remaining threads.
+      // We considered doing System.exit here, but that is hard to test and would deny the callers
+      // of this method a chance to clean up. Instead, we initiate the cleanup of our resources here
+      // and the caller can decide whether to wait for an orderly shutdown or now.
+      for (RequestInfo ri : activeRequests.values()) {
+        if (ri.thread.isAlive()) {
+          try {
+            ri.thread.interrupt();
+          } catch (RuntimeException e) {
+            // If we can't interrupt, we can't do much else.
+          }
         }
+      }
+
+      try {
+        // Unwrap the system streams placing the original streams back
+        workerIO.close();
+      } catch (Exception e) {
+        stderr.println(e.getMessage());
       }
     }
   }
 
   /** Starts a thread for the given request. */
-  void startResponseThread(WorkRequest request) {
+  void startResponseThread(WorkerIO workerIO, WorkRequest request) {
     Thread currentThread = Thread.currentThread();
     String threadName =
         request.getRequestId() > 0
@@ -378,10 +426,11 @@ public class WorkRequestHandler implements AutoCloseable {
               RequestInfo requestInfo = activeRequests.get(request.getRequestId());
               if (requestInfo == null) {
                 // Already cancelled
+                idleGcScheduler.markActivity(!activeRequests.isEmpty());
                 return;
               }
               try {
-                respondToRequest(request, requestInfo);
+                respondToRequest(workerIO, request, requestInfo);
               } catch (IOException e) {
                 // IOExceptions here means a problem talking to the server, so we must shut down.
                 if (!shutdownWorker.compareAndSet(false, true)) {
@@ -391,6 +440,7 @@ public class WorkRequestHandler implements AutoCloseable {
                 }
               } finally {
                 activeRequests.remove(request.getRequestId());
+                idleGcScheduler.markActivity(!activeRequests.isEmpty());
               }
             },
             threadName);
@@ -402,6 +452,7 @@ public class WorkRequestHandler implements AutoCloseable {
             stderr.println("Error thrown by worker thread, shutting down worker.");
             e.printStackTrace(stderr);
             currentThread.interrupt();
+            idleGcScheduler.stop();
           }
         });
     RequestInfo previous = activeRequests.putIfAbsent(request.getRequestId(), new RequestInfo(t));
@@ -419,7 +470,8 @@ public class WorkRequestHandler implements AutoCloseable {
    *     #callback} are reported with exit code 1.
    */
   @VisibleForTesting
-  void respondToRequest(WorkRequest request, RequestInfo requestInfo) throws IOException {
+  void respondToRequest(WorkerIO workerIO, WorkRequest request, RequestInfo requestInfo)
+      throws IOException {
     int exitCode;
     StringWriter sw = new StringWriter();
     try (PrintWriter pw = new PrintWriter(sw)) {
@@ -430,6 +482,16 @@ public class WorkRequestHandler implements AutoCloseable {
       } catch (RuntimeException e) {
         e.printStackTrace(pw);
         exitCode = 1;
+      }
+
+      try {
+        // Read out the captured string for the final WorkResponse output
+        String captured = workerIO.readCapturedAsUtf8String().trim();
+        if (!captured.isEmpty()) {
+          pw.write(captured);
+        }
+      } catch (IOException e) {
+        stderr.println(e.getMessage());
       }
     }
     Optional<WorkResponse.Builder> optBuilder = requestInfo.takeBuilder();
@@ -492,6 +554,66 @@ public class WorkRequestHandler implements AutoCloseable {
     messageProcessor.close();
   }
 
+  /** Schedules GC when the worker has been idle for a while */
+  private static class IdleGcScheduler {
+    private Instant lastActivity = Instant.EPOCH;
+    private Instant lastGc = Instant.EPOCH;
+    /** Minimum duration from the end of activity until we perform an idle GC. */
+    private final Duration idleTimeBeforeGc;
+
+    private final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+    private ScheduledFuture<?> futureGc = null;
+
+    /**
+     * Creates a new scheduler.
+     *
+     * @param idleTimeBeforeGc The time from the last activity until attempting GC.
+     */
+    public IdleGcScheduler(Duration idleTimeBeforeGc) {
+      this.idleTimeBeforeGc = idleTimeBeforeGc;
+    }
+
+    synchronized void start() {
+      if (!idleTimeBeforeGc.isZero()) {
+        futureGc =
+            executor.schedule(this::maybeDoGc, idleTimeBeforeGc.toMillis(), TimeUnit.MILLISECONDS);
+      }
+    }
+
+    /**
+     * Should be called whenever there is some sort of activity starting or ending. Better to call
+     * too often.
+     */
+    synchronized void markActivity(boolean anythingActive) {
+      lastActivity = Instant.now();
+      if (futureGc != null) {
+        futureGc.cancel(false);
+        futureGc = null;
+      }
+      if (!anythingActive) {
+        start();
+      }
+    }
+
+    private void maybeDoGc() {
+      if (lastGc.isBefore(lastActivity)
+          && lastActivity.isBefore(Instant.now().minus(idleTimeBeforeGc))) {
+        System.gc();
+        lastGc = Instant.now();
+      } else {
+        start();
+      }
+    }
+
+    synchronized void stop() {
+      if (futureGc != null) {
+        futureGc.cancel(false);
+        futureGc = null;
+      }
+      executor.shutdown();
+    }
+  }
+
   /**
    * Class that performs GC occasionally, based on how much CPU time has passed. This strikes a
    * compromise between blindly doing GC after e.g. every request, which takes too much CPU, and not
@@ -539,6 +661,106 @@ public class WorkRequestHandler implements AutoCloseable {
           cpuTimeAtLastGc.compareAndSet(currentCpuTime, getCpuTime());
         }
       }
+    }
+  }
+
+  /**
+   * Class that wraps the standard {@link System#in}, {@link System#out}, and {@link System#err}
+   * with our own ByteArrayOutputStream that allows {@link WorkRequestHandler} to safely capture
+   * outputs that can't be directly captured by the PrintStream associated with the work request.
+   *
+   * <p>This is most useful when integrating JVM tools that write exceptions and logs directly to
+   * {@link System#out} and {@link System#err}, which would corrupt the persistent worker protocol.
+   * We also redirect {@link System#in}, just in case a tool should attempt to read it.
+   *
+   * <p>WorkerIO implements {@link AutoCloseable} and will swap the original streams back into
+   * {@link System} once close has been called.
+   */
+  public static class WorkerIO implements AutoCloseable {
+    private final InputStream originalInputStream;
+    private final PrintStream originalOutputStream;
+    private final PrintStream originalErrorStream;
+    private final ByteArrayOutputStream capturedStream;
+    private final AutoCloseable restore;
+
+    /**
+     * Creates a new {@link WorkerIO} that allows {@link WorkRequestHandler} to capture standard
+     * output and error streams that can't be directly captured by the PrintStream associated with
+     * the work request.
+     */
+    @VisibleForTesting
+    WorkerIO(
+        InputStream originalInputStream,
+        PrintStream originalOutputStream,
+        PrintStream originalErrorStream,
+        ByteArrayOutputStream capturedStream,
+        AutoCloseable restore) {
+      this.originalInputStream = originalInputStream;
+      this.originalOutputStream = originalOutputStream;
+      this.originalErrorStream = originalErrorStream;
+      this.capturedStream = capturedStream;
+      this.restore = restore;
+    }
+
+    /** Wraps the standard System streams and WorkerIO instance */
+    public static WorkerIO capture() {
+      // Save the original streams
+      InputStream originalInputStream = System.in;
+      PrintStream originalOutputStream = System.out;
+      PrintStream originalErrorStream = System.err;
+
+      // Replace the original streams with our own instances
+      ByteArrayOutputStream capturedStream = new ByteArrayOutputStream();
+      PrintStream outputBuffer = new PrintStream(capturedStream, true);
+      ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(new byte[0]);
+      System.setIn(byteArrayInputStream);
+      System.setOut(outputBuffer);
+      System.setErr(outputBuffer);
+
+      return new WorkerIO(
+          originalInputStream,
+          originalOutputStream,
+          originalErrorStream,
+          capturedStream,
+          () -> {
+            System.setIn(originalInputStream);
+            System.setOut(originalOutputStream);
+            System.setErr(originalErrorStream);
+            outputBuffer.close();
+            byteArrayInputStream.close();
+          });
+    }
+
+    /** Returns the original input stream most commonly provided by {@link System#in} */
+    @VisibleForTesting
+    InputStream getOriginalInputStream() {
+      return originalInputStream;
+    }
+
+    /** Returns the original output stream most commonly provided by {@link System#out} */
+    @VisibleForTesting
+    PrintStream getOriginalOutputStream() {
+      return originalOutputStream;
+    }
+
+    /** Returns the original error stream most commonly provided by {@link System#err} */
+    @VisibleForTesting
+    PrintStream getOriginalErrorStream() {
+      return originalErrorStream;
+    }
+
+    /** Returns the captured outputs as a UTF-8 string */
+    @VisibleForTesting
+    String readCapturedAsUtf8String() throws IOException {
+      capturedStream.flush();
+      String captureOutput = capturedStream.toString(StandardCharsets.UTF_8);
+      capturedStream.reset();
+      return captureOutput;
+    }
+
+    @Override
+    public void close() throws Exception {
+      restore.close();
     }
   }
 }

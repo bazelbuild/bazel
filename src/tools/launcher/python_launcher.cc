@@ -56,14 +56,10 @@ ExitCode PythonBinaryLauncher::Launch() {
   vector<wstring> args = this->GetCommandlineArguments();
   wstring use_zip_file = this->GetLaunchInfoByKey(USE_ZIP_FILE);
   wstring python_file;
-  // In case the given binary path is a shortened Windows 8dot3 path, we need to
-  // convert it back to its long path form before using it to find the python
-  // file.
-  wstring full_binary_path = GetWindowsLongPath(executable_file_);
   if (use_zip_file == L"1") {
-    python_file = GetBinaryPathWithoutExtension(full_binary_path) + L".zip";
+    python_file = GetBinaryPathWithoutExtension(GetLauncherPath()) + L".zip";
   } else {
-    python_file = GetBinaryPathWithoutExtension(full_binary_path);
+    python_file = GetBinaryPathWithoutExtension(GetLauncherPath());
   }
 
   // Replace the first argument with python file path

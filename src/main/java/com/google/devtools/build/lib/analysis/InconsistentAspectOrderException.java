@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.cmdline.Label;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -26,9 +26,10 @@ import net.starlark.java.syntax.Location;
 public class InconsistentAspectOrderException extends Exception {
   private final Location location;
 
-  public InconsistentAspectOrderException(Target target, AspectCycleOnPathException e) {
-    super(String.format("%s (when propagating to %s)", e.getMessage(), target.getLabel()));
-    this.location = target.getLocation();
+  public InconsistentAspectOrderException(
+      Label targetLabel, Location location, AspectCycleOnPathException e) {
+    super(String.format("%s (when propagating to %s)", e.getMessage(), targetLabel));
+    this.location = location;
   }
 
   public Location getLocation() {

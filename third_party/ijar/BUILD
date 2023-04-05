@@ -95,16 +95,16 @@ filegroup(
 filegroup(
     name = "embedded_zipper_sources",
     srcs = [
-        "zip.cc",
-        "zip.h",
-        "zip_main.cc",
+        "BUILD",
         "common.h",
         "mapped_file.h",
         "platform_utils.cc",
         "platform_utils.h",
+        "zip.cc",
+        "zip.h",
+        "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-        "BUILD",
     ] + select({
         "//src:windows": [
             "mapped_file_windows.cc",

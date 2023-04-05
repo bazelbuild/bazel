@@ -418,7 +418,7 @@ public class ApkActionsBuilder {
 
   private static void setSingleJarAsExecutable(
       RuleContext ruleContext, SpawnAction.Builder builder) {
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     builder.setExecutable(singleJar);
   }
 

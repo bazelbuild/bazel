@@ -43,8 +43,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
 
     return ConfigAwareRuleClassBuilder.of(builder)
-        // For getting the host Java executable.
-        .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         /* <!-- #BLAZE_RULE(java_library).IMPLICIT_OUTPUTS -->
@@ -153,7 +151,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exported_plugins", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .allowedFileTypes())
         .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))

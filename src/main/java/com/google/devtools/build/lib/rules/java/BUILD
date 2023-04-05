@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -13,7 +16,6 @@ java_library(
     srcs = [
         "GenericBuildInfoPropertiesTranslator.java",
         "JavaBinary.java",
-        "JavaImport.java",
         "JavaImportBaseRule.java",
         "JavaInfo.java",
         "JavaPackageConfiguration.java",
@@ -58,6 +60,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -151,11 +154,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:package_specification_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
@@ -166,10 +171,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -193,16 +200,12 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
-)
-
-java_library(
-    name = "java-implicit-attributes",
-    srcs = ["JavaImplicitAttributes.java"],
 )
 
 # A library with the utilities required for determining java roots.

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,7 +22,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
@@ -176,12 +174,6 @@ public final class AspectDefinition {
     return true;
   }
 
-  /** Returns the set of attributes along which the aspect propagates. */
-  @VisibleForTesting
-  public ImmutableSet<String> getRestrictToAttributes() {
-    return restrictToAttributes;
-  }
-
   /** Returns the set of configuration fragments required by this Aspect. */
   public ConfigurationFragmentPolicy getConfigurationFragmentPolicy() {
     return configurationFragmentPolicy;
@@ -215,15 +207,11 @@ public final class AspectDefinition {
 
   /** Collects all attribute labels from the specified aspectDefinition. */
   public static void addAllAttributesOfAspect(
-      final Rule from,
-      final Multimap<Attribute, Label> labelBuilder,
-      Aspect aspect,
-      DependencyFilter dependencyFilter) {
-    forEachLabelDepFromAllAttributesOfAspect(from, aspect, dependencyFilter, labelBuilder::put);
+      Multimap<Attribute, Label> labelBuilder, Aspect aspect, DependencyFilter dependencyFilter) {
+    forEachLabelDepFromAllAttributesOfAspect(aspect, dependencyFilter, labelBuilder::put);
   }
 
   public static void forEachLabelDepFromAllAttributesOfAspect(
-      Rule from,
       Aspect aspect,
       DependencyFilter dependencyFilter,
       BiConsumer<Attribute, Label> consumer) {
@@ -242,13 +230,13 @@ public final class AspectDefinition {
       if (type.getLabelClass() != LabelClass.DEPENDENCY) {
         continue;
       }
-      visitSingleAttribute(from, aspectAttribute, aspectAttribute.getType(), labelVisitor);
+      visitSingleAttribute(aspectAttribute, aspectAttribute.getType(), labelVisitor);
     }
   }
 
   private static <T> void visitSingleAttribute(
-      Rule from, Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
-    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue(from)), attribute);
+      Attribute attribute, Type<T> type, LabelVisitor labelVisitor) {
+    type.visitLabels(labelVisitor, type.cast(attribute.getDefaultValue()), attribute);
   }
 
   public static Builder builder(AspectClass aspectClass) {
@@ -299,6 +287,17 @@ public final class AspectDefinition {
     @CanIgnoreReturnValue
     public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
       requiredProviders.addBuiltinSet(ImmutableSet.copyOf(providers));
+      return this;
+    }
+
+    /**
+     * Same as the equivalent calls to {@link #requireProviderSets} and {@link
+     * #requireStarlarkProviderSets} for specifying the required providers conveyed by {@code
+     * requiredProviders}.
+     */
+    @CanIgnoreReturnValue
+    public Builder requireProviders(RequiredProviders requiredProviders) {
+      requiredProviders.addToAspectDefinitionBuilder(this);
       return this;
     }
 
@@ -469,7 +468,7 @@ public final class AspectDefinition {
 
     /**
      * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in this rule's host and target configurations.
+     * fragments to be present in this rule's exec and target configurations.
      *
      * <p>The value is inherited by subclasses.
      */
@@ -478,25 +477,6 @@ public final class AspectDefinition {
         Class<? extends Fragment>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(
           ImmutableSet.copyOf(configurationFragments));
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the given configuration that isn't the aspect's configuration but
-     * is also readable by the aspect.
-     *
-     * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
-     *
-     * <p>The value is inherited by subclasses.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragments(
-        ConfigurationTransition transition, Class<? extends Fragment>... configurationFragments) {
-      configurationFragmentPolicy.requiresConfigurationFragments(
-          transition, ImmutableSet.copyOf(configurationFragments));
       return this;
     }
 
@@ -512,26 +492,6 @@ public final class AspectDefinition {
         Collection<String> configurationFragmentNames) {
       configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
           configurationFragmentNames);
-      return this;
-    }
-
-    /**
-     * Declares that the implementation of the associated aspect definition requires the given
-     * fragments to be present in the given configuration that isn't the aspect's configuration but
-     * is also readable by the aspect.
-     *
-     * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes the Starlark module names of fragments instead of their classes.
-     *
-     * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see {@link
-     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
-     */
-    @CanIgnoreReturnValue
-    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
-        ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
-          transition, configurationFragmentNames);
       return this;
     }
 

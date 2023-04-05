@@ -185,6 +185,11 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     return configConditions;
   }
 
+  @Override
+  public boolean isRuleConfiguredTarget() {
+    return true;
+  }
+
   public ImmutableSet<ConfiguredTargetKey> getImplicitDeps() {
     return implicitDeps;
   }

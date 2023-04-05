@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.repository.Revision;
@@ -270,9 +271,9 @@ public final class Converters {
   }
 
   /** Converter for {@link VariantType}. */
-  public static class VariantTypeConverter extends EnumConverter<VariantType> {
+  public static class VariantTypeConverter extends EnumConverter<VariantTypeImpl> {
     public VariantTypeConverter() {
-      super(VariantType.class, "variant type");
+      super(VariantTypeImpl.class, "variant type");
     }
   }
 

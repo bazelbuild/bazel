@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Tuple;
 
 /**
  * A helper class for collecting instrumented files and metadata for a target.
@@ -58,8 +59,7 @@ public final class InstrumentedFilesCollector {
         new InstrumentationSpec(FileTypeSet.NO_FILE).withDependencyAttributes(dependencyAttributes),
         /* localMetadataCollector= */ null,
         /* rootFiles= */ null,
-        /* reportedToActualSources= */ NestedSetBuilder.<Pair<String, String>>emptySet(
-            Order.STABLE_ORDER));
+        /* reportedToActualSources= */ NestedSetBuilder.<Tuple>emptySet(Order.STABLE_ORDER));
   }
 
   public static InstrumentedFilesInfo forwardAll(RuleContext ruleContext) {
@@ -80,14 +80,11 @@ public final class InstrumentedFilesCollector {
         spec,
         NO_METADATA_COLLECTOR,
         ImmutableList.of(),
-        /* reportedToActualSources= */ NestedSetBuilder.<Pair<String, String>>emptySet(
-            Order.STABLE_ORDER));
+        /* reportedToActualSources= */ NestedSetBuilder.<Tuple>emptySet(Order.STABLE_ORDER));
   }
 
   public static InstrumentedFilesInfo collect(
-      RuleContext ruleContext,
-      InstrumentationSpec spec,
-      NestedSet<Pair<String, String>> reportedToActualSources) {
+      RuleContext ruleContext, InstrumentationSpec spec, NestedSet<Tuple> reportedToActualSources) {
     return collect(
         ruleContext,
         spec,
@@ -109,8 +106,7 @@ public final class InstrumentedFilesCollector {
         spec,
         localMetadataCollector,
         rootFiles,
-        /* reportedToActualSources= */ NestedSetBuilder.<Pair<String, String>>emptySet(
-            Order.STABLE_ORDER));
+        /* reportedToActualSources= */ NestedSetBuilder.<Tuple>emptySet(Order.STABLE_ORDER));
   }
 
   public static InstrumentedFilesInfo collect(
@@ -118,7 +114,7 @@ public final class InstrumentedFilesCollector {
       InstrumentationSpec spec,
       LocalMetadataCollector localMetadataCollector,
       Iterable<Artifact> rootFiles,
-      NestedSet<Pair<String, String>> reportedToActualSources) {
+      NestedSet<Tuple> reportedToActualSources) {
     return collect(
         ruleContext,
         spec,
@@ -153,8 +149,7 @@ public final class InstrumentedFilesCollector {
         coverageSupportFiles,
         coverageEnvironment,
         withBaselineCoverage,
-        /* reportedToActualSources= */ NestedSetBuilder.<Pair<String, String>>emptySet(
-            Order.STABLE_ORDER));
+        /* reportedToActualSources= */ NestedSetBuilder.<Tuple>emptySet(Order.STABLE_ORDER));
   }
 
   public static InstrumentedFilesInfo collect(
@@ -165,7 +160,7 @@ public final class InstrumentedFilesCollector {
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> reportedToActualSources) {
+      NestedSet<Tuple> reportedToActualSources) {
     return collect(
         ruleContext,
         spec,
@@ -186,7 +181,7 @@ public final class InstrumentedFilesCollector {
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
       boolean withBaselineCoverage,
-      NestedSet<Pair<String, String>> reportedToActualSources,
+      NestedSet<Tuple> reportedToActualSources,
       @Nullable Iterable<Artifact> additionalMetadata) {
     Preconditions.checkNotNull(ruleContext);
     Preconditions.checkNotNull(spec);
@@ -367,13 +362,13 @@ public final class InstrumentedFilesCollector {
     NestedSetBuilder<Artifact> baselineCoverageInstrumentedFilesBuilder;
     NestedSetBuilder<Artifact> coverageSupportFilesBuilder;
     NestedSetBuilder<Pair<String, String>> coverageEnvironmentBuilder;
-    NestedSet<Pair<String, String>> reportedToActualSources;
+    final NestedSet<Tuple> reportedToActualSources;
 
     InstrumentedFilesInfoBuilder(
         RuleContext ruleContext,
         NestedSet<Artifact> coverageSupportFiles,
         NestedSet<Pair<String, String>> coverageEnvironment,
-        NestedSet<Pair<String, String>> reportedToActualSources) {
+        NestedSet<Tuple> reportedToActualSources) {
       this.ruleContext = ruleContext;
       instrumentedFilesBuilder = NestedSetBuilder.stableOrder();
       metadataFilesBuilder = NestedSetBuilder.stableOrder();
@@ -390,7 +385,7 @@ public final class InstrumentedFilesCollector {
           ruleContext,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER),
-          NestedSetBuilder.<Pair<String, String>>emptySet(Order.STABLE_ORDER));
+          NestedSetBuilder.<Tuple>emptySet(Order.STABLE_ORDER));
     }
 
     void addFromDependency(TransitiveInfoCollection dep) {

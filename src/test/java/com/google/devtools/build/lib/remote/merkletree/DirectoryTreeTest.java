@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedSet;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -121,9 +122,9 @@ public abstract class DirectoryTreeTest {
     // Assert the lexicographical order as defined by the remote execution protocol
     tree.visit(
         (PathFragment dirname,
-            List<FileNode> files,
-            List<SymlinkNode> symlinks,
-            List<DirectoryNode> dirs) -> {
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           assertThat(files).isInStrictOrder();
           assertThat(dirs).isInStrictOrder();
         });
@@ -141,9 +142,9 @@ public abstract class DirectoryTreeTest {
     List<DirectoryNode> directoryNodes = new ArrayList<>();
     tree.visit(
         (PathFragment dirname,
-            List<FileNode> files,
-            List<SymlinkNode> symlinks,
-            List<DirectoryNode> dirs) -> {
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           int currDepth = dirname.segmentCount();
           if (currDepth == depth) {
             directoryNodes.addAll(dirs);
@@ -156,9 +157,9 @@ public abstract class DirectoryTreeTest {
     List<FileNode> fileNodes = new ArrayList<>();
     tree.visit(
         (PathFragment dirname,
-            List<FileNode> files,
-            List<SymlinkNode> symlinks,
-            List<DirectoryNode> dirs) -> {
+            SortedSet<FileNode> files,
+            SortedSet<SymlinkNode> symlinks,
+            SortedSet<DirectoryNode> dirs) -> {
           int currDepth = dirname.segmentCount();
           if (currDepth == depth) {
             fileNodes.addAll(files);

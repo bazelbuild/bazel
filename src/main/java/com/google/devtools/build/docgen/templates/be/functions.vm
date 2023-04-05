@@ -12,6 +12,9 @@
 
 <h1 class="page-title">Functions</h1>
 
+{% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/be/functions.vm" %}
+{% include "_buttons.html" %}
+
 #if (!$singlePage)
 <h2>Contents</h2>
 <ul>
@@ -31,7 +34,7 @@
 <h2 id="package">package</h2>
 
 <pre>
-package(default_deprecation, default_testonly, default_visibility, features)
+package(default_deprecation, default_package_metadata, default_testonly, default_visibility, features)
 </pre>
 <p>This function declares metadata that applies to every subsequent rule in the
 package. It is used at most once within a package (BUILD file).</p>
@@ -54,6 +57,12 @@ file, before any rule.</p>
   </thead>
   <tbody>
     <tr>
+      <td id="package.default_applicable_licenses"><code>default_applicable_licenses</code></td>
+      <td>
+        <p>Alias for <a href="#package.default_package_metadata"><code>default_package_metadata</code></a>.
+      </td>
+    </tr>
+    <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
         <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
@@ -73,6 +82,15 @@ file, before any rule.</p>
         <p><code>String; optional</code></p>
         <p>Sets the default <a href="common-definitions.html#common.deprecation">
         <code>deprecation</code></a> message for all rules in this package.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.default_package_metadata"><code>default_package_metadata</code></td>
+      <td>
+        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
+        <p>Sets a default list of metadata targets which apply to all other targets in the package.
+        These are typically targets related to OSS package and license declarations.
+        See <a href="https://github.com/bazelbuild/rules_license">rules_license</a> for examples.</p>
       </td>
     </tr>
     <tr>
@@ -309,7 +327,7 @@ package_group(
   The BUILD file for a package may only refer directly to source files belonging
   to another package if they are explicitly exported with an
   <code>exports_files()</code> statement. Read more about
-  <a href="$expander.expandRef("visibility#visibility-of-a-file")">visibility of files</a>.
+  <a href="$expander.expandRef("visibility#source-file-target-visibility")">visibility of files</a>.
 </p>
    <p>
   As a legacy behaviour, also files mentioned as input to a rule are exported

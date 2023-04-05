@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.android.builder.dependency.SymbolFileProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.CompiledResources;
+import com.google.devtools.build.android.resources.ResourceSymbols;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -95,8 +95,13 @@ class DependencyAndroidData extends SerializedAndroidData {
     this.compiledSymbols = compiledSymbols;
   }
 
-  public SymbolFileProvider asSymbolFileProvider() {
-    return new SymbolFileProvider() {
+  public ResourceSymbols.SymbolFileProvider asSymbolFileProvider() {
+    return new ResourceSymbols.SymbolFileProvider() {
+      @Override
+      public String getName() {
+        return "";
+      }
+
       @Override
       public File getManifest() {
         return manifest.toFile();
@@ -108,19 +113,14 @@ class DependencyAndroidData extends SerializedAndroidData {
       }
 
       @Override
-      public boolean isOptional() {
-        return false;
-      }
-
-      @Override
       public int hashCode() {
         return Objects.hash(getManifest(), getSymbolFile());
       }
 
       @Override
       public boolean equals(Object obj) {
-        if (obj instanceof SymbolFileProvider) {
-          SymbolFileProvider other = (SymbolFileProvider) obj;
+        if (obj instanceof ResourceSymbols.SymbolFileProvider) {
+          ResourceSymbols.SymbolFileProvider other = (ResourceSymbols.SymbolFileProvider) obj;
           return Objects.equals(getManifest(), other.getManifest())
               && Objects.equals(getSymbolFile(), other.getSymbolFile());
         }

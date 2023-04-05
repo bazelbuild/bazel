@@ -287,7 +287,7 @@ public final class OutputGroupInfo extends StructImpl
 
     NestedSet<Artifact> result = outputGroups.get(key);
     if (result != null) {
-      return Depset.of(Artifact.TYPE, result);
+      return Depset.of(Artifact.class, result);
     } else {
       throw Starlark.errorf("Output group %s not present", key);
     }
@@ -310,7 +310,7 @@ public final class OutputGroupInfo extends StructImpl
     if (result == null) {
       return null;
     }
-    return Depset.of(Artifact.TYPE, result);
+    return Depset.of(Artifact.class, result);
   }
 
   @Override

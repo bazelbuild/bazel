@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -20,13 +21,14 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.buildtool.SymlinkForest;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
-import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetReadyForSymlinkPlanting;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
@@ -35,6 +37,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An implementation of PackageRoots that allows incremental updating of the packageRootsMap.
@@ -46,27 +50,36 @@ public class IncrementalPackageRoots implements PackageRoots {
   // We only keep track of PackageIdentifier from external repos here as a memory optimization:
   // packages belong to the main repository all share the same root, which is singleSourceRoot.
   private final Map<PackageIdentifier, Root> threadSafeExternalRepoPackageRootsMap;
-  // Top level events originate from within Skyframe, so duplications are expected.
-  private final Set<Object> handledTopLevelEvents = Sets.newConcurrentHashSet();
-  private final Set<Path> plantedExternalRepoLinks = Sets.newConcurrentHashSet();
+
+  @GuardedBy("stateLock")
+  @Nullable
+  private Set<NestedSet.Node> handledPackageNestedSets = Sets.newConcurrentHashSet();
+
+  @Nullable private Set<Path> plantedExternalRepoLinks = Sets.newConcurrentHashSet();
+
+  private final Object stateLock = new Object();
   private final Path execroot;
   private final Root singleSourceRoot;
-  private final EventBus eventBus;
   private final String prefix;
   private final boolean useSiblingRepositoryLayout;
+
+  private final boolean allowExternalRepositories;
+  @Nullable private EventBus eventBus;
 
   private IncrementalPackageRoots(
       Path execroot,
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
-      boolean useSiblingRepositoryLayout) {
+      boolean useSiblingRepositoryLayout,
+      boolean allowExternalRepositories) {
     this.threadSafeExternalRepoPackageRootsMap = Maps.newConcurrentMap();
     this.execroot = execroot;
     this.singleSourceRoot = singleSourceRoot;
     this.prefix = prefix;
     this.eventBus = eventBus;
     this.useSiblingRepositoryLayout = useSiblingRepositoryLayout;
+    this.allowExternalRepositories = allowExternalRepositories;
   }
 
   public static IncrementalPackageRoots createAndRegisterToEventBus(
@@ -74,10 +87,16 @@ public class IncrementalPackageRoots implements PackageRoots {
       Root singleSourceRoot,
       EventBus eventBus,
       String prefix,
-      boolean useSiblingRepositoryLayout) {
+      boolean useSiblingRepositoryLayout,
+      boolean allowExternalRepositories) {
     IncrementalPackageRoots incrementalPackageRoots =
         new IncrementalPackageRoots(
-            execroot, singleSourceRoot, eventBus, prefix, useSiblingRepositoryLayout);
+            execroot,
+            singleSourceRoot,
+            eventBus,
+            prefix,
+            useSiblingRepositoryLayout,
+            allowExternalRepositories);
     eventBus.register(incrementalPackageRoots);
     return incrementalPackageRoots;
   }
@@ -109,25 +128,34 @@ public class IncrementalPackageRoots implements PackageRoots {
 
   @AllowConcurrentEvents
   @Subscribe
-  public void addTargetPackage(TopLevelTargetAnalyzedEvent event) throws AbruptExitException {
-    if (handledTopLevelEvents.add(event)) {
-      registerAndPlantSymlinksForExternalPackages(
-          event.transitivePackagesForSymlinkPlanting().toList());
-    }
-  }
-
-  @AllowConcurrentEvents
-  @Subscribe
-  public void addAspectPackage(AspectAnalyzedEvent event) throws AbruptExitException {
-    if (handledTopLevelEvents.add(event)) {
-      registerAndPlantSymlinksForExternalPackages(
-          event.transitivePackagesForSymlinkPlanting().toList());
-    }
-  }
-
-  private void registerAndPlantSymlinksForExternalPackages(Iterable<Package> packages)
+  public void topLevelTargetReadyForSymlinkPlanting(TopLevelTargetReadyForSymlinkPlanting event)
       throws AbruptExitException {
-    for (Package pkg : packages) {
+    if (allowExternalRepositories) {
+      registerAndPlantSymlinksForExternalPackages(event.transitivePackagesForSymlinkPlanting());
+    }
+  }
+
+  @Subscribe
+  public void analysisFinished(AnalysisPhaseCompleteEvent unused) {
+    dropIntermediateStatesAndUnregisterFromEventBus();
+  }
+
+  private void registerAndPlantSymlinksForExternalPackages(NestedSet<Package> packages)
+      throws AbruptExitException {
+    Set<Path> plantedExternalRepoLinksLocalRef;
+    synchronized (stateLock) {
+      if (handledPackageNestedSets == null || !handledPackageNestedSets.add(packages.toNode())) {
+        return;
+      }
+      plantedExternalRepoLinksLocalRef = plantedExternalRepoLinks;
+      if (plantedExternalRepoLinksLocalRef == null) {
+        return;
+      }
+    }
+
+    // To reach this point, this has to be the first and only time we plant the symlinks for this
+    // NestedSet<Package>. That means it's not possible to reach this after analysis has ended.
+    for (Package pkg : packages.getLeaves()) {
       PackageIdentifier pkgId = pkg.getPackageIdentifier();
       if (isExternalRepository(pkgId) && pkg.getSourceRoot().isPresent()) {
         threadSafeExternalRepoPackageRootsMap.put(
@@ -138,11 +166,14 @@ public class IncrementalPackageRoots implements PackageRoots {
               pkg.getSourceRoot().get().asPath(),
               execroot,
               useSiblingRepositoryLayout,
-              plantedExternalRepoLinks);
+              plantedExternalRepoLinksLocalRef);
         } catch (IOException e) {
           throwAbruptExitException(e);
         }
       }
+    }
+    for (NestedSet<Package> transitive : packages.getNonLeaves()) {
+      registerAndPlantSymlinksForExternalPackages(transitive);
     }
   }
 
@@ -150,7 +181,7 @@ public class IncrementalPackageRoots implements PackageRoots {
     throw new AbruptExitException(
         DetailedExitCode.of(
             FailureDetail.newBuilder()
-                .setMessage("Failed to prepare the symlink forest")
+                .setMessage("Failed to prepare the symlink forest: " + e)
                 .setSymlinkForest(
                     FailureDetails.SymlinkForest.newBuilder()
                         .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
@@ -162,7 +193,21 @@ public class IncrementalPackageRoots implements PackageRoots {
     return !pkgId.getRepository().isMain();
   }
 
-  public void shutdown() {
-    eventBus.unregister(this);
+  /**
+   * Drops the intermediate states and stop receiving new events.
+   *
+   * <p>This essentially makes this instance read-only. Should be called when and only when all
+   * analysis work is done in the build to free up some memory.
+   */
+  private void dropIntermediateStatesAndUnregisterFromEventBus() {
+    // This instance is retained after a build via ArtifactFactory, so it's important that we remove
+    // the reference to the eventBus here for it to be GC'ed.
+    Preconditions.checkNotNull(eventBus).unregister(this);
+    eventBus = null;
+
+    synchronized (stateLock) {
+      handledPackageNestedSets = null;
+      plantedExternalRepoLinks = null;
+    }
   }
 }

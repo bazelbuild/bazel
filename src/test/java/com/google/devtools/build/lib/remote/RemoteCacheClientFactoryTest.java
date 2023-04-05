@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.util.concurrent.ListeningScheduledExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -32,6 +34,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
+import java.util.concurrent.Executors;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +50,14 @@ public class RemoteCacheClientFactoryTest {
   private final AuthAndTLSOptions authAndTlsOptions = Options.getDefaults(AuthAndTLSOptions.class);
   private Path workingDirectory;
   private InMemoryFileSystem fs;
+  private ListeningScheduledExecutorService retryScheduler =
+      MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+  private RemoteRetrier retrier =
+      new RemoteRetrier(
+          () -> RemoteRetrier.RETRIES_DISABLED,
+          (e) -> false,
+          retryScheduler,
+          Retrier.ALLOW_ALL_CALLS);
 
   @Before
   public final void setUp() {
@@ -63,7 +74,12 @@ public class RemoteCacheClientFactoryTest {
 
     RemoteCacheClient blobStore =
         RemoteCacheClientFactory.create(
-            remoteOptions, /* creds= */ null, authAndTlsOptions, workingDirectory, digestUtil);
+            remoteOptions,
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
 
     assertThat(blobStore).isInstanceOf(DiskAndRemoteCacheClient.class);
   }
@@ -76,7 +92,12 @@ public class RemoteCacheClientFactoryTest {
 
     RemoteCacheClient blobStore =
         RemoteCacheClientFactory.create(
-            remoteOptions, /* creds= */ null, authAndTlsOptions, workingDirectory, digestUtil);
+            remoteOptions,
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
 
     assertThat(blobStore).isInstanceOf(DiskAndRemoteCacheClient.class);
     assertThat(workingDirectory.exists()).isTrue();
@@ -96,7 +117,8 @@ public class RemoteCacheClientFactoryTest {
                 /* creds= */ null,
                 authAndTlsOptions,
                 /* workingDirectory= */ null,
-                digestUtil));
+                digestUtil,
+                retrier));
   }
 
   @Test
@@ -106,7 +128,12 @@ public class RemoteCacheClientFactoryTest {
 
     RemoteCacheClient blobStore =
         RemoteCacheClientFactory.create(
-            remoteOptions, /* creds= */ null, authAndTlsOptions, workingDirectory, digestUtil);
+            remoteOptions,
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
 
     assertThat(blobStore).isInstanceOf(HttpCacheClient.class);
   }
@@ -125,7 +152,8 @@ public class RemoteCacheClientFactoryTest {
                         /* creds= */ null,
                         authAndTlsOptions,
                         workingDirectory,
-                        digestUtil)))
+                        digestUtil,
+                        retrier)))
         .hasMessageThat()
         .contains("Remote cache proxy unsupported: bad-proxy");
   }
@@ -136,7 +164,12 @@ public class RemoteCacheClientFactoryTest {
 
     RemoteCacheClient blobStore =
         RemoteCacheClientFactory.create(
-            remoteOptions, /* creds= */ null, authAndTlsOptions, workingDirectory, digestUtil);
+            remoteOptions,
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
 
     assertThat(blobStore).isInstanceOf(HttpCacheClient.class);
   }
@@ -147,7 +180,12 @@ public class RemoteCacheClientFactoryTest {
 
     RemoteCacheClient blobStore =
         RemoteCacheClientFactory.create(
-            remoteOptions, /* creds= */ null, authAndTlsOptions, workingDirectory, digestUtil);
+            remoteOptions,
+            /* creds= */ null,
+            authAndTlsOptions,
+            workingDirectory,
+            digestUtil,
+            retrier);
 
     assertThat(blobStore).isInstanceOf(DiskCacheClient.class);
   }

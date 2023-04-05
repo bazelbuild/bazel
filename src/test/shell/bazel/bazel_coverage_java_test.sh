@@ -43,7 +43,8 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
     inplace-sed "/override_repository=remote_java_tools=/d" "$TEST_TMPDIR/bazelrc"
     inplace-sed "/override_repository=remote_java_tools_linux=/d" "$TEST_TMPDIR/bazelrc"
     inplace-sed "/override_repository=remote_java_tools_windows=/d" "$TEST_TMPDIR/bazelrc"
-    inplace-sed "/override_repository=remote_java_tools_darwin=/d" "$TEST_TMPDIR/bazelrc"
+    inplace-sed "/override_repository=remote_java_tools_darwin_x86_64=/d" "$TEST_TMPDIR/bazelrc"
+    inplace-sed "/override_repository=remote_java_tools_darwin_arm64=/d" "$TEST_TMPDIR/bazelrc"
 fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
@@ -80,7 +81,11 @@ http_archive(
     urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 http_archive(
-    name = "remote_java_tools_darwin",
+    name = "remote_java_tools_darwin_x86_64",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin_arm64",
     urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
@@ -1141,6 +1146,178 @@ LH:6
 LF:7
 end_of_record"
   assert_coverage_result "$coverage_result_num_lib_header" "$coverage_file_path"
+}
+
+function setup_external_java_target() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+    name = "other_repo",
+    path = "other_repo",
+)
+EOF
+
+  cat > BUILD <<'EOF'
+java_library(
+    name = "math",
+    srcs = ["src/main/com/example/Math.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  mkdir -p src/main/com/example
+  cat > src/main/com/example/Math.java <<'EOF'
+package com.example;
+
+public class Math {
+
+  public static boolean isEven(int n) {
+    return n % 2 == 0;
+  }
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  cat > other_repo/BUILD <<'EOF'
+java_library(
+    name = "collatz",
+    srcs = ["src/main/com/example/Collatz.java"],
+    deps = ["@//:math"],
+)
+
+java_test(
+    name = "test",
+    srcs = ["src/test/com/example/TestCollatz.java"],
+    test_class = "com.example.TestCollatz",
+    deps = [":collatz"],
+)
+EOF
+
+  mkdir -p other_repo/src/main/com/example
+  cat > other_repo/src/main/com/example/Collatz.java <<'EOF'
+package com.example;
+
+public class Collatz {
+
+  public static int getCollatzFinal(int n) {
+    if (n == 1) {
+      return 1;
+    }
+    if (Math.isEven(n)) {
+      return getCollatzFinal(n / 2);
+    } else {
+      return getCollatzFinal(n * 3 + 1);
+    }
+  }
+
+}
+EOF
+
+  mkdir -p other_repo/src/test/com/example
+  cat > other_repo/src/test/com/example/TestCollatz.java <<'EOF'
+package com.example;
+
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
+
+public class TestCollatz {
+
+  @Test
+  public void testGetCollatzFinal() {
+    assertEquals(Collatz.getCollatzFinal(1), 1);
+    assertEquals(Collatz.getCollatzFinal(5), 1);
+    assertEquals(Collatz.getCollatzFinal(10), 1);
+    assertEquals(Collatz.getCollatzFinal(21), 1);
+  }
+
+}
+EOF
+}
+
+function test_external_java_target_can_collect_coverage() {
+  setup_external_java_target
+
+  bazel coverage --test_output=all @other_repo//:test --combined_report=lcov \
+   --instrumentation_filter=// &>$TEST_log \
+      || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result_math='SF:src/main/com/example/Math.java
+FN:3,com/example/Math::<init> ()V
+FN:6,com/example/Math::isEven (I)Z
+FNDA:0,com/example/Math::<init> ()V
+FNDA:1,com/example/Math::isEven (I)Z
+FNF:2
+FNH:1
+BRDA:6,0,0,1
+BRDA:6,0,1,1
+BRF:2
+BRH:2
+DA:3,0
+DA:6,1
+LH:1
+LF:2
+end_of_record'
+  local expected_result_collatz="SF:external/other_repo/src/main/com/example/Collatz.java
+FN:3,com/example/Collatz::<init> ()V
+FN:6,com/example/Collatz::getCollatzFinal (I)I
+FNDA:0,com/example/Collatz::<init> ()V
+FNDA:1,com/example/Collatz::getCollatzFinal (I)I
+FNF:2
+FNH:1
+BRDA:6,0,0,1
+BRDA:6,0,1,1
+BRDA:9,0,0,1
+BRDA:9,0,1,1
+BRF:4
+BRH:4
+DA:3,0
+DA:6,1
+DA:7,1
+DA:9,1
+DA:10,1
+DA:12,1
+LH:5
+LF:6
+end_of_record"
+
+  assert_coverage_result "$expected_result_math" "$coverage_file_path"
+  assert_coverage_result "$expected_result_collatz" "$coverage_file_path"
+
+  assert_coverage_result "$expected_result_math" bazel-out/_coverage/_coverage_report.dat
+  assert_coverage_result "$expected_result_collatz" bazel-out/_coverage/_coverage_report.dat
+}
+
+function test_external_java_target_coverage_not_collected_by_default() {
+  setup_external_java_target
+
+  bazel coverage --test_output=all @other_repo//:test --combined_report=lcov &>$TEST_log \
+      || echo "Coverage for //:test failed"
+
+  local coverage_file_path="$(get_coverage_file_path_from_test_log)"
+  local expected_result_math='SF:src/main/com/example/Math.java
+FN:3,com/example/Math::<init> ()V
+FN:6,com/example/Math::isEven (I)Z
+FNDA:0,com/example/Math::<init> ()V
+FNDA:1,com/example/Math::isEven (I)Z
+FNF:2
+FNH:1
+BRDA:6,0,0,1
+BRDA:6,0,1,1
+BRF:2
+BRH:2
+DA:3,0
+DA:6,1
+LH:1
+LF:2
+end_of_record'
+
+  assert_coverage_result "$expected_result_math" "$coverage_file_path"
+  assert_not_contains "SF:external/other_repo/" "$coverage_file_path"
+
+  assert_coverage_result "$expected_result_math" bazel-out/_coverage/_coverage_report.dat
+  assert_not_contains "SF:external/other_repo/" bazel-out/_coverage/_coverage_report.dat
 }
 
 run_suite "test tests"

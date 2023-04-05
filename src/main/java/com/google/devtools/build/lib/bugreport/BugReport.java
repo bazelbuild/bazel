@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -250,17 +251,15 @@ public final class BugReport {
       synchronized (LOCK) {
         logger.atSevere().withCause(throwable).log("Handling crash with %s", ctx);
 
-        // Don't try to send a bug report during a crash in a test, it will throw itself.
         if (TestType.isInTest()) {
           lastCrashingThrowable = throwable;
-        } else if (ctx.shouldSendBugReport()) {
-          sendBugReport(throwable, ctx.getArgs());
         }
 
         String crashMsg;
         String heapDumpPath;
         // Might be a wrapped OOM - the detailed exit code reflects the root cause.
-        if (crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR)) {
+        boolean isOom = crash.getDetailedExitCode().getExitCode().equals(ExitCode.OOM_ERROR);
+        if (isOom) {
           crashMsg = constructOomExitMessage(ctx.getExtraOomInfo());
           heapDumpPath = ctx.getHeapDumpPath();
           if (heapDumpPath != null) {
@@ -274,7 +273,16 @@ public final class BugReport {
         ctx.getEventHandler().handle(Event.fatal(crashMsg));
 
         try {
+          // Emit exit data before sending a bug report. Bug reports involve an RPC, and given that
+          // we are crashing, who knows if it will complete. It's more important that we write
+          // exit code and failure detail information so that the crash can be handled correctly.
           emitExitData(crash, ctx, numericExitCode, heapDumpPath);
+          // Skip sending a bug report if the crash is an OOM - attempting an RPC while out of
+          // memory can cause issues. Also, don't try to send a bug report during a crash in a test,
+          // it will throw itself.
+          if (ctx.shouldSendBugReport() && !isOom && !TestType.isInTest()) {
+            sendBugReport(throwable, ctx.getArgs());
+          }
         } finally {
           if (ctx.shouldHaltJvm()) {
             // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
@@ -403,7 +411,8 @@ public final class BugReport {
   static void logException(
       Throwable exception, boolean isCrash, List<String> args, String... values) {
     logger.atSevere().withCause(exception).log("Exception");
-    String preamble = getProductName();
+    String preamble =
+        CrashFailureDetails.oomDetected() ? "While OOMing, " + getProductName() : getProductName();
     Level level = isCrash ? Level.SEVERE : Level.WARNING;
     if (!isCrash) {
       preamble += " had a non fatal error with args: ";
@@ -413,7 +422,9 @@ public final class BugReport {
       preamble += " crashed with args: ";
     }
 
+    logger.atInfo().log("Calling logToRemote");
     LoggingUtil.logToRemote(level, preamble + Joiner.on(' ').join(args), exception, values);
+    logger.atInfo().log("Call to logToRemote complete");
   }
 
   private static final class DefaultBugReporter implements BugReporter {
@@ -424,7 +435,7 @@ public final class BugReport {
     }
 
     @Override
-    public void sendNonFatalBugReport(Exception exception) {
+    public void sendNonFatalBugReport(Throwable exception) {
       BugReport.sendNonFatalBugReport(exception);
     }
 

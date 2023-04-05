@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.view.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,20 +43,21 @@ public class JavaConfigurationTest extends ConfigurationTestCase {
     scratch.file("foo/BUILD", "filegroup(name='bar')", "filegroup(name='baz')");
     config = create("--java_launcher=//foo:bar");
     cfg = config.getFragment(JavaConfiguration.class);
-    assertThat(Label.parseAbsoluteUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
+    assertThat(Label.parseCanonicalUnchecked("//foo:bar")).isEqualTo(cfg.getJavaLauncherLabel());
   }
 
   @Test
   public void testHostCrosstoolTop() throws Exception {
-    BuildConfigurationCollection configs = createCollection();
-    BuildConfigurationValue config = configs.getTargetConfiguration();
+    BuildConfigurationValue config = createConfiguration();
     assertThat(config.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
-            Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
+            Label.parseCanonicalUnchecked(
+                TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
 
-    BuildConfigurationValue hostConfig = configs.getHostConfiguration();
-    assertThat(hostConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
+    BuildConfigurationValue execConfig = createExec();
+    assertThat(execConfig.getFragment(CppConfiguration.class).getRuleProvidingCcToolchainProvider())
         .isEqualTo(
-            Label.parseAbsoluteUnchecked(TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
+            Label.parseCanonicalUnchecked(
+                TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain"));
   }
 }

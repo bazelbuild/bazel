@@ -14,19 +14,22 @@
 package com.google.devtools.build.skyframe;
 
 /**
- *  A Version defines a value in a version tree used in persistent data structures.
- *  See http://en.wikipedia.org/wiki/Persistent_data_structure.
+ * A Version defines a value in a version tree used in persistent data structures. See
+ * http://en.wikipedia.org/wiki/Persistent_data_structure.
+ *
+ * <p>Extends {@link NodeVersion} so that a single instance can be reused to save memory in the
+ * common case that {@link #lastEvaluated} and {@link #lastChanged} are the same version.
  */
-public interface Version {
+public interface Version extends NodeVersion {
   /**
-   * Defines a partial order relation on versions. Returns true if this object is at most
-   * {@code other} in that partial order. If x.equals(y), then x.atMost(y).
+   * Defines a partial order relation on versions. Returns true if this object is at most {@code
+   * other} in that partial order. If x.equals(y), then x.atMost(y).
    *
    * <p>If x.atMost(y) returns false, then there are two possibilities: y < x in the partial order,
    * so y.atMost(x) returns true and !x.equals(y), or x and y are incomparable in this partial
    * order. This may be because x and y are instances of different Version implementations (although
-   * it is legal for different Version implementations to be comparable as well).
-   * See http://en.wikipedia.org/wiki/Partially_ordered_set.
+   * it is legal for different Version implementations to be comparable as well). See
+   * http://en.wikipedia.org/wiki/Partially_ordered_set.
    */
   boolean atMost(Version other);
 
@@ -40,5 +43,31 @@ public interface Version {
    */
   default boolean lowerThan(Version other) {
     return atMost(other) && !equals(other);
+  }
+
+  @Override
+  default Version lastEvaluated() {
+    return this;
+  }
+
+  @Override
+  default Version lastChanged() {
+    return this;
+  }
+
+  static MinimalVersion minimal() {
+    return MinimalVersion.INSTANCE;
+  }
+
+  /** A version {@link #lowerThan} all other versions, other than itself. */
+  final class MinimalVersion implements Version {
+    private static final MinimalVersion INSTANCE = new MinimalVersion();
+
+    private MinimalVersion() {}
+
+    @Override
+    public boolean atMost(Version other) {
+      return true;
+    }
   }
 }

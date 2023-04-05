@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -143,7 +144,14 @@ public final class AnalysisPhaseRunner {
         module.afterAnalysis(env, request, buildOptions, analysisResult);
       }
 
-      reportTargets(env, analysisResult.getTargetsToBuild(), analysisResult.getTargetsToTest());
+      if (request.shouldRunTests()) {
+        reportTargetsWithTests(
+            env,
+            analysisResult.getTargetsToBuild(),
+            Preconditions.checkNotNull(analysisResult.getTargetsToTest()));
+      } else {
+        reportTargets(env, analysisResult.getTargetsToBuild());
+      }
 
       for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
         BuildConfigurationValue config =
@@ -162,7 +170,8 @@ public final class AnalysisPhaseRunner {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
-      FailureDetail failureDetail = BuildView.createFailureDetail(loadingResult, null, null);
+      FailureDetail failureDetail =
+          BuildView.createAnalysisFailureDetail(loadingResult, null, null);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
@@ -238,19 +247,21 @@ public final class AnalysisPhaseRunner {
               request.getAspectsParameters(),
               request.getViewOptions(),
               request.getKeepGoing(),
+              request.getViewOptions().skipIncompatibleExplicitTargets,
               request.getCheckForActionConflicts(),
-              request.getLoadingPhaseThreadCount(),
+              env.getQuiescingExecutors(),
               request.getTopLevelArtifactContext(),
               request.reportIncompatibleTargets(),
               env.getReporter(),
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
-              /*includeExecutionPhase=*/ false,
-              /*mergedPhasesExecutionJobsCount=*/ 0,
-              /*resourceManager=*/ null,
-              /*buildResultListener=*/ null,
-              /*executionSetupCallback*/ null,
-              /*buildConfigurationsCreatedCallback=*/ null);
+              /* includeExecutionPhase= */ false,
+              /* skymeldAnalysisOverlapPercentage= */ 0,
+              /* resourceManager= */ null,
+              /* buildResultListener= */ null,
+              /* executionSetupCallback= */ null,
+              /* buildConfigurationsCreatedCallback= */ null,
+              /* buildDriverKeyTestContext= */ null);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }
@@ -298,8 +309,7 @@ public final class AnalysisPhaseRunner {
       AnalysisResult analysisResult,
       Map<BuildConfigurationKey, BuildConfigurationValue> configurationMap) {
     for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-      env.getEventBus()
-          .post(TopLevelTargetAnalyzedEvent.createWithoutFurtherSymlinkPlanting(configuredTarget));
+      env.getEventBus().post(TopLevelTargetAnalyzedEvent.create(configuredTarget));
       if (analysisResult.getTargetsToSkip().contains(configuredTarget)) {
         env.getEventBus().post(TopLevelTargetSkippedEvent.create(configuredTarget));
       }
@@ -316,44 +326,40 @@ public final class AnalysisPhaseRunner {
     }
 
     for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
-      env.getEventBus()
-          .post(
-              AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(
-                  entry.getKey(), entry.getValue()));
+      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
     }
   }
 
-  static void reportTargets(
+  static void reportTargetsWithTests(
       CommandEnvironment env,
       Collection<ConfiguredTarget> targetsToBuild,
       Collection<ConfiguredTarget> targetsToTest) {
-    if (targetsToTest != null) {
-      int testCount = targetsToTest.size();
-      int targetCount = targetsToBuild.size() - testCount;
-      if (targetCount == 0) {
-        env.getReporter()
-            .handle(
-                Event.info(
-                    "Found "
-                        + testCount
-                        + (testCount == 1 ? " test target..." : " test targets...")));
-      } else {
-        env.getReporter()
-            .handle(
-                Event.info(
-                    "Found "
-                        + targetCount
-                        + (targetCount == 1 ? " target and " : " targets and ")
-                        + testCount
-                        + (testCount == 1 ? " test target..." : " test targets...")));
-      }
-    } else {
-      int targetCount = targetsToBuild.size();
+    int testCount = targetsToTest.size();
+    int targetCount = targetsToBuild.size() - testCount;
+    if (targetCount == 0) {
       env.getReporter()
           .handle(
               Event.info(
-                  "Found " + targetCount + (targetCount == 1 ? " target..." : " targets...")));
+                  "Found "
+                      + testCount
+                      + (testCount == 1 ? " test target..." : " test targets...")));
+    } else {
+      env.getReporter()
+          .handle(
+              Event.info(
+                  "Found "
+                      + targetCount
+                      + (targetCount == 1 ? " target and " : " targets and ")
+                      + testCount
+                      + (testCount == 1 ? " test target..." : " test targets...")));
     }
+  }
+
+  static void reportTargets(CommandEnvironment env, Collection<ConfiguredTarget> targetsToBuild) {
+    int targetCount = targetsToBuild.size();
+    env.getReporter()
+        .handle(
+            Event.info("Found " + targetCount + (targetCount == 1 ? " target..." : " targets...")));
   }
 
   /**

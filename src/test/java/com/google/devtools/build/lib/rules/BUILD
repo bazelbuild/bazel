@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -21,6 +22,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/rules/proto:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/python:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/test:srcs",
     ],
     visibility = ["//src:__subpackages__"],

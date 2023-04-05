@@ -34,10 +34,7 @@ enum Inconsistency {
   // inconsistency will not appear in InconsistencyStats.
   PARENT_FORCE_REBUILD_OF_MISSING_CHILD = 4 [deprecated = true];
   BUILDING_PARENT_FOUND_UNDONE_CHILD = 5;
-  // Deprecated: already declared children should never be missing. A missing
-  // already declared child is not tolerated and results in a crash, so this
-  // inconsistency will not appear in InconsistencyStats.
-  ALREADY_DECLARED_CHILD_MISSING = 6 [deprecated = true];
+  ALREADY_DECLARED_CHILD_MISSING = 6;
 }
 
 // Information about inconsistencies encountered during an invocation (typically

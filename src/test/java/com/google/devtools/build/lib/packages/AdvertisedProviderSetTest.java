@@ -72,7 +72,7 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label1.bzl"), "exportedName1")))
+                                Label.parseCanonicalUnchecked("//my:label1.bzl"), "exportedName1")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(
@@ -83,11 +83,11 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label1.bzl"), "exportedName1")))
+                                Label.parseCanonicalUnchecked("//my:label1.bzl"), "exportedName1")))
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label2.bzl"), "exportedName2")))
+                                Label.parseCanonicalUnchecked("//my:label2.bzl"), "exportedName2")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(
@@ -98,7 +98,7 @@ public class AdvertisedProviderSetTest {
                     .addStarlark(
                         StarlarkProviderIdentifier.forKey(
                             new StarlarkProvider.Key(
-                                Label.parseAbsoluteUnchecked("//my:label2.bzl"), "exportedName2")))
+                                Label.parseCanonicalUnchecked("//my:label2.bzl"), "exportedName2")))
                     .build()))
         .isEqualTo(
             HashCode.fromString(

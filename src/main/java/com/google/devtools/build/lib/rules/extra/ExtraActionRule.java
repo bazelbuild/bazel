@@ -45,7 +45,7 @@ public final class ExtraActionRule implements RuleDefinition {
         <p>
           The build system ensures these prerequisites are built before running the
           <code>extra_action</code> command; they are built using the
-          <a href='${link user-manual#configurations}'><code>host</code>configuration</a>,
+          <a href='${link user-manual#configurations}'><code>exec</code>configuration</a>,
           since they must run as a tool during the build itself. The path of an individual
           <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -58,7 +58,7 @@ public final class ExtraActionRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes()
                 .exec())
         /*<!-- #BLAZE_RULE(extra_action).ATTRIBUTE(out_templates) -->

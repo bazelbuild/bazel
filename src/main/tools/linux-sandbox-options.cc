@@ -69,11 +69,16 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "specifies where to\n"
           "  -S <file>  if set, write stats in protobuf format to a file\n"
           "  -H  if set, make hostname in the sandbox equal to 'localhost'\n"
-          "  -N  if set, a new network namespace will be created\n"
+          "  -n  if set, create a new network namespace\n"
+          "  -N  if set, create a new network namespace with loopback\n"
+          "        Only one of -n and -N may be specified.\n"
           "  -R  if set, make the uid/gid be root\n"
           "  -U  if set, make the uid/gid be nobody\n"
           "  -P  if set, make the gid be tty and make /dev/pts writable\n"
           "  -D  if set, debug info will be printed\n"
+          "  -p  if set, the process is persistent and ignores parent thread "
+          "death signals\n"
+          "  -C <dir> if set, put all subprocesses inside this cgroup.\n"
           "  -h <sandbox-dir>  if set, chroot to sandbox-dir and only "
           " mount whats been specified with -M/-m for improved hermeticity. "
           " The working-dir should be a folder inside the sandbox-dir\n"
@@ -96,9 +101,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern int optind, optopt;
   int c;
   bool source_specified = false;
-
   while ((c = getopt(args->size(), args->data(),
-                     ":W:T:t:il:L:w:e:M:m:S:h:HNRUPD")) != -1) {
+                     ":W:T:t:il:L:w:e:M:m:S:h:pC:HnNRUPD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'W':
@@ -124,6 +128,9 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         break;
       case 'i':
         opt.sigint_sends_sigterm = true;
+        break;
+      case 'p':
+        opt.persistent_process = true;
         break;
       case 'l':
         if (opt.stdout_path.empty()) {
@@ -197,8 +204,17 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
       case 'H':
         opt.fake_hostname = true;
         break;
+      case 'n':
+        if (opt.create_netns == NETNS_WITH_LOOPBACK) {
+          Usage(args->front(), "Only one of -n and -N may be specified.");
+        }
+        opt.create_netns = NETNS;
+        break;
       case 'N':
-        opt.create_netns = true;
+        if (opt.create_netns == NETNS) {
+          Usage(args->front(), "Only one of -n and -N may be specified.");
+        }
+        opt.create_netns = NETNS_WITH_LOOPBACK;
         break;
       case 'R':
         if (opt.fake_username) {
@@ -215,6 +231,10 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
                 "option.");
         }
         opt.fake_username = true;
+        break;
+      case 'C':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        opt.cgroups_dir.assign(optarg);
         break;
       case 'P':
         opt.enable_pty = true;

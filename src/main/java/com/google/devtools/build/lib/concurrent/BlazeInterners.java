@@ -35,6 +35,12 @@ public class BlazeInterners {
     return builder.concurrencyLevel(CONCURRENCY_LEVEL);
   }
 
+  /**
+   * Creates an interner which retains a weak reference to each instance it has interned.
+   *
+   * <p>It is preferred to use {@code SkyKey#SkyKeyInterner} instead for interning {@code SkyKey}
+   * types.
+   */
   public static <T> Interner<T> newWeakInterner() {
     return setConcurrencyLevel(Interners.newBuilder().weak()).build();
   }

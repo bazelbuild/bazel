@@ -107,6 +107,8 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
         "    repo_rule(name = name, **kwargs)");
     FileSystemUtils.writeIsoLatin1(tools.getRelative("tools/jdk/BUILD"));
     FileSystemUtils.writeIsoLatin1(
+        tools.getRelative("tools/jdk/jdk_build_file.bzl"), "JDK_BUILD_TEMPLATE = ''");
+    FileSystemUtils.writeIsoLatin1(
         tools.getRelative("tools/jdk/local_java_repository.bzl"),
         "def local_java_repository(**kwargs):",
         "  pass");
@@ -233,7 +235,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
       }
 
       // Verify that the flipped value is preserved under an exec transition.
-      FragmentOptions flippedAfterExec = flipped.getHost();
+      FragmentOptions flippedAfterExec = flipped.getExec();
       for (OptionDefinition incompatibleOption : incompatibleOptions) {
         Field field = incompatibleOption.getField();
         if (field.getBoolean(flippedAfterExec) != field.getBoolean(flipped)) {

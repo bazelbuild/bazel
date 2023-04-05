@@ -36,28 +36,28 @@ public class ProxyHelperTest {
   public void testCreateIfNeededHttpLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:80");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:80$");
   }
 
   @Test
   public void testCreateIfNeededHttpUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTP_PROXY", "http://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:80");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:80$");
   }
 
   @Test
   public void testCreateIfNeededHttpsLowerCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("https_proxy", "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:443");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
 
   @Test
   public void testCreateIfNeededHttpsUpperCase() throws Exception {
     ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:443");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
 
   @Test
@@ -141,7 +141,7 @@ public class ProxyHelperTest {
                 "HTTPS_PROXY",
                 "https://my.example.com"));
     Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.not-example.com"));
-    assertThat(proxy.toString()).endsWith("my.example.com:443");
+    assertThat(proxy.toString()).containsMatch("my\\.example\\.com(/<unresolved>)?:443$");
   }
 
   @Test

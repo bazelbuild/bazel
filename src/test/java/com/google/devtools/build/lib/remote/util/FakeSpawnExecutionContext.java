@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -123,6 +124,11 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
+  public ArtifactPathResolver getPathResolver() {
+    return ArtifactPathResolver.forExecRoot(execRoot);
+  }
+
+  @Override
   public Duration getTimeout() {
     return Duration.ZERO;
   }
@@ -133,7 +139,8 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   }
 
   @Override
-  public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory)
+  public SortedMap<PathFragment, ActionInput> getInputMapping(
+      PathFragment baseDirectory, boolean willAccessRepeatedly)
       throws IOException, ForbiddenActionInputException {
     return getSpawnInputExpander()
         .getInputMapping(spawn, this::artifactExpander, baseDirectory, metadataProvider);

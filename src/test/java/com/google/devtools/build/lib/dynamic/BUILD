@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -48,6 +49,18 @@ java_test(
 )
 
 java_test(
+    name = "DynamicExecutionOptionsTest",
+    size = "small",
+    srcs = ["DynamicExecutionOptionsTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "DynamicSpawnStrategyTest",
     size = "small",
     srcs = ["DynamicSpawnStrategyTest.java"],
@@ -84,11 +97,22 @@ java_test(
     size = "small",
     srcs = ["DynamicExecutionModuleTest.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/dynamic",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/test/java/com/google/devtools/build/lib/exec/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

@@ -1,7 +1,9 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-#  Calling Bazel from scripts
+# Calling Bazel from scripts
+
+{% include "_buttons.html" %}
 
 You can call Bazel from scripts to perform a build, run tests, or query
 the dependency graph. Bazel has been designed to enable effective scripting, but
@@ -29,7 +31,7 @@ commands to complete before it can continue.
 
 ### Notes about server mode {:#server-mode}
 
-By default, Bazel uses a long-running [server process](/docs/client-server) as an
+By default, Bazel uses a long-running [server process](/run/client-server) as an
 optimization. When running Bazel in a script, don't forget to call `shutdown`
 when you're finished with the server, or, specify `--max_idle_secs=5` so that
 idle servers shut themselves down promptly.
@@ -55,6 +57,7 @@ Bazel execution can result in following exit codes:
 -   `36` - Local Environmental Issue, suspected permanent.
 -   `37` - Unhandled Exception / Internal Bazel Error.
 -   `38` - Reserved for Google-internal use.
+-   `39` - Blobs required by Bazel are evicted from Remote Cache.
 -   `41-44` - Reserved for Google-internal use.
 -   `45` - Error publishing results to the Build Event Service.
 -   `47` - Reserved for Google-internal use.
@@ -87,7 +90,7 @@ However, all non-zero exit values will always constitute an error.
 
 ### Reading the .bazelrc file {:#reading-bazelrc}
 
-By default, Bazel reads the [`.bazelrc` file](/docs/bazelrc) from the base
+By default, Bazel reads the [`.bazelrc` file](/run/bazelrc) from the base
 workspace directory or the user's home directory. Whether or not this is
 desirable is a choice for your script; if your script needs to be perfectly
 hermetic (such as when doing release builds), you should disable reading the

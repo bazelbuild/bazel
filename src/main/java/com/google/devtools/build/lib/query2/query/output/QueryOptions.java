@@ -168,17 +168,6 @@ public class QueryOptions extends CommonQueryOptions {
   public boolean strictTestSuite;
 
   @Option(
-    name = "query_file",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.QUERY,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "If set, query will read the query from the file named here, rather than on the command "
-            + "line. It is an error to specify a file here as well as a command-line query."
-  )
-  public String queryFile;
-
-  @Option(
       name = "experimental_graphless_query",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.QUERY,

@@ -52,7 +52,7 @@ public class AndroidInstrumentationTestBaseRule implements RuleDefinition {
             attr("target_device", LABEL)
                 .mandatory()
                 .exec()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .mandatoryProviders(
                     StarlarkProviderIdentifier.forKey(AndroidDeviceBrokerInfo.PROVIDER.getKey())))
@@ -72,7 +72,7 @@ public class AndroidInstrumentationTestBaseRule implements RuleDefinition {
         .add(
             attr("$test_entry_point", LABEL)
                 .exec()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(
                     environment.getToolsLabel("//tools/android:instrumentation_test_entry_point")))
         .build();

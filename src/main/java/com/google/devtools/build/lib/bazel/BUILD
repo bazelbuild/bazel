@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -123,6 +124,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:failure_details_java_proto",
+        "//src/main/protobuf:spawn_java_proto",
     ],
 )
 
@@ -136,6 +138,7 @@ java_library(
         ":spawn_log_module",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
         "//src/main/java/com/google/devtools/build/lib/bazel/coverage",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:workspace-rule-module",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
@@ -155,7 +158,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker_module",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/sandbox:sandbox_module",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skymeld_module",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_module",

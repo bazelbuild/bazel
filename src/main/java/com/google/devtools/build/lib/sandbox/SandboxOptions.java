@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.OptionsUtils;
+import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -394,6 +395,17 @@ public class SandboxOptions extends OptionsBase {
               + " as /tmp rather thansharing /tmp with the host filesystem. Use"
               + " --sandbox_add_mount_pair=/tmp to keep seeing the host's /tmp in all sandboxes.")
   public boolean sandboxHermeticTmp;
+
+  @Option(
+      name = "experimental_sandbox_memory_limit_mb",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RamResourceConverter.class,
+      help =
+          "If > 0, each Linux sandbox will be limited to the given amount of memory (in MB)."
+              + " Requires cgroups v1 or v2 and permissions for the users to the cgroups dir.")
+  public int memoryLimitMb;
 
   /** Converter for the number of threads used for asynchronous tree deletion. */
   public static final class AsyncTreeDeletesConverter extends ResourceConverter {

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Migrating from Maven to Bazel
 
+{% include "_buttons.html" %}
+
 This page describes how to migrate from Maven to Bazel, including the
 prerequisites and installation steps. It describes the differences
 between Maven and Bazel, and provides a migration example using the
@@ -22,7 +24,7 @@ directly run by Bazel since there's no Maven compatibility layer.
 
 *  [Install Bazel](/install) if it's not yet installed.
 *  If you're new to Bazel, go through the tutorial
-   [Introduction to Bazel: Build Java](/tutorials/java) before you start
+   [Introduction to Bazel: Build Java](/start/java) before you start
    migrating. The tutorial explains Bazel's concepts, structure, and label
    syntax.
 

@@ -416,8 +416,14 @@ def BuildArtifactSourceTree(files, file_open=open):
   for filename in files.split(','):
     with file_open(filename, 'r') as f:
       for line in f:
-        entry = line.strip().split(':')[0]
-        dep = line.strip().split(':')[1]
+        split = line.strip().split(':')
+        entry = split[0]
+        if len(split) == 1:
+          # The build system allows for adding just the entry if the dependency
+          # is the same name
+          dep = split[0]
+        else:
+          dep = split[1]
         if entry in tree:
           tree[entry].append(dep)
         else:

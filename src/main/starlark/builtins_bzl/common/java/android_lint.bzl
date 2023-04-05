@@ -127,5 +127,6 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
         tools = tools,
         arguments = args_list,
         execution_requirements = {"supports-workers": "1"},
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
     )
     return android_lint_out

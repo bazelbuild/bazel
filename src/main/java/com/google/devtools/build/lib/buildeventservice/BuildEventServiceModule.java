@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.buildeventstream.transports.BinaryFormatFil
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.buildeventstream.transports.JsonFormatFileTransport;
 import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -371,10 +370,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           .getEventBus()
           .register(
               new TargetSummaryPublisher(
-                  cmdEnv.getEventBus(),
-                  parsingResult
-                      .getOptions(BuildRequestOptions.class)
-                      .shouldMergeSkyframeAnalysisExecution()));
+                  cmdEnv.getEventBus(), cmdEnv::withMergedAnalysisAndExecutionSourceOfTruth));
     }
 
     streamer =

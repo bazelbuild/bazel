@@ -49,7 +49,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
           + ""
           + "<p>Each element of the list is an <code>*Info</code> object returned by "
           + "<a href='globals.html#provider'><code>provider()</code></a>, except that a legacy "
-          + "provider is represented by its string name instead.";
+          + "provider is represented by its string name instead."
+          + ""
+          + "When a target of the rule is used as a dependency for a target that declares a "
+          + "required provider, it is not necessary to specify that provider here. It is enough "
+          + "that the implementation function returns it. However, it is considered best "
+          + "practice to specify it, even though this is not required. The "
+          + "<a href='globals#aspect.required_providers'><code>required_providers</code></a> field "
+          + "of an <a href='globals.html#aspect'>aspect</a> does, however, require that providers "
+          + "are specified here.";
 
   @StarlarkMethod(
       name = "provider",
@@ -65,21 +73,25 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "    # my_info.x == 2\n"
               + "    # my_info.y == 3\n"
               + "    ..." //
-              + "</pre><p>See <a href='https://bazel.build/rules/rules#providers'>Rules"
+              + "</pre><p>See <a href='https://bazel.build/extending/rules#providers'>Rules"
               + " (Providers)</a> for a comprehensive guide on how to use providers." //
               + "<p>Returns a <a href='Provider.html#Provider'><code>Provider</code></a> callable "
               + "value if <code>init</code> is not specified." //
               + "<p>If <code>init</code> is specified, returns a tuple of 2 elements: a <a"
               + " href='Provider.html#Provider'><code>Provider</code></a> callable value and a"
               + " <em>raw constructor</em> callable value. See <a"
-              + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>Rules"
-              + " (Custom initialization of custom providers)</a> and the discussion of the"
+              + " href='https://bazel.build/extending/rules#custom_initialization_of_providers'>"
+              + " Rules (Custom initialization of custom providers)</a> and the discussion of the"
               + " <code>init</code> parameter below for details.",
       parameters = {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the provider that can be extracted by documentation generating"
                     + " tools."),
@@ -108,8 +120,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " during instantiation. If <code>init</code> is specified,"
                     + " <code>provider()</code> returns a tuple of 2 elements: the normal provider"
                     + " symbol and a <em>raw constructor</em>." //
-                    + "<p>A precise description follows; see <a"
-                    + " href='https://bazel.build/rules/rules#custom_initialization_of_providers'>"
+                    + "<p>A precise description follows; see <a href='"
+                    + "https://bazel.build/extending/rules#custom_initialization_of_providers'>"
                     + "Rules (Custom initialization of providers)</a>"
                     + " for an intuitive discussion and use cases." //
                     + "<p>Let <code>P</code> be the provider symbol created by calling"
@@ -177,7 +189,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None"),
       },
       useStarlarkThread = true)
-  Object provider(String doc, Object fields, Object init, StarlarkThread thread)
+  Object provider(Object doc, Object fields, Object init, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -209,7 +221,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " considered <a href='#rule.executable'>executable</a>; it is unnecessary"
                     + " (and discouraged) to explicitly set <code>executable = True</code> for a"
                     + " test rule. See the <a"
-                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
             name = "attrs",
@@ -248,7 +260,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " href='attr.html#output'><code>output</code></a> and <a"
                     + " href='attr.html#output_list'><code>output_list</code></a> attributes, the"
                     + " user does not specify the labels for these files. See the <a"
-                    + " href='https://bazel.build/rules/rules#files'>Rules page</a> for more on"
+                    + " href='https://bazel.build/extending/rules#files'>Rules page</a> for more on"
                     + " predeclared outputs.<p>The value of this argument is either a dictionary or"
                     + " a callback function that produces a dictionary. The callback works similar"
                     + " to computed dependency attributes: The function's parameter names are"
@@ -293,7 +305,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "Whether this rule is considered executable, that is, whether it may be the subject"
                     + " of a <code>blaze run</code> command. See the <a"
-                    + " href='https://bazel.build/rules/rules#executable_rules_and_test_rules'>"
+                    + " href='https://bazel.build/extending/rules#executable_rules_and_test_rules'>"
                     + " Rules page</a> for more information."),
         @Param(
             name = "output_to_genfiles",
@@ -350,7 +362,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the rule that can be extracted by documentation generating "
                     + "tools."),
@@ -475,7 +491,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Boolean starlarkTestable,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
@@ -500,8 +516,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "A Starlark function that implements this aspect, with exactly two parameters: "
                     + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the target"
-                    + "is created from). Attributes of the target are available via the "
+                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the "
+                    + "target is created from). Attributes of the target are available via the "
                     + "<code>ctx.rule</code> field. This function is evaluated during the "
                     + "analysis phase for each application of an aspect to a target."),
         @Param(
@@ -511,7 +527,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc =
                 "List of attribute names. The aspect propagates along dependencies specified in "
-                    + " the attributes of a target with these names. Common values here include "
+                    + "the attributes of a target with these names. Common values here include "
                     + "<code>deps</code> and <code>exports</code>. The list can also contain a "
                     + "single string <code>\"*\"</code> to propagate along all dependencies of a "
                     + "target."),
@@ -558,9 +574,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "one of the required providers lists. For example, if the "
                     + "<code>required_providers</code> of an aspect are "
                     + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
-                    + "only see <code>some_rule</code> targets if and only if "
-                    + "<code>some_rule</code> provides <code>FooInfo</code> *or* "
-                    + "<code>BarInfo</code> *or* both <code>BazInfo</code> *and* "
+                    + "see <code>some_rule</code> targets if and only if "
+                    + "<code>some_rule</code> provides <code>FooInfo</code>, <em>or</em> "
+                    + "<code>BarInfo</code>, <em>or</em> both <code>BazInfo</code> <em>and</em> "
                     + "<code>QuxInfo</code>."),
         @Param(
             name = "required_aspect_providers",
@@ -582,9 +598,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect, <code>other_aspect</code> must provide all providers from at least "
                     + "one of the lists. In the example of "
                     + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
-                    + "only see <code>other_aspect</code> if and only if <code>other_aspect</code> "
-                    + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
-                    + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
+                    + "see <code>other_aspect</code> if and only if <code>other_aspect</code> "
+                    + "provides <code>FooInfo</code>, <em>or</em> <code>BarInfo</code>, "
+                    + "<em>or</em> both <code>BazInfo</code> <em>and</em> <code>QuxInfo</code>."),
         @Param(name = "provides", named = true, defaultValue = "[]", doc = PROVIDES_DOC),
         @Param(
             name = "requires",
@@ -626,7 +642,11 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
         @Param(
             name = "doc",
             named = true,
-            defaultValue = "''",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
             doc =
                 "A description of the aspect that can be extracted by documentation generating "
                     + "tools."),
@@ -683,7 +703,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
       boolean useToolchainTransition,
-      String doc,
+      Object doc,
       Boolean applyToGeneratingRules,
       Sequence<?> execCompatibleWith,
       Object execGroups,
@@ -693,18 +713,26 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   @StarlarkMethod(
       name = "Label",
       doc =
-          "Creates a Label referring to a BUILD target. Use this function when you want to give a"
-              + " default value for the label attributes of a rule or when referring to a target"
-              + " via an absolute label from a macro. The argument must refer to an absolute label."
-              + " The repo part of the label (or its absence) is interpreted in the context of the"
-              + " repo where this Label() call appears. Example: <br><pre"
-              + " class=language-python>Label(\"//tools:default\")</pre>",
+          "Converts a label string into a <code>Label</code> object, in the context of the package"
+              + " where the calling <code>.bzl</code> source file lives. If the given value is"
+              + " already a <code>Label</code>, it is returned unchanged."
+              + "<p>For macros, a related function,"
+              + " <code><a"
+              + " href='native#package_relative_label'>native.package_relative_label()</a></code>,"
+              + " converts the input into a <code>Label</code> in the context of the package"
+              + " currently being constructed. Use that function to mimic the string-to-label"
+              + " conversion that is automatically done by label-valued rule attributes.",
       parameters = {
-        @Param(name = "label_string", doc = "the label string."),
+        @Param(
+            name = "input",
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = Label.class)},
+            doc =
+                "The input label string or Label object. If a Label object is passed, it's"
+                    + " returned as is.")
       },
       useStarlarkThread = true)
   @StarlarkConstructor
-  Label label(String labelString, StarlarkThread thread) throws EvalException;
+  Label label(Object input, StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "exec_group",
@@ -728,21 +756,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "[]",
             doc = "A list of constraints on the execution platform."),
-        @Param(
-            name = "copy_from_rule",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc =
-                "If set to true, this exec group inherits the toolchains and constraints of the"
-                    + " rule to which this group is attached. If set to any other string this will"
-                    + " throw an error.")
       },
       useStarlarkThread = true)
   ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith,
-      Sequence<?> toolchains,
-      Boolean copyFromRule,
-      StarlarkThread thread)
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread)
       throws EvalException;
 }

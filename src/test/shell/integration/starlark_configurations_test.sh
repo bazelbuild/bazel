@@ -112,8 +112,8 @@ EOF
 #### TESTS #############################################################
 
 function test_default_flag() {
- local -r pkg=$FUNCNAME
- mkdir -p $pkg
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
 
   write_build_setting_bzl
 
@@ -172,6 +172,8 @@ function test_multiple_starlark_flags() {
 
   expect_log "type=coffee"
   expect_log "temp=iced"
+
+  bazel clean 2>"$TEST_log" || fail "Clean failed"
 
   # Ensure that order doesn't matter.
   bazel build //$pkg:my_drink --//$pkg:temp="iced" --//$pkg:type="coffee" \

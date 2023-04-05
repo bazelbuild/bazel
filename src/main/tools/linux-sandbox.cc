@@ -71,6 +71,8 @@ gid_t global_outer_gid;
 
 // The PID of our child process, for use in signal handlers.
 static std::atomic<pid_t> global_child_pid{0};
+// Our parent's pid at the outset, to check if the original parent has exited.
+pid_t initial_ppid;
 
 // Must we politely ask the child to exit before we send it a SIGKILL (once we
 // want it to exit)? Holds only zero or one.
@@ -158,7 +160,8 @@ static pid_t SpawnPid1() {
 
   int clone_flags =
       CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWPID | SIGCHLD;
-  if (opt.create_netns) {
+  PRINT_DEBUG("Netns is %d", opt.create_netns);
+  if (opt.create_netns != NO_NETNS) {
     clone_flags |= CLONE_NEWNET;
   }
   if (opt.fake_hostname) {
@@ -210,6 +213,11 @@ static int WaitForPid1(const pid_t child_pid) {
       break;
     }
 
+    // We've been handed off to a reaper process and should die.
+    if (getppid() != initial_ppid) {
+      break;
+    }
+
     if (errno == EINTR) {
       continue;
     }
@@ -251,6 +259,16 @@ int main(int argc, char *argv[]) {
   // Parse our command-line options and set up a global variable used by
   // PRINT_DEBUG.
   ParseOptions(argc, argv);
+
+  // Remember the parent pid so we can exit if the parent has exited.
+  // Doing this before prctl(PR_SET_PDEATHDIG, 0) ensures no race condition.
+  initial_ppid = getppid();
+
+  if (opt.persistent_process) {
+    if (prctl(PR_SET_PDEATHSIG, 0) < 0) {
+      DIE("prctl");
+    }
+  }
   global_debug = opt.debug;
 
   // Redirect output as requested.

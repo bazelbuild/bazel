@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -44,24 +43,6 @@ public final class SpawnStrategyResolver implements ActionContext {
   public ImmutableList<SpawnResult> exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     return resolveOne(spawn, actionExecutionContext).exec(spawn, actionExecutionContext);
-  }
-
-  /**
-   * Queues execution of the given spawn with the {@linkplain SpawnStrategyRegistry highest priority
-   * strategy} that can be found for it.
-   *
-   * @param actionExecutionContext context in which to execute the spawn
-   * @return handle to the spawn's pending execution (or failure thereof)
-   */
-  public SpawnContinuation beginExecution(
-      Spawn spawn, ActionExecutionContext actionExecutionContext) throws InterruptedException {
-    SpawnStrategy resolvedStrategy;
-    try {
-      resolvedStrategy = resolveOne(spawn, actionExecutionContext);
-    } catch (ExecException e) {
-      return SpawnContinuation.failedWithExecException(e);
-    }
-    return resolvedStrategy.beginExecution(spawn, actionExecutionContext);
   }
 
   private SpawnStrategy resolveOne(Spawn spawn, ActionExecutionContext actionExecutionContext)

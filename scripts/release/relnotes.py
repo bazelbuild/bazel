@@ -77,6 +77,14 @@ def get_relnotes_between(base, head):
   return relnotes
 
 
+def get_external_authors_between(base, head):
+  """Gets all external authors for commits between `base` and `head`."""
+  authors = git("log", f"{base}..{head}", "--format=%aN|%aE")
+  authors = set(author.partition("|")[0].rstrip() for author in authors
+                if not author.endswith("@google.com"))
+  return ", ".join(sorted(authors, key=str.casefold))
+
+
 if __name__ == "__main__":
   # Get the last stable release.
   last_release = get_last_release()
@@ -103,3 +111,10 @@ if __name__ == "__main__":
   print()
   for note in filtered_relnotes:
     print("*", note)
+
+  print()
+  print()
+  external_authors = get_external_authors_between(merge_base, "HEAD")
+  print(
+      "This release contains contributions from many people at Google, "
+      f"as well as {external_authors}.")

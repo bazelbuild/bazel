@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -129,7 +130,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             .setFileSystem(fileSystem)
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
-            .setPerCommandSyscallCache(delegatingSyscallCache)
+            .setSyscallCache(delegatingSyscallCache)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -161,6 +162,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
@@ -182,6 +184,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));

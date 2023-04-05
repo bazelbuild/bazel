@@ -76,8 +76,7 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
    * Builder for {@link ExtraLinkTimeLibraries}.
    */
   public static final class Builder {
-    private Map<Class<? extends ExtraLinkTimeLibrary>, ExtraLinkTimeLibrary.Builder> libraries =
-          new LinkedHashMap<>();
+    private final Map<Object, ExtraLinkTimeLibrary.Builder> libraries = new LinkedHashMap<>();
 
     private Builder() {
       // Nothing to do.
@@ -98,19 +97,17 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
     @CanIgnoreReturnValue
     public final Builder addTransitive(ExtraLinkTimeLibraries dep) {
       for (ExtraLinkTimeLibrary depLibrary : dep.getExtraLibraries()) {
-        Class<? extends ExtraLinkTimeLibrary> c = depLibrary.getClass();
-        libraries.computeIfAbsent(c, k -> depLibrary.getBuilder());
-        libraries.get(c).addTransitive(depLibrary);
+        add(depLibrary);
       }
       return this;
     }
 
     /** Add a single library to build. */
     @CanIgnoreReturnValue
-    public final Builder add(ExtraLinkTimeLibrary b) {
-      Class<? extends ExtraLinkTimeLibrary> c = b.getClass();
-      libraries.computeIfAbsent(c, k -> b.getBuilder());
-      libraries.get(c).addTransitive(b);
+    public final Builder add(ExtraLinkTimeLibrary depLibrary) {
+      Object key = depLibrary.getKey();
+      libraries.computeIfAbsent(key, k -> depLibrary.getBuilder());
+      libraries.get(key).addTransitive(depLibrary);
       return this;
     }
   }
@@ -143,16 +140,16 @@ public final class ExtraLinkTimeLibraries implements StarlarkValue {
       boolean staticMode,
       boolean forDynamicLibrary,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     try {
       BuildLibraryOutput buildLibraryOutput =
           buildLibraries(starlarkRuleContext.getRuleContext(), staticMode, forDynamicLibrary);
       Depset linkerInputs =
-          Depset.of(CcLinkingContext.LinkerInput.TYPE, buildLibraryOutput.getLinkerInputs());
-      Depset runtimeLibraries = Depset.of(Artifact.TYPE, buildLibraryOutput.getRuntimeLibraries());
+          Depset.of(CcLinkingContext.LinkerInput.class, buildLibraryOutput.getLinkerInputs());
+      Depset runtimeLibraries = Depset.of(Artifact.class, buildLibraryOutput.getRuntimeLibraries());
       return Tuple.pair(linkerInputs, runtimeLibraries);
-    } catch (InterruptedException | RuleErrorException e) {
+    } catch (RuleErrorException e) {
       throw new EvalException(e);
     }
   }

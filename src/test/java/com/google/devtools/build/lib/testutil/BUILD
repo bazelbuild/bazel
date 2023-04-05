@@ -4,6 +4,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = [
         "//src:__subpackages__",
@@ -59,8 +60,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",

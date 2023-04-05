@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Why a Build System?
 
+{% include "_buttons.html" %}
 
 This page discusses what build systems are, what they do, why you should use a
 build system, and why compilers and build scripts aren't the best choice as your

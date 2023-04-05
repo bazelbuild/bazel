@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Configure C++ Toolchains
 
+{% include "_buttons.html" %}
+
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project. It's based on an
 [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
@@ -228,7 +230,7 @@ slightly between different versions of clang.
 
     `cc_common.create_cc_toolchain_config_info()` creates the needed provider
     `CcToolchainConfigInfo`. To use the `cc_toolchain_config` rule, add a load
-    statement to `toolchains/BUILD`:
+    statement to `toolchain/BUILD` right below the package statement:
 
     ```python
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")

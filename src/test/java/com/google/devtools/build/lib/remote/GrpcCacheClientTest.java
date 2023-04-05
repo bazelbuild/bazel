@@ -30,6 +30,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
@@ -51,6 +52,7 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.NullEventHandler;
@@ -75,7 +77,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -109,6 +110,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             ImmutableSortedMap.of(execPath, virtualActionInput),
             fakeFileCache,
             execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
             DIGEST_UTIL);
     Digest digest = DIGEST_UTIL.compute(virtualActionInput.getBytes().toByteArray());
 
@@ -369,7 +371,11 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         .setPath("a/foo")
         .setDigest(fooDigest)
         .setIsExecutable(true);
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
@@ -409,7 +415,11 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     ActionResult result = uploadDirectory(remoteCache, ImmutableList.<Path>of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
@@ -472,7 +482,11 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     ActionResult result = uploadDirectory(remoteCache, ImmutableList.of(barDir));
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
-    expectedResult.addOutputDirectoriesBuilder().setPath("bar").setTreeDigest(barDigest);
+    expectedResult
+        .addOutputDirectoriesBuilder()
+        .setPath("bar")
+        .setTreeDigest(barDigest)
+        .setIsTopologicallySorted(true);
     assertThat(result).isEqualTo(expectedResult.build());
   }
 
@@ -495,8 +509,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             outputs,
             outErr,
             /* exitCode= */ 0,
-            /* startTime= */ Optional.empty(),
-            /* wallTime= */ Optional.empty());
+            /* startTime= */ null,
+            /* wallTimeInMs= */ 0);
     return uploadManifest.upload(context, remoteCache, NullEventHandler.INSTANCE);
   }
 
@@ -736,9 +750,12 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar"), "x");
     final Digest bazDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("baz"), "z");
+    final Digest foobarDigest =
+        fakeFileCache.createScratchInput(ActionInputHelper.fromPath("foobar"), "foobar");
     final Path fooFile = execRoot.getRelative("a/foo");
     final Path barFile = execRoot.getRelative("bar");
     final Path bazFile = execRoot.getRelative("baz");
+    final Path foobarFile = execRoot.getRelative("foobar");
     ActionKey actionKey = DIGEST_UTIL.asActionKey(fooDigest); // Could be any key.
     barFile.setExecutable(true);
     serviceRegistry.addService(
@@ -756,6 +773,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
                       .addMissingBlobDigests(fooDigest)
                       .addMissingBlobDigests(barDigest)
                       .addMissingBlobDigests(bazDigest)
+                      .addMissingBlobDigests(foobarDigest)
                       .build());
               responseObserver.onCompleted();
             } else {
@@ -769,6 +787,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     rb.addOutputFilesBuilder().setPath("a/foo").setDigest(fooDigest).setIsExecutable(true);
     rb.addOutputFilesBuilder().setPath("bar").setDigest(barDigest).setIsExecutable(true);
     rb.addOutputFilesBuilder().setPath("baz").setDigest(bazDigest).setIsExecutable(true);
+    rb.addOutputFilesBuilder().setPath("foobar").setDigest(foobarDigest).setIsExecutable(true);
     ActionResult result = rb.build();
     serviceRegistry.addService(
         new ActionCacheImplBase() {
@@ -780,6 +799,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
             assertThat(request)
                 .isEqualTo(
                     UpdateActionResultRequest.newBuilder()
+                        .setDigestFunction(DigestFunction.Value.SHA256)
                         .setActionDigest(fooDigest)
                         .setActionResult(result)
                         .build());
@@ -824,6 +844,9 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
                     } else if (resourceName.contains(bazDigest.getHash())) {
                       assertThat(dataStr).isEqualTo("z");
                       size = 1;
+                    } else if (resourceName.contains(foobarDigest.getHash())) {
+                      responseObserver.onError(Status.ALREADY_EXISTS.asRuntimeException());
+                      return;
                     } else {
                       fail("Unexpected resource name in upload: " + resourceName);
                     }
@@ -861,9 +884,9 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         actionKey,
         Action.getDefaultInstance(),
         Command.getDefaultInstance(),
-        ImmutableList.<Path>of(fooFile, barFile, bazFile));
-    // 4 times for the errors, 3 times for the successful uploads.
-    Mockito.verify(mockByteStreamImpl, Mockito.times(7))
+        ImmutableList.<Path>of(fooFile, barFile, bazFile, foobarFile));
+    // 4 times for the errors, 4 times for the successful uploads.
+    Mockito.verify(mockByteStreamImpl, Mockito.times(8))
         .write(ArgumentMatchers.<StreamObserver<WriteResponse>>any());
   }
 

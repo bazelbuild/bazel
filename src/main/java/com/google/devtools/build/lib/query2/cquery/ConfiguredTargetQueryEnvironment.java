@@ -97,7 +97,7 @@ public class ConfiguredTargetQueryEnvironment
    * configuration, then querying the {@link WalkableGraph} to find the matching configured target.
    *
    * <p>Having this map lets cquery choose from all available configurations in the graph,
-   * particularly includings configurations that aren't the host or top-level.
+   * particularly including configurations that aren't the top-level.
    *
    * <p>This can also be used in cquery's {@code config} function to match against explicitly
    * specified configs. This, in particular, is where having user-friendly hashes is invaluable.
@@ -115,7 +115,6 @@ public class ConfiguredTargetQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfigurationValue hostConfiguration,
       Collection<SkyKey> transitiveConfigurationKeys,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
@@ -128,7 +127,6 @@ public class ConfiguredTargetQueryEnvironment
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
-        hostConfiguration,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -145,7 +143,6 @@ public class ConfiguredTargetQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfigurationValue hostConfiguration,
       Collection<SkyKey> transitiveConfigurationKeys,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
@@ -158,7 +155,6 @@ public class ConfiguredTargetQueryEnvironment
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
-        hostConfiguration,
         transitiveConfigurationKeys,
         mainRepoTargetParser,
         pkgPath,
@@ -197,7 +193,6 @@ public class ConfiguredTargetQueryEnvironment
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
           PackageManager packageManager)
           throws QueryException, InterruptedException {
@@ -205,17 +200,29 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true),
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            true,
+            getMainRepoMapping()),
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false),
+            eventHandler,
+            cqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            false,
+            getMainRepoMapping()),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
             out,
             skyframeExecutor,
             accessor,
-            hostConfiguration,
-            trimmingTransitionFactory),
+            trimmingTransitionFactory,
+            getMainRepoMapping()),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -251,7 +258,8 @@ public class ConfiguredTargetQueryEnvironment
             out,
             skyframeExecutor,
             accessor,
-            kct -> getFwdDeps(ImmutableList.of(kct))),
+            kct -> getFwdDeps(ImmutableList.of(kct)),
+            getMainRepoMapping()),
         new StarlarkOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new FilesOutputFormatterCallback(
@@ -358,8 +366,8 @@ public class ConfiguredTargetQueryEnvironment
    * @param targetsFuture the set of {@link ConfiguredTarget}s whose labels represent the targets
    *     being requested.
    * @param configPrefix the configuration to request {@code targets} in. This can be the
-   *     configuration's checksum, any prefix of its checksum, or the special identifiers "host",
-   *     "target", or "null".
+   *     configuration's checksum, any prefix of its checksum, or the special identifiers "target"
+   *     or "null".
    * @param callback the callback to receive the results of this method.
    * @return {@link QueryTaskCallable} that returns the correctly configured targets.
    */
@@ -383,8 +391,9 @@ public class ConfiguredTargetQueryEnvironment
         KeyedConfiguredTarget keyedConfiguredTarget;
         switch (configPrefix) {
           case "host":
-            keyedConfiguredTarget = getHostConfiguredTarget(label);
-            break;
+            throw new QueryException(
+                "'host' configuration no longer exists. Use a specific configuration hash instead",
+                ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
           case "target":
             keyedConfiguredTarget = getTargetConfiguredTarget(label);
             break;
@@ -420,7 +429,6 @@ public class ConfiguredTargetQueryEnvironment
                       + "\n"
                       + "Valid values:\n"
                       + " 'target' for the default configuration\n"
-                      + " 'host' for the host configuration\n"
                       + " 'null' for source files (which have no configuration)\n"
                       + " an arbitrary configuration's full or short ID\n"
                       + "\n"
@@ -458,12 +466,6 @@ public class ConfiguredTargetQueryEnvironment
   public Label getCorrectLabel(KeyedConfiguredTarget target) {
     // Dereference any aliases that might be present.
     return target.getConfiguredTarget().getOriginalLabel();
-  }
-
-  @Nullable
-  @Override
-  protected KeyedConfiguredTarget getHostConfiguredTarget(Label label) throws InterruptedException {
-    return getConfiguredTarget(label, hostConfiguration);
   }
 
   @Nullable

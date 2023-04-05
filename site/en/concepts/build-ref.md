@@ -3,59 +3,61 @@ Book: /_book.yaml
 
 # Workspaces, packages, and targets
 
-Bazel builds software from source code organized in a directory tree called
-a workspace. Source files in the workspace are organized in a nested
-hierarchy of packages, where each package is a directory that contains a set
-of related source files and one `BUILD` file. The `BUILD` file specifies what
-software outputs can be built from the source.
+{% include "_buttons.html" %}
 
+Bazel builds software from source code organized in a directory tree called a
+workspace. Source files in the workspace are organized in a nested hierarchy of
+packages, where each package is a directory that contains a set of related
+source files and one `BUILD` file. The `BUILD` file specifies what software
+outputs can be built from the source.
 
 ## Workspace {:#workspace}
 
 A _workspace_ is a directory tree on your filesystem that contains the source
 files for the software you want to build. Each workspace has a text file named
-`WORKSPACE` which may be empty, or may contain references to
-[external dependencies](/docs/external) required to build the outputs.
+`WORKSPACE` which may be empty, or may contain references to [external
+dependencies](/docs/external) required to build the outputs.
 
 Directories containing a file called `WORKSPACE` are considered the root of a
-workspace. Therefore, Bazel ignores any directory trees in a workspace rooted
-at a subdirectory containing a `WORKSPACE` file, as they form another workspace.
+workspace. Therefore, Bazel ignores any directory trees in a workspace rooted at
+a subdirectory containing a `WORKSPACE` file, as they form another workspace.
 
-Bazel also supports `WORKSPACE.bazel` file as an alias of `WORKSPACE` file.
-If both files exist, `WORKSPACE.bazel` is used.
+Bazel also supports `WORKSPACE.bazel` file as an alias of `WORKSPACE` file. If
+both files exist, `WORKSPACE.bazel` is used.
 
 ### Repositories {:#repositories}
 
 Code is organized in _repositories_. The directory containing the `WORKSPACE`
 file is the root of the main repository, also called `@`. Other, (external)
-repositories are defined in the `WORKSPACE` file using workspace rules.
+repositories are defined in the `WORKSPACE` file using workspace rules, or
+generated from modules and extensions in the Bzlmod system. See [external
+dependencies overview](/external/overview) for more information.
 
-The workspace rules bundled with Bazel are documented in the
-[Workspace Rules](/reference/be/workspace) section in the
-[Build Encyclopedia](/reference/be/overview) and the documentation on
-[embedded Starlark repository rules](/rules/lib/repo/index).
+The workspace rules bundled with Bazel are documented in the [Workspace
+Rules](/reference/be/workspace) section in the [Build
+Encyclopedia](/reference/be/overview) and the documentation on [embedded
+Starlark repository rules](/rules/lib/repo/index).
 
 As external repositories are repositories themselves, they often contain a
 `WORKSPACE` file as well. However, these additional `WORKSPACE` files are
-ignored by Bazel. In particular, repositories depended upon transitively are
-not added automatically.
+ignored by Bazel. In particular, repositories depended upon transitively are not
+added automatically.
 
 ## Packages {:#packages}
 
 The primary unit of code organization in a repository is the _package_. A
-package is a collection of related files and a specification of how they
-can be used to produce output artifacts.
+package is a collection of related files and a specification of how they can be
+used to produce output artifacts.
 
-A package is defined as a directory containing a file named `BUILD`
-(or `BUILD.bazel`).  A package includes all files in its directory, plus
-all subdirectories beneath it, except those which themselves contain a
-`BUILD` file. From this definition, no file or directory may be a part of
-two different packages.
+A package is defined as a directory containing a file named `BUILD` (or
+`BUILD.bazel`). A package includes all files in its directory, plus all
+subdirectories beneath it, except those which themselves contain a `BUILD` file.
+From this definition, no file or directory may be a part of two different
+packages.
 
-For example, in the following directory tree
-there are two packages, `my/app`, and the subpackage `my/app/tests`.
-Note that `my/app/data` is not a package, but a directory
-belonging to package `my/app`.
+For example, in the following directory tree there are two packages, `my/app`,
+and the subpackage `my/app/tests`. Note that `my/app/data` is not a package, but
+a directory belonging to package `my/app`.
 
 ```
 src/my/app/BUILD
@@ -68,51 +70,46 @@ src/my/app/tests/test.cc
 ## Targets {:#targets}
 
 A package is a container of _targets_, which are defined in the package's
-`BUILD` file.  Most targets are one of two principal kinds, _files_ and _rules_.
+`BUILD` file. Most targets are one of two principal kinds, _files_ and _rules_.
 
-Files are further divided into two kinds.  _Source files_ are usually
-written by the efforts of people, and checked in to the repository.
-_Generated files_, sometimes called derived files or output files,
-are not checked in, but are generated from source files.
+Files are further divided into two kinds. _Source files_ are usually written by
+the efforts of people, and checked in to the repository. _Generated files_,
+sometimes called derived files or output files, are not checked in, but are
+generated from source files.
 
-The second kind of target is declared with a _rule_.  Each rule
-instance specifies the relationship between a set of input and a set of
-output files.  The inputs to a rule may be source files, but they also
-may be the outputs of other rules.
+The second kind of target is declared with a _rule_. Each rule instance
+specifies the relationship between a set of input and a set of output files. The
+inputs to a rule may be source files, but they also may be the outputs of other
+rules.
 
-Whether the input to a rule is a source file or a generated file is
-in most cases immaterial; what matters is only the contents of that
-file. This fact makes it easy to replace a complex source file with
-a generated file produced by a rule, such as happens when the burden
-of manually maintaining a highly structured file becomes too
-tiresome, and someone writes a program to derive it. No change is
-required to the consumers of that file. Conversely, a generated
-file may easily be replaced by a source file with only local
-changes.
+Whether the input to a rule is a source file or a generated file is in most
+cases immaterial; what matters is only the contents of that file. This fact
+makes it easy to replace a complex source file with a generated file produced by
+a rule, such as happens when the burden of manually maintaining a highly
+structured file becomes too tiresome, and someone writes a program to derive it.
+No change is required to the consumers of that file. Conversely, a generated
+file may easily be replaced by a source file with only local changes.
 
-The inputs to a rule may also include _other rules_. The
-precise meaning of such relationships is often quite complex and
-language- or rule-dependent, but intuitively it is simple: a C++
-library rule A might have another C++ library rule B for an input.
-The effect of this dependency is that B's header files are
-available to A during compilation, B's symbols are available to A
-during linking, and B's runtime data is available to A during
-execution.
+The inputs to a rule may also include _other rules_. The precise meaning of such
+relationships is often quite complex and language- or rule-dependent, but
+intuitively it is simple: a C++ library rule A might have another C++ library
+rule B for an input. The effect of this dependency is that B's header files are
+available to A during compilation, B's symbols are available to A during
+linking, and B's runtime data is available to A during execution.
 
-An invariant of all rules is that the files generated by a rule
-always belong to the same package as the rule itself; it is not
-possible to generate files into another package. It is not uncommon
-for a rule's inputs to come from another package, though.
+An invariant of all rules is that the files generated by a rule always belong to
+the same package as the rule itself; it is not possible to generate files into
+another package. It is not uncommon for a rule's inputs to come from another
+package, though.
 
-Package groups are sets of packages whose purpose is to limit accessibility
-of certain rules. Package groups are defined by the `package_group` function.
-They have three properties: the list of packages they contain, their name, and
-other package groups they include. The only allowed ways to refer to them are
-from the `visibility` attribute of rules or from the `default_visibility`
-attribute of the `package` function; they do not generate or consume files.
-For more information, refer to the
-[`package_group` documentation](/reference/be/functions#package_group).
-
+Package groups are sets of packages whose purpose is to limit accessibility of
+certain rules. Package groups are defined by the `package_group` function. They
+have three properties: the list of packages they contain, their name, and other
+package groups they include. The only allowed ways to refer to them are from the
+`visibility` attribute of rules or from the `default_visibility` attribute of
+the `package` function; they do not generate or consume files. For more
+information, refer to the [`package_group`
+documentation](/reference/be/functions#package_group).
 
 <a class="button button-with-icon button-primary" href="/concepts/labels">
   Labels<span class="material-icons icon-after" aria-hidden="true">arrow_forward</span>

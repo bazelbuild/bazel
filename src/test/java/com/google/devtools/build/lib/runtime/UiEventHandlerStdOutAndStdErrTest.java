@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -45,6 +47,8 @@ public final class UiEventHandlerStdOutAndStdErrTest {
 
   private static final BuildCompleteEvent BUILD_COMPLETE_EVENT =
       new BuildCompleteEvent(new BuildResult(/*startTimeMillis=*/ 0));
+  private static final String BUILD_DID_NOT_COMPLETE_MESSAGE =
+      "\033[31m\033[1mERROR: \033[0mBuild did NOT complete successfully" + System.lineSeparator();
 
   @TestParameter private TestedOutput testedOutput;
 
@@ -60,7 +64,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
   @Before
   public void createUiEventHandler() {
     UiOptions uiOptions = new UiOptions();
-    uiOptions.eventFilters = ImmutableList.of();
+    uiOptions.eventKindFilters = ImmutableList.of();
     createUiEventHandler(uiOptions);
   }
 
@@ -70,30 +74,36 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     OutErr outErr = null;
     switch (testedOutput) {
       case STDOUT:
-        outErr = OutErr.create(/*out=*/ output, /*err=*/ mock(OutputStream.class));
+        outErr = OutErr.create(/* out= */ output, /* err= */ mock(OutputStream.class));
         eventKind = EventKind.STDOUT;
         break;
       case STDERR:
-        outErr = OutErr.create(/*out=*/ mock(OutputStream.class), /*err=*/ output);
+        outErr = OutErr.create(/* out= */ mock(OutputStream.class), /* err= */ output);
         eventKind = EventKind.STDERR;
         break;
     }
 
     uiEventHandler =
-        new UiEventHandler(outErr, uiOptions, new ManualClock(), /*workspacePathFragment=*/ null);
+        new UiEventHandler(outErr, uiOptions, new ManualClock(), /* workspacePathFragment= */ null);
+    uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(
             "outputFileSystemType",
-            /*usesInMemoryFileSystem=*/ false,
+            /* usesInMemoryFileSystem= */ false,
             mock(BuildRequest.class),
-            /*workspace=*/ null,
+            /* workspace= */ null,
             "/pwd"));
   }
 
   @Test
-  public void buildComplete_outputsNothing() {
+  public void buildComplete_outputsBuildFailedOnStderr() {
     uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
-    output.assertFlushed();
+
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed();
+    } else {
+      output.assertFlushed(BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
@@ -101,15 +111,39 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     uiEventHandler.handle(output("hello"));
     uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
 
-    output.assertFlushed("hello");
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed("hello");
+    } else {
+      output.assertFlushed("hello", System.lineSeparator() + BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
-  public void buildComplete_emptyBuffer_outputsNothing() {
+  public void buildComplete_successfulBuild() {
+    uiEventHandler.handle(output(""));
+    var buildSuccessResult = new BuildResult(/*startTimeMillis=*/ 0);
+    buildSuccessResult.setDetailedExitCode(DetailedExitCode.success());
+    uiEventHandler.buildComplete(new BuildCompleteEvent(buildSuccessResult));
+
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed();
+    } else {
+      output.assertFlushed(
+          "\033[32mINFO: \033[0mBuild completed successfully, 0 total actions"
+              + System.lineSeparator());
+    }
+  }
+
+  @Test
+  public void buildComplete_emptyBuffer_outputsBuildFailedOnStderr() {
     uiEventHandler.handle(output(""));
     uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
 
-    output.assertFlushed();
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed();
+    } else {
+      output.assertFlushed(BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
@@ -124,7 +158,11 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     uiEventHandler.handle(output("there"));
     uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
 
-    output.assertFlushed("hello there");
+    if (testedOutput == TestedOutput.STDOUT) {
+      output.assertFlushed("hello there");
+    } else {
+      output.assertFlushed("hello there", System.lineSeparator() + BUILD_DID_NOT_COMPLETE_MESSAGE);
+    }
   }
 
   @Test
@@ -166,10 +204,10 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     UiOptions uiOptions = new UiOptions();
     uiOptions.showProgress = true;
     uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
-    uiOptions.eventFilters = ImmutableList.of();
+    uiOptions.eventKindFilters = ImmutableList.of();
     createUiEventHandler(uiOptions);
     if (testedOutput == TestedOutput.STDERR) {
-      assertThat(output.flushed).hasSize(1);
+      assertThat(output.flushed).hasSize(2);
       output.flushed.clear();
     }
     // Unterminated strings are saved in memory and not pushed out at all.
@@ -183,16 +221,16 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     UiOptions uiOptions = new UiOptions();
     uiOptions.showProgress = true;
     uiOptions.useCursesEnum = UiOptions.UseCurses.YES;
-    uiOptions.eventFilters = ImmutableList.of();
+    uiOptions.eventKindFilters = ImmutableList.of();
     createUiEventHandler(uiOptions);
 
     uiEventHandler.buildComplete(BUILD_COMPLETE_EVENT);
     uiEventHandler.handle(Event.error("Show me this!"));
     uiEventHandler.afterCommand(new AfterCommandEvent());
 
-    assertThat(output.flushed.size()).isEqualTo(4);
-    assertThat(output.flushed.get(2)).contains("Show me this!");
-    assertThat(output.flushed.get(3)).doesNotContain("\033[1A\033[K");
+    assertThat(output.flushed.size()).isEqualTo(5);
+    assertThat(output.flushed.get(3)).contains("Show me this!");
+    assertThat(output.flushed.get(4)).doesNotContain("\033[1A\033[K");
   }
 
   private Event output(String message) {

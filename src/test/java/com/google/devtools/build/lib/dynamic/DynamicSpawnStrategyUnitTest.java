@@ -583,10 +583,10 @@ public class DynamicSpawnStrategyUnitTest {
   }
 
   private static SandboxedSpawnStrategy createMockSpawnStrategy(boolean canExec)
-      throws InterruptedException {
+      throws InterruptedException, ExecException {
     SandboxedSpawnStrategy strategy = mock(SandboxedSpawnStrategy.class);
     when(strategy.canExec(any(), any())).thenReturn(canExec);
-    when(strategy.beginExecution(any(), any())).thenThrow(UnsupportedOperationException.class);
+    when(strategy.exec(any(), any())).thenThrow(UnsupportedOperationException.class);
     return strategy;
   }
 }

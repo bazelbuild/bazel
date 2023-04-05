@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -45,6 +47,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -91,6 +94,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ActionInputMap inputArtifactData,
       boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
+      OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
@@ -102,6 +106,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         inputArtifactData,
         forInputDiscovery,
         archivedTreeArtifactsEnabled,
+        outputPermissions,
         outputs,
         xattrProvider,
         tsgm,
@@ -115,6 +120,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   private final ActionInputMap inputArtifactData;
   private final boolean forInputDiscovery;
   private final boolean archivedTreeArtifactsEnabled;
+  private final OutputPermissions outputPermissions;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
@@ -133,6 +139,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ActionInputMap inputArtifactData,
       boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
+      OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
       XattrProvider xattrProvider,
       TimestampGranularityMonitor tsgm,
@@ -144,6 +151,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     this.inputArtifactData = checkNotNull(inputArtifactData);
     this.forInputDiscovery = forInputDiscovery;
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
+    this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
     this.xattrProvider = xattrProvider;
     this.tsgm = checkNotNull(tsgm);
@@ -168,8 +176,9 @@ final class ActionMetadataHandler implements MetadataHandler {
   ActionMetadataHandler transformAfterInputDiscovery(OutputStore store) {
     return new ActionMetadataHandler(
         inputArtifactData,
-        /*forInputDiscovery=*/ false,
+        /* forInputDiscovery= */ false,
         archivedTreeArtifactsEnabled,
+        outputPermissions,
         outputs,
         xattrProvider,
         tsgm,
@@ -285,7 +294,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     // If necessary, we first call chmod the output file. The FileArtifactValue may use a
     // FileContentsProxy, which is based on ctime (affected by chmod).
     if (executionMode.get()) {
-      setPathReadOnlyAndExecutableIfFile(artifactPathResolver.toPath(artifact));
+      setPathPermissionsIfFile(artifactPathResolver.toPath(artifact));
     }
 
     value = constructFileArtifactValueFromFilesystem(artifact);
@@ -328,13 +337,13 @@ final class ActionMetadataHandler implements MetadataHandler {
     // initialized, so this should hold unless the action itself has deleted the root.
     if (!treeDir.isDirectory(Symlinks.FOLLOW)) {
       if (chmod) {
-        setPathReadOnlyAndExecutableIfFile(treeDir);
+        setPathPermissionsIfFile(treeDir);
       }
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
     if (chmod) {
-      setPathReadOnlyAndExecutable(treeDir);
+      setPathPermissions(treeDir);
     }
 
     TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
@@ -343,7 +352,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         treeDir,
         (parentRelativePath, type) -> {
           if (chmod && type != Dirent.Type.SYMLINK) {
-            setPathReadOnlyAndExecutable(treeDir.getRelative(parentRelativePath));
+            setPathPermissions(treeDir.getRelative(parentRelativePath));
           }
           if (type == Dirent.Type.DIRECTORY) {
             return; // The final TreeArtifactValue does not contain child directories.
@@ -504,7 +513,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       throws IOException {
     checkState(!artifact.isTreeArtifact(), "%s is a tree artifact", artifact);
 
-    FileArtifactValue value =
+    var statAndValue =
         fileArtifactValueFromArtifact(
             artifact,
             artifactPathResolver,
@@ -514,6 +523,7 @@ final class ActionMetadataHandler implements MetadataHandler {
             // Prevent constant metadata artifacts from notifying the timestamp granularity monitor
             // and potentially delaying the build for no reason.
             artifact.isConstantMetadata() ? null : tsgm);
+    var value = statAndValue.fileArtifactValue();
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.
     byte[] fileDigest = value.getDigest();
@@ -560,8 +570,17 @@ final class ActionMetadataHandler implements MetadataHandler {
     if (injectedDigest == null && type.isFile()) {
       // We don't have an injected digest and there is no digest in the file value (which attempts a
       // fast digest). Manually compute the digest instead.
-      injectedDigest =
-          DigestUtils.manuallyComputeDigest(artifactPathResolver.toPath(artifact), value.getSize());
+      Path path = statAndValue.pathNoFollow();
+      if (statAndValue.statNoFollow() != null
+          && statAndValue.statNoFollow().isSymbolicLink()
+          && statAndValue.realPath() != null) {
+        // If the file is a symlink, we compute the digest using the target path so that it's
+        // possible to hit the digest cache - we probably already computed the digest for the
+        // target during previous action execution.
+        path = statAndValue.realPath();
+      }
+
+      injectedDigest = DigestUtils.manuallyComputeDigest(path, value.getSize());
     }
     return FileArtifactValue.createFromInjectedDigest(value, injectedDigest);
   }
@@ -581,15 +600,16 @@ final class ActionMetadataHandler implements MetadataHandler {
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     return fileArtifactValueFromArtifact(
-        artifact,
-        ArtifactPathResolver.IDENTITY,
-        statNoFollow,
-        /*digestWillBeInjected=*/ false,
-        xattrProvider,
-        tsgm);
+            artifact,
+            ArtifactPathResolver.IDENTITY,
+            statNoFollow,
+            /* digestWillBeInjected= */ false,
+            xattrProvider,
+            tsgm)
+        .fileArtifactValue();
   }
 
-  private static FileArtifactValue fileArtifactValueFromArtifact(
+  private static FileArtifactStatAndValue fileArtifactValueFromArtifact(
       Artifact artifact,
       ArtifactPathResolver artifactPathResolver,
       @Nullable FileStatusWithDigest statNoFollow,
@@ -603,7 +623,9 @@ final class ActionMetadataHandler implements MetadataHandler {
     // If we expect a symlink, we can readlink it directly and handle errors appropriately - there
     // is no need for the stat below.
     if (artifact.isSymlink()) {
-      return FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
+      var fileArtifactValue = FileArtifactValue.createForUnresolvedSymlink(pathNoFollow);
+      return FileArtifactStatAndValue.create(
+          pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
     }
 
     RootedPath rootedPathNoFollow =
@@ -620,8 +642,11 @@ final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
-      return fileArtifactValueFromStat(
-          rootedPathNoFollow, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
+      var fileArtifactValue =
+          fileArtifactValueFromStat(
+              rootedPathNoFollow, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
+      return FileArtifactStatAndValue.create(
+          pathNoFollow, /* realPath= */ null, statNoFollow, fileArtifactValue);
     }
 
     // We use FileStatus#isSymbolicLink over Path#isSymbolicLink to avoid the unnecessary stat
@@ -641,8 +666,32 @@ final class ActionMetadataHandler implements MetadataHandler {
     // and is a source file (since changes to those are checked separately).
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
     FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.maybeAdapt(realStat);
-    return fileArtifactValueFromStat(
-        realRootedPath, realStatWithDigest, digestWillBeInjected, xattrProvider, tsgm);
+    var fileArtifactValue =
+        fileArtifactValueFromStat(
+            realRootedPath, realStatWithDigest, digestWillBeInjected, xattrProvider, tsgm);
+    return FileArtifactStatAndValue.create(pathNoFollow, realPath, statNoFollow, fileArtifactValue);
+  }
+
+  @AutoValue
+  abstract static class FileArtifactStatAndValue {
+    public static FileArtifactStatAndValue create(
+        Path pathNoFollow,
+        @Nullable Path realPath,
+        @Nullable FileStatusWithDigest statNoFollow,
+        FileArtifactValue fileArtifactValue) {
+      return new AutoValue_ActionMetadataHandler_FileArtifactStatAndValue(
+          pathNoFollow, realPath, statNoFollow, fileArtifactValue);
+    }
+
+    public abstract Path pathNoFollow();
+
+    @Nullable
+    public abstract Path realPath();
+
+    @Nullable
+    public abstract FileStatusWithDigest statNoFollow();
+
+    public abstract FileArtifactValue fileArtifactValue();
   }
 
   private static FileArtifactValue fileArtifactValueFromStat(
@@ -656,23 +705,29 @@ final class ActionMetadataHandler implements MetadataHandler {
       return FileArtifactValue.MISSING_FILE_MARKER;
     }
 
+    if (stat.isDirectory()) {
+      return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
+    }
+
+    if (stat instanceof RemoteFileStatus) {
+      return ((RemoteFileStatus) stat).getRemoteMetadata();
+    }
+
     FileStateValue fileStateValue =
         FileStateValue.createWithStatNoFollow(
             rootedPath, stat, digestWillBeInjected, xattrProvider, tsgm);
 
-    return stat.isDirectory()
-        ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())
-        : FileArtifactValue.createForNormalFile(
-            fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
+    return FileArtifactValue.createForNormalFile(
+        fileStateValue.getDigest(), fileStateValue.getContentsProxy(), stat.getSize());
   }
 
-  private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {
+  private void setPathPermissionsIfFile(Path path) throws IOException {
     if (path.isFile(Symlinks.NOFOLLOW)) {
-      setPathReadOnlyAndExecutable(path);
+      setPathPermissions(path);
     }
   }
 
-  private static void setPathReadOnlyAndExecutable(Path path) throws IOException {
-    path.chmod(0555);
+  private void setPathPermissions(Path path) throws IOException {
+    path.chmod(outputPermissions.getPermissionsMode());
   }
 }

@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -57,7 +58,8 @@ public final class TargetUtils {
         || tag.startsWith("disable-")
         || tag.startsWith("cpu:")
         || tag.equals(ExecutionRequirements.LOCAL)
-        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC);
+        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC)
+        || tag.startsWith("resources:");
   }
 
   private TargetUtils() {} // Uninstantiable.
@@ -332,7 +334,7 @@ public final class TargetUtils {
   }
 
   private static boolean isExplicitDependency(Rule rule, Label label) {
-    if (rule.getVisibility().getDependencyLabels().contains(label)) {
+    if (Iterables.contains(rule.getVisibilityDependencyLabels(), label)) {
       return true;
     }
 

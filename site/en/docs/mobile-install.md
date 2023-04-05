@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # bazel mobile-install
 
+{% include "_buttons.html" %}
+
 <p class="lead">Fast iterative development for Android</p>
 
 This page describes how `bazel mobile-install` makes iterative development

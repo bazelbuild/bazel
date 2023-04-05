@@ -20,15 +20,22 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -50,6 +57,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -63,10 +72,11 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation only supports creating local action outputs.
  */
-public class RemoteActionFileSystem extends DelegateFileSystem {
+public class RemoteActionFileSystem extends DelegateFileSystem implements MetadataProvider {
 
   private final PathFragment execRoot;
   private final PathFragment outputBase;
+  private final MetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
@@ -80,6 +90,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
+      MetadataProvider fileCache,
       RemoteActionInputFetcher inputFetcher) {
     super(localDelegate);
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
@@ -87,6 +98,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
+    this.fileCache = checkNotNull(fileCache, "fileCache");
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
   }
@@ -103,19 +115,23 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   /** Returns true if {@code path} is a file that's stored remotely. */
   boolean isRemote(Path path) {
-    return getRemoteMetadata(path.asFragment()) != null;
+    return isRemote(path.asFragment());
+  }
+
+  private boolean isRemote(PathFragment path) {
+    return getRemoteMetadata(path) != null;
   }
 
   public void updateContext(MetadataInjector metadataInjector) {
     this.metadataInjector = metadataInjector;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
+  void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
       throws IOException {
     if (!isOutput(path)) {
       return;
     }
-    remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
+    remoteOutputTree.injectRemoteFile(path, digest, size, expireAtEpochMilli);
   }
 
   void flush() throws IOException {
@@ -125,41 +141,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       PathFragment path = execRoot.getRelative(entry.getKey());
       Artifact output = entry.getValue();
 
-      if (maybeInjectMetadataForSymlink(path, output)) {
-        continue;
-      }
-
-      if (output.isTreeArtifact()) {
-        if (remoteOutputTree.exists(path)) {
-          SpecialArtifact parent = (SpecialArtifact) output;
-          TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
-
-          // TODO: Check directory content on the local fs to support mixed tree.
-          TreeArtifactValue.visitTree(
-              remoteOutputTree.getPath(path),
-              (parentRelativePath, type) -> {
-                if (type == Dirent.Type.DIRECTORY) {
-                  return;
-                }
-                RemoteFileInfo remoteFile =
-                    remoteOutputTree.getRemoteFileInfo(
-                        path.getRelative(parentRelativePath), /* followSymlinks= */ true);
-                if (remoteFile != null) {
-                  TreeFileArtifact child =
-                      TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
-                  tree.putChild(child, createRemoteMetadata(remoteFile));
-                }
-              });
-
-          metadataInjector.injectTree(parent, tree.build());
-        }
-      } else {
-        RemoteFileInfo remoteFile =
-            remoteOutputTree.getRemoteFileInfo(path, /* followSymlinks= */ true);
-        if (remoteFile != null) {
-          metadataInjector.injectFile(output, createRemoteMetadata(remoteFile));
-        }
-      }
+      maybeInjectMetadataForSymlink(path, output);
     }
   }
 
@@ -180,26 +162,24 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    *       the output should be materialized as a symlink to the original location, which avoids
    *       fetching multiple copies when multiple symlinks to the same artifact are created in the
    *       same build.
-   *
-   * @return Whether the metadata was injected.
    */
-  private boolean maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
+  private void maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
       throws IOException {
     if (output.isSymlink()) {
-      return false;
+      return;
     }
 
     Path outputTreePath = remoteOutputTree.getPath(linkPath);
 
     if (!outputTreePath.exists(Symlinks.NOFOLLOW)) {
-      return false;
+      return;
     }
 
     PathFragment targetPath;
     try {
       targetPath = outputTreePath.readSymbolicLink();
     } catch (NotASymlinkException e) {
-      return false;
+      return;
     }
 
     checkState(
@@ -209,7 +189,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     if (output.isTreeArtifact()) {
       TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
       if (metadata == null) {
-        return false;
+        return;
       }
 
       SpecialArtifact parent = (SpecialArtifact) output;
@@ -230,7 +210,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     } else {
       RemoteFileArtifactValue metadata = getRemoteMetadata(targetPath);
       if (metadata == null) {
-        return false;
+        return;
       }
 
       RemoteFileArtifactValue injectedMetadata =
@@ -238,14 +218,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
               metadata.getDigest(),
               metadata.getSize(),
               metadata.getLocationIndex(),
-              metadata.getActionId(),
+              metadata.getExpireAtEpochMilli(),
               // Avoid a double indirection when the target is already materialized as a symlink.
               metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
 
       metadataInjector.injectFile(output, injectedMetadata);
     }
-
-    return true;
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(RemoteFileInfo remoteFile) {
@@ -253,7 +231,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         remoteFile.getFastDigest(),
         remoteFile.getSize(),
         /* locationIndex= */ 1,
-        remoteFile.getActionId());
+        remoteFile.getExpireAtEpochMilli());
   }
 
   @Override
@@ -264,7 +242,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected boolean delete(PathFragment path) throws IOException {
     boolean deleted = super.delete(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
     return deleted;
@@ -273,6 +251,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
     downloadFileIfRemote(path);
+    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
+    // See getMetadata() for why this isn't currently possible.
     return super.getInputStream(path);
   }
 
@@ -284,11 +264,27 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
-      super.setLastModifiedTime(path, newTime);
+    FileNotFoundException remoteException = null;
+    try {
+      // We can't set mtime for a remote file, set mtime of in-memory file node instead.
+      remoteOutputTree.setLastModifiedTime(path, newTime);
+    } catch (FileNotFoundException e) {
+      remoteException = e;
     }
-    remoteOutputTree.setLastModifiedTime(path, newTime);
+
+    FileNotFoundException localException = null;
+    try {
+      super.setLastModifiedTime(path, newTime);
+    } catch (FileNotFoundException e) {
+      localException = e;
+    }
+
+    if (remoteException == null || localException == null) {
+      return;
+    }
+
+    localException.addSuppressed(remoteException);
+    throw localException;
   }
 
   @Override
@@ -310,54 +306,85 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   // -------------------- File Permissions --------------------
+  // Remote files are always readable, writable and executable since we can't control their
+  // permissions.
+
+  private boolean existsInMemory(PathFragment path) {
+    return remoteOutputTree.getPath(path).isDirectory() || getRemoteMetadata(path) != null;
+  }
 
   @Override
   protected boolean isReadable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isReadable(path);
+    return existsInMemory(path) || super.isReadable(path);
   }
 
   @Override
   protected boolean isWritable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isWritable(path);
+    if (existsInMemory(path)) {
+      // If path exists locally, also check whether it's writable. We need this check for the case
+      // where the action need to delete their local outputs but the parent directory is not
+      // writable.
+      try {
+        return super.isWritable(path);
+      } catch (FileNotFoundException e) {
+        // Intentionally ignored
+        return true;
+      }
+    }
+
+    return super.isWritable(path);
   }
 
   @Override
   protected boolean isExecutable(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    return m != null || super.isExecutable(path);
+    return existsInMemory(path) || super.isExecutable(path);
   }
 
   @Override
   protected void setReadable(PathFragment path, boolean readable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setReadable(path, readable);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
   @Override
   public void setWritable(PathFragment path, boolean writable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setWritable(path, writable);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
   @Override
   protected void setExecutable(PathFragment path, boolean executable) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.setExecutable(path, executable);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
   @Override
   protected void chmod(PathFragment path, int mode) throws IOException {
-    RemoteFileArtifactValue m = getRemoteMetadata(path);
-    if (m == null) {
+    try {
       super.chmod(path, mode);
+    } catch (FileNotFoundException e) {
+      // in case of missing in-memory path, re-throw the error.
+      if (!existsInMemory(path)) {
+        throw e;
+      }
     }
   }
 
@@ -377,7 +404,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     super.createSymbolicLink(linkPath, targetFragment);
-    if (linkPath.startsWith(outputBase)) {
+    if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
   }
@@ -386,8 +413,16 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   @Override
   protected long getLastModifiedTime(PathFragment path, boolean followSymlinks) throws IOException {
-    FileStatus stat = stat(path, followSymlinks);
-    return stat.getLastModifiedTime();
+    try {
+      // We can't get mtime for a remote file, use mtime of in-memory file node instead.
+      return remoteOutputTree
+          .getPath(path)
+          .getLastModifiedTime(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW);
+    } catch (FileNotFoundException e) {
+      // Intentionally ignored
+    }
+
+    return super.getLastModifiedTime(path, followSymlinks);
   }
 
   @Override
@@ -464,7 +499,12 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
-    return new FileStatus() {
+    return new RemoteFileStatus() {
+      @Override
+      public byte[] getDigest() {
+        return m.getDigest();
+      }
+
       @Override
       public boolean isFile() {
         return m.getType().isFile();
@@ -504,22 +544,58 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       public long getNodeId() {
         throw new UnsupportedOperationException("Cannot get node id for " + m);
       }
+
+      @Override
+      public RemoteFileArtifactValue getRemoteMetadata() {
+        return m;
+      }
     };
   }
 
+  @Override
   @Nullable
-  protected RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
-    if (!isOutput(path)) {
-      return null;
+  public ActionInput getInput(String execPath) {
+    ActionInput input = inputArtifactData.getInput(execPath);
+    if (input != null) {
+      return input;
     }
-    PathFragment execPath = path.relativeTo(execRoot);
+    input = outputMapping.get(PathFragment.create(execPath));
+    if (input != null) {
+      return input;
+    }
+    if (!isOutput(execRoot.getRelative(execPath))) {
+      return fileCache.getInput(execPath);
+    }
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+    PathFragment execPath = input.getExecPath();
+    FileArtifactValue m = getMetadataByExecPath(execPath);
+    if (m != null) {
+      return m;
+    }
+    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
+    // The output fallback is needed when an undeclared output of a spawn is consumed by another
+    // spawn within the same action; specifically, when the first spawn is local but the second is
+    // remote, or, in the context of a failed test attempt, when both spawns are remote but the
+    // first one fails. In both cases, we don't currently inject the output metadata for the first
+    // spawn; if we did so, then we could stop falling back here.
+    return fileCache.getMetadata(input);
+  }
+
+  @Nullable
+  private FileArtifactValue getMetadataByExecPath(PathFragment execPath) {
     FileArtifactValue m = inputArtifactData.getMetadata(execPath);
-    if (m != null && m.isRemote()) {
-      return (RemoteFileArtifactValue) m;
+    if (m != null) {
+      return m;
     }
 
     RemoteFileInfo remoteFile =
-        remoteOutputTree.getRemoteFileInfo(path, /* followSymlinks= */ true);
+        remoteOutputTree.getRemoteFileInfo(
+            execRoot.getRelative(execPath), /* followSymlinks= */ true);
     if (remoteFile != null) {
       return createRemoteMetadata(remoteFile);
     }
@@ -528,12 +604,23 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
-  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
-    if (!path.startsWith(outputBase)) {
+  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
+    if (!isOutput(path)) {
       return null;
     }
-    PathFragment execPath = path.relativeTo(execRoot);
-    TreeArtifactValue m = inputArtifactData.getTreeMetadata(execPath);
+    FileArtifactValue m = getMetadataByExecPath(path.relativeTo(execRoot));
+    if (m != null && m.isRemote()) {
+      return (RemoteFileArtifactValue) m;
+    }
+    return null;
+  }
+
+  @Nullable
+  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
+    if (!isOutput(path)) {
+      return null;
+    }
+    TreeArtifactValue m = inputArtifactData.getTreeMetadata(path.relativeTo(execRoot));
     // TODO: Handle partially remote tree artifacts.
     if (m != null && m.isEntirelyRemote()) {
       return m;
@@ -543,15 +630,21 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), m);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IOException(
-            String.format("Received interrupt while fetching file '%s'", path), e);
+    if (!isRemote(path)) {
+      return;
+    }
+    PathFragment execPath = path.relativeTo(execRoot);
+    try {
+      ActionInput input = getInput(execPath.getPathString());
+      if (input == null) {
+        // For undeclared outputs, getInput returns null as there's no artifact associated with the
+        // path. Therefore, we synthesize one here just so we're able to call prefetchFiles.
+        input = ActionInputHelper.fromPath(execPath);
       }
+      getFromFuture(inputFetcher.prefetchFiles(ImmutableList.of(input), this, Priority.CRITICAL));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
     }
   }
 
@@ -589,7 +682,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     super.createDirectoryAndParents(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       remoteOutputTree.createDirectoryAndParents(path);
     }
   }
@@ -598,10 +691,77 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
     boolean created = delegateFs.createDirectory(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       created = remoteOutputTree.createDirectory(path) || created;
     }
     return created;
+  }
+
+  @Override
+  protected ImmutableList<String> getDirectoryEntries(PathFragment path) throws IOException {
+    HashSet<String> entries = new HashSet<>();
+
+    boolean ignoredNotFoundInRemote = false;
+    if (isOutput(path)) {
+      try {
+        delegateFs.getPath(path).getDirectoryEntries().stream()
+            .map(Path::getBaseName)
+            .forEach(entries::add);
+        ignoredNotFoundInRemote = true;
+      } catch (FileNotFoundException ignored) {
+        // Intentionally ignored
+      }
+    }
+
+    try {
+      remoteOutputTree.getPath(path).getDirectoryEntries().stream()
+          .map(Path::getBaseName)
+          .forEach(entries::add);
+    } catch (FileNotFoundException e) {
+      if (!ignoredNotFoundInRemote) {
+        throw e;
+      }
+    }
+
+    // sort entries to get a deterministic order.
+    return ImmutableList.sortedCopyOf(entries);
+  }
+
+  @Override
+  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
+      throws IOException {
+    HashMap<String, Dirent> entries = new HashMap<>();
+
+    boolean ignoredNotFoundInRemote = false;
+    if (isOutput(path)) {
+      try {
+        for (var entry :
+            delegateFs
+                .getPath(path)
+                .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+          entries.put(entry.getName(), entry);
+        }
+        ignoredNotFoundInRemote = true;
+      } catch (FileNotFoundException ignored) {
+        // Intentionally ignored
+      }
+    }
+
+    try {
+      for (var entry :
+          remoteOutputTree
+              .getPath(path)
+              .readdir(followSymlinks ? Symlinks.FOLLOW : Symlinks.NOFOLLOW)) {
+        entries.put(entry.getName(), entry);
+      }
+    } catch (FileNotFoundException e) {
+      if (!ignoredNotFoundInRemote) {
+        throw e;
+      }
+    }
+
+    // sort entries to get a deterministic order.
+    return ImmutableList.sortedCopyOf(entries.values());
   }
 
   /*
@@ -614,20 +774,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    */
 
   @Override
-  protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
-    return super.getDirectoryEntries(path);
-  }
-
-  @Override
   protected void createFSDependentHardLink(PathFragment linkPath, PathFragment originalPath)
       throws IOException {
     super.createFSDependentHardLink(linkPath, originalPath);
-  }
-
-  @Override
-  protected Collection<Dirent> readdir(PathFragment path, boolean followSymlinks)
-      throws IOException {
-    return super.readdir(path, followSymlinks);
   }
 
   @Override
@@ -654,7 +803,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return new RemoteFileInfo(clock);
     }
 
-    void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
+    void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
         throws IOException {
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
@@ -665,7 +814,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       RemoteFileInfo remoteFileInfo = (RemoteFileInfo) node;
-      remoteFileInfo.set(digest, size, actionId);
+      remoteFileInfo.set(digest, size, expireAtEpochMilli);
     }
 
     @Nullable
@@ -682,16 +831,17 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     private byte[] digest;
     private long size;
-    private String actionId;
+
+    private long expireAtEpochMilli;
 
     RemoteFileInfo(Clock clock) {
       super(clock);
     }
 
-    private void set(byte[] digest, long size, String actionId) {
+    private void set(byte[] digest, long size, long expireAtEpochMilli) {
       this.digest = digest;
       this.size = size;
-      this.actionId = actionId;
+      this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
     @Override
@@ -719,8 +869,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return size;
     }
 
-    public String getActionId() {
-      return actionId;
+    public long getExpireAtEpochMilli() {
+      return expireAtEpochMilli;
     }
   }
 }

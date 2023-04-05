@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Debugging Remote Cache Hits for Remote Execution
 
+{% include "_buttons.html" %}
+
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.
 
@@ -109,7 +111,7 @@ If you are not getting the cache hit rate you are expecting, do the following:
 
    d. If `remote_accept_cached` is `false`, determine where it is being
       set to `false`: either at the command line or in a
-      [bazelrc](/docs/bazelrc#bazelrc-file-locations) file.
+      [bazelrc](/run/bazelrc#bazelrc-file-locations) file.
 
 ### Ensure caching across machines {:#caching-across-machines}
 

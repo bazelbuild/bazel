@@ -111,7 +111,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
@@ -151,8 +150,8 @@ public class RemoteSpawnRunnerTest {
   @Mock private SpawnRunner localRunner;
 
   // The action key of the Spawn returned by newSimpleSpawn().
-  private final String simpleActionId =
-      "eb45b20cc979d504f96b9efc9a08c48103c6f017afa09c0df5c70a5f92a98ea8";
+  private static final String SIMPLE_ACTION_ID =
+      "31aea267dc597b047a9b6993100415b6406f82822318dc8988e4164a535b51ee";
 
   @Before
   public final void setUp() throws Exception {
@@ -230,7 +229,7 @@ public class RemoteSpawnRunnerTest {
 
   private FakeSpawnExecutionContext getSpawnContext(Spawn spawn) {
     AbstractSpawnStrategy fakeLocalStrategy =
-        new AbstractSpawnStrategy(execRoot, localRunner, /*verboseFailures=*/ true) {};
+        new AbstractSpawnStrategy(execRoot, localRunner, new ExecutionOptions()) {};
     ClassToInstanceMap<ActionContext> actionContextRegistry =
         ImmutableClassToInstanceMap.of(RemoteLocalFallbackRegistry.class, () -> fakeLocalStrategy);
     return new FakeSpawnExecutionContext(
@@ -517,7 +516,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
     Digest logDigest = digestUtil.computeAsUtf8("bla");
-    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
+    Path logPath = logDir.getRelative(SIMPLE_ACTION_ID).getRelative("logname");
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
             .putServerLogs(
@@ -557,7 +556,7 @@ public class RemoteSpawnRunnerTest {
     Digest logDigest = digestUtil.computeAsUtf8("bla");
     Path logPath =
         logDir
-            .getRelative("b9a727771337fd8ce54821f4805e2d451c4739e92fec6f8ecdb18ff9d1983b27")
+            .getRelative("e0a5a3561464123504c1240b3587779cdfd6adee20f72aa136e388ecfd570c12")
             .getRelative("logname");
     ExecuteResponse resp =
         ExecuteResponse.newBuilder()
@@ -595,7 +594,7 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner runner = newSpawnRunner();
     RemoteExecutionService service = runner.getRemoteExecutionService();
     Digest logDigest = digestUtil.computeAsUtf8("bla");
-    Path logPath = logDir.getRelative(simpleActionId).getRelative("logname");
+    Path logPath = logDir.getRelative(SIMPLE_ACTION_ID).getRelative("logname");
     com.google.rpc.Status timeoutStatus =
         com.google.rpc.Status.newBuilder().setCode(Code.DEADLINE_EXCEEDED.getNumber()).build();
     ExecuteResponse resp =
@@ -1211,10 +1210,9 @@ public class RemoteSpawnRunnerTest {
 
     assertThat(res.getDigest())
         .isEqualTo(
-            Optional.of(
-                SpawnResult.Digest.of(
-                    requestCaptor.getValue().getActionKey().getDigest().getHash(),
-                    requestCaptor.getValue().getActionKey().getDigest().getSizeBytes())));
+            SpawnResult.Digest.of(
+                requestCaptor.getValue().getActionKey().getDigest().getHash(),
+                requestCaptor.getValue().getActionKey().getDigest().getSizeBytes()));
   }
 
   @Test
@@ -1229,10 +1227,10 @@ public class RemoteSpawnRunnerTest {
   public void accountingAddsDurationsForStages() {
     SpawnMetrics.Builder builder =
         SpawnMetrics.Builder.forRemoteExec()
-            .setQueueTime(Duration.ofSeconds(1))
-            .setSetupTime(Duration.ofSeconds(2))
-            .setExecutionWallTime(Duration.ofSeconds(2))
-            .setProcessOutputsTime(Duration.ofSeconds(2));
+            .setQueueTimeInMs(1 * 1000)
+            .setSetupTimeInMs(2 * 1000)
+            .setExecutionWallTimeInMs(2 * 1000)
+            .setProcessOutputsTimeInMs(2 * 1000);
     Timestamp queued = Timestamp.getDefaultInstance();
     com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
     Timestamp workerStart = Timestamps.add(queued, oneSecond);
@@ -1253,13 +1251,13 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
     SpawnMetrics spawnMetrics = builder.build();
     // remote queue time is accumulated
-    assertThat(spawnMetrics.queueTime()).isEqualTo(Duration.ofSeconds(2));
+    assertThat(spawnMetrics.queueTimeInMs()).isEqualTo(2 * 1000L);
     // setup time is substituted
-    assertThat(spawnMetrics.setupTime()).isEqualTo(Duration.ofSeconds(1));
+    assertThat(spawnMetrics.setupTimeInMs()).isEqualTo(1 * 1000L);
     // execution time is unspecified, assume substituted
-    assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
+    assertThat(spawnMetrics.executionWallTimeInMs()).isEqualTo(1 * 1000L);
     // ProcessOutputs time is unspecified, assume substituted
-    assertThat(spawnMetrics.processOutputsTime()).isEqualTo(Duration.ofSeconds(1));
+    assertThat(spawnMetrics.processOutputsTimeInMs()).isEqualTo(1 * 1000L);
   }
 
   @Test

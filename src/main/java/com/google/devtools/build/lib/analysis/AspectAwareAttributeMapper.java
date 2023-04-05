@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  * <p>For example, given {@code deps = [":adep"]}, checking that {@code deps} exists or that it's
  * type is {@link com.google.devtools.build.lib.packages.BuildType#LABEL_LIST} are type queries.
  * Checking that its value is explicitly set in the BUILD File or that its value {@code [":adep"]}
- * are value queries..
+ * are value queries.
  *
  * <p>Value queries on aspect attributes trigger {@link UnsupportedOperationException}.
  */
@@ -96,10 +96,7 @@ class AspectAwareAttributeMapper implements AttributeMap {
 
   @Override
   public Iterable<String> getAttributeNames() {
-    return ImmutableList.<String>builder()
-        .addAll(ruleAttributes.getAttributeNames())
-        .addAll(aspectAttributes.keySet())
-        .build();
+    return Iterables.concat(ruleAttributes.getAttributeNames(), aspectAttributes.keySet());
   }
 
   @Override
@@ -162,11 +159,6 @@ class AspectAwareAttributeMapper implements AttributeMap {
   @Override
   public String getPackageDefaultDeprecation() {
     return ruleAttributes.getPackageDefaultDeprecation();
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return ruleAttributes.getPackageDefaultCopts();
   }
 
   @Override

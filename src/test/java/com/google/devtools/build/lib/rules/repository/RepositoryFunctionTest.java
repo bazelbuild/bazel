@@ -21,7 +21,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValue;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithContentsProxy;
+import com.google.devtools.build.lib.actions.FileStateValue.RegularFileStateValueWithDigest;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FileValue.RegularFileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -43,9 +44,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/**
- * Tests for @{link RepositoryFunction}
- */
+/** Tests for {@link RepositoryFunction} */
 @RunWith(JUnit4.class)
 public class RepositoryFunctionTest extends BuildViewTestCase {
 
@@ -139,7 +138,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), scratch.file("foo", "bar"));
 
     // Digest should be returned if the FileStateValue has it.
-    FileStateValue fsv = new RegularFileStateValue(3, new byte[] {1, 2, 3, 4}, null);
+    FileStateValue fsv = new RegularFileStateValueWithDigest(3, new byte[] {1, 2, 3, 4});
     FileValue fv = new RegularFileValue(path, fsv);
     assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo("01020304");
 
@@ -147,7 +146,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     FileStatus status = Mockito.mock(FileStatus.class);
     when(status.getLastChangeTime()).thenReturn(100L);
     when(status.getNodeId()).thenReturn(200L);
-    fsv = new RegularFileStateValue(3, null, FileContentsProxy.create(status));
+    fsv = new RegularFileStateValueWithContentsProxy(3, FileContentsProxy.create(status));
     fv = new RegularFileValue(path, fsv);
     String expectedDigest = BaseEncoding.base16().lowerCase().encode(path.asPath().getDigest());
     assertThat(RepositoryFunction.fileValueToMarkerValue(fv)).isEqualTo(expectedDigest);

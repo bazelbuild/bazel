@@ -129,6 +129,14 @@ public abstract class GraphTest {
   }
 
   @Test
+  public void createIfAbsentBatch_interveningCallToRemove() throws Exception {
+    SkyKey key = key("key");
+    NodeBatch batch = graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(key));
+    graph.remove(key);
+    assertThat(batch.get(key)).isNotNull();
+  }
+
+  @Test
   public void getBatchAndGetBatchMapConsistency() throws Exception {
     SkyKey cat = key("cat");
     SkyKey dog = key("dog");

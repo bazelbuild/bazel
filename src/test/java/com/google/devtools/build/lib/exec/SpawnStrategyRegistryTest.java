@@ -604,7 +604,7 @@ public class SpawnStrategyRegistryTest {
     private int usedCalled = 0;
 
     public NoopAbstractStrategy(String name) {
-      super(null, null, /*verboseFailures=*/ true);
+      super(null, null, null);
       this.name = name;
     }
 

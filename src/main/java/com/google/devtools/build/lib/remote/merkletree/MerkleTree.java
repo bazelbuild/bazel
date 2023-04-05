@@ -28,8 +28,8 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -222,11 +222,13 @@ public class MerkleTree {
       SortedMap<PathFragment, ActionInput> inputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(inputs, metadataProvider, execRoot, digestUtil);
+          DirectoryTreeBuilder.fromActionInputs(
+              inputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
       return build(tree, digestUtil);
     }
   }
@@ -247,12 +249,13 @@ public class MerkleTree {
       Set<PathFragment> toolInputs,
       MetadataProvider metadataProvider,
       Path execRoot,
+      ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
           DirectoryTreeBuilder.fromActionInputs(
-              inputs, toolInputs, metadataProvider, execRoot, digestUtil);
+              inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
       return build(tree, digestUtil);
     }
   }
@@ -295,8 +298,7 @@ public class MerkleTree {
                     m.remove(subDirname), "subMerkleTree at '%s' was null", subDirname);
             subDirs.put(dir.getPathSegment(), subMerkleTree);
           }
-          MerkleTree mt =
-              buildMerkleTree(new TreeSet<>(files), new TreeSet<>(symlinks), subDirs, digestUtil);
+          MerkleTree mt = buildMerkleTree(files, symlinks, subDirs, digestUtil);
           m.put(dirname, mt);
         });
     MerkleTree rootMerkleTree = m.get(PathFragment.EMPTY_FRAGMENT);
@@ -322,11 +324,11 @@ public class MerkleTree {
     }
 
     // Some differ, do a full merge.
-    SortedSet<DirectoryTree.FileNode> files = Sets.newTreeSet();
+    SortedSet<DirectoryTree.FileNode> files = new TreeSet<>();
     for (MerkleTree merkleTree : merkleTrees) {
       files.addAll(merkleTree.getFiles());
     }
-    SortedSet<DirectoryTree.SymlinkNode> symlinks = Sets.newTreeSet();
+    SortedSet<DirectoryTree.SymlinkNode> symlinks = new TreeSet<>();
     for (MerkleTree merkleTree : merkleTrees) {
       symlinks.addAll(merkleTree.getSymlinks());
     }

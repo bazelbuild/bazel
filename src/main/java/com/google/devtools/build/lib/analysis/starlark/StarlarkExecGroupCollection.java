@@ -81,9 +81,23 @@ public abstract class StarlarkExecGroupCollection implements ExecGroupCollection
           execGroup,
           String.join(", ", getScrubbedExecGroups()));
     }
-    ToolchainContextApi toolchainContext =
-        StarlarkToolchainContext.create(toolchainCollection().getToolchainContext(execGroup));
-    return new AutoValue_StarlarkExecGroupCollection_StarlarkExecGroupContext(toolchainContext);
+
+    ResolvedToolchainContext toolchainContext =
+        toolchainCollection().getToolchainContext(execGroup);
+    if (toolchainContext == null) {
+      return new AutoValue_StarlarkExecGroupCollection_StarlarkExecGroupContext(
+          StarlarkToolchainContext.TOOLCHAINS_NOT_VALID);
+    }
+
+    ToolchainContextApi starlarkToolchainContext =
+        StarlarkToolchainContext.create(
+            /* targetDescription= */ toolchainContext.targetDescription(),
+            /* resolveToolchainInfoFunc= */ toolchainContext::forToolchainType,
+            /* resolvedToolchainTypeLabels= */ toolchainContext
+                .requestedToolchainTypeLabels()
+                .keySet());
+    return new AutoValue_StarlarkExecGroupCollection_StarlarkExecGroupContext(
+        starlarkToolchainContext);
   }
 
   private static String castGroupName(Object key) throws EvalException {

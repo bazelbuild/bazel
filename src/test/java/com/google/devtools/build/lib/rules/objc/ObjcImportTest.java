@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.testutil.Scratch;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -66,10 +67,19 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    name = 'lib',",
         "    deps = ['//imp:imp'],",
         ")");
-    ObjcProvider provider = providerForTarget("//lib:lib");
+
+    ObjcProvider provider = objcProviderForTarget("//lib:lib");
     assertThat(Artifact.asExecPaths(provider.get(ObjcProvider.IMPORTED_LIBRARY)))
         .containsExactly("imp/precomp_lib.a")
         .inOrder();
+
+    Artifact library =
+        ccInfoForTarget("//lib:lib")
+            .getCcLinkingContext()
+            .getLibraries()
+            .getSingleton()
+            .getStaticLibrary();
+    assertThat(library.getRunfilesPath().toString()).isEqualTo("imp/precomp_lib.a");
   }
 
   @Test
@@ -90,6 +100,92 @@ public class ObjcImportTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testAlwaysLinkDefaultFalse() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    addTrivialImportLibrary();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments())).doesNotContain("-force_load");
+  }
+
+  @Test
+  public void testAlwaysLinkDefaultTrue() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    addTrivialImportLibrary();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments()))
+        .contains("-force_load imp/precomp_lib.a");
+  }
+
+  @Test
+  public void testAlwaysLinkTrueDefaultFalse() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file("imp/precomp_lib.a");
+    scratch.file(
+        "imp/BUILD",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['precomp_lib.a'],",
+        "    alwayslink = True,",
+        ")");
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments()))
+        .contains("-force_load imp/precomp_lib.a");
+  }
+
+  @Test
+  public void testAlwaysLinkFalseDefaultTrue() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file("imp/precomp_lib.a");
+    scratch.file(
+        "imp/BUILD",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['precomp_lib.a'],",
+        "    alwayslink = False,",
+        ")");
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments())).doesNotContain("-force_load");
+  }
+
+  @Test
   public void testArchiveRequiresDotInName() throws Exception {
     checkError("x", "x", "'//x:fooa' does not produce any objc_import archives files (expected .a)",
         "objc_import(",
@@ -107,10 +203,12 @@ public class ObjcImportTest extends ObjcRuleTestCase {
         "    archives = ['imp.a'],",
         "    sdk_dylibs = ['libdy1', 'libdy2'],",
         ")");
-    ObjcProvider provider = providerForTarget("//imp:imp");
-    assertThat(provider.get(ObjcProvider.SDK_DYLIB).toList())
-        .containsExactly("libdy1", "libdy2")
-        .inOrder();
+
+    ObjcProvider provider = objcProviderForTarget("//imp:imp");
+    assertThat(provider.get(ObjcProvider.SDK_DYLIB).toList()).containsExactly("libdy1", "libdy2");
+
+    CcLinkingContext ccLinkingContext = ccInfoForTarget("//imp:imp").getCcLinkingContext();
+    assertThat(ccLinkingContext.getFlattenedUserLinkFlags()).containsExactly("-ldy1", "-ldy2");
   }
 
   @Test
@@ -157,6 +255,8 @@ public class ObjcImportTest extends ObjcRuleTestCase {
 
     assertThat(getArifactPaths(getConfiguredTarget("//imp:imp"), IMPORTED_LIBRARY))
         .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
+    assertThat(getArifactPathsOfLibraries(getConfiguredTarget("//imp:imp")))
+        .containsExactly("imp/precomp_lib.a", "imp/precomp_dep.a");
     assertThat(getArifactPathsOfHeaders(getConfiguredTarget("//imp:imp")))
         .containsExactly("imp/precomp_dep.h");
   }
@@ -165,10 +265,5 @@ public class ObjcImportTest extends ObjcRuleTestCase {
       ConfiguredTarget target, ObjcProvider.Key<Artifact> artifactKey) {
     return Artifact.toRootRelativePaths(
         target.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(artifactKey));
-  }
-
-  private static Iterable<String> getArifactPathsOfHeaders(ConfiguredTarget target) {
-    return Artifact.toRootRelativePaths(
-        target.get(CcInfo.PROVIDER).getCcCompilationContext().getDeclaredIncludeSrcs());
   }
 }

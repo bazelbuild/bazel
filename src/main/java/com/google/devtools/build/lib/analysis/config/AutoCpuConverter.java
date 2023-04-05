@@ -36,7 +36,7 @@ public class AutoCpuConverter extends Converter.Contextless<String> {
         case DARWIN:
           switch (CPU.getCurrent()) {
             case X86_64:
-              return "darwin";
+              return "darwin_x86_64";
             case AARCH64:
               return "darwin_arm64";
             default:

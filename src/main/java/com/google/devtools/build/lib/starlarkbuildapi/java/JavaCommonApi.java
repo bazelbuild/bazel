@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import javax.annotation.Nullable;
@@ -321,6 +323,12 @@ public interface JavaCommonApi<
         @Param(name = "actions", named = true, doc = "ctx.actions"),
         @Param(name = "jar", positional = false, named = true, doc = "The jar to run ijar on."),
         @Param(
+            name = "output",
+            positional = false,
+            named = true,
+            documented = false,
+            defaultValue = "None"),
+        @Param(
             name = "target_label",
             positional = false,
             named = true,
@@ -338,9 +346,15 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
-      })
+      },
+      useStarlarkThread = true)
   FileApi runIjar(
-      StarlarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
+      StarlarkActionFactoryT actions,
+      FileT jar,
+      Object output,
+      Object targetLabel,
+      JavaToolchainT javaToolchain,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -657,10 +671,17 @@ public interface JavaCommonApi<
       name = "target_kind",
       parameters = {
         @Param(name = "target", positional = true, named = false, doc = "The target."),
+        @Param(
+            name = "dereference_aliases",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            documented = false),
       },
       documented = false,
       useStarlarkThread = true)
-  String getTargetKind(Object target, StarlarkThread thread) throws EvalException;
+  String getTargetKind(Object target, boolean dereferenceAliases, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(
       name = "to_java_binary_info",
@@ -678,9 +699,10 @@ public interface JavaCommonApi<
   @StarlarkMethod(
       name = "get_build_info",
       documented = false,
-      parameters = {@Param(name = "ctx", doc = "The rule context")},
+      parameters = {@Param(name = "ctx"), @Param(name = "is_stamping_enabled")},
       useStarlarkThread = true)
-  Sequence<FileT> getBuildInfo(StarlarkRuleContextT ruleContext, StarlarkThread thread)
+  Sequence<FileT> getBuildInfo(
+      StarlarkRuleContextT ruleContext, boolean isStampingEnabled, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -691,4 +713,22 @@ public interface JavaCommonApi<
       doc = "Default value of java_proto_library.has_services")
   boolean getExperimentalJavaProtoLibraryDefaultHasServices(StarlarkSemantics starlarkSemantics)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "collect_native_deps_dirs",
+      parameters = {@Param(name = "deps")},
+      useStarlarkThread = true,
+      documented = false)
+  Sequence<String> collectNativeLibsDirs(
+      Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "get_runtime_classpath_for_archive",
+      parameters = {@Param(name = "jars"), @Param(name = "excluded_jars")},
+      useStarlarkThread = true,
+      documented = false)
+  Depset getRuntimeClasspathForArchive(
+      Depset runtimeClasspath, Depset excludedArtifacts, StarlarkThread thread)
+      throws EvalException, TypeException;
 }

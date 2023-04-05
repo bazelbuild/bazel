@@ -95,6 +95,28 @@ public interface Sequence<E>
   }
 
   /**
+   * Compares two sequences of value for equality. Sequences compare equal if they are the same size
+   * and corresponding elements compare equal.
+   */
+  static boolean sameElems(List<?> x, List<?> y) {
+    if (x == y) {
+      return true;
+    }
+    if (x.size() != y.size()) {
+      return false;
+    }
+    for (int i = 0; i < x.size(); i++) {
+      Object xelem = x.get(i);
+      Object yelem = y.get(i);
+
+      if (xelem != yelem && !xelem.equals(yelem)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Returns the slice of this sequence, {@code this[start:stop:step]}. <br>
    * For positive strides ({@code step > 0}), {@code 0 <= start <= stop <= size()}. <br>
    * For negative strides ({@code step < 0}), {@code -1 <= stop <= start < size()}. <br>

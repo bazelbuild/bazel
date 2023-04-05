@@ -93,7 +93,7 @@ public class ConfigGlobalLibrary implements ConfigGlobalLibraryApi {
     for (String optionKey : optionKeys) {
       if (!optionKey.startsWith(COMMAND_LINE_OPTION_PREFIX)) {
         try {
-          Label.parseAbsoluteUnchecked(optionKey);
+          var unused = Label.parseCanonicalUnchecked(optionKey);
         } catch (IllegalArgumentException e) {
           throw Starlark.errorf(
               "invalid transition %s '%s'. If this is intended as a native option, "

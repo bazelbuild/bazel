@@ -13,7 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.concurrent.PooledInterner;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Serializable;
+import javax.annotation.Nullable;
 
 /**
  * A {@link SkyKey} is effectively a pair (type, name) that identifies a Skyframe value.
@@ -49,5 +53,68 @@ public interface SkyKey extends Serializable {
    */
   default boolean valueIsShareable() {
     return true;
+  }
+
+  /**
+   * Returns {@code true} if this key's {@link SkyFunction} would like Skyframe to schedule its
+   * reevaluation when any of its previously requested unfinished deps completes. Otherwise,
+   * Skyframe will schedule reevaluation only when all previously requested unfinished deps
+   * complete.
+   */
+  default boolean supportsPartialReevaluation() {
+    return false;
+  }
+
+  @Nullable
+  default SkyKeyInterner<?> getSkyKeyInterner() {
+    return null;
+  }
+
+  static <T extends SkyKey> SkyKeyInterner<T> newInterner() {
+    return new SkyKeyInterner<>();
+  }
+
+  /** {@link PooledInterner} for {@link SkyKey}s */
+  final class SkyKeyInterner<T extends SkyKey> extends PooledInterner<T> {
+    @Nullable static Pool<? extends SkyKey> globalPool = null;
+
+    /**
+     * Sets the {@link Pool} to be used for interning.
+     *
+     * <p>The pool is strongly retained until another pool is set. {@code null} can be passed to
+     * clear the global pool.
+     */
+    @ThreadSafety.ThreadCompatible
+    public static void setGlobalPool(@Nullable Pool<SkyKey> pool) {
+      // No synchronization is needed. Setting global pool is guaranteed to happen sequentially
+      // since only one build can happen at the same time.
+      globalPool = pool;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    protected Pool<T> getPool() {
+      return (Pool<T>) globalPool;
+    }
+
+    /**
+     * Call {@link #weakInternUnchecked(SkyKey)} on {@link SkyKeyInterner} returned by {@code
+     * key.getSkyKeyInterner}. This method is created to remove casts and
+     * {@code @SuppressWarnings("unchecked")} in callers and put them in one place.
+     */
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked")
+    public T weakInternUnchecked(SkyKey sample) {
+      return weakIntern((T) sample);
+    }
+  }
+
+  /**
+   * A hint to schedulers that evaluating this key shouldn't cause high fanout.
+   *
+   * <p>Keys with high fan-out create memory pressure and are assigned low priority.
+   */
+  default boolean hasLowFanout() {
+    return false;
   }
 }

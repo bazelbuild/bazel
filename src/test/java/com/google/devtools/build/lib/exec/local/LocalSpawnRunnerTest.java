@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.exec.local;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.testing.common.DirectoryListingHelper.file;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -284,7 +283,8 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(PathFragment baseDirectory) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping(
+        PathFragment baseDirectory, boolean willAccessRepeatedly) {
       return inputMapping;
     }
 
@@ -395,7 +395,7 @@ public class LocalSpawnRunnerTest {
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    SpawnResult result = runner.execAsync(SIMPLE_SPAWN, policy).get();
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
@@ -458,7 +458,7 @@ public class LocalSpawnRunnerTest {
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    SpawnResult result = runner.execAsync(spawn, policy).get();
+    SpawnResult result = runner.exec(spawn, policy);
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(result.setupSuccess()).isTrue();
@@ -531,7 +531,7 @@ public class LocalSpawnRunnerTest {
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    SpawnResult result = runner.execAsync(SIMPLE_SPAWN, policy).get();
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any());
     assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(result.exitCode()).isEqualTo(0);
@@ -574,7 +574,7 @@ public class LocalSpawnRunnerTest {
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    SpawnResult result = runner.execAsync(SIMPLE_SPAWN, policy).get();
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.NON_ZERO_EXIT);
     assertThat(result.exitCode()).isEqualTo(3);
@@ -616,14 +616,14 @@ public class LocalSpawnRunnerTest {
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    SpawnResult result = runner.execAsync(SIMPLE_SPAWN, policy).get();
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
     verify(factory).create(any(SubprocessBuilder.class));
     assertThat(result.status()).isEqualTo(SpawnResult.Status.EXECUTION_FAILED);
     assertThat(result.exitCode()).isEqualTo(-1);
     assertThat(result.setupSuccess()).isFalse();
-    assertThat(result.getWallTime()).isEmpty();
-    assertThat(result.getUserTime()).isEmpty();
-    assertThat(result.getSystemTime()).isEmpty();
+    assertThat(result.getWallTimeInMs()).isEqualTo(0);
+    assertThat(result.getUserTimeInMs()).isEqualTo(0);
+    assertThat(result.getSystemTimeInMs()).isEqualTo(0);
     assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     assertThat(FileSystemUtils.readContent(fs.getPath("/out/stderr"), UTF_8))
@@ -649,13 +649,13 @@ public class LocalSpawnRunnerTest {
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
     FileOutErr fileOutErr = new FileOutErr();
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
-    SpawnResult reply = runner.execAsync(SIMPLE_SPAWN, policy).get();
+    SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
     assertThat(reply.status()).isEqualTo(SpawnResult.Status.EXECUTION_DENIED);
     assertThat(reply.exitCode()).isEqualTo(-1);
     assertThat(reply.setupSuccess()).isFalse();
-    assertThat(reply.getWallTime()).isEmpty();
-    assertThat(reply.getUserTime()).isEmpty();
-    assertThat(reply.getSystemTime()).isEmpty();
+    assertThat(reply.getWallTimeInMs()).isEqualTo(0);
+    assertThat(reply.getUserTimeInMs()).isEqualTo(0);
+    assertThat(reply.getSystemTimeInMs()).isEqualTo(0);
     assertThat(reply.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
     // TODO(ulfjack): Maybe we should only lock after checking?
@@ -700,7 +700,7 @@ public class LocalSpawnRunnerTest {
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    assertThrows(InterruptedException.class, () -> runner.execAsync(SIMPLE_SPAWN, policy).get());
+    assertThrows(InterruptedException.class, () -> runner.exec(SIMPLE_SPAWN, policy));
     Thread.interrupted();
     assertThat(policy.lockOutputFilesCalled).isTrue();
   }
@@ -810,7 +810,7 @@ public class LocalSpawnRunnerTest {
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    runner.execAsync(SIMPLE_SPAWN, policy).get();
+    runner.exec(SIMPLE_SPAWN, policy);
     assertThat(policy.prefetchCalled).isTrue();
   }
 
@@ -841,7 +841,7 @@ public class LocalSpawnRunnerTest {
             .withExecutionInfo(ExecutionRequirements.DISABLE_LOCAL_PREFETCH, "")
             .build();
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    runner.execAsync(spawn, policy).get();
+    runner.exec(spawn, policy);
     assertThat(policy.prefetchCalled).isFalse();
   }
 
@@ -869,7 +869,7 @@ public class LocalSpawnRunnerTest {
     policy.timeoutMillis = 123 * 1000L;
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
 
-    runner.execAsync(SIMPLE_SPAWN, policy).get();
+    runner.exec(SIMPLE_SPAWN, policy);
     verify(localEnvProvider)
         .rewriteLocalEnv(any(), any(), matches("^/execroot/tmp[0-9a-fA-F]+_[0-9a-fA-F]+/work$"));
   }
@@ -954,17 +954,17 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = true;
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(10);
+    int minimumWallTimeToSpendInMs = 10 * 1000;
 
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
+    int minimumUserTimeToSpendInMs = minimumWallTimeToSpendInMs;
     // Under normal loads we should be able to use a much lower bound for maxUserTime, but be
     // generous here in case of hardware issues.
-    Duration maximumUserTimeToSpend = minimumUserTimeToSpend.plus(Duration.ofSeconds(20));
+    int maximumUserTimeToSpendInMs = minimumUserTimeToSpendInMs + 20 * 1000;
 
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
+    int minimumSystemTimeToSpendInMs = 0;
     // Under normal loads we should be able to use a much lower bound for maxSysTime, but be
     // generous here in case of hardware issues.
-    Duration maximumSystemTimeToSpend = minimumSystemTimeToSpend.plus(Duration.ofSeconds(20));
+    int maximumSystemTimeToSpendInMs = minimumSystemTimeToSpendInMs + 20 * 1000;
 
     Path execRoot = getTemporaryExecRoot(fs);
     Path embeddedBinaries = getTemporaryEmbeddedBin(fs);
@@ -989,32 +989,32 @@ public class LocalSpawnRunnerTest {
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
+                String.valueOf(minimumUserTimeToSpendInMs / 1000L),
+                String.valueOf(minimumSystemTimeToSpendInMs / 1000L))
             .build();
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/dev/null"), fs.getPath("/dev/null"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
     assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpendInMs);
     // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTime()).isPresent();
-    assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
-    assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isPresent();
-    assertThat(spawnResult.getSystemTime().get()).isAtLeast(minimumSystemTimeToSpend);
-    assertThat(spawnResult.getSystemTime().get()).isAtMost(maximumSystemTimeToSpend);
-    assertThat(spawnResult.getNumBlockOutputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumBlockInputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches().get()).isAtLeast(0L);
+    assertThat(spawnResult.getUserTimeInMs()).isNotNull();
+    assertThat(spawnResult.getUserTimeInMs()).isAtLeast(minimumUserTimeToSpendInMs);
+    assertThat(spawnResult.getUserTimeInMs()).isAtMost(maximumUserTimeToSpendInMs);
+    assertThat(spawnResult.getSystemTimeInMs()).isNotNull();
+    assertThat(spawnResult.getSystemTimeInMs()).isAtLeast(minimumSystemTimeToSpendInMs);
+    assertThat(spawnResult.getSystemTimeInMs()).isAtMost(maximumSystemTimeToSpendInMs);
+    assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
   }
 
   @Test
@@ -1027,10 +1027,10 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.collectLocalExecutionStatistics = false;
 
-    Duration minimumWallTimeToSpend = Duration.ofSeconds(1);
+    int minimumWallTimeToSpendInMs = 1 * 1000;
 
-    Duration minimumUserTimeToSpend = minimumWallTimeToSpend;
-    Duration minimumSystemTimeToSpend = Duration.ZERO;
+    int minimumUserTimeToSpendInMs = minimumWallTimeToSpendInMs;
+    int minimumSystemTimeToSpendInMs = 0;
 
     Path execRoot = getTemporaryExecRoot(fs);
     Path embeddedBinaries = getTemporaryEmbeddedBin(fs);
@@ -1055,28 +1055,28 @@ public class LocalSpawnRunnerTest {
     Spawn spawn =
         new SpawnBuilder(
                 cpuTimeSpenderPath.getPathString(),
-                String.valueOf(minimumUserTimeToSpend.getSeconds()),
-                String.valueOf(minimumSystemTimeToSpend.getSeconds()))
+                String.valueOf(minimumUserTimeToSpendInMs / 1000L),
+                String.valueOf(minimumSystemTimeToSpendInMs / 1000L))
             .build();
 
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/dev/null"), fs.getPath("/dev/null"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
 
-    SpawnResult spawnResult = runner.execAsync(spawn, policy).get();
+    SpawnResult spawnResult = runner.exec(spawn, policy);
 
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
     assertThat(spawnResult.getExecutorHostName()).isEqualTo(NetUtil.getCachedShortHostName());
 
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
+    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpendInMs);
     // Under heavy starvation, max wall time could be anything, so don't check it here.
-    assertThat(spawnResult.getUserTime()).isEmpty();
-    assertThat(spawnResult.getSystemTime()).isEmpty();
-    assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();
-    assertThat(spawnResult.getNumBlockInputOperations()).isEmpty();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isEmpty();
+    assertThat(spawnResult.getUserTimeInMs()).isEqualTo(0);
+    assertThat(spawnResult.getSystemTimeInMs()).isEqualTo(0);
+    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
+    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
   }
 
   // Check that relative paths in the Spawn are absolutized relative to the execroot passed to the
@@ -1106,7 +1106,7 @@ public class LocalSpawnRunnerTest {
     FileOutErr fileOutErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnExecutionContextForTesting policy = new SpawnExecutionContextForTesting(fileOutErr);
     assertThat(fs.getPath("/execroot").createDirectory()).isTrue();
-    runner.execAsync(new SpawnBuilder("foo/bar", "Hi!").build(), policy).get();
+    runner.exec(new SpawnBuilder("foo/bar", "Hi!").build(), policy);
     verify(factory).create(any(SubprocessBuilder.class));
 
     assertThat(captor.getValue().getArgv()).containsExactly("/execroot/foo/bar", "Hi!");

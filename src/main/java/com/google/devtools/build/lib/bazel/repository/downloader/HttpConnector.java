@@ -20,7 +20,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
-import com.google.common.math.IntMath;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -35,6 +34,7 @@ import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -52,7 +52,7 @@ import javax.annotation.WillClose;
 @ThreadSafe
 class HttpConnector {
 
-  private static final int MAX_RETRIES = 8;
+  private static final int MAX_ATTEMPTS = 8;
   private static final int MAX_REDIRECTS = 40;
   private static final int MIN_RETRY_DELAY_MS = 100;
   private static final int MIN_CONNECT_TIMEOUT_MS = 1000;
@@ -68,6 +68,25 @@ class HttpConnector {
   private final ProxyHelper proxyHelper;
   private final Sleeper sleeper;
   private final float timeoutScaling;
+  private final int maxAttempts;
+  private final Duration maxRetryTimeout;
+
+  HttpConnector(
+      Locale locale,
+      EventHandler eventHandler,
+      ProxyHelper proxyHelper,
+      Sleeper sleeper,
+      float timeoutScaling,
+      int maxAttempts,
+      Duration maxRetryTimeout) {
+    this.locale = locale;
+    this.eventHandler = eventHandler;
+    this.proxyHelper = proxyHelper;
+    this.sleeper = sleeper;
+    this.timeoutScaling = timeoutScaling;
+    this.maxAttempts = maxAttempts > 0 ? maxAttempts : MAX_ATTEMPTS;
+    this.maxRetryTimeout = maxRetryTimeout;
+  }
 
   HttpConnector(
       Locale locale,
@@ -75,11 +94,7 @@ class HttpConnector {
       ProxyHelper proxyHelper,
       Sleeper sleeper,
       float timeoutScaling) {
-    this.locale = locale;
-    this.eventHandler = eventHandler;
-    this.proxyHelper = proxyHelper;
-    this.sleeper = sleeper;
-    this.timeoutScaling = timeoutScaling;
+    this(locale, eventHandler, proxyHelper, sleeper, timeoutScaling, 0, Duration.ZERO);
   }
 
   HttpConnector(
@@ -182,6 +197,10 @@ class HttpConnector {
           // waiting.  If the client has an outstanding request in transit, the client MAY repeat
           // that request on a new connection. Quoth RFC7231 § 6.5.7
           throw new IOException(describeHttpResponse(connection));
+        } else if (code == 429) {
+          // The 429 (Too Many Requests) status code could result from Bazel temporarily overloading
+          // the server and is typically resolved by retrying.
+          throw new IOException(describeHttpResponse(connection));
         } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
                     || code == 502     // Host not configured on server cf. RFC7231 § 6.6.3
@@ -213,8 +232,12 @@ class HttpConnector {
         }
         // We don't respect the Retry-After header (RFC7231 § 7.1.3) because it's rarely used and
         // tends to be too conservative when it is. We're already being good citizens by using
-        // exponential backoff. Furthermore RFC law didn't use the magic word "MUST".
-        int timeout = IntMath.pow(2, retries) * MIN_RETRY_DELAY_MS;
+        // exponential backoff with jitter. Furthermore RFC law didn't use the magic word "MUST".
+        double rawTimeout = Math.scalb(MIN_RETRY_DELAY_MS, retries);
+        if (!maxRetryTimeout.isZero()) {
+          rawTimeout = Math.min(rawTimeout, (double) maxRetryTimeout.toMillis());
+        }
+        int timeout = (int) ((0.75 + Math.random() / 2) * rawTimeout);
         if (e instanceof SocketTimeoutException) {
           eventHandler.handle(Event.progress("Timeout connecting to " + url));
           connectTimeout = Math.min(connectTimeout * 2, scale(MAX_CONNECT_TIMEOUT_MS));
@@ -225,7 +248,7 @@ class HttpConnector {
           // Please note that SocketTimeoutException is a subtype of InterruptedIOException.
           throw e;
         }
-        if (++retries == MAX_RETRIES) {
+        if (++retries == maxAttempts) {
           if (e instanceof SocketTimeoutException) {
             // SocketTimeoutExceptions are InterruptedIOExceptions; however they do not signify
             // an external interruption, but simply a failed download due to some server timing

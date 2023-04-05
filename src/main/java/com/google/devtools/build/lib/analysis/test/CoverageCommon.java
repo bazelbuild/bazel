@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -42,6 +43,7 @@ import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
 public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
@@ -51,13 +53,20 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
-      Object supportFiles, // Depset or Sequence of <Artifact>
+      Object
+          supportFiles, // Depset<Artifact>|Sequence<Artifact|Depset<Artifact>|FilesToRunProvider>
       Dict<?, ?> environment, // <String, String>
       Object extensions,
+      Sequence<?> metadataFiles, // Sequence<Artifact>
+      Object reportedToActualSourcesObject,
       StarlarkThread thread)
       throws EvalException, TypeException {
     List<String> extensionsList =
         extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
+    NestedSet<Tuple> reportedToActualSources =
+        reportedToActualSourcesObject == Starlark.NONE
+            ? NestedSetBuilder.create(Order.STABLE_ORDER)
+            : Depset.cast(reportedToActualSourcesObject, Tuple.class, "reported_to_actual_sources");
     List<Pair<String, String>> environmentPairs =
         Dict.cast(environment, String.class, String.class, "coverage_environment")
             .entrySet()
@@ -65,14 +74,36 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
             .map(entry -> new Pair<>(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
     NestedSetBuilder<Artifact> supportFilesBuilder = NestedSetBuilder.stableOrder();
-    if (supportFiles instanceof Sequence) {
-      supportFilesBuilder.addAll(
-          Sequence.cast(supportFiles, Artifact.class, "coverage_support_files"));
-    } else {
+    if (supportFiles instanceof Depset) {
       supportFilesBuilder.addTransitive(
           Depset.cast(supportFiles, Artifact.class, "coverage_support_files"));
+    } else if (supportFiles instanceof Sequence) {
+      Sequence<?> supportFilesSequence = (Sequence<?>) supportFiles;
+      for (int i = 0; i < supportFilesSequence.size(); i++) {
+        Object supportFilesElement = supportFilesSequence.get(i);
+        if (supportFilesElement instanceof Depset) {
+          supportFilesBuilder.addTransitive(
+              Depset.cast(supportFilesElement, Artifact.class, "coverage_support_files"));
+        } else if (supportFilesElement instanceof Artifact) {
+          supportFilesBuilder.add((Artifact) supportFilesElement);
+        } else if (supportFilesElement instanceof FilesToRunProvider) {
+          supportFilesBuilder.addTransitive(
+              ((FilesToRunProvider) supportFilesElement).getFilesToRun());
+        } else {
+          throw Starlark.errorf(
+              "at index %d of coverage_support_files, got element of type %s, want one of depset,"
+                  + " File or FilesToRunProvider",
+              i, Starlark.type(supportFilesElement));
+        }
+      }
+    } else {
+      // Should have been verified by Starlark before this function is called
+      throw new IllegalStateException();
     }
     if (!supportFilesBuilder.isEmpty() || !environmentPairs.isEmpty()) {
+      BuiltinRestriction.throwIfNotBuiltinUsage(thread);
+    }
+    if (!metadataFiles.isEmpty() || !reportedToActualSources.isEmpty()) {
       BuiltinRestriction.throwIfNotBuiltinUsage(thread);
     }
     return createInstrumentedFilesInfo(
@@ -81,7 +112,9 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         supportFilesBuilder.build(),
         NestedSetBuilder.wrap(Order.COMPILE_ORDER, environmentPairs),
-        extensionsList);
+        extensionsList,
+        Sequence.cast(metadataFiles, Artifact.class, "metadata_files"),
+        reportedToActualSources);
   }
 
   /**
@@ -109,7 +142,9 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         dependencyAttributes,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        extensions);
+        extensions,
+        null,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   private static InstrumentedFilesInfo createInstrumentedFilesInfo(
@@ -118,7 +153,9 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
       List<String> dependencyAttributes,
       NestedSet<Artifact> supportFiles,
       NestedSet<Pair<String, String>> environment,
-      @Nullable List<String> extensions) {
+      @Nullable List<String> extensions,
+      @Nullable List<Artifact> metadataFiles,
+      NestedSet<Tuple> reportedToActualSources) {
     FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
     if (extensions != null) {
       if (extensions.isEmpty()) {
@@ -137,11 +174,12 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, St
         ruleContext,
         instrumentationSpec,
         InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-        /* rootFiles = */ ImmutableList.of(),
-        /* coverageSupportFiles = */ supportFiles,
-        /* coverageEnvironment = */ environment,
-        /* withBaselineCoverage = */ !TargetUtils.isTestRule(ruleContext.getTarget()),
-        /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
+        /* rootFiles= */ ImmutableList.of(),
+        /* coverageSupportFiles= */ supportFiles,
+        /* coverageEnvironment= */ environment,
+        /* withBaselineCoverage= */ !TargetUtils.isTestRule(ruleContext.getTarget()),
+        /* reportedToActualSources= */ reportedToActualSources,
+        /* additionalMetadata= */ metadataFiles);
   }
 
   @Override

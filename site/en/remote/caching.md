@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Remote Caching
 
+{% include "_buttons.html" %}
+
 This page covers remote caching, setting up a server to host the cache, and
 running builds using the remote cache.
 
@@ -35,7 +37,7 @@ The remote cache stores two types of data:
 
 Note that the remote cache additionally stores the stdout and stderr for every
 action. Inspecting the stdout/stderr of Bazel thus is not a good signal for
-[estimating cache hits](/docs/remote-caching-debug).
+[estimating cache hits](/remote/cache-local).
 
 ### How a build uses remote caching {:#remote-caching}
 
@@ -248,12 +250,12 @@ build --remote_upload_local_results=false
 ### Exclude specific targets from using the remote cache {:#targets-remote-cache}
 
 To exclude specific targets from using the remote cache, tag the target with
-`no-cache`. For example:
+`no-remote-cache`. For example:
 
 ```starlark
 java_library(
     name = "target",
-    tags = ["no-cache"],
+    tags = ["no-remote-cache"],
 )
 ```
 
@@ -346,8 +348,8 @@ and Bazel must rebuild it before using the remote cache.
 * **Faster Bazel builds with remote caching: a benchmark:** Nicolò Valigi wrote a [blog post](https://nicolovaligi.com/faster-bazel-remote-caching-benchmark.html){: .external}
 in which he benchmarks remote caching in Bazel.
 
-* [Adapting Rules for Remote Execution](/docs/remote-execution-rules)
-* [Troubleshooting Remote Execution](/docs/remote-execution-sandbox)
+* [Adapting Rules for Remote Execution](/remote/rules)
+* [Troubleshooting Remote Execution](/remote/sandbox)
 * [WebDAV module](https://nginx.org/en/docs/http/ngx_http_dav_module.html){: .external}
 * [Docker image](https://hub.docker.com/r/buchgr/bazel-remote-cache/){: .external}
 * [bazel-remote](https://github.com/buchgr/bazel-remote/){: .external}

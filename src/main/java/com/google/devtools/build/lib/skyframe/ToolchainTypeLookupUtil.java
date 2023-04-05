@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -37,7 +37,7 @@ public class ToolchainTypeLookupUtil {
   public static ImmutableMap<Label, ToolchainTypeInfo> resolveToolchainTypes(
       Environment env, Iterable<ConfiguredTargetKey> toolchainTypeKeys)
       throws InterruptedException, InvalidToolchainTypeException {
-    SkyframeIterableResult values = env.getOrderedValuesAndExceptions(toolchainTypeKeys);
+    SkyframeLookupResult values = env.getValuesAndExceptions(toolchainTypeKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<Label, ToolchainTypeInfo> results = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : toolchainTypeKeys) {
@@ -58,12 +58,12 @@ public class ToolchainTypeLookupUtil {
 
   @Nullable
   private static ToolchainTypeInfo findToolchainTypeInfo(
-      ConfiguredTargetKey key, SkyframeIterableResult values) throws InvalidToolchainTypeException {
-
+      ConfiguredTargetKey key, SkyframeLookupResult values) throws InvalidToolchainTypeException {
     try {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
-              values.nextOrThrow(
+              values.getOrThrow(
+                  key,
                   ConfiguredValueCreationException.class,
                   NoSuchThingException.class,
                   ActionConflictException.class);

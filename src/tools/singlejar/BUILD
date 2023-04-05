@@ -37,8 +37,8 @@ filegroup(
     name = "embedded_java_tools",
     srcs = SOURCES + [
         "//src/main/cpp/util:embedded_java_tools",
-        "//third_party/zlib:embedded_tools",
         "//src/main/protobuf:desugar_deps_filegroup",
+        "//third_party/zlib:embedded_tools",
     ],
     visibility = ["//src:__pkg__"],
 )

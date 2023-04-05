@@ -15,10 +15,7 @@
 """Attributes common to Objc rules"""
 
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
-
-CcInfo = _builtins.toplevel.CcInfo
-AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
-TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 # Private attribute required by `objc_internal.expand_toolchain_and_ctx_variables`
 _CC_TOOLCHAIN_RULE = {
@@ -29,40 +26,15 @@ _CC_TOOLCHAIN_RULE = {
 
 _COMPILING_RULE = {
     "srcs": attr.label_list(
-        allow_files = [
-            # NON_CPP_SOURCES
-            ".m",
-            ".c",
-            # CPP_SOURCES
-            ".cc",
-            ".cpp",
-            ".mm",
-            ".cxx",
-            ".C",
-            # ASSEMBLY_SOURCES
-            ".s",
-            ".S",
-            ".asm",
-            # OBJECT_FILE_SOURCES
-            ".o",
-            # HEADERS
-            ".h",
-            ".inc",
-            ".hpp",
-            ".hh",
-        ],
+        allow_files = True,
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "non_arc_srcs": attr.label_list(
-        allow_files = [".m", ".mm"],
+        allow_files = True,
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "pch": attr.label(
         allow_single_file = [".pch"],
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "runtime_deps": attr.label_list(
-        providers = [AppleDynamicFrameworkInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "defines": attr.string_list(),
@@ -125,11 +97,6 @@ _XCRUN_RULE = {
     ),
 }
 
-_PLATFORM_RULE = {
-    "platform_type": attr.string(mandatory = True),
-    "minimum_os_version": attr.string(),
-}
-
 def _union(*dictionaries):
     result = {}
     for dictionary in dictionaries:
@@ -146,5 +113,4 @@ common_attrs = struct(
     COPTS_RULE = _COPTS_RULE,
     XCRUN_RULE = _XCRUN_RULE,
     LICENSES = semantics.get_licenses_attr(),
-    PLATFORM_RULE = _PLATFORM_RULE,
 )

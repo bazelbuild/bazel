@@ -14,14 +14,14 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
-import com.google.devtools.build.lib.util.GroupedList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -236,17 +236,8 @@ public interface SkyFunction {
      * <p>Returns a {@link SkyframeLookupResult}, which allows the calling {@code SkyFunction} to
      * get a value or throw an exception per SkyKey.
      */
+    @CanIgnoreReturnValue
     SkyframeLookupResult getValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-        throws InterruptedException;
-
-    /**
-     * Similar to {@link #getValuesAndExceptions}, but returns a {@link SkyframeIterableResult},
-     * which contains the results in the same order as {@code depKeys}.
-     *
-     * <p>Prefer {@link #getValuesAndExceptions} at it creates slightly less garbage.
-     */
-    // TODO(jhorvitz): Delete this method now that it has no benefit over getValuesAndExceptions.
-    SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
         throws InterruptedException;
 
     /**
@@ -256,7 +247,7 @@ public interface SkyFunction {
      * <ul>
      *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
      *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
-     *       getOrderedValuesAndExceptions(ks) for some ks
+     *       getValuesAndExceptions(ks) for some ks
      *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
      *       getValuesAndExceptions(ks) for some ks
      * </ul>
@@ -289,7 +280,7 @@ public interface SkyFunction {
      * you're doing!
      */
     @Nullable
-    default GroupedList<SkyKey> getTemporaryDirectDeps() {
+    default GroupedDeps getTemporaryDirectDeps() {
       return null;
     }
 
@@ -327,10 +318,6 @@ public interface SkyFunction {
      * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
      * may be called upon to transform a lower-level exception. This method can tell it whether to
      * transform a dependency's exception or ignore it and return a value as usual.
-     *
-     * <p>An exception is with {@link
-     * com.google.devtools.build.lib.skyframe.BuildDriverFunction#checkActionConflicts}. See the
-     * documentation at the method for more details.
      */
     boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
 
@@ -357,6 +344,15 @@ public interface SkyFunction {
     boolean restartPermitted();
 
     /**
+     * Returns a lookup result containing previously requested dependencies.
+     *
+     * <p>NB: this may contain fewer dependencies than expected if the node is restarted before all
+     * its dependencies have signaled. The two known cases are error bubbling and partial
+     * re-evaluation. In error bubbling, an error should be present.
+     */
+    SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
+
+    /**
      * Container for data stored in between calls to {@link #compute} for the same {@link SkyKey}.
      *
      * <p>See the javadoc of {@link #getState} for motivation and an example.
@@ -367,9 +363,13 @@ public interface SkyFunction {
      * Canonical type-safe heterogeneous container for use with {@link #getState} in SkyFunction
      * implementations that employ complex or abstract compositional strategies.
      */
+    // Must be threadsafe: used by PartialReevaluationMailbox#from on multiple threads, to save
+    // signals from deps.
+    @ThreadSafe
     class ClassToInstanceMapSkyKeyComputeState implements SkyKeyComputeState {
-      private final MutableClassToInstanceMap<SkyKeyComputeState> map =
-          MutableClassToInstanceMap.create();
+
+      private final ConcurrentHashMap<Class<? extends SkyKeyComputeState>, SkyKeyComputeState> map =
+          new ConcurrentHashMap<>();
 
       public <T extends SkyKeyComputeState> T getInstance(
           Class<T> type, Supplier<T> stateSupplier) {

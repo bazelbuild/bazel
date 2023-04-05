@@ -14,34 +14,6 @@
 # limitations under the License.
 """Contains Starlark rules used to build the embedded_tools.zip."""
 
-def _embedded_tools(ctx):
-    # The list of arguments we pass to the script.
-    args_file = ctx.actions.declare_file(ctx.label.name + ".params")
-    ctx.actions.write(output = args_file, content = "\n".join([f.path for f in ctx.files.srcs]))
-
-    # Action to call the script.
-    ctx.actions.run(
-        inputs = ctx.files.srcs,
-        outputs = [ctx.outputs.out],
-        arguments = [ctx.outputs.out.path, args_file.path],
-        progress_message = "Creating embedded tools: %s" % ctx.outputs.out.short_path,
-        executable = ctx.executable.tool,
-    )
-
-embedded_tools = rule(
-    implementation = _embedded_tools,
-    attrs = {
-        "srcs": attr.label_list(allow_files = True),
-        "out": attr.output(mandatory = True),
-        "tool": attr.label(
-            executable = True,
-            cfg = "exec",
-            allow_files = True,
-            default = Label("//src:create_embedded_tools_sh"),
-        ),
-    },
-)
-
 def _srcsfile(ctx):
     ctx.actions.write(
         output = ctx.outputs.out,

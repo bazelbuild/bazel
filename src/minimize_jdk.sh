@@ -45,7 +45,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   set -x
   mkdir "tmp.$$"
   cd "tmp.$$"
-  unzip "../$fulljdk"
+  unzip -q "../$fulljdk"
   cd $FULL_JDK_DIR
   # We have to add this module explicitly because it is windows specific, it allows
   # the usage of the Windows truststore
@@ -58,7 +58,7 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
     reduced/
   # These are necessary for --host_jvm_debug to work.
   cp bin/dt_socket.dll bin/jdwp.dll reduced/bin
-  zip -r -9 ../reduced.zip reduced/
+  zip -q -X -r ../reduced.zip reduced/
   cd ../..
   mv "tmp.$$/reduced.zip" "$out"
   rm -rf "tmp.$$"
@@ -79,7 +79,8 @@ else
   else
     cp lib/libdt_socket.so lib/libjdwp.so reduced/lib
   fi
-  GZIP=-9 tar -zcf ../reduced.tgz reduced
+  find reduced -exec touch -ht 198001010000 {} +
+  zip -q -X -r ../reduced.zip reduced/
   cd ..
-  mv reduced.tgz "$out"
+  mv reduced.zip "$out"
 fi

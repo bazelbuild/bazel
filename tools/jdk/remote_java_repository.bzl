@@ -18,6 +18,7 @@ Rule remote_java_repository imports and registers JDK with the toolchain resolut
 """
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/jdk:jdk_build_file.bzl", "JDK_BUILD_TEMPLATE")
 
 def _toolchain_config_impl(ctx):
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
@@ -47,7 +48,7 @@ def remote_java_repository(name, version, target_compatible_with = None, prefix 
     """
     http_archive(
         name = name,
-        build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
+        build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = version),
         **kwargs
     )
     _toolchain_config(

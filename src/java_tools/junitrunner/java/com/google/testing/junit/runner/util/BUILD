@@ -1,8 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = [
-    "//src/java_tools/junitrunner:junitrunner_package_group",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
+)
 
 java_library(
     name = "util",

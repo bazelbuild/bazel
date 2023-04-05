@@ -13,14 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.genquery;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -37,8 +38,12 @@ import com.google.devtools.build.lib.skyframe.TargetLoadingUtil;
 import com.google.devtools.build.lib.skyframe.TargetLoadingUtil.TargetAndErrorIfAny;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.PartialReevaluationMailbox;
+import com.google.devtools.build.skyframe.PartialReevaluationMailbox.Causes;
+import com.google.devtools.build.skyframe.PartialReevaluationMailbox.Mail;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.Environment.ClassToInstanceMapSkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -58,7 +63,6 @@ import javax.annotation.Nullable;
  * information.
  */
 public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProviderFactory {
-
   public static final SkyFunctionName GENQUERY_SCOPE =
       SkyFunctionName.createHermetic("GENQUERY_SCOPE");
 
@@ -68,8 +72,8 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
    * rules sharing the same scope will require only one scope traversal to occur.
    */
   @AutoCodec
-  static class Key extends AbstractSkyKey<ImmutableList<Label>> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  public static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<Label>> {
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(ImmutableList<Label> arg) {
       super(ImmutableList.sortedCopyOf(arg));
@@ -84,6 +88,16 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
     @Override
     public SkyFunctionName functionName() {
       return GENQUERY_SCOPE;
+    }
+
+    @Override
+    public boolean supportsPartialReevaluation() {
+      return true;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 
@@ -117,8 +131,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
   }
 
   private static class BrokenQueryScopeSkyFunctionException extends SkyFunctionException {
-    protected BrokenQueryScopeSkyFunctionException(
-        BrokenQueryScopeException cause, Transience transience) {
+    BrokenQueryScopeSkyFunctionException(BrokenQueryScopeException cause, Transience transience) {
       super(cause, transience);
     }
   }
@@ -137,7 +150,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
    * <p>([0] In the future, {@code collectedPackages} might also contain packages needed to evaluate
    * "buildfiles" functions; see b/123795023.)
    *
-   * <p>The {@code labelsToVisitNextRestart} field contains labels of targets belonging to
+   * <p>The {@code labelsToVisitInLaterRestart} field contains labels of targets belonging to
    * previously unloaded packages, the "frontier" of the last Skyframe evaluation attempt's
    * traversal.
    */
@@ -145,11 +158,10 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
     private final LinkedHashMap<PackageIdentifier, Package> collectedPackages =
         new LinkedHashMap<>();
     private final LinkedHashMap<Label, Target> collectedTargets = new LinkedHashMap<>();
-    private final LinkedHashSet<Label> labelsToVisitNextRestart = new LinkedHashSet<>();
 
-    private ScopeTraversal(Collection<Label> initialScope) {
-      labelsToVisitNextRestart.addAll(initialScope);
-    }
+    private final LinkedHashMap<Label, SkyKey> labelsToVisitInLaterRestart = new LinkedHashMap<>();
+    private final LinkedHashMultimap<SkyKey, Label> labelsToVisitInverse =
+        LinkedHashMultimap.create();
   }
 
   @Nullable
@@ -167,28 +179,74 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
   private static GenQueryPackageProvider constructPackageMapImpl(
       Environment env, ImmutableList<Label> scope)
       throws InterruptedException, BrokenQueryScopeException {
-    ScopeTraversal traversal = env.getState(() -> new ScopeTraversal(scope));
 
-    LinkedHashSet<Label> labelsToVisit = new LinkedHashSet<>(traversal.labelsToVisitNextRestart);
-    traversal.labelsToVisitNextRestart.clear();
+    ClassToInstanceMapSkyKeyComputeState computeState =
+        env.getState(ClassToInstanceMapSkyKeyComputeState::new);
+    Mail mail = PartialReevaluationMailbox.from(computeState).getMail();
+    ScopeTraversal traversal = computeState.getInstance(ScopeTraversal.class, ScopeTraversal::new);
+
+    LinkedHashSet<Label> labelsToVisit = null;
+    switch (mail.kind()) {
+      case FRESHLY_INITIALIZED:
+        // First evaluation, or, Skyframe compute state lost due to memory pressure or errors.
+        // Either way, start from scratch.
+        checkState(traversal.collectedPackages.isEmpty(), "expected empty collectedPackages");
+        checkState(traversal.collectedTargets.isEmpty(), "expected empty collectedTargets");
+        checkState(
+            traversal.labelsToVisitInLaterRestart.isEmpty(),
+            "expected empty labelsToVisitInLaterRestart");
+        checkState(traversal.labelsToVisitInverse.isEmpty(), "expected empty labelsToVisitInverse");
+        labelsToVisit = new LinkedHashSet<>(scope);
+        break;
+      case CAUSES:
+        Causes causes = mail.causes();
+        if (causes.other()) {
+          labelsToVisit = new LinkedHashSet<>(traversal.labelsToVisitInLaterRestart.keySet());
+          traversal.labelsToVisitInLaterRestart.clear();
+          traversal.labelsToVisitInverse.clear();
+        } else {
+          labelsToVisit = new LinkedHashSet<>();
+          for (SkyKey signaledDep : causes.signaledDeps()) {
+            Collection<Label> labels = traversal.labelsToVisitInverse.asMap().remove(signaledDep);
+            // We may have been signaled by a dep whose value was observed during a previous
+            // restart; if so, then skip it because there is no work to do for it.
+            if (labels != null) {
+              for (Label label : labels) {
+                traversal.labelsToVisitInLaterRestart.remove(label);
+                labelsToVisit.add(label);
+              }
+            }
+          }
+        }
+        break;
+      case EMPTY:
+        // This reevaluation may have been triggered by a dep which completed after our previous
+        // reevaluation started; another reevaluation gets scheduled in such a case.
+        //
+        // Adding that dep's key to our mailbox raced with our reading our mailbox in that previous
+        // reevaluation. If the add won, then we consumed the key last time, and our mailbox may now
+        // be empty. If so, then there's no work to do now, so we return.
+        return null;
+    }
 
     // Constructing these here minimizes garbage creation. They're used in dep traversals below.
     var attrDepConsumer =
         new LabelProcessor() {
           LinkedHashSet<Label> nextLabelsToVisitRef = null;
 
-          boolean attrDepNeedsRestart = false;
+          SkyKey keyForAttrDepNeedingRestart = null;
           boolean attrDepUnvisited = false;
           boolean hasAspects = false;
           HashMultimap<Attribute, Label> transitions = null;
 
           @Override
           public void process(Target from, @Nullable Attribute attribute, Label to) {
-            if (hasAspects
-                && !attrDepNeedsRestart
-                && traversal.labelsToVisitNextRestart.contains(to)) {
-              attrDepNeedsRestart = true;
-              return;
+            if (hasAspects && keyForAttrDepNeedingRestart == null) {
+              SkyKey skyKey = traversal.labelsToVisitInLaterRestart.get(to);
+              if (skyKey != null) {
+                keyForAttrDepNeedingRestart = skyKey;
+                return;
+              }
             }
             if (!traversal.collectedTargets.containsKey(to)) {
               attrDepUnvisited = true;
@@ -197,7 +255,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
             }
 
             if (hasAspects
-                && !attrDepNeedsRestart
+                && keyForAttrDepNeedingRestart == null
                 && !attrDepUnvisited
                 && attribute != null
                 && DependencyFilter.NO_NODEP_ATTRIBUTES.test((Rule) from, attribute)) {
@@ -229,8 +287,8 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
         // 1) discover that there is a problem with the label's package. If so, this throws
         //    BrokenQueryScopeException to stop this genquery evaluation.
         // 2) discover that needed package information has not been computed by Skyframe. If so,
-        //    this records that label must be visited after the next Skyframe restart by adding it
-        //    to labelsToVisitNextRestart; at that time that package information will have been
+        //    this records that label must be visited in a later Skyframe restart by adding it
+        //    to labelsToVisitInLaterRestart; at that time that package information will have been
         //    computed.
         // 3) use the package information already computed by Skyframe to collect the label's target
         //    and package.
@@ -247,35 +305,37 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
         // 1) if all those dependency attributes' labels' targets have been collected, then this
         //    code will enqueue the rule's aspect dependencies' labels for visitation.
         // 2) otherwise, at least one of those dependency attributes' labels must have been added to
-        //    labelsToVisitNextRestart, so the rule's aspect dependencies can't be computed during
-        //    this Skyframe restart, so the rule's label also must be visited after the next
+        //    labelsToVisitInLaterRestart, so the rule's aspect dependencies can't be computed
+        //    during this Skyframe restart, so the rule's label also must be visited in a later
         //    Skyframe restart.
 
         Target target = traversal.collectedTargets.get(label);
         if (target == null) {
-          TargetAndErrorIfAny targetAndErrorIfAny;
           try {
-            targetAndErrorIfAny = TargetLoadingUtil.loadTarget(env, label);
+            Object o = TargetLoadingUtil.loadTarget(env, label);
+            if (o instanceof TargetAndErrorIfAny) {
+              TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) o;
+              if (!targetAndErrorIfAny.isPackageLoadedSuccessfully()) {
+                throw new BrokenQueryScopeException(
+                    "errors were encountered while computing transitive closure of the scope.");
+              }
+
+              target = targetAndErrorIfAny.getTarget();
+              traversal.collectedTargets.put(label, target);
+              traversal.collectedPackages.put(label.getPackageIdentifier(), target.getPackage());
+            } else {
+              SkyKey missingKey = (SkyKey) o;
+              traversal.labelsToVisitInLaterRestart.put(label, missingKey);
+              traversal.labelsToVisitInverse.put(missingKey, label);
+              continue;
+            }
           } catch (NoSuchTargetException | NoSuchPackageException e) {
             throw new BrokenQueryScopeException(
                 "errors were encountered while computing transitive closure of the scope.", e);
           }
-
-          if (targetAndErrorIfAny == null) {
-            traversal.labelsToVisitNextRestart.add(label);
-            continue;
-          }
-          if (!targetAndErrorIfAny.isPackageLoadedSuccessfully()) {
-            throw new BrokenQueryScopeException(
-                "errors were encountered while computing transitive closure of the scope.");
-          }
-
-          target = targetAndErrorIfAny.getTarget();
-          traversal.collectedTargets.put(label, target);
-          traversal.collectedPackages.put(label.getPackageIdentifier(), target.getPackage());
         }
 
-        attrDepConsumer.attrDepNeedsRestart = false;
+        attrDepConsumer.keyForAttrDepNeedingRestart = null;
         attrDepConsumer.attrDepUnvisited = false;
         attrDepConsumer.hasAspects = target instanceof Rule && ((Rule) target).hasAspects();
         attrDepConsumer.transitions = attrDepConsumer.hasAspects ? HashMultimap.create() : null;
@@ -286,8 +346,10 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
           continue;
         }
 
-        if (attrDepConsumer.attrDepNeedsRestart) {
-          traversal.labelsToVisitNextRestart.add(label);
+        if (attrDepConsumer.keyForAttrDepNeedingRestart != null) {
+          traversal.labelsToVisitInLaterRestart.put(
+              label, attrDepConsumer.keyForAttrDepNeedingRestart);
+          traversal.labelsToVisitInverse.put(attrDepConsumer.keyForAttrDepNeedingRestart, label);
           continue;
         } else if (attrDepConsumer.attrDepUnvisited) {
           // This schedules label to be visited a second time during this Skyframe restart. Because
@@ -307,14 +369,14 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
                 attrDepConsumer.transitions.get(attribute),
                 traversal.collectedTargets)) {
               AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-                  rule, aspect, DependencyFilter.ALL_DEPS, aspectDepConsumer);
+                  aspect, DependencyFilter.ALL_DEPS, aspectDepConsumer);
             }
           }
         }
       }
       labelsToVisit = nextLabelsToVisit;
     }
-    if (env.valuesMissing()) {
+    if (env.valuesMissing() || !traversal.labelsToVisitInLaterRestart.isEmpty()) {
       return null;
     }
 

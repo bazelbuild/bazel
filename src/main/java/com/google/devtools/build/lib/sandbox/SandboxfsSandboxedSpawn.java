@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -320,7 +321,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     // created once we encounter the first symlink in the list of inputs.
     Map<PathFragment, PathFragment> symlinks = null;
 
-    for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+    for (Map.Entry<PathFragment, RootedPath> entry : inputs.getFiles().entrySet()) {
       if (entry.getValue() == null) {
         if (emptyFile == null) {
           Path emptyFilePath = scratchDir.getRelative("empty");
@@ -328,11 +329,11 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
           emptyFile = emptyFilePath.asFragment();
         }
       } else {
-        if (sandboxfsMapSymlinkTargets && entry.getValue().isSymbolicLink()) {
+        if (sandboxfsMapSymlinkTargets && entry.getValue().asPath().isSymbolicLink()) {
           if (symlinks == null) {
             symlinks = new HashMap<>();
           }
-          computeSymlinkMappings(entry.getKey(), entry.getValue(), symlinks);
+          computeSymlinkMappings(entry.getKey(), entry.getValue().asPath(), symlinks);
         }
       }
     }
@@ -348,13 +349,13 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
         (mapper) -> {
           mapper.map(rootFragment, scratchDir.asFragment(), true);
 
-          for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+          for (Map.Entry<PathFragment, RootedPath> entry : inputs.getFiles().entrySet()) {
             PathFragment target;
             if (entry.getValue() == null) {
               checkNotNull(finalEmptyFile, "Must have been initialized above by matching logic");
               target = finalEmptyFile;
             } else {
-              target = entry.getValue().asFragment();
+              target = entry.getValue().asPath().asFragment();
             }
             mapper.map(rootFragment.getRelative(entry.getKey()), target, false);
           }

@@ -30,10 +30,11 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -75,7 +76,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   public final void preparePackageLoading() throws Exception {
     Path alternativeRoot = scratch.dir("/root_2");
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
@@ -88,6 +89,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             Options.getDefaults(BuildLanguageOptions.class),
             UUID.randomUUID(),
             ImmutableMap.of(),
+            QuiescingExecutorsImpl.forTesting(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
   }
@@ -216,7 +218,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   private static SkyKey key(String label) {
-    return BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked(label));
+    return BzlLoadValue.keyForBuild(Label.parseCanonicalUnchecked(label));
   }
 
   /** Loads a .bzl with the given label and asserts success. */
@@ -314,7 +316,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey =
         BzlLoadValue.keyForWorkspace(
-            Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
+            Label.parseCanonicalUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
             /* inWorkspace= */
             /* workspaceChunk= */ 0,
             rootedPath);
@@ -927,7 +929,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
 
     SkyKey skyKey =
-        BzlLoadValue.keyForWorkspace(Label.parseAbsoluteUnchecked("@a//:a.bzl"), 1, rootedPath);
+        BzlLoadValue.keyForWorkspace(Label.parseCanonicalUnchecked("@a//:a.bzl"), 1, rootedPath);
 
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(

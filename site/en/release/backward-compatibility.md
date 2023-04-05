@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Backward Compatibility
 
+{% include "_buttons.html" %}
+
 This page provides information on how to handle backward compatibility,
 including migrating from one release to another and how to communicate
 incompatible changes.
@@ -24,7 +26,7 @@ works, see
 
 ## How to follow this policy {:#policy}
 
-* [For Bazel users - how to update Bazel](/versions/updating-bazel)
+* [For Bazel users - how to update Bazel](/install/bazelisk)
 * [For contributors - best practices for incompatible changes](/contribute/breaking-changes)
 * [For release managers - how to update issue labels and release](https://github.com/bazelbuild/continuous-integration/tree/master/docs/release-playbook.%6D%64){: .external}
 

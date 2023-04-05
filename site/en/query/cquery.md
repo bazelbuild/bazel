@@ -3,12 +3,14 @@ Book: /_book.yaml
 
 #  Configurable Query (cquery)
 
-`cquery` is a variant of [`query`](/reference/query) that correctly handles
+{% include "_buttons.html" %}
+
+`cquery` is a variant of [`query`](/query/language) that correctly handles
 [`select()`](/docs/configurable-attributes) and build options' effects on the build
 graph.
 
 It achieves this by running over the results of Bazel's [analysis
-phase](/rules/concepts#evaluation-model),
+phase](/extending/concepts#evaluation-model),
 which integrates these effects. `query`, by constrast, runs over the results of
 Bazel's loading phase, before options are evaluated.
 
@@ -64,7 +66,7 @@ target is built with.
 
 Since `cquery` runs over the configured target graph. it doesn't have insight
 into artifacts like build actions nor access to `[test_suite](/reference/be/general#test_suite)`
-rules as they are not configured targets. For the former, see `[aquery](/docs/aquery)`.
+rules as they are not configured targets. For the former, see `[aquery](/query/aquery)`.
 
 ## Basic syntax {:#basic-syntax}
 
@@ -76,14 +78,14 @@ The query expression `"function(//target)"` consists of the following:
 
 *   **`function(...)`** is the function to run on the target. `cquery`
     supports most
-    of `query`'s [functions](/reference/query#functions), plus a
+    of `query`'s [functions](/query/language#functions), plus a
     few new ones.
 *   **`//target`** is the expression fed to the function. In this example, the
     expression is a simple target. But the query language also allows nesting of functions.
-    See the [Query How-To](/query/quickstart) for examples.
+    See the [Query guide](/query/guide) for examples.
 
 
-`cquery` requires a target to run through the [loading and analysis](/rules/concepts#evaluation-model)
+`cquery` requires a target to run through the [loading and analysis](/extending/concepts#evaluation-model)
 phases. Unless otherwise specified, `cquery` parses the target(s) listed in the
 query expression. See [`--universe_scope`](#universe-scope)
 for querying dependencies of top-level build targets.
@@ -106,10 +108,6 @@ To see the configuration's complete contents, run:
 $ bazel config 9f87702
 </pre>
 
-The host configuration uses the special ID `(HOST)`. Non-generated source files, like
-those commonly found in `srcs`, use the special ID `(null)` (because they
-don't need to be configured).
-
 `9f87702` is a prefix of the complete ID. This is because complete IDs are
 SHA-256 hashes, which are long and hard to follow. `cquery` understands any valid
 prefix of a complete ID, similar to
@@ -125,33 +123,33 @@ configured versions of `//foo`.
 For `cquery`, a target pattern in the query expression evaluates
 to every configured target with a label that matches that pattern. Output is
 deterministic, but `cquery` makes no ordering guarantee beyond the
-[core query ordering contract](/reference/query#graph-order).
+[core query ordering contract](/query/language#graph-order).
 
 This produces subtler results for query expressions than with `query`.
 For example, the following can produce multiple results:
 
 <pre>
 # Analyzes //foo in the target configuration, but also analyzes
-# //genrule_with_foo_as_tool which depends on a host-configured
+# //genrule_with_foo_as_tool which depends on an exec-configured
 # //foo. So there are two configured target instances of //foo in
 # the build graph.
 $ bazel cquery //foo --universe_scope=//foo,//genrule_with_foo_as_tool
 //foo (9f87702)
-//foo (HOST)
+//foo (exec)
 </pre>
 
 If you want to precisely declare which instance to query over, use
 the [`config`](#config) function.
 
 See `query`'s [target pattern
-documentation](/reference/query#target-patterns) for more information on target patterns.
+documentation](/query/language#target-patterns) for more information on target patterns.
 
 ## Functions {:#functions}
 
-Of the [set of functions](/reference/query#functions "list of query functions")
-supported by `query`, `cquery` supports all but [`visible`](/reference/query#visible),
-[`siblings`](/reference/query#siblings), [`buildfiles`](/reference/query#buildfiles),
-and [`tests`](/reference/query#tests).
+Of the [set of functions](/query/language#functions "list of query functions")
+supported by `query`, `cquery` supports all but [`visible`](/query/language#visible),
+[`siblings`](/query/language#siblings), [`buildfiles`](/query/language#buildfiles),
+and [`tests`](/query/language#tests).
 
 `cquery` also introduces the following new functions:
 
@@ -163,20 +161,20 @@ The `config` operator attempts to find the configured target for
 the label denoted by the first argument and configuration specified by the
 second argument.
 
-Valid values for the second argument are `target`, `host`, `null`, or a
+Valid values for the second argument are `null` or a
 [custom configuration hash](#configurations). Hashes can be retrieved from `$
 bazel config` or a prevous `cquery`'s output.
 
 Examples:
 
 <pre>
-$ bazel cquery "config(//bar, host)" --universe_scope=//foo
+$ bazel cquery "config(//bar, 3732cc8)" --universe_scope=//foo
 </pre>
 
 <pre>
 $ bazel cquery "deps(//foo)"
-//bar (HOST)
-//baz (3732cc8)
+//bar (exec)
+//baz (exec)
 
 $ bazel cquery "config(//baz, 3732cc8)"
 </pre>
@@ -197,7 +195,7 @@ can be found in the specified configuration, the query fails.
 #### `--universe_scope` (comma-separated list) {:#universe-scope}
 
 Often, the dependencies of configured targets go through
-[transitions](/rules/rules#configurations),
+[transitions](/extending/rules#configurations),
 which causes their configuration to differ from their dependent. This flag
 allows you to query a target as if it were built as a dependency or a transitive
 dependency of another target. For example:
@@ -217,7 +215,7 @@ cc_library(
 </pre>
 
 Genrules configure their tools in the
-[host configuration](/rules/rules#configurations)
+[exec configuration](/extending/rules#configurations)
 so the following queries would produce the following outputs:
 
 <table class="table table-condensed table-bordered table-params">
@@ -237,7 +235,7 @@ so the following queries would produce the following outputs:
     <tr>
       <td>bazel cquery "//x:tool" --universe_scope="//x:my_gen"</td>
       <td>//x:my_gen</td>
-      <td>//x:tool(hostconfig)</td>
+      <td>//x:tool(execconfig)</td>
     </tr>
   </tbody>
 </table>
@@ -268,7 +266,7 @@ toolchains.
 Setting this flag to false filters out all configured targets for which the
 path from the queried target to them crosses a transition between the target
 configuration and the
-[non-target configurations](/rules/rules#configurations).
+[non-target configurations](/extending/rules#configurations).
 If the queried target is in the target configuration, setting `--notool_deps` will
 only return targets that also are in the target configuration. If the queried
 target is in a non-target configuration, setting `--notool_deps` will only return
@@ -277,7 +275,7 @@ of resolved toolchains.
 
 #### `--include_aspects` (boolean, default=True) {:#include-aspects}
 
-[Aspects](/rules/aspects) can add
+[Aspects](/extending/aspects) can add
 additional dependencies to a build. By default, `cquery` doesn't follow aspects because
 they make the queryable graph bigger, which uses more memory. But following them produces more
 accurate results.
@@ -301,11 +299,11 @@ There are other options for exposing the results as well.
 --transitions=full
 </pre>
 
-Configuration [transitions](/rules/rules#configurations)
+Configuration [transitions](/extending/rules#configurations)
 are used to build targets underneath the top level targets in different
 configurations than the top level targets.
 
-For example, a target might impose a transition to the host configuration on all
+For example, a target might impose a transition to the exec configuration on all
 dependencies in its `tools` attribute. These are known as attribute
 transitions. Rules can also impose transitions on their own configurations,
 known as rule class transitions. This output format outputs information about
@@ -339,7 +337,7 @@ By default, cquery results return configuration information as part of each
 configured target. If you'd like to omit this information and get proto output
 that is formatted exactly like query's proto output, set this flag to false.
 
-See [query's proto output documentation](/reference/query#output-formats)
+See [query's proto output documentation](/query/language#output-formats)
 for more proto output-related options.
 
 Note: While selects are resolved both at the top level of returned
@@ -353,9 +351,9 @@ included as `rule_input` fields.
 </pre>
 
 This option generates output as a Graphviz-compatible .dot file. See `query`'s
-[graph output documentation](/reference/query#display-result-graph) for details. `cquery`
-also supports [`--graph:node_limit`](/reference/query#graph-nodelimit) and
-[`--graph:factored`](/reference/query#graph-factored).
+[graph output documentation](/query/language#display-result-graph) for details. `cquery`
+also supports [`--graph:node_limit`](/query/language#graph-nodelimit) and
+[`--graph:factored`](/query/language#graph-factored).
 
 ### Files output {:#files-output}
 
@@ -367,8 +365,14 @@ This option prints a list of the output files produced by each target matched
 by the query similar to the list printed at the end of a `bazel build`
 invocation. The output contains only the files advertised in the requested
 output groups as determined by the
-[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag
-and never contains source files.
+[`--output_groups`](/reference/command-line-reference#flag--output_groups) flag.
+It does include source files.
+
+All paths emitted by this output format are relative to the
+[execroot](https://bazel.build/remote/output-directories), which can be obtained
+via `bazel info execution_root`. If the `bazel-out` convenience symlink exists,
+paths to files in the main repository also resolve relative to the workspace
+directory.
 
 Note: The output of `bazel cquery --output=files //pkg:foo` contains the output
 files of `//pkg:foo` in *all* configurations that occur in the build (also see
@@ -401,7 +405,7 @@ plus a few cquery-specific ones described below, but not (for example) `glob`,
 ##### build_options(target) {:#build-options}
 
 `build_options(target)` returns a map whose keys are build option identifiers (see
-[Configurations](/rules/config))
+[Configurations](/extending/config))
 and whose values are their Starlark values. Build options whose values are not legal Starlark
 values are omitted from this map.
 
@@ -411,7 +415,7 @@ targets have a null configuration.
 ##### providers(target) {:#providers}
 
 `providers(target)` returns a map whose keys are names of
-[providers](/rules/rules#providers)
+[providers](/extending/rules#providers)
 (for example, `"DefaultInfo"`) and whose values are their Starlark values. Providers
 whose values are not legal Starlark values are omitted from this map.
 
@@ -529,7 +533,7 @@ different niches. Consider the following to decide which is right for you:
     evaluates _configured targets_ while `query` only
     evaluates _targets_. This takes more time and uses more memory.
 *   `cquery`'s intepretation of
-    the [query language](/reference/query) introduces ambiguity
+    the [query language](/query/language) introduces ambiguity
     that `query` avoids. For example,
     if `"//foo"` exists in two configurations, which one
     should `cquery "deps(//foo)"` use?
@@ -550,7 +554,7 @@ must have the same configuration.
 
 While these generally share the top-level "target" configuration,
 rules can change their own configuration with
-[incoming edge transitions](/rules/config#incoming-edge-transitions).
+[incoming edge transitions](/extending/config#incoming-edge-transitions).
 This is where `cquery` falls short.
 
 Workaround: If possible, set `--universe_scope` to a stricter
@@ -569,15 +573,15 @@ configurations is not supported)
 $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 </pre>
 
-**No support for [`--output=xml`](/reference/query#xml).**
+**No support for [`--output=xml`](/query/language#xml).**
 
 **Non-deterministic output.**
 
 `cquery` does not automatically wipe the build graph from
 previous commands and is therefore prone to picking up results from past
-queries. For example, `genquery` exerts a host transition on
+queries. For example, `genquery` exerts an exec transition on
 its `tools` attribute - that is, it configures its tools in the
-[host configuration](/rules/rules#configurations).
+[exec configuration](/extending/rules#configurations).
 
 You can see the lingering effects of that transition below.
 
@@ -600,11 +604,11 @@ tool(target_config)
 
     $ bazel cquery "deps(//foo:my_gen)"
 my_gen (target_config)
-tool (host_config)
+tool (exec_config)
 ...
 
     $ bazel cquery "//foo:tool"
-tool(host_config)
+tool(exec_config)
 </pre>
 
 Workaround: change any startup option to force re-analysis of configured targets.

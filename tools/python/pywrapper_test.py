@@ -25,25 +25,19 @@ from src.test.py.bazel import test_base
 
 class MockPythonLines(object):
 
-  NORMAL = textwrap.dedent(r"""\
-      if [ "$1" = "-V" ]; then
-          echo "Mock Python 2.xyz!"
-      else
-          echo "I am mock Python!"
-      fi
-      """).split("\n")
-
-  FAIL = textwrap.dedent(r"""\
-      echo "Mock failure!"
-      exit 1
-      """).split("\n")
-
-  WRONG_VERSION = textwrap.dedent(r"""\
+  NORMAL = textwrap.dedent(
+      r"""\
       if [ "$1" = "-V" ]; then
           echo "Mock Python 3.xyz!"
       else
           echo "I am mock Python!"
       fi
+      """
+  ).split("\n")
+
+  FAIL = textwrap.dedent(r"""\
+      echo "Mock failure!"
+      exit 1
       """).split("\n")
 
   VERSION_ERROR = textwrap.dedent(r"""\
@@ -92,7 +86,12 @@ class PywrapperTest(test_base.TestBase):
     path = which(cmd)
     self.assertIsNotNone(
         path, msg="Could not locate '%s' command on PATH" % cmd)
-    self.CopyFile(path, os.path.join("dir", cmd), executable=True)
+    # On recent MacOs versions, copying the coreutils tools elsewhere doesn't
+    # work -- they simply fail with "Killed: 9". To workaround that, just
+    # re-exec the actual binary.
+    self.ScratchFile("dir/" + cmd,
+                     ["#!/bin/sh", 'exec {} "$@"'.format(path)],
+                     executable=True)
 
   def locate_runfile(self, runfile_path):
     resolved_path = self.Rlocation(runfile_path)
@@ -104,10 +103,12 @@ class PywrapperTest(test_base.TestBase):
     super(PywrapperTest, self).setUp()
 
     # Locate scripts under test.
-    self.wrapper_path = \
-        self.locate_runfile("io_bazel/tools/python/py2wrapper.sh")
-    self.nonstrict_wrapper_path = \
-        self.locate_runfile("io_bazel/tools/python/py2wrapper_nonstrict.sh")
+    self.wrapper_path = self.locate_runfile(
+        "io_bazel/tools/python/py3wrapper.sh"
+    )
+    self.nonstrict_wrapper_path = self.locate_runfile(
+        "io_bazel/tools/python/py3wrapper_nonstrict.sh"
+    )
 
     # Setup scratch directory with all executables the script depends on.
     #
@@ -160,55 +161,33 @@ class PywrapperTest(test_base.TestBase):
     self.assertRegexpMatches(
         err, message, msg="stderr did not contain expected string")
 
-  def test_finds_python2(self):
-    self.ScratchFile("dir/python2", MockPythonLines.NORMAL, executable=True)
-    returncode, out, err = self.run_wrapper("test_finds_python2")
-    self.assert_wrapper_success(returncode, out, err)
-
   def test_finds_python(self):
     self.ScratchFile("dir/python", MockPythonLines.NORMAL, executable=True)
     returncode, out, err = self.run_wrapper("test_finds_python")
     self.assert_wrapper_success(returncode, out, err)
 
-  def test_prefers_python2(self):
-    self.ScratchFile("dir/python2", MockPythonLines.NORMAL, executable=True)
-    self.ScratchFile("dir/python", MockPythonLines.FAIL, executable=True)
-    returncode, out, err = self.run_wrapper("test_prefers_python2")
-    self.assert_wrapper_success(returncode, out, err)
-
   def test_no_interpreter_found(self):
     returncode, out, err = self.run_wrapper("test_no_interpreter_found")
-    self.assert_wrapper_failure(returncode, out, err,
-                                "Neither 'python2' nor 'python' were found")
-
-  def test_wrong_version(self):
-    self.ScratchFile(
-        "dir/python2", MockPythonLines.WRONG_VERSION, executable=True)
-    returncode, out, err = self.run_wrapper("test_wrong_version")
     self.assert_wrapper_failure(
-        returncode, out, err,
-        "version is 'Mock Python 3.xyz!', but we need version 2")
+        returncode, out, err, "Neither 'python3' nor 'python' were found"
+    )
 
   def test_error_getting_version(self):
     self.ScratchFile(
-        "dir/python2", MockPythonLines.VERSION_ERROR, executable=True)
+        "dir/python", MockPythonLines.VERSION_ERROR, executable=True
+    )
     returncode, out, err = self.run_wrapper("test_error_getting_version")
     self.assert_wrapper_failure(returncode, out, err,
                                 "Could not get interpreter version")
 
   def test_interpreter_not_executable(self):
     self.ScratchFile(
-        "dir/python2", MockPythonLines.VERSION_ERROR, executable=False)
+        "dir/python", MockPythonLines.VERSION_ERROR, executable=False
+    )
     returncode, out, err = self.run_wrapper("test_interpreter_not_executable")
-    self.assert_wrapper_failure(returncode, out, err,
-                                "Neither 'python2' nor 'python' were found")
-
-  def test_wrong_version_ok_for_nonstrict(self):
-    self.ScratchFile(
-        "dir/python2", MockPythonLines.WRONG_VERSION, executable=True)
-    returncode, out, err = \
-        self.run_nonstrict_wrapper("test_wrong_version_ok_for_nonstrict")
-    self.assert_wrapper_success(returncode, out, err)
+    self.assert_wrapper_failure(
+        returncode, out, err, "Neither 'python3' nor 'python' were found"
+    )
 
 
 if __name__ == "__main__":

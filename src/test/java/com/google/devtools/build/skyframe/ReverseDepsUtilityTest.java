@@ -27,7 +27,10 @@ import org.junit.runners.Parameterized.Parameters;
 
 /** Test for {@code ReverseDepsUtility}. */
 @RunWith(Parameterized.class)
-public class ReverseDepsUtilityTest {
+public final class ReverseDepsUtilityTest {
+
+  private static final SkyKey KEY = GraphTester.skyKey("KEY");
+
   private final int numElements;
 
   @Parameters(name = "numElements-{0}")
@@ -46,7 +49,7 @@ public class ReverseDepsUtilityTest {
   @Test
   public void testAddAndRemove() {
     for (int numRemovals = 0; numRemovals <= numElements; numRemovals++) {
-      InMemoryNodeEntry example = new InMemoryNodeEntry();
+      InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
       for (int j = 0; j < numElements; j++) {
         ReverseDepsUtility.addReverseDep(example, Key.create(j));
       }
@@ -67,7 +70,7 @@ public class ReverseDepsUtilityTest {
   @Test
   public void testAddAllAndRemove() {
     for (int numRemovals = 0; numRemovals <= numElements; numRemovals++) {
-      InMemoryNodeEntry example = new InMemoryNodeEntry();
+      InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
       for (int j = 0; j < numElements; j++) {
         ReverseDepsUtility.addReverseDep(example, Key.create(j));
       }
@@ -84,7 +87,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void testDuplicateCheckOnGetReverseDeps() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
     for (int i = 0; i < numElements; i++) {
       ReverseDepsUtility.addReverseDep(example, Key.create(i));
     }
@@ -102,7 +105,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void duplicateAddNoThrowWithoutCheck() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
     for (int i = 0; i < numElements; i++) {
       ReverseDepsUtility.addReverseDep(example, Key.create(i));
     }
@@ -113,7 +116,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void doubleAddThenRemove() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
     SkyKey key = Key.create(0);
     ReverseDepsUtility.addReverseDep(example, key);
     // Should only fail when we call getReverseDeps().
@@ -126,7 +129,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void doubleAddThenRemoveCheckedOnSize() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
     SkyKey fixedKey = Key.create(0);
     ReverseDepsUtility.addReverseDep(example, fixedKey);
     SkyKey key = Key.create(1);
@@ -141,7 +144,7 @@ public class ReverseDepsUtilityTest {
 
   @Test
   public void addRemoveAdd() {
-    InMemoryNodeEntry example = new InMemoryNodeEntry();
+    InMemoryNodeEntry example = new InMemoryNodeEntry(KEY);
     SkyKey fixedKey = Key.create(0);
     ReverseDepsUtility.addReverseDep(example, fixedKey);
     SkyKey key = Key.create(1);

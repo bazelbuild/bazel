@@ -126,7 +126,7 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
 
   @Override
   public String getReturnType() {
-    return Starlark.classType(method.getReturnType());
+    return Starlark.classTypeFromJava(method.getReturnType());
   }
 
   @Override

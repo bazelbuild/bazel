@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -32,10 +31,9 @@ import com.google.common.collect.Maps;
 import com.google.common.hash.HashFunction;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.graph.Digraph;
-import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
@@ -61,7 +59,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
-import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -158,31 +155,15 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   @Override
   public OutputFormatterCallback<Target> createPostFactoStreamCallback(
-      OutputStream out, QueryOptions options) {
+      OutputStream out, QueryOptions options, RepositoryMapping mainRepoMapping) {
     return new StreamedQueryResultFormatter(out);
   }
 
   @Override
   public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-    return createStreamCallback(out, options);
-  }
-
-  @VisibleForTesting
-  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
-      OutputStream out, QueryOptions options) {
     return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
-  }
-
-  private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
-    return Iterables.transform(
-        result.getTopologicalOrder(new FormatUtils.TargetOrdering()), Node::getLabel);
-  }
-
-  @Override
-  protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
-    return options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels();
+        createPostFactoStreamCallback(out, options, env.getMainRepoMapping()));
   }
 
   /** Converts a logical {@link Target} object into a {@link Build.Target} protobuffer. */
@@ -250,7 +231,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         }
         // Include explicit elements for all direct inputs and outputs of a rule; this goes beyond
         // what is available from the attributes above, since it may also (depending on options)
-        // include implicit outputs, host-configuration outputs, and default values.
+        // include implicit outputs, exec-configuration outputs, and default values.
         rule.getSortedLabels(dependencyFilter)
             .forEach(input -> rulePb.addRuleInput(input.toString()));
         rule.getOutputFiles().stream()
@@ -323,11 +304,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
         input.setPackageContainsErrors(inputFile.getPackage().containsErrors());
       }
 
-      for (Label visibilityDependency : target.getVisibility().getDependencyLabels()) {
+      for (Label visibilityDependency : target.getVisibilityDependencyLabels()) {
         input.addPackageGroup(visibilityDependency.toString());
       }
 
-      for (Label visibilityDeclaration : target.getVisibility().getDeclaredLabels()) {
+      for (Label visibilityDeclaration : target.getVisibilityDeclaredLabels()) {
         input.addVisibilityLabel(visibilityDeclaration.toString());
       }
 

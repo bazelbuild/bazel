@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.BaseJavaBinaryRule;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -82,7 +83,11 @@ public class BazelAndroidLocalTestRule implements RuleDefinition {
         .removeAttribute("main_class")
         .removeAttribute("resources")
         .removeAttribute("use_testrunner")
-        .removeAttribute(":java_launcher")
+        .removeAttribute(":java_launcher") // Input files for test actions collecting code coverage
+        .add(
+            attr(":lcov_merger", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
         .build();
@@ -123,8 +128,8 @@ repository</a> to your <code>WORKSPACE</code> file:
 <pre class="code">
 http_archive(
     name = "robolectric",
-    urls = ["https://github.com/robolectric/robolectric/archive/&lt;COMMIT&gt;.tar.gz"],
-    strip_prefix = "robolectric-&lt;COMMIT&gt;",
+    urls = ["https://github.com/robolectric/robolectric-bazel/archive/&lt;COMMIT&gt;.tar.gz"],
+    strip_prefix = "robolectric-bazel-&lt;COMMIT&gt;",
     sha256 = "&lt;HASH&gt;",
 )
 load("@robolectric//bazel:robolectric.bzl", "robolectric_repositories")
@@ -147,7 +152,7 @@ android_local_test(
     manifest = "LibManifest.xml",
     deps = [
         ":sample_test_lib",
-        "@robolectric//bazel:robolectric",
+        "@robolectric//bazel:android-all",
     ],
 )
 

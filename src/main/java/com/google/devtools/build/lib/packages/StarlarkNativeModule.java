@@ -572,8 +572,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     RuleVisibility visibility =
         Starlark.isNullOrNone(visibilityO)
-            ? ConstantRuleVisibility.PUBLIC
-            : PackageUtils.getVisibility(
+            ? RuleVisibility.PUBLIC
+            : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
 
@@ -619,6 +619,34 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     PackageIdentifier packageId =
         PackageFactory.getContext(thread).getBuilder().getPackageIdentifier();
     return packageId.getRepository().getNameWithAt();
+  }
+
+  @Override
+  public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.package_relative_label");
+    if (input instanceof Label) {
+      return (Label) input;
+    }
+    try {
+      String s = (String) input;
+      return PackageFactory.getContext(thread).getBuilder().getLabelConverter().convert(s);
+    } catch (LabelSyntaxException e) {
+      throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
+    }
+  }
+
+  @Override
+  @Nullable
+  public String moduleName(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_name");
+    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleName().orElse(null);
+  }
+
+  @Override
+  @Nullable
+  public String moduleVersion(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_version");
+    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleVersion().orElse(null);
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
@@ -768,10 +796,16 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     if (val instanceof BuildType.SelectorList) {
       List<Object> selectors = new ArrayList<>();
       for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>) val).getSelectors()) {
-        selectors.add(
-            new SelectorValue(
-                ((Map<?, ?>) starlarkifyValue(mu, selector.getEntries(), pkg)),
-                selector.getNoMatchError()));
+        Dict.Builder<Object, Object> m = Dict.builder();
+        selector.forEach(
+            (rawKey, rawValue) -> {
+              Object key = starlarkifyValue(mu, rawKey, pkg);
+              Object mapVal = starlarkifyValue(mu, rawValue, pkg);
+              if (key != null && mapVal != null) {
+                m.put(key, mapVal);
+              }
+            });
+        selectors.add(new SelectorValue(((Map<?, ?>) m.build(mu)), selector.getNoMatchError()));
       }
       try {
         return SelectorList.of(selectors);

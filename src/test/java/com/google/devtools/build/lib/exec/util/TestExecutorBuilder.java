@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.analysis.actions.LocalTemplateExpansionStrategy;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionContext;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Reporter;
@@ -49,7 +50,7 @@ import java.util.List;
  */
 public class TestExecutorBuilder {
   public static final ImmutableList<Class<? extends OptionsBase>> DEFAULT_OPTIONS =
-      ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class);
+      ImmutableList.of(ExecutionOptions.class, CommonCommandOptions.class, CoreOptions.class);
   private final FileSystem fileSystem;
   private final Path execRoot;
   private Reporter reporter = new Reporter(new EventBus());

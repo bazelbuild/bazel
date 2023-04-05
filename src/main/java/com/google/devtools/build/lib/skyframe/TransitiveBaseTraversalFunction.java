@@ -182,7 +182,6 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute), depMap, env)) {
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              rule,
               aspect,
               DependencyFilter.ALL_DEPS,
               (aspectAttribute, aspectLabel) -> depKeys.add(getKey(aspectLabel)));
@@ -220,7 +219,8 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
   @Nullable
   TargetAndErrorIfAny loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return TargetLoadingUtil.loadTarget(env, label);
+    Object o = TargetLoadingUtil.loadTarget(env, label);
+    return o instanceof TargetAndErrorIfAny ? (TargetAndErrorIfAny) o : null;
   }
 
   /**

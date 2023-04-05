@@ -22,13 +22,21 @@ import com.google.devtools.build.android.desugar.proto.DesugarDeps.DesugarDepsIn
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceDetails;
 import com.google.devtools.build.android.desugar.proto.DesugarDeps.InterfaceWithCompanion;
 import com.google.devtools.build.android.r8.DependencyCollector;
+import java.util.ArrayList;
+import java.util.Comparator;
 import javax.annotation.Nullable;
 
 /** Dependency collector that emits collected metadata as a {@link DesugarDepsInfo} proto. */
 public final class MetadataCollector implements DependencyCollector {
 
   private final boolean tolerateMissingDeps;
-  private final DesugarDepsInfo.Builder info = DesugarDeps.DesugarDepsInfo.newBuilder();
+
+  private final ArrayList<DesugarDeps.Dependency> assumePresents = new ArrayList<>();
+  private final ArrayList<DesugarDeps.Dependency> missingInterfaces = new ArrayList<>();
+  private final ArrayList<DesugarDeps.InterfaceDetails> interfacesWithSupertypes =
+      new ArrayList<>();
+  private final ArrayList<DesugarDeps.InterfaceWithCompanion> interfacesWithCompanion =
+      new ArrayList<>();
 
   public MetadataCollector(boolean tolerateMissingDeps) {
     this.tolerateMissingDeps = tolerateMissingDeps;
@@ -43,8 +51,8 @@ public final class MetadataCollector implements DependencyCollector {
   public void assumeCompanionClass(String origin, String target) {
     checkArgument(
         isInterfaceCompanionClass(target), "target not a companion: %s -> %s", origin, target);
-    info.addAssumePresent(
-        Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)));
+    assumePresents.add(
+        Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)).build());
   }
 
   @Override
@@ -59,36 +67,69 @@ public final class MetadataCollector implements DependencyCollector {
         "Couldn't find interface %s on the classpath for desugaring %s",
         target,
         origin);
-    info.addMissingInterface(
-        Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)));
+    missingInterfaces.add(
+        Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)).build());
   }
 
   @Override
   public void recordExtendedInterfaces(String origin, String... targets) {
     if (targets.length > 0) {
       InterfaceDetails.Builder details = InterfaceDetails.newBuilder().setOrigin(wrapType(origin));
+      ArrayList<DesugarDeps.Type> types = new ArrayList<>();
       for (String target : targets) {
-        details.addExtendedInterface(wrapType(target));
+        types.add(wrapType(target));
       }
-      info.addInterfaceWithSupertypes(details);
+      types.sort(Comparator.comparing(DesugarDeps.Type::getBinaryName));
+      details.addAllExtendedInterface(types);
+      interfacesWithSupertypes.add(details.build());
     }
   }
 
   @Override
   public void recordDefaultMethods(String origin, int count) {
     checkArgument(!isInterfaceCompanionClass(origin), "seems to be a companion: %s", origin);
-    info.addInterfaceWithCompanion(
+    interfacesWithCompanion.add(
         InterfaceWithCompanion.newBuilder()
             .setOrigin(wrapType(origin))
-            .setNumDefaultMethods(count));
+            .setNumDefaultMethods(count)
+            .build());
   }
 
   @Override
   @Nullable
   public byte[] toByteArray() {
-    DesugarDepsInfo result = info.build();
-    return DesugarDepsInfo.getDefaultInstance().equals(result) ? null : result.toByteArray();
+    DesugarDeps.DesugarDepsInfo result = buildInfo();
+    return DesugarDeps.DesugarDepsInfo.getDefaultInstance().equals(result)
+        ? null
+        : result.toByteArray();
   }
+
+  private DesugarDeps.DesugarDepsInfo buildInfo() {
+
+    // Sort these for determinism.
+    assumePresents.sort(dependencyComparator);
+    missingInterfaces.sort(dependencyComparator);
+    interfacesWithSupertypes.sort(interfaceDetailComparator);
+    interfacesWithCompanion.sort(interFaceWithCompanionComparator);
+
+    DesugarDeps.DesugarDepsInfo.Builder info = DesugarDeps.DesugarDepsInfo.newBuilder();
+    info.addAllAssumePresent(assumePresents);
+    info.addAllMissingInterface(missingInterfaces);
+    info.addAllInterfaceWithSupertypes(interfacesWithSupertypes);
+    info.addAllInterfaceWithCompanion(interfacesWithCompanion);
+
+    return info.build();
+  }
+
+  private static final Comparator<? super DesugarDeps.Dependency> dependencyComparator =
+      Comparator.comparing((DesugarDeps.Dependency o) -> o.getOrigin().getBinaryName())
+          .thenComparing((DesugarDeps.Dependency o) -> o.getTarget().getBinaryName());
+
+  private static final Comparator<? super DesugarDeps.InterfaceDetails> interfaceDetailComparator =
+      Comparator.comparing((DesugarDeps.InterfaceDetails o) -> o.getOrigin().getBinaryName());
+
+  private static final Comparator<? super DesugarDeps.InterfaceWithCompanion>
+      interFaceWithCompanionComparator = Comparator.comparing(o -> o.getOrigin().getBinaryName());
 
   private static DesugarDeps.Type wrapType(String internalName) {
     return DesugarDeps.Type.newBuilder().setBinaryName(internalName).build();

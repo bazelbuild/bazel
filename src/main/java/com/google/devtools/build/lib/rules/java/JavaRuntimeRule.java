@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -35,7 +36,6 @@ public final class JavaRuntimeRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return ConfigAwareRuleClassBuilder.of(builder)
-        .requiresHostConfigurationFragments(JavaConfiguration.class)
         .originalBuilder()
         .requiresConfigurationFragments(JavaConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
@@ -56,6 +56,18 @@ public final class JavaRuntimeRule implements RuleDefinition {
                 .singleArtifact()
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(default_cds) -->
+        Default CDS archive for hermetic <code>java_runtime</code>. When hermetic
+        is enabled for a <code>java_binary</code> target and if the target does not
+        provide its own CDS archive by specifying the
+        <a href="${link java_binary.classlist}"><code>classlist</code></a> attribute,
+        the <code>java_runtime</code> default CDS is packaged in the hermetic deploy JAR.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("default_cds", LABEL)
+                .singleArtifact()
+                .allowedFileTypes(FileTypeSet.ANY_FILE)
+                .exec())
         .add(
             attr("hermetic_static_libs", LABEL_LIST)
                 .mandatoryProviders(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()))
@@ -72,6 +84,11 @@ public final class JavaRuntimeRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("java_home", STRING))
         .add(attr("output_licenses", LICENSE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(version) -->
+        The feature version of the Java runtime. I.e., the integer returned by
+        <code>Runtime.version().feature()</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("version", INTEGER))
         .build();
   }
 

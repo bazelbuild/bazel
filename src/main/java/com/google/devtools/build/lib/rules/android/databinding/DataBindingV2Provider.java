@@ -67,7 +67,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getClassInfosForStarlark() {
-    return Depset.of(Artifact.TYPE, classInfos);
+    return Depset.of(Artifact.class, classInfos);
   }
 
   public NestedSet<Artifact> getClassInfos() {
@@ -76,7 +76,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getSetterStoresForStarlark() {
-    return Depset.of(Artifact.TYPE, setterStores);
+    return Depset.of(Artifact.class, setterStores);
   }
 
   public NestedSet<Artifact> getSetterStores() {
@@ -85,7 +85,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getTransitiveBRFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, transitiveBRFiles);
+    return Depset.of(Artifact.class, transitiveBRFiles);
   }
 
   public NestedSet<Artifact> getTransitiveBRFiles() {
@@ -99,7 +99,7 @@ public final class DataBindingV2Provider extends NativeInfo
 
   @Override
   public Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark() {
-    return Depset.of(LabelJavaPackagePair.TYPE, transitiveLabelAndJavaPackages);
+    return Depset.of(LabelJavaPackagePair.class, transitiveLabelAndJavaPackages);
   }
 
   public NestedSet<LabelJavaPackagePair> getTransitiveLabelAndJavaPackages() {

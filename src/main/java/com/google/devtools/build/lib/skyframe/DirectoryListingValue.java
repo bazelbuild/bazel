@@ -13,15 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
@@ -66,7 +65,7 @@ public abstract class DirectoryListingValue implements SkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RootedPath> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(RootedPath arg) {
       super(arg);
@@ -81,6 +80,11 @@ public abstract class DirectoryListingValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.DIRECTORY_LISTING;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

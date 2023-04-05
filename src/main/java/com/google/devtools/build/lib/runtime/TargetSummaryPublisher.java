@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -51,7 +52,7 @@ import javax.annotation.Nullable;
 public final class TargetSummaryPublisher {
 
   private final EventBus eventBus;
-  private final boolean mergedSkyframeAnalysisExecution;
+  private final Supplier<Boolean> mergedSkyframeAnalysisExecution;
 
   /** Number of top-level aspects populated from {@link BuildStartingEvent}. */
   private final AtomicInteger aspectCount = new AtomicInteger(-1);
@@ -62,10 +63,11 @@ public final class TargetSummaryPublisher {
       Multimaps.synchronizedListMultimap(ArrayListMultimap.create());
 
   public TargetSummaryPublisher(EventBus eventBus) {
-    this(eventBus, /*mergedSkyframeAnalysisExecution=*/ false);
+    this(eventBus, /* mergedSkyframeAnalysisExecution= */ () -> false);
   }
 
-  public TargetSummaryPublisher(EventBus eventBus, boolean mergedSkyframeAnalysisExecution) {
+  public TargetSummaryPublisher(
+      EventBus eventBus, Supplier<Boolean> mergedSkyframeAnalysisExecution) {
     this.eventBus = eventBus;
     this.mergedSkyframeAnalysisExecution = mergedSkyframeAnalysisExecution;
   }
@@ -213,7 +215,7 @@ public final class TargetSummaryPublisher {
       // With skymeld, the corresponding AspectCompleteEvents may arrive before the aggregator is
       // set up. We therefore need to put those events in a queue and resolve them when the
       // aggregator becomes available.
-      if (mergedSkyframeAnalysisExecution && aggregator == null) {
+      if (mergedSkyframeAnalysisExecution.get() && aggregator == null) {
         queuedAspectCompleteEvents.put(event.getAspectKey().getBaseConfiguredTargetKey(), event);
         return;
       }

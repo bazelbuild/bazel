@@ -84,9 +84,6 @@ import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
-import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
-import com.google.devtools.build.lib.shell.SubprocessBuilder;
-import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
@@ -95,7 +92,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.TestType;
@@ -105,7 +101,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -402,6 +397,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             options.collectWorkerDataInProfiler,
             options.collectLoadAverageInProfiler,
             options.collectSystemNetworkUsage,
+            options.collectPressureStallIndicators,
+            options.collectResourceEstimation,
+            env.getLocalResourceManager(),
             WorkerMetricsCollector.instance(),
             bugReporter);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
@@ -1087,14 +1085,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  private static SubprocessFactory subprocessFactoryImplementation() {
-    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
-      return WindowsSubprocessFactory.INSTANCE;
-    } else {
-      return JavaSubprocessFactory.INSTANCE;
-    }
-  }
-
   /**
    * Parses the command line arguments into a {@link OptionsParser} object.
    *
@@ -1253,8 +1243,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               }
               return null;
             });
-
-    SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation());
 
     Path outputUserRootPath = fs.getPath(outputUserRoot);
     Path installBasePath = fs.getPath(installBase);

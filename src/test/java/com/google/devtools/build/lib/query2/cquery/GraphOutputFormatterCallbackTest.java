@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.query2.PostAnalysisQueryEnvironment;
@@ -51,7 +52,7 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(allow_files = True),",
-        "    'host_deps': attr.label_list(cfg = 'host')",
+        "    'tool_deps': attr.label_list(cfg = 'exec')",
         "  }",
         ")");
     writeFile("defs/BUILD");
@@ -80,7 +81,8 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
             new PrintStream(output),
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
-            ct -> env.getFwdDeps(ImmutableList.of(ct)));
+            ct -> env.getFwdDeps(ImmutableList.of(ct)),
+            RepositoryMapping.ALWAYS_FALLBACK);
     env.evaluateQuery(expression, callback);
     return Arrays.asList(output.toString().split(System.lineSeparator()));
   }
@@ -147,21 +149,20 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 "}"));
   }
 
-  // TODO(b/203203933): Replace "host" with "exec" throughout this test.
   @Test
-  public void nullAndHostDeps() throws Exception {
+  public void nullAndToolDeps() throws Exception {
     writeFile(
         "test/BUILD",
         "load('//defs:defs.bzl', 'simple_rule')",
-        "simple_rule(name = 'a', deps = [':b', ':file.src'], host_deps = [':host_dep'])",
+        "simple_rule(name = 'a', deps = [':b', ':file.src'], tool_deps = [':tool_dep'])",
         "simple_rule(name = 'b')",
-        "simple_rule(name = 'host_dep')");
+        "simple_rule(name = 'tool_dep')");
     writeFile("test/file.src");
     List<String> output = getOutput("deps(//test:a)");
     String firstNode = output.get(2);
     String configHash = firstNode.substring(firstNode.indexOf("(") + 1, firstNode.length() - 2);
-    String hostNode = output.get(6);
-    String execConfigHash = hostNode.substring(hostNode.indexOf("(") + 1, hostNode.length() - 2);
+    String toolNode = output.get(6);
+    String execConfigHash = toolNode.substring(toolNode.indexOf("(") + 1, toolNode.length() - 2);
     assertThat(getOutput("deps(//test:a)"))
         .isEqualTo(
             withConfigHash(
@@ -171,8 +172,8 @@ public class GraphOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                 "  \"//test:a (%s)\"",
                 "  \"//test:a (%s)\" -> \"//test:b (%s)\"",
                 "  \"//test:a (%s)\" -> \"//test:file.src (null)\"",
-                "  \"//test:a (%s)\" -> \"//test:host_dep (" + execConfigHash + ")\"",
-                "  \"//test:host_dep (" + execConfigHash + ")\"",
+                "  \"//test:a (%s)\" -> \"//test:tool_dep (" + execConfigHash + ")\"",
+                "  \"//test:tool_dep (" + execConfigHash + ")\"",
                 "  \"//test:file.src (null)\"",
                 "  \"//test:b (%s)\"",
                 "}"));

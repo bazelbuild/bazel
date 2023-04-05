@@ -52,8 +52,8 @@ import net.starlark.java.eval.Tuple;
             + " them.<p>Context objects essentially live for the duration of the call to the"
             + " implementation function. It is not useful to access these objects outside of their"
             + " associated function. See the <a"
-            + " href='https://bazel.build/rules/rules#implementation_function'>Rules page</a> for"
-            + " more information.")
+            + " href='https://bazel.build/extending/rules#implementation_function'>Rules page</a>"
+            + " for more information.")
 public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValueInfoApi>
     extends StarlarkValue {
 
@@ -81,8 +81,8 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " href='File.html'><code>File</code></a>s.  It is a shortcut for:<pre"
           + " class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> In"
           + " other words, use <code>files</code> to access the <a"
-          + " href=\"https://bazel.build/rules/rules#requesting_output_files\">default outputs</a>"
-          + " of a dependency. <a"
+          + " href=\"https://bazel.build/extending/rules#requesting_output_files\">"
+          + " default outputs</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl\">See"
           + " example of use</a>.";
   String FILE_DOC =
@@ -96,13 +96,13 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " no corresponding struct field is generated. It is a shortcut for:<pre"
           + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
           + " <code>file</code> to access the (singular) <a"
-          + " href=\"https://bazel.build/rules/rules#requesting_output_files\">default output</a>"
-          + " of a dependency. <a"
+          + " href=\"https://bazel.build/extending/rules#requesting_output_files\">default"
+          + " output</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl\">See"
           + " example of use</a>.";
   String ATTR_DOC =
       "A struct to access the values of the <a"
-          + " href='https://bazel.build/rules/rules#attributes'>attributes</a>. The values are"
+          + " href='https://bazel.build/extending/rules#attributes'>attributes</a>. The values are"
           + " provided by the user (if not, a default value is used). The attributes of the struct"
           + " and the types of their values correspond to the keys and values of the <a"
           + " href='globals.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a"
@@ -120,11 +120,11 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   String OUTPUTS_DOC =
       "A pseudo-struct containing all the predeclared output files, represented by <a"
           + " href='File.html'><code>File</code></a> objects. See the <a"
-          + " href='https://bazel.build/rules/rules#files'>Rules page</a> for more information and"
-          + " examples.<p>This field does not exist on aspect contexts, since aspects do not have"
-          + " predeclared outputs.<p>The fields of this object are defined as follows. It is an"
-          + " error if two outputs produce the same field name or have the same label.<ul><li>If"
-          + " the rule declares an <a href='globals.html#rule.outputs'><code>outputs</code></a>"
+          + " href='https://bazel.build/extending/rules#files'>Rules page</a> for more information"
+          + " and examples.<p>This field does not exist on aspect contexts, since aspects do not"
+          + " have predeclared outputs.<p>The fields of this object are defined as follows. It is"
+          + " an error if two outputs produce the same field name or have the same label.<ul><li>"
+          + " If the rule declares an <a href='globals.html#rule.outputs'><code>outputs</code></a>"
           + " dict, then for every entry in the dict, there is a field whose name is the key and"
           + " whose value is the corresponding <code>File</code>.<li>For every attribute of type <a"
           + " href='attr.html#output'><code>attr.output</code></a> that the rule declares, there is"
@@ -203,26 +203,12 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   FragmentCollectionApi getFragments() throws EvalException;
 
   @StarlarkMethod(
-      name = "host_fragments",
-      structField = true,
-      doc = "Allows access to configuration fragments in host configuration.")
-  FragmentCollectionApi getHostFragments() throws EvalException;
-
-  @StarlarkMethod(
       name = "configuration",
       structField = true,
       doc =
           "The default configuration. See the <a href=\"configuration.html\">"
               + "configuration</a> type for more details.")
   BuildConfigurationApi getConfiguration() throws EvalException;
-
-  @StarlarkMethod(
-      name = "host_configuration",
-      structField = true,
-      doc =
-          "The host configuration. See the <a href=\"configuration.html\">"
-              + "configuration</a> type for more details.")
-  BuildConfigurationApi getHostConfiguration() throws EvalException;
 
   @StarlarkMethod(
       name = "build_setting_value",
@@ -514,8 +500,9 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
         @Param(
             name = "short_paths",
             named = true,
+            positional = false,
             defaultValue = "False",
-            doc = "Use root relative paths instead of full exec paths"),
+            documented = false),
       },
       allowReturnNones = true,
       useStarlarkThread = true)
@@ -555,7 +542,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             named = true,
             doc =
                 "<b>Use of this parameter is not recommended. See <a"
-                    + " href=\"https://bazel.build/rules/rules#runfiles\">runfiles"
+                    + " href=\"https://bazel.build/extending/rules#runfiles\">runfiles"
                     + " guide</a></b>. <p>Whether to collect the data runfiles from the"
                     + " dependencies in srcs, data and deps attributes."),
         @Param(
@@ -564,7 +551,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             named = true,
             doc =
                 "<b>Use of this parameter is not recommended. See <a"
-                    + " href=\"https://bazel.build/rules/rules#runfiles\">runfiles"
+                    + " href=\"https://bazel.build/extending/rules#runfiles\">runfiles"
                     + " guide</a></b>. <p>Whether to collect the default runfiles from the"
                     + " dependencies in srcs, data and deps attributes."),
         @Param(
@@ -578,7 +565,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             doc =
                 "Either a SymlinkEntry depset or the map of symlinks, prefixed by workspace name,"
                     + " to be added to the runfiles. See <a"
-                    + " href=\"https://bazel.build/rules/rules#runfiles_symlinks\">Runfiles"
+                    + " href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide."),
         @Param(
             name = "root_symlinks",
@@ -590,16 +577,25 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             },
             doc =
                 "Either a SymlinkEntry depset or a map of symlinks to be added to the runfiles. See"
-                    + " <a href=\"https://bazel.build/rules/rules#runfiles_symlinks\">Runfiles"
-                    + " symlinks</a> in the rules guide.")
-      })
+                    + " <a href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
+                    + " symlinks</a> in the rules guide."),
+        @Param(
+            name = "skip_conflict_checking",
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            documented = false)
+      },
+      useStarlarkThread = true)
   RunfilesApi runfiles(
       Sequence<?> files,
       Object transitiveFiles,
       Boolean collectData,
       Boolean collectDefault,
       Object symlinks,
-      Object rootSymlinks)
+      Object rootSymlinks,
+      boolean skipConflictChecking,
+      StarlarkThread thread)
       throws EvalException, TypeException;
 
   @StarlarkMethod(

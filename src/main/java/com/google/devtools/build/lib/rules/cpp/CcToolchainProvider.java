@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -47,7 +51,14 @@ import net.starlark.java.eval.StarlarkThread;
 @Immutable
 public final class CcToolchainProvider extends NativeInfo
     implements CcToolchainProviderApi<
-            FeatureConfigurationForStarlark, BranchFdoProfile, FdoContext>,
+            FeatureConfigurationForStarlark,
+            BranchFdoProfile,
+            FdoContext,
+            ConstraintValueInfo,
+            StarlarkRuleContext,
+            InvalidConfigurationException,
+            CppConfiguration,
+            CcToolchainVariables>,
         HasCcToolchainLabel {
 
   public static final BuiltinProvider<CcToolchainProvider> PROVIDER =
@@ -420,14 +431,14 @@ public final class CcToolchainProvider extends NativeInfo
 
   @Override
   public Depset getAllFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getAllFiles());
+    return Depset.of(Artifact.class, getAllFiles());
   }
 
   @Override
   public Depset getStaticRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getStaticRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -435,7 +446,7 @@ public final class CcToolchainProvider extends NativeInfo
   public Depset getDynamicRuntimeLibForStarlark(
       FeatureConfigurationForStarlark featureConfigurationForStarlark) throws EvalException {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getDynamicRuntimeLinkInputs(featureConfigurationForStarlark.getFeatureConfiguration()));
   }
 
@@ -459,6 +470,12 @@ public final class CcToolchainProvider extends NativeInfo
     return allFilesIncludingLibc;
   }
 
+  @Override
+  public Depset getAllFilesIncludingLibcForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, getAllFilesIncludingLibc());
+  }
+
   /** Returns the files necessary for compilation. */
   public NestedSet<Artifact> getCompilerFiles() {
     return compilerFiles;
@@ -467,7 +484,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getCompilerFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCompilerFiles());
+    return Depset.of(Artifact.class, getCompilerFiles());
   }
 
   /**
@@ -490,7 +507,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getStripFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getStripFiles());
+    return Depset.of(Artifact.class, getStripFiles());
   }
 
   /** Returns the files necessary for an 'objcopy' invocation. */
@@ -501,7 +518,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getObjcopyFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getObjcopyFiles());
+    return Depset.of(Artifact.class, getObjcopyFiles());
   }
 
   /**
@@ -515,7 +532,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getAsFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAsFiles());
+    return Depset.of(Artifact.class, getAsFiles());
   }
 
   /**
@@ -529,7 +546,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getArFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getArFiles());
+    return Depset.of(Artifact.class, getArFiles());
   }
 
   /** Returns the files necessary for linking, including the files needed for libc. */
@@ -540,7 +557,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getLinkerFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getLinkerFiles());
+    return Depset.of(Artifact.class, getLinkerFiles());
   }
 
   public NestedSet<Artifact> getDwpFiles() {
@@ -550,7 +567,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getDwpFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getDwpFiles());
+    return Depset.of(Artifact.class, getDwpFiles());
   }
 
   /** Returns the files necessary for capturing code coverage. */
@@ -561,7 +578,7 @@ public final class CcToolchainProvider extends NativeInfo
   @Override
   public Depset getCoverageFilesForStarlark(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getCoverageFiles());
+    return Depset.of(Artifact.class, getCoverageFiles());
   }
 
   public NestedSet<Artifact> getLibcLink(CppConfiguration cppConfiguration) {
@@ -620,7 +637,7 @@ public final class CcToolchainProvider extends NativeInfo
 
   /**
    * Returns the name of the directory where the solib symlinks for the dynamic runtime libraries
-   * live. The directory itself will be under the root of the host configuration in the 'bin'
+   * live. The directory itself will be under the root of the exec configuration in the 'bin'
    * directory.
    */
   public PathFragment getDynamicRuntimeSolibDir() {
@@ -709,9 +726,9 @@ public final class CcToolchainProvider extends NativeInfo
    *
    * <p>If C++ rules use platforms/toolchains without
    * https://github.com/bazelbuild/proposals/blob/master/designs/2019-02-12-toolchain-transitions.md
-   * implemented, CcToolchain is analyzed in the host configuration. This configuration is not what
+   * implemented, CcToolchain is analyzed in the exec configuration. This configuration is not what
    * should be used by rules using the toolchain. This method should only be used to access stuff
-   * from CppConfiguration that is identical between host and target (e.g. incompatible flag
+   * from CppConfiguration that is identical between exec and target (e.g. incompatible flag
    * values). Don't use it if you don't know what you're doing.
    *
    * <p>Once toolchain transitions are implemented, we can safely use the CppConfiguration from the
@@ -730,7 +747,7 @@ public final class CcToolchainProvider extends NativeInfo
   public CcToolchainVariables getBuildVariables(
       BuildOptions buildOptions, CppConfiguration cppConfiguration) {
     if (cppConfiguration.enableCcToolchainResolution()) {
-      // With platforms, cc toolchain is analyzed in the host configuration, so we cannot reuse
+      // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
       // build variables instance.
       return CcToolchainProviderHelper.getBuildVariables(
           buildOptions,
@@ -739,6 +756,17 @@ public final class CcToolchainProvider extends NativeInfo
           additionalBuildVariablesComputer);
     }
     return buildVariables;
+  }
+
+  @Override
+  public CcToolchainVariables getBuildVariablesForStarlark(
+      StarlarkRuleContext starlarkRuleContext,
+      CppConfiguration cppConfiguration,
+      StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getBuildVariables(
+        starlarkRuleContext.getRuleContext().getConfiguration().getOptions(), cppConfiguration);
   }
 
   /**
@@ -792,6 +820,12 @@ public final class CcToolchainProvider extends NativeInfo
     return abi;
   }
 
+  @Override
+  public String getAbiForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbi();
+  }
+
   /**
    * Returns the glibc version used by the abi we're using. This is a glibc version number (e.g.,
    * "2.2.2"). Note that in practice we might be using glibc 2.2.2 as ABI even when compiling with
@@ -801,6 +835,18 @@ public final class CcToolchainProvider extends NativeInfo
   // TODO(bazel-team): The javadoc should clarify how this is used in Blaze.
   public String getAbiGlibcVersion() {
     return abiGlibcVersion;
+  }
+
+  @Override
+  public String getAbiGlibcVersionForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getAbiGlibcVersion();
+  }
+
+  @Override
+  public String getCrosstoolTopPathForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return crosstoolTopPathFragment.getPathString();
   }
 
   /** Returns the compiler version string (e.g. "gcc-4.1.1"). */
@@ -831,6 +877,13 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return additionalMakeVariables;
+  }
+
+  @Override
+  public Dict<String, String> getAdditionalMakeVariablesForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Dict.immutableCopyOf(getAdditionalMakeVariables());
   }
 
   /**

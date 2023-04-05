@@ -43,8 +43,6 @@ public class PlatformBaseRule implements RuleDefinition{
                 .nonconfigurable("low-level attribute, used in platform configuration"))
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
-        .removeAttribute("deps")
-        .removeAttribute("data")
         .removeAttribute(":action_listener")
         .build();
   }
@@ -54,8 +52,7 @@ public class PlatformBaseRule implements RuleDefinition{
     return RuleDefinition.Metadata.builder()
         .name(RULE_NAME)
         .type(RuleClass.Builder.RuleClassType.ABSTRACT)
-        .ancestors(BaseRuleClasses.NativeActionCreatingRule.class)
+        .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .build();
   }
-
 }

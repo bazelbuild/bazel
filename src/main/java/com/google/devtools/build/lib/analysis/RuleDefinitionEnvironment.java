@@ -30,13 +30,13 @@ public interface RuleDefinitionEnvironment {
 
   /**
    * Prepends the tools repository path to the given string and parses the result using {@link
-   * Label#parseAbsoluteUnchecked}.
+   * Label#parseCanonicalUnchecked}.
    *
    * <p>TODO(brandjon,twigg): Require override to handle repositoryMapping? Note that
    * Label.parseAbsoluteUnchecked itself is deprecated because of repositoryMapping!
    */
   default Label getToolsLabel(String labelValue) {
-    return Label.parseAbsoluteUnchecked(getToolsRepository() + labelValue);
+    return Label.parseCanonicalUnchecked(getToolsRepository() + labelValue);
   }
 
   /**

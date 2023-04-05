@@ -280,4 +280,9 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   public ConfiguredTarget getBaseConfiguredTarget() {
     return base;
   }
+
+  @Override
+  public ConfiguredTarget unwrapIfMerged() {
+    return base.unwrapIfMerged();
+  }
 }

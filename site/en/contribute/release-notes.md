@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Writing release notes
 
+{% include "_buttons.html" %}
+
 This document is targeted at Bazel contributors.
 
 Commit descriptions in Bazel include a `RELNOTES:` tag followed by a release

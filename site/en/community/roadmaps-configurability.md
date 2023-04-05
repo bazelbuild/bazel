@@ -31,6 +31,8 @@ Book: /_book.yaml
 
 # Bazel Configurability 2021 Roadmap
 
+{% include "_buttons.html" %}
+
 *Last verified: 2021-01-25* ([update history](https://github.com/bazelbuild/bazel-website/commits/master/roadmaps/configuration.md))
 
 *Point of contact:* [gregestren](https://github.com/gregestren)
@@ -53,8 +55,8 @@ Book: /_book.yaml
 * Builds scale well, particularly w.r.t graph size and action caching.
 
 We also support
-[`cquery`](https://bazel.build/docs/cquery), [`Starlark
-configuration`](https://bazel.build/rules/config),
+[`cquery`](https://bazel.build/query/cquery), [`Starlark
+configuration`](https://bazel.build/extending/config),
 and
 [`select()`](https://bazel.build/docs/configurable-attributes).
 
@@ -69,7 +71,7 @@ interest of accurate expectations.
 
 <div class="padbottom"></div>
 <span class="etabox">Q3 2021</span>**Android rules use the new [platforms
-API](https://bazel.build/concepts/platforms-intro)**
+API](https://bazel.build/concepts/platforms)**
 <span class="inprogressstatus">IN PROGRESS</span> ([#11749](https://github.com/bazelbuild/bazel/issues/11749))
 
 * This is our main priority for the beginning of 2021.
@@ -80,7 +82,7 @@ platforms](https://docs.google.com/document/d/1U9HzdDmtRnm244CaRM6JV-q2408mbNODA
 <span class="inprogressstatus">IN PROGRESS</span> ([#11748](https://github.com/bazelbuild/bazel/issues/11748))
 
 <div class="padbottom"></div>
-<span class="etabox">paused</span>**C++ rules use the new [platformsfall API](https://bazel.build/concepts/platforms-intro)**
+<span class="etabox">paused</span>**C++ rules use the new [platformsfall API](https://bazel.build/concepts/platforms)**
 <span class="inprogressstatus">IN PROGRESS</span> ([#6516](https://github.com/bazelbuild/bazel/issues/6516))
 
 * This is blocked on Android platforms. We can turn this on with a simple flag flip.

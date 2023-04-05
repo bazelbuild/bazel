@@ -14,15 +14,19 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS;
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,25 +36,41 @@ import java.util.Set;
  * linux-sandbox} tool.
  */
 public class LinuxSandboxCommandLineBuilder {
+  /** A bind mount that needs to be present when the sandboxed command runs. */
+  @AutoValue
+  public abstract static class BindMount {
+    public static BindMount of(Path mountPoint, Path source) {
+      return new AutoValue_LinuxSandboxCommandLineBuilder_BindMount(mountPoint, source);
+    }
+
+    /** "target" in mount(2) */
+    public abstract Path getMountPoint();
+
+    /** "source" in mount(2) */
+    public abstract Path getContent();
+  }
+
   private final Path linuxSandboxPath;
   private final List<String> commandArguments;
   private Path hermeticSandboxPath;
   private Path workingDirectory;
   private Duration timeout;
   private Duration killDelay;
+  private boolean persistentProcess;
   private Path stdoutPath;
   private Path stderrPath;
   private Set<Path> writableFilesAndDirectories = ImmutableSet.of();
   private ImmutableSet<PathFragment> tmpfsDirectories = ImmutableSet.of();
-  private Map<Path, Path> bindMounts = ImmutableMap.of();
+  private List<BindMount> bindMounts = ImmutableList.of();
   private Path statisticsPath;
   private boolean useFakeHostname = false;
-  private boolean createNetworkNamespace = false;
+  private NetworkNamespace createNetworkNamespace = NetworkNamespace.NO_NETNS;
   private boolean useFakeRoot = false;
   private boolean useFakeUsername = false;
   private boolean enablePseudoterminal = false;
   private boolean useDebugMode = false;
   private boolean sigintSendsSigterm = false;
+  private String cgroupsDir;
 
   private LinuxSandboxCommandLineBuilder(Path linuxSandboxPath, List<String> commandArguments) {
     this.linuxSandboxPath = linuxSandboxPath;
@@ -97,6 +117,12 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder setPersistentProcess(boolean persistentProcess) {
+    this.persistentProcess = persistentProcess;
+    return this;
+  }
+
   /** Sets the path to use for redirecting stdout, if any. */
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder setStdoutPath(Path stdoutPath) {
@@ -119,6 +145,15 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder addWritablePath(Path writablePath) {
+    if (this.writableFilesAndDirectories == null) {
+      this.writableFilesAndDirectories = new HashSet<>();
+    }
+    this.writableFilesAndDirectories.add(writablePath);
+    return this;
+  }
+
   /** Sets the directories where to mount an empty tmpfs, if any. */
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder setTmpfsDirectories(
@@ -132,7 +167,7 @@ public class LinuxSandboxCommandLineBuilder {
    * if any.
    */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setBindMounts(Map<Path, Path> bindMounts) {
+  public LinuxSandboxCommandLineBuilder setBindMounts(List<BindMount> bindMounts) {
     this.bindMounts = bindMounts;
     return this;
   }
@@ -151,9 +186,10 @@ public class LinuxSandboxCommandLineBuilder {
     return this;
   }
 
-  /** Sets whether to create a new network namespace. */
+  /** Sets whether and how to create a new network namespace. */
   @CanIgnoreReturnValue
-  public LinuxSandboxCommandLineBuilder setCreateNetworkNamespace(boolean createNetworkNamespace) {
+  public LinuxSandboxCommandLineBuilder setCreateNetworkNamespace(
+      NetworkNamespace createNetworkNamespace) {
     this.createNetworkNamespace = createNetworkNamespace;
     return this;
   }
@@ -186,6 +222,18 @@ public class LinuxSandboxCommandLineBuilder {
   @CanIgnoreReturnValue
   public LinuxSandboxCommandLineBuilder setUseDebugMode(boolean useDebugMode) {
     this.useDebugMode = useDebugMode;
+    return this;
+  }
+
+  /**
+   * Sets the directory to be used for cgroups. Cgroups can be used to set limits on resource usage
+   * of a subprocess tree, and to gather statistics. Requires cgroups v2 and systemd. This directory
+   * must be under {@code /sys/fs/cgroup} and the user running Bazel must have write permissions to
+   * this directory, its parent directory, and the cgroup directory for the Bazel process.
+   */
+  @CanIgnoreReturnValue
+  public LinuxSandboxCommandLineBuilder setCgroupsDir(String cgroupsDir) {
+    this.cgroupsDir = cgroupsDir;
     return this;
   }
 
@@ -228,12 +276,11 @@ public class LinuxSandboxCommandLineBuilder {
     for (PathFragment tmpfsPath : tmpfsDirectories) {
       commandLineBuilder.add("-e", tmpfsPath.getPathString());
     }
-    for (Path bindMountTarget : bindMounts.keySet()) {
-      Path bindMountSource = bindMounts.get(bindMountTarget);
-      commandLineBuilder.add("-M", bindMountSource.getPathString());
+    for (BindMount bindMount : bindMounts) {
+      commandLineBuilder.add("-M", bindMount.getContent().getPathString());
       // The file is mounted in a custom location inside the sandbox.
-      if (!bindMountSource.equals(bindMountTarget)) {
-        commandLineBuilder.add("-m", bindMountTarget.getPathString());
+      if (!bindMount.getContent().equals(bindMount.getMountPoint())) {
+        commandLineBuilder.add("-m", bindMount.getMountPoint().getPathString());
       }
     }
     if (statisticsPath != null) {
@@ -245,8 +292,10 @@ public class LinuxSandboxCommandLineBuilder {
     if (useFakeHostname) {
       commandLineBuilder.add("-H");
     }
-    if (createNetworkNamespace) {
+    if (createNetworkNamespace == NETNS_WITH_LOOPBACK) {
       commandLineBuilder.add("-N");
+    } else if (createNetworkNamespace == NETNS) {
+      commandLineBuilder.add("-n");
     }
     if (useFakeRoot) {
       commandLineBuilder.add("-R");
@@ -263,9 +312,25 @@ public class LinuxSandboxCommandLineBuilder {
     if (sigintSendsSigterm) {
       commandLineBuilder.add("-i");
     }
+    if (persistentProcess) {
+      commandLineBuilder.add("-p");
+    }
+    if (cgroupsDir != null) {
+      commandLineBuilder.add("-C", cgroupsDir);
+    }
     commandLineBuilder.add("--");
     commandLineBuilder.addAll(commandArguments);
 
     return commandLineBuilder.build();
+  }
+
+  /** Enum for the possibilities for creating a network namespace in the sandbox. */
+  public enum NetworkNamespace {
+    /** No network namespace will be created, sandboxed processes can access the network freely. */
+    NO_NETNS,
+    /** A fresh network namespace will be created. */
+    NETNS,
+    /** A fresh network namespace will be created, and a loopback device will be set up in it. */
+    NETNS_WITH_LOOPBACK,
   }
 }

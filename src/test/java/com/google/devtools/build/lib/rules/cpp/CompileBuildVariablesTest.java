@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -34,21 +35,21 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CompileBuildVariablesTest extends BuildViewTestCase {
 
-  private CppCompileAction getCppCompileAction(final String label, final String name) throws
-      Exception {
+  private CppCompileAction getCppCompileAction(ConfiguredTarget target, final String name)
+      throws Exception {
     return (CppCompileAction)
         getGeneratingAction(
             Iterables.find(
-                getGeneratingAction(getFilesToBuild(getConfiguredTarget(label)).getSingleton())
-                    .getInputs()
-                    .toList(),
+                getGeneratingAction(getFilesToBuild(target).getSingleton()).getInputs().toList(),
                 (artifact) -> artifact.getExecPath().getBaseName().startsWith(name)));
   }
 
   /** Returns active build variables for a compile action of given type for given target. */
   protected CcToolchainVariables getCompileBuildVariables(String label, String name)
       throws Exception {
-    return getCppCompileAction(label, name).getCompileCommandLine().getVariables();
+    return getCppCompileAction(getConfiguredTarget(label), name)
+        .getCompileCommandLine()
+        .getVariables();
   }
 
   @Test
@@ -100,7 +101,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   public void testPerFileCoptsAreInUserCompileFlags() throws Exception {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");
-    useConfiguration("--per_file_copt=//x:bin@-foo", "--per_file_copt=//x:bar\\.cc@-bar");
+    useConfiguration(
+        "--per_file_copt=//x:bin@-foo",
+        "--per_file_copt=//x:bar\\.cc@-bar",
+        "--host_per_file_copt=//x:bin@-baz");
 
     CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
 
@@ -108,6 +112,27 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         CcToolchainVariables.toStringList(
             variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
     assertThat(copts).containsExactly("-foo").inOrder();
+  }
+
+  @Test
+  public void testHostPerFileCoptsAreInUserCompileFlags() throws Exception {
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
+    scratch.file("x/bin.cc");
+    useConfiguration(
+        "--host_per_file_copt=//x:bin@-foo",
+        "--host_per_file_copt=//x:bar\\.cc@-bar",
+        "--per_file_copt=//x:bin@-baz");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin", getExecConfiguration());
+    CcToolchainVariables variables =
+        getCppCompileAction(target, "bin").getCompileCommandLine().getVariables();
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName());
+    assertThat(copts).contains("-foo");
+    assertThat(copts).doesNotContain("-bar");
+    assertThat(copts).doesNotContain("-baz");
   }
 
   @Test

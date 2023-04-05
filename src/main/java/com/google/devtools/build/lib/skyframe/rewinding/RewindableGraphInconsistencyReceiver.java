@@ -20,6 +20,7 @@ import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.skyframe.NodeDroppingInconsistencyReceiver;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -51,10 +52,23 @@ public final class RewindableGraphInconsistencyReceiver implements GraphInconsis
   private final Multiset<Inconsistency> selfCounts = ConcurrentHashMultiset.create();
   private final Multiset<Inconsistency> childCounts = ConcurrentHashMultiset.create();
   private boolean rewindingInitiated = false;
+  private boolean heuristicallyDropNodes = false;
+
+  public void setHeuristicallyDropNodes(boolean heuristicallyDropNodes) {
+    this.heuristicallyDropNodes = heuristicallyDropNodes;
+  }
 
   @Override
   public void noteInconsistencyAndMaybeThrow(
       SkyKey key, @Nullable Collection<SkyKey> otherKeys, Inconsistency inconsistency) {
+    if (heuristicallyDropNodes
+        && NodeDroppingInconsistencyReceiver.isExpectedInconsistency(
+            key, otherKeys, inconsistency)) {
+      // If `--heuristically_drop_nodes` is enabled, check whether the inconsistency is caused by
+      // dropped state node. If so, tolerate the inconsistency and return.
+      return;
+    }
+
     // RESET_REQUESTED and PARENT_FORCE_REBUILD_OF_CHILD may be the first inconsistencies seen with
     // rewinding. BUILDING_PARENT_FOUND_UNDONE_CHILD may also be seen, but it will not be the first.
     switch (inconsistency) {

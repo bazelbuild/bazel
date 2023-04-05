@@ -77,7 +77,6 @@ public class ActionGraphQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfigurationValue hostConfiguration,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -87,7 +86,6 @@ public class ActionGraphQueryEnvironment
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
-        hostConfiguration,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -103,7 +101,6 @@ public class ActionGraphQueryEnvironment
       ExtendedEventHandler eventHandler,
       Iterable<QueryFunction> extraFunctions,
       TopLevelConfigurations topLevelConfigurations,
-      BuildConfigurationValue hostConfiguration,
       TargetPattern.Parser mainRepoTargetParser,
       PathPackageLocator pkgPath,
       Supplier<WalkableGraph> walkableGraphSupplier,
@@ -113,7 +110,6 @@ public class ActionGraphQueryEnvironment
         eventHandler,
         extraFunctions,
         topLevelConfigurations,
-        hostConfiguration,
         mainRepoTargetParser,
         pkgPath,
         walkableGraphSupplier,
@@ -141,7 +137,6 @@ public class ActionGraphQueryEnvironment
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          BuildConfigurationValue hostConfiguration,
           @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
           PackageManager packageManager) {
     return ImmutableList.of(
@@ -170,7 +165,13 @@ public class ActionGraphQueryEnvironment
             StreamedOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters),
+            eventHandler,
+            aqueryOptions,
+            out,
+            skyframeExecutor,
+            accessor,
+            actionFilters,
+            getMainRepoMapping()),
         new ActionGraphSummaryOutputFormatterCallback(
             eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
   }
@@ -200,14 +201,6 @@ public class ActionGraphQueryEnvironment
     return configuredTargetValue == null
         ? null
         : KeyedConfiguredTargetValue.create(configuredTargetValue, key);
-  }
-
-  @Nullable
-  @Override
-  protected KeyedConfiguredTargetValue getHostConfiguredTarget(Label label)
-      throws InterruptedException {
-    return createKeyedConfiguredTargetValueFromKey(
-        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(hostConfiguration).build());
   }
 
   @Nullable
@@ -330,13 +323,6 @@ public class ActionGraphQueryEnvironment
       throws InterruptedException {
     // Try with target configuration.
     KeyedConfiguredTargetValue keyedConfiguredTargetValue = getTargetConfiguredTarget(label);
-    if (keyedConfiguredTargetValue != null) {
-      return keyedConfiguredTargetValue;
-    }
-    // Try with host configuration (even when --notool_deps is set in the case that top-level
-    // targets are configured in the host configuration so we are doing a host-configuration-only
-    // query).
-    keyedConfiguredTargetValue = getHostConfiguredTarget(label);
     if (keyedConfiguredTargetValue != null) {
       return keyedConfiguredTargetValue;
     }

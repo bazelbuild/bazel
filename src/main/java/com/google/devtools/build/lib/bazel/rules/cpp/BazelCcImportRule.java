@@ -79,7 +79,7 @@ cc_import(
 cc_import(
   name = "mylib",
   hdrs = ["mylib.h"],
-  # mylib.lib is a import library for mylib.dll which will be passed to linker
+  # mylib.lib is an import library for mylib.dll which will be passed to linker
   interface_library = "mylib.lib",
   # mylib.dll will be available for runtime
   shared_library = "mylib.dll",

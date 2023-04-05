@@ -378,7 +378,7 @@ public class DexFileMerger {
     }
   }
 
-  public static void main(String[] args) throws CompilationFailedException {
+  public static void main(String[] args) {
     try {
       if (PRINT_ARGS) {
         printArgs(args);
@@ -386,7 +386,7 @@ public class DexFileMerger {
       run(args);
     } catch (CompilationFailedException | IOException e) {
       System.err.println("Merge failed: " + e.getMessage());
-      throw new CompilationFailedException("Merge failed: " + e.getMessage());
+      throw new RuntimeException("Merge failed: " + e.getMessage(), e);
     }
   }
 

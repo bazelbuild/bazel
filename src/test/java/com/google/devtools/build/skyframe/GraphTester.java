@@ -27,12 +27,14 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.devtools.build.skyframe.SkyframeLookupResult.QueryDepCallback;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +52,10 @@ import javax.annotation.Nullable;
 public class GraphTester {
 
   public static final SkyFunctionName NODE_TYPE = SkyFunctionName.FOR_TESTING;
+
+  /** If true, uses the {@link SkyframeLookupResult#queryDep} interface to retrieve values. */
+  private boolean useQueryDep = false;
+
   private final Map<SkyFunctionName, SkyFunction> functionMap = new HashMap<>();
 
   private final Map<SkyKey, TestFunction> values = new HashMap<>();
@@ -58,6 +64,10 @@ public class GraphTester {
   public GraphTester() {
     functionMap.put(NODE_TYPE, new DelegatingFunction());
     functionMap.put(FOR_TESTING_NONHERMETIC, new DelegatingFunction());
+  }
+
+  public void setUseQueryDep(boolean useQueryDep) {
+    this.useQueryDep = useQueryDep;
   }
 
   public TestFunction getOrCreate(String name) {
@@ -111,22 +121,16 @@ public class GraphTester {
         if (builder.progress != null) {
           env.getListener().handle(Event.progress(builder.progress));
         }
+        if (builder.errorEvent != null) {
+          env.getListener().handle(Event.error(builder.errorEvent));
+        }
         if (builder.postable != null) {
           env.getListener().post(builder.postable);
         }
         Map<SkyKey, SkyValue> deps = new LinkedHashMap<>();
         boolean oneMissing = false;
         for (Pair<SkyKey, SkyValue> dep : builder.deps) {
-          SkyValue value;
-          if (dep.second == null) {
-            value = env.getValue(dep.first);
-          } else {
-            try {
-              value = env.getValueOrThrow(dep.first, SomeErrorException.class);
-            } catch (SomeErrorException e) {
-              value = dep.second;
-            }
-          }
+          SkyValue value = useQueryDep ? getValueUsingQueryDep(dep, env) : getValue(dep, env);
           if (value == null) {
             oneMissing = true;
           } else {
@@ -171,6 +175,75 @@ public class GraphTester {
     };
   }
 
+  private static SkyValue getValue(Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env)
+      throws SkyFunctionException, InterruptedException {
+    SkyValue value;
+    if (dep.second == null) {
+      value = env.getValue(dep.first);
+    } else {
+      try {
+        value = env.getValueOrThrow(dep.first, SomeErrorException.class);
+      } catch (SomeErrorException e) {
+        value = dep.second;
+      }
+    }
+    return value;
+  }
+
+  private static SkyValue getValueUsingQueryDep(
+      Pair<SkyKey, SkyValue> dep, SkyFunction.Environment env)
+      throws SkyFunctionException, InterruptedException {
+    SkyValue value;
+    var lookupResult = env.getValuesAndExceptions(ImmutableList.of(dep.first));
+    if (dep.second == null) {
+      var valueRef = new AtomicReference<SkyValue>();
+      var gotValue =
+          lookupResult.queryDep(
+              dep.first,
+              (k, v) -> {
+                assertThat(k).isEqualTo(dep.first);
+                valueRef.set(v);
+              });
+      if ((value = valueRef.get()) != null) {
+        assertThat(gotValue).isTrue();
+      } else {
+        assertThat(gotValue).isFalse();
+      }
+    } else {
+      var valueRef = new AtomicReference<SkyValue>();
+      var exceptionRef = new AtomicReference<SomeErrorException>();
+      var gotValue =
+          lookupResult.queryDep(
+              dep.first,
+              new QueryDepCallback() {
+                @Override
+                public void acceptValue(SkyKey key, SkyValue value) {
+                  assertThat(key).isEqualTo(dep.first);
+                  valueRef.set(value);
+                }
+
+                @Override
+                public boolean tryHandleException(SkyKey key, Exception e) {
+                  assertThat(key).isEqualTo(dep.first);
+                  if (e instanceof SomeErrorException) {
+                    exceptionRef.set((SomeErrorException) e);
+                    return true;
+                  }
+                  return false;
+                }
+              });
+      if ((value = valueRef.get()) != null) {
+        assertThat(gotValue).isTrue();
+      } else if (exceptionRef.get() != null) {
+        value = dep.second;
+        assertThat(gotValue).isTrue();
+      } else {
+        assertThat(gotValue).isFalse();
+      }
+    }
+    return value;
+  }
+
   public static SkyKey skyKey(String key) {
     return Key.create(key);
   }
@@ -192,6 +265,7 @@ public class GraphTester {
 
     private String warning;
     private String progress;
+    private String errorEvent;
     private Postable postable;
 
     private String tag;
@@ -264,6 +338,7 @@ public class GraphTester {
       Preconditions.checkState(!hasError);
       Preconditions.checkState(warning == null);
       Preconditions.checkState(progress == null);
+      Preconditions.checkState(errorEvent == null);
       Preconditions.checkState(tag == null);
       this.builder = builder;
       return this;
@@ -297,6 +372,16 @@ public class GraphTester {
     @CanIgnoreReturnValue
     public TestFunction setProgress(String info) {
       this.progress = info;
+      return this;
+    }
+
+    /**
+     * Sets an error message to emit as an {@link Event}. Does not imply that the function throws an
+     * error.
+     */
+    @CanIgnoreReturnValue
+    public TestFunction setErrorEvent(String error) {
+      this.errorEvent = error;
       return this;
     }
 

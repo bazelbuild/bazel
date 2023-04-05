@@ -69,7 +69,7 @@ public final class LabelVisitationUtils {
 
   private static void visitTargetVisibility(
       Target target, @Nullable Attribute attribute, LabelProcessor labelProcessor) {
-    for (Label label : target.getVisibility().getDependencyLabels()) {
+    for (Label label : target.getVisibilityDependencyLabels()) {
       labelProcessor.process(target, attribute, label);
     }
   }

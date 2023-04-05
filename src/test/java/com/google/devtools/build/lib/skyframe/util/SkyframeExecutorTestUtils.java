@@ -72,7 +72,7 @@ public class SkyframeExecutorTestUtils {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
-            .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
+            .setParallelism(SkyframeExecutor.DEFAULT_THREAD_COUNT)
             .setEventHandler(errorEventListener)
             .build();
     return skyframeExecutor.getEvaluator().evaluate(ImmutableList.of(key), evaluationContext);

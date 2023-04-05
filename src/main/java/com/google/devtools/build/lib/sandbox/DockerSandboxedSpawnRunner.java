@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -142,6 +143,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
   private final SandboxHelpers helpers;
   private final Path execRoot;
+  private final ImmutableList<Root> packageRoots;
   private final boolean allowNetwork;
   private final Path dockerClient;
   private final ProcessWrapper processWrapper;
@@ -179,6 +181,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     super(cmdEnv);
     this.helpers = helpers;
     this.execRoot = cmdEnv.getExecRoot();
+    this.packageRoots = cmdEnv.getPackageLocator().getPathEntries();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.dockerClient = dockerClient;
     this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
@@ -222,8 +225,11 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs inputs =
         helpers.processInputFiles(
-            context.getInputMapping(PathFragment.EMPTY_FRAGMENT),
-            execRoot);
+            context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
+            execRoot,
+            execRoot,
+            packageRoots,
+            null);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
     Duration timeout = context.getTimeout();
@@ -233,7 +239,7 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     String baseImageName = dockerContainerFromSpawn(spawn).orElse(this.defaultImage);
     if (baseImageName.isEmpty()) {
       throw new UserExecException(
-          createFailureDetail(
+          SandboxHelpers.createFailureDetail(
               String.format(
                   "Cannot execute %s mnemonic with Docker, because no image could be found in the"
                       + " remote_execution_properties of the platform and no default image was set"
@@ -329,34 +335,47 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
                       .getRelative(execRoot.getBaseName())
                       .getPathString();
               StringBuilder dockerfile = new StringBuilder();
-              dockerfile.append(String.format("FROM %s\n", image));
-              dockerfile.append(String.format("RUN [\"mkdir\", \"-p\", \"%s\"]\n", workDir));
-              // TODO(philwo) this will fail if a user / group with the given uid / gid already
-              // exists
-              // in the container. For now this seems reasonably unlikely, but we'll have to come up
-              // with a better way.
-              if (gid > 0) {
-                dockerfile.append(
-                    String.format("RUN [\"groupadd\", \"-g\", \"%d\", \"bazelbuild\"]\n", gid));
-              }
-              if (uid > 0) {
-                dockerfile.append(
-                    String.format(
-                        "RUN [\"useradd\", \"-l\", \"-m\", \"-g\", \"%d\", \"-d\", \"%s\", \"-N\","
-                            + " \"-u\", \"%d\", \"bazelbuild\"]\n",
-                        gid, workDir, uid));
-              }
+              dockerfile.append("ARG image\n");
+              dockerfile.append("FROM $image\n");
+              dockerfile.append("ARG work_dir\n");
+              dockerfile.append("RUN mkdir --parents $work_dir\n"); // could this be a VOLUME?
+              dockerfile.append("ARG group_name\n");
+              dockerfile.append("ARG gid\n");
+              dockerfile.append("RUN groupadd --non-unique --gid $gid $group_name\n");
+              dockerfile.append("ARG user_name\n");
+              dockerfile.append("ARG uid\n");
               dockerfile.append(
-                  String.format("RUN [\"chown\", \"-R\", \"%d:%d\", \"%s\"]\n", uid, gid, workDir));
-              dockerfile.append(String.format("USER %d:%d\n", uid, gid));
-              dockerfile.append(String.format("ENV HOME %s\n", workDir));
-              if (uid > 0) {
-                dockerfile.append(String.format("ENV USER bazelbuild\n"));
-              }
-              dockerfile.append(String.format("WORKDIR %s\n", workDir));
+                  "RUN useradd --non-unique --no-log-init --create-home --gid $gid --home-dir"
+                      + " $work_dir --no-user-group --uid"
+                      + " $uid"
+                      + " $user_name\n"); // we've already created home above?
+              dockerfile.append(
+                  "RUN chown --recursive $uid:$gid $work_dir\n"); // if we create home with useradd
+              // it'd already have the right
+              // ownership
+              dockerfile.append("USER $user_name:$group_name\n");
+              dockerfile.append("ENV HOME $work_dir\n");
+              dockerfile.append("ENV USER $user_name\n");
+              dockerfile.append("WORKDIR $work_dir\n");
               try {
                 return executeCommand(
-                    ImmutableList.of(dockerClient.getPathString(), "build", "-q", "-"),
+                    ImmutableList.of(
+                        dockerClient.getPathString(),
+                        "build",
+                        "--build-arg",
+                        String.format("image=%s", image),
+                        "--build-arg",
+                        String.format("work_dir=%s", workDir),
+                        "--build-arg",
+                        String.format("group_name=%s", "bazelbuild"),
+                        "--build-arg",
+                        String.format("gid=%d", gid),
+                        "--build-arg",
+                        String.format("user_name=%s", "bazelbuild"),
+                        "--build-arg",
+                        String.format("uid=%d", uid),
+                        "-q",
+                        "-"),
                     new ByteArrayInputStream(
                         dockerfile.toString().getBytes(Charset.defaultCharset())));
               } catch (UserExecException e) {
@@ -389,7 +408,8 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       cmd.executeAsync(stdIn, stdOut, stdErr, Command.KILL_SUBPROCESS_ON_INTERRUPT).get();
     } catch (CommandException e) {
       String message = String.format("Running command %s failed: %s", cmd.toDebugString(), stdErr);
-      throw new UserExecException(e, createFailureDetail(message, Code.DOCKER_COMMAND_FAILURE));
+      throw new UserExecException(
+          e, SandboxHelpers.createFailureDetail(message, Code.DOCKER_COMMAND_FAILURE));
     }
     return stdOut.toString().trim();
   }

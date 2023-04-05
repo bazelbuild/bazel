@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -229,18 +232,29 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         return createDetailedCommandResult(
             retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
-      BlazeCommandResult result =
-          execExclusively(
-              originalCommandLine,
-              invocationPolicy,
-              args,
-              outErr,
-              firstContactTimeMillis,
-              commandName,
-              command,
-              waitTimeInMs,
-              startupOptionsTaggedWithBazelRc,
-              commandExtensions);
+      BlazeCommandResult result;
+      int attempt = 0;
+      while (true) {
+        try {
+          result =
+              execExclusively(
+                  originalCommandLine,
+                  invocationPolicy,
+                  args,
+                  outErr,
+                  firstContactTimeMillis,
+                  commandName,
+                  command,
+                  waitTimeInMs,
+                  startupOptionsTaggedWithBazelRc,
+                  commandExtensions,
+                  attempt);
+          break;
+        } catch (RemoteCacheEvictedException e) {
+          outErr.printErrLn("Found remote cache eviction error, retrying the build...");
+          attempt += 1;
+        }
+      }
       if (result.shutdown()) {
         setShutdownReason(
             "Server shut down "
@@ -288,7 +302,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       BlazeCommand command,
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
-      List<Any> commandExtensions) {
+      List<Any> commandExtensions,
+      int attempt)
+      throws RemoteCacheEvictedException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
@@ -547,6 +563,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         // Compute the repo mapping of the main repo and re-parse options so that we get correct
         // values for label-typed options.
+        env.getEventBus().post(new MainRepoMappingComputationStartingEvent());
         try {
           RepositoryMapping mainRepoMapping =
               env.getSkyframeExecutor().getMainRepoMapping(reporter);
@@ -629,7 +646,18 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       needToCallAfterCommand = false;
-      return runtime.afterCommand(env, result);
+      var newResult = runtime.afterCommand(env, result);
+      if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
+        var executionOptions =
+            Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
+        if (attempt < executionOptions.remoteRetryOnCacheEviction) {
+          throw new RemoteCacheEvictedException();
+        }
+      }
+
+      return newResult;
+    } catch (RemoteCacheEvictedException e) {
+      throw e;
     } catch (Throwable e) {
       logger.atSevere().withCause(e).log("Shutting down due to exception");
       Crash crash = Crash.from(e);
@@ -662,6 +690,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
     }
   }
+
+  private static class RemoteCacheEvictedException extends IOException {}
 
   private static void replayEarlyExitEvents(
       OutErr outErr,

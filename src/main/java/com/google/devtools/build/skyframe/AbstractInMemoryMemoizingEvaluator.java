@@ -14,15 +14,12 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
-import com.google.errorprone.annotations.ForOverride;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -30,22 +27,14 @@ import javax.annotation.Nullable;
 /** Partial implementation of {@link MemoizingEvaluator} based on an {@link InMemoryGraph}. */
 public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
-  @ForOverride
-  protected abstract InMemoryGraph inMemoryGraph();
-
   @Override
   public final Map<SkyKey, SkyValue> getValues() {
-    return inMemoryGraph().getValues();
-  }
-
-  @Override
-  public final ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
-    return inMemoryGraph().getAllValuesMutable();
+    return getInMemoryGraph().getValues();
   }
 
   @Override
   public final Map<SkyKey, SkyValue> getDoneValues() {
-    return inMemoryGraph().getDoneValues();
+    return getInMemoryGraph().getDoneValues();
   }
 
   private static boolean isDone(@Nullable NodeEntry entry) {
@@ -77,14 +66,14 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Nullable
   @Override
   public final NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
-    return inMemoryGraph().get(null, Reason.OTHER, key);
+    return getInMemoryGraph().get(null, Reason.OTHER, key);
   }
 
   @Override
   public final void dumpSummary(PrintStream out) {
     long nodes = 0;
     long edges = 0;
-    for (InMemoryNodeEntry entry : inMemoryGraph().getAllValues().values()) {
+    for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       nodes++;
       if (entry.isDone() && entry.keepsEdges()) {
         edges += Iterables.size(entry.getDirectDeps());
@@ -97,8 +86,8 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public final void dumpCount(PrintStream out) {
     Map<String, AtomicInteger> counter = new HashMap<>();
-    for (SkyKey key : inMemoryGraph().getAllValues().keySet()) {
-      String mapKey = key.functionName().getName();
+    for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
+      String mapKey = entry.getKey().functionName().getName();
       counter.putIfAbsent(mapKey, new AtomicInteger());
       counter.get(mapKey).incrementAndGet();
     }
@@ -110,25 +99,23 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public final void dumpDeps(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
-    for (Map.Entry<SkyKey, InMemoryNodeEntry> x : inMemoryGraph().getAllValues().entrySet()) {
+    for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       // This can be very long running on large graphs so check for user abort requests.
       if (Thread.interrupted()) {
         out.println("aborting");
         throw new InterruptedException();
       }
 
-      SkyKey key = x.getKey();
-      InMemoryNodeEntry entry = x.getValue();
-      String canonicalizedKey = canonicalizeKey(key);
+      String canonicalizedKey = canonicalizeKey(entry.getKey());
       if (!filter.test(canonicalizedKey) || !entry.isDone()) {
         continue;
       }
       out.println(canonicalizedKey);
       if (entry.keepsEdges()) {
-        GroupedList<SkyKey> deps = GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
-        for (int i = 0; i < deps.listSize(); i++) {
+        GroupedDeps deps = GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
+        for (int i = 0; i < deps.numGroups(); i++) {
           out.format("  Group %d:\n", i + 1);
-          for (SkyKey dep : deps.get(i)) {
+          for (SkyKey dep : deps.getDepGroup(i)) {
             out.print("    ");
             out.println(canonicalizeKey(dep));
           }
@@ -143,15 +130,13 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   @Override
   public final void dumpRdeps(PrintStream out, Predicate<String> filter)
       throws InterruptedException {
-    for (Map.Entry<SkyKey, InMemoryNodeEntry> x : inMemoryGraph().getAllValues().entrySet()) {
+    for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       // This can be very long running on large graphs so check for user abort requests.
       if (Thread.interrupted()) {
         throw new InterruptedException();
       }
 
-      SkyKey key = x.getKey();
-      InMemoryNodeEntry entry = x.getValue();
-      String canonicalizedKey = canonicalizeKey(key);
+      String canonicalizedKey = canonicalizeKey(entry.getKey());
       if (!filter.test(canonicalizedKey) || !entry.isDone()) {
         continue;
       }
@@ -169,8 +154,13 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     }
   }
 
-  private String canonicalizeKey(SkyKey key) {
+  private static String canonicalizeKey(SkyKey key) {
     return String.format(
         "%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
+  }
+
+  @Override
+  public void cleanupInterningPools() {
+    getInMemoryGraph().cleanupInterningPool();
   }
 }

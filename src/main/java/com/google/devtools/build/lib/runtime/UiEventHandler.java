@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedE
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.MainRepoMappingComputationStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.events.Event;
@@ -102,7 +103,7 @@ public final class UiEventHandler implements EventHandler {
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
   private final OutErr outErr;
-  private final ImmutableSet<EventKind> filteredEvents;
+  private final ImmutableSet<EventKind> filteredEventKinds;
   private long progressRateLimitMillis;
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
@@ -205,7 +206,7 @@ public final class UiEventHandler implements EventHandler {
     this.dateShown = false;
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
-    this.filteredEvents = ImmutableSet.copyOf(options.eventFilters);
+    this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -407,7 +408,7 @@ public final class UiEventHandler implements EventHandler {
   }
 
   private void handleInternal(Event event) {
-    if (this.filteredEvents.contains(event.getKind())) {
+    if (filteredEventKinds.contains(event.getKind())) {
       return;
     }
     try {
@@ -517,10 +518,20 @@ public final class UiEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public void buildStarted(BuildStartingEvent event) {
+  public void mainRepoMappingComputationStarted(MainRepoMappingComputationStartingEvent event) {
     synchronized (this) {
       buildRunning = true;
     }
+    maybeAddDate();
+    stateTracker.buildStarted();
+    // As a new phase started, inform immediately.
+    ignoreRefreshLimitOnce();
+    refresh();
+    startUpdateThread();
+  }
+
+  @Subscribe
+  public void buildStarted(BuildStartingEvent event) {
     maybeAddDate();
     stateTracker.buildStarted();
     // As a new phase started, inform immediately.
@@ -574,15 +585,17 @@ public final class UiEventHandler implements EventHandler {
     // it as an event and add a timestamp, if events are supposed to have a timestamp.
     boolean done = false;
     synchronized (this) {
-      stateTracker.buildComplete(event);
+      handleInternal(stateTracker.buildComplete(event));
       ignoreRefreshLimitOnce();
-      refresh();
 
       // After a build has completed, only stop updating the UI if there is no more activities.
       if (!stateTracker.hasActivities()) {
         buildRunning = false;
         done = true;
       }
+
+      // Only refresh after we have determined whether we need to keep the progress bar up.
+      refresh();
     }
     if (done) {
       stopUpdateThread();
@@ -985,8 +998,10 @@ public final class UiEventHandler implements EventHandler {
           TIMESTAMP_FORMAT.format(
               Instant.ofEpochMilli(clock.currentTimeMillis()).atZone(ZoneId.systemDefault()));
     }
-    stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
-    terminalWriter.newline();
+    if (stateTracker.hasActivities()) {
+      stateTracker.writeProgressBar(terminalWriter, /*shortVersion=*/ !cursorControl, timestamp);
+      terminalWriter.newline();
+    }
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
     if (progressInTermTitle) {
       LoggingTerminalWriter stringWriter = new LoggingTerminalWriter(true);

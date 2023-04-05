@@ -70,7 +70,7 @@ public class GenRuleBaseRule implements RuleDefinition {
         <a href="${link build-ref#deps}">dependencies</a> for more information. <br/>
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='${link guide#configurations}'><i>host</i>
+          they are built using the <a href='${link guide#configurations}'><i>exec</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -82,29 +82,21 @@ public class GenRuleBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
-        A list of <i>tool</i> dependencies for this rule. This behaves exactly like the
-        <a href="#genrule.tools"><code>tools</code></a> attribute, except that these dependencies
-        will be configured for the rule's execution platform instead of the host configuration.
-        This means that dependencies in <code>exec_tools</code> are not subject to the same
-        limitations as dependencies in <code>tools</code>. In particular, they are not required to
-        use the host configuration for their own transitive dependencies. See
-        <a href="#genrule.tools"><code>tools</code></a> for further details.
+        <b>Deprecated. Use <a href="#genrule.tools"><code>tools</code></a> instead.</b>
 
         <p>
-          The Blaze team is migrating all uses of <code>tools</code> to use <code>exec_tools</code>
-          semantics. Users are encouraged to prefer <code>exec_tools</code> to <code>tools</code>
-          where this does not cause any issues. After the functional migration is complete, we may
-          rename <code>exec_tools</code> to <code>tools</code>.  You will receive a deprecation
-          warning and migration instructions before this happens.
+          There was a period of time when <code>exec_tools</code> and <code>tools</code> behaved
+          differently, but they are now equivalent and the Blaze team will be migrating all uses of
+          <code>exec_tools</code> to <code>tools</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exec_tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .dontCheckConstraints())
 
@@ -144,7 +136,7 @@ public class GenRuleBaseRule implements RuleDefinition {
           <li>
             Next, <a href="${link make-variables}">"Make" variables</a> are expanded. Note that
             predefined variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and
-            <code>$(JAVABASE)</code> expand under the <i>host</i> configuration, so Java invocations
+            <code>$(JAVABASE)</code> expand under the <i>exec</i> configuration, so Java invocations
             that run as part of a build step can correctly load shared libraries and other
             dependencies.
           </li>

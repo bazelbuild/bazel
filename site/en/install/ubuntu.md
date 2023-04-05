@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing Bazel on Ubuntu
 
+{% include "_buttons.html" %}
+
 This page describes the options for installing Bazel on Ubuntu.
 It also provides links to the Bazel completion scripts and the binary installer,
 if needed as a backup option (for example, if you don't have admin access).
@@ -20,6 +22,7 @@ Install Bazel on Ubuntu using one of the following methods:
 *   *Recommended*: [Use Bazelisk](/install/bazelisk)
 *   [Use our custom APT repository](#install-on-ubuntu)
 *   [Use the binary installer](#binary-installer)
+*   [Use the Bazel Docker container](#docker-container)
 *   [Compile Bazel from source](/install/compile-source)
 
 **Note:** For Arm-based systems, the APT repository does not contain an `arm64`
@@ -31,14 +34,14 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 *   Access the [bash completion script](/install/completion#bash)
 *   Install the [zsh completion script](/install/completion#zsh)
 
-### Step 1: Add Bazel distribution URI as a package source {:#add-dis-uri}
-
 ## Using Bazel's apt repository {:#install-on-ubuntu}
+
+### Step 1: Add Bazel distribution URI as a package source {:#add-dis-uri}
 
 **Note:** This is a one-time setup step.
 
 ```posix-terminal
-sudo apt install apt-transport-https curl gnupg
+sudo apt install apt-transport-https curl gnupg -y
 curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor >bazel-archive-keyring.gpg
 sudo mv bazel-archive-keyring.gpg /usr/share/keyrings
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
@@ -153,3 +156,15 @@ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` or `~/.zshrc` file to make it
 permanent.
+
+## Using the Bazel Docker container {:#docker-container}
+
+We publish Docker container with Bazel installed for each Bazel version at `gcr.io/bazel-public/bazel`.
+You can use the Docker container as follows:
+
+```
+$ docker pull gcr.io/bazel-public/bazel:<bazel version>
+```
+
+The Docker container is built by [these steps](https://github.com/bazelbuild/continuous-integration/tree/master/bazel/oci).
+

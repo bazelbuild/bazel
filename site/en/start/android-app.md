@@ -3,6 +3,10 @@ Book: /_book.yaml
 
 # Bazel Tutorial: Build an Android App
 
+{% include "_buttons.html" %}
+**Note:** There are known limitations on using Bazel for building Android apps.
+Visit the Github [team-Android hotlist](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Ateam-Android) to see the list of known issues. While the Bazel team and Open Source Software (OSS) contributors work actively to address known issues, users should be aware that Android Studio does not officially support Bazel projects.
+
 This tutorial covers how to build a simple Android app using Bazel.
 
 Bazel supports building Android apps using the

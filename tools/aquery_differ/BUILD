@@ -13,7 +13,6 @@
 # limitations under the License.
 
 load("//tools/python:private/py_test_alias.bzl", "py_test_alias")
-load("//tools/python:private/defs.bzl", "py_binary", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 

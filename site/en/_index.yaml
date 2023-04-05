@@ -150,11 +150,11 @@ landing_page:
       image_path: /images/new_3.svg
       description: >
         Tune in for our new monthly community update livestream.
-    - heading: IntelliJ IDEA Plugin
-      path: https://blog.bazel.build/2022/07/11/Bazel-IntelliJ-Update.html
+    - heading: Query quickstart tutorial
+      path: /query/quickstart
       image_path: /images/new_2.svg
       description: >
-        Announcing Bazel & JetBrains co-maintenance of IntelliJ IDEA Bazel Plugin.
+        Get started with the Bazel query language with this new guided scenario.
 
   - options:
     - cta

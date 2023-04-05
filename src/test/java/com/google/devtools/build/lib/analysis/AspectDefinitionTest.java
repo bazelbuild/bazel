@@ -19,10 +19,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
@@ -36,7 +33,6 @@ import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.Missin
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkValue;
@@ -58,7 +54,7 @@ public class AspectDefinitionTest {
 
   private static final class P4 implements TransitiveInfoProvider {}
 
-  private static final Label FAKE_LABEL = Label.parseAbsoluteUnchecked("//fake/label.bzl");
+  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//fake/label.bzl");
 
   private static final StarlarkProviderIdentifier STARLARK_P1 =
       StarlarkProviderIdentifier.forKey(new StarlarkProvider.Key(FAKE_LABEL, "STARLARK_P1"));
@@ -86,7 +82,8 @@ public class AspectDefinitionTest {
 
     @Override
     public ConfiguredAspect create(
-        ConfiguredTargetAndData ctadBase,
+        Label targetLabel,
+        ConfiguredTarget ct,
         RuleContext context,
         AspectParameters parameters,
         RepositoryName toolsRepository) {
@@ -103,15 +100,17 @@ public class AspectDefinitionTest {
 
   @Test
   public void testAspectWithImplicitOrLateboundAttribute_addsToAttributeMap() throws Exception {
-    Attribute implicit = attr("$runtime", BuildType.LABEL)
-        .value(Label.parseAbsoluteUnchecked("//run:time"))
-        .build();
+    Attribute implicit =
+        attr("$runtime", BuildType.LABEL)
+            .value(Label.parseCanonicalUnchecked("//run:time"))
+            .build();
     LabelLateBoundDefault<Void> latebound =
-        LateBoundDefault.fromConstantForTesting(Label.parseAbsoluteUnchecked("//run:away"));
-    AspectDefinition simple = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .add(implicit)
-        .add(attr(":latebound", BuildType.LABEL).value(latebound))
-        .build();
+        LateBoundDefault.fromConstantForTesting(Label.parseCanonicalUnchecked("//run:away"));
+    AspectDefinition simple =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .add(implicit)
+            .add(attr(":latebound", BuildType.LABEL).value(latebound))
+            .build();
     assertThat(simple.getAttributes()).containsEntry("$runtime", implicit);
     assertThat(simple.getAttributes()).containsKey(":latebound");
     assertThat(simple.getAttributes().get(":latebound").getLateBoundDefault())
@@ -126,10 +125,10 @@ public class AspectDefinitionTest {
             new AspectDefinition.Builder(TEST_ASPECT_CLASS)
                 .add(
                     attr("$runtime", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//run:time")))
+                        .value(Label.parseCanonicalUnchecked("//run:time")))
                 .add(
                     attr("$runtime", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//oops"))));
+                        .value(Label.parseCanonicalUnchecked("//oops"))));
   }
 
   @Test
@@ -140,7 +139,7 @@ public class AspectDefinitionTest {
             new AspectDefinition.Builder(TEST_ASPECT_CLASS)
                 .add(
                     attr("invalid", BuildType.LABEL)
-                        .value(Label.parseAbsoluteUnchecked("//run:time"))
+                        .value(Label.parseCanonicalUnchecked("//run:time"))
                         .allowedFileTypes(FileTypeSet.NO_FILE))
                 .build());
   }
@@ -343,20 +342,6 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testRequiresHostConfigurationFragments_propagatedToConfigurationFragmentPolicy()
-      throws Exception {
-    AspectDefinition requiresFragments =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragments(FooFragment.class, BarFragment.class)
-            .originalBuilder()
-            .build();
-    assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(
-        requiresFragments.getConfigurationFragmentPolicy().getRequiredConfigurationFragments())
-            .containsExactly(FooFragment.class, BarFragment.class);
-  }
-
-  @Test
   public void testRequiresConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
     AspectDefinition requiresFragments =
         new AspectDefinition.Builder(TEST_ASPECT_CLASS)
@@ -364,35 +349,10 @@ public class AspectDefinitionTest {
             .build();
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
-        requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, NoTransition.INSTANCE))
+            requiresFragments
+                .getConfigurationFragmentPolicy()
+                .isLegalConfigurationFragment(TestFragment.class))
         .isTrue();
-  }
-
-  @Test
-  public void testRequiresHostConfigurationFragmentNames_propagatedToConfigurationFragmentPolicy() {
-    AspectDefinition requiresFragments =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
-                ImmutableList.of("test_fragment"))
-            .originalBuilder()
-            .build();
-    assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
-    assertThat(
-        requiresFragments.getConfigurationFragmentPolicy()
-            .isLegalConfigurationFragment(TestFragment.class, HostTransition.INSTANCE))
-        .isTrue();
-  }
-
-  @Test
-  public void testEmptyStarlarkConfigurationFragmentPolicySetup_hasNonNullPolicy() {
-    AspectDefinition noPolicy =
-        ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
-            .originalBuilder()
-            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of())
-            .build();
-    assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }
 
   @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")

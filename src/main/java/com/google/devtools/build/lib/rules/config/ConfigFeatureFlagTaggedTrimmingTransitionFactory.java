@@ -103,7 +103,17 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory
         new ImmutableSortedSet.Builder<>(Ordering.natural());
     if (attrs.isAttributeValueExplicitlySpecified(attributeName)
         && !attrs.get(attributeName, NODEP_LABEL_LIST).isEmpty()) {
-      requiredLabelsBuilder.addAll(attrs.get(attributeName, NODEP_LABEL_LIST));
+      // Entries starting with //command_line_option[:/] represent native options and are not
+      // relevant for this transition. Non-existent flags already do not error so this skipping
+      // is done out of an abundance of caution and as a statement of intent for the future.
+      for (Label entry : attrs.get(attributeName, NODEP_LABEL_LIST)) {
+        String packageName = entry.getPackageName();
+        if (packageName.equals("command_line_option")
+            || packageName.startsWith("command_line_option/")) {
+          continue;
+        }
+        requiredLabelsBuilder.add(entry);
+      }
     }
     if (ruleClass.getTransitionFactory() instanceof ConfigFeatureFlagTransitionFactory) {
       String settingAttribute =

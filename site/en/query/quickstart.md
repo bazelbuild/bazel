@@ -1,316 +1,515 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-# Bazel Query How-To
-
-This page covers how to get started using Bazel's query language to trace
-dependencies in your code.
-
-For a language details and `--output` flag details, please see the
-reference manuals, [Bazel query reference](/reference/query)
-and [Bazel cquery reference](/docs/cquery). You can get help by
-typing `bazel help query` or `bazel help cquery` on the
-command line.
-
-To execute a query while ignoring errors such as missing targets, use the
-`--keep_going` flag.
-
-## Finding the dependencies of a rule {:#finding-rule-dependencies}
-
-To see the dependencies of `//foo`, use the
-`deps` function in bazel query:
-
-<pre>
-$ bazel query "deps(//foo)"
-//foo:foo
-//foo:foo-dep
-...
-</pre>
-
-This is the set of all targets required to build `//foo`.
-
-## Tracing the dependency chain between two packages {:#tracing-dependency-chain}
-
-The library `//third_party/zlib:zlibonly` isn't in the BUILD file for
-`//foo`, but it is an indirect dependency. How can
-we trace this dependency path?  There are two useful functions here:
-`allpaths` and `somepath`. You may also want to exclude
-tooling dependencies with `--notool_deps` if you care only about
-what is included in the artifact you built, and not every possible job.
+# Query quickstart
 
-To visualize the graph of all dependencies, pipe the bazel query output through
-  the `dot` command-line tool:
+This tutorial covers how to work with Bazel to trace dependencies in your code using a premade Bazel project.
 
-<pre>
-$ bazel query "allpaths(//foo, third_party/...)" --notool_deps --output graph | dot -Tsvg > /tmp/deps.svg
-</pre>
+For language and `--output` flag details, see the [Bazel query reference](/query/language) and [Bazel cquery reference](/query/cquery) manuals. Get help in your IDE by typing `bazel help query` or `bazel help cquery` on the command line.
 
-Note: `dot` supports other image formats, just replace `svg` with the
-format identifier, for example, `png`.
+## Objective
 
-When a dependency graph is big and complicated, it can be helpful start with a single path:
+This guide runs you through a set of basic queries you can use to learn more about your project's file dependencies. It is intended for new Bazel developers with a basic knowledge of how Bazel and `BUILD` files work.
 
-<pre>
-$ bazel query "somepath(//foo:foo, third_party/zlib:zlibonly)"
-//foo:foo
-//translations/tools:translator
-//translations/base:base
-//third_party/py/MySQL:MySQL
-//third_party/py/MySQL:_MySQL.so
-//third_party/mysql:mysql
-//third_party/zlib:zlibonly
-</pre>
 
-If you do not specify `--output graph` with `allpaths`,
-you will get a flattened list of the dependency graph.
+## Prerequisites
 
-<pre>
-$ bazel query "allpaths(//foo, third_party/...)"
-  ...many errors detected in BUILD files...
-//foo:foo
-//translations/tools:translator
-//translations/tools:aggregator
-//translations/base:base
-//tools/pkg:pex
-//tools/pkg:pex_phase_one
-//tools/pkg:pex_lib
-//third_party/python:python_lib
-//translations/tools:messages
-//third_party/py/xml:xml
-//third_party/py/xml:utils/boolean.so
-//third_party/py/xml:parsers/sgmlop.so
-//third_party/py/xml:parsers/pyexpat.so
-//third_party/py/MySQL:MySQL
-//third_party/py/MySQL:_MySQL.so
-//third_party/mysql:mysql
-//third_party/openssl:openssl
-//third_party/zlib:zlibonly
-//third_party/zlib:zlibonly_v1_2_3
-//third_party/python:headers
-//third_party/openssl:crypto
-</pre>
+Start by installing [Bazel](https://bazel.build/install), if you haven’t already. This tutorial uses Git for source control, so for best results, install [Git](https://github.com/git-guides/install-git) as well.
 
-### Aside: implicit dependencies {:#implicit-dependencies}
+To visualize dependency graphs, the tool called Graphviz is used, which you can [download](https://graphviz.org/download/) in order to follow along.
 
-The BUILD file for `//foo` never references
-`//translations/tools:aggregator`. So, where's the direct dependency?
+### Get the sample project
 
-Certain rules include implicit dependencies on additional libraries or tools.
-For example, to build a `genproto` rule, you need first to build the Protocol
-Compiler, so every `genproto` rule carries an implicit dependency on the
-protocol compiler. These dependencies are not mentioned in the build file,
-but added in by the build tool. The full set of implicit dependencies is
-  currently undocumented. Using `--noimplicit_deps` allows you to filter out
-  these deps from your query results. For cquery, this will include resolved toolchains.
+Next, retrieve the sample app from [Bazel's Examples repository](https://github.com/bazelbuild/examples) by running the following in your command-line tool of choice:
 
-## Reverse dependencies {:#reverse-dependencies}
+```posix-terminal
+git clone https://github.com/bazelbuild/examples.git
+```
 
-You might want to know the set of targets that depends on some target. For instance,
-if you're going to change some code, you might want to know what other code
-you're about to break. You can use `rdeps(u, x)` to find the reverse
-dependencies of the targets in `x` within the transitive closure of `u`.
+The sample project for this tutorial is in the `examples/query-quickstart` directory.
 
-Bazel's [Sky Query](/reference/query#sky-query)
-supports the `allrdeps` function which allows you to query reverse dependencies
-in a universe you specify.
+## Getting started
 
-## Miscellaneous uses {:#miscellaneous-uses}
+### What are Bazel queries?
 
-You can use `bazel query` to analyze many dependency relationships.
+Queries help you to learn about a Bazel codebase by analyzing the relationships between `BUILD` files and examining the resulting output for useful information. This guide previews some basic query functions, but for more options see the [query guide](https://bazel.build/query/guide). Queries help you learn about dependencies in large scale projects without manually navigating through `BUILD` files.
 
-### What exists ... {:#what-exists}
+To run a query, open your command line terminal and enter:
 
-#### What packages exist beneath `foo`? {:#what-exists-beneath-foo}
+```posix-terminal
+bazel query 'query_function'
+```
 
-<pre>bazel query 'foo/...' --output package</pre>
+### Scenario
 
-#### What rules are defined in the `foo` package? {:#rules-defined-in-foo}
+Imagine a scenario that delves into the relationship between Cafe Bazel and its respective chef. This Cafe exclusively sells pizza and mac & cheese. Take a look below at how the project is structured:
 
-<pre>bazel query 'kind(rule, foo:*)' --output label_kind</pre>
+```
+bazelqueryguide
+├── BUILD
+├── src
+│   └── main
+│       └── java
+│           └── com
+│               └── example
+│                   ├── customers
+│                   │   ├── Jenny.java
+│                   │   ├── Amir.java
+│                   │   └── BUILD
+│                   ├── dishes
+│                   │   ├── Pizza.java
+│                   │   ├── MacAndCheese.java
+│                   │   └── BUILD
+│                   ├── ingredients
+│                   │   ├── Cheese.java
+│                   │   ├── Tomatoes.java
+│                   │   ├── Dough.java
+│                   │   ├── Macaroni.java
+│                   │   └── BUILD
+│                   ├── restaurant
+│                   │   ├── Cafe.java
+│                   │   ├── Chef.java
+│                   │   └── BUILD
+│                   ├── reviews
+│                   │   ├── Review.java
+│                   │   └── BUILD
+│                   └── Runner.java
+└── WORKSPACE
+```
 
-#### What files are generated by rules in the `foo` package? {:#files-generated-by-rules}
+Throughout this tutorial, unless directed otherwise, try not to look in the `BUILD` files to find the information you need and instead solely use the query function.
 
-<pre>bazel query 'kind("generated file", //foo:*)'</pre>
+A project consists of different packages that make up a Cafe. They are separated into: `restaurant`, `ingredients`, `dishes`, `customers`, and `reviews`. Rules within these packages define different components of the Cafe with various tags and dependencies.
 
-#### What targets are generated by starlark macro `foo`? {:#targets-generated-by-foo}
+### Running a build
 
-<pre>bazel query 'attr(generator_function, foo, //path/to/search/...)'</pre>
+This project contains a main method inside of `Runner.java` that you can execute
+to print out a menu of the Cafe. Build the project using Bazel with the command
+`bazel build` and use `:` to signal that the target is named `runner`. See
+[target names](https://bazel.build/concepts/labels#target-names) to learn how to
+reference targets.
 
-#### What's the set of BUILD files needed to build `//foo`? {:#build-files-required}
+To build this project, paste this command into a terminal:
 
-<pre>bazel query 'buildfiles(deps(//foo))' | cut -f1 -d:</pre>
+```posix-terminal
+bazel build :runner
+```
 
-#### What are the individual tests that a `test_suite` expands to? {:#individual-tests-in-testsuite}
+Your output should look something like this if the build is successful.
 
-<pre>bazel query 'tests(//foo:smoke_tests)'</pre>
+```bash
+INFO: Analyzed target //:runner (49 packages loaded, 784 targets configured).
+INFO: Found 1 target...
+Target //:runner up-to-date:
+  bazel-bin/runner.jar
+  bazel-bin/runner
+INFO: Elapsed time: 16.593s, Critical Path: 4.32s
+INFO: 23 processes: 4 internal, 10 darwin-sandbox, 9 worker.
+INFO: Build completed successfully, 23 total actions
+```
 
-#### Which of those are C++ tests? {:#cxx-tests}
+After it has built successfully, run the application by pasting this command:
 
-<pre>bazel query 'kind(cc_.*, tests(//foo:smoke_tests))'</pre>
+```posix-terminal
+bazel-bin/runner
+```
 
-#### Which of those are small?  Medium?  Large? {:#size-of-tests}
+```bash
+--------------------- MENU -------------------------
 
-<pre>
-bazel query 'attr(size, small, tests(//foo:smoke_tests))'
+Pizza - Cheesy Delicious Goodness
+Macaroni & Cheese - Kid-approved Dinner
 
-bazel query 'attr(size, medium, tests(//foo:smoke_tests))'
+----------------------------------------------------
+```
+This leaves you with a list of the menu items given along with a short description.
 
-bazel query 'attr(size, large, tests(//foo:smoke_tests))'
-</pre>
+## Exploring targets
 
-#### What are the tests beneath `foo` that match a pattern? {:#tests-beneath-foo}
+The project lists ingredients and dishes in their own packages. To use a query to view the rules of a package, run the command <code>bazel query <em>package</em>/…</code>
 
-<pre>bazel query 'filter("pa?t", kind(".*_test rule", //foo/...))'</pre>
+In this case, you can use this to look through the ingredients and dishes that this Cafe has by running:
 
-The pattern is a regex and is applied to the full name of the rule. It's similar to doing
+```posix-terminal
+bazel query //src/main/java/com/example/dishes/...
+```
 
-<pre>bazel query 'kind(".*_test rule", //foo/...)' | grep -E 'pa?t'</pre>
+```posix-terminal
+bazel query //src/main/java/com/example/ingredients/...
+```
 
-#### What package contains file `path/to/file/bar.java`? {:#barjava-package}
+If you query for the targets of the ingredients package, the output should look like:
 
-<pre> bazel query path/to/file/bar.java --output=package</pre>
+```bash
+//src/main/java/com/example/ingredients:cheese
+//src/main/java/com/example/ingredients:dough
+//src/main/java/com/example/ingredients:macaroni
+//src/main/java/com/example/ingredients:tomato
+```
 
-#### What is the build label for `path/to/file/bar.java?` {:#barjava-build-label}
+## Finding dependencies
 
-<pre>bazel query path/to/file/bar.java</pre>
+What targets does your runner rely on to run?
 
-#### What rule target(s) contain file `path/to/file/bar.java` as a source? {:#barjava-rule-targets}
+Say you want to dive deeper into the structure of your project without prodding into the filesystem (which may be untenable for large projects). What rules does Cafe Bazel use?
 
-<pre>
-fullname=$(bazel query path/to/file/bar.java)
-bazel query "attr('srcs', $fullname, ${fullname//:*/}:*)"
-</pre>
+If, like in this example, the target for your runner is `runner`, discover the underlying dependencies of the target by running the command:
 
-### What package dependencies exist ... {:#package-dependencies}
+```posix-terminal
+bazel query --noimplicit_deps "deps(target)"
+```
 
-#### What packages does `foo` depend on? (What do I need to check out to build `foo`) {:#packages-foo-depends-on}
+```posix-terminal
+bazel query --noimplicit_deps "deps(:runner)"
+```
 
-<pre>bazel query 'buildfiles(deps(//foo:foo))' --output package</pre>
+```bash
+//:runner
+//:src/main/java/com/example/Runner.java
+//src/main/java/com/example/dishes:MacAndCheese.java
+//src/main/java/com/example/dishes:Pizza.java
+//src/main/java/com/example/dishes:macAndCheese
+//src/main/java/com/example/dishes:pizza
+//src/main/java/com/example/ingredients:Cheese.java
+//src/main/java/com/example/ingredients:Dough.java
+//src/main/java/com/example/ingredients:Macaroni.java
+//src/main/java/com/example/ingredients:Tomato.java
+//src/main/java/com/example/ingredients:cheese
+//src/main/java/com/example/ingredients:dough
+//src/main/java/com/example/ingredients:macaroni
+//src/main/java/com/example/ingredients:tomato
+//src/main/java/com/example/restaurant:Cafe.java
+//src/main/java/com/example/restaurant:Chef.java
+//src/main/java/com/example/restaurant:cafe
+//src/main/java/com/example/restaurant:chef
+```
+Note: Adding the flag `--noimplicit_deps` removes configurations and potential toolchains to simplify the list. When you omit this flag, Bazel returns implicit dependencies not specified in the `BUILD` file and clutters the output.
 
-Note: `buildfiles` is required in order to correctly obtain all files
-referenced by `subinclude`; see the reference manual for details.
+In most cases, use the query function `deps()` to see individual output dependencies of a specific target.
 
-#### What packages does the `foo` tree depend on, excluding `foo/contrib`? {:#packages-foo-tree-depends-on}
+## Visualizing the dependency graph (optional)
 
-<pre>bazel query 'deps(foo/... except foo/contrib/...)' --output package</pre>
+Note: This section uses Graphviz, so make sure to [download Graphviz](https://graphviz.org/download/) to follow along.
 
-### What rule dependencies exist ... {:#rule-dependencies}
+The section describes how you can visualize the dependency paths for a specific query. [Graphviz](https://graphviz.org/) helps to see the path as a directed acyclic graph image as opposed to a flattened list. You can alter the display of the Bazel query graph by using various `--output` command line options. See [Output Formats](https://bazel.build/query/language#output-formats) for options.
 
-#### What genproto rules does bar depend upon? {:#genproto-rules}
+Start by running your desired query and add the flag `--noimplicit_deps` to remove excessive tool dependencies. Then, follow the query with the output flag and store the graph into a file called `graph.in` to create a text representation of the graph.
 
-<pre>bazel query 'kind(genproto, deps(bar/...))'</pre>
+To search for all dependencies of the target `:runner` and format the output as a graph:
 
-#### Find the definition of some JNI (C++) library that is transitively depended upon by a Java binary rule in the servlet tree. {:#jni-library}
+```posix-terminal
+bazel query --noimplicit_deps 'deps(:runner)' --output graph > graph.in
+```
+This creates a file called `graph.in`, which is a text representation of the build graph. Graphviz uses <code>[dot](https://graphviz.org/docs/layouts/dot/) </code>– a tool that processes text into a visualization —  to create a png:
 
-<pre>bazel query 'some(kind(cc_.*library, deps(kind(java_binary, //java/com/example/frontend/...))))' --output location</pre>
+```posix-terminal
+dot -Tpng < graph.in > graph.png
+```
+If you open up `graph.png`, you should see something like this. The graph below has been simplified to make the essential path details clearer in this guide.
 
-##### ...Now find the definitions of all the Java binaries that depend on them {:#java-binaries}
+![Diagram showing a relationship from cafe to chef to the dishes: pizza and mac and cheese which diverges into the separate ingredients: cheese, tomatoes, dough, and macaroni.](images/query_graph1.png "Dependency graph")
 
-<pre>bazel query 'let jbs = kind(java_binary, //java/com/example/frontend/...) in
-  let cls = kind(cc_.*library, deps($jbs)) in
-    $jbs intersect allpaths($jbs, $cls)'
-</pre>
+This helps when you want to see the outputs of the different query functions throughout this guide.
 
-### What file dependencies exist ... {:#file-dependencies}
+## Finding reverse dependencies
 
-#### What's the complete set of Java source files required to build foo? {:#java-source-files}
+If instead you have a target you’d like to analyze what other targets use it, you can use a query to examine what targets depend on a certain rule. This is called a “reverse dependency”. Using `rdeps()` can be useful when editing a file in a codebase that you’re unfamiliar with, and can save you from unknowingly breaking other files which depended on it.
 
-Source files:
+For instance, you want to make some edits to the ingredient `cheese`. To avoid causing an issue for Cafe Bazel, you need to check what dishes rely on `cheese`.
 
-<pre>bazel query 'kind("source file", deps(//path/to/target/foo/...))' | grep java$</pre>
+Caution: Since `ingredients` is its own package, you must use a different naming convention for the target `cheese` in the form of `//package:target`. Read more about referencing targets, or [Labels](https://bazel.build/concepts/labels).
 
-Generated files:
+To see what targets depend on a particular target/package, you can use `rdeps(universe_scope, target)`. The `rdeps()` query function takes in at least two arguments: a `universe_scope` — the relevant directory — and a `target`. Bazel searches for the target’s reverse dependencies within the `universe_scope` provided. The `rdeps()` operator accepts an optional third argument: an integer literal specifying the upper bound on the depth of the search.
 
-<pre>bazel query 'kind("generated file", deps(//path/to/target/foo/...))' | grep java$</pre>
+Tip: To search within the whole scope of the project, set the `universe_scope` to `//...`
 
-#### What is the complete set of Java source files required to build QUX's tests? {:qux-tests}
+To look for reverse dependencies of the target `cheese` within the scope of the entire project ‘//…’ run the command:
 
-Source files:
+```posix-terminal
+bazel query "rdeps(universe_scope, target)"
+```
+```
+ex) bazel query "rdeps(//... , //src/main/java/com/example/ingredients:cheese)"
+```
+```bash
+//:runner
+//src/main/java/com/example/dishes:macAndCheese
+//src/main/java/com/example/dishes:pizza
+//src/main/java/com/example/ingredients:cheese
+//src/main/java/com/example/restaurant:cafe
+//src/main/java/com/example/restaurant:chef
+```
+The query return shows that cheese is relied on by both pizza and macAndCheese. What a surprise!
 
-<pre>bazel query 'kind("source file", deps(kind(".*_test rule", javatests/com/example/qux/...)))' | grep java$</pre>
+## Finding targets based on tags
 
-Generated files:
+Two customers walk into Bazel Cafe: Amir and Jenny. There is nothing known about them except for their names. Luckily, they have their orders tagged in the 'customers' `BUILD` file. How can you access this tag?
 
-<pre>bazel query 'kind("generated file", deps(kind(".*_test rule", javatests/com/example/qux/...)))' | grep java$</pre>
+Developers can tag Bazel targets with different identifiers, often for testing purposes. For instance, tags on tests can annotate a test's role in your debug and release process, especially for C++ and Python tests, which lack any runtime annotation ability. Using tags and size elements gives flexibility in assembling suites of tests based around a codebase’s check-in policy.
 
-### What differences in dependencies between X and Y exist ... {:#differences-in-dependencies}
+In this example, the tags are either one of `pizza` or `macAndCheese` to represent the menu items. This command queries for targets that have tags matching your identifier within a certain package.
 
-#### What targets does `//foo` depend on that `//foo:foolib` does not? {:#foo-targets}
+```
+bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'
+```
+This query returns all of the targets in the 'customers' package that have a tag of "pizza".
 
-<pre>bazel query 'deps(//foo) except deps(//foo:foolib)'</pre>
+### Test yourself
 
-#### What C++ libraries do the `foo` tests depend on that the `//foo` production binary does _not_ depend on? {:#foo-cxx-libraries}
+Use this query to learn what Jenny wants to order.
 
-<pre>bazel query 'kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo))'</pre>
+<div>
+  <devsite-expandable>
+  <h4 class="showalways">Answer</h4>
+  <p>Mac and Cheese</p>
+  </devsite-expandable>
+</div>
 
-### Why does this dependency exist ... {:#why-dependencies}
 
-#### Why does `bar` depend on `groups2`? {:#dependency-bar-groups2}
+## Adding a new dependency
 
-<pre>bazel query 'somepath(bar/...,groups2/...:*)'</pre>
+Cafe Bazel has expanded its menu — customers can now order a Smoothie! This specific smoothie consists of the ingredients `Strawberry` and `Banana`.
 
-Once you have the results of this query, you will often find that a single
-target stands out as being an unexpected or egregious and undesirable
-dependency of `bar`. The query can then be further refined to:
+First, add the ingredients that the smoothie depends on: `Strawberry.java` and `Banana.java`. Add the empty Java classes.
 
-#### Show me a path from `docker/updater:updater_systest` (a `py_test`) to some `cc_library` that it depends upon: {:#path-docker-cclibrary}
+**`src/main/java/com/example/ingredients/Strawberry.java`**
 
-<pre>bazel query 'let cc = kind(cc_library, deps(docker/updater:updater_systest)) in
-  somepath(docker/updater:updater_systest, $cc)'</pre>
+```java
+package com.example.ingredients;
 
-#### Why does library `//photos/frontend:lib` depend on two variants of the same library `//third_party/jpeglib` and `//third_party/jpeg`? {:#library-two-variants}
+public class Strawberry {
 
-This query boils down to: "show me the subgraph of `//photos/frontend:lib` that
-depends on both libraries". When shown in topological order, the last element
-of the result is the most likely culprit.
+}
+```
 
-<pre>bazel query 'allpaths(//photos/frontend:lib, //third_party/jpeglib)
-                intersect
-               allpaths(//photos/frontend:lib, //third_party/jpeg)'
-//photos/frontend:lib
-//photos/frontend:lib_impl
-//photos/frontend:lib_dispatcher
-//photos/frontend:icons
-//photos/frontend/modules/gadgets:gadget_icon
-//photos/thumbnailer:thumbnail_lib
-//third_party/jpeg/img:renderer
-</pre>
+**`src/main/java/com/example/ingredients/Banana.java`**
 
-### What depends on  ... {:#depends-on}
+```java
+package com.example.ingredients;
 
-#### What rules under bar depend on Y? {:#rules-bar-y}
+public class Banana {
 
-<pre>bazel query 'bar/... intersect allpaths(bar/..., Y)'</pre>
+}
+```
 
-Note: `X intersect allpaths(X, Y)` is the general idiom for the query "which X
-depend on Y?" If expression X is non-trivial, it may be convenient to bind a
-name to it using `let` to avoid duplication.
+Next, add `Smoothie.java` to the appropriate directory: `dishes`.
 
-#### What targets directly depend on T, in T's package? {:#targets-t}
+**`src/main/java/com/example/dishes/Smoothie.java`**
 
-<pre>bazel query 'same_pkg_direct_rdeps(T)'</pre>
+```java
+package com.example.dishes;
 
-### How do I break a dependency ... {:#break-dependency}
+public class Smoothie {
+    public static final String DISH_NAME = "Smoothie";
+    public static final String DESCRIPTION = "Yummy and Refreshing";
+}
+```
 
-<!-- TODO find a convincing value of X to plug in here -->
 
-#### What dependency paths do I have to break to make `bar` no longer depend on X? {:#break-dependency-bar-x}
+Lastly, add these files as rules in the appropriate `BUILD` files. Create a new java library for each new ingredient, including its name, public visibility, and its newly created 'src' file. You should wind up with this updated `BUILD` file:
 
-To output the graph to a `svg` file:
+**`src/main/java/com/example/ingredients/BUILD`**
 
-<pre>bazel query 'allpaths(bar/...,X)' --output graph | dot -Tsvg &gt; /tmp/dep.svg</pre>
+```
+java_library(
+    name = "cheese",
+    visibility = ["//visibility:public"],
+    srcs = ["Cheese.java"],
+)
 
-### Misc {:#misc}
+java_library(
+    name = "dough",
+    visibility = ["//visibility:public"],
+    srcs = ["Dough.java"],
+)
 
-#### How many sequential steps are there in the `//foo-tests` build? {:#steps-footests}
+java_library(
+    name = "macaroni",
+    visibility = ["//visibility:public"],
+    srcs = ["Macaroni.java"],
+)
 
-Unfortunately, the query language can't currently give you the longest path
-from x to y, but it can find the (or rather _a_) most distant node from the
-starting point, or show you the _lengths_ of the longest path from x to every
-y that it depends on. Use `maxrank`:
+java_library(
+    name = "tomato",
+    visibility = ["//visibility:public"],
+    srcs = ["Tomato.java"],
+)
 
-<pre>bazel query 'deps(//foo-tests)' --output maxrank | tail -1
-85 //third_party/zlib:zutil.c</pre>
+java_library(
+    name = "strawberry",
+    visibility = ["//visibility:public"],
+    srcs = ["Strawberry.java"],
+)
 
-The result indicates that there exist paths of length 85 that must occur in
-order in this build.
+java_library(
+    name = "banana",
+    visibility = ["//visibility:public"],
+    srcs = ["Banana.java"],
+)
+```
+
+In the `BUILD` file for dishes, you want to add a new rule for `Smoothie`. Doing so includes the Java file created for `Smoothie` as a 'src' file, and the new rules you made for each ingredient of the smoothie.
+
+**`src/main/java/com/example/dishes/BUILD`**
+
+```
+java_library(
+    name = "macAndCheese",
+    visibility = ["//visibility:public"],
+    srcs = ["MacAndCheese.java"],
+    deps = [
+        "//src/main/java/com/example/ingredients:cheese",
+        "//src/main/java/com/example/ingredients:macaroni",
+    ],
+)
+
+java_library(
+    name = "pizza",
+    visibility = ["//visibility:public"],
+    srcs = ["Pizza.java"],
+    deps = [
+        "//src/main/java/com/example/ingredients:cheese",
+        "//src/main/java/com/example/ingredients:dough",
+        "//src/main/java/com/example/ingredients:tomato",
+    ],
+)
+
+java_library(
+    name = "smoothie",
+    visibility = ["//visibility:public"],
+    srcs = ["Smoothie.java"],
+    deps = [
+        "//src/main/java/com/example/ingredients:strawberry",
+        "//src/main/java/com/example/ingredients:banana",
+    ],
+)
+```
+
+Lastly, you want to include the smoothie as a dependency in the Chef’s `BUILD` file.
+
+**`src/main/java/com/example/restaurant/BUILD`**
+
+```
+java\_library(
+    name = "chef",
+    visibility = ["//visibility:public"],
+    srcs = [
+        "Chef.java",
+    ],
+
+    deps = [
+        "//src/main/java/com/example/dishes:macAndCheese",
+        "//src/main/java/com/example/dishes:pizza",
+        "//src/main/java/com/example/dishes:smoothie",
+    ],
+)
+
+java\_library(
+    name = "cafe",
+    visibility = ["//visibility:public"],
+    srcs = [
+        "Cafe.java",
+    ],
+    deps = [
+        ":chef",
+    ],
+)
+```
+
+Build `cafe` again to confirm that there are no errors. If it builds successfully, congratulations! You’ve added a new dependency for the 'Cafe'. If not, look out for spelling mistakes and package naming. For more information about writing `BUILD` files see [BUILD Style Guide](https://bazel.build/build/style-guide).
+
+Now, visualize the new dependency graph with the addition of the `Smoothie` to compare with the previous one. For clarity, name the graph input as `graph2.in` and `graph2.png`.
+
+
+```posix-terminal
+bazel query --noimplicit_deps 'deps(:runner)' --output graph > graph2.in
+```
+
+```posix-terminal
+dot -Tpng < graph2.in > graph2.png
+```
+
+[![The same graph as the first one except now there is a spoke stemming from the chef target with smoothie which leads to banana and strawberry](images/query_graph2.png "Updated dependency graph")](images/query_graph2.png)
+
+Looking at `graph2.png`, you can see that `Smoothie` has no shared dependencies with other dishes but is just another target that the `Chef` relies on.
+
+## somepath() and allpaths()
+
+What if you want to query why one package depends on another package? Displaying a dependency path between the two provides the answer.
+
+Two functions can help you find dependency paths: `somepath()` and `allpaths()`. Given a starting target S and an end point E, find a path between S and E by using `somepath(S,E)`.
+
+Explore the differences between these two functions by looking at the relationships between the 'Chef' and 'Cheese' targets. There are different possible paths to get from one target to the other:
+
+*   Chef → MacAndCheese → Cheese
+*   Chef → Pizza → Cheese
+
+`somepath()` gives you a single path out of the two options, whereas 'allpaths()' outputs every possible path.
+
+Using Cafe Bazel as an example, run the following:
+
+```posix-terminal
+bazel query "somepath(//src/main/java/com/example/restaurant/..., //src/main/java/com/example/ingredients:cheese)"
+```
+
+```bash
+//src/main/java/com/example/restaurant:cafe
+//src/main/java/com/example/restaurant:chef
+//src/main/java/com/example/dishes:macAndCheese
+//src/main/java/com/example/ingredients:cheese
+```
+
+The output follows the first path of Cafe → Chef → MacAndCheese → Cheese. If instead you use `allpaths()`, you get:
+
+```posix-terminal
+bazel query "allpaths(//src/main/java/com/example/restaurant/..., //src/main/java/com/example/ingredients:cheese)"
+```
+
+```bash
+//src/main/java/com/example/dishes:macAndCheese
+//src/main/java/com/example/dishes:pizza
+//src/main/java/com/example/ingredients:cheese
+//src/main/java/com/example/restaurant:cafe
+//src/main/java/com/example/restaurant:chef
+```
+
+![Output path of cafe to chef to pizza,mac and cheese to cheese](images/query_graph3.png "Output path for dependency")
+
+The output of `allpaths()` is a little harder to read as it is a flattened list of the dependencies. Visualizing this graph using Graphviz makes the relationship clearer to understand.
+
+## Test yourself
+
+One of Cafe Bazel’s customers gave the restaurant's first review! Unfortunately, the review is missing some details such as the identity of the reviewer and what dish it’s referencing. Luckily, you can access this information with Bazel. The `reviews` package contains a program that prints a review from a mystery customer. Build and run it with:
+
+```posix-terminal
+bazel build //src/main/java/com/example/reviews:review
+```
+
+```posix-terminal
+bazel-bin/src/main/java/com/example/reviews/review
+```
+
+Going off Bazel queries only, try to find out who wrote the review, and what dish they were describing.
+
+<div>
+  <devsite-expandable>
+  <h4 class="showalways">Hint</h4>
+  <p>Check the tags and dependencies for useful information.</p>
+  </devsite-expandable>
+</div>
+
+<div>
+  <devsite-expandable>
+  <h4 class="showalways">Answer</h4>
+  <p>This review was describing the Pizza and Amir was the reviewer. If you look at what dependencies that this rule had using
+  <code>bazel query --noimplicit\_deps 'deps(//src/main/java/com/example/reviews:review)'</code>
+  The result of this command reveals that Amir is the reviewer!
+  Next, since you know the reviewer is Amir, you can use the query function to seek which tag Amir has in the `BUILD` file to see what dish is there.
+  The command <code>bazel query 'attr(tags, "pizza", //src/main/java/com/example/customers/...)'</code> output that Amir is the only customer that ordered a pizza and is the reviewer which gives us the answer.
+  </p>
+  </devsite-expandable>
+</div>
+
+## Wrapping up
+
+Congratulations! You have now run several basic queries, which you can try out on own projects. To learn more about the query language syntax, refer to the [Query reference page](https://bazel.build/query/language). Want more advanced queries? The [Query guide](https://bazel.build/query/guide) showcases an in-depth list of more use cases than are covered in this guide.

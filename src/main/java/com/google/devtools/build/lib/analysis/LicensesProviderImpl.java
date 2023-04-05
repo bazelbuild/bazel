@@ -68,7 +68,7 @@ public final class LicensesProviderImpl implements LicensesProvider {
       ListMultimap<String, ? extends TransitiveInfoCollection> configuredMap =
           ruleContext.getConfiguredTargetMap();
 
-      if (rule.getRuleClassObject().isBazelLicense()) {
+      if (rule.getRuleClassObject().isPackageMetadataRule()) {
         // Don't crawl a new-style license, it's effectively a leaf.
         // The representation of the new-style rule is unfortunately hardcoded here,
         // but this is code in the old-style licensing path that will ultimately be removed.

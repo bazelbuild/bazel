@@ -14,16 +14,25 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Verify.verify;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -57,10 +66,17 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   private final Location location;
 
+  @Nullable private final String documentation;
+
   // For schemaful providers, the sorted list of allowed field names.
-  // The requirement for sortedness comes from StarlarkInfo.createFromNamedArgs,
-  // as it lets us verify table ⊆ schema in O(n) time without temporaries.
+  // The requirement for sortedness comes from StarlarkInfoWithSchema and lets us bisect the fields.
   @Nullable private final ImmutableList<String> schema;
+
+  // For schemaful providers, an optional list of field documentation strings, of the same size and
+  // sorted in the same order as the schema. Null for schemaless providers and for providers whose
+  // schema is undocumented. In accordance with the provider() Starlark API, either all schema
+  // fields have documentation strings (possibly empty strings), or none do.
+  @Nullable private final ImmutableList<String> schemaDocumentation;
 
   // Optional custom initializer callback. If present, it is invoked with the same positional and
   // keyword arguments as were passed to the provider constructor. The return value must be a
@@ -69,6 +85,32 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   /** Null iff this provider has not yet been exported. Mutated by {@link export}. */
   @Nullable private Key key;
+
+  /**
+   * For schemaful providers, an array of metadata concerning depset optimization.
+   *
+   * <p>Each index in the array holds an optional (nullable) depset element type. The value at that
+   * index is initialized to be the element type of the first non-empty Depset to ever be stored in
+   * the corresponding field from {@link #schema} on any instance of this provider, globally. If no
+   * depsets (or only empty depsets) are ever stored in a field, the value at its index in this
+   * array will remain null.
+   *
+   * <p>Whenever a field is stored in an instance of this provider type, if the value is a depset
+   * whose element type matches the one stored in this array, it is optimized by unwrapping it down
+   * to its {@code NestedSet}. Upon retrieval, the depset wrapper is reconstructed using this saved
+   * element type.
+   *
+   * <p>The optimization may (harmlessly) fail to apply for provider fields that are not strongly
+   * typed across all instances.
+   *
+   * <p>For large builds, this optimization has been observed to save half a percent in retained
+   * heap.
+   *
+   * <p>In the future, the ad hoc heuristic of examining the first stored non-empty depset might be
+   * replaced by stronger type information in the provider's Starlark declaration. However, this
+   * optimization would remain relevant for provider declarations that do not supply such type info.
+   */
+  @Nullable private transient AtomicReferenceArray<Class<?>> depsetTypePredictor;
 
   /**
    * Returns a new empty builder.
@@ -90,7 +132,11 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   public static final class Builder {
     private final Location location;
 
+    @Nullable private String documentation;
+
     @Nullable private ImmutableList<String> schema;
+
+    @Nullable private ImmutableList<String> schemaDocumentation;
 
     @Nullable private StarlarkCallable init;
 
@@ -100,10 +146,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       this.location = location;
     }
 
-    /**
-     * Sets the schema (the list of allowed field names) for instances of the provider built by this
-     * builder.
-     */
+    /** Sets the schema (the list of allowed field names) for the provider built by this builder. */
     @CanIgnoreReturnValue
     public Builder setSchema(Collection<String> schema) {
       this.schema = ImmutableList.sortedCopyOf(schema);
@@ -111,7 +154,27 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     /**
-     * Sets the custom initializer callback for instances of the provider built by this builder.
+     * Sets the schema and its documentation (meaning, the list of allowed field names and their
+     * corresponding documentation strings) for the provider built by this builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSchema(Map<String, String> schemaWithDocumentation) {
+      ImmutableSortedMap<String, String> sortedSchemaWithDocumentation =
+          ImmutableSortedMap.copyOf(schemaWithDocumentation);
+      this.schema = sortedSchemaWithDocumentation.keySet().asList();
+      this.schemaDocumentation = sortedSchemaWithDocumentation.values().asList();
+      return this;
+    }
+
+    /** Sets the documentation string for the provider built by this builder. */
+    @CanIgnoreReturnValue
+    public Builder setDocumentation(String documentation) {
+      this.documentation = documentation;
+      return this;
+    }
+
+    /**
+     * Sets the custom initializer callback for the provider built by this builder.
      *
      * <p>The initializer callback will be automatically invoked when the provider is called. To
      * bypass the custom initializer callback, use the callable returned by {@link
@@ -138,7 +201,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     /** Builds a StarlarkProvider. */
     public StarlarkProvider build() {
-      return new StarlarkProvider(location, schema, init, key);
+      return new StarlarkProvider(location, documentation, schema, schemaDocumentation, init, key);
     }
   }
 
@@ -151,13 +214,20 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    */
   private StarlarkProvider(
       Location location,
+      @Nullable String documentation,
       @Nullable ImmutableList<String> schema,
+      @Nullable ImmutableList<String> schemaDocumentation,
       @Nullable StarlarkCallable init,
       @Nullable Key key) {
     this.location = location;
+    this.documentation = documentation;
     this.schema = schema;
+    this.schemaDocumentation = schemaDocumentation;
     this.init = init;
     this.key = key;
+    if (schema != null) {
+      depsetTypePredictor = new AtomicReferenceArray<>(schema.size());
+    }
   }
 
   private static Object[] toNamedArgs(Object value, String descriptionForError)
@@ -180,11 +250,11 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     }
 
     Object initResult = Starlark.fastcall(thread, init, positional, named);
-    return StarlarkInfo.createFromNamedArgs(
-        this,
-        toNamedArgs(initResult, "return value of provider init()"),
-        schema,
-        thread.getCallerLocation());
+    // The code-path for providers with schema could be optimised to skip the call to toNamedArgs.
+    // As it is, we copy the map to an alternating key-value Object array, and then extract just
+    // the values into another array.
+    return createFromNamedArgs(
+        toNamedArgs(initResult, "return value of provider init()"), thread.getCallerLocation());
   }
 
   private Object fastcallRawConstructor(StarlarkThread thread, Object[] positional, Object[] named)
@@ -192,7 +262,13 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     if (positional.length > 0) {
       throw Starlark.errorf("%s: unexpected positional arguments", getName());
     }
-    return StarlarkInfo.createFromNamedArgs(this, named, schema, thread.getCallerLocation());
+    return createFromNamedArgs(named, thread.getCallerLocation());
+  }
+
+  private StarlarkInfo createFromNamedArgs(Object[] named, Location loc) throws EvalException {
+    return schema != null
+        ? StarlarkInfoWithSchema.createFromNamedArgs(this, named, loc)
+        : StarlarkInfoNoSchema.createFromNamedArgs(this, named, loc);
   }
 
   private static final class RawConstructor implements StarlarkCallable {
@@ -239,6 +315,14 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return location;
   }
 
+  /**
+   * Returns the value of the doc parameter passed to {@code provider()} in Starlark, or an empty
+   * Optional if a doc parameter was not provided.
+   */
+  public Optional<String> getDocumentation() {
+    return Optional.ofNullable(documentation);
+  }
+
   @Override
   public boolean isExported() {
     return key != null;
@@ -260,11 +344,37 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
     return getName();
   }
 
-  /** Returns the list of fields allowed by this provider, or null if the provider is schemaless. */
+  /**
+   * Returns the sorted list of fields allowed by this provider, or null if the provider is
+   * schemaless.
+   */
   @Nullable
   // TODO(adonovan): rename getSchema.
   public ImmutableList<String> getFields() {
     return schema;
+  }
+
+  /**
+   * Returns the map of fields allowed by this provider mapping to their corresponding documentation
+   * strings (if any), or null if this provider is schemaless.
+   *
+   * <p>The returned map is guaranteed to have a stable iteration order.
+   */
+  @Nullable
+  public ImmutableMap<String, Optional<String>> getSchemaWithDocumentation() {
+    if (schema == null) {
+      verify(schemaDocumentation == null);
+      return null;
+    }
+    verify(schemaDocumentation == null || schemaDocumentation.size() == schema.size());
+    ImmutableMap.Builder<String, Optional<String>> builder =
+        ImmutableMap.builderWithExpectedSize(schema.size());
+    for (int i = 0; i < schema.size(); i++) {
+      builder.put(
+          schema.get(i),
+          schemaDocumentation == null ? Optional.empty() : Optional.of(schemaDocumentation.get(i)));
+    }
+    return builder.buildOrThrow();
   }
 
   @Override
@@ -316,6 +426,67 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   @Override
   public String toString() {
     return Starlark.repr(this);
+  }
+
+  /**
+   * For schemaful providers, given a value to store in the field identified by {@code index},
+   * returns a possibly optimized version of the value. The result (optimized or not) should be
+   * decoded by {@link #retrieveOptimizedField}.
+   *
+   * <p>Mutable values are never optimized.
+   */
+  Object optimizeField(int index, Object value) {
+    if (value instanceof Depset) {
+      Preconditions.checkArgument(depsetTypePredictor != null);
+      Depset depset = (Depset) value;
+      if (depset.isEmpty()) {
+        // Most empty depsets have the empty (null) type. We can't store this type because it
+        // would clash with whatever the actual element type is for non-empty depsets in that
+        // field. So instead just store the optimized (unwrapped) NestedSet without any type
+        // information, and assume it's the empty type upon retrieval.
+        //
+        // This only loses information in the relatively rare case of a native-constructed empty
+        // depset with a type restriction (e.g. empty set of artifacts). In that scenario, an
+        // empty depset retrieved from the provider may "incorrectly" allow itself to participate
+        // in a union with depsets of other types, whereas the original depset would trigger a
+        // Starlark eval error. This is a user-observable difference but a very minor one; the
+        // hazard would be logical errors that are masked by the provider machinery but triggered
+        // by a refactoring of Starlark code. See TODO in Depset#of(Class, NestedSet) for notes
+        // about eliminating this semantic confusion.
+        //
+        // This problem shouldn't arise for non-empty depsets since distinct non-empty element
+        // types are not compatible with one another (i.e. there's no Depset<Any> schema).
+        return depset.getSet();
+      }
+      Class<?> elementClass = depset.getElementClass();
+      if (depsetTypePredictor.compareAndExchange(index, null, elementClass) == elementClass) {
+        return depset.getSet();
+      }
+    }
+    return value;
+  }
+
+  Object retrieveOptimizedField(int index, Object value) {
+    if (value instanceof NestedSet<?>) {
+      // We subvert Depset.of()'s static type checking for consistency between the type token and
+      // NestedSet type. This is safe because these values came from a previous Depset, so we
+      // already know they're consistent.
+      @SuppressWarnings("unchecked")
+      NestedSet<Object> nestedSet = (NestedSet<Object>) value;
+      if (nestedSet.isEmpty()) {
+        // This matches empty depsets created in Starlark with `depset()`. For natively created
+        // empty depsets it may change elementClass to null.
+        return Depset.of(ElementType.EMPTY, nestedSet);
+      }
+      @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
+      Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);
+      return depset;
+    }
+    return value;
+  }
+
+  boolean isOptimised(int index, Object value) {
+    return value instanceof NestedSet<?>;
   }
 
   /**

@@ -41,7 +41,7 @@ public class AndroidHostServiceFixtureRule implements RuleDefinition {
         .add(
             attr("executable", LABEL)
                 .exec()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .mandatory()
                 .allowedFileTypes())
         .add(attr("service_names", STRING_LIST))

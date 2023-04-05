@@ -26,6 +26,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -37,25 +38,30 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   @Override
   public Descriptor intAttribute(
       StarlarkInt defaultInt,
-      String doc,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.INT, doc, mandatory, ImmutableList.of(), defaultInt);
+    return new FakeDescriptor(
+        AttributeType.INT,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        defaultInt);
   }
 
   @Override
   public Descriptor stringAttribute(
       Object defaultString,
-      String doc,
+      Object doc,
       Boolean mandatory,
       Sequence<?> values,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
         AttributeType.STRING,
-        doc,
+        Starlark.toJavaOptional(doc, String.class),
         mandatory,
         ImmutableList.of(),
         defaultString != null ? "\"" + defaultString + "\"" : null);
@@ -64,7 +70,7 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   @Override
   public Descriptor labelAttribute(
       Object defaultO,
-      String doc,
+      Object doc,
       Boolean executable,
       Object allowFiles,
       Object allowSingleFile,
@@ -80,15 +86,24 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL, doc, mandatory, allNameGroups, defaultO);
+    return new FakeDescriptor(
+        AttributeType.LABEL,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        allNameGroups,
+        defaultO);
   }
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultList, String doc, StarlarkThread thread)
+      Boolean mandatory, Boolean allowEmpty, Object defaultList, Object doc, StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
-        AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultList);
+        AttributeType.STRING_LIST,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        defaultList);
   }
 
   @Override
@@ -96,18 +111,22 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Boolean allowEmpty,
       Sequence<?> defaultList,
-      String doc,
+      Object doc,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
-        AttributeType.INT_LIST, doc, mandatory, ImmutableList.of(), defaultList);
+        AttributeType.INT_LIST,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        defaultList);
   }
 
   @Override
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
       Object defaultList,
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
@@ -121,14 +140,19 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
     if (providers != null) {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
-    return new FakeDescriptor(AttributeType.LABEL_LIST, doc, mandatory, allNameGroups, defaultList);
+    return new FakeDescriptor(
+        AttributeType.LABEL_LIST,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        allNameGroups,
+        defaultList);
   }
 
   @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object defaultList,
-      String doc,
+      Object doc,
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
@@ -143,65 +167,80 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       allNameGroups = allProviderNameGroups(providers, thread);
     }
     return new FakeDescriptor(
-        AttributeType.LABEL_STRING_DICT, doc, mandatory, allNameGroups, defaultList);
+        AttributeType.LABEL_STRING_DICT,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        allNameGroups,
+        defaultList);
   }
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
+      Boolean defaultO, Object doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
         AttributeType.BOOLEAN,
-        doc,
+        Starlark.toJavaOptional(doc, String.class),
         mandatory,
         ImmutableList.of(),
         Boolean.TRUE.equals(defaultO) ? "True" : "False");
   }
 
   @Override
-  public Descriptor outputAttribute(String doc, Boolean mandatory, StarlarkThread thread)
+  public Descriptor outputAttribute(Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT, doc, mandatory, ImmutableList.of(), "");
+    return new FakeDescriptor(
+        AttributeType.OUTPUT,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        "");
   }
 
   @Override
   public Descriptor outputListAttribute(
-      Boolean allowEmpty,
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
+      Boolean allowEmpty, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
-    return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of(), "");
+    return new FakeDescriptor(
+        AttributeType.OUTPUT_LIST,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        "");
   }
 
   @Override
   public Descriptor stringDictAttribute(
-      Boolean allowEmpty,
-      Dict<?, ?> defaultO,
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
+      Boolean allowEmpty, Dict<?, ?> defaultO, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
-        AttributeType.STRING_DICT, doc, mandatory, ImmutableList.of(), defaultO);
+        AttributeType.STRING_DICT,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        defaultO);
   }
 
   @Override
   public Descriptor stringListDictAttribute(
-      Boolean allowEmpty,
-      Dict<?, ?> defaultO,
-      String doc,
-      Boolean mandatory,
-      StarlarkThread thread)
+      Boolean allowEmpty, Dict<?, ?> defaultO, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
-        AttributeType.STRING_LIST_DICT, doc, mandatory, ImmutableList.of(), defaultO);
+        AttributeType.STRING_LIST_DICT,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        defaultO);
   }
 
   @Override
   public Descriptor licenseAttribute(
-      Object defaultO, String doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
+      Object defaultO, Object doc, Boolean mandatory, StarlarkThread thread) throws EvalException {
     return new FakeDescriptor(
-        AttributeType.STRING_LIST, doc, mandatory, ImmutableList.of(), defaultO);
+        AttributeType.STRING_LIST,
+        Starlark.toJavaOptional(doc, String.class),
+        mandatory,
+        ImmutableList.of(),
+        defaultO);
   }
 
   @Override

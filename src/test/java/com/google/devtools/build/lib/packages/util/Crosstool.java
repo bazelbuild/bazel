@@ -583,6 +583,8 @@ public final class Crosstool {
                 "    name = 'interface_library_builder',",
                 "    srcs = ['build_interface_so'],",
                 ")",
+                // We add an empty :link_extra_lib target in case we need it.
+                "cc_library(name = 'link_extra_lib')",
                 // We add an empty :malloc target in case we need it.
                 "cc_library(name = 'malloc')",
                 // Fake targets to get us through loading/analysis.
@@ -610,8 +612,7 @@ public final class Crosstool {
     StringBuilder compilerMap =
         new StringBuilder()
             .append("'k8': ':cc-compiler-darwin_x86_64',\n")
-            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
-            .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
+            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n");
     Set<String> seenCpus = new LinkedHashSet<>();
     for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       if (seenCpus.add(toolchain.getTargetCpu())) {

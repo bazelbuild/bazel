@@ -271,7 +271,7 @@ final class Eval {
         eval(fr, ((ExpressionStatement) st).getExpression());
         return TokenKind.PASS;
       case FLOW:
-        return ((FlowStatement) st).getKind();
+        return ((FlowStatement) st).getFlowKind();
       case FOR:
         return execFor(fr, (ForStatement) st);
       case DEF:

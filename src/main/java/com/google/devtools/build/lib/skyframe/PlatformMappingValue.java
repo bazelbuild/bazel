@@ -24,13 +24,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,7 +59,7 @@ public final class PlatformMappingValue implements SkyValue {
   @ThreadSafety.Immutable
   @AutoCodec
   public static final class Key implements SkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     /**
      * Creates a new platform mappings key with the given, main workspace-relative path to the
@@ -134,6 +132,11 @@ public final class PlatformMappingValue implements SkyValue {
           + wasExplicitlySetByUser
           + "}";
     }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 
   private final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
@@ -198,6 +201,11 @@ public final class PlatformMappingValue implements SkyValue {
   private BuildConfigurationKey computeMapping(BuildConfigurationKey original)
       throws OptionsParsingException {
     BuildOptions originalOptions = original.getOptions();
+
+    if (originalOptions.hasNoConfig()) {
+      // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
+      return original;
+    }
 
     checkArgument(
         originalOptions.contains(PlatformOptions.class),
