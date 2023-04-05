@@ -251,8 +251,7 @@ class RemoteServerCapabilities {
       if (remoteOptions.cacheCompression
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
-            "--experimental_remote_cache_compression requested but remote does not support"
-                + " compression");
+            "--remote_cache_compression requested but remote does not support compression");
       }
 
       // Check result cache priority is in the supported range.
