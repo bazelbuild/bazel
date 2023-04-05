@@ -92,10 +92,10 @@ public final class RuleClassTest extends PackageLoadingTestCase {
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
       ImmutableList.of(
-          new StarlarkThread.CallStackEntry(
-              "<toplevel>", Location.fromFileLineColumn("BUILD", 10, 1)),
-          new StarlarkThread.CallStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
-          new StarlarkThread.CallStackEntry("rule", Location.BUILTIN));
+          StarlarkThread.callStackEntry(
+              StarlarkThread.TOP_LEVEL, Location.fromFileLineColumn("BUILD", 10, 1)),
+          StarlarkThread.callStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
+          StarlarkThread.callStackEntry("rule", Location.BUILTIN));
 
   private static final class DummyFragment extends Fragment {}
 

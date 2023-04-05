@@ -109,7 +109,7 @@ public final class CallStack {
     }
 
     private StarlarkThread.CallStackEntry toCallStackEntry() {
-      return new StarlarkThread.CallStackEntry(name, toLocation());
+      return StarlarkThread.callStackEntry(name, toLocation());
     }
 
     @Nullable

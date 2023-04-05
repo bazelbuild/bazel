@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.packages;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.Correspondence;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -32,15 +31,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link CallStack}. */
 @RunWith(JUnit4.class)
 public class CallStackTest {
-
-  /**
-   * Compare {@link StarlarkThread.CallStackEntry} using string equality since (1) it doesn't
-   * currently implement equals and (2) it should have a faithful string representation anyway.
-   */
-  private static final Correspondence<StarlarkThread.CallStackEntry, StarlarkThread.CallStackEntry>
-      STACK_ENTRY_CORRESPONDENCE =
-          Correspondence.from(
-              (l, r) -> l.toString().equals(r.toString()), "String-representations equal");
 
   @Test
   public void testCreateFromEmptyCallStack() {
@@ -151,10 +141,7 @@ public class CallStackTest {
   /** Asserts the provided {@link CallStack} faithfully represents the expected stack. */
   private static void assertCallStackContents(CallStack result, List<CallStackEntry> expected) {
     assertThat(result.size()).isEqualTo(expected.size());
-    assertThat(result.toList())
-        .comparingElementsUsing(STACK_ENTRY_CORRESPONDENCE)
-        .containsExactlyElementsIn(expected)
-        .inOrder();
+    assertThat(result.toList()).isEqualTo(expected);
     // toList and getFrame use different code paths, make sure they agree.
     for (int i = 0; i < expected.size(); i++) {
       assertThat(result.getFrame(i).toString()).isEqualTo(expected.get(i).toString());
@@ -163,6 +150,6 @@ public class CallStackTest {
 
   private static StarlarkThread.CallStackEntry entryFromNameAndLocation(
       String name, String file, int line, int col) {
-    return new CallStackEntry(name, Location.fromFileLineColumn(file, line, col));
+    return StarlarkThread.callStackEntry(name, Location.fromFileLineColumn(file, line, col));
   }
 }

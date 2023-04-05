@@ -51,11 +51,10 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
       ImmutableList.of(
-          new StarlarkThread.CallStackEntry(
-              "<toplevel>", Location.fromFileLineColumn("BUILD", 42, 1)),
-          new StarlarkThread.CallStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
-          new StarlarkThread.CallStackEntry(
-              "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
+          StarlarkThread.callStackEntry(
+              StarlarkThread.TOP_LEVEL, Location.fromFileLineColumn("BUILD", 42, 1)),
+          StarlarkThread.callStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
+          StarlarkThread.callStackEntry("myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory

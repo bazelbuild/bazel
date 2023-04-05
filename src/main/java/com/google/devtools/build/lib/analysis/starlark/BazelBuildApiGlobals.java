@@ -52,7 +52,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
     // for static tooling to mechanically find and modify visibility() declarations.)
     ImmutableList<StarlarkThread.CallStackEntry> callStack = thread.getCallStack();
     if (!(callStack.size() == 2
-        && callStack.get(0).name.equals("<toplevel>")
+        && callStack.get(0).name.equals(StarlarkThread.TOP_LEVEL)
         && callStack.get(1).name.equals("visibility"))) {
       throw Starlark.errorf(
           "load visibility may only be set at the top level, not inside a function");

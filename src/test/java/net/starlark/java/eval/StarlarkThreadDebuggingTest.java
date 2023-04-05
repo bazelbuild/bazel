@@ -50,7 +50,7 @@ public class StarlarkThreadDebuggingTest {
   }
 
   @Test
-  public void testListFramesEmptyStack() throws Exception {
+  public void testListFramesEmptyStack() {
     StarlarkThread thread = newThread();
     assertThat(Debug.getCallStack(thread)).isEmpty();
     assertThat(thread.getCallStack()).isEmpty();
@@ -222,7 +222,7 @@ public class StarlarkThreadDebuggingTest {
   }
 
   @Test
-  public void testEvaluateVariableNotInScopeFails() throws Exception {
+  public void testEvaluateVariableNotInScopeFails() {
     Module module = Module.create();
 
     SyntaxError.Exception e =
