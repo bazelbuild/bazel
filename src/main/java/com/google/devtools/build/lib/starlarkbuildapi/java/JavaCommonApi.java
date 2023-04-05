@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -39,7 +40,10 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utilities for Java compilation support in Starlark. */
-@StarlarkBuiltin(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
+@StarlarkBuiltin(
+    name = "java_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
+    doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT, ?, ?>,

@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "config",
-    category = DocCategory.BUILTIN,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
         "This is a top-level module for creating configuration transitions and build "
             + "setting descriptors which describe what kind of build setting (if any) a rule is. "

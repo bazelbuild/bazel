@@ -146,7 +146,6 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   /** Helper class to provide information about IDLs related to this rule. */
   @StarlarkBuiltin(
       name = "AndroidStarlarkIdlInfo",
-      category = DocCategory.NONE,
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed."

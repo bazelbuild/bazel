@@ -40,7 +40,7 @@ import net.starlark.java.eval.StarlarkValue;
 final class StarlarkDocumentationCollector {
   @StarlarkBuiltin(
       name = "globals",
-      category = DocCategory.TOP_LEVEL_TYPE,
+      category = DocCategory.TOP_LEVEL_MODULE,
       doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule implements StarlarkValue {}
 

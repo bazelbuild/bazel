@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -27,6 +28,7 @@ import net.starlark.java.eval.EvalException;
 /** Provides information about neverlink libraries for Android targets. */
 @StarlarkBuiltin(
     name = "AndroidNeverLinkLibrariesProvider",
+    category = DocCategory.PROVIDER,
     doc = "Information about neverlink libraries for Android targets.")
 public interface AndroidNeverLinkLibrariesProviderApi<FileT extends FileApi> extends StructApi {
 

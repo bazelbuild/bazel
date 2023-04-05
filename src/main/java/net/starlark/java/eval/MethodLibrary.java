@@ -804,9 +804,7 @@ class MethodLibrary {
       category = "core",
       doc =
           "A type to represent booleans. There are only two possible values: "
-              + "<a href=\"globals.html#True\">True</a> and "
-              + "<a href=\"globals.html#False\">False</a>. "
-              + "Any value can be converted to a boolean using the "
-              + "<a href=\"globals.html#bool\">bool</a> function.")
+              + "True and False. Any value can be converted to a boolean using the "
+              + "<a href=\"../globals/all.html#bool\">bool</a> function.")
   static final class BoolModule implements StarlarkValue {} // (documentation only)
 }
