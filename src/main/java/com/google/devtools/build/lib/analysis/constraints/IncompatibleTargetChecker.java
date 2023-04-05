@@ -131,12 +131,11 @@ public class IncompatibleTargetChecker {
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       Rule rule = target.getAssociatedRule();
       if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
         sink.accept(Optional.empty());
-        return null;
+        return DONE;
       }
 
       // Retrieves the label list for the target_compatible_with attribute.
@@ -144,7 +143,7 @@ public class IncompatibleTargetChecker {
           ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
       if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
         sink.accept(Optional.empty());
-        return null;
+        return DONE;
       }
 
       // Resolves the constraint labels.
@@ -166,12 +165,11 @@ public class IncompatibleTargetChecker {
       invalidConstraintValuesBuilder.add(info);
     }
 
-    @Nullable
     private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
       var invalidConstraintValues = invalidConstraintValuesBuilder.build();
       if (invalidConstraintValues.isEmpty()) {
         sink.accept(Optional.empty());
-        return null;
+        return DONE;
       }
       sink.accept(
           Optional.of(
@@ -183,7 +181,7 @@ public class IncompatibleTargetChecker {
                       platformInfo.label(), invalidConstraintValues),
                   target.getAssociatedRule().getRuleClass(),
                   transitivePackages)));
-      return null;
+      return DONE;
     }
   }
 
