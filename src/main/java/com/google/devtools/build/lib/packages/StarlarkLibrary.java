@@ -17,7 +17,8 @@ import static com.google.devtools.build.lib.packages.PackageFactory.getContext;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -260,7 +261,7 @@ public final class StarlarkLibrary {
     }
   }
 
-  @DocumentMethods
+  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
   private static final class DepsetLibrary {
     @StarlarkMethod(
         name = "depset",
@@ -333,7 +334,7 @@ public final class StarlarkLibrary {
   }
 
   /** A starlark library supporting Bazel's implementation of the `select()` Starlark function. */
-  @DocumentMethods
+  @GlobalMethods(environment = {Environment.BUILD, Environment.BZL})
   public static final class SelectLibrary {
     @StarlarkMethod(
         name = "select",
@@ -378,7 +379,7 @@ public final class StarlarkLibrary {
     return env.buildOrThrow();
   }
 
-  @DocumentMethods
+  @GlobalMethods(environment = Environment.BUILD)
   private static class BuildLibrary {
     @StarlarkMethod(
         name = "environment_group",

@@ -22,7 +22,8 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
@@ -65,7 +66,7 @@ import net.starlark.java.eval.Tuple;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   @Override

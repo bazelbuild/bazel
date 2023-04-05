@@ -13,20 +13,42 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.annot;
 
+import com.google.common.base.Ascii;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * A annotation applied to a class that indicates to docgen that the class's {@link
+ * An annotation applied to a class that indicates to docgen that the class's {@link
  * net.starlark.java.annot.StarlarkMethod}-annotated methods should be included in docgen's output
- * as standalone functions.
- *
- * <p>It is not necessary to apply this annotation to a class already annotated with {@link
- * net.starlark.java.annot.StarlarkBuiltin}; docgen will automatically document such classes as
- * built-in data types with Starlark methods defined by the annotated Java methods.
+ * as standalone global functions.
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface DocumentMethods {}
+public @interface GlobalMethods {
+  /** The environment in which the global methods in the annotated class are available. */
+  enum Environment {
+    BUILD("BUILD files"),
+    WORKSPACE("WORKSPACE files"),
+    MODULE("MODULE.bazel files"),
+    BZL(".bzl files"),
+    ALL("All Starlark files");
+
+    private final String title;
+
+    Environment(String title) {
+      this.title = title;
+    }
+
+    public String getTitle() {
+      return title;
+    }
+
+    public String getPath() {
+      return Ascii.toLowerCase(name());
+    }
+  }
+
+  Environment[] environment();
+}

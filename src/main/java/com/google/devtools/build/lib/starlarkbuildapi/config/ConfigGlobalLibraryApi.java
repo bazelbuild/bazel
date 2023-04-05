@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -26,7 +27,7 @@ import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of top-level Starlark functions pertaining to configuration. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public interface ConfigGlobalLibraryApi {
   @StarlarkMethod(
       name = "transition",
