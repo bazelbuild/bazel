@@ -81,6 +81,9 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # Disable test failing due to infra change
+      - "-//src/test/shell/bazel:git_repository_test"
+      - "-//src/test/shell/bazel:starlark_git_repository_test"
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
@@ -144,6 +147,9 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+      # Disable test failing due to infra change
+      - "-//src/test/shell/bazel:git_repository_test"
+      - "-//src/test/shell/bazel:starlark_git_repository_test"
   macos:
     xcode_version: "13.0"
     shards: 5
@@ -185,6 +191,13 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      # Disable test failing due to infra change
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
+      - "-//tools/python:pywrapper_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/py/bazel:runfiles_test"
+      - "-//src/test/shell/bazel:python_version_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
   windows:
     shards: 4
     batch_commands:
@@ -248,6 +261,9 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote/..."
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+      # Disable test failing due to infra change
+      - "-//src/test/shell/bazel:git_repository_test"
+      - "-//src/test/shell/bazel:starlark_git_repository_test"
   rbe_ubuntu1804:
     platform: ubuntu1804
     shell_commands:

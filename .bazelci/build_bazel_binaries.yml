@@ -1,5 +1,4 @@
 ---
-bazel: "5.4.0"
 platforms:
   centos7_java11_devtoolset10:
     build_targets:
