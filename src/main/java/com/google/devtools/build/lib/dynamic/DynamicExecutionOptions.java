@@ -74,9 +74,12 @@ public class DynamicExecutionOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The local strategies, in order, to use for the given mnemonic. Passing"
-              + " 'local' as the mnemonic sets the default for unspecified mnemonics. Takes"
-              + " [mnemonic=]local_strategy[,local_strategy,...]")
+          "The local strategies, in order, to use for the given mnemonic - the first applicable "
+              + "strategy is used. For example, `worker,sandboxed` runs actions that support "
+              + "persistent workers using the worker strategy, and all others using the sandboxed "
+              + "strategy. If no mnemonic is given, the list of strategies is used as the "
+              + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`. "
+              + "Takes [mnemonic=]local_strategy[,local_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 
   @Option(
@@ -87,9 +90,11 @@ public class DynamicExecutionOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       help =
-          "The remote strategies to use for the given mnemonic. Passing 'remote'"
-              + " as the mnemonic sets the default for unspecified mnemonics. Takes"
-              + " [mnemonic=]remote_strategy[,remote_strategy,...]")
+          "The remote strategies, in order, to use for the given mnemonic - the first applicable "
+              + "strategy is used. If no mnemonic is given, the list of strategies is used as the "
+              + "fallback for all mnemonics. The default fallback list is `remote`, so this flag "
+              + "usually does not need to be set explicitly. "
+              + "Takes [mnemonic=]remote_strategy[,remote_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicRemoteStrategy;
 
   @Option(
