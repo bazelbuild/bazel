@@ -21,7 +21,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:action_rewound_event",
-        "//third_party:flogger_checked_in",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
