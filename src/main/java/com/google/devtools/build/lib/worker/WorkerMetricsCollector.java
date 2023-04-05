@@ -14,12 +14,15 @@
 
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.PsInfoCollector;
@@ -160,6 +163,10 @@ public class WorkerMetricsCollector {
     processIdToWorkerProperties.keySet().removeAll(nonMeasurableProcessIds);
 
     return updateMetricsCache(workerMetrics.build(), collectionTime).metrics;
+  }
+
+  public ImmutableList<WorkerMetrics> createWorkerMetricsProto() {
+    return collectMetrics().stream().map(WorkerMetric::toProto).collect(toImmutableList());
   }
 
   public void clear() {
