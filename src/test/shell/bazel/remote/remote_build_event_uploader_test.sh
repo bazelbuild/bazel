@@ -109,7 +109,7 @@ EOF
 
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -130,7 +130,7 @@ EOF
 
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -151,7 +151,7 @@ EOF
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --remote_upload_local_results=false \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -176,7 +176,7 @@ EOF
       --disk_cache=$cache_dir \
       --incompatible_remote_results_ignore_disk \
       --remote_upload_local_results=false \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -208,7 +208,7 @@ EOF
 
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo-alias >& $TEST_log || fail "Failed to build"
 
@@ -254,7 +254,7 @@ EOF
 
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -280,7 +280,7 @@ EOF
 
   bazel test \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:test >& $TEST_log || fail "Failed to build"
 
@@ -303,7 +303,7 @@ EOF
 
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || true
 
@@ -324,7 +324,7 @@ EOF
 
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_remote_build_event_upload=minimal \
+      --remote_build_event_upload=minimal \
       --profile=mycommand.profile.gz \
       --build_event_json_file=$BEP_JSON \
       //a:foo >& $TEST_log || fail "Failed to build"
