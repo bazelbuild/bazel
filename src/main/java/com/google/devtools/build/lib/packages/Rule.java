@@ -1185,15 +1185,16 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * <ol>
    *   <li>The rule uses toolchains by definition ({@link
    *       RuleClass.Builder#useToolchainResolution(ToolchainResolutionMode)}
-   *   <li>The rule instance has a select(), which means it may depend on target platform properties
-   *       that are only provided when toolchain resolution is enabled.
+   *   <li>The rule instance has a select() or target_compatible_with attribute, which means it may
+   *       depend on target platform properties that are only provided when toolchain resolution is
+   *       enabled.
    * </ol>
    */
   public boolean useToolchainResolution() {
     ToolchainResolutionMode mode = ruleClass.useToolchainResolution();
     if (mode.isActive()) {
       return true;
-    } else if (mode == ToolchainResolutionMode.HAS_SELECT) {
+    } else if (mode == ToolchainResolutionMode.NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS) {
       RawAttributeMapper attr = RawAttributeMapper.of(this);
       return ((attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
           && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty()) ||
