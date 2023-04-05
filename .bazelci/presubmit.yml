@@ -1,5 +1,4 @@
 ---
-bazel: "5.4.0"
 tasks:
   centos7_java11_devtoolset10:
     shards: 4
