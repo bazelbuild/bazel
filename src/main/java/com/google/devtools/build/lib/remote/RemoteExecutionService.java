@@ -343,6 +343,11 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  @VisibleForTesting
+  Cache<Object, MerkleTree> getMerkleTreeCache() {
+    return merkleTreeCache;
+  }
+
   private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
     TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
     for (ActionInput output : spawn.getOutputFiles()) {
