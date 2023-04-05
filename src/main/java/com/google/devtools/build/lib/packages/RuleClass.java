@@ -269,7 +269,8 @@ public class RuleClass {
         case ENABLED:
           return true;
         case DISABLED:
-        case NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS: // Not true for RuleClass, but Rule may enable it.
+        case NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS: // Not true for RuleClass, but Rule may
+                                                             // enable it.
           return false;
         default:
       }

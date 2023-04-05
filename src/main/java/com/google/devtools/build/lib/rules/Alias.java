@@ -80,7 +80,8 @@ public class Alias implements RuleConfiguredTargetFactory {
           // - when it has a select() on a constraint_setting, or
           // - when it has a target_compatible_with attribute.
           // Special-case enable those instances too.
-          .useToolchainResolution(ToolchainResolutionMode.NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS)
+          .useToolchainResolution(
+              ToolchainResolutionMode.NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS)
           .build();
     }
 

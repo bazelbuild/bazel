@@ -1426,7 +1426,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void selectOnlyToolchainResolvingTargetsCanSelectDirectlyOnConstraints() throws Exception {
     // Tests select()ing directly on a constraint_value when the rule uses toolchain resolution
     // *only if it has a select()*. As of this test, alias() is the only rule that supports that
-    // (see 
+    // (see
     // Alias#useToolchainResolution(ToolchainResolutionMode.NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS).
     scratch.file(
         "conditions/BUILD",
