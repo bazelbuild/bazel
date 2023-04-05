@@ -1195,8 +1195,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       return true;
     } else if (mode == ToolchainResolutionMode.HAS_SELECT) {
       RawAttributeMapper attr = RawAttributeMapper.of(this);
-      return (attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
-          && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty());
+      return ((attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
+          && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty()) ||
+          (attr.has(RuleClass.TARGET_COMPATIBLE_WITH_ATTR)
+           && !attr.get(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST).isEmpty()));
     } else {
       return false;
     }

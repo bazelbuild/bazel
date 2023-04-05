@@ -1584,4 +1584,38 @@ EOF
   expect_not_log "${debug_message5}"
 }
 
+# Validate what happens when setting `target_compatible_with` directly on an
+# alias(). This is a regression test for
+# https://github.com/bazelbuild/bazel/issues/17663.
+function test_alias_incompatibility() {
+  cat >> target_skipping/BUILD <<'EOF'
+filegroup(
+    name = "test_cc_filegroup",
+    srcs = ["test.cc"],
+)
+
+alias(
+    name = "test_cc_filegroup_alias",
+    actual = ":test_cc_filegroup",
+    target_compatible_with = [":foo3"],
+)
+
+cc_library(
+    name = "test_cc",
+    srcs = [":test_cc_filegroup_alias"],
+)
+EOF
+
+  echo > target_skipping/test.cc
+
+  cd target_skipping || fail "couldn't cd into workspace"
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:test_cc &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly"
+  expect_log_once 'ERROR: Target //target_skipping:test_cc is incompatible and cannot be built, but was explicitly requested.'
+}
+
 run_suite "target_compatible_with tests"
