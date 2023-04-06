@@ -727,7 +727,8 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private void setPathPermissionsIfFile(Path path) throws IOException {
-    if (path.isFile(Symlinks.NOFOLLOW)) {
+    FileStatus stat = path.stat(Symlinks.NOFOLLOW);
+    if (stat.isFile() && stat.getPermissions() != outputPermissions.getPermissionsMode()) {
       setPathPermissions(path);
     }
   }

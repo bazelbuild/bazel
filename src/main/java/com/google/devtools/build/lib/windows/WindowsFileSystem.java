@@ -202,6 +202,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             // TODO(bazel-team): Consider making use of attributes.fileKey().
             return -1;
           }
+
+          @Override
+          public int getPermissions() {
+            // Files on Windows are implicitly readable and executable.
+            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
+          }
         };
 
     return status;
