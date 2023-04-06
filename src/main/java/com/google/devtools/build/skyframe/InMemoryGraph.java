@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
-import com.google.devtools.build.skyframe.SkyKey.SkyKeyPool;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.Map;
@@ -22,19 +21,23 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** {@link ProcessableGraph} that exposes the contents of the entire graph. */
-public interface InMemoryGraph extends ProcessableGraph, SkyKeyPool {
+public interface InMemoryGraph extends ProcessableGraph {
 
   /** Creates a new in-memory graph suitable for incremental builds. */
   static InMemoryGraph create() {
-    return new InMemoryGraphImpl();
+    return new InMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
+  }
+
+  static InMemoryGraph create(boolean usePooledSkyKeyInterning) {
+    return new InMemoryGraphImpl(usePooledSkyKeyInterning);
   }
 
   /**
    * Creates a new in-memory graph that discards graph edges to save memory and cannot be used for
    * incremental builds.
    */
-  static InMemoryGraph createEdgeless() {
-    return new EdgelessInMemoryGraphImpl();
+  static InMemoryGraph createEdgeless(boolean usePooledSkyKeyInterning) {
+    return new EdgelessInMemoryGraphImpl(usePooledSkyKeyInterning);
   }
 
   @Override
@@ -82,4 +85,15 @@ public interface InMemoryGraph extends ProcessableGraph, SkyKeyPool {
 
   /** Applies the given consumer to each node in the graph, potentially in parallel. */
   void parallelForEach(Consumer<InMemoryNodeEntry> consumer);
+
+  /**
+   * Removes the node entry associated with the given {@link SkyKey} from the graph if it is done.
+   */
+  void removeIfDone(SkyKey key);
+
+  /**
+   * Cleans up the {@link com.google.devtools.build.lib.concurrent.PooledInterner.Pool} by moving
+   * instances back to weak interner and uninstall current pool.
+   */
+  void cleanupInterningPool();
 }

@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -22,6 +23,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -51,14 +53,13 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -87,7 +88,9 @@ java_library(
         "AbridgedModule.java",
         "ArchiveOverride.java",
         "BazelDepGraphValue.java",
+        "BazelLockFileValue.java",
         "BazelModuleResolutionValue.java",
+        "BzlmodFlagsAndEnvVars.java",
         "GitOverride.java",
         "LocalPathOverride.java",
         "Module.java",
@@ -109,7 +112,6 @@ java_library(
         ":repo_rule_creator",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
@@ -119,6 +121,7 @@ java_library(
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -128,8 +131,12 @@ java_library(
     name = "resolution_impl",
     srcs = [
         "BazelDepGraphFunction.java",
+        "BazelLockFileFunction.java",
         "BazelModuleResolutionFunction.java",
+        "BzlmodFlagsAndEnvVars.java",
+        "DelegateTypeAdapterFactory.java",
         "Discovery.java",
+        "GsonTypeAdapterUtil.java",
         "ModuleExtensionContext.java",
         "ModuleFileFunction.java",
         "ModuleFileGlobals.java",
@@ -157,6 +164,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
@@ -164,6 +172,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:client_environment_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -174,6 +183,7 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

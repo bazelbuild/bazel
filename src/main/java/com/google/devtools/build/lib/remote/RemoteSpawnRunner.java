@@ -556,7 +556,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
       catastrophe = true;
     } else if (remoteCacheFailed) {
       status = Status.REMOTE_CACHE_FAILED;
-      if (remoteOptions.useNewExitCodeForLostInputs) {
+      if (executionOptions.useNewExitCodeForLostInputs
+          || executionOptions.remoteRetryOnCacheEviction > 0) {
         detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_EVICTED;
       } else {
         detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED;

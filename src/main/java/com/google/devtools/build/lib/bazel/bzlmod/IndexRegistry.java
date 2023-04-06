@@ -110,6 +110,7 @@ public class IndexRegistry implements Registry {
     Map<String, String> patches;
     int patchStrip;
     String path;
+    String archiveType;
   }
 
   /**
@@ -244,6 +245,7 @@ public class IndexRegistry implements Registry {
         .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
+        .setArchiveType(sourceJson.get().archiveType)
         .build();
   }
 

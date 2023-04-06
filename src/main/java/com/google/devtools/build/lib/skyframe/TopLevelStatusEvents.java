@@ -13,14 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -55,6 +53,9 @@ public final class TopLevelStatusEvents {
   /**
    * An event that signals that we can start planting the symlinks for the transitive packages under
    * a top level target.
+   *
+   * <p>Should always be sent out before {@link TopLevelEntityAnalysisConcludedEvent} to ensure
+   * consistency.
    */
   @AutoValue
   public abstract static class TopLevelTargetReadyForSymlinkPlanting implements Postable {
@@ -158,21 +159,9 @@ public final class TopLevelStatusEvents {
 
     abstract ConfiguredAspect configuredAspect();
 
-    abstract NestedSet<Package> transitivePackagesForSymlinkPlanting();
-
-    /** This method is used when no further symlink planting is expected from the subscribers. */
-    public static AspectAnalyzedEvent createWithoutFurtherSymlinkPlanting(
-        AspectKey aspectKey, ConfiguredAspect configuredAspect) {
-      return new AutoValue_TopLevelStatusEvents_AspectAnalyzedEvent(
-          aspectKey, configuredAspect, NestedSetBuilder.emptySet(STABLE_ORDER));
-    }
-
     public static AspectAnalyzedEvent create(
-        AspectKey aspectKey,
-        ConfiguredAspect configuredAspect,
-        NestedSet<Package> transitivePackagesForSymlinkPlanting) {
-      return new AutoValue_TopLevelStatusEvents_AspectAnalyzedEvent(
-          aspectKey, configuredAspect, transitivePackagesForSymlinkPlanting);
+        AspectKey aspectKey, ConfiguredAspect configuredAspect) {
+      return new AutoValue_TopLevelStatusEvents_AspectAnalyzedEvent(aspectKey, configuredAspect);
     }
   }
 

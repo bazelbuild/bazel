@@ -17,7 +17,7 @@
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
 load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
-load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
+load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryHintInfo", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
@@ -32,6 +32,7 @@ load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyIn
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
+load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -39,12 +40,14 @@ exported_toplevels = {
     # "original value".
     "_builtins_dummy": "overridden value",
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
+    "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "proto_common_do_not_use": proto_common_do_not_use,
     "PyRuntimeInfo": PyRuntimeInfo,
     "PyInfo": PyInfo,
     "PyCcLinkParamsProvider": PyCcLinkParamsProvider,
     "py_internal": py_internal,
     "ProtoInfo": ProtoInfo,
+    "cc_common": cc_common,
 }
 
 # A list of Starlarkified native rules.

@@ -91,4 +91,56 @@ function test_rules_java_repository_builds_itself() {
       || fail "Build failed unexpectedly"
 }
 
+
+function test_experimental_java_library_export_do_not_use() {
+  mkdir -p java
+  cat >java/java_library.bzl <<EOF
+def _impl(ctx):
+    return experimental_java_library_export_do_not_use.bazel_java_library_rule(
+        ctx,
+        ctx.files.srcs,
+        ctx.attr.deps,
+        ctx.attr.runtime_deps,
+        ctx.attr.plugins,
+        ctx.attr.exports,
+        ctx.attr.exported_plugins,
+        ctx.files.resources,
+        ctx.attr.javacopts,
+        ctx.attr.neverlink,
+        ctx.files.proguard_specs,
+        ctx.attr.add_exports,
+        ctx.attr.add_opens,
+    ).values()
+
+java_library = rule(
+  implementation = _impl,
+  attrs = experimental_java_library_export_do_not_use.JAVA_LIBRARY_ATTRS,
+  provides = [JavaInfo],
+  outputs = {
+      "classjar": "lib%{name}.jar",
+      "sourcejar": "lib%{name}-src.jar",
+  },
+  fragments = ["java", "cpp"],
+  toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
+)
+EOF
+  cat >java/BUILD <<EOF
+load(":java_library.bzl", "java_library")
+package(default_visibility=['//visibility:public'])
+java_library(name = 'hello_library',
+             srcs = ['HelloLibrary.java']);
+EOF
+  cat >java/HelloLibrary.java <<EOF
+package hello_library;
+public class HelloLibrary {
+  public static void funcHelloLibrary() {
+    System.out.print("Hello, Library!;");
+  }
+}
+EOF
+
+  bazel build //java:hello_library &> $TEST_log && fail "build succeeded"
+  bazel build --experimental_java_library_export //java:hello_library &> $TEST_log || fail "build failed"
+}
+
 run_suite "rules_java tests"

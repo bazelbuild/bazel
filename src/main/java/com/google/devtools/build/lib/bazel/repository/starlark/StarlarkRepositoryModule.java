@@ -22,7 +22,8 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule.Descriptor;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtension;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
@@ -66,7 +66,7 @@ import net.starlark.java.eval.Tuple;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
   @Override
@@ -225,17 +225,14 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
-        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name, thread.getSemantics());
+        WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name);
         WorkspaceFactoryHelper.addRepoMappings(packageBuilder, kwargs, name);
-        Rule rule =
-            WorkspaceFactoryHelper.createAndAddRepositoryRule(
-                context.getBuilder(),
-                ruleClass,
-                /*bindRuleClass=*/ null,
-                WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                thread.getSemantics(),
-                thread.getCallStack());
-        return rule;
+        return WorkspaceFactoryHelper.createAndAddRepositoryRule(
+            context.getBuilder(),
+            ruleClass,
+            /* bindRuleClass= */ null,
+            WorkspaceFactoryHelper.getFinalKwargs(kwargs),
+            thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
@@ -296,23 +293,19 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
             positional = false)
       },
       useStarlarkThread = true)
-  public Object moduleExtension(
+  public ModuleExtension moduleExtension(
       StarlarkCallable implementation,
       Dict<?, ?> tagClasses, // Dict<String, TagClass>
       String doc,
       StarlarkThread thread)
       throws EvalException {
-    ModuleExtension.InStarlark inStarlark = new ModuleExtension.InStarlark();
-    inStarlark
-        .getBuilder()
+    return ModuleExtension.builder()
         .setImplementation(implementation)
         .setTagClasses(
             ImmutableMap.copyOf(Dict.cast(tagClasses, String.class, TagClass.class, "tag_classes")))
         .setDoc(doc)
-        .setDefinitionEnvironmentLabel(
-            BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label())
-        .setLocation(thread.getCallerLocation());
-    return inStarlark;
+        .setLocation(thread.getCallerLocation())
+        .build();
   }
 
   @StarlarkMethod(

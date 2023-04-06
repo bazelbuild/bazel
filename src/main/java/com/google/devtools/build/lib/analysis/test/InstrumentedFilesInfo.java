@@ -77,7 +77,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentedFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getInstrumentedFiles());
+    return Depset.of(Artifact.class, getInstrumentedFiles());
   }
 
   /** Returns a collection of instrumentation metadata files. */
@@ -87,7 +87,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentationMetadataFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getInstrumentationMetadataFiles());
+    return Depset.of(Artifact.class, getInstrumentationMetadataFiles());
   }
 
   /**

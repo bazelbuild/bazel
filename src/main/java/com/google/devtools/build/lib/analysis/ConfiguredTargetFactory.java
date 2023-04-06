@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -92,6 +92,14 @@ import net.starlark.java.eval.Mutability;
 @ThreadSafe
 public final class ConfiguredTargetFactory {
 
+  private static final NestedSet<PackageGroupContents> PUBLIC_VISIBILITY =
+      NestedSetBuilder.create(
+          Order.STABLE_ORDER,
+          PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())));
+
+  private static final NestedSet<PackageGroupContents> PRIVATE_VISIBILITY =
+      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+
   // This class is not meant to be outside of the analysis phase machinery and is only public
   // in order to be accessible from the .view.skyframe package.
 
@@ -110,45 +118,42 @@ public final class ConfiguredTargetFactory {
       EventHandler reporter,
       Target target) {
     RuleVisibility ruleVisibility = target.getVisibility();
-    if (ruleVisibility instanceof ConstantRuleVisibility) {
-      return ((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()
-          ? NestedSetBuilder.create(
-              Order.STABLE_ORDER,
-              PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())))
-          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-      PackageGroupsRuleVisibility packageGroupsVisibility =
-          (PackageGroupsRuleVisibility) ruleVisibility;
-
-      NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
-      for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
-        // PackageGroupsConfiguredTargets are always in the package-group configuration.
-        TransitiveInfoCollection group = findVisibilityPrerequisite(prerequisiteMap, groupLabel);
-        PackageSpecificationProvider provider = null;
-        // group == null can only happen if the package group list comes
-        // from a default_visibility attribute, because in every other case,
-        // this missing link is caught during transitive closure visitation or
-        // if the RuleConfiguredTargetGraph threw out a visibility edge
-        // because if would have caused a cycle. The filtering should be done
-        // in a single place, ConfiguredTargetGraph, but for now, this is the
-        // minimally invasive way of providing a sane error message in case a
-        // cycle is created by a visibility attribute.
-        if (group != null) {
-          provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
-        }
-        if (provider != null) {
-          result.addTransitive(provider.getPackageSpecifications());
-        } else {
-          reporter.handle(Event.error(target.getLocation(),
-              String.format("Label '%s' does not refer to a package group", groupLabel)));
-        }
-      }
-
-      result.add(packageGroupsVisibility.getDirectPackages());
-      return result.build();
-    } else {
-      throw new IllegalStateException("unknown visibility");
+    if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
+      return PUBLIC_VISIBILITY;
     }
+    if (ruleVisibility.equals(RuleVisibility.PRIVATE)) {
+      return PRIVATE_VISIBILITY;
+    }
+    checkState(ruleVisibility instanceof PackageGroupsRuleVisibility, ruleVisibility);
+    PackageGroupsRuleVisibility packageGroupsVisibility =
+        (PackageGroupsRuleVisibility) ruleVisibility;
+
+    NestedSetBuilder<PackageGroupContents> result = NestedSetBuilder.stableOrder();
+    for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
+      // PackageGroupsConfiguredTargets are always in the package-group configuration.
+      TransitiveInfoCollection group = findVisibilityPrerequisite(prerequisiteMap, groupLabel);
+      PackageSpecificationProvider provider = null;
+      // group == null can only happen if the package group list comes from a default_visibility
+      // attribute, because in every other case, this missing link is caught during transitive
+      // closure visitation or if the RuleConfiguredTargetGraph threw out a visibility edge because
+      // if would have caused a cycle. The filtering should be done in a single place,
+      // ConfiguredTargetGraph, but for now, this is the minimally invasive way of providing a sane
+      // error message in case a cycle is created by a visibility attribute.
+      if (group != null) {
+        provider = group.get(PackageGroupConfiguredTarget.PROVIDER);
+      }
+      if (provider != null) {
+        result.addTransitive(provider.getPackageSpecifications());
+      } else {
+        reporter.handle(
+            Event.error(
+                target.getLocation(),
+                String.format("Label '%s' does not refer to a package group", groupLabel)));
+      }
+    }
+
+    result.add(packageGroupsVisibility.getDirectPackages());
+    return result.build();
   }
 
   @Nullable
@@ -321,7 +326,7 @@ public final class ConfiguredTargetFactory {
             .setTransitivePackagesForRunfileRepoMappingManifest(transitivePackages)
             .build();
 
-    List<NestedSet<AnalysisFailure>> analysisFailures =
+    ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =
         depAnalysisFailures(ruleContext, ImmutableList.of());
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
@@ -401,6 +406,8 @@ public final class ConfiguredTargetFactory {
           // Starlark evaluation, i.e. using the @_builtins mechanism.
           ruleContext.close();
         }
+        // TODO(https://github.com/bazelbuild/bazel/issues/17915): genquery and similar native rules
+        // may return null without setting a ruleContext error to signal a skyframe restart.
         return target != null ? target : erroredConfiguredTarget(ruleContext, null);
       }
     } catch (RuleErrorException ruleErrorException) {
@@ -506,7 +513,7 @@ public final class ConfiguredTargetFactory {
         missingFragments.add(fragment);
       }
     }
-    Preconditions.checkState(!missingFragments.isEmpty());
+    checkState(!missingFragments.isEmpty());
     return "all rules of type "
         + ruleClass.getName()
         + " require the presence of all of ["
@@ -582,7 +589,7 @@ public final class ConfiguredTargetFactory {
     // will be propagated via a hook elsewhere as AnalysisFailureInfo.
     boolean allowAnalysisFailures = ruleContext.getConfiguration().allowAnalysisFailures();
 
-    List<NestedSet<AnalysisFailure>> analysisFailures =
+    ImmutableList<NestedSet<AnalysisFailure>> analysisFailures =
         depAnalysisFailures(ruleContext, ImmutableList.of(configuredTarget));
     if (!analysisFailures.isEmpty()) {
       return erroredConfiguredAspectWithFailures(ruleContext, analysisFailures);
@@ -672,15 +679,12 @@ public final class ConfiguredTargetFactory {
     } else if (aspectPath.size() == 1) {
       return aspectPath.get(0).getDefinition().getAttributes();
     } else {
-
       LinkedHashMap<String, Attribute> aspectAttributes = new LinkedHashMap<>();
       for (Aspect underlyingAspect : aspectPath) {
-        ImmutableMap<String, Attribute> currentAttributes = underlyingAspect.getDefinition()
-            .getAttributes();
+        ImmutableMap<String, Attribute> currentAttributes =
+            underlyingAspect.getDefinition().getAttributes();
         for (Map.Entry<String, Attribute> kv : currentAttributes.entrySet()) {
-          if (!aspectAttributes.containsKey(kv.getKey())) {
-            aspectAttributes.put(kv.getKey(), kv.getValue());
-          }
+          aspectAttributes.putIfAbsent(kv.getKey(), kv.getValue());
         }
       }
       return ImmutableMap.copyOf(aspectAttributes);

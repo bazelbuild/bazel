@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.remote.merkletree;
 import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 /**
  * Intermediate tree representation of a list of lexicographically sorted list of files. Each node
@@ -34,11 +33,12 @@ import java.util.SortedSet;
 final class DirectoryTree {
 
   interface Visitor {
+
     void visitDirectory(
         PathFragment dirname,
-        List<FileNode> files,
-        List<SymlinkNode> symlinks,
-        List<DirectoryNode> dirs);
+        SortedSet<FileNode> files,
+        SortedSet<SymlinkNode> symlinks,
+        SortedSet<DirectoryNode> dirs);
   }
 
   abstract static class Node implements Comparable<Node> {
@@ -204,26 +204,44 @@ final class DirectoryTree {
   }
 
   static class DirectoryNode extends Node {
-    private final SortedSet<Node> children = Sets.newTreeSet();
+
+    private final SortedSet<FileNode> files = new TreeSet<>();
+    private final SortedSet<SymlinkNode> symlinks = new TreeSet<>();
+    private final SortedSet<DirectoryNode> subdirs = new TreeSet<>();
 
     DirectoryNode(String pathSegment) {
       super(pathSegment);
     }
 
-    boolean addChild(Node child) {
-      return children.add(Preconditions.checkNotNull(child, "child"));
+    @CanIgnoreReturnValue
+    boolean addChild(FileNode file) {
+      return files.add(Preconditions.checkNotNull(file, "file"));
+    }
+
+    @CanIgnoreReturnValue
+    boolean addChild(SymlinkNode symlink) {
+      return symlinks.add(Preconditions.checkNotNull(symlink, "symlink"));
+    }
+
+    @CanIgnoreReturnValue
+    boolean addChild(DirectoryNode subdir) {
+      return subdirs.add(Preconditions.checkNotNull(subdir, "subdir"));
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), children.hashCode());
+      return Objects.hash(
+          super.hashCode(), files.hashCode(), symlinks.hashCode(), subdirs.hashCode());
     }
 
     @Override
     public boolean equals(Object o) {
       if (o instanceof DirectoryNode) {
         DirectoryNode other = (DirectoryNode) o;
-        return super.equals(other) && Objects.equals(children, other.children);
+        return super.equals(other)
+            && Objects.equals(files, other.files)
+            && Objects.equals(symlinks, other.symlinks)
+            && Objects.equals(subdirs, other.subdirs);
       }
       return false;
     }
@@ -265,23 +283,10 @@ final class DirectoryTree {
       return;
     }
 
-    List<FileNode> files = new ArrayList<>(dir.children.size());
-    List<SymlinkNode> symlinks = new ArrayList<>();
-    List<DirectoryNode> dirs = new ArrayList<>();
-    for (Node child : dir.children) {
-      if (child instanceof FileNode) {
-        files.add((FileNode) child);
-      } else if (child instanceof SymlinkNode) {
-        symlinks.add((SymlinkNode) child);
-      } else if (child instanceof DirectoryNode) {
-        dirs.add((DirectoryNode) child);
-        visit(visitor, dirname.getRelative(child.pathSegment));
-      } else {
-        throw new IllegalStateException(
-            String.format("Node type '%s' is not supported", child.getClass().getSimpleName()));
-      }
+    for (DirectoryNode subdir : dir.subdirs) {
+      visit(visitor, dirname.getRelative(subdir.getPathSegment()));
     }
-    visitor.visitDirectory(dirname, files, symlinks, dirs);
+    visitor.visitDirectory(dirname, dir.files, dir.symlinks, dir.subdirs);
   }
 
   @Override

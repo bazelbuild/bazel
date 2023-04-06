@@ -45,10 +45,6 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
-  static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
-  // Must call getToolsLabel() when using this.
-  static final String DEFAULT_BOOTSTRAP_TEMPLATE = "//tools/python:python_bootstrap_template.txt";
-
   @StarlarkMethod(
       name = "interpreter_path",
       structField = true,
@@ -209,12 +205,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               allowedTypes = {@ParamType(type = String.class)},
               positional = false,
               named = true,
-              defaultValue = "'" + DEFAULT_STUB_SHEBANG + "'",
+              defaultValue = "None",
               doc =
                   "The value for the new object's <code>stub_shebang</code> field. "
-                      + "Default is <code>"
-                      + DEFAULT_STUB_SHEBANG
-                      + "</code>."),
+                      + "If None or not specified, <code>#!/usr/bin/env python3</code> is used."),
           @Param(
               name = "bootstrap_template",
               allowedTypes = {

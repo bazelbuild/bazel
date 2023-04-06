@@ -16,9 +16,7 @@ filegroup(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]) + [
-        "//tools/osx/crosstool:bzl_srcs",
-    ],
+    srcs = glob(["*.bzl"]),
     visibility = ["//tools:__pkg__"],
 )
 
@@ -36,18 +34,12 @@ DARWIN_XCODE_LOCATOR_COMPILE_COMMAND = """
 genrule(
     name = "xcode-locator-genrule",
     srcs = select({
-        ":darwin": ["xcode_locator.m"],
-        ":darwin_x86_64": ["xcode_locator.m"],
-        ":darwin_arm64": ["xcode_locator.m"],
-        ":darwin_arm64e": ["xcode_locator.m"],
+        "//src/conditions:darwin": ["xcode_locator.m"],
         "//conditions:default": ["xcode_locator_stub.sh"],
     }),
     outs = ["xcode-locator"],
     cmd = select({
-        ":darwin": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
-        ":darwin_x86_64": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
-        ":darwin_arm64": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
-        ":darwin_arm64e": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
+        "//src/conditions:darwin": DARWIN_XCODE_LOCATOR_COMPILE_COMMAND,
         "//conditions:default": "cp $< $@",
     }),
     local = 1,
@@ -55,12 +47,6 @@ genrule(
 )
 
 # TODO(cparsons): Consolidate with config_settings under //src
-config_setting(
-    name = "darwin",
-    values = {"cpu": "darwin"},
-    visibility = ["//visibility:public"],
-)
-
 config_setting(
     name = "darwin_x86_64",
     values = {"cpu": "darwin_x86_64"},

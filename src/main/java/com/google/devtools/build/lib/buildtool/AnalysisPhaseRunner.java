@@ -247,6 +247,7 @@ public final class AnalysisPhaseRunner {
               request.getAspectsParameters(),
               request.getViewOptions(),
               request.getKeepGoing(),
+              request.getViewOptions().skipIncompatibleExplicitTargets,
               request.getCheckForActionConflicts(),
               env.getQuiescingExecutors(),
               request.getTopLevelArtifactContext(),
@@ -255,6 +256,7 @@ public final class AnalysisPhaseRunner {
               env.getEventBus(),
               env.getRuntime().getBugReporter(),
               /* includeExecutionPhase= */ false,
+              /* skymeldAnalysisOverlapPercentage= */ 0,
               /* resourceManager= */ null,
               /* buildResultListener= */ null,
               /* executionSetupCallback= */ null,
@@ -324,10 +326,7 @@ public final class AnalysisPhaseRunner {
     }
 
     for (Entry<AspectKey, ConfiguredAspect> entry : analysisResult.getAspectsMap().entrySet()) {
-      env.getEventBus()
-          .post(
-              AspectAnalyzedEvent.createWithoutFurtherSymlinkPlanting(
-                  entry.getKey(), entry.getValue()));
+      env.getEventBus().post(AspectAnalyzedEvent.create(entry.getKey(), entry.getValue()));
     }
   }
 

@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
@@ -40,7 +40,7 @@ import net.starlark.java.eval.StarlarkValue;
 final class StarlarkDocumentationCollector {
   @StarlarkBuiltin(
       name = "globals",
-      category = DocCategory.TOP_LEVEL_TYPE,
+      category = DocCategory.TOP_LEVEL_MODULE,
       doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule implements StarlarkValue {}
 
@@ -115,7 +115,7 @@ final class StarlarkDocumentationCollector {
       if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {
         collectModuleMethods(candidateClass, modules, expander);
       }
-      if (candidateClass.isAnnotationPresent(DocumentMethods.class)
+      if (candidateClass.isAnnotationPresent(GlobalMethods.class)
           || candidateClass.getName().equals("net.starlark.java.eval.MethodLibrary")) {
         collectDocumentedMethods(candidateClass, modules, expander);
       }
@@ -124,7 +124,7 @@ final class StarlarkDocumentationCollector {
     // 3. Add all constructors.
     for (Class<?> candidateClass : classes) {
       if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)
-          || candidateClass.isAnnotationPresent(DocumentMethods.class)) {
+          || candidateClass.isAnnotationPresent(GlobalMethods.class)) {
         collectConstructorMethods(candidateClass, modules, expander);
       }
     }
@@ -250,7 +250,7 @@ final class StarlarkDocumentationCollector {
 
   /**
    * Adds {@link StarlarkJavaMethodDoc} entries to the top level module, one for
-   * each @StarlarkMethod method defined in the given @DocumentMethods class {@code moduleClass}.
+   * each @StarlarkMethod method defined in the given @GlobalMethods class {@code moduleClass}.
    */
   private static void collectDocumentedMethods(
       Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules, StarlarkDocExpander expander) {

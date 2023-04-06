@@ -13,25 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -40,11 +34,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -58,27 +50,17 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
-import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
-import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -86,9 +68,9 @@ import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EventFilter;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
@@ -100,25 +82,18 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-import com.google.devtools.common.options.ParsedOptionDescription;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -142,26 +117,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private boolean evaluatorNeedsReset = false;
 
-  // This is intentionally not kept in sync with the evaluator: we may reset the evaluator without
-  // ever losing injected/invalidated data here. This is safe because the worst that will happen is
-  // that on the next build we try to inject/invalidate some nodes that aren't needed for the build.
-  private final RecordingDifferencer recordingDiffer = new SequencedRecordingDifferencer();
-  private final DiffAwarenessManager diffAwarenessManager;
-  // If this is null then workspace header pre-calculation won't happen.
-  @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
-  private Set<String> previousClientEnvironment = ImmutableSet.of();
-
-  private final AtomicInteger modifiedFiles = new AtomicInteger();
   private final AtomicInteger outputDirtyFiles = new AtomicInteger();
   private final ArrayBlockingQueue<String> outputDirtyFilesExecPathSample =
       new ArrayBlockingQueue<>(MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE);
   private final AtomicInteger modifiedFilesDuringPreviousBuild = new AtomicInteger();
 
   private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
-  private int numSourceFilesCheckedBecauseOfMissingDiffs;
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
-  private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private GraphInconsistencyReceiver inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
 
   private SequencedSkyframeExecutor(
@@ -202,10 +165,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new PackageProgressReceiver(),
         new ConfiguredTargetProgressReceiver(),
         skyKeyStateReceiver,
-        bugReporter);
-    this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
-    this.repositoryHelpersHolder = repositoryHelpersHolder;
-    this.workspaceInfoFromDiffReceiver = workspaceInfoFromDiffReceiver;
+        bugReporter,
+        diffAwarenessFactories,
+        workspaceInfoFromDiffReceiver,
+        new SequencedRecordingDifferencer(),
+        repositoryHelpersHolder);
   }
 
   @Override
@@ -218,7 +182,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   protected InMemoryMemoizingEvaluator createEvaluator(
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       SkyframeProgressReceiver progressReceiver,
-      NestedSetVisitor.VisitedState emittedEventState) {
+      EmittedEventState emittedEventState) {
     return new InMemoryMemoizingEvaluator(
         skyFunctions,
         recordingDiffer,
@@ -226,7 +190,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         inconsistencyReceiver,
         trackIncrementalState ? DEFAULT_EVENT_FILTER_WITH_ACTIONS : EventFilter.NO_STORAGE,
         emittedEventState,
-        trackIncrementalState);
+        trackIncrementalState,
+        /* usePooledSkyKeyInterning= */ true);
   }
 
   @Override
@@ -349,330 +314,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     deletedPackages.set(newDeletedPackagesSet);
-  }
-
-  /** Uses diff awareness on all the package paths to invalidate changed files. */
-  @VisibleForTesting
-  public void handleDiffsForTesting(ExtendedEventHandler eventHandler)
-      throws InterruptedException, AbruptExitException {
-    if (lastAnalysisDiscarded) {
-      // Values were cleared last build, but they couldn't be deleted because they were needed for
-      // the execution phase. We can delete them now.
-      dropConfiguredTargetsNow(eventHandler);
-      lastAnalysisDiscarded = false;
-    }
-    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-    packageOptions.checkOutputFiles = false;
-    ClassToInstanceMap<OptionsBase> options =
-        ImmutableClassToInstanceMap.of(PackageOptions.class, packageOptions);
-    handleDiffs(
-        eventHandler,
-        new OptionsProvider() {
-          @Nullable
-          @Override
-          public <O extends OptionsBase> O getOptions(Class<O> optionsClass) {
-            return options.getInstance(optionsClass);
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getStarlarkOptions() {
-            return ImmutableMap.of();
-          }
-
-          @Override
-          public ImmutableMap<String, Object> getExplicitStarlarkOptions(
-              java.util.function.Predicate<? super ParsedOptionDescription> filter) {
-            return ImmutableMap.of();
-          }
-        });
-  }
-
-  @Nullable
-  private WorkspaceInfoFromDiff handleDiffs(
-      ExtendedEventHandler eventHandler, OptionsProvider options)
-      throws InterruptedException, AbruptExitException {
-    TimestampGranularityMonitor tsgm = this.tsgm.get();
-    modifiedFiles.set(0);
-    numSourceFilesCheckedBecauseOfMissingDiffs = 0;
-
-    WorkspaceInfoFromDiff workspaceInfo = null;
-    Map<Root, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
-        Maps.newHashMap();
-    Set<Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet>>
-        pathEntriesWithoutDiffInformation = Sets.newHashSet();
-    ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
-    for (Root pathEntry : pkgRoots) {
-      DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
-      if (pkgRoots.size() == 1) {
-        workspaceInfo = modifiedFileSet.getWorkspaceInfo();
-        workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
-            pathEntry.asPath().asFragment(), workspaceInfo);
-      }
-      if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
-        pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
-      } else {
-        modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
-      }
-    }
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    int fsvcThreads = buildRequestOptions == null ? 200 : buildRequestOptions.fsvcThreads;
-    handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry, fsvcThreads);
-    RepositoryOptions repoOptions = options.getOptions(RepositoryOptions.class);
-    handleDiffsWithMissingDiffInformation(
-        eventHandler,
-        tsgm,
-        pathEntriesWithoutDiffInformation,
-        options.getOptions(PackageOptions.class).checkOutputFiles,
-        repoOptions == null || repoOptions.checkExternalRepositoryFiles,
-        fsvcThreads);
-    handleClientEnvironmentChanges();
-    return workspaceInfo;
-  }
-
-  /** Invalidates entries in the client environment. */
-  private void handleClientEnvironmentChanges() {
-    // Remove deleted client environmental variables.
-    Iterable<SkyKey> deletedKeys =
-        Sets.difference(previousClientEnvironment, clientEnv.get().keySet()).stream()
-            .map(ClientEnvironmentFunction::key)
-            .collect(toImmutableList());
-    recordingDiffer.invalidate(deletedKeys);
-    previousClientEnvironment = clientEnv.get().keySet();
-    // Inject current client environmental values. We can inject unconditionally without fearing
-    // over-invalidation; skyframe will not invalidate an injected key if the key's new value is the
-    // same as the old value.
-    ImmutableMap.Builder<SkyKey, SkyValue> newValuesBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, String> entry : clientEnv.get().entrySet()) {
-      newValuesBuilder.put(
-          ClientEnvironmentFunction.key(entry.getKey()),
-          new ClientEnvironmentValue(entry.getValue()));
-    }
-    recordingDiffer.inject(newValuesBuilder.buildOrThrow());
-  }
-
-  /**
-   * Invalidates files under path entries whose corresponding {@link DiffAwareness} gave an exact
-   * diff. Removes entries from the given map as they are processed. All of the files need to be
-   * invalidated, so the map should be empty upon completion of this function.
-   */
-  private void handleDiffsWithCompleteDiffInformation(
-      TimestampGranularityMonitor tsgm,
-      Map<Root, ProcessableModifiedFileSet> modifiedFilesByPathEntry,
-      int fsvcThreads)
-      throws InterruptedException, AbruptExitException {
-    for (Root pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
-      DiffAwarenessManager.ProcessableModifiedFileSet processableModifiedFileSet =
-          modifiedFilesByPathEntry.get(pathEntry);
-      ModifiedFileSet modifiedFileSet = processableModifiedFileSet.getModifiedFileSet();
-      Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
-      handleChangedFiles(
-          ImmutableList.of(pathEntry),
-          getDiff(tsgm, modifiedFileSet, pathEntry, fsvcThreads),
-          /*numSourceFilesCheckedIfDiffWasMissing=*/ 0);
-      processableModifiedFileSet.markProcessed();
-    }
-  }
-
-  /**
-   * Finds and invalidates changed files under path entries whose corresponding {@link
-   * DiffAwareness} said all files may have been modified.
-   */
-  private void handleDiffsWithMissingDiffInformation(
-      ExtendedEventHandler eventHandler,
-      TimestampGranularityMonitor tsgm,
-      Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
-      boolean checkOutputFiles,
-      boolean checkExternalRepositoryFiles,
-      int fsvcThreads)
-      throws InterruptedException {
-
-    ExternalFilesKnowledge externalFilesKnowledge = externalFilesHelper.getExternalFilesKnowledge();
-    if (!pathEntriesWithoutDiffInformation.isEmpty()
-        || (checkOutputFiles && externalFilesKnowledge.anyOutputFilesSeen)
-        || (checkExternalRepositoryFiles && repositoryHelpersHolder != null)
-        || (checkExternalRepositoryFiles && externalFilesKnowledge.anyFilesInExternalReposSeen)
-        || externalFilesKnowledge.tooManyNonOutputExternalFilesSeen) {
-      // We freshly compute knowledge of the presence of external files in the skyframe graph. We
-      // use a fresh ExternalFilesHelper instance and only set the real instance's knowledge *after*
-      // we are done with the graph scan, lest an interrupt during the graph scan causes us to
-      // incorrectly think there are no longer any external files.
-      ExternalFilesHelper tmpExternalFilesHelper =
-          externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
-
-      // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
-      // have actually been invalidated (recall that invalidation happens at the beginning of the
-      // next evaluate() call), because checking those is a waste of time.
-      EvaluationContext evaluationContext =
-          newEvaluationContextBuilder()
-              .setKeepGoing(false)
-              .setParallelism(DEFAULT_THREAD_COUNT)
-              .setEventHandler(eventHandler)
-              .build();
-      memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
-
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
-      // We need to manually check for changes to known files. This entails finding all dirty file
-      // system values under package roots for which we don't have diff information. If at least
-      // one path entry doesn't have diff information, then we're going to have to iterate over
-      // the skyframe values at least once no matter what.
-      Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
-      for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
-          pathEntriesWithoutDiffInformation) {
-        diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
-      }
-
-      EnumSet<FileType> fileTypesToCheck = EnumSet.noneOf(FileType.class);
-      Iterable<SkyValueDirtinessChecker> dirtinessCheckers = ImmutableList.of();
-
-      if (!diffPackageRootsUnderWhichToCheck.isEmpty()) {
-        dirtinessCheckers =
-            Iterables.concat(
-                dirtinessCheckers,
-                ImmutableList.of(
-                    new MissingDiffDirtinessChecker(diffPackageRootsUnderWhichToCheck)));
-      }
-      if (checkExternalRepositoryFiles && repositoryHelpersHolder != null) {
-        dirtinessCheckers =
-            Iterables.concat(
-                dirtinessCheckers,
-                ImmutableList.of(repositoryHelpersHolder.repositoryDirectoryDirtinessChecker()));
-      }
-      if (checkExternalRepositoryFiles) {
-        fileTypesToCheck = EnumSet.of(FileType.EXTERNAL_REPO);
-      }
-      if (externalFilesKnowledge.tooManyNonOutputExternalFilesSeen
-          || !externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
-        fileTypesToCheck.add(FileType.EXTERNAL);
-      }
-      // See the comment for FileType.OUTPUT for why we need to consider output files here.
-      if (checkOutputFiles) {
-        fileTypesToCheck.add(FileType.OUTPUT);
-      }
-      if (!fileTypesToCheck.isEmpty()) {
-        dirtinessCheckers =
-            Iterables.concat(
-                dirtinessCheckers,
-                ImmutableList.of(
-                    new ExternalDirtinessChecker(tmpExternalFilesHelper, fileTypesToCheck)));
-      }
-      Preconditions.checkArgument(!Iterables.isEmpty(dirtinessCheckers));
-
-      logger.atInfo().log(
-          "About to scan skyframe graph checking for filesystem nodes of types %s",
-          Iterables.toString(fileTypesToCheck));
-      ImmutableBatchDirtyResult batchDirtyResult;
-      try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
-        batchDirtyResult =
-            fsvc.getDirtyKeys(
-                memoizingEvaluator.getValues(),
-                new UnionDirtinessChecker(ImmutableList.copyOf(dirtinessCheckers)));
-      }
-      handleChangedFiles(
-          diffPackageRootsUnderWhichToCheck,
-          batchDirtyResult,
-          /*numSourceFilesCheckedIfDiffWasMissing=*/ batchDirtyResult.getNumKeysChecked());
-      // We use the knowledge gained during the graph scan that just completed. Otherwise, naively,
-      // once an external file gets into the Skyframe graph, we'll overly-conservatively always
-      // think the graph needs to be scanned.
-      externalFilesHelper.setExternalFilesKnowledge(
-          tmpExternalFilesHelper.getExternalFilesKnowledge());
-    } else if (!externalFilesKnowledge.nonOutputExternalFilesSeen.isEmpty()) {
-      logger.atInfo().log(
-          "About to scan %d external files",
-          externalFilesKnowledge.nonOutputExternalFilesSeen.size());
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
-      ImmutableBatchDirtyResult batchDirtyResult;
-      try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyExternalKeys")) {
-        Map<SkyKey, SkyValue> externalDirtyNodes = new ConcurrentHashMap<>();
-        for (RootedPath path : externalFilesKnowledge.nonOutputExternalFilesSeen) {
-          SkyKey key = FileStateValue.key(path);
-          SkyValue value = memoizingEvaluator.getExistingValue(key);
-          if (value != null) {
-            externalDirtyNodes.put(key, value);
-          }
-          key = DirectoryListingStateValue.key(path);
-          value = memoizingEvaluator.getExistingValue(key);
-          if (value != null) {
-            externalDirtyNodes.put(key, value);
-          }
-        }
-        batchDirtyResult =
-            fsvc.getDirtyKeys(
-                externalDirtyNodes,
-                new ExternalDirtinessChecker(externalFilesHelper, EnumSet.of(FileType.EXTERNAL)));
-      }
-      handleChangedFiles(
-          ImmutableList.of(), batchDirtyResult, batchDirtyResult.getNumKeysChecked());
-    }
-    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
-        pathEntriesWithoutDiffInformation) {
-      pair.getSecond().markProcessed();
-    }
-  }
-
-  private void handleChangedFiles(
-      Collection<Root> diffPackageRootsUnderWhichToCheck,
-      Differencer.Diff diff,
-      int numSourceFilesCheckedIfDiffWasMissing) {
-    int numWithoutNewValues = diff.changedKeysWithoutNewValues().size();
-    Iterable<SkyKey> keysToBeChangedLaterInThisBuild = diff.changedKeysWithoutNewValues();
-    Map<SkyKey, SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
-
-    logDiffInfo(
-        diffPackageRootsUnderWhichToCheck,
-        keysToBeChangedLaterInThisBuild,
-        numWithoutNewValues,
-        changedKeysWithNewValues);
-
-    recordingDiffer.invalidate(keysToBeChangedLaterInThisBuild);
-    recordingDiffer.inject(changedKeysWithNewValues);
-    modifiedFiles.addAndGet(
-        getNumberOfModifiedFiles(keysToBeChangedLaterInThisBuild)
-            + getNumberOfModifiedFiles(changedKeysWithNewValues.keySet()));
-    numSourceFilesCheckedBecauseOfMissingDiffs += numSourceFilesCheckedIfDiffWasMissing;
-    incrementalBuildMonitor.accrue(keysToBeChangedLaterInThisBuild);
-    incrementalBuildMonitor.accrue(changedKeysWithNewValues.keySet());
-  }
-
-  private static final int MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG = 10;
-
-  private static void logDiffInfo(
-      Iterable<Root> pathEntries,
-      Iterable<SkyKey> changedWithoutNewValue,
-      int numWithoutNewValues,
-      Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
-    int numModified = changedWithNewValue.size() + numWithoutNewValues;
-    StringBuilder result =
-        new StringBuilder("DiffAwareness found ")
-            .append(numModified)
-            .append(" modified source files and directory listings");
-    if (!Iterables.isEmpty(pathEntries)) {
-      result.append(" for ");
-      result.append(Joiner.on(", ").join(pathEntries));
-    }
-
-    if (numModified > 0) {
-      Iterable<SkyKey> allModifiedKeys =
-          Iterables.concat(changedWithoutNewValue, changedWithNewValue.keySet());
-      Iterable<SkyKey> trimmed =
-          Iterables.limit(allModifiedKeys, MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG);
-
-      result.append(": ").append(Joiner.on(", ").join(trimmed));
-
-      if (numModified > MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG) {
-        result.append(", ...");
-      }
-    }
-
-    logger.atInfo().log("%s", result);
-  }
-
-  private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
-    // We are searching only for changed files, DirectoryListingValues don't depend on
-    // child values, that's why they are invalidated separately
-    return Iterables.size(
-        Iterables.filter(modifiedValues, SkyFunctionName.functionIs(FileStateKey.FILE_STATE)));
   }
 
   /**

@@ -285,7 +285,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isVisibilitySpecified())
         .isTrue();
     assertThat(exportFileTarget.getVisibility().getDeclaredLabels())
-        .containsExactly(ConstantRuleVisibility.PUBLIC_LABEL);
+        .containsExactly(RuleVisibility.PUBLIC_LABEL);
     assertThat(((VisibilityLicenseSpecifiedInputFile) exportFileTarget).isLicenseSpecified())
         .isTrue();
     assertThat(exportFileTarget.getLicense().getLicenseTypes())
@@ -296,7 +296,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(inputFileTarget.getClass()).isSameInstanceAs(PrivateVisibilityInputFile.class);
     assertThat(((PrivateVisibilityInputFile) inputFileTarget).isVisibilitySpecified()).isTrue();
     assertThat(inputFileTarget.getVisibility().getDeclaredLabels())
-        .containsExactly(ConstantRuleVisibility.PRIVATE_LABEL);
+        .containsExactly(RuleVisibility.PRIVATE_LABEL);
 
     // B is nothing
     NoSuchTargetException e = assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("B"));

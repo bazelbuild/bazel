@@ -1,13 +1,16 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -195,7 +198,6 @@ java_library(
         "RuleConfiguredTargetFactory.java",
         "RuleContext.java",
         "RuleDefinition.java",
-        "RuleErrorConsumer.java",
         "Runfiles.java",
         "RunfilesProvider.java",
         "RunfilesSupport.java",
@@ -336,6 +338,7 @@ java_library(
         ":resolved_toolchain_context",
         ":rule_configured_object_value",
         ":rule_definition_environment",
+        ":rule_error_consumer",
         ":run_environment_info",
         ":starlark/args",
         ":starlark/bazel_build_api_globals",
@@ -654,6 +657,7 @@ java_library(
     srcs = ["CommonPrerequisiteValidator.java"],
     deps = [
         ":analysis_cluster",
+        ":rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
@@ -771,9 +775,11 @@ java_library(
     name = "exec_group_collection",
     srcs = ["ExecGroupCollection.java"],
     deps = [
+        ":config/toolchain_type_requirement",
         ":resolved_toolchain_context",
         ":toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
@@ -1052,6 +1058,14 @@ java_library(
     srcs = ["RuleDefinitionEnvironment.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+    ],
+)
+
+java_library(
+    name = "rule_error_consumer",
+    srcs = ["RuleErrorConsumer.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
@@ -2256,13 +2270,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_conditions",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis:dependency",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
         "//src/main/java/com/google/devtools/build/lib/analysis:target_and_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
@@ -2270,6 +2284,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2403,7 +2418,7 @@ java_library(
     name = "starlark/starlark_error_reporter",
     srcs = ["starlark/StarlarkErrorReporter.java"],
     deps = [
-        ":analysis_cluster",
+        ":rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/eval",
     ],

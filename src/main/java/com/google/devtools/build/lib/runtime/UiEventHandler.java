@@ -103,7 +103,7 @@ public final class UiEventHandler implements EventHandler {
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
   private final OutErr outErr;
-  private final ImmutableSet<EventKind> filteredEvents;
+  private final ImmutableSet<EventKind> filteredEventKinds;
   private long progressRateLimitMillis;
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
@@ -206,7 +206,7 @@ public final class UiEventHandler implements EventHandler {
     this.dateShown = false;
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
-    this.filteredEvents = ImmutableSet.copyOf(options.eventFilters);
+    this.filteredEventKinds = options.getFilteredEventKinds();
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -408,7 +408,7 @@ public final class UiEventHandler implements EventHandler {
   }
 
   private void handleInternal(Event event) {
-    if (this.filteredEvents.contains(event.getKind())) {
+    if (filteredEventKinds.contains(event.getKind())) {
       return;
     }
     try {

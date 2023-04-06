@@ -17,7 +17,7 @@
    installed on the local host.
 """
 
-OSX_EXECUTE_TIMEOUT = 120
+OSX_EXECUTE_TIMEOUT = 600
 
 def _search_string(fullstring, prefix, suffix):
     """Returns the substring between two given substrings of a larger string.

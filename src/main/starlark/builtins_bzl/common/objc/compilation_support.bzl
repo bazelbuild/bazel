@@ -16,9 +16,9 @@
 
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load("@_builtins//:common/objc/objc_common.bzl", "objc_common")
+load(":common/cc/cc_common.bzl", "cc_common")
 
 objc_internal = _builtins.internal.objc_internal
-cc_common = _builtins.toplevel.cc_common
 
 def _build_variable_extensions(ctx, arc_enabled):
     extensions = {}
@@ -40,7 +40,6 @@ def _build_common_variables(
         use_pch = False,
         empty_compilation_artifacts = False,
         deps = [],
-        runtime_deps = [],
         extra_disabled_features = [],
         extra_enabled_features = [],
         extra_import_libraries = [],
@@ -63,7 +62,6 @@ def _build_common_variables(
         compilation_attributes = compilation_attributes,
         compilation_artifacts = compilation_artifacts,
         deps = deps,
-        runtime_deps = runtime_deps,
         intermediate_artifacts = intermediate_artifacts,
         alwayslink = alwayslink,
         has_module_map = has_module_map,

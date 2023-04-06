@@ -141,11 +141,9 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     BuildResult result = buildTarget("//foo:foo");
 
     assertThat(result.getSuccess()).isTrue();
-    assertThat(
-            runtimeWrapper.workspaceSetupWarningsContains(
-                "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
-                    + " and will be ignored"))
-        .isTrue();
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
+            + " and will be ignored");
   }
 
   @Test
@@ -478,9 +476,21 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void explain_ignoreSkymeldWithWarning() throws Exception {
+    addOptions("--explain=/dev/null");
+    write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
+    BuildResult buildResult = buildTarget("//foo");
+
+    assertThat(buildResult.getSuccess()).isTrue();
+
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with --explain");
+    events.assertContainsWarning("and will be ignored.");
+  }
+
+  @Test
   public void multiplePackagePath_ignoreSkymeldWithWarning() throws Exception {
     write("foo/BUILD", "genrule(name = 'foo', outs = ['foo.out'], cmd = 'touch $@')");
-    // write("foo/root.sh");
     write("otherroot/bar/BUILD", "genrule(name = 'bar', outs = ['bar.out'], cmd = 'touch $@')");
     addOptions("--package_path=%workspace%:otherroot");
 
@@ -488,13 +498,10 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     assertThat(buildResult.getSuccess()).isTrue();
 
-    assertThat(
-            runtimeWrapper.workspaceSetupWarningsContains(
-                "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
-                    + " --package_path"))
-        .isTrue();
-    assertThat(runtimeWrapper.workspaceSetupWarningsContains("and its value will be ignored."))
-        .isTrue();
+    events.assertContainsWarning(
+        "--experimental_merged_skyframe_analysis_execution is incompatible with multiple"
+            + " --package_path");
+    events.assertContainsWarning("and its value will be ignored.");
   }
 
   // Regression test for b/245919888.
@@ -549,6 +556,31 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
         "filegroup(name='d', srcs=[':c'])");
     assertThrows(ViewCreationFailedException.class, () -> buildTarget("//a:d"));
     events.assertContainsError("cycle in dependency graph");
+  }
+
+  @Test
+  public void analysisOverlapPercentageSanityCheck_success() throws Exception {
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'bar', srcs = ['bar.in'])",
+        "my_rule(name = 'foo', srcs = ['foo.in'])");
+    write("foo/foo.in");
+    write("foo/bar.in");
+
+    addOptions("--experimental_skymeld_analysis_overlap_percentage=5");
+    BuildResult result = buildTarget("//foo:foo", "//foo:bar");
+
+    assertThat(result.getSuccess()).isTrue();
+    assertSingleOutputBuilt("//foo:foo");
+    assertSingleOutputBuilt("//foo:bar");
+
+    assertThat(getLabelsOfAnalyzedTargets()).containsExactly("//foo:foo", "//foo:bar");
+    assertThat(getLabelsOfBuiltTargets()).containsExactly("//foo:foo", "//foo:bar");
+
+    assertThat(analysisEventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
+    assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {

@@ -1,5 +1,5 @@
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
-load("//tools/python:private/defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -43,6 +43,7 @@ gen_workspace_stanza(
     repos = [
         "rules_license",
         "rules_cc",
+        "rules_python",
     ],
 )
 
@@ -62,8 +63,9 @@ py_test(
 
 py_test(
     name = "py_test",
-    size = "medium",
+    size = "large",
     srcs = ["py_test.py"],
+    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -147,8 +149,9 @@ py_test(
 
 py_test(
     name = "launcher_test",
-    size = "medium",
+    size = "large",
     srcs = ["launcher_test.py"],
+    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -209,8 +212,8 @@ py_test(
     }),
     data = select({
         "//src/conditions:windows": [
-            ":printargs",
             "native_test.bzl",
+            ":printargs",
         ],
         "//conditions:default": [],
     }),
@@ -264,7 +267,60 @@ py_library(
 py_test(
     name = "bazel_module_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["bzlmod/bazel_module_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_lockfile_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_lockfile_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_overrides_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_overrides_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_repo_mapping_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_repo_mapping_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_yanked_versions_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_yanked_versions_test.py"],
     tags = [
         "requires-network",
     ],

@@ -76,15 +76,15 @@ public class PlatformOptions extends FragmentOptions {
   @Option(
       name = "extra_execution_platforms",
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "null",
+      defaultValue = "",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-      allowMultiple = true,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
           "The platforms that are available as execution platforms to run actions. "
               + "Platforms can be specified by exact target, or as a target pattern. "
               + "These platforms will be considered before those declared in the WORKSPACE file by "
-              + "register_execution_platforms().")
+              + "register_execution_platforms(). This option may only be set once; later "
+              + "instances will override earlier flag settings.")
   public List<String> extraExecutionPlatforms;
 
   @Option(

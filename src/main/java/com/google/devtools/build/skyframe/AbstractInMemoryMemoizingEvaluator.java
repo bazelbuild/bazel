@@ -112,10 +112,10 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       }
       out.println(canonicalizedKey);
       if (entry.keepsEdges()) {
-        GroupedDeps deps = GroupedDeps.create(entry.getCompressedDirectDepsForDoneEntry());
-        for (int i = 0; i < deps.listSize(); i++) {
+        GroupedDeps deps = GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
+        for (int i = 0; i < deps.numGroups(); i++) {
           out.format("  Group %d:\n", i + 1);
-          for (SkyKey dep : deps.get(i)) {
+          for (SkyKey dep : deps.getDepGroup(i)) {
             out.print("    ");
             out.println(canonicalizeKey(dep));
           }
@@ -160,7 +160,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   }
 
   @Override
-  public void cleanupSkyKeyPool() {
-    getInMemoryGraph().cleanupPool();
+  public void cleanupInterningPools() {
+    getInMemoryGraph().cleanupInterningPool();
   }
 }

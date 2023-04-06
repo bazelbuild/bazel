@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -21,7 +22,7 @@ import java.util.function.Consumer;
 /** Captures information about a lookup requested by a state machine. */
 abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
   private final TaskTreeNode parent;
-  private final SkyKey key;
+  final SkyKey key;
 
   private Lookup(TaskTreeNode parent, SkyKey key) {
     this.parent = parent;
@@ -31,6 +32,17 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
   final SkyKey key() {
     return key;
   }
+
+  /**
+   * Performs a lookup directly against the environment.
+   *
+   * <p>This is more efficient than {@link Environment#getValuesAndExceptions} when there is only
+   * one key at a time.
+   *
+   * @return true if a value was available or an exception was handled. Note: this is false for
+   *     unhandled exceptions.
+   */
+  abstract boolean doLookup(Environment env) throws InterruptedException;
 
   @Override
   public final void acceptValue(SkyKey unusedKey, SkyValue value) {
@@ -60,6 +72,16 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      var value = env.getValue(key);
+      if (value == null) {
+        return false;
+      }
+      acceptValue(key, value);
+      return true;
+    }
+
+    @Override
     void acceptValue(SkyValue value) {
       sink.accept(value);
     }
@@ -82,6 +104,25 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
       super(parent, key);
       this.exceptionClass = exceptionClass;
       this.sink = sink;
+    }
+
+    @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      SkyValue value;
+      try {
+        if ((value = env.getValueOrThrow(key(), exceptionClass)) == null) {
+          return false;
+        }
+        acceptValue(key, value);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        }
+        if (!tryHandleException(e)) {
+          throw new IllegalArgumentException("Unexpected exception for " + key(), e);
+        }
+      }
+      return true;
     }
 
     @Override
@@ -115,6 +156,25 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
       this.exceptionClass1 = exceptionClass1;
       this.exceptionClass2 = exceptionClass2;
       this.sink = sink;
+    }
+
+    @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      SkyValue value;
+      try {
+        if ((value = env.getValueOrThrow(key(), exceptionClass1, exceptionClass2)) == null) {
+          return false;
+        }
+        acceptValue(key, value);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        }
+        if (!tryHandleException(e)) {
+          throw new IllegalArgumentException("Unexpected exception for " + key(), e);
+        }
+      }
+      return true;
     }
 
     @Override
@@ -156,6 +216,26 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
       this.exceptionClass2 = exceptionClass2;
       this.exceptionClass3 = exceptionClass3;
       this.sink = sink;
+    }
+
+    @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      SkyValue value;
+      try {
+        if ((value = env.getValueOrThrow(key(), exceptionClass1, exceptionClass2, exceptionClass3))
+            == null) {
+          return false;
+        }
+        acceptValue(key, value);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        }
+        if (!tryHandleException(e)) {
+          throw new IllegalArgumentException("Unexpected exception for " + key(), e);
+        }
+      }
+      return true;
     }
 
     @Override

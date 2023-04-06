@@ -17,8 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -150,9 +148,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
                       + " expression",
                   attributeName));
         }
-        Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
         @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue(null);
+        T defaultValue = (T) attr.getDefaultValue();
         resolvedList.add(defaultValue);
       } else {
         resolvedList.add(resolvedPath.value);
@@ -164,7 +161,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private static class ConfigKeyAndValue<T> {
     final Label configKey;
     final T value;
-    /** If null, this means the default condition (doesn't correspond to a config_setting). * */
+    /** If null, this means the default condition (doesn't correspond to a config_setting). */
     @Nullable final ConfigMatchingProvider provider;
 
     ConfigKeyAndValue(Label key, T value, @Nullable ConfigMatchingProvider provider) {

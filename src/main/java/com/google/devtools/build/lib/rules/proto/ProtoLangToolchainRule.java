@@ -70,7 +70,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         .add(
             attr("plugin", LABEL)
                 .exec()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes())
 
         /* <!-- #BLAZE_RULE(proto_lang_toolchain).ATTRIBUTE(runtime) -->
@@ -95,7 +95,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
         .add(
             attr("proto_compiler", LABEL)
                 .allowedFileTypes()
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec())
         .requiresConfigurationFragments(ProtoConfiguration.class)
         .removeAttribute("data")

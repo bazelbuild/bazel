@@ -71,8 +71,8 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
 
   private final Field field;
   private final Option optionAnnotation;
-  private Converter<?> converter = null;
-  private Object defaultValue = null;
+  private volatile Converter<?> converter = null;
+  private volatile Object defaultValue = null;
 
   private OptionDefinition(Field field, Option optionAnnotation) {
     this.field = field;
@@ -229,27 +229,34 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     if (converter != null) {
       return converter;
     }
-    @SuppressWarnings("rawtypes")
-    Class<? extends Converter> converterClass = getProvidedConverter();
-    if (converterClass == Converter.class) {
-      // No converter provided, use the default one.
-      Type type = getFieldSingularType();
-      converter = Converters.DEFAULT_CONVERTERS.get(type);
-    } else {
-      try {
-        // Instantiate the given Converter class.
-        Constructor<?> constructor = converterClass.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        converter = (Converter<?>) constructor.newInstance();
-      } catch (SecurityException | IllegalArgumentException | ReflectiveOperationException e) {
-        // This indicates an error in the Converter, and should be discovered the first time it is
-        // used.
-        throw new ConstructionException(
-            String.format("Error in the provided converter for option %s", getField().getName()),
-            e);
+
+    synchronized (this) {
+      if (converter != null) {
+        return converter;
       }
+
+      @SuppressWarnings("rawtypes")
+      Class<? extends Converter> converterClass = getProvidedConverter();
+      if (converterClass == Converter.class) {
+        // No converter provided, use the default one.
+        Type type = getFieldSingularType();
+        converter = Converters.DEFAULT_CONVERTERS.get(type);
+      } else {
+        try {
+          // Instantiate the given Converter class.
+          Constructor<?> constructor = converterClass.getDeclaredConstructor();
+          constructor.setAccessible(true);
+          converter = (Converter<?>) constructor.newInstance();
+        } catch (SecurityException | IllegalArgumentException | ReflectiveOperationException e) {
+          // This indicates an error in the Converter, and should be discovered the first time it is
+          // used.
+          throw new ConstructionException(
+              String.format("Error in the provided converter for option %s", getField().getName()),
+              e);
+        }
+      }
+      return converter;
     }
-    return converter;
   }
 
   /**
@@ -270,27 +277,33 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
       return defaultValue;
     }
 
-    if (isSpecialNullDefault()) {
-      return allowsMultiple() ? ImmutableList.of() : null;
-    }
+    synchronized (this) {
+      if (defaultValue != null) {
+        return defaultValue;
+      }
 
-    Converter<?> converter = getConverter();
-    String defaultValueAsString = getUnparsedDefaultValue();
-    try {
-      Object convertedDefaultValue = converter.convert(defaultValueAsString, conversionContext);
-      defaultValue =
-          allowsMultiple()
-              ? maybeWrapMultipleDefaultValue(convertedDefaultValue)
-              : convertedDefaultValue;
-    } catch (OptionsParsingException e) {
-      throw new ConstructionException(
-          String.format(
-              "OptionsParsingException while retrieving the default value for %s: %s",
-              getField().getName(), e.getMessage()),
-          e);
-    }
+      if (isSpecialNullDefault()) {
+        return allowsMultiple() ? ImmutableList.of() : null;
+      }
 
-    return defaultValue;
+      Converter<?> converter = getConverter();
+      String defaultValueAsString = getUnparsedDefaultValue();
+      try {
+        Object convertedDefaultValue = converter.convert(defaultValueAsString, conversionContext);
+        defaultValue =
+            allowsMultiple()
+                ? maybeWrapMultipleDefaultValue(convertedDefaultValue)
+                : convertedDefaultValue;
+      } catch (OptionsParsingException e) {
+        throw new ConstructionException(
+            String.format(
+                "OptionsParsingException while retrieving the default value for %s: %s",
+                getField().getName(), e.getMessage()),
+            e);
+      }
+
+      return defaultValue;
+    }
   }
 
   /**

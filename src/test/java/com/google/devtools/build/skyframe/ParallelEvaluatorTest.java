@@ -50,7 +50,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -134,7 +133,7 @@ public class ParallelEvaluatorTest {
         Version.minimal(),
         builders,
         reportedEvents,
-        new NestedSetVisitor.VisitedState(),
+        new EmittedEventState(),
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
         keepGoing,
@@ -493,7 +492,8 @@ public class ParallelEvaluatorTest {
                   @Nullable SkyValue newValue,
                   @Nullable ErrorInfo newError,
                   Supplier<EvaluationSuccessState> evaluationSuccessState,
-                  EvaluationState state) {
+                  EvaluationState state,
+                  @Nullable GroupedDeps directDeps) {
                 receivedValues.add(skyKey);
               }
             });
@@ -626,54 +626,6 @@ public class ParallelEvaluatorTest {
     assertThatEvents(reportedEvents.getEvents()).containsExactly("warning on 'a'");
   }
 
-  /** Regression test: events from already-done value not replayed. */
-  @Test
-  public void eventFromDoneChildRecorded() throws Exception {
-    graph = new InMemoryGraphImpl();
-    set("a", "a").setWarning("warning on 'a'");
-    SkyKey a = GraphTester.toSkyKey("a");
-    SkyKey top = GraphTester.toSkyKey("top");
-    tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
-    // Build a so that it is already in the graph.
-    eval(false, a);
-    assertThat(reportedEvents.getEvents()).hasSize(1);
-    reportedEvents.clear();
-    // Build top. The warning from a should be printed.
-    eval(false, top);
-    assertThat(reportedEvents.getEvents()).hasSize(1);
-    reportedEvents.clear();
-    // Build top again. The warning should have been stored in the value.
-    eval(false, top);
-    assertThat(reportedEvents.getEvents()).hasSize(1);
-  }
-
-  @Test
-  public void postableFromDoneChildRecorded() throws Exception {
-    graph = new InMemoryGraphImpl();
-    Postable post =
-        new Postable() {
-          @Override
-          public boolean storeForReplay() {
-            return true;
-          }
-        };
-    set("a", "a").setPostable(post);
-    SkyKey a = GraphTester.toSkyKey("a");
-    SkyKey top = GraphTester.toSkyKey("top");
-    tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
-    // Build a so that it is already in the graph.
-    eval(false, a);
-    assertThat(reportedEvents.getPosts()).containsExactly(post);
-    reportedEvents.clear();
-    // Build top. The post from a should be printed.
-    eval(false, top);
-    assertThat(reportedEvents.getPosts()).containsExactly(post);
-    reportedEvents.clear();
-    // Build top again. The post should have been stored in the value.
-    eval(false, top);
-    assertThat(reportedEvents.getPosts()).containsExactly(post);
-  }
-
   @Test
   public void errorOfTopLevelTargetReported() throws Exception {
     graph = new InMemoryGraphImpl();
@@ -727,7 +679,7 @@ public class ParallelEvaluatorTest {
 
       @Override
       Reportable createStored() {
-        return Event.warn("deprecated");
+        return Event.error("broken");
       }
 
       @Override
@@ -1003,7 +955,10 @@ public class ParallelEvaluatorTest {
       throws Exception {
     Assume.assumeTrue(keepGoing || keepEdges);
 
-    graph = keepEdges ? InMemoryGraph.create() : InMemoryGraph.createEdgeless();
+    graph =
+        keepEdges
+            ? InMemoryGraph.create(/* usePooledSkyKeyInterning= */ true)
+            : InMemoryGraph.createEdgeless(/* usePooledSkyKeyInterning= */ true);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
@@ -2586,7 +2541,8 @@ public class ParallelEvaluatorTest {
               @Nullable SkyValue newValue,
               @Nullable ErrorInfo newError,
               Supplier<EvaluationSuccessState> evaluationSuccessState,
-              EvaluationState state) {
+              EvaluationState state,
+              @Nullable GroupedDeps directDeps) {
             evaluatedValues.add(skyKey);
           }
         };
@@ -3233,7 +3189,7 @@ public class ParallelEvaluatorTest {
             Version.minimal(),
             tester.getSkyFunctionMap(),
             reportedEvents,
-            new NestedSetVisitor.VisitedState(),
+            new EmittedEventState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.

@@ -80,6 +80,14 @@ public final class CredentialHelper {
           Reader stderr = new InputStreamReader(process.getErrorStream(), UTF_8)) {
         try (Writer stdin = new OutputStreamWriter(process.getOutputStream(), UTF_8)) {
           GSON.toJson(GetCredentialsRequest.newBuilder().setUri(uri).build(), stdin);
+        } catch (IOException e) {
+          // This can happen if the helper prints a static set of credentials without reading from
+          // stdin (e.g., with a simple shell script running `echo "{...}"`). If the process is
+          // already finished even though we failed to write to its stdin, ignore the error and
+          // assume the process did not need the request payload.
+          if (!process.finished()) {
+            throw e;
+          }
         }
 
         try {

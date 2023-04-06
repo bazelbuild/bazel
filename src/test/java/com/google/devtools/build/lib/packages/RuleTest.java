@@ -76,7 +76,7 @@ public class RuleTest extends PackageLoadingTestCase {
         "cc_binary(name = 'pu', visibility = ['//visibility:public'])",
         "cc_binary(name = 'cu', visibility = ['//a:b'])");
     Package pkg = getTarget("//x:BUILD").getPackage();
-    assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(ConstantRuleVisibility.PUBLIC);
-    assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(ConstantRuleVisibility.PRIVATE);
+    assertThat(pkg.getRule("pu").getVisibility()).isEqualTo(RuleVisibility.PUBLIC);
+    assertThat(pkg.getRule("pr").getVisibility()).isEqualTo(RuleVisibility.PRIVATE);
   }
 }

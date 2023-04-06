@@ -645,14 +645,6 @@ public final class JavaCompilationHelper {
     return getJavaConfiguration().getGenerateJavaDeps() && attributes.hasSources();
   }
 
-  /**
-   * Creates and registers an Action that packages all of the resources into a Jar. This includes
-   * the declared resources, the classpath resources and the translated messages.
-   */
-  public void createResourceJarAction(Artifact resourceJar) {
-    createResourceJarAction(resourceJar, ImmutableList.<Artifact>of());
-  }
-
   private void createResourceJarAction(Artifact resourceJar, ImmutableList<Artifact> extraJars) {
     checkNotNull(resourceJar, "resource jar output must not be null");
     JavaTargetAttributes attributes = getAttributes();
@@ -856,11 +848,6 @@ public final class JavaCompilationHelper {
     return strictJavaDeps;
   }
 
-  /** Determines which tool to use when fixing dependency errors. */
-  public String getFixDepsTool() {
-    return fixDepsTool;
-  }
-
   /**
    * Gets the value of the "javacopts" attribute combining them with the default options. If the
    * current rule has no javacopts attribute, this method only returns the default options.
@@ -877,13 +864,6 @@ public final class JavaCompilationHelper {
   private ImmutableList<Artifact> getTranslations() {
     translationsFrozen = true;
     return ImmutableList.copyOf(translations);
-  }
-
-  /**
-   * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
-   */
-  public static BootClassPathInfo getBootClasspath(JavaToolchainProvider javaToolchain) {
-    return javaToolchain.getBootclasspath();
   }
 
   /**

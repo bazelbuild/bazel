@@ -191,6 +191,32 @@ EOF
   expect_log "I am mockpy!"
 }
 
+# Test that running a zip app without RUN_UNDER_RUNFILES=1 removes the
+# temporary directory it creates
+function test_build_python_zip_cleans_up_temporary_module_space() {
+
+  mkdir test
+  cat > test/BUILD << EOF
+py_binary(
+  name = "pybin",
+  srcs = ["pybin.py"],
+)
+EOF
+  cat > test/pybin.py << EOF
+print(__file__)
+EOF
+
+  bazel build //test:pybin --build_python_zip &> $TEST_log || fail "bazel build failed"
+  pybin_location=$(bazel-bin/test/pybin)
+
+  # The pybin location is "<ms root>/runfiles/<workspace>/test/pybin.py",
+  # so we have to go up 4 directories to get to the module space root
+  module_space_dir=$(dirname $(dirname $(dirname $(dirname "$pybin_location"))))
+  if [[ -d "$module_space_dir" ]]; then
+    fail "expected module space directory to be deleted, but $module_space_dir still exists"
+  fi
+}
+
 function test_get_python_zip_file_via_output_group() {
   touch foo.py
   cat > BUILD <<'EOF'

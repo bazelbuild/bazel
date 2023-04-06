@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -965,7 +967,8 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1005,12 +1008,14 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     verify(actionFileSystem)
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a2.getExecPath())),
             eq(toBinaryDigest(d2)),
-            eq(d2.getSizeBytes()));
+            eq(d2.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1063,12 +1068,14 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative("outputs/dir/file1")),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     verify(actionFileSystem)
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative("outputs/dir/a/file2")),
             eq(toBinaryDigest(d2)),
-            eq(d2.getSizeBytes()));
+            eq(d2.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1127,9 +1134,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_stdoutAndStdErrWithMinimal_works() throws Exception {
-    // Test that downloading of non-embedded stdout and stderr works
-
+  public void downloadOutputs_nonInlinedStdoutAndStderrWithMinimal_works() throws Exception {
     // arrange
     Digest dOut = cache.addContents(remoteActionExecutionContext, "stdout");
     Digest dErr = cache.addContents(remoteActionExecutionContext, "stderr");
@@ -1153,6 +1158,51 @@ public class RemoteExecutionServiceTest {
     InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
 
     // assert
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getOutputPathFragment()), eq(toBinaryDigest(dOut)), eq(6L), anyLong());
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getErrorPathFragment()), eq(toBinaryDigest(dErr)), eq(6L), anyLong());
+    assertThat(inMemoryOutput).isNull();
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
+    Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
+    assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_inlinedStdoutAndStderrWithMinimal_works() throws Exception {
+    // arrange
+    Digest dOut = digestUtil.compute("stdout".getBytes(UTF_8));
+    Digest dErr = digestUtil.compute("stderr".getBytes(UTF_8));
+    ActionResult r =
+        ActionResult.newBuilder()
+            .setExitCode(0)
+            .setStdoutRaw(ByteString.copyFromUtf8("stdout"))
+            .setStderrRaw(ByteString.copyFromUtf8("stderr"))
+            .build();
+
+    RemoteActionResult result = RemoteActionResult.createFromCache(CachedActionResult.remote(r));
+    Spawn spawn = newSpawnFromResult(result);
+    RemoteActionFileSystem actionFileSystem = mock(RemoteActionFileSystem.class);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn, actionFileSystem);
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // act
+    InMemoryOutput inMemoryOutput = service.downloadOutputs(action, result);
+
+    // assert
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getOutputPathFragment()), eq(toBinaryDigest(dOut)), eq(6L), anyLong());
+    verify(actionFileSystem)
+        .injectRemoteFile(
+            eq(outErr.getErrorPathFragment()), eq(toBinaryDigest(dErr)), eq(6L), anyLong());
     assertThat(inMemoryOutput).isNull();
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
@@ -1201,12 +1251,14 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
     verify(actionFileSystem)
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a2.getExecPath())),
             eq(toBinaryDigest(d2)),
-            eq(d2.getSizeBytes()));
+            eq(d2.getSizeBytes()),
+            anyLong());
     Path outputBase = checkNotNull(artifactRoot.getRoot().asPath());
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
     assertThat(context.isLockOutputFilesCalled()).isTrue();
@@ -1254,7 +1306,8 @@ public class RemoteExecutionServiceTest {
         .injectRemoteFile(
             eq(execRoot.asFragment().getRelative(a1.getExecPath())),
             eq(toBinaryDigest(d1)),
-            eq(d1.getSizeBytes()));
+            eq(d1.getSizeBytes()),
+            anyLong());
   }
 
   @Test
@@ -1756,8 +1809,10 @@ public class RemoteExecutionServiceTest {
 
     // arrange
     // Single node NestedSets are folded, so always add a dummy file everywhere.
-    ActionInput dummyFile = ActionInputHelper.fromPath("dummy");
-    fakeFileCache.createScratchInput(dummyFile, "dummy");
+    ActionInput dummyFile = ActionInputHelper.fromPath("file");
+    fakeFileCache.createScratchInput(dummyFile, "file");
+
+    ActionInput tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
 
     ActionInput barFile = ActionInputHelper.fromPath("bar/file");
     NestedSet<ActionInput> nodeBar =
@@ -1777,12 +1832,14 @@ public class RemoteExecutionServiceTest {
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo1)
             .build();
     NestedSet<ActionInput> nodeRoot2 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo2)
             .build();
@@ -1817,15 +1874,31 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn1, context1);
 
     // assert first time
-    // Called for: manifests, runfiles, nodeRoot1, nodeFoo1 and nodeBar.
-    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    assertThat(service.getMerkleTreeCache().asMap().keySet())
+        .containsExactly(
+            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
+            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
 
     // act second time
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
-    // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
-    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    assertThat(service.getMerkleTreeCache().asMap().keySet())
+        .containsExactly(
+            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
+            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
   }
 
   @Test

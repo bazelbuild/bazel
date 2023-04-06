@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -22,6 +23,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Module containing functions to interact with the platform APIs. */
 @StarlarkBuiltin(
     name = "platform_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to interact with the platform APIs.")
 public interface PlatformCommonApi extends StarlarkValue {
   @StarlarkMethod(

@@ -160,7 +160,8 @@ static pid_t SpawnPid1() {
 
   int clone_flags =
       CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWPID | SIGCHLD;
-  if (opt.create_netns) {
+  PRINT_DEBUG("Netns is %d", opt.create_netns);
+  if (opt.create_netns != NO_NETNS) {
     clone_flags |= CLONE_NEWNET;
   }
   if (opt.fake_hostname) {

@@ -122,6 +122,24 @@ function test_cc_tree_remote_cache() {
       || fail "Failed to build //a:tree_cc with remote cache and minimal downloads"
 }
 
+function test_cc_tree_prefetching() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  setup_cc_tree
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --modify_execution_info=CppCompile=+no-remote-exec \
+      --remote_download_minimal \
+      //a:tree_cc >& "$TEST_log" \
+      || fail "Failed to build //a:tree_cc with prefetching and minimal downloads"
+}
+
 function test_cc_include_scanning_and_minimal_downloads() {
   cat > BUILD <<'EOF'
 cc_binary(
@@ -1665,6 +1683,65 @@ end_of_record"
   expect_log "$expected_result"
   cat bazel-out/_coverage/_coverage_report.dat > $TEST_log
   expect_log "$expected_result"
+}
+
+function test_remote_cache_eviction_retries() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache eviction error but Bazel
+  # automatically retries the build and reruns the generating actions for
+  # missing blobs
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=5 \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  expect_log "Found remote cache eviction error, retrying the build..."
 }
 
 run_suite "Build without the Bytes tests"

@@ -81,15 +81,6 @@ EOF
 # We're not validating visibility here. Let everything access these targets.
 package(default_visibility = ["//visibility:public"])
 
-# TODO(philsc): Get rid of this and use @platforms//:incompatible instead.
-# Right now it's problematic because Google CI doesn't support @platforms.
-constraint_setting(name = "not_compatible_setting")
-
-constraint_value(
-    name = "not_compatible",
-    constraint_setting = ":not_compatible_setting",
-)
-
 constraint_setting(name = "foo_version")
 
 constraint_value(
@@ -213,6 +204,8 @@ function set_up_custom_toolchain() {
   mkdir -p target_skipping/custom_tools/
   cat > target_skipping/custom_tools/BUILD <<'EOF'
 load(":toolchain.bzl", "custom_toolchain")
+
+package(default_visibility = ["//visibility:public"])
 
 toolchain_type(name = "toolchain_type")
 
@@ -482,12 +475,14 @@ function test_failure_on_incompatible_top_level_target_and_auto_cpu_environment_
 sh_test(
     name = "always_incompatible",
     srcs = [":pass.sh"],
-    target_compatible_with = [":not_compatible"],
+    target_compatible_with = ["@platforms//:incompatible"],
 )
 EOF
 
   mkdir -p buildenv/cpus
-  cat >> buildenv/cpus/BUILD <<EOF
+  cat > buildenv/cpus/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 environment(name = "foo_cpu")
 environment_group(
     name = "cpus",
@@ -505,6 +500,34 @@ EOF
         || fail "Bazel failed unexpectedly."
 
   expect_log 'Target //target_skipping:always_incompatible build was skipped'
+}
+
+# Validates that incompatible target skipping works with top level targets when
+# --skip_incompatible_explicit_targets is enabled.
+function test_success_on_incompatible_top_level_target_with_skipping() {
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  # Validate a variety of ways to refer to the same target.
+  local -r -a incompatible_targets=(
+      :pass_on_foo1_bar2
+      //target_skipping:pass_on_foo1_bar2
+      @//target_skipping:pass_on_foo1_bar2
+  )
+
+  for incompatible_target in "${incompatible_targets[@]}"; do
+    echo "Testing ${incompatible_target}"
+
+    bazel test \
+      --show_result=10 \
+      --host_platform=@//target_skipping:foo1_bar1_platform \
+      --platforms=@//target_skipping:foo1_bar1_platform \
+      --build_event_text_file="${TEST_log}".build.json \
+      --skip_incompatible_explicit_targets \
+      "${incompatible_target}" &> "${TEST_log}" \
+      || fail "Bazel failed unexpectedly."
+
+    expect_log '^//target_skipping:pass_on_foo1_bar2  *  SKIPPED$'
+  done
 }
 
 # Crudely validates that the build event protocol contains useful information
@@ -833,7 +856,7 @@ sh_test(
     target_compatible_with = select({
         ":foo1": [],
         ":foo2": [],
-        "//conditions:default": [":not_compatible"],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
 EOF
@@ -882,7 +905,7 @@ sh_test(
     name = "pass_on_everything_but_foo1_and_foo2",
     srcs = [":pass.sh"],
     target_compatible_with = selects.with_or({
-        (":foo1", ":foo2"): [":not_compatible"],
+        (":foo1", ":foo2"): ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
 )
@@ -934,10 +957,10 @@ sh_test(
     srcs = [":pass.sh"],
     target_compatible_with = select({
         ":foo3": [],
-        "//conditions:default": [":not_compatible"],
+        "//conditions:default": ["@platforms//:incompatible"],
     }) + select({
         ":bar2": [],
-        "//conditions:default": [":not_compatible"],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
 EOF
@@ -954,7 +977,7 @@ EOF
   expect_log '^//target_skipping:pass_on_foo3_and_bar2  *  PASSED in'
 
   # Validate that we get an error about the target being incompatible. Make
-  # sure that the ":not_compatible" constraint is only listed once even though
+  # sure that the ":incompatible" constraint is only listed once even though
   # it appears twice in the configured "target_compatible_with" attribute.
   bazel test \
     --show_result=10 \
@@ -964,7 +987,7 @@ EOF
     && fail "Bazel passed unexpectedly."
 
   expect_log 'ERROR: Target //target_skipping:pass_on_foo3_and_bar2 is incompatible and cannot be built, but was explicitly requested'
-  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint //target_skipping:not_compatible$"
+  expect_log "^    //target_skipping:pass_on_foo3_and_bar2 (.*)   <-- target platform (//target_skipping:foo1_bar1_platform) didn't satisfy constraint @platforms//:incompatible$"
   expect_log 'ERROR: Build did NOT complete successfully'
 }
 
@@ -984,7 +1007,7 @@ cc_library(
     name = "some_library",
     target_compatible_with = select({
         ":also_foo3": [":again_foo3"],
-        "//conditions:default": [":not_compatible"],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
 EOF
@@ -1059,7 +1082,7 @@ custom_binary(
     name = "custom2",
     src = "custom.txt",
     target_compatible_with = select({
-        ":using_custom_toolchain": [":not_compatible"],
+        ":using_custom_toolchain": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
 )
@@ -1302,7 +1325,7 @@ sh_test(
 sh_binary(
     name = "never_compatible",
     srcs = [":never_used.sh"],
-    target_compatible_with = [":not_compatible"],
+    target_compatible_with = ["@platforms//:incompatible"],
 )
 EOF
 
@@ -1397,6 +1420,7 @@ function test_aquery_incompatible_target() {
 function test_aspect_skipping() {
   cat >> target_skipping/BUILD <<'EOF'
 load(":defs.bzl", "basic_rule", "rule_with_aspect")
+
 # This target is compatible with all platforms and configurations. This target
 # exists to validate the behaviour of aspects running against incompatible
 # targets. The expectation is that the aspect should _not_ propagate to this

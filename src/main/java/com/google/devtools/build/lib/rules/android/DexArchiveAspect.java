@@ -166,7 +166,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .exec()
                     .value(
                         Label.parseCanonicalUnchecked(
@@ -187,7 +187,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
-              .cfg(ExecutionTransitionFactory.create())
+              .cfg(ExecutionTransitionFactory.createFactory())
               .exec()
               .value(
                   Label.parseCanonicalUnchecked(toolsRepository + "//tools/android:dexbuilder")));

@@ -39,11 +39,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class MiscAnalysisTest extends BuildIntegrationTestCase {
 
-  // Regression test for bug #1324794, "Replay of errors in --cache_analysis
-  // mode is not working".
-  // Note that the cache_analysis flag has been deleted, as it is now standard app behavior.
   @Test
-  public void testWarningsAreReplayedEvenWithAnalysisCaching() throws Exception {
+  public void testWarningsNotReplayed() throws Exception {
     AnalysisMock.get().pySupport().setup(mockToolsConfig);
     write(
         "y/BUILD",
@@ -56,16 +53,41 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     events.clear();
 
     buildTarget("//y");
-    events.assertContainsWarning("target '//y:y' is deprecated");
+    events.assertDoesNotContainEvent("target '//y:y' is deprecated");
   }
 
   @Test
   public void testDeprecatedTargetOnCommandLine() throws Exception {
-    write("raspberry/BUILD",
+    write(
+        "raspberry/BUILD",
         "sh_library(name='raspberry', srcs=['raspberry.sh'], deprecation='rotten')");
     addOptions("--nobuild");
     buildTarget("//raspberry:raspberry");
     events.assertContainsWarning("target '//raspberry:raspberry' is deprecated: rotten");
+  }
+
+  @Test
+  public void targetAnalyzedInTwoConfigurations_deprecationWarningDisplayedOncePerBuild()
+      throws Exception {
+    // :a depends on :dep in the target configuration. :b depends on :dep in the exec configuration.
+    write(
+        "foo/BUILD",
+        "genrule(name = 'a', outs = ['a.out'], srcs = [':dep'], cmd = 'touch $@')",
+        "genrule(name = 'b', outs = ['b.out'], tools = [':dep'], cmd = 'touch $@')",
+        "genrule(name = 'dep', outs = ['dep.out'], srcs = ['//deprecated'], cmd = 'touch $@')");
+    write("deprecated/BUILD", "sh_library(name = 'deprecated', deprecation = 'old')");
+    addOptions("--nobuild");
+    buildTarget("//foo:a", "//foo:b");
+    events.assertContainsEventWithFrequency(
+        "'//foo:dep' depends on deprecated target '//deprecated:deprecated'", 1);
+
+    events.clear();
+
+    // Edit to force re-analysis.
+    write("deprecated/BUILD", "sh_library(name = 'deprecated', deprecation = 'very old')");
+    buildTarget("//foo:a", "//foo:b");
+    events.assertContainsEventWithFrequency(
+        "'//foo:dep' depends on deprecated target '//deprecated:deprecated'", 1);
   }
 
   // Regression test for http://b/12465751: "IllegalStateException in ParallelEvaluator".

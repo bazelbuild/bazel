@@ -89,7 +89,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
                       "native_test",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("exec_deps", LABEL_LIST)
-                          .cfg(ExecutionTransitionFactory.create())
+                          .cfg(ExecutionTransitionFactory.createFactory())
                           .allowedFileTypes());
 
   private static final RuleDefinition NATIVE_LIB_RULE =
@@ -100,7 +100,7 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
                       "native_lib",
                       attr("deps", LABEL_LIST).allowedFileTypes(),
                       attr("exec_deps", LABEL_LIST)
-                          .cfg(ExecutionTransitionFactory.create())
+                          .cfg(ExecutionTransitionFactory.createFactory())
                           .allowedFileTypes());
 
   @Before

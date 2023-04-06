@@ -288,7 +288,7 @@ and `strip_prefix = "foo-1.2.3"`.""",
 By default, the archive type is determined from the file extension of the
 URL. If the file has no extension, you can explicitly specify one of the
 following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
-`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `tar.bz2`, `"ar"`, or `"deb"`.""",
+`"tar.xz"`, `"txz"`, `"tar.zst"`, `"tzst"`, `"tar.bz2"`, `"ar"`, or `"deb"`.""",
     ),
     "patches": attr.label_list(
         default = [],

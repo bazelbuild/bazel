@@ -9,13 +9,6 @@ filegroup(
     srcs = glob(["**"]) + [
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
-        "//third_party/animal_sniffer:srcs",
-        "//third_party/antlr:srcs",
-        "//third_party/bazel-toolchains:srcs",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
-        "//third_party/css/bootstrap:srcs",
-        "//third_party/css/font_awesome:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
         "//third_party/cncf_udpa:srcs",
@@ -31,12 +24,6 @@ filegroup(
         "//third_party/java/javapoet:srcs",
         "//third_party/java/jcommander:srcs",
         "//third_party/java/proguard:srcs",
-        "//third_party/javascript/bootstrap:srcs",
-        "//third_party/jaxb:srcs",
-        "//third_party/jetbrains_annotations:srcs",
-        "//third_party/jetifier:srcs",
-        "//third_party/juniversalchardet:srcs",
-        "//third_party/kotlin_stdlib:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -45,9 +32,7 @@ filegroup(
         "//third_party/py/frozendict:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
-        "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
-        "//third_party/upb:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -61,93 +46,34 @@ filegroup(
     srcs = [],
 )
 
-# This target only contains the jars that are used for building / running Bazel.
-# The target below is for the Android tools that are not shipped with Bazel.
-distrib_java_import(
-    name = "android_common_25_0_0_lite",
-    enable_distributions = ["debian"],
-    jars = [
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
-java_library(
+alias(
     name = "android-annotations",
-    exports = ["@maven_android//:com_android_tools_annotations"],
+    actual = "@maven_android//:com_android_tools_annotations",
 )
 
-java_import(
-    name = "android_common_25_0_0",
-    jars = [
-        "android_common/com.android_annotations_25.0.0.jar",
-        "android_common/com.android.tools.build_builder_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-model_2.0.0.jar",
-        "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
-        "android_common/com.android.tools.build_manifest-merger_25.0.0-patched.jar",
-        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
-        # layoutlib has been upgraded to 26.1.2 *just* for font resource support.
-        # We are unable to upgrade the other libraries yet due to internal
-        # constraints with Blaze. See
-        # https://github.com/bazelbuild/bazel/issues/4381
-        # TODO(bazel-team): Upgrade entire android_common suite to 26+ after
-        # resolving internal constraint.
-        "android_common/com.android.tools.layoutlib_layoutlib_26.1.2.jar",
-        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
-        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
-        "android_common/com.android.tools_common_25.0.0.jar",
-        "android_common/com.android.tools_dvlib_25.0.0.jar",
-        "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
-        "android_common/com.android.tools_sdklib_25.0.0.jar",
-    ],
-    runtime_deps = [
-        ":asm",
-        ":asm-analysis",
-        ":asm-tree",
-    ],
-    deps = [
-        "//third_party/jaxb",
-    ],
-)
-
-java_import(
-    name = "apache_commons_codec",
-    jars = ["apache_commons_codec/commons-codec-1.10.jar"],
-)
-
-java_library(
+alias(
     name = "apache_commons_collections",
-    exports = ["@maven//:commons_collections_commons_collections"],
+    actual = "@maven//:commons_collections_commons_collections",
 )
 
-java_import(
-    name = "apache_commons_io",
-    jars = ["apache_commons_io/commons-io-2.4.jar"],
-)
-
-java_library(
+alias(
     name = "apache_commons_lang",
-    exports = ["@maven//:commons_lang_commons_lang"],
+    actual = "@maven//:commons_lang_commons_lang",
 )
 
-java_library(
+alias(
     name = "apache_commons_compress",
-    exports = ["@maven//:org_apache_commons_commons_compress"],
+    actual = "@maven//:org_apache_commons_commons_compress",
 )
 
-java_library(
+alias(
     name = "apache_commons_pool2",
-    exports = ["@maven//:org_apache_commons_commons_pool2"],
+    actual = "@maven//:org_apache_commons_commons_pool2",
 )
 
-java_library(
+alias(
     name = "apache_velocity",
-    exports = ["@maven//:org_apache_velocity_velocity"],
+    actual = "@maven//:org_apache_velocity_velocity",
 )
 
 java_library(
@@ -166,35 +92,35 @@ java_library(
 distrib_java_import(
     name = "asm",
     enable_distributions = ["debian"],
-    jars = ["asm/asm-9.2.jar"],
-    srcjar = "asm/asm-9.2-sources.jar",
+    jars = ["asm/asm-9.4.jar"],
+    srcjar = "asm/asm-9.4-sources.jar",
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-9.2.jar"],
-    srcjar = "asm/asm-analysis-9.2-sources.jar",
+    jars = ["asm/asm-analysis-9.4.jar"],
+    srcjar = "asm/asm-analysis-9.4-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-9.2.jar"],
-    srcjar = "asm/asm-commons-9.2-sources.jar",
+    jars = ["asm/asm-commons-9.4.jar"],
+    srcjar = "asm/asm-commons-9.4-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-9.2.jar"],
-    srcjar = "asm/asm-tree-9.2-sources.jar",
+    jars = ["asm/asm-tree-9.4.jar"],
+    srcjar = "asm/asm-tree-9.4-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-9.2.jar"],
-    srcjar = "asm/asm-util-9.2-sources.jar",
+    jars = ["asm/asm-util-9.4.jar"],
+    srcjar = "asm/asm-util-9.4-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -216,7 +142,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -226,19 +151,9 @@ java_plugin(
     ],
 )
 
-java_library(
+alias(
     name = "auto_common",
-    applicable_licenses = [":auto_license"],
-    exports = ["@maven//:com_google_auto_auto_common"],
-)
-
-license(
-    name = "auto_license",
-    package_name = "auto-common/1.8.2",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "auto/LICENSE",
+    actual = "@maven//:com_google_auto_auto_common",
 )
 
 java_library(
@@ -275,7 +190,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -290,7 +204,6 @@ java_plugin(
     deps = [
         ":apache_commons_collections",
         ":apache_velocity",
-        ":asm",
         ":auto_common",
         ":auto_service_lib",
         ":auto_value_value",
@@ -349,36 +262,29 @@ java_library(
     ],
 )
 
-java_library(
+alias(
     name = "checker_framework_annotations",
-    exports = ["@maven//:org_checkerframework_checker_qual"],
+    actual = "@maven//:org_checkerframework_checker_qual",
 )
 
-java_import(
-    name = "compile_testing",
-    jars = ["compile_testing/compile-testing-0.18.jar"],
-)
-
-java_library(
+alias(
     name = "gson",
-    exports = ["@maven//:com_google_code_gson_gson"],
+    actual = "@maven//:com_google_code_gson_gson",
 )
 
-java_library(
+alias(
     name = "caffeine",
-    exports = ["@maven//:com_github_ben_manes_caffeine_caffeine"],
+    actual = "@maven//:com_github_ben_manes_caffeine_caffeine",
 )
 
-java_library(
+alias(
     name = "hungarian_algorithm",
-    exports = ["@maven//:com_github_kevinstern_software_and_algorithms"],
+    actual = "@maven//:com_github_kevinstern_software_and_algorithms",
 )
 
-java_library(
+alias(
     name = "threeten",
-    exports = [
-        "@maven//:org_threeten_threeten_extra",
-    ],
+    actual = "@maven//:org_threeten_threeten_extra",
 )
 
 java_library(
@@ -407,11 +313,9 @@ java_library(
     ],
 )
 
-java_library(
+alias(
     name = "jcip_annotations",
-    exports = [
-        "@maven//:com_github_stephenc_jcip_jcip_annotations",
-    ],
+    actual = "@maven//:com_github_stephenc_jcip_jcip_annotations",
 )
 
 # For bootstrapping JavaBuilder
@@ -423,9 +327,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_library(
+alias(
     name = "pcollections",
-    exports = ["@maven//:org_pcollections_pcollections"],
+    actual = "@maven//:org_pcollections_pcollections",
 )
 
 # For bootstrapping JavaBuilder
@@ -501,9 +405,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_library(
+alias(
     name = "javax_activation",
-    exports = ["@maven//:javax_activation_javax_activation_api"],
+    actual = "@maven//:javax_activation_javax_activation_api",
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -514,19 +418,14 @@ java_library(
     neverlink = 1,  # @Generated is source-retention
 )
 
-java_library(
+alias(
     name = "rxjava3",
-    exports = ["@maven//:io_reactivex_rxjava3_rxjava"],
+    actual = "@maven//:io_reactivex_rxjava3_rxjava",
 )
 
-java_import(
-    name = "jimfs",
-    jars = ["jimfs/jimfs-1.1.jar"],
-)
-
-java_library(
+alias(
     name = "jsr305",
-    exports = ["@maven//:com_google_code_findbugs_jsr305"],
+    actual = "@maven//:com_google_code_findbugs_jsr305",
 )
 
 # For bootstrapping JavaBuilder
@@ -536,9 +435,9 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_import(
+alias(
     name = "jsr330_inject",
-    jars = ["jsr330_inject/javax.inject.jar"],
+    actual = "@maven//:javax_inject_javax_inject",
 )
 
 UNNECESSARY_DYNAMIC_LIBRARIES = select({
@@ -627,9 +526,9 @@ distrib_java_import(
     }),
 )
 
-java_library(
+alias(
     name = "tomcat_annotations_api",
-    exports = ["@maven//:org_apache_tomcat_tomcat_annotations_api"],
+    actual = "@maven//:org_apache_tomcat_tomcat_annotations_api",
 )
 
 # For bootstrapping JavaBuilder
@@ -639,46 +538,44 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_library(
+alias(
     name = "java-diff-utils",
-    exports = ["@maven//:io_github_java_diff_utils_java_diff_utils"],
+    actual = "@maven//:io_github_java_diff_utils_java_diff_utils",
 )
 
 # Testing
 
-# TODO: Remove this target after migrating to java-diff-utils
-java_import(
-    name = "diffutils",
-    jars = ["diffutils/diffutils-1.3.0.jar"],
-)
-
-java_library(
-    name = "guava-testlib",
-    exports = ["@maven//:com_google_guava_guava_testlib"],
+alias(
+    name = "compile_testing",
+    actual = "@maven//:com_google_testing_compile_compile_testing",
     testonly = 1,
 )
 
-distrib_java_import(
+alias(
+    name = "guava-testlib",
+    actual = "@maven//:com_google_guava_guava_testlib",
+    testonly = 1,
+)
+
+# Not test_only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner
+java_library(
     name = "junit4",
-    enable_distributions = ["debian"],
-    jars = [
-        "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.2.jar",
+    exports = [
+        "@maven//:junit_junit",
+        "@maven//:org_hamcrest_hamcrest_core",
     ],
 )
 
-java_import(
+alias(
+    name = "jimfs",
+    actual = "@maven//:com_google_jimfs_jimfs",
+    testonly = 1,
+)
+
+alias(
     name = "mockito",
-    jars = ["mockito/mockito-core-3.12.4.jar"],
-    deps = [
-        ":byte_buddy",
-        ":objenesis",
-    ],
-)
-
-java_import(
-    name = "objenesis",
-    jars = ["objenesis/objenesis-1_3.jar"],
+    actual = "@maven//:org_mockito_mockito_core",
+    testonly = 1,
 )
 
 filegroup(
@@ -691,82 +588,27 @@ java_import(
     jars = ["turbine/turbine_direct.jar"],
 )
 
-java_import(
-    name = "truth",
-    applicable_licenses = [":truth_license"],
-    jars = ["truth/truth-1.0.1.jar"],
-    exports = [
-        ":truth8",
-        ":truth_proto",
-    ],
-    deps = [
-        ":diffutils",
-    ],
-)
-
-license(
-    name = "truth_license",
-    package_name = "truth/1.0.1",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "truth/LICENSE",
-)
-
-java_import(
-    name = "truth8",
-    applicable_licenses = [":truth8_license"],
-    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
-)
-
-license(
-    name = "truth8_license",
-    package_name = "truth8/1.0.1",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "truth8/LICENSE",
-)
-
-java_import(
-    name = "truth_proto",
-    applicable_licenses = [":truth_proto_license"],
-    jars = [
-        "truth_proto/truth-liteproto-extension-1.0.1.jar",
-        "truth_proto/truth-proto-extension-1.0.1.jar",
-    ],
-)
-
-license(
-    name = "truth_proto_license",
-    package_name = "truth_proto/1.0.1",
-    license_kinds = [
-        "@rules_license//licenses/spdx:Apache-2.0",
-    ],
-    license_text = "truth_proto/LICENSE",
-)
-
 java_library(
-    name = "xz",
-    applicable_licenses = [":xz_license"],
-    exports = ["@maven//:org_tukaani_xz"],
+    name = "truth",
+    exports = [
+        "@maven//:com_google_truth_truth",
+        "@maven//:com_google_truth_extensions_truth_java8_extension",
+        "@maven//:com_google_truth_extensions_truth_proto_extension",
+    ],
+    testonly = 1,
 )
 
-license(
-    name = "xz_license",
-    package_name = "xz/1.9",
-    license_kinds = [
-        "@rules_license//licenses/generic:permissive",
-    ],
-    license_text = "xz/LICENSE",
+alias(
+    name = "xz",
+    actual = "@maven//:org_tukaani_xz",
 )
 
 # To be used by the skylark example.
 filegroup(
     name = "junit4-jars",
     srcs = [
-        "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.13.2.jar",
+        "@maven//:junit_junit_file",
+        "@maven//:org_hamcrest_hamcrest_core_file",
     ],
 )
 
@@ -790,11 +632,6 @@ create_compiler_config_setting(
 create_compiler_config_setting(
     name = "windows_clang",
     value = "windows_clang",
-)
-
-config_setting(
-    name = "darwin",
-    values = {"host_cpu": "darwin"},
 )
 
 config_setting(

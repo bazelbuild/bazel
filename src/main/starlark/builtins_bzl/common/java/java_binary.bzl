@@ -23,6 +23,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/paths.bzl", "paths")
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 JavaInfo = _builtins.toplevel.JavaInfo
@@ -38,7 +39,7 @@ InternalDeployJarInfo = provider(
         "main_class",
         "coverage_main_class",
         "strip_as_default",
-        "build_info_files",
+        "stamp",
         "hermetic",
         "add_exports",
         "add_opens",
@@ -292,7 +293,7 @@ def basic_java_binary(
             main_class = main_class,
             coverage_main_class = coverage_main_class,
             strip_as_default = strip_as_default,
-            build_info_files = semantics.get_build_info(ctx, ctx.attr.stamp),
+            stamp = ctx.attr.stamp,
             hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
             add_exports = add_exports,
             add_opens = add_opens,
@@ -376,6 +377,7 @@ def _create_shared_archive(ctx, java_attrs):
         mnemonic = "JavaJSA",
         progress_message = "Dumping Java Shared Archive %s" % jsa.short_path,
         executable = runtime.java_executable_exec_path,
+        toolchain = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE,
         inputs = depset(input_files, transitive = [runtime.files]),
         outputs = [jsa],
         arguments = [args],
@@ -410,6 +412,7 @@ def _create_one_version_check(ctx, inputs):
         mnemonic = "JavaOneVersion",
         progress_message = "Checking for one-version violations in %{label}",
         executable = tool,
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
         inputs = depset([allowlist], transitive = [inputs]),
         tools = [tool],
         outputs = [output],
@@ -542,3 +545,16 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "_java_runtime_toolchain_type": attr.label(default = semantics.JAVA_RUNTIME_TOOLCHAIN_TYPE),
     },
 )
+
+BASE_TEST_ATTRIBUTES = {
+    "test_class": attr.string(),
+    "env_inherit": attr.string_list(),
+    "_apple_constraints": attr.label_list(
+        default = [
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:ios"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:macos"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:tvos"),
+            "@" + paths.join(cc_semantics.get_platforms_root(), "os:watchos"),
+        ],
+    ),
+}

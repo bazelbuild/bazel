@@ -62,6 +62,8 @@ public final class WorkspaceBuilder {
   @Nullable private SkyframeExecutor.SkyKeyStateReceiver skyKeyStateReceiver = null;
   private SyscallCache syscallCache;
 
+  private boolean allowExternalRepositories = true;
+
   WorkspaceBuilder(BlazeDirectories directories, BinTools binTools) {
     this.directories = directories;
     this.binTools = binTools;
@@ -130,7 +132,8 @@ public final class WorkspaceBuilder {
         workspaceStatusActionFactory,
         binTools,
         allocationTracker,
-        singleFsSyscallCache);
+        singleFsSyscallCache,
+        allowExternalRepositories);
   }
 
   /**
@@ -209,6 +212,12 @@ public final class WorkspaceBuilder {
   public WorkspaceBuilder setSkyframeExecutorRepositoryHelpersHolder(
       SkyframeExecutorRepositoryHelpersHolder skyframeExecutorRepositoryHelpersHolder) {
     this.skyframeExecutorRepositoryHelpersHolder = skyframeExecutorRepositoryHelpersHolder;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public WorkspaceBuilder setAllowExternalRepositories(boolean allowExternalRepositories) {
+    this.allowExternalRepositories = allowExternalRepositories;
     return this;
   }
 

@@ -33,6 +33,10 @@ import net.starlark.java.eval.StarlarkValue;
 
 /** Pluggable C++ compilation semantics. */
 public interface CppSemantics extends StarlarkValue {
+
+  /** Returns cpp toolchain type. */
+  String getCppToolchainType();
+
   /** What language to treat the headers. */
   Language language();
 

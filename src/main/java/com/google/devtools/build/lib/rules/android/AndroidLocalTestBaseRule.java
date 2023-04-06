@@ -96,7 +96,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         // rule so they're not defined in multiple places
         .add(
             attr("$android_resources_busybox", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(environment.getToolsLabel(AndroidRuleClasses.DEFAULT_RESOURCES_BUSYBOX)))
         .add(
@@ -152,12 +152,12 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         // processed XML expressions into Java code.
         .add(
             attr(DataBinding.DATABINDING_ANNOTATION_PROCESSOR_ATTR, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(
                     environment.getToolsLabel("//tools/android:databinding_annotation_processor")))
         .add(
             attr(DataBinding.DATABINDING_EXEC_PROCESSOR_ATTR, LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(environment.getToolsLabel("//tools/android:databinding_exec")))
         /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(nocompress_extensions) -->

@@ -18,11 +18,11 @@ import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
+import java.util.List;
 import javax.annotation.Nullable;
 import sun.misc.Unsafe;
 
@@ -73,16 +73,16 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * <p>The second problem is solved by first adding the newly discovered deps to a node's {@link
    * InMemoryNodeEntry#directDeps}, and then looping through the direct deps and registering this
    * node as a reverse dependency. This ensures that the signaledDeps counter can only reach {@link
-   * InMemoryNodeEntry#directDeps#numElements} on the very last iteration of the loop, i.e., the
-   * thread is not working on the node anymore. Note that this requires that there is no code after
-   * the loop in {@link ParallelEvaluator.Evaluate#run}.
+   * GroupedDeps#numElements} on the very last iteration of the loop, i.e., the thread is not
+   * working on the node anymore. Note that this requires that there is no code after the loop in
+   * {@link ParallelEvaluator.Evaluate#run}.
    */
   private int signaledDeps = NOT_EVALUATING_SENTINEL;
 
   /**
    * The number of external dependencies (in contrast to the number of internal dependencies which
-   * are tracked in NodeEntry. We never keep information about external dependencies across Skyframe
-   * calls.
+   * are tracked in NodeEntry). We never keep information about external dependencies across
+   * Skyframe calls.
    */
   // We do not strictly require a counter here; all external deps from one SkyFunction evaluation
   // pass are registered as a single logical dependency, and the SkyFunction is only re-evaluated if
@@ -243,15 +243,6 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     externalDeps++;
   }
 
-  public final void unmarkNeedsRebuilding() {
-    checkState(dirtyState == DirtyState.NEEDS_REBUILDING, this);
-    if (getNumOfGroupsInLastBuildDirectDeps() == dirtyDirectDepIndex) {
-      dirtyState = DirtyState.VERIFIED_CLEAN;
-    } else {
-      dirtyState = DirtyState.CHECK_DEPENDENCIES;
-    }
-  }
-
   /**
    * Returns true if {@code newValue}.equals the value from the last time this node was built.
    * Should only be used by {@link NodeEntry#setValue}.
@@ -259,7 +250,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * <p>Changes in direct deps do <i>not</i> force this to return false. Only the value is
    * considered.
    */
-  public final boolean unchangedFromLastBuild(SkyValue newValue) throws InterruptedException {
+  final boolean unchangedFromLastBuild(SkyValue newValue) throws InterruptedException {
     checkFinishedBuildingWhenAboutToSetValue();
     return !(newValue instanceof NotComparableSkyValue)
         && getLastBuildValue() != null
@@ -279,7 +270,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     return getNumOfGroupsInLastBuildDirectDeps() == 0;
   }
 
-  /** @see NodeEntry#getDirtyState() */
+  /** Returns the {@link DirtyState} as documented by {@link NodeEntry#getDirtyState}. */
   final DirtyState getDirtyState() {
     return dirtyState;
   }
@@ -289,10 +280,10 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    *
    * <p>See {@link NodeEntry#getNextDirtyDirectDeps}.
    */
-  final ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
+  final List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     checkState(dirtyDirectDepIndex < getNumOfGroupsInLastBuildDirectDeps(), this);
-    return getLastBuildDirectDeps().get(dirtyDirectDepIndex++);
+    return getLastBuildDirectDeps().getDepGroup(dirtyDirectDepIndex++);
   }
 
   /**
@@ -307,7 +298,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
     ImmutableSet.Builder<SkyKey> result = ImmutableSet.builder();
     for (int ind = dirtyDirectDepIndex; ind < getNumOfGroupsInLastBuildDirectDeps(); ind++) {
-      result.addAll(getLastBuildDirectDeps().get(ind));
+      result.addAll(getLastBuildDirectDeps().getDepGroup(ind));
     }
     if (!preservePosition) {
       dirtyDirectDepIndex = getNumOfGroupsInLastBuildDirectDeps();
@@ -343,14 +334,6 @@ public abstract class DirtyBuildingState implements PriorityTracker {
   void startEvaluating() {
     checkState(!isEvaluating(), this);
     signaledDeps = 0;
-  }
-
-  public int getLastDirtyDirectDepIndex() {
-    return dirtyDirectDepIndex - 1;
-  }
-
-  public int getSignaledDeps() {
-    return signaledDeps;
   }
 
   /** Returns whether all known children of this node have signaled that they are done. */
@@ -464,13 +447,13 @@ public abstract class DirtyBuildingState implements PriorityTracker {
     }
 
     @Override
-    public GroupedDeps getLastBuildDirectDeps() throws InterruptedException {
+    public GroupedDeps getLastBuildDirectDeps() {
       return lastBuildDirectDeps;
     }
 
     @Override
     protected int getNumOfGroupsInLastBuildDirectDeps() {
-      return lastBuildDirectDeps == null ? 0 : lastBuildDirectDeps.listSize();
+      return lastBuildDirectDeps == null ? 0 : lastBuildDirectDeps.numGroups();
     }
 
     @Override

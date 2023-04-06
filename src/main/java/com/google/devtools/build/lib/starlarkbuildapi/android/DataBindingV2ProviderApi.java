@@ -53,9 +53,6 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               + "it, you will be broken when it is removed.",
       documented = false)
   final class LabelJavaPackagePair implements StarlarkValue {
-
-    public static final Depset.ElementType TYPE = Depset.ElementType.of(LabelJavaPackagePair.class);
-
     private final String label;
     private final String javaPackage;
 

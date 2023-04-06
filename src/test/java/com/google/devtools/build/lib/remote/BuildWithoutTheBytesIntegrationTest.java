@@ -101,6 +101,11 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     worker.restart();
   }
 
+  @Override
+  protected boolean hasAccessToRemoteOutputs() {
+    return true;
+  }
+
   @After
   public void tearDown() throws IOException {
     if (worker != null) {
@@ -321,6 +326,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void symlinkToNestedFile() throws Exception {
+    addOptions("--noincompatible_strict_conflict_checks");
+
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -373,6 +380,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void symlinkToNestedDirectory() throws Exception {
+    addOptions("--noincompatible_strict_conflict_checks");
+
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -465,9 +474,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     // Assert: Exit code is 39
     assertThat(error)
         .hasMessageThat()
-        .contains(
-            "Build without the Bytes does not work if your remote cache evicts blobs"
-                + " during builds");
+        .contains("Failed to fetch blobs because they do not exist remotely");
     assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
   }
@@ -577,7 +584,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "load('//:output_dir.bzl', 'output_dir')",
         "output_dir(",
         "  name = 'foo.out',",
-        "  manifest = ':manifest',",
+        "  content_map = {'file-inside': 'hello world'},",
         ")",
         "genrule(",
         "  name = 'bar',",
@@ -585,7 +592,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "  outs = ['bar.out'],",
         "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
         ")");
-    write("a/manifest", "file-inside");
     write("a/bar.in", "bar");
 
     // Populate remote cache
@@ -614,8 +620,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
     // Assert: target was successfully built
     assertValidOutputFile(
-        "a/bar.out",
-        "file-inside" + lineSeparator() + "updated bar" + lineSeparator(),
-        /* isLocal= */ true);
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
   }
 }

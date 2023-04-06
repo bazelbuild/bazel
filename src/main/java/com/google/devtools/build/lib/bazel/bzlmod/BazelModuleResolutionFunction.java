@@ -60,7 +60,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   public static final Precomputed<List<String>> ALLOWED_YANKED_VERSIONS =
       new Precomputed<>("allowed_yanked_versions");
 
-  private static final String BZLMOD_ALLOWED_YANKED_VERSIONS_ENV = "BZLMOD_ALLOW_YANKED_VERSIONS";
+  public static final String BZLMOD_ALLOWED_YANKED_VERSIONS_ENV = "BZLMOD_ALLOW_YANKED_VERSIONS";
 
   @Override
   @Nullable

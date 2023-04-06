@@ -709,8 +709,8 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
-    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin");
-    useConfiguration("--cpu=darwin");
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin_x86_64");
+    useConfiguration("--cpu=darwin_x86_64");
     checkError(
         "badlib",
         "lib_with_dash_static",
@@ -1144,24 +1144,6 @@ public class CcCommonTest extends BuildViewTestCase {
             cppCompileAction.getArguments().stream()
                 .map(x -> removeOutDirectory(x))
                 .collect(ImmutableList.toImmutableList()))
-        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
-  }
-
-  @Test
-  public void testCppCompileActionArgvReturnParamFile() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
-    useConfiguration("--noexperimental_cpp_compile_argv_ignore_param_file");
-    scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
-    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
-    ImmutableList<String> argv =
-        cppCompileAction.getStarlarkArgv().stream()
-            .map(x -> removeOutDirectory(x))
-            .collect(ImmutableList.toImmutableList());
-    assertThat(argv)
         .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
   }
 

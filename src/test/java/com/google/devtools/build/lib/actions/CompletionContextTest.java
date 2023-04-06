@@ -40,7 +40,11 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CompletionContextTest {
   private static final FileArtifactValue DUMMY_METADATA =
-      RemoteFileArtifactValue.create(/*digest=*/ new byte[0], /*size=*/ 0, /*locationIndex=*/ 0);
+      RemoteFileArtifactValue.create(
+          /* digest= */ new byte[0],
+          /* size= */ 0,
+          /* locationIndex= */ 0,
+          /* expireAtEpochMilli= */ -1);
 
   private Path execRoot;
   private ArtifactRoot outputRoot;

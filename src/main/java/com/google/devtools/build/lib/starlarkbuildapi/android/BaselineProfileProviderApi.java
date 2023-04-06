@@ -24,6 +24,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 
 /** Provides information about baseline profile for Android binaries. */
 @StarlarkBuiltin(
@@ -51,9 +52,19 @@ public interface BaselineProfileProviderApi<FileT extends FileApi> extends Struc
               positional = true,
               named = false,
               allowedTypes = {@ParamType(type = Depset.class, generic1 = FileApi.class)}),
+          @Param(
+              name = "art_profile_zip",
+              doc =
+                  "The final ART profile zip to be packaged in the APK. Optional, only used for"
+                      + " migration purposes.",
+              positional = true,
+              named = false,
+              defaultValue = "None",
+              allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)})
         },
         selfCall = true)
     @StarlarkConstructor
-    BaselineProfileProviderApi<FileT> create(Depset files) throws EvalException;
+    BaselineProfileProviderApi<FileT> create(Depset files, Object artProfileZip)
+        throws EvalException;
   }
 }

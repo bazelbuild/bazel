@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -83,6 +84,11 @@ public final class JavaRuntimeRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("java_home", STRING))
         .add(attr("output_licenses", LICENSE))
+        /* <!-- #BLAZE_RULE(java_runtime).ATTRIBUTE(version) -->
+        The feature version of the Java runtime. I.e., the integer returned by
+        <code>Runtime.version().feature()</code>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("version", INTEGER))
         .build();
   }
 

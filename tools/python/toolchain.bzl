@@ -15,7 +15,10 @@
 """Definitions related to the Python toolchain."""
 
 load(":utils.bzl", "expand_pyversion_template")
-load(":private/defs.bzl", "py_runtime")
+
+# TODO: move py_runtime_pair into rules_python (and the rest of @bazel_tools//python)
+# py_runtime should be loaded from rules_python, but this creates a circular dep, because py_runtime_pair is imported there.
+py_runtime = native.py_runtime
 
 def _py_runtime_pair_impl(ctx):
     if ctx.attr.py2_runtime != None:

@@ -555,7 +555,7 @@ public class SkydocMain {
         });
   }
 
-  @StarlarkBuiltin(name = "ProtoModule", doc = "")
+  @StarlarkBuiltin(name = "ProtoModule", documented = false)
   private static final class ProtoModule implements StarlarkValue {
     @StarlarkMethod(
         name = "encode_text",

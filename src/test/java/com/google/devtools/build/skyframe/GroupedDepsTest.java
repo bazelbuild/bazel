@@ -226,7 +226,7 @@ public final class GroupedDepsTest {
 
   private static void checkGroups(GroupedDeps deps, List<ImmutableList<SkyKey>> expectedGroups) {
     assertThat(deps.isEmpty()).isEqualTo(expectedGroups.isEmpty());
-    assertThat(deps.listSize()).isEqualTo(expectedGroups.size());
+    assertThat(deps.numGroups()).isEqualTo(expectedGroups.size());
     assertThat(deps).containsExactlyElementsIn(expectedGroups).inOrder();
 
     ImmutableList<SkyKey> expectedFlattened =
@@ -247,11 +247,11 @@ public final class GroupedDepsTest {
   private static void checkCompression(GroupedDeps deps) {
     @GroupedDeps.Compressed Object compressed = deps.compress();
     assertThat(GroupedDeps.numElements(compressed)).isEqualTo(deps.numElements());
-    assertThat(GroupedDeps.numGroups(compressed)).isEqualTo(deps.listSize());
+    assertThat(GroupedDeps.isEmpty(compressed)).isEqualTo(deps.isEmpty());
     assertThat(GroupedDeps.compressedToIterable(compressed))
         .containsExactlyElementsIn(deps.getAllElementsAsIterable())
         .inOrder();
-    assertThat(GroupedDeps.create(compressed)).containsExactlyElementsIn(deps).inOrder();
-    assertThat(GroupedDeps.create(compressed)).isNotInstanceOf(GroupedDeps.WithHashSet.class);
+    assertThat(GroupedDeps.decompress(compressed)).containsExactlyElementsIn(deps).inOrder();
+    assertThat(GroupedDeps.decompress(compressed)).isNotInstanceOf(GroupedDeps.WithHashSet.class);
   }
 }

@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.build.lib.runtime.MemoryPressureEvent;
+import com.google.devtools.build.lib.runtime.MemoryPressureOptions;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.common.options.Options;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,7 +32,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 @RunWith(JUnit4.class)
-public class HighWaterMarkLimiterTest {
+public final class HighWaterMarkLimiterTest {
 
   private static final MemoryPressureEvent MINOR =
       MemoryPressureEvent.newBuilder()
@@ -55,9 +59,10 @@ public class HighWaterMarkLimiterTest {
         new HighWaterMarkLimiter(
             skyframeExecutor,
             syscallCache,
-            /* threshold= */ 90,
-            /* minorGcDropLimit= */ Integer.MAX_VALUE,
-            /* fullGcDropLimit= */ Integer.MAX_VALUE);
+            createOptions(
+                /* threshold= */ 90,
+                /* minorGcDropLimit= */ Integer.MAX_VALUE,
+                /* fullGcDropLimit= */ Integer.MAX_VALUE));
 
     MemoryPressureEvent belowThreshold =
         MemoryPressureEvent.newBuilder()
@@ -70,6 +75,7 @@ public class HighWaterMarkLimiterTest {
 
     verify(skyframeExecutor, never()).dropUnnecessaryTemporarySkyframeState();
     verify(syscallCache, never()).clear();
+    assertStats(underTest, MemoryPressureStats.newBuilder().setMinorGcDrops(0).setFullGcDrops(0));
   }
 
   @Test
@@ -78,9 +84,10 @@ public class HighWaterMarkLimiterTest {
         new HighWaterMarkLimiter(
             skyframeExecutor,
             syscallCache,
-            /* threshold= */ 90,
-            /* minorGcDropLimit= */ 1,
-            /* fullGcDropLimit= */ Integer.MAX_VALUE);
+            createOptions(
+                /* threshold= */ 90,
+                /* minorGcDropLimit= */ 1,
+                /* fullGcDropLimit= */ Integer.MAX_VALUE));
 
     verify(skyframeExecutor, never()).dropUnnecessaryTemporarySkyframeState();
     verify(syscallCache, never()).clear();
@@ -104,6 +111,8 @@ public class HighWaterMarkLimiterTest {
 
     verify(skyframeExecutor, times(3)).dropUnnecessaryTemporarySkyframeState();
     verify(syscallCache, times(3)).clear();
+
+    assertStats(underTest, MemoryPressureStats.newBuilder().setMinorGcDrops(1).setFullGcDrops(2));
   }
 
   @Test
@@ -112,9 +121,10 @@ public class HighWaterMarkLimiterTest {
         new HighWaterMarkLimiter(
             skyframeExecutor,
             syscallCache,
-            /* threshold= */ 90,
-            /* minorGcDropLimit= */ Integer.MAX_VALUE,
-            /* fullGcDropLimit= */ 1);
+            createOptions(
+                /* threshold= */ 90,
+                /* minorGcDropLimit= */ Integer.MAX_VALUE,
+                /* fullGcDropLimit= */ 1));
 
     verify(skyframeExecutor, never()).dropUnnecessaryTemporarySkyframeState();
     verify(syscallCache, never()).clear();
@@ -138,5 +148,23 @@ public class HighWaterMarkLimiterTest {
 
     verify(skyframeExecutor, times(3)).dropUnnecessaryTemporarySkyframeState();
     verify(syscallCache, times(3)).clear();
+
+    assertStats(underTest, MemoryPressureStats.newBuilder().setMinorGcDrops(2).setFullGcDrops(1));
+  }
+
+  private static MemoryPressureOptions createOptions(
+      int threshold, int minorGcDropLimit, int fullGcDropLimit) {
+    MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
+    options.skyframeHighWaterMarkMemoryThreshold = threshold;
+    options.skyframeHighWaterMarkMinorGcDropsPerInvocation = minorGcDropLimit;
+    options.skyframeHighWaterMarkFullGcDropsPerInvocation = fullGcDropLimit;
+    return options;
+  }
+
+  private static void assertStats(
+      HighWaterMarkLimiter underTest, MemoryPressureStats.Builder expected) {
+    MemoryPressureStats.Builder stats = MemoryPressureStats.newBuilder();
+    underTest.addStatsAndReset(stats);
+    assertThat(stats.build()).isEqualTo(expected.build());
   }
 }

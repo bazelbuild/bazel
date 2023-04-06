@@ -75,7 +75,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     AtomicBoolean wasOptimizationUsed = new AtomicBoolean(false);
     SkyFunction.Environment mockEnv = Mockito.mock(SkyFunction.Environment.class);
     when(mockEnv.getTemporaryDirectDeps()).thenReturn(groupedDeps);
-    when(mockEnv.getValuesAndExceptions(groupedDeps.get(1)))
+    when(mockEnv.getValuesAndExceptions(groupedDeps.getDepGroup(1)))
         .thenAnswer(
             (invocationOnMock) -> {
               wasOptimizationUsed.set(true);
@@ -104,8 +104,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(
-            /*packageLoadedSuccessfully=*/ true,
-            /*errorLoadingTarget=*/ null,
+            /* packageLoadedSuccessfully= */ true,
+            /* errorLoadingTarget= */ null,
             pkg.getTarget(label.getName()));
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
@@ -143,8 +143,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(
-            /*packageLoadedSuccessfully=*/ true,
-            /*errorLoadingTarget=*/ new NoSuchTargetException("self error is long and last"),
+            /* packageLoadedSuccessfully= */ true,
+            /* errorLoadingTarget= */ new NoSuchTargetException("self error is long and last"),
             pkg.getTarget(label.getName()));
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
@@ -195,8 +195,8 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Package pkg = loadPackage(label.getPackageIdentifier());
     TargetAndErrorIfAny targetAndErrorIfAny =
         new TargetAndErrorIfAny(
-            /*packageLoadedSuccessfully=*/ true,
-            /*errorLoadingTarget=*/ null,
+            /* packageLoadedSuccessfully= */ true,
+            /* errorLoadingTarget= */ null,
             pkg.getTarget(label.getName()));
     TransitiveTraversalFunction function =
         new TransitiveTraversalFunction() {
@@ -227,7 +227,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     SkyKey key = PackageValue.key(pkgid);
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
     if (result.hasError()) {
       throw (NoSuchPackageException) result.getError(key).getException();
     }

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
@@ -42,13 +41,14 @@ public class PackageOptions extends OptionsBase {
   public static class DefaultVisibilityConverter extends Converter.Contextless<RuleVisibility> {
     @Override
     public RuleVisibility convert(String input) throws OptionsParsingException {
-      if (input.equals("public")) {
-        return ConstantRuleVisibility.PUBLIC;
-      } else if (input.equals("private")) {
-        return ConstantRuleVisibility.PRIVATE;
-      } else {
-        throw new OptionsParsingException("Not a valid default visibility: '" + input
-            + "' (should be 'public' or 'private'");
+      switch (input) {
+        case "public":
+          return RuleVisibility.PUBLIC;
+        case "private":
+          return RuleVisibility.PRIVATE;
+        default:
+          throw new OptionsParsingException(
+              "Not a valid default visibility: '" + input + "' (should be 'public' or 'private'");
       }
     }
 

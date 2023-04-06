@@ -17,7 +17,10 @@ load(":common/python/semantics.bzl", "TOOLS_REPO")
 
 _CcInfo = _builtins.toplevel.CcInfo
 
+# NOTE: This is copied to PyRuntimeInfo.java
 DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3"
+
+# NOTE: This is copied to PyRuntimeInfo.java
 DEFAULT_BOOTSTRAP_TEMPLATE = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt"
 _PYTHON_VERSION_VALUES = ["PY2", "PY3"]
 
@@ -31,19 +34,42 @@ def _PyRuntimeInfo_init(
         python_version,
         stub_shebang = None,
         bootstrap_template = None):
-    if (interpreter_path == None) == (interpreter == None):
-        fail("exactly one of interpreter_path or interpreter must be set")
-    if (interpreter == None) != (files == None):
-        fail("interpreter and files must both be set or neither must be set")
-    if (coverage_tool == None) == (coverage_files == None):
-        fail("coverage_tool and coverage_files must both be set or neither must be set")
+    if (interpreter_path and interpreter) or (not interpreter_path and not interpreter):
+        fail("exactly one of interpreter or interpreter_path must be specified")
+
+    if interpreter_path and files != None:
+        fail("cannot specify 'files' if 'interpreter_path' is given")
+
+    if (coverage_tool and not coverage_files) or (not coverage_tool and coverage_files):
+        fail(
+            "coverage_tool and coverage_files must both be set or neither must be set, " +
+            "got coverage_tool={}, coverage_files={}".format(
+                coverage_tool,
+                coverage_files,
+            ),
+        )
+
     if python_version not in _PYTHON_VERSION_VALUES:
         fail("invalid python_version: '{}'; must be one of {}".format(
             python_version,
             _PYTHON_VERSION_VALUES,
         ))
+
+    if files != None and type(files) != type(depset()):
+        fail("invalid files: got value of type {}, want depset".format(type(files)))
+
+    if interpreter:
+        if files == None:
+            files = depset()
+    else:
+        files = None
+
+    if coverage_files == None:
+        coverage_files = depset()
+
     if not stub_shebang:
         stub_shebang = DEFAULT_STUB_SHEBANG
+
     return {
         "interpreter_path": interpreter_path,
         "interpreter": interpreter,
@@ -57,7 +83,7 @@ def _PyRuntimeInfo_init(
 
 # TODO(#15897): Rename this to PyRuntimeInfo when we're ready to replace the Java
 # implemented provider with the Starlark one.
-Starlark_PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
+PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
     doc = """Contains information about a Python runtime, as returned by the `py_runtime`
 rule.
 
@@ -110,8 +136,6 @@ the same conventions as the standard CPython interpreter.
         ),
     },
 )
-
-PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
 
 def _check_arg_type(name, required_type, value):
     value_type = type(value)

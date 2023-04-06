@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.packages.Type.INTEGER;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -129,7 +130,8 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             hermeticInputs,
             libModules,
             defaultCDS,
-            hermeticStaticLibs);
+            hermeticStaticLibs,
+            ruleContext.attributes().get("version", INTEGER).toIntUnchecked());
 
     TemplateVariableInfo templateVariableInfo =
         new TemplateVariableInfo(

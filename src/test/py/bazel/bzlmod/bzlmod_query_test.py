@@ -92,7 +92,7 @@ class BzlmodQueryTest(test_base.TestBase):
                                  allow_failure=False)
     # This label is stringified into a "purpose" in some action before it
     # reaches aquery code, so can't decanonicalize it.
-    self.assertEqual(stdout[0], 'cc_library-compile for @aaa~1.0//:lib_aaa')
+    self.assertIn('cc_library-compile for @aaa~1.0//:lib_aaa', stdout)
     self.assertIn('Target: @my_repo//:lib_aaa', stdout)
 
   def testAqueryModuleRepoTransitiveDeps(self):

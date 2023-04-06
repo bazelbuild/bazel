@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -157,7 +158,6 @@ java_library(
     srcs = [
         "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
-        "BigIntegerFingerprintUtils.java",
         "CPU.java",
         "CanonicalStringIndexer.java",
         "ClassName.java",
@@ -328,6 +328,12 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "hash_codes",
+    srcs = ["HashCodes.java"],
+    deps = ["//third_party:jsr305"],
 )
 
 java_library(

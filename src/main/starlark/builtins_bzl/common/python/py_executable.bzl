@@ -17,6 +17,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/common.bzl",
     "TOOLCHAIN_TYPE",
+    "check_native_allowed",
     "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
@@ -41,12 +42,13 @@ load(
 )
 load(
     ":common/python/semantics.bzl",
+    "ALLOWED_MAIN_EXTENSIONS",
     "BUILD_DATA_SYMLINK_PATH",
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
 )
+load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
 
-_cc_common = _builtins.toplevel.cc_common
 _py_builtins = _builtins.internal.py_builtins
 
 # Non-Google-specific attributes for executables
@@ -184,6 +186,7 @@ def py_executable_base_impl(ctx, *, semantics, is_test, inherited_environment = 
 def _validate_executable(ctx):
     if ctx.attr.python_version != "PY3":
         fail("It is not allowed to use Python 2")
+    check_native_allowed(ctx)
 
 def _compute_outputs(ctx, output_sources):
     # TODO: This should use the configuration instead of the Bazel OS.
@@ -622,7 +625,7 @@ def determine_main(ctx):
     """
     if ctx.attr.main:
         proposed_main = ctx.attr.main.label.name
-        if not proposed_main.endswith(".py"):
+        if not proposed_main.endswith(tuple(ALLOWED_MAIN_EXTENSIONS)):
             fail("main must end in '.py'")
     else:
         if ctx.label.name.endswith(".py"):

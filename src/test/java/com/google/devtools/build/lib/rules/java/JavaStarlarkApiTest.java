@@ -3213,7 +3213,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, True)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3466,7 +3466,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, False)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3597,25 +3597,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
 
     getConfiguredTarget("//foo:custom");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testUseLegacyJavaTestIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.use_legacy_java_test()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
 
     assertContainsEvent("Rule in 'foo' cannot use private API");
   }

@@ -1,5 +1,3 @@
-load(":darwin_universal_binary.bzl", "darwin_universal_binary")
-
 package(
     default_visibility = [
         "//src:__subpackages__",
@@ -78,12 +76,6 @@ cc_binary(
     deps = [":zip"],
 )
 
-darwin_universal_binary(
-    name = "zipper_darwin",
-    binary = ":zipper",
-    output_name = "zipper",
-)
-
 cc_binary(
     name = "ijar",
     srcs = [
@@ -92,12 +84,6 @@ cc_binary(
     ],
     visibility = ["//visibility:public"],
     deps = [":zip"],
-)
-
-darwin_universal_binary(
-    name = "ijar_darwin",
-    binary = ":ijar",
-    output_name = "ijar",
 )
 
 filegroup(
@@ -109,17 +95,16 @@ filegroup(
 filegroup(
     name = "embedded_zipper_sources",
     srcs = [
-        "zip.cc",
-        "zip.h",
-        "zip_main.cc",
+        "BUILD",
         "common.h",
         "mapped_file.h",
         "platform_utils.cc",
         "platform_utils.h",
+        "zip.cc",
+        "zip.h",
+        "zip_main.cc",
         "zlib_client.cc",
         "zlib_client.h",
-        "BUILD",
-        "darwin_universal_binary.bzl",
     ] + select({
         "//src:windows": [
             "mapped_file_windows.cc",
@@ -152,16 +137,10 @@ genrule(
 
 genrule(
     name = "ijar_deploy_zip",
-    srcs = select({
-        "//src/conditions:darwin": [
-            ":ijar_darwin",
-            ":zipper_darwin",
-        ],
-        "//conditions:default": [
-            ":ijar",
-            ":zipper",
-        ],
-    }),
+    srcs = [
+        ":ijar",
+        ":zipper",
+    ],
     outs = ["ijar_deploy.zip"],
     cmd = "$(location //src:zip_files) java_tools/ijar $@ $(SRCS)",
     tools = ["//src:zip_files"],
@@ -178,9 +157,4 @@ genrule(
     cmd = "$(location //src:zip_files) ijar $@ $(SRCS)",
     tools = ["//src:zip_files"],
     visibility = ["//visibility:private"],
-)
-
-exports_files(
-    ["darwin_universal_binary.bzl"],
-    visibility = ["//src/tools/singlejar:__pkg__"],
 )

@@ -47,32 +47,33 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests of Attribute code. */
+/** Tests for {@link Attribute}. */
 @RunWith(JUnit4.class)
-public class AttributeTest {
+public final class AttributeTest {
 
-  private void assertDefaultValue(Object expected, Attribute attr) {
-    assertThat(attr.getDefaultValue(null)).isEqualTo(expected);
+  private static void assertDefaultValue(Object expected, Attribute attr) {
+    assertThat(attr.getDefaultValue()).isEqualTo(expected);
   }
 
-  private void assertType(Type<?> expectedType, Attribute attr) {
+  private static void assertType(Type<?> expectedType, Attribute attr) {
     assertThat(attr.getType()).isEqualTo(expectedType);
   }
 
   @Test
-  public void testBasics() throws Exception {
+  public void testBasics() {
     Attribute attr = attr("foo", Type.INTEGER).mandatory().value(StarlarkInt.of(3)).build();
     assertThat(attr.getName()).isEqualTo("foo");
-    assertThat(attr.getDefaultValue(null)).isEqualTo(StarlarkInt.of(3));
+    assertThat(attr.getDefaultValue()).isEqualTo(StarlarkInt.of(3));
     assertThat(attr.getType()).isEqualTo(Type.INTEGER);
     assertThat(attr.isMandatory()).isTrue();
     assertThat(attr.isDocumented()).isTrue();
+    assertThat(attr.starlarkDefined()).isFalse();
     attr = attr("$foo", Type.INTEGER).build();
     assertThat(attr.isDocumented()).isFalse();
   }
 
   @Test
-  public void testNonEmptyReqiresListType() throws Exception {
+  public void testNonEmptyRequiresListType() {
     NullPointerException e =
         assertThrows(
             NullPointerException.class,
@@ -81,7 +82,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void testNonEmpty() throws Exception {
+  public void testNonEmpty() {
     Attribute attr = attr("foo", BuildType.LABEL_LIST).nonEmpty().legacyAllowAnyFileType().build();
     assertThat(attr.getName()).isEqualTo("foo");
     assertThat(attr.getType()).isEqualTo(BuildType.LABEL_LIST);
@@ -89,7 +90,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void testSingleArtifactReqiresLabelType() throws Exception {
+  public void testSingleArtifactRequiresLabelType() {
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,
@@ -102,12 +103,12 @@ public class AttributeTest {
     Attribute.Builder<String> builder =
         attr("x", STRING)
             .mandatory()
-            .cfg(ExecutionTransitionFactory.create())
+            .cfg(ExecutionTransitionFactory.createFactory())
             .undocumented("")
             .value("y");
-    assertThrows(IllegalStateException.class, () -> builder.mandatory());
+    assertThrows(IllegalStateException.class, builder::mandatory);
     assertThrows(
-        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.create()));
+        IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.createFactory()));
     assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
     assertThrows(IllegalStateException.class, () -> builder.value("z"));
 
@@ -249,7 +250,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void testSplitTransition() throws Exception {
+  public void testSplitTransition() {
     TestSplitTransition splitTransition = new TestSplitTransition();
     Attribute attr =
         attr("foo", LABEL).cfg(TransitionFactories.of(splitTransition)).allowedFileTypes().build();
@@ -262,10 +263,9 @@ public class AttributeTest {
   }
 
   @Test
-  public void testSplitTransitionProvider() throws Exception {
+  public void testSplitTransitionProvider() {
     TestSplitTransitionProvider splitTransitionProvider = new TestSplitTransitionProvider();
-    Attribute attr =
-        attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
+    Attribute attr = attr("foo", LABEL).cfg(splitTransitionProvider).allowedFileTypes().build();
     assertThat(attr.getTransitionFactory().isSplit()).isTrue();
     ConfigurationTransition transition =
         attr.getTransitionFactory()
@@ -275,9 +275,12 @@ public class AttributeTest {
   }
 
   @Test
-  public void testExecTransition() throws Exception {
+  public void testExecTransition() {
     Attribute attr =
-        attr("foo", LABEL).cfg(ExecutionTransitionFactory.create()).allowedFileTypes().build();
+        attr("foo", LABEL)
+            .cfg(ExecutionTransitionFactory.createFactory())
+            .allowedFileTypes()
+            .build();
     assertThat(attr.getTransitionFactory().isTool()).isTrue();
     assertThat(attr.getTransitionFactory().isSplit()).isFalse();
   }
@@ -310,7 +313,7 @@ public class AttributeTest {
   }
 
   @Test
-  public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() throws Exception {
+  public void allowedRuleClassesAndAllowedRuleClassesWithWarningsCannotOverlap() {
     IllegalStateException e =
         assertThrows(
             IllegalStateException.class,

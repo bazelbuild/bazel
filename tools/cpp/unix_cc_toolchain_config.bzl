@@ -18,6 +18,8 @@ load(
     "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
     "action_config",
     "artifact_name_pattern",
+    "env_entry",
+    "env_set",
     "feature",
     "feature_set",
     "flag_group",
@@ -28,6 +30,11 @@ load(
     "with_feature_set",
 )
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+
+def _target_os_version(ctx):
+    platform_type = ctx.fragments.apple.single_arch_platform.platform_type
+    xcode_config = ctx.attr._xcode_config[apple_common.XcodeVersionConfig]
+    return xcode_config.minimum_os_for_platform_type(platform_type)
 
 def layering_check_features(compiler):
     if compiler != "clang":
@@ -297,6 +304,18 @@ def _impl(ctx):
                     ),
                 ] if ctx.attr.opt_link_flags else []),
                 with_features = [with_feature_set(features = ["opt"])],
+            ),
+        ],
+        env_sets = [
+            env_set(
+                actions = all_link_actions + lto_index_actions + [ACTION_NAMES.cpp_link_static_library],
+                env_entries = ([
+                    env_entry(
+                        # Required for hermetic links on macOS
+                        key = "ZERO_AR_DATE",
+                        value = "1",
+                    ),
+                ]),
             ),
         ],
     )
@@ -969,15 +988,23 @@ def _impl(ctx):
         ],
     )
 
+    is_linux = ctx.attr.target_libc != "macosx"
+    libtool_feature = feature(
+        name = "libtool",
+        enabled = not is_linux,
+    )
+
     archiver_flags_feature = feature(
         name = "archiver_flags",
         flag_sets = [
             flag_set(
                 actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
-                    flag_group(flags = ["rcsD"]),
                     flag_group(
-                        flags = ["%{output_execpath}"],
+                        flags = [
+                            "rcsD" if is_linux else "rcs",
+                            "%{output_execpath}",
+                        ],
                         expand_if_available = "output_execpath",
                     ),
                 ],
@@ -990,9 +1017,12 @@ def _impl(ctx):
             flag_set(
                 actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
-                    flag_group(flags = ["-static", "-s"]),
                     flag_group(
-                        flags = ["-o", "%{output_execpath}"],
+                        flags = [
+                            "-static",
+                            "-o",
+                            "%{output_execpath}",
+                        ],
                         expand_if_available = "output_execpath",
                     ),
                 ],
@@ -1289,10 +1319,34 @@ def _impl(ctx):
         ],
     )
 
-    is_linux = ctx.attr.target_libc != "macosx"
-    libtool_feature = feature(
-        name = "libtool",
-        enabled = not is_linux,
+    # If you have Xcode + the CLT installed the version defaults can be
+    # too old for some standard C apis such as thread locals
+    macos_minimum_os_feature = feature(
+        name = "macos_minimum_os",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_compile_actions + all_link_actions,
+                flag_groups = [flag_group(flags = ["-mmacos-version-min={}".format(_target_os_version(ctx))])],
+            ),
+        ],
+    )
+
+    # Kept for backwards compatibility with the crosstool that moved. Without
+    # linking the objc runtime binaries don't link CoreFoundation for free,
+    # which breaks abseil.
+    macos_default_link_flags_feature = feature(
+        name = "macos_default_link_flags",
+        enabled = True,
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions,
+                flag_groups = [flag_group(flags = [
+                    "-no-canonical-prefixes",
+                    "-fobjc-link-runtime",
+                ])],
+            ),
+        ],
     )
 
     # TODO(#8303): Mac crosstool should also declare every feature.
@@ -1365,9 +1419,10 @@ def _impl(ctx):
             ),
         ]
         features = [
+            macos_minimum_os_feature,
+            macos_default_link_flags_feature,
             libtool_feature,
             archiver_flags_feature,
-            supports_pic_feature,
             asan_feature,
             tsan_feature,
             ubsan_feature,
@@ -1383,7 +1438,6 @@ def _impl(ctx):
             user_link_flags_feature,
             default_link_libs_feature,
             fdo_optimize_feature,
-            supports_dynamic_linker_feature,
             dbg_feature,
             opt_feature,
             user_compile_flags_feature,
@@ -1438,6 +1492,11 @@ cc_toolchain_config = rule(
         "coverage_link_flags": attr.string_list(),
         "supports_start_end_lib": attr.bool(),
         "builtin_sysroot": attr.string(),
+        "_xcode_config": attr.label(default = configuration_field(
+            fragment = "apple",
+            name = "xcode_config_label",
+        )),
     },
+    fragments = ["apple"],
     provides = [CcToolchainConfigInfo],
 )

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -498,17 +497,17 @@ public final class JavaToolchainProvider extends NativeInfo
 
   @Override
   public Depset getStarlarkBootclasspath() {
-    return Depset.of(Artifact.TYPE, getBootclasspath().bootclasspath());
+    return Depset.of(Artifact.class, getBootclasspath().bootclasspath());
   }
 
   @Override
   public Depset getStarlarkJvmOptions() {
-    return Depset.of(ElementType.STRING, getJvmOptions());
+    return Depset.of(String.class, getJvmOptions());
   }
 
   @Override
   public Depset getStarlarkTools() {
-    return Depset.of(Artifact.TYPE, getTools());
+    return Depset.of(Artifact.class, getTools());
   }
 
   @Override

@@ -750,16 +750,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-      name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, the parse_headers feature does not create a separate header compile action "
-              + "if a source with the same basename is found in the same target.")
-  public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
-
-  @Option(
       name = "experimental_omitfp",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1062,13 +1052,11 @@ public class CppOptions extends FragmentOptions {
       name = "experimental_cpp_compile_argv_ignore_param_file",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {
         OptionMetadataTag.EXPERIMENTAL,
       },
-      help =
-          "If enabled, CppCompileAction action.argv returns the complete list of argv even if"
-              + " compiler_param_file is enabled.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean ignoreParamFile;
 
   @Option(
@@ -1251,7 +1239,6 @@ public class CppOptions extends FragmentOptions {
     exec.disableNoCopts = disableNoCopts;
     exec.loadCcRulesFromBzl = loadCcRulesFromBzl;
     exec.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
-    exec.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
     exec.strictSystemIncludes = strictSystemIncludes;
     exec.useArgsParamsFile = useArgsParamsFile;
     exec.ignoreParamFile = ignoreParamFile;

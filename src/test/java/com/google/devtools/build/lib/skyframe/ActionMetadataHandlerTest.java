@@ -307,7 +307,9 @@ public final class ActionMetadataHandlerTest {
     assertThat(chmodCalls).containsExactly(outputPath, 0555);
 
     // Inject a remote file of size 42.
-    handler.injectFile(artifact, RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 42, 0));
+    handler.injectFile(
+        artifact,
+        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 42, 0, /* expireAtEpochMilli= */ -1));
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(42);
 
     // Reset this output, which will make the handler stat the file again.
@@ -331,7 +333,9 @@ public final class ActionMetadataHandlerTest {
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
     handler.injectFile(
-        artifact, RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1));
+        artifact,
+        RemoteFileArtifactValue.create(
+            digest, size, /* locationIndex= */ 1, /* expireAtEpochMilli= */ -1));
 
     FileArtifactValue v = handler.getMetadata(artifact);
     assertThat(v).isNotNull();
@@ -354,7 +358,8 @@ public final class ActionMetadataHandlerTest {
             /* outputs= */ ImmutableSet.of(treeArtifact));
     handler.prepareForActionExecution();
 
-    RemoteFileArtifactValue childValue = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue childValue =
+        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
 
     assertThrows(IllegalArgumentException.class, () -> handler.injectFile(child, childValue));
     assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
@@ -378,7 +383,8 @@ public final class ActionMetadataHandlerTest {
             /* outputs= */ ImmutableSet.of(treeArtifact));
     handler.prepareForActionExecution();
 
-    RemoteFileArtifactValue value = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue value =
+        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
     handler.injectFile(output, value);
 
     assertThat(handler.getOutputStore().getAllArtifactData()).containsExactly(output, value);
@@ -402,10 +408,12 @@ public final class ActionMetadataHandlerTest {
         TreeArtifactValue.newBuilder(treeArtifact)
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
-                RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1))
+                RemoteFileArtifactValue.create(
+                    new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1))
             .putChild(
                 TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
-                RemoteFileArtifactValue.create(new byte[] {4, 5, 6}, 10, 1))
+                RemoteFileArtifactValue.create(
+                    new byte[] {4, 5, 6}, 10, 1, /* expireAtEpochMilli= */ -1))
             .build();
 
     handler.injectTree(treeArtifact, tree);
@@ -422,7 +430,7 @@ public final class ActionMetadataHandlerTest {
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputStore(
-            handler.getOutputStore(), /* outputSymlinks= */ null, new NullAction());
+            handler.getOutputStore(), /* outputSymlinks= */ ImmutableList.of(), new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
@@ -638,7 +646,8 @@ public final class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(unknown)).isNull();
 
     OutputStore newStore = new OutputStore();
-    FileArtifactValue knownMetadata = RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1);
+    FileArtifactValue knownMetadata =
+        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
     newStore.putArtifactData(known, knownMetadata);
     ActionMetadataHandler newHandler = handler.transformAfterInputDiscovery(newStore);
     assertThat(newHandler.getOutputStore()).isNotEqualTo(handler.getOutputStore());

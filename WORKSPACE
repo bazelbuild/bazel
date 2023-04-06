@@ -96,16 +96,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
-# This is a mock version of bazelbuild/rules_python that contains only
-# @rules_python//python:defs.bzl. It is used by protobuf.
-# TODO(#9029): We could potentially replace this with the real @rules_python.
-new_local_repository(
-    name = "rules_python",
-    build_file = "//third_party/rules_python:BUILD",
-    path = "./third_party/rules_python",
-    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
-)
-
 local_repository(
     name = "googleapis",
     path = "./third_party/googleapis/",
@@ -126,20 +116,20 @@ distdir_tar(
     archives = [
         "android_tools_pkg-0.28.0.tar",
         # for android_gmaven_r8
-        "r8-4.0.48.jar",
+        "r8-8.0.40.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
-        "r8-4.0.48.jar": "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
+        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
         "android_tools_pkg-0.28.0.tar": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
         ],
-        "r8-4.0.48.jar": [
-            "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
+        "r8-8.0.40.jar": [
+            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
         ],
     },
 )
@@ -213,6 +203,16 @@ dist_http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
+
+dist_http_archive(
+    name = "rules_python",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 dist_http_archive(
     name = "zstd-jni",
@@ -290,20 +290,20 @@ distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
         "android_tools_pkg-0.28.0.tar",
-        "r8-4.0.48.jar",
+        "r8-8.0.40.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
-        "r8-4.0.48.jar": "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
+        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
         "android_tools_pkg-0.28.0.tar": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
         ],
-        "r8-4.0.48.jar": [
-            "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
+        "r8-8.0.40.jar": [
+            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
         ],
     },
 )
@@ -330,8 +330,8 @@ http_archive(
 # and tools/android/android_extensions.bzl
 http_jar(
     name = "android_gmaven_r8_for_testing",
-    sha256 = "f77d9a9ebda9e32092eac4dd8e11644a7362dfa60ed6a3a9d0d32de570bbf524",
-    url = "https://maven.google.com/com/android/tools/r8/4.0.48/r8-4.0.48.jar",
+    sha256 = "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
+    url = "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
 )
 
 dist_http_archive(
@@ -404,7 +404,7 @@ dist_http_archive(
         patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     )
     for version in ("17", "19")
-    for os in ("linux", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
+    for os in ("linux", "linux_s390x", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
 ]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -430,7 +430,14 @@ dist_http_archive(
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
-    name = "remote_java_tools_darwin_for_testing",
+    name = "remote_java_tools_darwin_x86_64_for_testing",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+dist_http_archive(
+    name = "remote_java_tools_darwin_arm64_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
@@ -458,13 +465,29 @@ dist_http_archive(
 
 # Used in src/test/shell/bazel/testdata/jdk_http_archives.
 dist_http_archive(
-    name = "remote_java_tools_test_darwin",
+    name = "remote_java_tools_test_darwin_x86_64",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "remote_java_tools_test_darwin_arm64",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 dist_http_archive(
     name = "openjdk11_linux_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "openjdk11_linux_s390x_archive",
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -517,7 +540,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     )
     for version in ("17", "19")
-    for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
+    for os in ("linux", "linux_s390x", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
 ]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
@@ -612,6 +635,7 @@ load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
+        "com.beust:jcommander:1.48",
         "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
@@ -686,8 +710,9 @@ maven_install(
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
-        "net.bytebuddy:byte-buddy-agent:1.9.7",
-        "net.bytebuddy:byte-buddy:1.9.7",
+        "javax.inject:javax.inject:1",
+        "net.bytebuddy:byte-buddy-agent:1.11.13",
+        "net.bytebuddy:byte-buddy:1.11.13",
         "org.apache.commons:commons-compress:1.19",
         "org.apache.commons:commons-pool2:2.8.0",
         "org.apache.tomcat:tomcat-annotations-api:8.0.5",
@@ -701,7 +726,19 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
+        # The following jars are for testing.
+        # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
+        # and hamcrest is a dependency of junit.
+        "junit:junit:4.13.2",
+        "org.hamcrest:hamcrest-core:1.3",
         maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
+        maven.artifact("com.google.jimfs", "jimfs", "1.2", testonly = True),
+        maven.artifact("com.google.testing.compile", "compile-testing", "0.18", testonly = True),
+        maven.artifact("com.google.truth", "truth", "1.1.3", testonly = True),
+        maven.artifact("com.google.truth.extensions", "truth-java8-extension", "1.1.3", testonly = True),
+        maven.artifact("com.google.truth.extensions", "truth-liteproto-extension", "1.1.3", testonly = True),
+        maven.artifact("com.google.truth.extensions", "truth-proto-extension", "1.1.3", testonly = True),
+        maven.artifact("org.mockito", "mockito-core", "3.12.4", testonly = True),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
@@ -713,11 +750,11 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
+    fail_if_repin_required = True,
+    maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
-    maven_install_json = "//:maven_install.json",
-    fail_if_repin_required = True,
     strict_visibility = True,
 )
 
@@ -728,6 +765,7 @@ pinned_maven_install()
 maven_install(
     name = "maven_android",
     artifacts = [
+        "androidx.databinding:databinding-compiler:3.4.0-alpha10",
         "com.android.tools.build:builder:7.1.3",
         "com.android.tools.build:manifest-merger:30.1.3",
         "com.android.tools:sdk-common:30.1.3",
@@ -736,6 +774,7 @@ maven_install(
         "com.android.tools:common:30.1.3",
         "com.android.tools:repository:30.1.3",
     ],
+    fail_if_repin_required = True,
     maven_install_json = "//src/tools/android:maven_android_install.json",
     repositories = [
         "https://dl.google.com/android/maven2",

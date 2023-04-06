@@ -41,6 +41,7 @@ class ParallelEvaluatorContext {
   private final Version minimalVersion;
   private final ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions;
   private final ExtendedEventHandler reporter;
+  private final EmittedEventState emittedEventState;
   private final NestedSetVisitor<Reportable> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
   private final DirtyTrackingProgressReceiver progressReceiver;
@@ -74,7 +75,7 @@ class ParallelEvaluatorContext {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       boolean keepGoing,
       DirtyTrackingProgressReceiver progressReceiver,
       EventFilter storedEventFilter,
@@ -89,6 +90,7 @@ class ParallelEvaluatorContext {
     this.skyFunctions = skyFunctions;
     this.reporter = reporter;
     this.graphInconsistencyReceiver = graphInconsistencyReceiver;
+    this.emittedEventState = emittedEventState;
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.keepGoing = keepGoing;
@@ -156,6 +158,10 @@ class ParallelEvaluatorContext {
 
   GraphInconsistencyReceiver getGraphInconsistencyReceiver() {
     return graphInconsistencyReceiver;
+  }
+
+  EmittedEventState getEmittedEventState() {
+    return emittedEventState;
   }
 
   NestedSetVisitor<Reportable> getReplayingNestedSetEventVisitor() {

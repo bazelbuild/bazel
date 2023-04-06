@@ -15,14 +15,12 @@
 package com.google.devtools.build.lib.bazel.rules.python;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -39,11 +37,6 @@ public final class BazelPyTestRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
         .cfg(PyRuleClasses.VERSION_TRANSITION)
-        .add(
-            attr("$zipper", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .exec()
-                .value(env.getToolsLabel("//tools/zip:zipper")))
         .override(
             attr("testonly", BOOLEAN)
                 .value(true)
@@ -53,21 +46,6 @@ public final class BazelPyTestRule implements RuleDefinition {
         that the stamp argument is set to 0 by default for tests.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .override(attr("stamp", TRISTATE).value(TriState.NO))
-        .add(
-            attr("$launcher", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .value(env.getToolsLabel("//tools/launcher:launcher")))
-        .add(
-            attr(":lcov_merger", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
-        // Add the script as an attribute in order for py_test to output code coverage results for
-        // code covered by CC binaries invocations.
-        .add(
-            attr("$collect_cc_coverage", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .singleArtifact()
-                .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         .build();
   }
 
@@ -77,7 +55,7 @@ public final class BazelPyTestRule implements RuleDefinition {
         .name("py_test")
         .type(RuleClassType.TEST)
         .ancestors(PyBinaryBaseRule.class, BaseRuleClasses.TestBaseRule.class)
-        .factoryClass(BazelPyTest.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

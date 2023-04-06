@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.protobuf.CodedInputStream;
@@ -123,7 +124,7 @@ public abstract class Artifact
         FileApi,
         Comparable<Artifact>,
         CommandLineItem,
-        SkyKey {
+        ExecutionPhaseSkyKey {
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(Artifact.class);
 

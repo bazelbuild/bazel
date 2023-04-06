@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.List;
@@ -445,7 +444,7 @@ public interface NodeEntry extends PriorityTracker {
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
   @ThreadSafe
-  ImmutableList<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
+  List<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
 
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
@@ -536,7 +535,7 @@ public interface NodeEntry extends PriorityTracker {
    * existing temporary direct deps.
    */
   @ThreadSafe
-  void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group);
+  void addTemporaryDirectDepGroup(List<SkyKey> group);
 
   /**
    * Adds temporary direct deps in groups.

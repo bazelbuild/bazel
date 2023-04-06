@@ -495,7 +495,7 @@ The query language defines several functions. The name of the function
 determines the number and type of arguments it requires. The following
 functions are available:
 
-* [`allpaths`](#path-operators)
+* [`allpaths`](#somepath-allpaths)
 * [`attr`](#attr)
 * [`buildfiles`](#buildfiles)
 * [`rbuildfiles`](#rbuildfiles)
@@ -509,7 +509,7 @@ functions are available:
 * [`same_pkg_direct_rdeps`](#same_pkg_direct_rdeps)
 * [`siblings`](#siblings)
 * [`some`](#some)
-* [`somepath`](#path-operators)
+* [`somepath`](#somepath-allpaths)
 * [`tests`](#tests)
 * [`visible`](#visible)
 

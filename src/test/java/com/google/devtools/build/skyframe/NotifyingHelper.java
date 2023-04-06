@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
@@ -327,7 +326,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public void addTemporaryDirectDepGroup(ImmutableList<SkyKey> group) {
+    public void addTemporaryDirectDepGroup(List<SkyKey> group) {
       graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.BEFORE, group);
       super.addTemporaryDirectDepGroup(group);
       graphListener.accept(myKey, EventType.ADD_TEMPORARY_DIRECT_DEPS, Order.AFTER, group);

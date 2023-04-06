@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -34,7 +35,7 @@ import net.starlark.java.eval.StarlarkThread;
  * Interface for a global Starlark library containing rule-related helper and registration
  * functions.
  */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
@@ -516,8 +517,8 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             doc =
                 "A Starlark function that implements this aspect, with exactly two parameters: "
                     + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the target"
-                    + "is created from). Attributes of the target are available via the "
+                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the "
+                    + "target is created from). Attributes of the target are available via the "
                     + "<code>ctx.rule</code> field. This function is evaluated during the "
                     + "analysis phase for each application of an aspect to a target."),
         @Param(
@@ -527,7 +528,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "[]",
             doc =
                 "List of attribute names. The aspect propagates along dependencies specified in "
-                    + " the attributes of a target with these names. Common values here include "
+                    + "the attributes of a target with these names. Common values here include "
                     + "<code>deps</code> and <code>exports</code>. The list can also contain a "
                     + "single string <code>\"*\"</code> to propagate along all dependencies of a "
                     + "target."),
@@ -574,9 +575,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "one of the required providers lists. For example, if the "
                     + "<code>required_providers</code> of an aspect are "
                     + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
-                    + "only see <code>some_rule</code> targets if and only if "
-                    + "<code>some_rule</code> provides <code>FooInfo</code> *or* "
-                    + "<code>BarInfo</code> *or* both <code>BazInfo</code> *and* "
+                    + "see <code>some_rule</code> targets if and only if "
+                    + "<code>some_rule</code> provides <code>FooInfo</code>, <em>or</em> "
+                    + "<code>BarInfo</code>, <em>or</em> both <code>BazInfo</code> <em>and</em> "
                     + "<code>QuxInfo</code>."),
         @Param(
             name = "required_aspect_providers",
@@ -598,9 +599,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "aspect, <code>other_aspect</code> must provide all providers from at least "
                     + "one of the lists. In the example of "
                     + "<code>[[FooInfo], [BarInfo], [BazInfo, QuxInfo]]</code>, this aspect can "
-                    + "only see <code>other_aspect</code> if and only if <code>other_aspect</code> "
-                    + "provides <code>FooInfo</code> *or* <code>BarInfo</code> *or* both "
-                    + "<code>BazInfo</code> *and* <code>QuxInfo</code>."),
+                    + "see <code>other_aspect</code> if and only if <code>other_aspect</code> "
+                    + "provides <code>FooInfo</code>, <em>or</em> <code>BarInfo</code>, "
+                    + "<em>or</em> both <code>BazInfo</code> <em>and</em> <code>QuxInfo</code>."),
         @Param(name = "provides", named = true, defaultValue = "[]", doc = PROVIDES_DOC),
         @Param(
             name = "requires",
@@ -756,21 +757,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             defaultValue = "[]",
             doc = "A list of constraints on the execution platform."),
-        @Param(
-            name = "copy_from_rule",
-            defaultValue = "False",
-            named = true,
-            positional = false,
-            doc =
-                "If set to true, this exec group inherits the toolchains and constraints of the"
-                    + " rule to which this group is attached. If set to any other string this will"
-                    + " throw an error.")
       },
       useStarlarkThread = true)
   ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith,
-      Sequence<?> toolchains,
-      Boolean copyFromRule,
-      StarlarkThread thread)
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread)
       throws EvalException;
 }

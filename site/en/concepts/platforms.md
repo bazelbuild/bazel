@@ -401,8 +401,8 @@ flags:
   --apple_platform_type=ios
     //platforms:ios
 
-  # Maps "--cpu=darwin --apple_platform_type=macos" to "//platform:macos".
-  --cpu=darwin
+  # Maps "--cpu=darwin_x86_64 --apple_platform_type=macos" to "//platform:macos".
+  --cpu=darwin_x86_64
   --apple_platform_type=macos
     //platforms:macos
 ```

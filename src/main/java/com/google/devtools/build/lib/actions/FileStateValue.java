@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -101,8 +102,8 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         }
         return createWithStatNoFollow(
             rootedPath,
-            Preconditions.checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
-            /*digestWillBeInjected=*/ false,
+            checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
+            /* digestWillBeInjected= */ false,
             syscallCache,
             tsgm);
     }
@@ -120,7 +121,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     if (statNoFollow.isFile()) {
       return statNoFollow.isSpecialFile()
           ? SpecialFileStateValue.fromStat(path.asFragment(), statNoFollow, tsgm)
-          : RegularFileStateValue.fromPath(
+          : createRegularFileStateValueFromPath(
               path, statNoFollow, digestWillBeInjected, xattrProvider, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
@@ -131,36 +132,76 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
         + "neither a file nor directory nor symlink.");
   }
 
+  /**
+   * Creates a {@link FileStateValue} instance corresponding to the given existing file.
+   *
+   * <p>We use digests only if a fast digest lookup is available from the filesystem. If not, we
+   * fall back to mtime-based digests. This avoids the case where Blaze must read all files involved
+   * in the build in order to check for modifications in the case where fast digest lookups are not
+   * available.
+   *
+   * @param stat must be of type "File". (Not a symlink).
+   */
+  private static FileStateValue createRegularFileStateValueFromPath(
+      Path path,
+      FileStatusWithDigest stat,
+      boolean digestWillBeInjected,
+      XattrProvider xattrProvider,
+      @Nullable TimestampGranularityMonitor tsgm)
+      throws InconsistentFilesystemException {
+    checkState(stat.isFile(), path);
+
+    try {
+      // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
+      // contents proxy because if the digest is injected but is not available from the filesystem,
+      // we will need the proxy to determine whether the file was modified.
+      byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat, xattrProvider);
+      if (digest == null) {
+        // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe method.
+        if (tsgm != null) {
+          tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
+        }
+        return new RegularFileStateValueWithContentsProxy(
+            stat.getSize(), FileContentsProxy.create(stat));
+      } else {
+        // We are careful here to avoid putting the value ID into FileMetadata if we already have a
+        // digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
+        // robust.
+        return new RegularFileStateValueWithDigest(stat.getSize(), digest);
+      }
+    } catch (IOException e) {
+      String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
+      throw new InconsistentFilesystemException(
+          "'stat' said "
+              + path
+              + " is a file but then we "
+              + "later encountered "
+              + errorMessage
+              + " which indicates that "
+              + path
+              + " is no "
+              + "longer a file. Did you delete it during the build?");
+    }
+  }
+
+  @Nullable
+  private static byte[] tryGetDigest(
+      Path path, FileStatusWithDigest stat, XattrProvider xattrProvider) throws IOException {
+    try {
+      byte[] digest = stat.getDigest();
+      return digest != null ? digest : xattrProvider.getFastDigest(path);
+    } catch (IOException ioe) {
+      if (!path.isReadable()) {
+        return null;
+      }
+      throw ioe;
+    }
+  }
+
   @ThreadSafe
   public static RootedPath key(RootedPath rootedPath) {
     // RootedPath is already the SkyKey we want; see FileStateKey. This method and that interface
     // are provided as readability aids.
-    //
-    // We used to weakly intern all key instances but no longer do so after concluding the data
-    // structure overhead of the intern was a net negative wrt retained heap. The current approach
-    // of interning nothing is instead a net positive (saved ~0.1% when implemented in Feb 2022).
-    //
-    // A specific call to #key is going to be for one of the following important use-cases:
-    //   * FileFunction computing a specific FileValue (FV) node, declaring a Skyframe dep on a
-    //     specific FileStateValue (FSV) node. There are two things to consider:
-    //     * A specific FSV node will have exactly one rdep so there's no business-logic reason
-    //       interning of the RootedPath here would be productive. One exception to this reasoning
-    //       is symlinks: if paths `a` and `b` are both symlinks to `c` and Blaze needs to consider
-    //       `a` and `b`, then it'll have nodes FV(a); FV(b); FSV(a); FSV(b); FSV(c) and forward
-    //       edge sets FV(a)->{FSV(a); FSV(c)}; FV(b)->{FSV(b); FSV(c)}. So our current
-    //       non-interning approach will mean we have different RootedPath instances for right
-    //       endpoints of edges FV(a)->FSV(c); FV(b)->FSV(c). This is an acceptable inefficiency
-    //       because this situation is not common and not worth optimizing for.
-    //     * The Skyframe engine implementation effectively deduplicates the set of Skyframe deps of
-    //       a node declared by a skyFunction.compute(k, env), across all Skyframe restarts. So
-    //       there's no concern about a specific FV node causing many equivalent RootedPath
-    //       instances to be retained, due to Skyframe restarts of FileFunction.
-    //   * SkyQuery's RBuildFilesVisitor, creating a root node for a graph traversal for query
-    //     evaluation. The set of RootedPaths used for these roots is both low in number and also
-    //     deduped, so interning RootedPath here isn't productive. Also, these objects are not
-    //     retained for long anyway so it's fine to have some garbage churn.
-    //   * SkyframeExecutor, creating a root node for an invalidation traversal. Same reasoning as
-    //     above.
     return rootedPath;
   }
 
@@ -194,80 +235,89 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
   abstract String prettyPrint();
 
   /**
-   * Implementation of {@link FileStateValue} for regular files that exist.
-   *
-   * <p>A union of (digest, mtime). We use digests only if a fast digest lookup is available from
-   * the filesystem. If not, we fall back to mtime-based digests. This avoids the case where Blaze
-   * must read all files involved in the build in order to check for modifications in the case where
-   * fast digest lookups are not available.
+   * Implementation of {@link FileStateValue} for regular files when a {@link #digest} is provided.
    */
-  @ThreadSafe
-  public static final class RegularFileStateValue extends FileStateValue {
+  public static final class RegularFileStateValueWithDigest extends FileStateValue {
     private final long size;
-    @Nullable private final byte[] digest;
-    @Nullable private final FileContentsProxy contentsProxy;
+    private final byte[] digest;
 
     @VisibleForTesting
-    public RegularFileStateValue(long size, byte[] digest, FileContentsProxy contentsProxy) {
-      Preconditions.checkState((digest == null) != (contentsProxy == null));
+    public RegularFileStateValueWithDigest(long size, byte[] digest) {
       this.size = size;
-      this.digest = digest;
-      this.contentsProxy = contentsProxy;
+      this.digest = checkNotNull(digest);
     }
 
-    /**
-     * Creates a FileFileStateValue instance corresponding to the given existing file.
-     *
-     * @param stat must be of type "File". (Not a symlink).
-     */
-    private static RegularFileStateValue fromPath(
-        Path path,
-        FileStatusWithDigest stat,
-        boolean digestWillBeInjected,
-        XattrProvider xattrProvider,
-        @Nullable TimestampGranularityMonitor tsgm)
-        throws InconsistentFilesystemException {
-      Preconditions.checkState(stat.isFile(), path);
-
-      try {
-        // If the digest will be injected, we can skip calling getFastDigest, but we need to store a
-        // contents proxy because if the digest is injected but is not available from the
-        // filesystem, we will need the proxy to determine whether the file was modified.
-        byte[] digest = digestWillBeInjected ? null : tryGetDigest(path, stat, xattrProvider);
-        if (digest == null) {
-          // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
-          // method.
-          if (tsgm != null) {
-            tsgm.notifyDependenceOnFileTime(path.asFragment(), stat.getLastChangeTime());
-          }
-          return new RegularFileStateValue(stat.getSize(), null, FileContentsProxy.create(stat));
-        } else {
-          // We are careful here to avoid putting the value ID into FileMetadata if we already have
-          // a digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
-          // robust.
-          return new RegularFileStateValue(stat.getSize(), digest, null);
-        }
-      } catch (IOException e) {
-        String errorMessage = e.getMessage() != null
-            ? "error '" + e.getMessage() + "'" : "an error";
-        throw new InconsistentFilesystemException("'stat' said " + path + " is a file but then we "
-            + "later encountered " + errorMessage + " which indicates that " + path + " is no "
-            + "longer a file. Did you delete it during the build?");
-      }
+    @Override
+    public FileStateType getType() {
+      return FileStateType.REGULAR_FILE;
     }
 
+    @Override
+    public long getSize() {
+      return size;
+    }
+
+    @Override
+    public byte[] getDigest() {
+      return digest;
+    }
+
+    @Override
     @Nullable
-    private static byte[] tryGetDigest(
-        Path path, FileStatusWithDigest stat, XattrProvider xattrProvider) throws IOException {
-      try {
-        byte[] digest = stat.getDigest();
-        return digest != null ? digest : xattrProvider.getFastDigest(path);
-      } catch (IOException ioe) {
-        if (!path.isReadable()) {
-          return null;
-        }
-        throw ioe;
+    public FileContentsProxy getContentsProxy() {
+      return null;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
       }
+      if (!(obj instanceof RegularFileStateValueWithDigest)) {
+        return false;
+      }
+      RegularFileStateValueWithDigest other = (RegularFileStateValueWithDigest) obj;
+      return size == other.size && Arrays.equals(digest, other.digest);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(size, Arrays.hashCode(digest));
+    }
+
+    @Override
+    public byte[] getValueFingerprint() {
+      Fingerprint fp = new Fingerprint().addLong(size);
+      fp.addBytes(digest);
+      return fp.digestAndReset();
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("digest", digest).add("size", size).toString();
+    }
+
+    @Override
+    public String prettyPrint() {
+      String contents = String.format("digest of %s", Arrays.toString(digest));
+      return String.format("regular file with size of %d and %s", size, contents);
+    }
+  }
+
+  /**
+   * Implementation of {@link FileStateValue} for regular files when {@link FileContentsProxy} is
+   * provided.
+   *
+   * <p>{@link #contentsProxy} is used to determine whether the file was modified.
+   */
+  public static final class RegularFileStateValueWithContentsProxy extends FileStateValue {
+    private final long size;
+    private final FileContentsProxy contentsProxy;
+
+    @VisibleForTesting
+    public RegularFileStateValueWithContentsProxy(long size, FileContentsProxy contentsProxy) {
+      this.size = size;
+      this.contentsProxy = checkNotNull(contentsProxy);
     }
 
     @Override
@@ -283,7 +333,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
     @Override
     @Nullable
     public byte[] getDigest() {
-      return digest;
+      return null;
     }
 
     @Override
@@ -296,46 +346,37 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
       if (obj == this) {
         return true;
       }
-      if (!(obj instanceof RegularFileStateValue)) {
+      if (!(obj instanceof RegularFileStateValueWithContentsProxy)) {
         return false;
       }
-      RegularFileStateValue other = (RegularFileStateValue) obj;
-      return size == other.size
-          && Arrays.equals(digest, other.digest)
-          && Objects.equals(contentsProxy, other.contentsProxy);
+      RegularFileStateValueWithContentsProxy other = (RegularFileStateValueWithContentsProxy) obj;
+      return size == other.size && Objects.equals(contentsProxy, other.contentsProxy);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(size, Arrays.hashCode(digest), contentsProxy);
+      return Objects.hash(size, contentsProxy);
     }
 
     @Override
     public byte[] getValueFingerprint() {
       Fingerprint fp = new Fingerprint().addLong(size);
-      if (digest != null) {
-        fp.addBytes(digest);
-      }
-      if (contentsProxy != null) {
-        contentsProxy.addToFingerprint(fp);
-      }
+      contentsProxy.addToFingerprint(fp);
       return fp.digestAndReset();
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("digest", digest)
           .add("size", size)
-          .add("contentsProxy", contentsProxy).toString();
+          .add("contentsProxy", contentsProxy)
+          .toString();
     }
 
     @Override
     public String prettyPrint() {
-      String contents = digest != null
-          ? String.format("digest of %s", Arrays.toString(digest))
-          : contentsProxy.prettyPrint();
-      return String.format("regular file with size of %d and %s", size, contents);
+      return String.format(
+          "regular file with size of %d and %s", size, contentsProxy.prettyPrint());
     }
   }
 
@@ -346,7 +387,7 @@ public abstract class FileStateValue implements HasDigest, SkyValue {
 
     @VisibleForTesting
     public SpecialFileStateValue(FileContentsProxy contentsProxy) {
-      this.contentsProxy = Preconditions.checkNotNull(contentsProxy);
+      this.contentsProxy = checkNotNull(contentsProxy);
     }
 
     private static SpecialFileStateValue fromStat(

@@ -13,11 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.common.options.Converters;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.DurationConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
+import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
 
 /** Options for responding to memory pressure. */
@@ -28,6 +34,7 @@ public final class MemoryPressureOptions extends OptionsBase {
       defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = PercentageConverter.class,
       help =
           "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
               + "more than this percentage of the (old gen) heap is still occupied.")
@@ -89,9 +96,64 @@ public final class MemoryPressureOptions extends OptionsBase {
               + " threshold is exceeded.")
   public int skyframeHighWaterMarkFullGcDropsPerInvocation;
 
-  static class NonNegativeIntegerConverter extends Converters.RangeConverter {
-    public NonNegativeIntegerConverter() {
+  @Option(
+      name = "experimental_gc_thrashing_limits",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      converter = GcThrashingLimitsConverter.class,
+      help =
+          "Limits which, if reached, cause GcThrashingDetector to crash Bazel with an OOM. Each"
+              + " limit is specified as <period>:<count> where period is a duration and count is a"
+              + " positive integer. If more than --experimental_oom_more_eagerly_threshold percent"
+              + " of tenured space (old gen heap) remains occupied after <count> consecutive full"
+              + " GCs within <period>, an OOM is triggered. Multiple limits can be specified"
+              + " separated by commas.")
+  public ImmutableList<GcThrashingDetector.Limit> gcThrashingLimits;
+
+  @Option(
+      name = "gc_thrashing_limits_retained_heap_limiter_mutually_exclusive",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If true, specifying non-empty --experimental_gc_thrashing_limits deactivates"
+              + " RetainedHeapLimiter to make it mutually exclusive with GcThrashingDetector."
+              + " Setting to false permits both to be active for the same command.")
+  public boolean gcThrashingLimitsRetainedHeapLimiterMutuallyExclusive;
+
+  static final class NonNegativeIntegerConverter extends RangeConverter {
+    NonNegativeIntegerConverter() {
       super(0, Integer.MAX_VALUE);
+    }
+  }
+
+  static final class GcThrashingLimitsConverter
+      extends Converter.Contextless<ImmutableList<GcThrashingDetector.Limit>> {
+    private final CommaSeparatedOptionListConverter commaListConverter =
+        new CommaSeparatedOptionListConverter();
+    private final DurationConverter durationConverter = new DurationConverter();
+    private final RangeConverter positiveIntConverter = new RangeConverter(1, Integer.MAX_VALUE);
+
+    @Override
+    public ImmutableList<GcThrashingDetector.Limit> convert(String input)
+        throws OptionsParsingException {
+      ImmutableList.Builder<GcThrashingDetector.Limit> result = ImmutableList.builder();
+      for (String part : commaListConverter.convert(input)) {
+        int colonIndex = part.indexOf(':');
+        if (colonIndex == -1) {
+          throw new OptionsParsingException("Expected <period>:<count>, got " + part);
+        }
+        Duration period = durationConverter.convert(part.substring(0, colonIndex));
+        int count = positiveIntConverter.convert(part.substring(colonIndex + 1));
+        result.add(GcThrashingDetector.Limit.of(period, count));
+      }
+      return result.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "comma separated pairs of <period>:<count>";
     }
   }
 }

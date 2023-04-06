@@ -192,7 +192,6 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
-      - "//tools/osx/crosstool/..."
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
@@ -256,7 +255,6 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
-      - "//tools/osx/crosstool/..."
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
@@ -390,6 +388,10 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
+      - "-//src/test/py/bazel:bazel_lockfile_test"
+      - "-//src/test/py/bazel:bazel_overrides_test"
+      - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/shell/bazel:verify_workspace"
   kythe_ubuntu2004:
     shell_commands:

@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
@@ -29,12 +28,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 import java.util.AbstractCollection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.checkerframework.framework.qual.DefaultQualifierInHierarchy;
 import org.checkerframework.framework.qual.LiteralKind;
 import org.checkerframework.framework.qual.QualifierForLiterals;
@@ -47,14 +47,14 @@ import org.checkerframework.framework.qual.SubtypeOf;
  * GroupedDeps} instance contains no duplicates - Skyframe is responsible for only adding keys which
  * are not already present.
  *
- * <p>Groups are implemented as lists to minimize memory use. However, {@link #equals} is defined to
- * treat groups as unordered.
+ * <p>{@link #equals} is sensitive the order of groups, but is insensitive to the order of elements
+ * within a group.
  */
 public class GroupedDeps implements Iterable<List<SkyKey>> {
 
   /**
    * Indicates that the annotated element is a compressed {@link GroupedDeps}, so that it can be
-   * safely passed to {@link #create} and friends.
+   * safely passed to {@link #decompress} and friends.
    */
   @SubtypeOf(DefaultObject.class)
   @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
@@ -67,30 +67,51 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   @Target({ElementType.TYPE_USE, ElementType.TYPE_PARAMETER})
   private @interface DefaultObject {}
 
-  // Total number of deps. At least elements.size(), but might be larger if there are any nested
-  // lists.
-  private int size = 0;
-  // Dep groups. Each element is either a SkyKey (a singleton group) or ImmutableList<SkyKey>.
+  /** The total number of deps. */
+  private int size;
+
+  /**
+   * The deps and group delimiters. Each element is either a {@link SkyKey} or {@link Integer}.
+   * Integers represent the start of a new group and indicate how many elements are in the group.
+   * Singleton groups have no preceding integer.
+   *
+   * <p>The group sizes are redundant with the indices stored in {@link #groupIndices}, but they are
+   * stored here nonetheless so that {@link #compress} can simply convert this list to an array.
+   */
   private final ArrayList<Object> elements;
+
+  /**
+   * Indices into {@link #elements} for each group, maintained to provide constant time access to
+   * groups in {@link #getDepGroup}. The first group has no entry in this list since it always
+   * starts at index 0. Otherwise, the starting index for group {@code i} in {@link #elements} is
+   * stored in this list at index {@code i - 1}. For multi-element groups, the starting index refers
+   * to the position of the {@link Integer} representing the size of the group.
+   */
+  private final ArrayList<Integer> groupIndices;
 
   private final CollectionView collectionView = new CollectionView();
 
   public GroupedDeps() {
-    // We optimize for small lists.
-    this.elements = new ArrayList<>(1);
+    this(0, newSmallArrayList());
   }
 
-  private GroupedDeps(int size, Object[] elements) {
+  private GroupedDeps(int size, ArrayList<Object> elements) {
+    this(size, elements, newSmallArrayList());
+  }
+
+  private GroupedDeps(int size, ArrayList<Object> elements, ArrayList<Integer> groupIndices) {
     this.size = size;
-    this.elements = Lists.newArrayList(elements);
+    this.elements = elements;
+    this.groupIndices = groupIndices;
   }
 
   /**
-   * Increases the capacity of the backing list to accommodate the given number of additional
-   * groups.
+   * Creates a new {@link ArrayList} with single-element capacity.
+   *
+   * <p>Many Skyframe nodes have only 0 or 1 dep. Pre-sizing small reduces garbage.
    */
-  void ensureCapacityForAdditionalGroups(int additionalGroups) {
-    elements.ensureCapacity(elements.size() + additionalGroups);
+  private static <T> ArrayList<T> newSmallArrayList() {
+    return new ArrayList<>(1);
   }
 
   /**
@@ -99,6 +120,7 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
    * <p>The caller must ensure that the given element is not already present.
    */
   public void appendSingleton(SkyKey key) {
+    markNextGroup();
     elements.add(key);
     size++;
   }
@@ -109,123 +131,182 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
    * <p>The caller must ensure that the new group is duplicate-free and does not contain any
    * elements which are already present.
    */
-  public void appendGroup(ImmutableList<SkyKey> group) {
-    addGroup(group, elements);
-    size += group.size();
+  public void appendGroup(List<SkyKey> group) {
+    appendNextGroup(group.iterator(), group.size());
   }
 
   /**
-   * Removes the elements in toRemove from this list. Takes time proportional to the size of the
-   * list, so should not be called often.
+   * Adds possibly many new groups.
+   *
+   * <p>The iteration order of the given deps along with the {@code groupSizes} parameter dictate
+   * how deps are grouped. For example, if {@code deps = {a,b,c}} and {@code groupSizes = [2, 1]},
+   * then there will be two groups: {@code [a,b]} and {@code [c]}. The sum of {@code groupSizes}
+   * must equal the size of {@code deps}. Note that it only makes sense to call this method with a
+   * set implementation that has a stable iteration order.
+   *
+   * <p>The caller must ensure that the given set of deps does not contain any elements which are
+   * already present.
+   */
+  public void appendGroups(Set<SkyKey> deps, List<Integer> groupSizes) {
+    elements.ensureCapacity(elements.size() + deps.size());
+    if (isEmpty()) {
+      groupIndices.ensureCapacity(groupSizes.size() - 1);
+    } else {
+      groupIndices.ensureCapacity(groupIndices.size() + groupSizes.size());
+    }
+    Iterator<SkyKey> it = deps.iterator();
+    for (Integer size : groupSizes) {
+      appendNextGroup(it, size);
+    }
+    checkArgument(
+        !it.hasNext(), "size(deps) != sum(groupSizes) (deps=%s, groupSizes=%s)", deps, groupSizes);
+  }
+
+  private void appendNextGroup(Iterator<SkyKey> it, Integer groupSize) {
+    if (groupSize == 0) {
+      return;
+    }
+    if (groupSize == 1) {
+      appendSingleton(it.next());
+      return;
+    }
+    markNextGroup();
+    elements.ensureCapacity(elements.size() + groupSize + 1);
+    elements.add(groupSize);
+    for (int i = 0; i < groupSize; i++) {
+      elements.add(it.next());
+    }
+    size += groupSize;
+  }
+
+  private void markNextGroup() {
+    if (!isEmpty()) {
+      groupIndices.add(elements.size());
+    }
+  }
+
+  /**
+   * Removes the elements in {@code toRemove} from this {@code GroupedDeps}. Takes time proportional
+   * to the number of deps, so should not be called often.
+   *
+   * <p>Should not be called during iteration.
    */
   public void remove(Set<SkyKey> toRemove) {
-    if (!toRemove.isEmpty()) {
-      size = removeAndGetNewSize(elements, toRemove);
+    if (toRemove.isEmpty()) {
+      return;
     }
-  }
-
-  /**
-   * Removes everything in {@code toRemove} from the list of lists, {@code elements}. Returns the
-   * new number of elements.
-   */
-  private static int removeAndGetNewSize(List<Object> elements, Set<?> toRemove) {
-    int removedCount = 0;
-    int newSize = 0;
-    // elements.size is an upper bound of the needed size. Since normally removal happens just
-    // before the list is finished and compressed, optimizing this size isn't a concern.
-    List<Object> newElements = new ArrayList<>(elements.size());
-    for (Object obj : elements) {
-      if (obj instanceof List) {
-        ImmutableList.Builder<Object> newGroup = new ImmutableList.Builder<>();
-        List<?> oldGroup = (List<?>) obj;
-        for (Object elt : oldGroup) {
-          if (toRemove.contains(elt)) {
-            removedCount++;
-          } else {
-            newGroup.add(elt);
-            newSize++;
-          }
+    GroupedDeps newDeps = new GroupedDeps();
+    for (List<SkyKey> group : this) {
+      List<SkyKey> newGroup = new ArrayList<>(group.size());
+      for (SkyKey key : group) {
+        if (!toRemove.contains(key)) {
+          newGroup.add(key);
         }
-        addGroup(newGroup.build(), newElements);
-      } else if (toRemove.contains(obj)) {
-        removedCount++;
-      } else {
-        newElements.add(obj);
-        newSize++;
       }
+      newDeps.appendGroup(newGroup);
     }
-    // removedCount can be larger if elements had duplicates and the duplicate was also in toRemove.
-    checkState(
-        removedCount >= toRemove.size(),
+
+    checkArgument(
+        newDeps.size == size - toRemove.size(),
         "Requested removal of absent element(s) (toRemove=%s, elements=%s)",
         toRemove,
         elements);
+
+    size = newDeps.size;
     elements.clear();
-    elements.addAll(newElements);
-    return newSize;
-  }
-
-  /** Returns the group at position {@code i}. {@code i} must be less than {@link #listSize()}. */
-  @SuppressWarnings("unchecked") // Cast of Object to List<SkyKey>.
-  public ImmutableList<SkyKey> get(int i) {
-    Object obj = elements.get(i);
-    if (obj instanceof List) {
-      return (ImmutableList<SkyKey>) obj;
-    }
-    return ImmutableList.of((SkyKey) obj);
-  }
-
-  /** Returns the number of groups in this list. */
-  public int listSize() {
-    return elements.size();
+    elements.addAll(newDeps.elements);
+    groupIndices.clear();
+    groupIndices.addAll(newDeps.groupIndices);
   }
 
   /**
-   * Returns the number of individual elements of type {@code T} in this list, as opposed to the
-   * number of groups -- equivalent to adding up the sizes of each group in this list.
+   * Returns the group at position {@code i} as an unmodifiable list.
+   *
+   * <p>The returned list is a live view of the backing list, so should not be used after a
+   * subsequent call to {@link #remove}.
+   */
+  @SuppressWarnings("unchecked") // Cast of sublist containing only SkyKeys to List<SkyKey>.
+  public List<SkyKey> getDepGroup(int i) {
+    int index = i == 0 ? 0 : groupIndices.get(i - 1);
+    Object obj = elements.get(index);
+    if (obj instanceof SkyKey) {
+      return ImmutableList.of((SkyKey) obj);
+    }
+    int groupSize = (int) obj;
+    List<?> slice = elements.subList(index + 1, index + 1 + groupSize);
+    return (List<SkyKey>) Collections.unmodifiableList(slice);
+  }
+
+  /** Returns the number of dependency groups. */
+  public int numGroups() {
+    return isEmpty() ? 0 : groupIndices.size() + 1;
+  }
+
+  /**
+   * Returns the number of individual dependencies, as opposed to the number of groups -- equivalent
+   * to adding up the sizes of each dependency group.
    */
   public int numElements() {
     return size;
   }
 
   public static int numElements(@Compressed Object compressed) {
-    if (compressed == EMPTY_LIST) {
-      return 0;
+    switch (compressionCase(compressed)) {
+      case EMPTY:
+        return 0;
+      case SINGLETON:
+        return 1;
+      case MULTIPLE:
+        Object[] arr = (Object[]) compressed;
+        int size = 0;
+        int i = 0;
+        while (i < arr.length) {
+          Object obj = arr[i++];
+          if (obj instanceof SkyKey) {
+            size++;
+          } else {
+            int groupSize = (int) obj;
+            size += groupSize;
+            i += groupSize;
+          }
+        }
+        return size;
     }
-    if (compressed.getClass().isArray()) {
-      int size = 0;
-      for (Object item : (Object[]) compressed) {
-        size += sizeOf(item);
-      }
-      return size;
-    }
-    // Just a single element.
-    return 1;
+    throw new AssertionError(compressed);
   }
 
-  /** Returns the number of groups in the given compressed {@code GroupedDeps}. */
-  public static int numGroups(@Compressed Object compressed) {
-    if (compressed == EMPTY_LIST) {
-      return 0;
+  private enum CompressionCase {
+    EMPTY,
+    SINGLETON,
+    MULTIPLE
+  }
+
+  private static CompressionCase compressionCase(@Compressed Object compressed) {
+    if (compressed == EMPTY_COMPRESSED) {
+      return CompressionCase.EMPTY;
     }
-    if (compressed.getClass().isArray()) {
-      return ((Object[]) compressed).length;
+    if (compressed instanceof SkyKey) {
+      return CompressionCase.SINGLETON;
     }
-    return 1;
+    checkArgument(compressed.getClass().isArray(), compressed);
+    return CompressionCase.MULTIPLE;
   }
 
   /**
-   * Expands a compressed {@code GroupedDeps} into an {@link Iterable}. Equivalent to {@link
-   * #getAllElementsAsIterable} but potentially more efficient.
+   * Converts a compressed {@code GroupedDeps} into an {@link Iterable}. Equivalent to calling
+   * {@link #decompress} and then {@link #getAllElementsAsIterable}, but more efficient.
    */
   public static Iterable<SkyKey> compressedToIterable(@Compressed Object compressed) {
-    if (compressed == EMPTY_LIST) {
-      return ImmutableList.of();
+    switch (compressionCase(compressed)) {
+      case EMPTY:
+        return ImmutableList.of();
+      case SINGLETON:
+        return ImmutableList.of((SkyKey) compressed);
+      case MULTIPLE:
+        List<Object> elements = Arrays.asList((Object[]) compressed);
+        return () -> new UngroupedIterator(elements);
     }
-    if (compressed.getClass().isArray()) {
-      return GroupedDeps.create(compressed).getAllElementsAsIterable();
-    }
-    return ImmutableList.of((SkyKey) compressed);
+    throw new AssertionError(compressed);
   }
 
   /**
@@ -234,7 +315,7 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
    * <p>This method should only be used when it is not possible to enforce the type via annotations.
    */
   public static @Compressed Object castAsCompressed(Object obj) {
-    checkArgument(!(obj instanceof GroupedDeps), obj);
+    checkArgument(obj == EMPTY_COMPRESSED || obj instanceof SkyKey || obj.getClass().isArray());
     return (@Compressed Object) obj;
   }
 
@@ -243,73 +324,79 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
     return elements.isEmpty();
   }
 
-  /**
-   * Returns true if this list contains {@code needle}. May take time proportional to list size.
-   * Call {@link #toSet} instead and use the result if doing multiple contains checks and this is
-   * not a {@link WithHashSet}.
-   */
-  public boolean contains(SkyKey needle) {
-    return contains(elements, needle);
+  /** Determines whether the given compressed {@code GroupedDeps} is empty. */
+  public static boolean isEmpty(@Compressed Object compressed) {
+    return compressed == EMPTY_COMPRESSED;
   }
 
-  private static boolean contains(List<Object> elements, Object needle) {
-    for (Object obj : elements) {
-      if (obj instanceof List) {
-        if (((List<?>) obj).contains(needle)) {
-          return true;
-        }
-      } else if (obj.equals(needle)) {
-        return true;
-      }
-    }
-    return false;
+  /**
+   * Returns true if this list contains the given key. May take time proportional to list size. Call
+   * {@link #toSet} instead and use the result if doing multiple contains checks and this is not a
+   * {@link WithHashSet}.
+   */
+  public boolean contains(SkyKey key) {
+    return elements.contains(key);
   }
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
-  static final @Compressed Object EMPTY_LIST = new Object();
+  static final @Compressed Object EMPTY_COMPRESSED = new Object();
 
+  /**
+   * Returns a memory-efficient representation of dependency groups.
+   *
+   * <p>The compressed representation does not support mutation or random access to dep groups. If
+   * this functionality is needed, use {@link #decompress}.
+   */
   public @Compressed Object compress() {
     switch (numElements()) {
       case 0:
-        return EMPTY_LIST;
+        return EMPTY_COMPRESSED;
       case 1:
-        return Iterables.getOnlyElement(elements);
+        return elements.get(0);
       default:
         return elements.toArray();
     }
   }
 
-  @SuppressWarnings("unchecked")
   public ImmutableSet<SkyKey> toSet() {
     ImmutableSet.Builder<SkyKey> builder = ImmutableSet.builderWithExpectedSize(size);
     for (Object obj : elements) {
-      if (obj instanceof List) {
-        builder.addAll((List<SkyKey>) obj);
-      } else {
+      if (obj instanceof SkyKey) {
         builder.add((SkyKey) obj);
       }
     }
     return builder.build();
   }
 
-  private static int sizeOf(Object obj) {
-    return obj instanceof List ? ((List<?>) obj).size() : 1;
-  }
-
-  public static GroupedDeps create(@Compressed Object compressed) {
-    if (compressed == EMPTY_LIST) {
-      return new GroupedDeps();
+  /** Reconstitutes a compressed representation returned by {@link #compress}. */
+  public static GroupedDeps decompress(@Compressed Object compressed) {
+    switch (compressionCase(compressed)) {
+      case EMPTY:
+        return new GroupedDeps();
+      case SINGLETON:
+        return new GroupedDeps(1, Lists.newArrayList(compressed));
+      case MULTIPLE:
+        // Count the size and reconstruct groupIndices.
+        Object[] arr = (Object[]) compressed;
+        int size = 0;
+        ArrayList<Integer> groupIndices = newSmallArrayList();
+        int i = 0;
+        while (i < arr.length) {
+          if (i > 0) {
+            groupIndices.add(i);
+          }
+          Object obj = arr[i++];
+          if (obj instanceof SkyKey) {
+            size++;
+          } else {
+            int groupSize = (int) obj;
+            size += groupSize;
+            i += groupSize;
+          }
+        }
+        return new GroupedDeps(size, Lists.newArrayList(arr), groupIndices);
     }
-    if (compressed.getClass().isArray()) {
-      int size = 0;
-      Object[] compressedArray = ((Object[]) compressed);
-      for (Object item : compressedArray) {
-        size += sizeOf(item);
-      }
-      return new GroupedDeps(size, compressedArray);
-    }
-    // Just a single element.
-    return new GroupedDeps(1, new Object[] {compressed});
+    throw new AssertionError(compressed);
   }
 
   @Override
@@ -320,16 +407,16 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   }
 
   /**
-   * Checks that two lists, neither of which may contain duplicates, have the same elements,
+   * Checks that two dep groups (neither of which may contain duplicates) have the same elements,
    * regardless of order.
    */
-  private static boolean checkUnorderedEqualityWithoutDuplicates(List<?> first, List<?> second) {
-    if (first.size() != second.size()) {
+  private static boolean checkUnorderedEqualityOfGroups(List<SkyKey> group1, List<SkyKey> group2) {
+    if (group1.size() != group2.size()) {
       return false;
     }
-    // The order-sensitive comparison usually returns true. When it does, the CompactHashSet
-    // doesn't need to be constructed.
-    return first.equals(second) || CompactHashSet.create(first).containsAll(second);
+    // The order-sensitive comparison usually returns true. When it does, the CompactHashSet doesn't
+    // need to be constructed.
+    return group1.equals(group2) || CompactHashSet.create(group1).containsAll(group2);
   }
 
   /**
@@ -354,41 +441,29 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   /** An iterator that loops through every element in each group. */
   private static final class UngroupedIterator implements Iterator<SkyKey> {
     private final List<Object> elements;
-    private int outerIndex = 0;
-    @Nullable private List<SkyKey> currentGroup;
-    private int innerIndex = 0;
+    private int i = 0;
 
     private UngroupedIterator(List<Object> elements) {
       this.elements = elements;
+      advanceIfSizeMarker();
     }
 
     @Override
     public boolean hasNext() {
-      return outerIndex < elements.size();
+      return i < elements.size();
     }
 
-    @SuppressWarnings("unchecked") // Cast of Object to List<SkyKey>.
     @Override
     public SkyKey next() {
-      if (currentGroup != null) {
-        return nextFromCurrentGroup();
-      }
-      Object next = elements.get(outerIndex);
-      if (next instanceof List) {
-        currentGroup = (List<SkyKey>) next;
-        innerIndex = 0;
-        return nextFromCurrentGroup();
-      }
-      return (SkyKey) elements.get(outerIndex++);
+      SkyKey next = (SkyKey) elements.get(i++);
+      advanceIfSizeMarker();
+      return next;
     }
 
-    private SkyKey nextFromCurrentGroup() {
-      SkyKey next = currentGroup.get(innerIndex++);
-      if (innerIndex == currentGroup.size()) {
-        outerIndex++;
-        currentGroup = null;
+    private void advanceIfSizeMarker() {
+      if (i < elements.size() && elements.get(i) instanceof Integer) {
+        i++;
       }
-      return next;
     }
   }
 
@@ -406,25 +481,17 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
       return false;
     }
     GroupedDeps that = (GroupedDeps) other;
-    // We must check the deps, ignoring the ordering of deps in the same group.
-    if (this.size != that.size || this.elements.size() != that.elements.size()) {
+    // Fast paths for inequality.
+    if (this.size != that.size
+        || this.elements.size() != that.elements.size()
+        || this.numGroups() != that.numGroups()) {
       return false;
     }
-    for (int i = 0; i < this.elements.size(); i++) {
-      Object thisElt = this.elements.get(i);
-      Object thatElt = that.elements.get(i);
-      if (thisElt == thatElt) {
-        continue;
-      }
-      if (thisElt instanceof List) {
-        // Recall that each inner item is either a List or a singleton element.
-        if (!(thatElt instanceof List)) {
-          return false;
-        }
-        if (!checkUnorderedEqualityWithoutDuplicates((List<?>) thisElt, (List<?>) thatElt)) {
-          return false;
-        }
-      } else if (!thisElt.equals(thatElt)) {
+    // We must check the deps, ignoring the ordering of deps in the same group.
+    Iterator<List<SkyKey>> thisIt = this.iterator();
+    Iterator<List<SkyKey>> thatIt = that.iterator();
+    while (thisIt.hasNext()) {
+      if (!checkUnorderedEqualityOfGroups(thisIt.next(), thatIt.next())) {
         return false;
       }
     }
@@ -433,7 +500,7 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("elements", elements).add("size", size).toString();
+    return MoreObjects.toStringHelper(this).add("size", size).add("elements", elements).toString();
   }
 
   /**
@@ -442,21 +509,16 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
    * internally, and so they must be wrapped before they're returned.
    */
   private class GroupedIterator implements Iterator<List<SkyKey>> {
-    private final Iterator<Object> iter = elements.iterator();
+    private int i = 0;
 
     @Override
     public boolean hasNext() {
-      return iter.hasNext();
+      return i < numGroups();
     }
 
-    @SuppressWarnings("unchecked") // Cast of Object to List<SkyKey> or T.
     @Override
     public List<SkyKey> next() {
-      Object obj = iter.next();
-      if (obj instanceof List) {
-        return (List<SkyKey>) obj;
-      }
-      return ImmutableList.of((SkyKey) obj);
+      return getDepGroup(i++);
     }
   }
 
@@ -466,34 +528,10 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
   }
 
   /**
-   * If {@code group} is empty, this function does nothing.
-   *
-   * <p>If it contains a single element, then that element is added to {@code elements}.
-   *
-   * <p>If it contains more than one element, then it is added as the next element of {@code
-   * elements} (this means {@code elements} may contain both raw objects and {@link
-   * ImmutableList}s).
-   *
-   * <p>Use with caution as there are no checks in place for the integrity of the resulting object
-   * (no de-duping or verifying there are no nested lists).
-   */
-  private static void addGroup(ImmutableList<?> group, List<Object> elements) {
-    switch (group.size()) {
-      case 0:
-        return;
-      case 1:
-        elements.add(group.get(0));
-        return;
-      default:
-        elements.add(group);
-    }
-  }
-
-  /**
    * A {@link GroupedDeps} which keeps a {@link HashSet} of its elements up to date, resulting in a
    * higher memory cost and faster {@link #contains} operations.
    */
-  public static class WithHashSet extends GroupedDeps {
+  public static final class WithHashSet extends GroupedDeps {
     private final HashSet<SkyKey> set = new HashSet<>();
 
     @Override
@@ -503,9 +541,15 @@ public class GroupedDeps implements Iterable<List<SkyKey>> {
     }
 
     @Override
-    public void appendGroup(ImmutableList<SkyKey> group) {
+    public void appendGroup(List<SkyKey> group) {
       super.appendGroup(group);
       set.addAll(group);
+    }
+
+    @Override
+    public void appendGroups(Set<SkyKey> deps, List<Integer> groupSizes) {
+      super.appendGroups(deps, groupSizes);
+      set.addAll(deps);
     }
 
     @Override

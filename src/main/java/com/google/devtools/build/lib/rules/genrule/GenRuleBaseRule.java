@@ -82,30 +82,21 @@ public class GenRuleBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(exec_tools) -->
-        <b>Deprecated. Use <code>tools</code> instead.</b>
+        <b>Deprecated. Use <a href="#genrule.tools"><code>tools</code></a> instead.</b>
 
         <p>
-          A list of <i>tool</i> dependencies for this rule. This behaves exactly like the
-          <a href="#genrule.tools"><code>tools</code></a> attribute, except that these dependencies
-          will be configured for the rule's execution platform instead of the exec configuration.
-          This means that dependencies in <code>exec_tools</code> are not subject to the same
-          limitations as dependencies in <code>tools</code>. In particular, they are not required to
-          use the exec configuration for their own transitive dependencies. See
-          <a href="#genrule.tools"><code>tools</code></a> for further details.
-        </p>
-
-        <p>
-          The Blaze team has finished cleaning up users of the host transition, and now is migrating
-          users back to use <code>tools</code>.
+          There was a period of time when <code>exec_tools</code> and <code>tools</code> behaved
+          differently, but they are now equivalent and the Blaze team will be migrating all uses of
+          <code>exec_tools</code> to <code>tools</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exec_tools", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .dontCheckConstraints())
 

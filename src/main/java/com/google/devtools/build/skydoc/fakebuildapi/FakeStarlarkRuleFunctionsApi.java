@@ -58,7 +58,11 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(
-          AttributeType.NAME, "A unique name for this target.", true, ImmutableList.of(), "");
+          AttributeType.NAME,
+          Optional.of("A unique name for this target."),
+          true,
+          ImmutableList.of(),
+          "");
   private final List<RuleInfoWrapper> ruleInfoList;
 
   private final List<ProviderInfoWrapper> providerInfoList;
@@ -239,10 +243,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
 
   @Override
   public ExecGroupApi execGroup(
-      Sequence<?> execCompatibleWith,
-      Sequence<?> toolchains,
-      Boolean copyFromRule,
-      StarlarkThread thread) {
+      Sequence<?> execCompatibleWith, Sequence<?> toolchains, StarlarkThread thread) {
     return new FakeExecGroup();
   }
 

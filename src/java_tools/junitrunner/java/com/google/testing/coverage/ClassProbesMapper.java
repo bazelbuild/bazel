@@ -52,7 +52,7 @@ public class ClassProbesMapper extends ClassProbesVisitor implements IFilterCont
   public ClassProbesMapper(String className) {
     classLineToBranchExp = new TreeMap<Integer, BranchExp>();
     stringPool = new StringPool();
-    className = stringPool.get(className);
+    this.className = stringPool.get(className);
   }
 
   @Override

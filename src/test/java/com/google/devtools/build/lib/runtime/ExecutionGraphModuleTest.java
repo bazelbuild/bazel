@@ -301,7 +301,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     ActionDumpWriter writer =
         new ActionDumpWriter(
             BugReporter.defaultInstance(),
-            /*localLockFreeOutputEnabled=*/ false,
+            /* localLockFreeOutputEnabled= */ false,
+            /* logFileWriteEdges= */ false,
             OutputStream.nullOutputStream(),
             uuid,
             DependencyInfo.NONE,
@@ -326,7 +327,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     startLogging(
         eventBus,
         BugReporter.defaultInstance(),
-        /*localLockFreeOutputEnabled=*/ false,
+        /* localLockFreeOutputEnabled= */ false,
+        /* logFileWriteEdges= */ false,
         uuid,
         buffer,
         depType);
@@ -336,11 +338,13 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean localLockFreeOutputEnabled,
+      boolean logFileWriteEdges,
       UUID uuid,
       OutputStream buffer,
       DependencyInfo depType) {
     ActionDumpWriter writer =
-        new ActionDumpWriter(bugReporter, localLockFreeOutputEnabled, buffer, uuid, depType, -1) {
+        new ActionDumpWriter(
+            bugReporter, localLockFreeOutputEnabled, logFileWriteEdges, buffer, uuid, depType, -1) {
           @Override
           protected void updateLogs(BuildToolLogCollection logs) {}
         };
@@ -541,6 +545,7 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
         eventBus,
         bugReporter,
         localLockFreeOutput.optionValue,
+        /* logFileWriteEdges= */ false,
         UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);
@@ -585,7 +590,8 @@ public class ExecutionGraphModuleTest extends FoundationTestCase {
     startLogging(
         eventBus,
         BugReporter.defaultInstance(),
-        /*localLockFreeOutputEnabled=*/ true,
+        /* localLockFreeOutputEnabled= */ true,
+        /* logFileWriteEdges= */ false,
         UUID.randomUUID(),
         buffer,
         DependencyInfo.ALL);

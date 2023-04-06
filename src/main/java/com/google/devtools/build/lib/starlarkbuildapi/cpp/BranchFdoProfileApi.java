@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "CcBranchFdoProfile",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_MODULE,
     documented = false)
 public interface BranchFdoProfileApi extends StarlarkValue {
 

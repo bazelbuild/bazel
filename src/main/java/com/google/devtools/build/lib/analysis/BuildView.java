@@ -211,6 +211,7 @@ public class BuildView {
       ImmutableMap<String, String> aspectsParameters,
       AnalysisOptions viewOptions,
       boolean keepGoing,
+      boolean skipIncompatibleExplicitTargets,
       boolean checkForActionConflicts,
       QuiescingExecutors executors,
       TopLevelArtifactContext topLevelOptions,
@@ -219,6 +220,7 @@ public class BuildView {
       EventBus eventBus,
       BugReporter bugReporter,
       boolean includeExecutionPhase,
+      int skymeldAnalysisOverlapPercentage,
       @Nullable ResourceManager resourceManager,
       @Nullable BuildResultListener buildResultListener,
       @Nullable ExecutionSetup executionSetupCallback,
@@ -425,12 +427,14 @@ public class BuildView {
                     getCoverageArtifactsHelper(
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
+                skipIncompatibleExplicitTargets,
                 targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
                 executors,
                 /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
                     || !skyframeExecutor.tracksStateForIncrementality(),
-                buildDriverKeyTestContext);
+                buildDriverKeyTestContext,
+                skymeldAnalysisOverlapPercentage);
       } else {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
@@ -490,7 +494,10 @@ public class BuildView {
 
         PlatformRestrictionsResult platformRestrictions =
             topLevelConstraintSemantics.checkPlatformRestrictions(
-                skyframeAnalysisResult.getConfiguredTargets(), explicitTargetPatterns, keepGoing);
+                skyframeAnalysisResult.getConfiguredTargets(),
+                explicitTargetPatterns,
+                keepGoing,
+                skipIncompatibleExplicitTargets);
 
         if (!platformRestrictions.targetsWithErrors().isEmpty()) {
           // If there are any errored targets (e.g. incompatible targets that are explicitly

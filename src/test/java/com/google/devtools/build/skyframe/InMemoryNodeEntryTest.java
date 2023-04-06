@@ -855,7 +855,7 @@ public final class InMemoryNodeEntryTest {
       }
     }
     entry.setValue(new IntegerValue(42), IntVersion.of(42L), null);
-    assertThat(GroupedDeps.create(entry.getCompressedDirectDepsForDoneEntry()))
+    assertThat(GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry()))
         .containsExactlyElementsIn(groupedDirectDeps)
         .inOrder();
   }

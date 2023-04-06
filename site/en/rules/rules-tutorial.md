@@ -119,8 +119,6 @@ query") or the `build` command:
 
 ```
 $ bazel build :all
-DEBUG: /usr/home/bazel-codelab/foo.bzl:8:1: bzl file evaluation
-DEBUG: /usr/home/bazel-codelab/BUILD:2:1: BUILD file
 DEBUG: /usr/home/bazel-codelab/foo.bzl:2:5: analyzing //:bin1
 DEBUG: /usr/home/bazel-codelab/foo.bzl:2:5: analyzing //:bin2
 INFO: Analyzed 2 targets (0 packages loaded, 0 targets configured).
@@ -129,10 +127,9 @@ INFO: Found 2 targets...
 
 As you can see, `_foo_binary_impl` is now called twice - once for each target.
 
-Some readers will notice that "bzl file evaluation" is printed again, although
-the evaluation of foo.bzl is cached after the call to `bazel query`. Bazel
-doesn't reevaluate the code, it only replays the print events. Regardless of
-the cache state, you get the same output.
+Notice that neither "bzl file evaluation" nor "BUILD file" are printed again,
+because the evaluation of `foo.bzl` is cached after the call to `bazel query`.
+Bazel only emits `print` statements when they are actually executed.
 
 ## Creating a file
 

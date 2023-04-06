@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -44,6 +45,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
 @StarlarkBuiltin(
     name = "apple_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
         FileApiT extends FileApi,

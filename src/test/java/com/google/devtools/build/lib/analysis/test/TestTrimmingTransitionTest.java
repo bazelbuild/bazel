@@ -101,7 +101,7 @@ public class TestTrimmingTransitionTest {
     Label executionPlatform = Label.parseCanonicalUnchecked("//platform:exec");
 
     PatchTransition execTransition =
-        ExecutionTransitionFactory.create()
+        ExecutionTransitionFactory.createFactory()
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())

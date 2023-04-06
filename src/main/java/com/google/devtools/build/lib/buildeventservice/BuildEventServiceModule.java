@@ -370,7 +370,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           .getEventBus()
           .register(
               new TargetSummaryPublisher(
-                  cmdEnv.getEventBus(), cmdEnv.withMergedAnalysisAndExecution()));
+                  cmdEnv.getEventBus(), cmdEnv::withMergedAnalysisAndExecutionSourceOfTruth));
     }
 
     streamer =

@@ -17,9 +17,6 @@
 load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
 
-AppleDynamicFrameworkInfo = _builtins.toplevel.apple_common.AppleDynamicFramework
-TemplateVariableInfo = _builtins.toplevel.platform_common.TemplateVariableInfo
-
 # Private attribute required by `objc_internal.expand_toolchain_and_ctx_variables`
 _CC_TOOLCHAIN_RULE = {
     "_cc_toolchain": attr.label(
@@ -38,10 +35,6 @@ _COMPILING_RULE = {
     ),
     "pch": attr.label(
         allow_single_file = [".pch"],
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
-    ),
-    "runtime_deps": attr.label_list(
-        providers = [AppleDynamicFrameworkInfo],
         flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
     "defines": attr.string_list(),
@@ -104,11 +97,6 @@ _XCRUN_RULE = {
     ),
 }
 
-_PLATFORM_RULE = {
-    "platform_type": attr.string(mandatory = True),
-    "minimum_os_version": attr.string(),
-}
-
 def _union(*dictionaries):
     result = {}
     for dictionary in dictionaries:
@@ -125,5 +113,4 @@ common_attrs = struct(
     COPTS_RULE = _COPTS_RULE,
     XCRUN_RULE = _XCRUN_RULE,
     LICENSES = semantics.get_licenses_attr(),
-    PLATFORM_RULE = _PLATFORM_RULE,
 )

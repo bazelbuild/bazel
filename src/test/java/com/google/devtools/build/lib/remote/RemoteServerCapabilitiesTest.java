@@ -583,6 +583,31 @@ public class RemoteServerCapabilitiesTest {
   }
 
   @Test
+  public void testCheckClientServerCompatibility_executionCapsDigestFunctionsList()
+      throws Exception {
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder()
+                    .addDigestFunctions(DigestFunction.Value.MD5)
+                    .addDigestFunctions(DigestFunction.Value.SHA256)
+                    .setExecEnabled(true)
+                    .build())
+            .build();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.remoteExecutor = "server:port";
+    RemoteServerCapabilities.ClientServerCompatibilityStatus st =
+        RemoteServerCapabilities.checkClientServerCompatibility(
+            caps,
+            remoteOptions,
+            DigestFunction.Value.SHA256,
+            ServerCapabilitiesRequirement.EXECUTION);
+    assertThat(st.isOk()).isTrue();
+  }
+
+  @Test
   public void testCheckClientServerCompatibility_cacheCapsOnly() throws Exception {
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()

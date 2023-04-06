@@ -137,17 +137,17 @@ public abstract class JavaPluginInfo extends NativeInfo
 
     @Override
     public Depset /*<FileApi>*/ getProcessorJarsForStarlark() {
-      return Depset.of(Artifact.TYPE, processorClasspath());
+      return Depset.of(Artifact.class, processorClasspath());
     }
 
     @Override
     public Depset /*<String>*/ getProcessorClassesForStarlark() {
-      return Depset.of(Depset.ElementType.STRING, processorClasses());
+      return Depset.of(String.class, processorClasses());
     }
 
     @Override
     public Depset /*<FileApi>*/ getProcessorDataForStarlark() {
-      return Depset.of(Artifact.TYPE, data());
+      return Depset.of(Artifact.class, data());
     }
 
     public boolean isEmpty() {

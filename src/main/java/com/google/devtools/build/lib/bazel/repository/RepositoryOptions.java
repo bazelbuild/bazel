@@ -151,7 +151,12 @@ public class RepositoryOptions extends OptionsBase {
       converter = RepositoryOverrideConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Overrides a repository with a local directory.")
+      help =
+          "Override a repository with a local path in the form of <repository name>=<path>. If the"
+              + " given path is an absolute path, it will be used as it is. If the given path is a"
+              + " relative path, it is relative to the current working directory. If the given path"
+              + " starts with '%workspace%, it is relative to the workspace root, which is the"
+              + " output of `bazel info workspace`")
   public List<RepositoryOverride> repositoryOverrides;
 
   @Option(
@@ -161,7 +166,12 @@ public class RepositoryOptions extends OptionsBase {
       converter = ModuleOverrideConverter.class,
       documentationCategory = OptionDocumentationCategory.BZLMOD,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Overrides a module with a local directory.")
+      help =
+          "Override a module with a local path in the form of <module name>=<path>. If the given"
+              + " path is an absolute path, it will be used as it is. If the given path is a"
+              + " relative path, it is relative to the current working directory. If the given path"
+              + " starts with '%workspace%, it is relative to the workspace root, which is the"
+              + " output of `bazel info workspace`")
   public List<ModuleOverride> moduleOverrides;
 
   @Option(
@@ -325,17 +335,10 @@ public class RepositoryOptions extends OptionsBase {
         throw new OptionsParsingException(
             "Repository overrides must be of the form 'repository-name=path'", input);
       }
-      OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
-          new OptionsUtils.AbsolutePathFragmentConverter();
-      PathFragment path;
+      OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
+      String pathString = pathConverter.convert(pieces[1]).getPathString();
       try {
-        path = absolutePathFragmentConverter.convert(pieces[1]);
-      } catch (OptionsParsingException e) {
-        throw new OptionsParsingException(
-            "Repository override directory must be an absolute path", input, e);
-      }
-      try {
-        return RepositoryOverride.create(RepositoryName.create(pieces[0]), path);
+        return RepositoryOverride.create(RepositoryName.create(pieces[0]), pathString);
       } catch (LabelSyntaxException e) {
         throw new OptionsParsingException("Invalid repository name given to override", input, e);
       }
@@ -367,15 +370,9 @@ public class RepositoryOptions extends OptionsBase {
                 pieces[0]));
       }
 
-      OptionsUtils.AbsolutePathFragmentConverter absolutePathFragmentConverter =
-          new OptionsUtils.AbsolutePathFragmentConverter();
-      try {
-        var path = absolutePathFragmentConverter.convert(pieces[1]);
-        return ModuleOverride.create(pieces[0], path.toString());
-      } catch (OptionsParsingException e) {
-        throw new OptionsParsingException(
-            "Module override directory must be an absolute path", input, e);
-      }
+      OptionsUtils.PathFragmentConverter pathConverter = new OptionsUtils.PathFragmentConverter();
+      String pathString = pathConverter.convert(pieces[1]).getPathString();
+      return ModuleOverride.create(pieces[0], pathString);
     }
 
     @Override
@@ -388,13 +385,13 @@ public class RepositoryOptions extends OptionsBase {
   @AutoValue
   public abstract static class RepositoryOverride {
 
-    private static RepositoryOverride create(RepositoryName repositoryName, PathFragment path) {
+    private static RepositoryOverride create(RepositoryName repositoryName, String path) {
       return new AutoValue_RepositoryOptions_RepositoryOverride(repositoryName, path);
     }
 
     public abstract RepositoryName repositoryName();
 
-    public abstract PathFragment path();
+    public abstract String path();
   }
 
   /** A module override, represented by a name and an absolute path to a module. */

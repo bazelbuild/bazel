@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import java.util.List;
@@ -117,11 +118,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
 
   @Override
   public Iterable<String> getAttributeNames() {
-    ImmutableList.Builder<String> names = ImmutableList.builder();
-    for (Attribute a : ruleClass.getAttributes()) {
-      names.add(a.getName());
-    }
-    return names.build();
+    return Lists.transform(ruleClass.getAttributes(), Attribute::getName);
   }
 
   @Nullable

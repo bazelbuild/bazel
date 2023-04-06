@@ -71,9 +71,6 @@ public interface JavaConfigurationApi extends StarlarkValue {
       doc = "The value of the --experimental_run_android_lint_on_java_rules flag.")
   boolean runAndroidLint();
 
-  @StarlarkMethod(name = "use_legacy_java_test", useStarlarkThread = true, documented = false)
-  boolean useLegacyBazelJavaTestForStarlark(StarlarkThread thread) throws EvalException;
-
   @StarlarkMethod(
       name = "enforce_explicit_java_test_deps",
       useStarlarkThread = true,

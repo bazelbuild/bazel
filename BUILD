@@ -1,7 +1,7 @@
 # Bazel - Google's Build System
 
 load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
-load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_license//rules:license.bzl", "license")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 
@@ -40,7 +40,7 @@ filegroup(
         "//third_party:srcs",
         "//src/main/starlark/tests/builtins_bzl:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-    ] + glob([".bazelci/*"]) + [".bazelrc"],
+    ] + glob([".bazelci/*"]) + [".bazelrc", ".bazelversion"],
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )

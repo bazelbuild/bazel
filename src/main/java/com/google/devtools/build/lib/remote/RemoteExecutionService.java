@@ -108,6 +108,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -128,6 +129,7 @@ import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -339,6 +341,11 @@ public class RemoteExecutionService {
     return remoteCache instanceof RemoteExecutionCache
         && remoteExecutor != null
         && Spawns.mayBeExecutedRemotely(spawn);
+  }
+
+  @VisibleForTesting
+  Cache<Object, MerkleTree> getMerkleTreeCache() {
+    return merkleTreeCache;
   }
 
   private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
@@ -806,7 +813,12 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifacts(RemoteAction action, ActionResultMetadata metadata)
+  private void injectRemoteArtifacts(
+      RemoteAction action,
+      ActionResult actionResult,
+      ActionResultMetadata metadata,
+      FileOutErr outErr,
+      long expireAtEpochMilli)
       throws IOException {
     FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
     checkState(actionFileSystem instanceof RemoteActionFileSystem);
@@ -825,7 +837,8 @@ public class RemoteExecutionService {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
             DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes());
+            file.digest().getSizeBytes(),
+            expireAtEpochMilli);
       }
     }
 
@@ -833,7 +846,49 @@ public class RemoteExecutionService {
       remoteActionFileSystem.injectRemoteFile(
           file.path().asFragment(),
           DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes());
+          file.digest().getSizeBytes(),
+          expireAtEpochMilli);
+    }
+
+    // Inject the metadata for the stdout/stderr, which could be inputs to a followup spawn in the
+    // same action (as is the case e.g. with test rules).
+
+    maybeInjectRemoteArtifactForStdoutOrStderr(
+        remoteActionFileSystem,
+        outErr.getOutputPath(),
+        actionResult.hasStdoutDigest() ? actionResult.getStdoutDigest() : null,
+        actionResult.getStdoutRaw().size(),
+        expireAtEpochMilli);
+
+    maybeInjectRemoteArtifactForStdoutOrStderr(
+        remoteActionFileSystem,
+        outErr.getErrorPath(),
+        actionResult.hasStderrDigest() ? actionResult.getStderrDigest() : null,
+        actionResult.getStderrRaw().size(),
+        expireAtEpochMilli);
+  }
+
+  private void maybeInjectRemoteArtifactForStdoutOrStderr(
+      RemoteActionFileSystem remoteActionFileSystem,
+      Path path,
+      @Nullable Digest digest,
+      long inlinedSize,
+      long expireAtEpochMilli)
+      throws IOException {
+    if (digest != null) {
+      remoteActionFileSystem.injectRemoteFile(
+          path.asFragment(),
+          DigestUtil.toBinaryDigest(digest),
+          digest.getSizeBytes(),
+          expireAtEpochMilli);
+    } else if (inlinedSize > 0) {
+      // If we didn't get a digest back from the service, but we did get the inlined contents,
+      // compute the digest from the output file previously written by downloadOutputs.
+      remoteActionFileSystem.injectRemoteFile(
+          path.asFragment(),
+          DigestUtils.manuallyComputeDigest(path, inlinedSize),
+          inlinedSize,
+          expireAtEpochMilli);
     }
   }
 
@@ -1162,7 +1217,8 @@ public class RemoteExecutionService {
         }
       }
 
-      injectRemoteArtifacts(action, metadata);
+      var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
+      injectRemoteArtifacts(action, result.actionResult, metadata, outErr, expireAtEpochMilli);
 
       try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
         if (inMemoryOutput != null) {
@@ -1435,6 +1491,7 @@ public class RemoteExecutionService {
     ExecuteRequest.Builder requestBuilder =
         ExecuteRequest.newBuilder()
             .setInstanceName(remoteOptions.remoteInstanceName)
+            .setDigestFunction(digestUtil.getDigestFunction())
             .setActionDigest(action.getActionKey().getDigest())
             .setSkipCacheLookup(!acceptCachedResult);
     if (remoteOptions.remoteResultCachePriority != 0) {

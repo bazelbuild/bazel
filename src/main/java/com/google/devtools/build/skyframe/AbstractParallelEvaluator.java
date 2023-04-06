@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -30,7 +31,6 @@ import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.clock.BlazeClock;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ComparableRunnable;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.events.Event;
@@ -115,7 +115,7 @@ abstract class AbstractParallelEvaluator {
       Version minimalVersion,
       ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions,
       ExtendedEventHandler reporter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       ErrorInfoManager errorInfoManager,
       boolean keepGoing,
@@ -281,7 +281,7 @@ abstract class AbstractParallelEvaluator {
         // its reverse dep on this node removed. Failing to do either one of these would result in
         // a graph inconsistency, where the child had a reverse dep on this node, but this node
         // had no kind of dependency on the child.
-        ImmutableList<SkyKey> directDepsToCheck = nodeEntry.getNextDirtyDirectDeps();
+        List<SkyKey> directDepsToCheck = nodeEntry.getNextDirtyDirectDeps();
 
         if (invalidatedByErrorTransience(directDepsToCheck, nodeEntry)) {
           // If this dep is the ErrorTransienceValue and the ErrorTransienceValue has been
@@ -391,7 +391,8 @@ abstract class AbstractParallelEvaluator {
                   /* newValue= */ null,
                   /* newError= */ null,
                   new EvaluationSuccessStateSupplier(nodeEntry),
-                  EvaluationState.CLEAN);
+                  EvaluationState.CLEAN,
+                  /* directDeps= */ null);
           if (!evaluatorContext.keepGoing() && nodeEntry.getErrorInfo() != null) {
             if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
               return DirtyOutcome.ALREADY_PROCESSED;
@@ -452,13 +453,12 @@ abstract class AbstractParallelEvaluator {
     public void run() {
       SkyFunctionEnvironment env = null;
       try {
-        NodeEntry nodeEntry = checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
-        if (nodeEntry.isDone()) {
+        NodeEntry nodeEntry = graph.get(null, Reason.EVALUATION, skyKey);
+        if (nodeEntry == null || nodeEntry.isDone() || !nodeEntry.isReadyToEvaluate()) {
           checkState(skyKey.supportsPartialReevaluation(), "%s %s", skyKey, nodeEntry);
           evaluatorContext.getProgressReceiver().removeFromInflight(skyKey);
           return;
         }
-        checkState(nodeEntry.isReadyToEvaluate(), "%s %s", skyKey, nodeEntry);
         try {
           evaluatorContext.getProgressReceiver().stateStarting(skyKey, NodeState.CHECK_DIRTY);
           if (maybeHandleDirtyNode(nodeEntry) == DirtyOutcome.ALREADY_PROCESSED) {
@@ -760,15 +760,17 @@ abstract class AbstractParallelEvaluator {
         // "newDeps" refers to newly discovered this time around after a SkyFunction#compute call
         // and not to be confused with the oldDeps variable which refers to the last evaluation,
         // i.e. a prior call to ParallelEvaluator#eval.
-        Set<SkyKey> newDepsThatWerentInTheLastEvaluation;
-        Set<SkyKey> newDepsThatWereInTheLastEvaluation;
+        Collection<SkyKey> newDepsThatWerentInTheLastEvaluation;
+        ImmutableList<SkyKey> newDepsThatWereInTheLastEvaluation;
         if (oldDeps.isEmpty()) {
           // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
           newDepsThatWerentInTheLastEvaluation = newDeps;
-          newDepsThatWereInTheLastEvaluation = ImmutableSet.of();
+          newDepsThatWereInTheLastEvaluation = ImmutableList.of();
         } else {
-          newDepsThatWerentInTheLastEvaluation = Sets.difference(newDeps, oldDeps);
-          newDepsThatWereInTheLastEvaluation = Sets.intersection(newDeps, oldDeps);
+          newDepsThatWerentInTheLastEvaluation =
+              ImmutableList.copyOf(Sets.difference(newDeps, oldDeps));
+          newDepsThatWereInTheLastEvaluation =
+              ImmutableList.copyOf(Sets.intersection(newDeps, oldDeps));
         }
 
         InterruptibleSupplier<NodeBatch> newDepsThatWerentInTheLastEvaluationNodes =
@@ -1025,15 +1027,14 @@ abstract class AbstractParallelEvaluator {
     }
 
     env.addTemporaryDirectDepsTo(entry);
-    Set<SkyKey> newlyAddedNewDeps;
-    Set<SkyKey> previouslyRegisteredNewDeps;
+    Collection<SkyKey> newlyAddedNewDeps;
+    ImmutableCollection<SkyKey> previouslyRegisteredNewDeps;
     if (oldDeps.isEmpty()) {
-      // When there are no old deps (clean evaluations), avoid set views which have O(n) size.
       newlyAddedNewDeps = newDeps;
       previouslyRegisteredNewDeps = ImmutableSet.of();
     } else {
-      newlyAddedNewDeps = Sets.difference(newDeps, oldDeps);
-      previouslyRegisteredNewDeps = Sets.intersection(newDeps, oldDeps);
+      newlyAddedNewDeps = ImmutableList.copyOf(Sets.difference(newDeps, oldDeps));
+      previouslyRegisteredNewDeps = ImmutableList.copyOf(Sets.intersection(newDeps, oldDeps));
     }
 
     InterruptibleSupplier<NodeBatch> newlyAddedNewDepNodes =

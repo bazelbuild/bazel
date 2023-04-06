@@ -52,6 +52,12 @@ import javax.annotation.Nullable;
  */
 @FunctionalInterface
 public interface StateMachine {
+  /** A sentinel value returned when a {@code StateMachine} is done. */
+  public static final StateMachine DONE =
+      (t, l) -> {
+        throw new IllegalStateException("Sentinel DONE state should not be executed.");
+      };
+
   /**
    * Step performs the next computation.
    *
@@ -68,9 +74,8 @@ public interface StateMachine {
    * @param tasks an interface for adding subtasks, which may be either {@link SkyKey} lookups or
    *     child state machines. The {@code tasks} handle is associated with this state machine and
    *     other state machines should not use it.
-   * @return an instance indicating the next computation or null on completion.
+   * @return an instance indicating the next computation or {@link #DONE} on completion.
    */
-  @Nullable
   StateMachine step(Tasks tasks, ExtendedEventHandler listener) throws InterruptedException;
 
   /**

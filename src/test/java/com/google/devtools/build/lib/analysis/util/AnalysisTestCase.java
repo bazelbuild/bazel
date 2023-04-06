@@ -259,6 +259,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     packageOptions.globbingThreads = 3;
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = true;
+    buildLanguageOptions.enableLockfile = false;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,

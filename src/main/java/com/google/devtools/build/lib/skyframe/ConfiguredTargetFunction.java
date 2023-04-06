@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
@@ -65,7 +66,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -230,8 +230,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             prereqs.getUnloadedToolchainContexts().getContextMap().entrySet()) {
-          Set<ConfiguredTargetAndData> toolchainDependencies =
-              prereqs.getDepValueMap().get(DependencyKind.forExecGroup(unloadedContext.getKey()));
+          ImmutableSet<ConfiguredTargetAndData> toolchainDependencies =
+              ImmutableSet.copyOf(
+                  prereqs
+                      .getDepValueMap()
+                      .get(DependencyKind.forExecGroup(unloadedContext.getKey())));
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(

@@ -89,14 +89,12 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         attribute,
         type,
         /*includeSelectKeys=*/ true,
-        rule.getAttributeContainer(),
         ruleClass.getAttributeIndex(attribute.getName()));
   }
 
   /** See {@link #visitLabels(DependencyFilter, BiConsumer)}. */
   void visitLabels(DependencyFilter filter, Type.LabelVisitor visitor) {
     List<Attribute> attributes = ruleClass.getAttributes();
-    AttributeContainer attributeContainer = rule.getAttributeContainer();
     for (int i = 0; i < attributes.size(); i++) {
       Attribute attr = attributes.get(i);
       Type<?> type = attr.getType();
@@ -105,24 +103,19 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
           && type != BuildType.NODEP_LABEL
           && type != BuildType.NODEP_LABEL_LIST
           && filter.test(rule, attr)) {
-        visitLabels(visitor, attr, type, /* includeSelectKeys= */ true, attributeContainer, i);
+        visitLabels(visitor, attr, type, /* includeSelectKeys= */ true, i);
       }
     }
   }
 
   @SuppressWarnings("unchecked")
   private <T> void visitLabels(
-      LabelVisitor visitor,
-      Attribute attr,
-      Type<T> type,
-      boolean includeSelectKeys,
-      AttributeContainer attributeContainer,
-      int i) {
+      LabelVisitor visitor, Attribute attr, Type<T> type, boolean includeSelectKeys, int i) {
     Object rawVal;
     if (type.getLabelClass() == LabelClass.NONE) {
       // The only way for LabelClass.NONE to contain labels is in select keys.
       if (includeSelectKeys && attr.isConfigurable()) {
-        rawVal = attributeContainer.getAttributeValue(i);
+        rawVal = rule.getAttrIfStored(i);
         if (rawVal instanceof SelectorList) {
           visitLabelsInSelect(
               (SelectorList<T>) rawVal,
@@ -135,13 +128,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       }
       return;
     }
-    rawVal = attributeContainer.getAttributeValue(i);
+    rawVal = rule.getAttrIfStored(i);
     if (rawVal == null) {
-      if (!attr.hasComputedDefault()) {
-        rawVal = attr.getDefaultValue(null);
-      } else if (attributeContainer.isFrozen()) {
-        // Frozen attribute containers don't store computed defaults.
-        rawVal = attr.getDefaultValue(rule);
+      // Frozen rules don't store computed defaults.
+      if (!attr.hasComputedDefault() || rule.isFrozen()) {
+        rawVal = attr.getDefaultValue();
       }
     }
     if (rawVal instanceof SelectorList) {
@@ -194,7 +185,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
               visitor.visit(key, attribute);
             }
             if (includeValues) {
-              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue(null));
+              T value = selector.isValueSet(key) ? val : type.cast(attribute.getDefaultValue());
               type.visitLabels(visitor, value, attribute);
             }
           }
@@ -228,14 +219,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         attribute,
         attribute.getType(),
         includeSelectKeys,
-        rule.getAttributeContainer(),
         attributeIndex);
     return builder.build();
   }
 
   /** Returns the labels that appear multiple times in the same attribute value. */
   @SuppressWarnings("unchecked")
-  public Set<Label> checkForDuplicateLabels(Attribute attribute) {
+  Set<Label> checkForDuplicateLabels(Attribute attribute) {
     Type<List<Label>> attrType = BuildType.LABEL_LIST;
     checkArgument(attribute.getType() == attrType, "Not a label list type: %s", attribute);
     String attrName = attribute.getName();
@@ -403,7 +393,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       // This special case for the visibility attribute is needed because its value is replaced
       // with an empty list during package loading if it is public or private in order not to visit
       // the package called 'visibility'.
-      return ImmutableList.of(type.cast(rule.getVisibility().getDeclaredLabels()));
+      return ImmutableList.of(type.cast(rule.getVisibilityDeclaredLabels()));
     }
 
     // For any other attribute, just return its direct value.

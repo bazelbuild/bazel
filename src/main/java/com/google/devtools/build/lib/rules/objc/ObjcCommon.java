@@ -102,7 +102,6 @@ public final class ObjcCommon implements StarlarkValue {
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
     private Optional<CompilationArtifacts> compilationArtifacts = Optional.absent();
     private Iterable<ObjcProvider> objcProviders = ImmutableList.of();
-    private Iterable<ObjcProvider> runtimeObjcProviders = ImmutableList.of();
     private Iterable<PathFragment> includes = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
@@ -307,7 +306,6 @@ public final class ObjcCommon implements StarlarkValue {
       objcCompilationContextBuilder
           .addIncludes(includes)
           .addObjcProviders(objcProviders)
-          .addObjcProviders(runtimeObjcProviders)
           .addDirectCcCompilationContexts(directCCompilationContexts)
           // TODO(bazel-team): This pulls in stl via
           // CcCompilationHelper.getStlCcCompilationContext(), but probably shouldn't.

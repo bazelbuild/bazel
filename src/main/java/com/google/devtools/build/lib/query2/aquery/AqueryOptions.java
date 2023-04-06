@@ -89,4 +89,14 @@ public class AqueryOptions extends CommonQueryOptions {
               + " output. This does not deduplicate depsets that don't share an immediate parent."
               + " This does not affect the final effective list of input artifacts of the actions.")
   public boolean deduplicateDepsets;
+
+  @Option(
+      name = "experimental_parallel_aquery_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether aquery proto/textproto output should be written in parallel. No-op for the "
+              + "other output formats.")
+  public boolean parallelAqueryOutput;
 }

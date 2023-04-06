@@ -167,6 +167,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
             ExecuteRequest.newBuilder()
                 .setActionDigest(actionDigest)
                 .setInstanceName(remoteInstanceName)
+                .setDigestFunction(digestUtil.getDigestFunction())
                 .setSkipCacheLookup(!acceptCached)
                 .build();
 

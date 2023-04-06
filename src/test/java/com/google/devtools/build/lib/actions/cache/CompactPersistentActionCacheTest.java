@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -198,7 +199,10 @@ public class CompactPersistentActionCacheTest {
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(
-      Artifact artifact, String content, @Nullable PathFragment materializationExecPath) {
+      Artifact artifact,
+      String content,
+      long expireAtEpochMilli,
+      @Nullable PathFragment materializationExecPath) {
     byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
     byte[] digest =
         artifact
@@ -208,7 +212,14 @@ public class CompactPersistentActionCacheTest {
             .getHashFunction()
             .hashBytes(bytes)
             .asBytes();
-    return RemoteFileArtifactValue.create(digest, bytes.length, 1, materializationExecPath);
+    return RemoteFileArtifactValue.create(
+        digest, bytes.length, 1, expireAtEpochMilli, materializationExecPath);
+  }
+
+  private RemoteFileArtifactValue createRemoteMetadata(
+      Artifact artifact, String content, @Nullable PathFragment materializationExecPath) {
+    return createRemoteMetadata(
+        artifact, content, /* expireAtEpochMilli= */ -1, materializationExecPath);
   }
 
   private RemoteFileArtifactValue createRemoteMetadata(Artifact artifact, String content) {
@@ -250,6 +261,24 @@ public class CompactPersistentActionCacheTest {
     entry = cache.get(key);
 
     assertThat(entry.getOutputFile(artifact)).isEqualTo(metadata);
+  }
+
+  @Test
+  public void putAndGet_savesRemoteFileMetadata_withExpireAtEpochMilli() {
+    String key = "key";
+    ActionCache.Entry entry =
+        new ActionCache.Entry(key, ImmutableMap.of(), false, OutputPermissions.READONLY);
+    Artifact artifact = ActionsTestUtil.DUMMY_ARTIFACT;
+    long expireAtEpochMilli = Instant.now().toEpochMilli();
+    RemoteFileArtifactValue metadata =
+        createRemoteMetadata(
+            artifact, "content", expireAtEpochMilli, /* materializationExecPath= */ null);
+    entry.addOutputFile(artifact, metadata, /* saveFileMetadata= */ true);
+
+    cache.put(key, entry);
+    entry = cache.get(key);
+
+    assertThat(entry.getOutputFile(artifact).getExpireAtEpochMilli()).isEqualTo(expireAtEpochMilli);
   }
 
   @Test

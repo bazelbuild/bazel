@@ -44,7 +44,7 @@ public final class JavaRuntimeClasspathProvider
   /** Returns the artifacts included on the runtime classpath of this binary. */
   @Override
   public Depset /*<Artifact>*/ getRuntimeClasspath() {
-    return Depset.of(Artifact.TYPE, runtimeClasspath);
+    return Depset.of(Artifact.class, runtimeClasspath);
   }
 
   public NestedSet<Artifact> getRuntimeClasspathNestedSet() {

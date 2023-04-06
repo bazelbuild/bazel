@@ -254,29 +254,6 @@ function test_cache_computed_file_digests_ui() {
       "Digests cache not reenabled"
 }
 
-function test_analysis_warning_cached() {
-  mkdir -p "foo" "bar" || fail "Could not create directories"
-  cat > foo/BUILD <<'EOF' || fail "foo/BUILD"
-cc_library(
-    name = 'foo',
-    deprecation = 'foo warning',
-    srcs = ['foo.cc'],
-    visibility = ['//visibility:public']
-)
-EOF
-  cat > bar/BUILD <<'EOF' || fail "bar/BUILD"
-cc_library(name = 'bar', srcs = ['bar.cc'], deps = ['//foo:foo'])
-EOF
-  touch foo/foo.cc bar/bar.cc || fail "Couldn't touch"
-  bazel build --nobuild //bar:bar >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: .*: foo warning"
-  bazel build //bar:bar >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: .*: foo warning"
-  echo "// comment" >> bar/bar.cc || fail "Couldn't change contents"
-  bazel build //bar:bar >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: .*: foo warning"
-}
-
 function test_max_open_file_descriptors() {
   echo "nfiles: hard $(ulimit -H -n), soft $(ulimit -S -n)"
 

@@ -711,7 +711,8 @@ public final class TreeArtifactValueTest {
   }
 
   private static FileArtifactValue metadataWithId(int id) {
-    return RemoteFileArtifactValue.create(new byte[] {(byte) id}, id, id);
+    return RemoteFileArtifactValue.create(
+        new byte[] {(byte) id}, id, id, /* expireAtEpochMilli= */ -1);
   }
 
   private static FileArtifactValue metadataWithIdNoDigest(int id) {

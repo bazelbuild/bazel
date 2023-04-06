@@ -27,30 +27,23 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
-import com.google.testing.junit.runner.internal.SignalHandlers.HandlerInstaller;
 import com.google.testing.junit.runner.internal.junit4.CancellableRequestFactory;
-import com.google.testing.junit.runner.internal.junit4.SettableCurrentRunningTest;
-import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
-import com.google.testing.junit.runner.model.AntXmlResultWriter;
-import com.google.testing.junit.runner.model.XmlResultWriter;
+import com.google.testing.junit.runner.model.TestSuiteModel;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
-import com.google.testing.junit.runner.sharding.api.ShardingFilterFactory;
 import com.google.testing.junit.runner.sharding.testing.FakeShardingFilters;
-import com.google.testing.junit.runner.util.CurrentRunningTest;
 import com.google.testing.junit.runner.util.FakeTestClock;
 import com.google.testing.junit.runner.util.GoogleTestSecurityManager;
 import com.google.testing.junit.runner.util.TestClock;
-import com.google.testing.junit.runner.util.TestNameProvider;
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Test;
@@ -67,12 +60,9 @@ import org.junit.runner.notification.StoppedByUserException;
 import org.junit.runners.JUnit4;
 import org.junit.runners.Suite;
 import org.mockito.InOrder;
-import org.mockito.Mock;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.mockito.stubbing.Answer;
-import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 /**
  * Tests for {@link JUnit4Runner}
@@ -81,9 +71,9 @@ import sun.misc.SignalHandler;
 public class JUnit4RunnerTest {
   private final ByteArrayOutputStream stdoutByteStream = new ByteArrayOutputStream();
   private final PrintStream stdoutPrintStream = new PrintStream(stdoutByteStream, true);
-  @Mock private RunListener mockRunListener;
-  @Mock private ShardingEnvironment shardingEnvironment = new StubShardingEnvironment();
-  @Mock private ShardingFilters shardingFilters;
+  private RunListener mockRunListener;
+  private ShardingEnvironment shardingEnvironment = new StubShardingEnvironment();
+  private ShardingFilters shardingFilters;
   private JUnit4Config config;
   private boolean wasSecurityManagerInstalled = false;
   private SecurityManager previousSecurityManager;
@@ -102,13 +92,17 @@ public class JUnit4RunnerTest {
   }
 
   private JUnit4Runner createRunner(Class<?> suiteClass) {
-    return createComponent(suiteClass).runner();
+    return createComponent(suiteClass, new CancellableRequestFactory()).runner();
   }
 
-  private JUnit4BazelMock createComponent(Class<?> suiteClass) {
+  private JUnit4Bazel createComponent(
+      Class<?> suiteClass, CancellableRequestFactory cancellableRequestFactory) {
     return JUnit4BazelMock.builder()
-        .suiteClass(new SuiteClass(suiteClass))
-        .testModule(new TestModule()) // instance method to support outer-class instance variables.
+        .suiteClass(suiteClass)
+        .testModule(
+            new TestModule(
+                cancellableRequestFactory)) // instance method to support outer-class instance
+        // variables.
         .build();
   }
 
@@ -212,9 +206,9 @@ public class JUnit4RunnerTest {
   public void testInterruptedTest() throws Exception {
     config = createConfig();
     mockRunListener = mock(RunListener.class);
-    JUnit4BazelMock component = createComponent(SampleSuite.class);
+    CancellableRequestFactory requestFactory = new CancellableRequestFactory();
+    JUnit4Bazel component = createComponent(SampleSuite.class, requestFactory);
     JUnit4Runner runner = component.runner();
-    final CancellableRequestFactory requestFactory = component.cancellableRequestFactory();
 
     Description testDescription = Description.createTestDescription(SamplePassingTest.class,
         "testThatAlwaysPasses");
@@ -555,71 +549,58 @@ public class JUnit4RunnerTest {
     }
   }
 
+  class TestModule extends JUnit4RunnerModule {
+    private final PrintStream stdout = new PrintStream(stdoutByteStream);
+    private final CancellableRequestFactory cancellableRequestFactory;
 
-  private static class StubHandlerInstaller implements HandlerInstaller {
+    TestModule(CancellableRequestFactory cancellableRequestFactory) {
+      super(null);
+      this.cancellableRequestFactory = cancellableRequestFactory;
+    }
 
     @Override
-    public SignalHandler install(Signal signal, SignalHandler handler) {
-      return null;
-    }
-  }
-
-
-  class TestModule {
-
     ShardingEnvironment shardingEnvironment() {
       return shardingEnvironment;
     }
 
+    @Override
     TestClock clock() {
       return new FakeTestClock();
     }
 
+    @Override
     JUnit4Config config() {
       return config;
     }
 
-    HandlerInstaller handlerInstaller() {
-      return new StubHandlerInstaller();
-    }
-
-    OutputStream xmlOutputStream() {
-      return ByteStreams.nullOutputStream();
-    }
-
-    XmlResultWriter xmlResultWriter(AntXmlResultWriter impl) {
-      return impl;
-    }
-
-    Set<RunListener> mockRunListener() {
-      return (mockRunListener == null)
-          ? ImmutableSet.<RunListener>of()
-          : ImmutableSet.of(mockRunListener);
-    }
-
-    ShardingFilters shardingFilters(
-        ShardingEnvironment shardingEnvironment, ShardingFilterFactory defaultShardingStrategy) {
+    @Override
+    ShardingFilters shardingFilters(ShardingEnvironment shardingEnvironment) {
       return (shardingFilters == null)
-          ? new ShardingFilters(shardingEnvironment, defaultShardingStrategy)
+          ? new ShardingFilters(shardingEnvironment, ShardingFilters.DEFAULT_SHARDING_STRATEGY)
           : shardingFilters;
     }
 
-    PrintStream provideStdoutStream() {
-      return new PrintStream(stdoutByteStream);
+    @Override
+    PrintStream stdout() {
+      return this.stdout;
     }
 
-    PrintStream provideStderrStream() {
-      return new PrintStream(ByteStreams.nullOutputStream());
+    @Override
+    Set<RunListener> setOfRunListeners(
+        JUnit4Config config,
+        Supplier<TestSuiteModel> testSuiteModelSupplier,
+        CancellableRequestFactory cancellableRequestFactory) {
+      Set<RunListener> set = new HashSet<>();
+      if (mockRunListener != null) {
+        set.add(mockRunListener);
+      }
+      set.add(JUnit4RunnerBaseModule.provideTextListener(stdout()));
+      return Collections.unmodifiableSet(set);
     }
 
-    CurrentRunningTest provideCurrentRunningTest() {
-      return new SettableCurrentRunningTest() {
-        @Override
-        protected void setGlobalTestNameProvider(TestNameProvider provider) {
-          // Do not set the global current running test when the JUnit4Runner is being tested itself,
-          // in order not to override the real one.
-        }
-      };
+    @Override
+    public CancellableRequestFactory cancellableRequestFactory() {
+      return cancellableRequestFactory;
     }
   }
 }
