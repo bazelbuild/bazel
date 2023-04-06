@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
+import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.NoSpawnCacheModule;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
@@ -563,7 +564,8 @@ public abstract class BuildIntegrationTestCase {
             .addBlazeModule(new OutputFilteringModule())
             .addBlazeModule(connectivityModule)
             .addBlazeModule(new SkymeldModule())
-            .addBlazeModule(getMockBazelRepositoryModule());
+            .addBlazeModule(getMockBazelRepositoryModule())
+            .addBlazeModule(new BuildSummaryStatsModule());
     getSpawnModules().forEach(builder::addBlazeModule);
     builder
         .addBlazeModule(getBuildInfoModule())
