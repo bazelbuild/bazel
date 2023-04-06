@@ -209,6 +209,8 @@ void Md5Digest::Transform(
 
   // FF, GG, HH, and II transformations for rounds 1, 2, 3, and 4.
   // Rotation is separate from addition to prevent recomputation.
+  // Note: The behavior we want is really LE to host, but host to le is the
+  // same thing.
 #define FF(a, b, c, d, s, ac) { \
       (a) += F((b), (c), (d)) + ((*x_pos++ = htole32(*cur_word))) + \
           static_cast<uint32_t>(ac); \
