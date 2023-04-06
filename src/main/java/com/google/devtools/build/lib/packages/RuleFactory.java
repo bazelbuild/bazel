@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
-import net.starlark.java.syntax.Location;
 
 /**
  * Given a {@link RuleClass} and a set of attribute values, returns a {@link Rule} instance. Also
@@ -98,18 +97,15 @@ public class RuleFactory {
           ruleClass + " cannot be in the WORKSPACE file " + "(used by " + label + ")");
     }
 
-    // TODO(b/273330483): The location doesn't need to be treated separately from the call stack.
-    Location location = callstack.get(0).location;
-
     BuildLangTypedAttributeValuesMap attributes =
-        generatorAttributesForMacros(pkgBuilder, attributeValues, location, callstack);
+        generatorAttributesForMacros(pkgBuilder, attributeValues, callstack);
 
     // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
     // Pop the innermost frame for the rule, since it's obvious.
     callstack = callstack.subList(0, callstack.size() - 1); // pop
 
     try {
-      return ruleClass.createRule(pkgBuilder, label, attributes, eventHandler, location, callstack);
+      return ruleClass.createRule(pkgBuilder, label, attributes, eventHandler, callstack);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
@@ -230,7 +226,6 @@ public class RuleFactory {
   private static BuildLangTypedAttributeValuesMap generatorAttributesForMacros(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
-      Location location,
       ImmutableList<CallStackEntry> stack) {
     // The "generator" of a rule is the function (sometimes called "macro") outermost in the call
     // stack. For rules with generators, the stack must contain at least two entries:
@@ -252,7 +247,7 @@ public class RuleFactory {
         ImmutableMap.builderWithExpectedSize(args.attributeValues.size() + 1);
     builder.putAll(args.attributeValues);
 
-    String generatorName = pkgBuilder.getGeneratorNameByLocation(location);
+    String generatorName = pkgBuilder.getGeneratorNameByLocation(stack.get(0).location);
     if (generatorName == null) {
       generatorName = (String) args.getAttributeValue("name");
     }

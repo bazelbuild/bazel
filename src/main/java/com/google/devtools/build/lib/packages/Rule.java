@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -90,7 +91,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private final Label label;
   private final RuleClass ruleClass;
   private final Location location;
-  private final CallStack callstack;
+  @Nullable private final CallStack.Node interiorCallStack;
 
   /**
    * Stores attribute values, taking on one of two shapes:
@@ -143,12 +144,17 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   // Initialized by populateOutputFilesInternal().
   private Object outputFiles;
 
-  Rule(Package pkg, Label label, RuleClass ruleClass, Location location, CallStack callstack) {
+  Rule(
+      Package pkg,
+      Label label,
+      RuleClass ruleClass,
+      Location location,
+      @Nullable CallStack.Node interiorCallStack) {
     this.pkg = checkNotNull(pkg);
     this.label = checkNotNull(label);
     this.ruleClass = checkNotNull(ruleClass);
     this.location = checkNotNull(location);
-    this.callstack = checkNotNull(callstack);
+    this.interiorCallStack = interiorCallStack;
     this.attrValues = new Object[ruleClass.getAttributeCount()];
     this.attrBytes = new byte[bitSetSize()];
   }
@@ -350,9 +356,24 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return location;
   }
 
-  /** Returns the stack of function calls active when this rule was instantiated. */
-  public CallStack getCallStack() {
-    return callstack;
+  /**
+   * Returns the stack of function calls active when this rule was instantiated.
+   *
+   * <p>Requires reconstructing the call stack from a compact representation, so should only be
+   * called when the full call stack is needed.
+   */
+  public ImmutableList<StarlarkThread.CallStackEntry> reconstructCallStack() {
+    ImmutableList.Builder<StarlarkThread.CallStackEntry> stack = ImmutableList.builder();
+    stack.add(StarlarkThread.callStackEntry(StarlarkThread.TOP_LEVEL, location));
+    for (CallStack.Node node = interiorCallStack; node != null; node = node.next()) {
+      stack.add(node.toCallStackEntry());
+    }
+    return stack.build();
+  }
+
+  @Nullable
+  CallStack.Node getInteriorCallStack() {
+    return interiorCallStack;
   }
 
   @Override
@@ -396,7 +417,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Nullable
-  private String relativeLocation(Location location) {
+  private String getRelativeLocation() {
     // Determining the workspace root only works reliably if both location and label point to files
     // in the same package.
     // It would be preferable to construct the path from the label itself, but this doesn't work for
@@ -503,9 +524,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     }
     switch (attr.getName()) {
       case GENERATOR_FUNCTION:
-        return callstack.size() > 1 ? callstack.getFrame(1).name : "";
+        return interiorCallStack != null ? interiorCallStack.functionName() : "";
       case GENERATOR_LOCATION:
-        return callstack.size() > 1 ? relativeLocation(callstack.getFrame(0).location) : "";
+        return interiorCallStack != null ? getRelativeLocation() : "";
       default:
         return attr.getDefaultValue();
     }
@@ -779,7 +800,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns whether this rule was created by a macro.
    */
   public boolean wasCreatedByMacro() {
-    return hasStringAttribute("generator_name") || hasStringAttribute(GENERATOR_FUNCTION);
+    return interiorCallStack != null || hasStringAttribute("generator_name");
   }
 
   /** Returns the macro that generated this rule, or an empty string. */

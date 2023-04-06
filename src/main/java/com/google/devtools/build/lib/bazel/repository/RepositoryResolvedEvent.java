@@ -67,8 +67,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    */
   private ImmutableMap.Builder<String, Object> resolvedInformationBuilder = ImmutableMap.builder();
 
-  private ImmutableMap.Builder<String, Object> repositoryBuilder =
-      ImmutableMap.<String, Object>builder();
+  private ImmutableMap.Builder<String, Object> repositoryBuilder = ImmutableMap.builder();
 
   private String directoryDigest;
   private final Path outputDirectory;
@@ -226,7 +225,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
 
     // Emit stack of rule instantiation.
     buf.append("Repository ").append(rule.getName()).append(" instantiated at:\n");
-    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList();
+    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.reconstructCallStack();
     // TODO: Callstack should always be available for bazel.
     if (stack.isEmpty()) {
       buf.append("  callstack not available\n");
@@ -266,7 +265,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
    */
   static Pair<Map<String, Object>, List<String>> compare(
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
-    ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.<String, Object>builder();
+    ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
       if (entry.getKey() instanceof String) {
         String key = (String) entry.getKey();
@@ -289,7 +288,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
         }
       }
     }
-    ImmutableList.Builder<String> keysDropped = ImmutableList.<String>builder();
+    ImmutableList.Builder<String> keysDropped = ImmutableList.builder();
     for (String key : orig.keySet()) {
       if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
         continue;

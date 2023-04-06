@@ -79,7 +79,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.syntax.Location;
 
 /**
  * Instances of RuleClass encapsulate the set of attributes of a given "class" of rule, such as
@@ -1994,10 +1993,9 @@ public class RuleClass {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
-      Location location,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -2017,11 +2015,10 @@ public class RuleClass {
       Package.Builder pkgBuilder,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
-      Location location,
-      List<StarlarkThread.CallStackEntry> callstack,
+      CallStack.Node callstack,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack.toLocation(), callstack.next());
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
     rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
     return rule;

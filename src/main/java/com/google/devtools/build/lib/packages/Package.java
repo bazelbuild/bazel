@@ -1522,11 +1522,20 @@ public class Package {
      * state.
      */
     Rule createRule(
+        Label label, RuleClass ruleClass, List<StarlarkThread.CallStackEntry> callstack) {
+      return createRule(
+          label,
+          ruleClass,
+          callstack.isEmpty() ? Location.BUILTIN : callstack.get(0).location,
+          CallStack.compactInterior(callstack));
+    }
+
+    Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
-        List<StarlarkThread.CallStackEntry> callstack) {
-      return new Rule(pkg, label, ruleClass, location, CallStack.createFrom(callstack));
+        @Nullable CallStack.Node interiorCallStack) {
+      return new Rule(pkg, label, ruleClass, location, interiorCallStack);
     }
 
     @Nullable

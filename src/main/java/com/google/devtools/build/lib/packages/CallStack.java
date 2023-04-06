@@ -14,10 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.HashCodes;
@@ -36,54 +35,18 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /**
- * Compact representation of a Starlark call stack for rule instantiations.
+ * Creates compact representations of Starlark call stacks for rule instantiations.
  *
  * <p>Implementation is optimized for minimizing memory overhead by sharing {@link Node} instances
  * when two call stacks have a common tail. For example, two different BUILD files that call into
- * the same macro can share {@link Node} instances for every frame except the top-level call.
+ * the same macro can share {@link Node} instances.
  *
  * <p>The sharing rate of interior nodes is expected to be high, so nodes are implemented as a
  * linked list to eliminate array cost.
  */
-public final class CallStack {
+final class CallStack {
 
-  /** Null instance, for use in testing or where content doesn't actually matter. */
-  public static final CallStack EMPTY = new CallStack(/* size= */ 0, /* head= */ null);
-
-  /** Number of frames in this stack. */
-  private final int size;
-  /** Top-level call in the call stack. */
-  @Nullable final Node head;
-
-  private CallStack(int size, @Nullable Node head) {
-    this.size = size;
-    this.head = head;
-  }
-
-  /** Returns the call stack as a list of frames, outermost call first. */
-  public ImmutableList<StarlarkThread.CallStackEntry> toList() {
-    StarlarkThread.CallStackEntry[] array = new StarlarkThread.CallStackEntry[size];
-    int i = 0;
-    for (Node n = head; n != null; n = n.next) {
-      array[i++] = n.toCallStackEntry();
-    }
-    return ImmutableList.copyOf(array);
-  }
-
-  /** Returns a single frame, like {@code toList().get(i)} but more efficient. */
-  StarlarkThread.CallStackEntry getFrame(int i) {
-    for (Node n = head; n != null; n = n.next, i--) {
-      if (i == 0) {
-        return n.toCallStackEntry();
-      }
-    }
-    throw new IndexOutOfBoundsException(); // !(0 <= i < size)
-  }
-
-  /** Returns the number of frames in the call stack. */
-  public int size() {
-    return size;
-  }
+  private CallStack() {}
 
   /** Compact representation of a call stack entry. */
   static final class Node {
@@ -96,6 +59,10 @@ public final class CallStack {
     private final int col;
     @Nullable private final Node next;
 
+    private Node(String name, Location location, @Nullable Node next) {
+      this(name, location.file(), location.line(), location.column(), next);
+    }
+
     private Node(String name, String file, int line, int col, @Nullable Node next) {
       this.name = name;
       this.file = file;
@@ -104,12 +71,16 @@ public final class CallStack {
       this.next = next;
     }
 
-    private Location toLocation() {
+    Location toLocation() {
       return Location.fromFileLineColumn(file, line, col);
     }
 
-    private StarlarkThread.CallStackEntry toCallStackEntry() {
+    StarlarkThread.CallStackEntry toCallStackEntry() {
       return StarlarkThread.callStackEntry(name, toLocation());
+    }
+
+    String functionName() {
+      return name;
     }
 
     @Nullable
@@ -144,34 +115,29 @@ public final class CallStack {
 
   private static final Interner<Node> nodeInterner = BlazeInterners.newWeakInterner();
 
-  static CallStack createFrom(List<StarlarkThread.CallStackEntry> stack) {
-    Node child = null;
-    int n = stack.size();
-    for (int i = n - 1; i >= 0; i--) {
+  /**
+   * Returns a compact representation of the <em>interior</em> of the given call stack.
+   *
+   * <p>The outermost frame of the call stack is not reflected in the compact representation because
+   * it is already stored as {@link Rule#getLocation}.
+   *
+   * <p>Returns {@code null} for call stacks with fewer than two frames.
+   */
+  @Nullable
+  static Node compactInterior(List<StarlarkThread.CallStackEntry> stack) {
+    Node node = null;
+    for (int i = stack.size() - 1; i > 0; i--) {
       StarlarkThread.CallStackEntry entry = stack.get(i);
-
-      String name = entry.name;
-      String file = entry.location.file();
-      int line = entry.location.line();
-      int column = entry.location.column();
-
-      child = new Node(name, file, line, column, child);
-      if (i != 0) {
-        // We don't intern top node, because it hardly ever repeats.
-        child = nodeInterner.intern(child);
-      }
+      node = nodeInterner.intern(new Node(entry.name, entry.location, node));
     }
-
-    // Use the same node for all empty stacks, to avoid allocations.
-    return child != null ? new CallStack(n, child) : EMPTY;
+    return node;
   }
 
   /**
-   * Efficient serializer for {@link CallStack}s. Before callstacks are serialized in a package
-   * {@link #prepareCallStack(CallStack)} method must be called on them (to prepare a table of
-   * strings).
+   * Efficient serializer for {@link Node}s. Before callstacks are serialized in a package {@link
+   * #prepareCallStack} method must be called on them (to prepare a table of strings).
    */
-  static class Serializer {
+  static final class Serializer {
     private static final int NULL_NODE_ID = 0;
 
     private final IdentityHashMap<Node, Integer> nodeTable = new IdentityHashMap<>();
@@ -180,24 +146,28 @@ public final class CallStack {
 
     private final Map<String, Integer> stringTableIndex = new HashMap<>();
 
-    private int indexOf(String s) {
-      int i = stringTableIndex.size();
-      Integer prev = stringTableIndex.putIfAbsent(s, i);
-      if (prev != null) {
-        i = prev;
-      } else {
-        checkArgument(
-            !stringTableSerialized, "Can only serialize CallStacks that were prepared before.");
-        stringTable.add(s);
-      }
-      return i;
-    }
-
     Serializer() {
       nodeTable.put(null, NULL_NODE_ID);
+      indexString(StarlarkThread.TOP_LEVEL);
     }
 
-    void serializeCallStack(CallStack callStack, CodedOutputStream codedOut) throws IOException {
+    private void indexString(String s) {
+      checkState(!stringTableSerialized);
+      int i = stringTableIndex.size();
+      if (stringTableIndex.putIfAbsent(s, i) == null) {
+        stringTable.add(s);
+      }
+    }
+
+    private int indexOf(String s) {
+      return checkNotNull(stringTableIndex.get(s), s);
+    }
+
+    /**
+     * Serializes the <em>full</em> call stack of the given rule, including both {@link
+     * Rule#getLocation} and {@link Rule#getInteriorCallStack}.
+     */
+    void serializeCallStack(Rule rule, CodedOutputStream codedOut) throws IOException {
       if (!stringTableSerialized) {
         codedOut.writeInt32NoTag(stringTable.size());
         for (String string : stringTable) {
@@ -206,8 +176,9 @@ public final class CallStack {
         stringTableSerialized = true;
       }
 
-      codedOut.writeInt32NoTag(callStack.size);
-      emitNode(callStack.head, codedOut);
+      emitNode(
+          new Node(StarlarkThread.TOP_LEVEL, rule.getLocation(), rule.getInteriorCallStack()),
+          codedOut);
     }
 
     private void emitNode(Node node, CodedOutputStream codedOut) throws IOException {
@@ -231,16 +202,17 @@ public final class CallStack {
       emitNode(node.next, codedOut);
     }
 
-    void prepareCallStack(CallStack callStack) {
-      for (Node n = callStack.head; n != null; n = n.next) {
-        indexOf(n.name);
-        indexOf(n.file);
+    void prepareCallStack(Rule rule) {
+      indexString(rule.getLocation().file());
+      for (Node n = rule.getInteriorCallStack(); n != null; n = n.next) {
+        indexString(n.name);
+        indexString(n.file);
       }
     }
   }
 
-  /** Deserializes {@link CallStack}s as serialized by a {@link Serializer}. */
-  static class Deserializer {
+  /** Deserializes call stacks as serialized by a {@link Serializer}. */
+  static final class Deserializer {
     private static final Node DUMMY_NODE = new Node("", "", -1, -1, null);
 
     private final List<Node> nodeTable = new ArrayList<>();
@@ -251,7 +223,13 @@ public final class CallStack {
       nodeTable.add(null);
     }
 
-    CallStack deserializeCallStack(CodedInputStream codedIn) throws IOException {
+    /**
+     * Deserializes a <em>full</em> call stack.
+     *
+     * <p>The returned {@link Node} represents {@link Rule#getLocation}. Calling {@link Node#next()}
+     * on the returned {@link Node} yields {@link Rule#getInteriorCallStack}.
+     */
+    Node deserializeFullCallStack(CodedInputStream codedIn) throws IOException {
       if (stringTable == null) {
         int length = codedIn.readInt32();
         stringTable = new ArrayList<>(length);
@@ -263,8 +241,7 @@ public final class CallStack {
         }
       }
 
-      int size = codedIn.readInt32();
-      return new CallStack(size, readNode(codedIn));
+      return readNode(codedIn);
     }
 
     @Nullable
