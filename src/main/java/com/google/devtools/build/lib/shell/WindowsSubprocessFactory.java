@@ -30,7 +30,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
   public static final WindowsSubprocessFactory INSTANCE = new WindowsSubprocessFactory();
 
   @Override
-  public Subprocess create(SubprocessBuilder builder) throws IOException, InterruptedException {
+  public Subprocess create(SubprocessBuilder builder) throws IOException {
     List<String> argv = builder.getArgv();
 
     // DO NOT quote argv0, createProcess will do it for us.
@@ -48,9 +48,6 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
     String stderrPath = getRedirectPath(builder.getStderr(), builder.getStderrFile());
 
-    if (Thread.currentThread().isInterrupted()) {
-      throw new InterruptedException();
-    }
     long nativeProcess =
         WindowsProcesses.createProcess(
             argv0,

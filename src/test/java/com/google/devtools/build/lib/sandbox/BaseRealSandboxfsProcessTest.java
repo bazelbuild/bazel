@@ -84,8 +84,7 @@ public abstract class BaseRealSandboxfsProcessTest {
    * @return a sandboxfs process handler
    * @throws IOException if the fake sandboxfs cannot be prepared or started
    */
-  SandboxfsProcess createAndStartFakeSandboxfs(List<String> responses)
-      throws IOException, InterruptedException {
+  SandboxfsProcess createAndStartFakeSandboxfs(List<String> responses) throws IOException {
     capturedArgs = tmpDir.getRelative("captured-args");
     capturedRequests = tmpDir.getRelative("captured-requests");
 

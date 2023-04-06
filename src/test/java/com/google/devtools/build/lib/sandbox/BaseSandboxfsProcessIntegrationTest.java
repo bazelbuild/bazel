@@ -43,7 +43,7 @@ abstract class BaseSandboxfsProcessIntegrationTest {
   abstract Path newTmpDir() throws IOException;
 
   /** Hook to mount a new test-specific sandboxfs instance. */
-  abstract SandboxfsProcess mount(Path mountPoint) throws IOException, InterruptedException;
+  abstract SandboxfsProcess mount(Path mountPoint) throws IOException;
 
   @Before
   public void setUp() throws IOException {
@@ -64,7 +64,7 @@ abstract class BaseSandboxfsProcessIntegrationTest {
   }
 
   @Test
-  public void testLifeCycle() throws IOException, InterruptedException {
+  public void testLifeCycle() throws IOException {
     Path mountPoint = tmpDir.getRelative("mnt");
     mountPoint.createDirectory();
     SandboxfsProcess process = mount(mountPoint);
@@ -80,7 +80,7 @@ abstract class BaseSandboxfsProcessIntegrationTest {
   }
 
   @Test
-  public void testReconfigure() throws IOException, InterruptedException {
+  public void testReconfigure() throws IOException {
     Path mountPoint = tmpDir.getRelative("mnt");
     mountPoint.createDirectory();
     SandboxfsProcess process = mount(mountPoint);

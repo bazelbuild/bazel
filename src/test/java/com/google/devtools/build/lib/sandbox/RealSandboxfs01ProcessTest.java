@@ -36,14 +36,14 @@ public class RealSandboxfs01ProcessTest extends BaseRealSandboxfsProcessTest {
   }
 
   @Test
-  public void testNoActivity() throws IOException, InterruptedException {
+  public void testNoActivity() throws IOException {
     SandboxfsProcess process = createAndStartFakeSandboxfs(ImmutableList.of("Done"));
     String expectedRequests = "[]\n\n";
     verifyFakeSandboxfsExecution(process, expectedRequests);
   }
 
   @Test
-  public void testCreateAndDestroySandboxes() throws IOException, InterruptedException {
+  public void testCreateAndDestroySandboxes() throws IOException {
     SandboxfsProcess process =
         createAndStartFakeSandboxfs(ImmutableList.of("Done", "Done", "Done", "Done"));
 

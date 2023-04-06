@@ -56,10 +56,9 @@ class WorkerProxy extends Worker {
     workerMultiplexer.setReporter(reporter);
   }
 
-  @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
-      throws IOException, InterruptedException {
+      throws IOException {
     workerMultiplexer.createProcess(workDir);
   }
 

@@ -139,8 +139,7 @@ public class WorkerMultiplexer {
    * sets up the sandbox root dir with the required worker files.
    */
   public synchronized void createSandboxedProcess(
-      Path workDir, Set<PathFragment> workerFiles, SandboxInputs inputFiles)
-      throws IOException, InterruptedException {
+      Path workDir, Set<PathFragment> workerFiles, SandboxInputs inputFiles) throws IOException {
     // TODO: Make blaze clean remove the workdir.
     if (this.process == null) {
       // This should be a once-only operation.
@@ -167,7 +166,7 @@ public class WorkerMultiplexer {
    * Creates a worker process corresponding to this {@code WorkerMultiplexer}, if it doesn't already
    * exist. Also starts up the subthreads handling reading and writing requests and responses.
    */
-  public synchronized void createProcess(Path workDir) throws IOException, InterruptedException {
+  public synchronized void createProcess(Path workDir) throws IOException {
     if (this.process == null) {
       if (this.wasDestroyed) {
         throw new IOException("Multiplexer destroyed before created process");

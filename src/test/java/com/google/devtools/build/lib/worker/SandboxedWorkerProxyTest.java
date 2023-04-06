@@ -57,7 +57,7 @@ public class SandboxedWorkerProxyTest {
   }
 
   @Test
-  public void prepareExecution_createsFilesInSandbox() throws IOException, InterruptedException {
+  public void prepareExecution_createsFilesInSandbox() throws IOException {
     SandboxedWorkerProxy proxy = createSandboxedWorkerProxy();
     Path workDir = workerBaseDir.getChild("Mnem-multiplex-worker-workdir").getChild("execroot");
     Path sandboxDir =

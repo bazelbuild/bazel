@@ -19,8 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
@@ -249,9 +247,7 @@ public class SubprocessBuilder {
     return this;
   }
 
-  public Subprocess start() throws IOException, InterruptedException {
-    try (SilentCloseable c = Profiler.instance().profile("Starting subprocess")) {
-      return factory.create(this);
-    }
+  public Subprocess start() throws IOException {
+    return factory.create(this);
   }
 }

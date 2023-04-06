@@ -123,8 +123,7 @@ public class GnuVersionParser<VersionT> {
    * @throws ParseException if the output of the program did not follow the GNU Coding Standard
    *     conventions, or if the printed program name did not match what we expected
    */
-  public VersionT fromProgram(PathFragment program)
-      throws IOException, ParseException, InterruptedException {
+  public VersionT fromProgram(PathFragment program) throws IOException, ParseException {
     Subprocess process =
         new SubprocessBuilder()
             .setArgv(ImmutableList.of(program.getPathString(), "--version"))

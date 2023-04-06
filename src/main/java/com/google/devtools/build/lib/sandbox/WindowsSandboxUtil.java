@@ -46,7 +46,7 @@ public final class WindowsSandboxUtil {
    * @param binary path to the Windows sandbox binary
    * @return true if the binary looks good, false otherwise
    */
-  public static boolean isAvailable(PathFragment binary) throws InterruptedException {
+  public static boolean isAvailable(PathFragment binary) {
     Subprocess process;
     try {
       process =

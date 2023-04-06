@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.shell;
 
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import java.io.File;
 import java.io.IOException;
@@ -24,7 +22,6 @@ import java.io.OutputStream;
 import java.lang.ProcessBuilder.Redirect;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 
 /** A subprocess factory that uses {@link java.lang.ProcessBuilder}. */
 public class JavaSubprocessFactory implements SubprocessFactory {
@@ -128,8 +125,6 @@ public class JavaSubprocessFactory implements SubprocessFactory {
     // We are a singleton
   }
 
-  private final ReentrantLock lock = new ReentrantLock();
-
   // since we are a singleton, we represent an ideal global lock for
   // process invocations, which is required due to the following race condition:
 
@@ -147,19 +142,13 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   // I was able to reproduce this problem reliably by running significantly more threads than
   // there are CPU cores on my workstation - the more threads the more likely it happens.
   //
-  // As a workaround, we must synchronize the fork.
-  private Process start(ProcessBuilder builder) throws IOException, InterruptedException {
-    // Allow waiting threads to be interrupted, to avoid blocking dynamic execution cancellation.
-    lock.lockInterruptibly();
-    try (SilentCloseable c = Profiler.instance().profile("Starting JavaSubprocess")) {
-      return builder.start();
-    } finally {
-      lock.unlock();
-    }
+  // As a workaround, we put a synchronized block around the fork.
+  private synchronized Process start(ProcessBuilder builder) throws IOException {
+    return builder.start();
   }
 
   @Override
-  public Subprocess create(SubprocessBuilder params) throws IOException, InterruptedException {
+  public Subprocess create(SubprocessBuilder params) throws IOException {
     ProcessBuilder builder = new ProcessBuilder();
     builder.command(params.getArgv());
     if (params.getEnv() != null) {
@@ -177,9 +166,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
         params.getTimeoutMillis() > 0
             ? Math.addExact(System.currentTimeMillis(), params.getTimeoutMillis())
             : 0;
-    try (SilentCloseable c = Profiler.instance().profile("Creating JavaSubprocess")) {
-      return new JavaSubprocess(start(builder), deadlineMillis);
-    }
+    return new JavaSubprocess(start(builder), deadlineMillis);
   }
 
   /**
