@@ -269,8 +269,7 @@ public class RuleClass {
         case ENABLED:
           return true;
         case DISABLED:
-        case ENABLED_ONLY_FOR_COMMON_LOGIC: // Not true for RuleClass, but Rule may
-                                                             // enable it.
+        case ENABLED_ONLY_FOR_COMMON_LOGIC: // Not true for RuleClass, but Rule may enable it.
           return false;
         default:
       }
