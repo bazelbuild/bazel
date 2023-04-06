@@ -55,7 +55,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   // re-evaluated even if none of their children are changed.
   private final InvalidationState invalidatorState = new DirtyingInvalidationState();
 
-  final EmittedEventState emittedEventState;
+  protected final EmittedEventState emittedEventState;
 
   protected IntVersion lastGraphVersion = null;
 

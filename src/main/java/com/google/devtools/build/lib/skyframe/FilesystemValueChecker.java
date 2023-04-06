@@ -103,7 +103,7 @@ public class FilesystemValueChecker {
    */
   // TODO(bazel-team): Refactor these methods so that FilesystemValueChecker only operates on a
   // WalkableGraph.
-  ImmutableBatchDirtyResult getDirtyKeys(
+  public ImmutableBatchDirtyResult getDirtyKeys(
       Map<SkyKey, SkyValue> valuesMap, SkyValueDirtinessChecker dirtinessChecker)
       throws InterruptedException {
     return getDirtyValues(new MapBackedValueFetcher(valuesMap), valuesMap.keySet(),
