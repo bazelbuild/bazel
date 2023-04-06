@@ -115,9 +115,9 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
     @Override
     public long getNodeId() {
-      // Note that we may want to include more information in this id number going forward,
-      // especially the device number.
-      return status.getInodeNumber();
+      // Real-world inode numbers use far fewer than 64 bits, so we mix the device number into the
+      // upper bits. This should make cross-device collisions less likely.
+      return status.getInodeNumber() ^ ((long) status.getDeviceNumber() << 32);
     }
 
     int getPermissions() {
