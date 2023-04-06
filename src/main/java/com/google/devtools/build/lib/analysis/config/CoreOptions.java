@@ -984,7 +984,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.affectedByStarlarkTransition = affectedByStarlarkTransition;
     exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
     exec.compilationMode = hostCompilationMode;
-    exec.isExec = false;
+    exec.isExec = true;
     exec.execConfigurationDistinguisherScheme = execConfigurationDistinguisherScheme;
     exec.outputPathsMode = outputPathsMode;
     exec.enableRunfiles = enableRunfiles;
@@ -1048,6 +1048,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
 
     exec.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
+
+    // Disable extra actions
+    exec.actionListeners = ImmutableList.of();
     return exec;
   }
 

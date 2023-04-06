@@ -124,11 +124,6 @@ public class ExecutionTransitionFactory
       BuildOptionsView execOptions =
           new BuildOptionsView(options.underlying().createExecOptions(), FRAGMENTS);
 
-      CoreOptions coreOptions = checkNotNull(execOptions.get(CoreOptions.class));
-      coreOptions.isExec = true;
-      // Disable extra actions
-      coreOptions.actionListeners = ImmutableList.of();
-
       // Then set the target to the saved execution platform if there is one.
       PlatformOptions platformOptions = execOptions.get(PlatformOptions.class);
       if (platformOptions != null) {
@@ -154,7 +149,7 @@ public class ExecutionTransitionFactory
 
       // The conditional use of a Builder above may have replaced result and underlying options
       //   with a clone so must refresh it.
-      coreOptions = result.get(CoreOptions.class);
+      CoreOptions coreOptions = result.get(CoreOptions.class);
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
