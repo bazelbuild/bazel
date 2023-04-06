@@ -174,7 +174,7 @@ public final class SandboxModule extends BlazeModule {
    * @throws IOException if there are problems trying to determine the status of windows-sandbox
    */
   private static boolean shouldUseWindowsSandbox(TriState requested, PathFragment binary)
-      throws IOException {
+      throws IOException, InterruptedException {
     switch (requested) {
       case AUTO:
         return WindowsSandboxUtil.isAvailable(binary);

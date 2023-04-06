@@ -68,7 +68,7 @@ public final class CredentialHelper {
    * @return The response from the subprocess.
    */
   public GetCredentialsResponse getCredentials(CredentialHelperEnvironment environment, URI uri)
-      throws IOException {
+      throws IOException, InterruptedException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(uri);
 
@@ -150,7 +150,7 @@ public final class CredentialHelper {
   }
 
   private Subprocess spawnSubprocess(CredentialHelperEnvironment environment, String... args)
-      throws IOException {
+      throws IOException, InterruptedException {
     Preconditions.checkNotNull(environment);
     Preconditions.checkNotNull(args);
 

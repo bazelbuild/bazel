@@ -172,7 +172,7 @@ final class SandboxedWorker extends SingleplexWorker {
   }
 
   @Override
-  protected Subprocess createProcess() throws IOException, UserExecException {
+  protected Subprocess createProcess() throws IOException, UserExecException, InterruptedException {
     ImmutableList<String> args = makeExecPathAbsolute(workerKey.getArgs());
     // TODO(larsrc): Check that execRoot and outputBase are not under /tmp
     if (hardenedSandboxOptions != null) {

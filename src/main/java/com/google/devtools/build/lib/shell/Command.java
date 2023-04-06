@@ -392,7 +392,7 @@ public final class Command implements DescribableExecutionUnit {
   private Subprocess startProcess() throws ExecFailedException {
     try {
       return subprocessBuilder.start();
-    } catch (IOException ioe) {
+    } catch (IOException | InterruptedException ioe) {
       throw new ExecFailedException(this, ioe);
     }
   }

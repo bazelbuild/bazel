@@ -24,5 +24,5 @@ public interface SubprocessFactory {
    *
    * @throws IOException if the underlying file is not executable or cannot be found
    */
-  Subprocess create(SubprocessBuilder params) throws IOException;
+  Subprocess create(SubprocessBuilder params) throws IOException, InterruptedException;
 }

@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -108,6 +109,8 @@ public class CredentialHelperCredentials extends Credentials {
       response = credentialHelper.getCredentials(credentialHelperEnvironment, uri);
     } catch (IOException e) {
       throw new WrappedIOException(e);
+    } catch (InterruptedException e) {
+      throw new WrappedIOException(new InterruptedIOException("Interrupted getting credentials"));
     }
     if (response == null) {
       return null;
