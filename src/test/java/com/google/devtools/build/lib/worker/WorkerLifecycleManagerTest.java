@@ -20,7 +20,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -69,8 +68,7 @@ public final class WorkerLifecycleManagerTest {
   public void testEvictWorkers_doNothing_lowMemoryUsage() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 1), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -99,8 +97,7 @@ public final class WorkerLifecycleManagerTest {
   public void testEvictWorkers_doNothing_zeroThreshold() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 1), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -129,8 +126,7 @@ public final class WorkerLifecycleManagerTest {
   public void testEvictWorkers_doNothing_emptyMetrics() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 1), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -154,8 +150,7 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_selectOnlyWorker() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 1), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 1), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     workerPool.returnObject(key, w1);
@@ -184,8 +179,7 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_evictLargestWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 3), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 3), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -227,8 +221,7 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_evictOnlyIdleWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 3), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 3), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -269,11 +262,7 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_evictDifferentWorkerKeys() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock,
-                entryList("dummy", 2, "smart", 2),
-                emptyEntryList(),
-                Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 2, "smart", 2), emptyEntryList()));
     WorkerKey key1 = createWorkerKey("dummy", fileSystem);
     WorkerKey key2 = createWorkerKey("smart", fileSystem);
     Worker w1 = workerPool.borrowObject(key1);
@@ -329,8 +318,7 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_testDoomedWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 2), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 2), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);
@@ -367,8 +355,7 @@ public final class WorkerLifecycleManagerTest {
   public void testGetEvictionCandidates_testDoomedAndIdleWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("dummy", 5), emptyEntryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 5), emptyEntryList()));
     WorkerKey key = createWorkerKey("dummy", fileSystem);
     Worker w1 = workerPool.borrowObject(key);
     Worker w2 = workerPool.borrowObject(key);

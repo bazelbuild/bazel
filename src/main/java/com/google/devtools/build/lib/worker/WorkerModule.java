@@ -145,10 +145,7 @@ public class WorkerModule extends BlazeModule {
 
     WorkerPoolConfig newConfig =
         new WorkerPoolConfig(
-            workerFactory,
-            options.workerMaxInstances,
-            options.workerMaxMultiplexInstances,
-            options.highPriorityWorkers);
+            workerFactory, options.workerMaxInstances, options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (workerPool == null || !newConfig.equals(workerPool.getWorkerPoolConfig())) {

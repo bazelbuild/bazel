@@ -123,7 +123,6 @@ public class WorkerSpawnRunnerTest {
               }
             },
             ImmutableList.of(),
-            ImmutableList.of(),
             ImmutableList.of()));
   }
 

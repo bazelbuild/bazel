@@ -38,8 +38,6 @@ public interface WorkerPool {
 
   Worker borrowObject(WorkerKey key) throws IOException, InterruptedException;
 
-  boolean couldBeBorrowed(WorkerKey key);
-
   void returnObject(WorkerKey key, Worker obj);
 
   void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException;
