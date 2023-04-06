@@ -2446,7 +2446,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public void resetBuildDriverFunction() {
-    buildDriverFunction.resetActionConflictCheckingStatus();
+    buildDriverFunction.resetStates();
   }
 
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
