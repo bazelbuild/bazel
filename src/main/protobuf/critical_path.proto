@@ -24,10 +24,6 @@ option java_outer_classname = "CriticalPathProtos";
 option java_multiple_files = true;
 
 // Represents the critical path of a build.
-//
-// This is an event in the Build Event Stream (BES) with the following
-// children:
-//   - `build.bazel.bep.CriticalPathComponent`
 message CriticalPath {
   // Identifier of a BES event of this type.
   message BepId {}
