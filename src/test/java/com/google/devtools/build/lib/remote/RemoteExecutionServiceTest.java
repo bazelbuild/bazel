@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -1742,8 +1743,10 @@ public class RemoteExecutionServiceTest {
 
     // arrange
     // Single node NestedSets are folded, so always add a dummy file everywhere.
-    ActionInput dummyFile = ActionInputHelper.fromPath("dummy");
-    fakeFileCache.createScratchInput(dummyFile, "dummy");
+    ActionInput dummyFile = ActionInputHelper.fromPath("file");
+    fakeFileCache.createScratchInput(dummyFile, "file");
+
+    ActionInput tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
 
     ActionInput barFile = ActionInputHelper.fromPath("bar/file");
     NestedSet<ActionInput> nodeBar =
@@ -1763,12 +1766,14 @@ public class RemoteExecutionServiceTest {
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo1)
             .build();
     NestedSet<ActionInput> nodeRoot2 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo2)
             .build();
@@ -1803,15 +1808,31 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn1, context1);
 
     // assert first time
-    // Called for: manifests, runfiles, nodeRoot1, nodeFoo1 and nodeBar.
-    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    assertThat(service.getMerkleTreeCache().asMap().keySet())
+        .containsExactly(
+            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
+            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
 
     // act second time
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
-    // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
-    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    assertThat(service.getMerkleTreeCache().asMap().keySet())
+        .containsExactly(
+            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
+            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
   }
 
   @Test

@@ -65,6 +65,7 @@ public class CcRules implements RuleSet {
     GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     builder.addConfigurationFragment(CppConfiguration.class);
     builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
+    builder.addStarlarkAccessibleTopLevels("cc_proto_aspect", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addNativeAspectClass(graphNodeAspect);
