@@ -244,7 +244,7 @@ public class RuleClass {
      * href="https://github.com/bazelbuild/bazel/issues/12899#issuecomment-767759147}#12899</a>is
      * addressed, so platforms are unconditionally provided for all rules.
      */
-    NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS,
+    ENABLED_ONLY_FOR_COMMON_LOGIC,
     /** The rule should inherit the value from its parent rules. */
     INHERIT;
 
@@ -269,7 +269,7 @@ public class RuleClass {
         case ENABLED:
           return true;
         case DISABLED:
-        case NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS: // Not true for RuleClass, but Rule may
+        case ENABLED_ONLY_FOR_COMMON_LOGIC: // Not true for RuleClass, but Rule may
                                                              // enable it.
           return false;
         default:

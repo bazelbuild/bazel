@@ -1194,7 +1194,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     ToolchainResolutionMode mode = ruleClass.useToolchainResolution();
     if (mode.isActive()) {
       return true;
-    } else if (mode == ToolchainResolutionMode.NEEDS_TOOLCHAIN_RESOLUTION_FOR_SPECIAL_REASONS) {
+    } else if (mode == ToolchainResolutionMode.ENABLED_ONLY_FOR_COMMON_LOGIC) {
       RawAttributeMapper attr = RawAttributeMapper.of(this);
       return ((attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
               && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty())
