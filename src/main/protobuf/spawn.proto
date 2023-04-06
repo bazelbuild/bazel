@@ -60,8 +60,6 @@ message Platform {
 }
 
 // Timing, size, and memory statistics for a SpawnExec.
-//
-// Next id: 21
 message SpawnMetrics {
   // Total wall time spent running a spawn, measured locally.
   google.protobuf.Duration total_time = 1;
