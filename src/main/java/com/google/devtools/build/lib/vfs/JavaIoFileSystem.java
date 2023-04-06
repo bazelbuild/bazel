@@ -176,7 +176,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setReadable(readable);
+    if (!file.setReadable(readable) && readable) {
+      throw new IOException(String.format("Failed to make %s readable", path));
+    }
   }
 
   @Override
@@ -185,7 +187,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setWritable(writable);
+    if (!file.setWritable(writable) && writable) {
+      throw new IOException(String.format("Failed to make %s writable", path));
+    }
   }
 
   @Override
@@ -194,7 +198,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setExecutable(executable);
+    if (!file.setExecutable(executable) && executable) {
+      throw new IOException(String.format("Failed to make %s executable", path));
+    }
   }
 
   @Override
@@ -464,12 +470,12 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
       }
 
       @Override
-      public long getSize() throws IOException {
+      public long getSize() {
         return attributes.size();
       }
 
       @Override
-      public long getLastModifiedTime() throws IOException {
+      public long getLastModifiedTime() {
         return attributes.lastModifiedTime().toMillis();
       }
 
