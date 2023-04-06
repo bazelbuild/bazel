@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
@@ -41,6 +42,13 @@ public class PlatformBaseRule implements RuleDefinition{
                 // No need to show up in ":all", etc. target patterns.
                 .value(ImmutableList.of("manual"))
                 .nonconfigurable("low-level attribute, used in platform configuration"))
+        .override(
+            // A platform is essentially a constant which is never linked into a target.
+            // This will, in a very hacky way, suppress picking up default_applicable_licenses
+            attr("applicable_licenses", BuildType.LABEL_LIST)
+                .value(ImmutableList.of())
+                .allowedFileTypes()
+                .nonconfigurable("fundamental constant, used in platform configuration"))
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
