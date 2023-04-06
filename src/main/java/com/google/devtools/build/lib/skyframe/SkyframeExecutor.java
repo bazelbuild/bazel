@@ -1271,6 +1271,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   public void setBaselineConfiguration(BuildOptions buildOptions) {
     PrecomputedValue.BASELINE_CONFIGURATION.set(injectable(), buildOptions);
+    PrecomputedValue.EXEC_BASELINE_CONFIGURATION.set(injectable(),
+        buildOptions.createExecOptions());
   }
 
   public void injectExtraPrecomputedValues(List<PrecomputedValue.Injected> extraPrecomputedValues) {

@@ -153,6 +153,10 @@ public class ExecutionTransitionFactory
       // TODO(blaze-configurability-team): These updates probably requires a bit too much knowledge
       //   of exactly how the immutable state and mutable state of BuildOptions is interacting.
       //   Might be good to have an option to wipeout that state rather than cloning so much.
+      // Note: It is important for correctness that the platformSuffix encodes whether the current
+      //   configuration is an exec configuration or not as this determines which baseline config
+      //   is used when computing the diff-based output directory suffix with
+      //   --experimental_output_directory_naming_scheme=diff_against_baseline.
       switch (coreOptions.execConfigurationDistinguisherScheme) {
         case LEGACY:
           coreOptions.platformSuffix =

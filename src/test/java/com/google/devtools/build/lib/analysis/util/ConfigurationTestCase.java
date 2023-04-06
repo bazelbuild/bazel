@@ -136,6 +136,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                 BuildOptions.getDefaultBuildOptionsForFragments(
                     ImmutableList.of(CoreOptions.class))),
             PrecomputedValue.injected(
+                PrecomputedValue.EXEC_BASELINE_CONFIGURATION,
+                BuildOptions.getDefaultBuildOptionsForFragments(
+                    ImmutableList.of(CoreOptions.class)).createExecOptions()),
+            PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),

@@ -98,6 +98,8 @@ public final class PrecomputedValue implements SkyValue {
   // Unsharable because of complications in deserializing BuildOptions on startup due to caching.
   public static final Precomputed<BuildOptions> BASELINE_CONFIGURATION =
       new Precomputed<>("baseline_configuration", /*shareable=*/ false);
+  public static final Precomputed<BuildOptions> EXEC_BASELINE_CONFIGURATION =
+      new Precomputed<>("exec_baseline_configuration", /*shareable=*/ false);
 
   private final Object value;
 

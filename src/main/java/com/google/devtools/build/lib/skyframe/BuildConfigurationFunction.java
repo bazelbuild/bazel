@@ -100,7 +100,9 @@ public final class BuildConfigurationFunction implements SkyFunction {
       if (platformMappingValue == null) {
         return null;
       }
-      BuildOptions baselineOptions = PrecomputedValue.BASELINE_CONFIGURATION.get(env);
+      BuildOptions baselineOptions = targetOptions.get(CoreOptions.class).isExec
+          ? PrecomputedValue.EXEC_BASELINE_CONFIGURATION.get(env)
+          : PrecomputedValue.BASELINE_CONFIGURATION.get(env);
       try {
         BuildOptions mappedBaselineOptions =
             BuildConfigurationKey.withPlatformMapping(platformMappingValue, baselineOptions)
