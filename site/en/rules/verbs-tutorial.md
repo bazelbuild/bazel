@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Using Macros to Create Custom Verbs
 
+{% include "_buttons.html" %}
+
 Day-to-day interaction with Bazel happens primarily through a few commands:
 `build`, `test`, and `run`. At times, though, these can feel limited: you may
 want to push packages to a repository, publish documentation for end-users, or
@@ -68,7 +70,7 @@ learn to recognize it.
 
 ## Adapting your own rules
 
-[Macros](/rules/macros) are the heart of this pattern. Macros are used like
+[Macros](/extending/macros) are the heart of this pattern. Macros are used like
 rules, but they can create several targets. Typically, they will create a
 target with the specified name which performs the primary build action: perhaps
 it builds a normal binary, a Docker image, or an archive of source code. In

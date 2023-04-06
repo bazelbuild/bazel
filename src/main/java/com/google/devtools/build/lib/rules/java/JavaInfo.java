@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -292,7 +291,7 @@ public final class JavaInfo extends NativeInfo
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider::getDirectCompileTimeJars);
-    return Depset.of(Artifact.TYPE, compileTimeJars);
+    return Depset.of(Artifact.class, compileTimeJars);
   }
 
   @Override
@@ -301,7 +300,7 @@ public final class JavaInfo extends NativeInfo
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider::getDirectFullCompileTimeJars);
-    return Depset.of(Artifact.TYPE, fullCompileTimeJars);
+    return Depset.of(Artifact.class, fullCompileTimeJars);
   }
 
   @Override
@@ -347,7 +346,7 @@ public final class JavaInfo extends NativeInfo
   @Override
   public Depset /*<Artifact>*/ getTransitiveDeps() {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class,
             JavaCompilationArgsProvider::getTransitiveCompileTimeJars));
@@ -356,7 +355,7 @@ public final class JavaInfo extends NativeInfo
   @Override
   public Depset /*<Artifact>*/ getTransitiveRuntimeDeps() {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getProviderAsNestedSet(
             JavaCompilationArgsProvider.class, JavaCompilationArgsProvider::getRuntimeJars));
   }
@@ -364,7 +363,7 @@ public final class JavaInfo extends NativeInfo
   @Override
   public Depset /*<Artifact>*/ getTransitiveSourceJars() {
     return Depset.of(
-        Artifact.TYPE,
+        Artifact.class,
         getProviderAsNestedSet(
             JavaSourceJarsProvider.class, JavaSourceJarsProvider::getTransitiveSourceJars));
   }
@@ -378,7 +377,7 @@ public final class JavaInfo extends NativeInfo
 
   @Override
   public Depset /*<LibraryToLink>*/ getTransitiveNativeLibrariesForStarlark() {
-    return Depset.of(LibraryToLink.TYPE, getTransitiveNativeLibraries());
+    return Depset.of(LibraryToLink.class, getTransitiveNativeLibraries());
   }
 
   @Override

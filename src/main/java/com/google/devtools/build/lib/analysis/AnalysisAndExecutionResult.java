@@ -17,9 +17,10 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -29,14 +30,16 @@ import javax.annotation.Nullable;
  * https://github.com/bazelbuild/bazel/issues/14057. Internal: b/147350683.
  */
 public final class AnalysisAndExecutionResult extends AnalysisResult {
+  private final DetailedExitCode executionDetailedExitCode;
 
   AnalysisAndExecutionResult(
-      BuildConfigurationCollection configurations,
+      BuildConfigurationValue configuration,
       ImmutableSet<ConfiguredTarget> targetsToBuild,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       @Nullable ImmutableSet<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
-      @Nullable FailureDetail failureDetail,
+      @Nullable FailureDetail analysisFailureDetail,
+      @Nullable DetailedExitCode executionDetailedExitCode,
       ImmutableSet<Artifact> artifactsToBuild,
       ImmutableSet<ConfiguredTarget> parallelTests,
       ImmutableSet<ConfiguredTarget> exclusiveTests,
@@ -45,20 +48,26 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       String workspaceName,
       Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     super(
-        configurations,
+        configuration,
         targetsToBuild,
         aspects,
         targetsToTest,
         targetsToSkip,
-        failureDetail,
-        /*actionGraph=*/ null,
+        analysisFailureDetail,
+        /* actionGraph= */ null,
         artifactsToBuild,
         parallelTests,
         exclusiveTests,
         exclusiveIfLocalTests,
         topLevelContext,
-        /*packageRoots=*/ null,
+        /* packageRoots= */ null,
         workspaceName,
         topLevelTargetsWithConfigs);
+    this.executionDetailedExitCode = executionDetailedExitCode;
+  }
+
+  @Nullable
+  public DetailedExitCode getExecutionDetailedExitCode() {
+    return executionDetailedExitCode;
   }
 }

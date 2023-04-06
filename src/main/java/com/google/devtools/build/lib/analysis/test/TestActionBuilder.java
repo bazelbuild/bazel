@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfPairAction;
+import com.google.devtools.build.lib.analysis.actions.LazyWriteNestedSetOfTupleAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
@@ -187,6 +187,16 @@ public final class TestActionBuilder {
     return this;
   }
 
+  private ActionOwner getTestActionOwner() {
+    if (this.executionRequirements != null) {
+      ActionOwner owner = ruleContext.getActionOwner(this.executionRequirements.getExecGroup());
+      if (owner != null) {
+        return owner;
+      }
+    }
+    return ruleContext.getTestActionOwner();
+  }
+
   private ActionOwner getOwner() {
     ActionOwner owner =
         ruleContext.getActionOwner(
@@ -236,14 +246,14 @@ public final class TestActionBuilder {
 
     Artifact testActionExecutable =
         isUsingTestWrapperInsteadOfTestSetupScript
-            ? ruleContext.getHostPrerequisiteArtifact("$test_wrapper")
-            : ruleContext.getHostPrerequisiteArtifact("$test_setup_script");
+            ? ruleContext.getPrerequisiteArtifact("$test_wrapper")
+            : ruleContext.getPrerequisiteArtifact("$test_setup_script");
 
     inputsBuilder.add(testActionExecutable);
     Artifact testXmlGeneratorExecutable =
         isUsingTestWrapperInsteadOfTestSetupScript
-            ? ruleContext.getHostPrerequisiteArtifact("$xml_writer")
-            : ruleContext.getHostPrerequisiteArtifact("$xml_generator_script");
+            ? ruleContext.getPrerequisiteArtifact("$xml_writer")
+            : ruleContext.getPrerequisiteArtifact("$xml_generator_script");
     inputsBuilder.add(testXmlGeneratorExecutable);
 
     Artifact collectCoverageScript = null;
@@ -256,7 +266,7 @@ public final class TestActionBuilder {
 
     TestTargetExecutionSettings executionSettings;
     if (collectCodeCoverage) {
-      collectCoverageScript = ruleContext.getHostPrerequisiteArtifact("$collect_coverage_script");
+      collectCoverageScript = ruleContext.getPrerequisiteArtifact("$collect_coverage_script");
       inputsBuilder.add(collectCoverageScript);
       inputsBuilder.addTransitive(instrumentedFiles.getCoverageSupportFiles());
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
@@ -272,8 +282,7 @@ public final class TestActionBuilder {
               .getAllArtifacts());
 
       if (ruleContext.isAttrDefined("$collect_cc_coverage", LABEL)) {
-        Artifact collectCcCoverage =
-            ruleContext.getHostPrerequisiteArtifact("$collect_cc_coverage");
+        Artifact collectCcCoverage = ruleContext.getPrerequisiteArtifact("$collect_cc_coverage");
         inputsBuilder.add(collectCcCoverage);
         extraTestEnv.put(CC_CODE_COVERAGE_SCRIPT, collectCcCoverage.getExecPathString());
       }
@@ -283,10 +292,11 @@ public final class TestActionBuilder {
             ruleContext.getUniqueDirectoryArtifact(
                 "_coverage_helpers", "reported_to_actual_sources.txt");
         ruleContext.registerAction(
-            new LazyWriteNestedSetOfPairAction(
+            new LazyWriteNestedSetOfTupleAction(
                 ruleContext.getActionOwner(),
                 reportedToActualSourcesArtifact,
-                instrumentedFiles.getReportedToActualSources()));
+                instrumentedFiles.getReportedToActualSources(),
+                ":"));
         inputsBuilder.add(reportedToActualSourcesArtifact);
         extraTestEnv.put(
             COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE,
@@ -379,11 +389,15 @@ public final class TestActionBuilder {
           SingleRunfilesSupplier.createCaching(
               runfilesSupport.getRunfilesDirectoryExecPath(),
               runfilesSupport.getRunfiles(),
+              runfilesSupport.getRepoMappingManifest(),
               runfilesSupport.isBuildRunfileLinks(),
               runfilesSupport.isRunfilesEnabled());
     } else {
       testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
     }
+
+    ActionOwner actionOwner =
+        testConfiguration.useTargetPlatformForTests() ? getTestActionOwner() : getOwner();
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {
@@ -428,7 +442,7 @@ public final class TestActionBuilder {
         // TODO(b/234923262): Take exec_group into consideration when selecting sh tools
         TestRunnerAction testRunnerAction =
             new TestRunnerAction(
-                getOwner(),
+                actionOwner,
                 inputs,
                 testRunfilesSupplier,
                 testActionExecutable,
@@ -480,6 +494,9 @@ public final class TestActionBuilder {
       TransitiveInfoCollection reportGeneratorTarget =
           ruleContext.getPrerequisite(":coverage_report_generator");
       reportGenerator = reportGeneratorTarget.getProvider(FilesToRunProvider.class);
+      if (reportGenerator.getExecutable() == null) {
+        ruleContext.ruleError("--coverage_report_generator does not refer to an executable target");
+      }
     }
 
     return new TestParams(

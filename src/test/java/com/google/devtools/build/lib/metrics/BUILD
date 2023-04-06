@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -8,7 +9,9 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["*"]),
+    srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 

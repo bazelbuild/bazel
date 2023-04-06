@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Use labels to reference targets
 
+{% include "_buttons.html" %}
+
 In `BUILD` files and at the command line, Bazel uses *labels* to reference
 targets - for example, `//main:hello-world` or `//lib:hello-time`. Their syntax
 is:

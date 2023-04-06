@@ -105,14 +105,14 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
    * @throws IOException if there is a problem starting the process
    */
   static SandboxfsProcess mount(PathFragment binary, Path mountPoint, Path logFile)
-      throws IOException {
+      throws IOException, InterruptedException {
     logger.atInfo().log("Mounting sandboxfs (%s) onto %s", binary, mountPoint);
 
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("sandboxfs", SemVer::parse);
     SemVer version;
     try {
       version = parser.fromProgram(binary);
-    } catch (IOException | ParseException e) {
+    } catch (IOException | ParseException | InterruptedException e) {
       throw new IOException("Failed to get sandboxfs version from " + binary, e);
     }
 

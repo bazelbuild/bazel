@@ -356,8 +356,8 @@ public class BuildOptionDetailsTest {
     BuildOptionDetails details =
         BuildOptionDetails.forOptions(
             parseOptions(ImmutableList.of(Options.class)),
-            ImmutableMap.of(Label.parseAbsoluteUnchecked("//test:setting"), "value"));
-    assertThat(details.getOptionValue(Label.parseAbsoluteUnchecked("//test:setting")))
+            ImmutableMap.of(Label.parseCanonicalUnchecked("//test:setting"), "value"));
+    assertThat(details.getOptionValue(Label.parseCanonicalUnchecked("//test:setting")))
         .isEqualTo("value");
   }
 }

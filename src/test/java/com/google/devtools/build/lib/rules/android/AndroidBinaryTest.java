@@ -1649,7 +1649,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             actionsTestUtil()
                 .getActionForArtifactEndingWith(getFilesToBuild(output), "_proguard.jar");
     Artifact jkrunchyExecutable =
-        getHostConfiguredTarget("//java/com/google/devtools/build/jkrunchy")
+        getExecConfiguredTarget("//java/com/google/devtools/build/jkrunchy")
             .getProvider(FilesToRunProvider.class)
             .getExecutable();
     assertWithMessage("ProGuard implementation was not correctly taken from the configuration")
@@ -2223,7 +2223,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
             + libResources.getManifest().getExecPathString());
 
     // the "validation artifact" shouldn't be used for creating the top-level resources.jar,
-    // but it's still fed as an pseudo-input to trigger validation.
+    // but it's still fed as a pseudo-input to trigger validation.
     MoreAsserts.assertDoesNotContainSublist(
         topLevelResourceClassAction.getArguments(),
         "--library",
@@ -3774,7 +3774,7 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget ct = getConfiguredTarget("//java/com/foo:foo");
     assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getStarlarkOptions())
-        .containsExactly(Label.parseAbsoluteUnchecked("//java/com/foo:flag1"));
+        .containsExactly(Label.parseCanonicalUnchecked("//java/com/foo:flag1"));
   }
 
   @Test

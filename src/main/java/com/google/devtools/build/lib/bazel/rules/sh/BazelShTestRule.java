@@ -32,16 +32,19 @@ public final class BazelShTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     // TODO(bazel-team): Add :lcov_merger to every test rule as opposed to particular rules.
     builder
-        .add(attr(":lcov_merger", LABEL).value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
+        .add(
+            attr(":lcov_merger", LABEL)
+                .cfg(ExecutionTransitionFactory.createFactory())
+                .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         .add(
             attr("$launcher", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(environment.getToolsLabel("//tools/launcher:launcher")))
         // Add the script as an attribute in order for sh_test to output code coverage results for
         // code covered by CC binaries invocations.
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(environment.getToolsLabel("//tools/test:collect_cc_coverage")));
     return builder.build();

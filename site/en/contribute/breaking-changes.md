@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Guide for rolling out breaking changes
 
+{% include "_buttons.html" %}
+
 It is inevitable that we will make breaking changes to Bazel. We will have to
 change our designs and fix the things that do not quite work. However, we need
 to make sure that community and Bazel ecosystem can follow along. To that end,
@@ -17,7 +19,9 @@ change in Bazel to adhere to this policy.
 
 1. [Implement the change.](#implementation)
 
-1. [Update labels](#labels)
+1. [Update labels.](#labels)
+
+1. [Update repositories.](#update-repos)
 
 1. [Flip the incompatible flag.](#flip-flag)
 
@@ -89,16 +93,21 @@ If you plan to flip the flag in the next major release, add label `breaking-chan
 
 Bazel CI tests a list of important projects at
 [Bazel@HEAD + Downstream](https://buildkite.com/bazel/bazel-at-head-plus-downstream){: .external}. Most of them are often
-dependencies of other Bazel projects, therefore it's important to migrate them to unblock the migration for the broader community.
+dependencies of other Bazel projects, therefore it's important to migrate them to unblock the migration for the broader community. To monitor the migration status of those projects, you can use the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external}.
+Check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects){: .external}.
 
-To monitor the migration status of those projects, you can use the
-[`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
-check how this pipeline works [here](https://github.com/bazelbuild/continuous-integration/tree/master/buildkite#checking-incompatible-changes-status-for-downstream-projects){: .external}.
+Our dev support team monitors the [`migration-ready`](https://github.com/bazelbuild/bazel/labels/migration-ready){: .external} label. Once you add this label to the GitHub issue, they will handle the following:
 
-Migrating projects in the downstream pipeline is NOT entirely the responsibility of the incompatible change author. But you can do the following to accelerate the migration and make life easier for both Bazel users and the Bazel Green Team.
+1. Create a comment in the GitHub issue to track the list of failures and downstream projects that need to be migrated ([see example](https://github.com/bazelbuild/bazel/issues/17032#issuecomment-1353077469){: .external})
 
-1. File Github issues to notify the owners of the downstream projects broken by your incompatible change.
+1. File Github issues to notify the owners of every downstream project broken by your incompatible change ([see example](https://github.com/bazelbuild/intellij/issues/4208){: .external})
+
+1. Follow up to make sure all issues are addressed before the target release date
+
+Migrating projects in the downstream pipeline is NOT entirely the responsibility of the incompatible change author, but you can do the following to accelerate the migration and make life easier for both Bazel users and the Bazel Green Team.
+
 1. Send PRs to fix downstream projects.
+
 1. Reach out to the Bazel community for help on migration (e.g. [Bazel Rules Authors SIG](https://bazel-contrib.github.io/SIG-rules-authors/)).
 
 ## Flipping the flag {:#flip-flag}
@@ -109,6 +118,8 @@ Before flipping the default value of the flag to true, please make sure that:
 
     On the [`bazelisk-plus-incompatible-flags` pipeline](https://buildkite.com/bazel/bazelisk-plus-incompatible-flags){: .external},
     the flag should appear under `The following flags didn't break any passing Bazel team owned/co-owned projects`.
+
+* All issues in the checklist are marked as fixed/closed.
 
 * User concerns and questions have been resolved.
 

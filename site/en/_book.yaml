@@ -86,7 +86,7 @@ upper_tabs:
       - title: Platforms
         path: /concepts/platforms
       - title: Hermeticity
-        path: /concepts/hermeticity
+        path: /basics/hermeticity
 
 - name: User guide
   heading: Guides and tutorials for learning to use Bazel
@@ -108,10 +108,6 @@ upper_tabs:
         path: /build/style-guide
       - title: Share variables
         path: /build/share-variables
-      - title: External dependencies
-        path: /build/external
-      - title: Manage dependencies with Bzlmod
-        path: /build/bzlmod
       - title: Recommended rules
         path: /community/recommended-rules
       - heading: Running Bazel
@@ -125,11 +121,24 @@ upper_tabs:
         path: /run/scripts
       - title: Client/server implementation
         path: /run/client-server
+      - heading: External dependencies
+      - title: Overview
+        path: /external/overview
+      - title: Bazel modules
+        path: /external/module
+      - title: Bazel registries
+        path: /external/registry
+      - title: Module extensions
+        path: /external/extension
+      - title: Advanced topics
+        path: /external/advanced
       - heading: Querying your build
       - title: Query quickstart
         path: /query/quickstart
       - title: Query language
         path: /query/language
+      - title: Query guide
+        path: /query/guide
       - title: Action graph query (aquery)
         path: /query/aquery
       - title: Configurable query (cquery)
@@ -148,10 +157,17 @@ upper_tabs:
       - heading: Optimizing Bazel
       - title: Best practices
         path: /configure/best-practices
-      - title: Optimize memory
-        path: /configure/memory
       - title: Using Bazel on Windows
         path: /configure/windows
+      - heading: Build performance
+      - title: Extracting build performance metrics
+        path: /advanced/performance/build-performance-metrics
+      - title: Breaking down build performance
+        path: /advanced/performance/build-performance-breakdown
+      - title: JSON trace profile
+        path: /advanced/performance/json-trace-profile
+      - title: Optimize memory
+        path: /advanced/performance/memory
     - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)
@@ -167,7 +183,7 @@ upper_tabs:
         path: /remote/caching
       - heading: Troubleshooting
       - title: Docker Sandbox
-        path: /remote/sandboxing
+        path: /remote/sandbox
       - title: Non-hermetic WORKSPACE rules
         path: /remote/workspace
       - title: Remote cache hits
@@ -227,7 +243,7 @@ upper_tabs:
     - name: Query language
       contents:
       - title: Query reference
-        path: /reference/query
+        path: /query/language
     - name: Glossary
       contents:
       - title: Glossary
@@ -254,6 +270,8 @@ upper_tabs:
         path: /extending/repo
       - title: Configuring
         path: /extending/config
+      - title: Platforms and toolchains
+        path: /extending/platforms
     - name: Writing rules
       contents:
       - title: Creating a rule
@@ -291,8 +309,6 @@ upper_tabs:
         status: external
     - name: Design docs
       contents:
-      - title: Platforms
-        path: /extending/platforms
       - title: Execution groups
         path: /extending/exec-groups
       - title: Toolchains
@@ -342,7 +358,7 @@ upper_tabs:
       - title: Bazel users
         path: /community/users
       - title: Nominate a recommended rule
-        path: /contribute/recommended-rules
+        path: /community/recommended-rules
       - title: Remote execution services
         path: /community/remote-execution-services
     - name: Getting help

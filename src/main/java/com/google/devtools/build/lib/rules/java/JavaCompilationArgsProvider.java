@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
 import java.util.Iterator;
 
 /** A collection of recursively collected Java build information. */
@@ -192,14 +190,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
     return javaCompilationArgs.build();
   }
 
-  /**
-   * Returns a {@link JavaCompilationArgsProvider} that forwards the union of information from the
-   * inputs, see {@link #merge(Collection<JavaCompilationArgsProvider>)}.
-   */
-  public static JavaCompilationArgsProvider merge(JavaCompilationArgsProvider... providers) {
-    return merge(ImmutableList.copyOf(providers));
-  }
-
   /** Returns a new builder instance. */
   public static final Builder builder() {
     return new Builder();
@@ -240,14 +230,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       return this;
     }
 
-    /**
-     * Legacy method for dealing with objects which construct {@link JavaCompilationArtifacts}
-     * objects.
-     */
-    public Builder merge(JavaCompilationArtifacts other) {
-      return merge(other, /* isNeverLink= */ false);
-    }
-
     @CanIgnoreReturnValue
     public Builder addRuntimeJar(Artifact runtimeJar) {
       this.runtimeJarsBuilder.add(runtimeJar);
@@ -281,20 +263,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       return this;
     }
 
-    /**
-     * Adds transitive interface compile-time jars.
-     *
-     * @deprecated this is necessary to support java_common.create_provider, which is also
-     *     deprecated. It allows creating providers where the direct compile-time jars aren't a
-     *     subset of the transitive jars, and it doesn't provide a way to associate the 'full' jars.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    public Builder addTransitiveCompileTimeJars(NestedSet<Artifact> transitiveCompileTimeJars) {
-      this.transitiveCompileTimeJarsBuilder.addTransitive(transitiveCompileTimeJars);
-      return this;
-    }
-
     @CanIgnoreReturnValue
     public Builder addCompileTimeJavaDependencyArtifacts(
         NestedSet<Artifact> compileTimeJavaDependencyArtifacts) {
@@ -319,14 +287,6 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
      */
     public Builder addExports(JavaCompilationArgsProvider args, ClasspathType type) {
       return addArgs(args, type, true);
-    }
-
-    /**
-     * Add the {@link JavaCompilationArgsProvider} for a dependency with dep-like semantics; see
-     * also {@link #addDeps(JavaCompilationArgsProvider, ClasspathType)}.
-     */
-    public Builder addDeps(JavaCompilationArgsProvider args) {
-      return addDeps(args, ClasspathType.BOTH);
     }
 
     /*

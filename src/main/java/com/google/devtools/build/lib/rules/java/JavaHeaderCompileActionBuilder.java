@@ -355,8 +355,7 @@ public class JavaHeaderCompileActionBuilder {
             : javaToolchain.getHeaderCompiler();
     // The header compiler is either a jar file that needs to be executed using
     // `java -jar <path>`, or an executable that can be run directly.
-    CustomCommandLine.Builder executableLine =
-        headerCompiler.buildCommandLine(javaToolchain, mandatoryInputsBuilder);
+    headerCompiler.addInputs(javaToolchain, mandatoryInputsBuilder);
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
             .addExecPath("--output", outputJar)
@@ -409,6 +408,11 @@ public class JavaHeaderCompileActionBuilder {
       NestedSet<Artifact> allInputs = mandatoryInputsBuilder.build();
       boolean stripOutputPaths =
           JavaCompilationHelper.stripOutputPaths(allInputs, ruleContext.getConfiguration());
+      @Nullable
+      PathFragment strippedOutputBase =
+          stripOutputPaths ? JavaCompilationHelper.outputBase(outputJar) : null;
+      CustomCommandLine executableLine =
+          headerCompiler.getCommandLine(javaToolchain, strippedOutputBase);
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer =
           createResultConsumer(
               outputDepsProto,
@@ -419,10 +423,8 @@ public class JavaHeaderCompileActionBuilder {
               /*insertDependencies=*/ classpathMode == JavaClasspathMode.BAZEL,
               stripOutputPaths);
 
-      if (stripOutputPaths) {
-        PathFragment outputBase = JavaCompilationHelper.outputBase(outputJar);
-        commandLine.stripOutputPaths(outputBase);
-        executableLine.stripOutputPaths(outputBase);
+      if (strippedOutputBase != null) {
+        commandLine.stripOutputPaths(strippedOutputBase);
       }
 
       ruleContext.registerAction(
@@ -434,7 +436,7 @@ public class JavaHeaderCompileActionBuilder {
               /* primaryOutput= */ outputJar,
               /* resourceSetOrBuilder= */ AbstractAction.DEFAULT_RESOURCE_SET,
               /* commandLines= */ CommandLines.builder()
-                  .addCommandLine(executableLine.build())
+                  .addCommandLine(executableLine)
                   .addCommandLine(commandLine.build(), PARAM_FILE_INFO)
                   .build(),
               /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
@@ -449,7 +451,7 @@ public class JavaHeaderCompileActionBuilder {
               /* executeUnconditionally= */ false,
               /* extraActionInfoSupplier= */ null,
               /* resultConsumer= */ resultConsumer,
-              /*stripOutputPaths= */ stripOutputPaths));
+              /* stripOutputPaths= */ stripOutputPaths));
       return;
     }
 
@@ -476,7 +478,8 @@ public class JavaHeaderCompileActionBuilder {
     }
 
     NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
-    boolean stripOutputPaths =
+
+    boolean pathStrippingEnabled =
         JavaCompilationHelper.stripOutputPaths(
             NestedSetBuilder.<Artifact>stableOrder()
                 .addTransitive(mandatoryInputs)
@@ -484,11 +487,14 @@ public class JavaHeaderCompileActionBuilder {
                 .addTransitive(compileTimeDependencyArtifacts)
                 .build(),
             ruleContext.getConfiguration());
-    if (stripOutputPaths) {
-      PathFragment outputBase = JavaCompilationHelper.outputBase(outputJar);
-      commandLine.stripOutputPaths(outputBase);
-      executableLine.stripOutputPaths(outputBase);
+
+    PathFragment strippedOutputBase =
+        pathStrippingEnabled ? JavaCompilationHelper.outputBase(outputJar) : null;
+    if (strippedOutputBase != null) {
+      commandLine.stripOutputPaths(strippedOutputBase);
     }
+    CustomCommandLine executableLine =
+        headerCompiler.getCommandLine(javaToolchain, strippedOutputBase);
 
     ruleContext.registerAction(
         new JavaCompileAction(
@@ -504,7 +510,7 @@ public class JavaHeaderCompileActionBuilder {
             /* outputs= */ outputs.build(),
             /* executionInfo= */ executionInfo,
             /* extraActionInfoSupplier= */ null,
-            /* executableLine= */ executableLine.build(),
+            /* executableLine= */ executableLine,
             /* flagLine= */ commandLine.build(),
             /* configuration= */ ruleContext.getConfiguration(),
             /* dependencyArtifacts= */ compileTimeDependencyArtifacts,

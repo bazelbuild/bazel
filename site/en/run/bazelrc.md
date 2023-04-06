@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Write bazelrc configuration files
 
+{% include "_buttons.html" %}
 
 Bazel accepts many options. Some options are varied frequently (for example,
 `--subcommands`) while others stay the same across several builds (such as
@@ -231,9 +232,10 @@ line. Entries are relative to the workspace root.
 ### The global bazelrc file {:#global-bazelrc}
 
 Bazel reads optional bazelrc files in this order:
-- System rc-file located at `etc/bazel.bazelrc`.
-- Workspace rc-file located at `$workspace/tools/bazel.rc`.
-- Home rc-file located at `$HOME/.bazelrc`
+
+1.  System rc-file located at `etc/bazel.bazelrc`.
+2.  Workspace rc-file located at `$workspace/tools/bazel.rc`.
+3.  Home rc-file located at `$HOME/.bazelrc`
 
 Each bazelrc file listed here has a corresponding flag which can be used to
 disable them (e.g. `--nosystem_rc`, `--noworkspace_rc`, `--nohome_rc`). You can

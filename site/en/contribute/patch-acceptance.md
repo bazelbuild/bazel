@@ -3,10 +3,12 @@ Book: /_book.yaml
 
 # Patch Acceptance Process
 
+{% include "_buttons.html" %}
+
 This page outlines how contributors can propose and make changes to the Bazel
 code base.
 
-1. Read the [Bazel Contribution policy](/contribute/contribution-policy).
+1. Read the [Bazel Contribution policy](/contribute/policy).
 1. Create a [GitHub issue](https://github.com/bazelbuild/bazel/){: .external} to
    discuss your plan and design. Pull requests that change or add behavior
    need a corresponding issue for tracking.

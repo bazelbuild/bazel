@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -64,12 +65,27 @@ class DeterministicInMemoryGraph extends DeterministicHelper.DeterministicProces
   }
 
   @Override
-  public Map<SkyKey, InMemoryNodeEntry> getAllValues() {
-    return ((InMemoryGraph) delegate).getAllValues();
+  public Map<SkyKey, SkyValue> getDoneValues() {
+    return ((InMemoryGraph) delegate).getDoneValues();
   }
 
   @Override
-  public ConcurrentHashMap<SkyKey, InMemoryNodeEntry> getAllValuesMutable() {
-    return ((InMemoryGraph) delegate).getAllValuesMutable();
+  public Collection<InMemoryNodeEntry> getAllNodeEntries() {
+    return ((InMemoryGraph) delegate).getAllNodeEntries();
+  }
+
+  @Override
+  public void parallelForEach(Consumer<InMemoryNodeEntry> consumer) {
+    ((InMemoryGraph) delegate).parallelForEach(consumer);
+  }
+
+  @Override
+  public void cleanupInterningPool() {
+    ((InMemoryGraph) delegate).cleanupInterningPool();
+  }
+
+  @Override
+  public void removeIfDone(SkyKey key) {
+    ((InMemoryGraph) delegate).removeIfDone(key);
   }
 }

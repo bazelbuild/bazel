@@ -66,7 +66,7 @@ string GetOutputRoot() {
   struct passwd *pw = nullptr;
   int uid = getuid();
   int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
-  if (r != -1 && pw != nullptr) {
+  if (r == 0 && pw != nullptr) {
     return blaze_util::JoinPath(pw->pw_dir, ".cache/bazel");
   } else {
     return "/tmp";

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Intro to Bazel
 
+{% include "_buttons.html" %}
+
 Bazel is an open-source build and test tool similar to Make, Maven, and Gradle.
 It uses a human-readable, high-level build language. Bazel supports projects in
 multiple languages and builds outputs for multiple platforms. Bazel supports
@@ -67,7 +69,7 @@ To build or test a project with Bazel, you typically do the following:
    places your outputs within the workspace.
 
 In addition to building, you can also use Bazel to run
-[tests](/reference/test-encyclopedia) and [query](/docs/query-how-to) the build
+[tests](/reference/test-encyclopedia) and [query](/query/guide) the build
 to trace dependencies in your code.
 
 ## Bazel build process {:#bazel-build-process}
@@ -78,7 +80,7 @@ When running a build or a test, Bazel does the following:
 
 2.  **Analyzes** the inputs and their
     [dependencies](/concepts/dependencies), applies the specified build
-    rules, and produces an [action](/rules/concepts#evaluation-model)
+    rules, and produces an [action](/extending/concepts#evaluation-model)
     graph.
 
 3.  **Executes** the build actions on the inputs until the final build outputs
@@ -87,24 +89,24 @@ When running a build or a test, Bazel does the following:
 Since all previous build work is cached, Bazel can identify and reuse cached
 artifacts and only rebuild or retest what's changed. To further enforce
 correctness, you can set up Bazel to run builds and tests
-[hermetically](/concepts/hermeticity) through sandboxing, minimizing skew
-and maximizing [reproducibility](/docs/build#correct-incremental-rebuilds).
+[hermetically](/basics/hermeticity) through sandboxing, minimizing skew
+and maximizing [reproducibility](/run/build#correct-incremental-rebuilds).
 
 ### Action graph {:#action-graph}
 
 The action graph represents the build artifacts, the relationships between them,
 and the build actions that Bazel will perform. Thanks to this graph, Bazel can
-[track](/docs/build#build-consistency) changes to
+[track](/run/build#build-consistency) changes to
 file content as well as changes to actions, such as build or test commands, and
 know what build work has previously been done. The graph also enables you to
-easily [trace dependencies](/docs/query-how-to) in your code.
+easily [trace dependencies](/query/guide) in your code.
 
 ## Getting started tutorials {:#getting-started-tutorials}
 
-To get started with Bazel, see [Getting Started](/start/getting-started) or jump
+To get started with Bazel, see [Getting Started](/start/) or jump
 directly to the Bazel tutorials:
 
-*   [Tutorial: Build a C++ Project](/tutorials/cpp)
-*   [Tutorial: Build a Java Project](/tutorials/java)
-*   [Tutorial: Build an Android Application](/tutorials/android-app)
-*   [Tutorial: Build an iOS Application](/tutorials/ios-app)
+*   [Tutorial: Build a C++ Project](/start/cpp)
+*   [Tutorial: Build a Java Project](/start/java)
+*   [Tutorial: Build an Android Application](/start/android-app )
+*   [Tutorial: Build an iOS Application](/start/ios-app))

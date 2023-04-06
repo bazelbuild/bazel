@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
@@ -38,64 +39,51 @@ public final class IntermediateArtifacts implements StarlarkValue {
   private final RuleContext ruleContext;
   private final BuildConfigurationValue buildConfiguration;
   private final String archiveFileNameSuffix;
-  private final String outputPrefix;
   private final UmbrellaHeaderStrategy umbrellaHeaderStrategy;
+  private final boolean alwaysLinkLibraryExtension;
 
-  IntermediateArtifacts(
-      RuleContext ruleContext, String archiveFileNameSuffix, String outputPrefix) {
+  IntermediateArtifacts(RuleContext ruleContext) {
     this(
         ruleContext,
-        archiveFileNameSuffix,
-        outputPrefix,
+        /* archiveFileNameSuffix= */ "",
         ruleContext.getConfiguration(),
-        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
+        UmbrellaHeaderStrategy.DO_NOT_GENERATE,
+        /* alwaysLinkLibraryExtension= */ true);
   }
 
-  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
+  IntermediateArtifacts(RuleContext ruleContext, BuildConfigurationValue buildConfiguration) {
     this(
         ruleContext,
-        archiveFileNameSuffix,
-        "",
-        ruleContext.getConfiguration(),
-        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
-  }
-
-  IntermediateArtifacts(
-      RuleContext ruleContext,
-      String archiveFileNameSuffix,
-      UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
-    this(
-        ruleContext,
-        archiveFileNameSuffix,
-        "",
-        ruleContext.getConfiguration(),
-        umbrellaHeaderStrategy);
-  }
-
-  IntermediateArtifacts(
-      RuleContext ruleContext,
-      String archiveFileNameSuffix,
-      String outputPrefix,
-      BuildConfigurationValue buildConfiguration) {
-    this(
-        ruleContext,
-        archiveFileNameSuffix,
-        outputPrefix,
+        /* archiveFileNameSuffix= */ "",
         buildConfiguration,
-        UmbrellaHeaderStrategy.DO_NOT_GENERATE);
+        UmbrellaHeaderStrategy.DO_NOT_GENERATE,
+        /* alwaysLinkLibraryExtension= */ true);
   }
 
   IntermediateArtifacts(
       RuleContext ruleContext,
       String archiveFileNameSuffix,
-      String outputPrefix,
+      UmbrellaHeaderStrategy umbrellaHeaderStrategy,
+      boolean alwaysLinkLibraryExtension) {
+    this(
+        ruleContext,
+        archiveFileNameSuffix,
+        ruleContext.getConfiguration(),
+        umbrellaHeaderStrategy,
+        alwaysLinkLibraryExtension);
+  }
+
+  IntermediateArtifacts(
+      RuleContext ruleContext,
+      String archiveFileNameSuffix,
       BuildConfigurationValue buildConfiguration,
-      UmbrellaHeaderStrategy umbrellaHeaderStrategy) {
+      UmbrellaHeaderStrategy umbrellaHeaderStrategy,
+      boolean alwaysLinkLibraryExtension) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
-    this.outputPrefix = Preconditions.checkNotNull(outputPrefix);
     this.umbrellaHeaderStrategy = umbrellaHeaderStrategy;
+    this.alwaysLinkLibraryExtension = alwaysLinkLibraryExtension;
   }
 
   /** Returns the archive file name suffix. */
@@ -110,7 +98,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
    */
   private Artifact appendExtension(String extension) {
     PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
-    return scopedArtifact(name.replaceName(addOutputPrefix(name.getBaseName(), extension)));
+    return scopedArtifact(name.replaceName(join(name.getBaseName(), extension)));
   }
 
   /**
@@ -120,7 +108,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
   private Artifact appendExtensionInGenfiles(String extension) {
     PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     return scopedArtifact(
-        name.replaceName(addOutputPrefix(name.getBaseName(), extension)), /* inGenfiles = */ true);
+        name.replaceName(join(name.getBaseName(), extension)), /* inGenfiles= */ true);
   }
 
   /**
@@ -129,15 +117,6 @@ public final class IntermediateArtifacts implements StarlarkValue {
    */
   public Artifact linkerObjList() {
     return appendExtension("-linker.objlist");
-  }
-
-  /**
-   * The .objlist file, which contains a list of paths of object files to archive and is read by
-   * libtool (via -filelist flag) in the archive action.
-   */
-  @StarlarkMethod(name = "archive_obj_list", documented = false, structField = true)
-  public Artifact archiveObjList() {
-    return appendExtension("-archive.objlist");
   }
 
   /**
@@ -197,12 +176,25 @@ public final class IntermediateArtifacts implements StarlarkValue {
     return scopedArtifact(scopeRelative, /* inGenfiles = */ false);
   }
 
-  /** The {@code .a} file which contains all the compiled sources for a rule. */
+  /** The archive file which contains all the compiled sources for a rule. */
   public Artifact archive() {
-    // The path will be {RULE_PACKAGE}/lib{RULEBASENAME}{SUFFIX}.a
+    // The path will be {RULE_PACKAGE}/lib{RULEBASENAME}{.a,.lo,{SUFFIX}.a}
     String basename = PathFragment.create(ruleContext.getLabel().getName()).getBaseName();
+    String extension;
+    AttributeMap attributes = ruleContext.attributes();
+    ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
+    if (alwaysLinkLibraryExtension
+        && attributes.has("alwayslink", Type.BOOLEAN)
+        && (attributes.isAttributeValueExplicitlySpecified("alwayslink")
+            ? attributes.get("alwayslink", Type.BOOLEAN)
+            : objcConfiguration.alwayslinkByDefault())) {
+      extension = ".lo";
+    } else {
+      extension = ".a";
+    }
     return scopedArtifact(
-        PathFragment.create(String.format("lib%s%s.a", basename, archiveFileNameSuffix)));
+        PathFragment.create(
+            String.format("lib%s%s%s", basename, archiveFileNameSuffix, extension)));
   }
 
   /**
@@ -309,11 +301,8 @@ public final class IntermediateArtifacts implements StarlarkValue {
         buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
-  /** Returns artifact name prefixed with an output prefix if specified. */
-  private String addOutputPrefix(String baseName, String artifactName) {
-    if (!outputPrefix.isEmpty()) {
-      return String.format("%s-%s%s", baseName, outputPrefix, artifactName);
-    }
-    return String.format("%s%s", baseName, artifactName);
+  /** Returns baseName appeneded with extension. */
+  private static String join(String baseName, String extension) {
+    return String.format("%s%s", baseName, extension);
   }
 }

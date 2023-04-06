@@ -132,18 +132,20 @@ public final class RunfilesSupport {
     }
     Preconditions.checkState(!runfiles.isEmpty());
 
+    Artifact repoMappingManifest =
+        createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
+
     Artifact runfilesInputManifest;
     Artifact runfilesManifest;
     if (createManifest) {
       runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, owningExecutable);
       runfilesManifest =
-          createRunfilesAction(ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest);
+          createRunfilesAction(
+              ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest, repoMappingManifest);
     } else {
       runfilesInputManifest = null;
       runfilesManifest = null;
     }
-    Artifact repoMappingManifest =
-        createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(
             ruleContext, owningExecutable, runfiles, runfilesManifest, repoMappingManifest);
@@ -387,7 +389,8 @@ public final class RunfilesSupport {
       ActionConstructionContext context,
       Runfiles runfiles,
       boolean createSymlinks,
-      Artifact inputManifest) {
+      Artifact inputManifest,
+      @Nullable Artifact repoMappingManifest) {
     // Compute the names of the runfiles directory and its MANIFEST file.
     context
         .getAnalysisEnvironment()
@@ -397,6 +400,7 @@ public final class RunfilesSupport {
                 context.getActionOwner(),
                 inputManifest,
                 runfiles,
+                repoMappingManifest,
                 context.getConfiguration().remotableSourceManifestActions()));
 
     if (!createSymlinks) {
@@ -423,6 +427,7 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 outputManifest,
+                repoMappingManifest,
                 /*filesetRoot=*/ null));
     return outputManifest;
   }

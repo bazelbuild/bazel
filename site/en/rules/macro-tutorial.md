@@ -3,13 +3,15 @@ Book: /_book.yaml
 
 # Creating a Macro
 
+{% include "_buttons.html" %}
+
 Imagine that you need to run a tool as part of your build. For example, you
 may want to generate or preprocess a source file, or compress a binary. In this
 tutorial, you are going to create a macro that resizes an image.
 
 Macros are suitable for simple tasks. If you want to do anything more
 complicated, for example add support for a new programming language, consider
-creating a [rule](/rules/rules). Rules give you more control and flexibility.
+creating a [rule](/extending/rules). Rules give you more control and flexibility.
 
 The easiest way to create a macro that resizes an image is to use a `genrule`:
 

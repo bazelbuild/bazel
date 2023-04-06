@@ -20,7 +20,6 @@ load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 
-CcInfo = _builtins.toplevel.CcInfo
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 

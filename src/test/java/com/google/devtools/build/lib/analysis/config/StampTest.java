@@ -25,22 +25,18 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for link stamping.
- */
+/** Tests for link stamping. */
 @RunWith(JUnit4.class)
-public class StampTest extends BuildViewTestCase {
-  /**
-   * Tests that link stamping is disabled for all tests that support it.
-   */
+public final class StampTest extends BuildViewTestCase {
+
+  /** Tests that link stamping is disabled for all tests that support it. */
   @Test
-  public void testNoStampingForTests() throws Exception {
+  public void testNoStampingForTests() {
     RuleFactory ruleFactory = new RuleFactory(analysisMock.createRuleClassProvider());
     for (String name : ruleFactory.getRuleClassNames()) {
       RuleClass ruleClass = ruleFactory.getRuleClass(name);
       if (TargetUtils.isTestRuleName(name) && ruleClass.hasAttr("stamp", BuildType.TRISTATE)) {
-        assertThat(ruleClass.getAttributeByName("stamp").getDefaultValue(null))
-            .isEqualTo(TriState.NO);
+        assertThat(ruleClass.getAttributeByName("stamp").getDefaultValue()).isEqualTo(TriState.NO);
       }
     }
   }

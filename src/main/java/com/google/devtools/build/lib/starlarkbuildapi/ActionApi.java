@@ -36,8 +36,8 @@ import net.starlark.java.eval.StarlarkValue;
             + " testing, and may be obtained from an <a href=\"globals.html#Actions\">Actions</a>"
             + " provider. It is normally not necessary to access <code>Action</code> objects or"
             + " their fields within a rule's implementation function. You may instead want to see"
-            + " the <a href='https://bazel.build/rules/rules#actions'>Rules page</a> for a general"
-            + " discussion of how to use actions when defining custom rules, or the <a"
+            + " the <a href='https://bazel.build/extending/rules#actions'>Rules page</a> for a"
+            + " general discussion of how to use actions when defining custom rules, or the <a"
             + " href='actions.html'>API reference</a> for creating actions.<p>Some fields of this"
             + " object are only applicable for certain kinds of actions. Fields that are"
             + " inapplicable are set to <code>None</code>.")

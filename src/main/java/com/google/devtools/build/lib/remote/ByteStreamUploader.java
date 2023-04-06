@@ -25,7 +25,6 @@ import com.google.bytestream.ByteStreamGrpc;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamFutureStub;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamStub;
 import com.google.bytestream.ByteStreamProto.QueryWriteStatusRequest;
-import com.google.bytestream.ByteStreamProto.QueryWriteStatusResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
@@ -42,8 +41,6 @@ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.Channel;
-import io.grpc.Context;
-import io.grpc.Context.CancellableContext;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
@@ -66,7 +63,7 @@ import javax.annotation.Nullable;
  *
  * <p>See {@link ReferenceCounted} for more information on reference counting.
  */
-class ByteStreamUploader {
+final class ByteStreamUploader {
   private final String instanceName;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
@@ -198,12 +195,12 @@ class ByteStreamUploader {
       return Futures.immediateFailedFuture(e);
     }
 
-    if (chunker.getSize() != digest.getSizeBytes()) {
+    if (chunker.getUncompressedSize() != digest.getSizeBytes()) {
       return Futures.immediateFailedFuture(
           new IllegalStateException(
               String.format(
                   "Expected chunker size of %d, got %d",
-                  digest.getSizeBytes(), chunker.getSize())));
+                  digest.getSizeBytes(), chunker.getUncompressedSize())));
     }
 
     UUID uploadId = UUID.randomUUID();
@@ -231,13 +228,22 @@ class ByteStreamUploader {
     ListenableFuture<Void> currUpload = newUpload.start();
     currUpload.addListener(
         () -> {
-          newUpload.cancel();
           if (openedFilePermits != null) {
             openedFilePermits.release();
           }
         },
         MoreExecutors.directExecutor());
     return currUpload;
+  }
+
+  /**
+   * Signal that the blob already exists on the server, so upload should complete early but
+   * successfully.
+   */
+  private static final class AlreadyExists extends Exception {
+    private AlreadyExists() {
+      super();
+    }
   }
 
   private static final class AsyncUpload implements AsyncCallable<Long> {
@@ -249,7 +255,6 @@ class ByteStreamUploader {
     private final String resourceName;
     private final Chunker chunker;
     private final ProgressiveBackoff progressiveBackoff;
-    private final CancellableContext grpcContext;
 
     private long lastCommittedOffset = -1;
 
@@ -269,32 +274,29 @@ class ByteStreamUploader {
       this.progressiveBackoff = new ProgressiveBackoff(retrier::newBackoff);
       this.resourceName = resourceName;
       this.chunker = chunker;
-      this.grpcContext = Context.current().withCancellation();
     }
 
     ListenableFuture<Void> start() {
-      return Futures.transformAsync(
-          Utils.refreshIfUnauthenticatedAsync(
-              () -> retrier.executeAsync(this, progressiveBackoff), callCredentialsProvider),
-          committedSize -> {
-            try {
-              checkCommittedSize(committedSize);
-            } catch (IOException e) {
-              return Futures.immediateFailedFuture(e);
-            }
-            return immediateVoidFuture();
-          },
+      return Futures.catching(
+          Futures.transformAsync(
+              Utils.refreshIfUnauthenticatedAsync(
+                  () -> retrier.executeAsync(this, progressiveBackoff), callCredentialsProvider),
+              committedSize -> {
+                try {
+                  checkCommittedSize(committedSize);
+                } catch (IOException e) {
+                  return Futures.immediateFailedFuture(e);
+                }
+                return immediateVoidFuture();
+              },
+              MoreExecutors.directExecutor()),
+          AlreadyExists.class,
+          ae -> null,
           MoreExecutors.directExecutor());
     }
 
+    /** Check the committed_size the server returned makes sense after a successful full upload. */
     private void checkCommittedSize(long committedSize) throws IOException {
-      // Only check for matching committed size if we have completed the upload.  If another client
-      // did, they might have used a different compression level/algorithm, so we cannot know the
-      // expected committed offset
-      if (chunker.hasNext()) {
-        return;
-      }
-
       long expected = chunker.getOffset();
 
       if (committedSize == expected) {
@@ -310,13 +312,15 @@ class ByteStreamUploader {
 
         throw new IOException(
             format(
-                "compressed write incomplete: committed_size %d is" + " neither -1 nor total %d",
-                committedSize, expected));
+                "compressed write incomplete: committed_size %d is neither -1 nor total %d - %s",
+                committedSize, expected, resourceName));
       }
 
       // Uncompressed upload failed.
       throw new IOException(
-          format("write incomplete: committed_size %d for %d total", committedSize, expected));
+          format(
+              "write incomplete: committed_size %d for %d total - %s",
+              committedSize, expected, resourceName));
     }
 
     /**
@@ -331,9 +335,6 @@ class ByteStreamUploader {
           firstAttempt ? Futures.immediateFuture(0L) : query(),
           committedSize -> {
             if (!firstAttempt) {
-              if (chunker.getSize() == committedSize) {
-                return Futures.immediateFuture(committedSize);
-              }
               if (committedSize > lastCommittedOffset) {
                 // We have made progress on this upload in the last request. Reset the backoff so
                 // that this request has a full deck of retries
@@ -364,17 +365,18 @@ class ByteStreamUploader {
 
     private ListenableFuture<Long> query() {
       ListenableFuture<Long> committedSizeFuture =
-          Futures.transform(
+          Futures.transformAsync(
               channel.withChannelFuture(
                   channel ->
-                      grpcContext.call(
-                          () ->
-                              bsFutureStub(channel)
-                                  .queryWriteStatus(
-                                      QueryWriteStatusRequest.newBuilder()
-                                          .setResourceName(resourceName)
-                                          .build()))),
-              QueryWriteStatusResponse::getCommittedSize,
+                      bsFutureStub(channel)
+                          .queryWriteStatus(
+                              QueryWriteStatusRequest.newBuilder()
+                                  .setResourceName(resourceName)
+                                  .build())),
+              r ->
+                  r.getComplete()
+                      ? Futures.immediateFailedFuture(new AlreadyExists())
+                      : Futures.immediateFuture(r.getCommittedSize()),
               MoreExecutors.directExecutor());
       return Futures.catchingAsync(
           committedSizeFuture,
@@ -395,17 +397,9 @@ class ByteStreamUploader {
       return channel.withChannelFuture(
           channel -> {
             SettableFuture<Long> uploadResult = SettableFuture.create();
-            grpcContext.run(
-                () ->
-                    bsAsyncStub(channel)
-                        .write(new Writer(resourceName, chunker, pos, uploadResult)));
+            bsAsyncStub(channel).write(new Writer(resourceName, chunker, pos, uploadResult));
             return uploadResult;
           });
-    }
-
-    void cancel() {
-      grpcContext.cancel(
-          Status.CANCELLED.withDescription("Cancelled by user").asRuntimeException());
     }
   }
 
@@ -418,6 +412,7 @@ class ByteStreamUploader {
     private long committedSize = -1;
     private ClientCallStreamObserver<WriteRequest> requestObserver;
     private boolean first = true;
+    private boolean finishedWriting;
 
     private Writer(
         String resourceName, Chunker chunker, long pos, SettableFuture<Long> uploadResult) {
@@ -430,15 +425,18 @@ class ByteStreamUploader {
     @Override
     public void beforeStart(ClientCallStreamObserver<WriteRequest> requestObserver) {
       this.requestObserver = requestObserver;
+      uploadResult.addListener(
+          () -> {
+            if (uploadResult.isCancelled()) {
+              requestObserver.cancel("cancelled by user", null);
+            }
+          },
+          MoreExecutors.directExecutor());
       requestObserver.setOnReadyHandler(this);
     }
 
     @Override
     public void run() {
-      if (committedSize != -1) {
-        requestObserver.cancel("server has returned early", null);
-        return;
-      }
       while (requestObserver.isReady()) {
         WriteRequest.Builder request = WriteRequest.newBuilder();
         if (first) {
@@ -465,6 +463,7 @@ class ByteStreamUploader {
                 .build());
         if (isLastChunk) {
           requestObserver.onCompleted();
+          finishedWriting = true;
           return;
         }
       }
@@ -503,12 +502,22 @@ class ByteStreamUploader {
 
     @Override
     public void onCompleted() {
-      uploadResult.set(committedSize);
+      if (finishedWriting) {
+        uploadResult.set(committedSize);
+      } else {
+        // Server completed succesfully before we finished writing all the data, meaning the blob
+        // already exists. The server is supposed to set committed_size to the size of the blob (for
+        // uncompressed uploads) or -1 (for compressed uploads), but we do not verify this.
+        requestObserver.cancel("server has returned early", null);
+        uploadResult.setException(new AlreadyExists());
+      }
     }
 
     @Override
     public void onError(Throwable t) {
-      uploadResult.setException(t);
+      requestObserver.cancel("failed", t);
+      uploadResult.setException(
+          (Status.fromThrowable(t).getCode() == Code.ALREADY_EXISTS) ? new AlreadyExists() : t);
     }
   }
 

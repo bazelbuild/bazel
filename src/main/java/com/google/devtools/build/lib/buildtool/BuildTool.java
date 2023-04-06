@@ -54,8 +54,10 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -171,7 +173,7 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
-      if (request.getBuildOptions().shouldMergeSkyframeAnalysisExecution()) {
+      if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
         return;
       }
@@ -205,7 +207,7 @@ public class BuildTool {
           analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
         }
 
-        result.setBuildConfigurationCollection(analysisResult.getConfigurationCollection());
+        result.setBuildConfiguration(analysisResult.getConfiguration());
         result.setActualTargets(analysisResult.getTargetsToBuild());
         result.setTestTargets(analysisResult.getTargetsToTest());
 
@@ -308,7 +310,6 @@ public class BuildTool {
       throws InterruptedException, TargetParsingException, LoadingFailedException,
           AbruptExitException, ViewCreationFailedException, BuildFailedException, TestExecException,
           InvalidConfigurationException, RepositoryMappingResolutionException {
-
     // Target pattern evaluation.
     TargetPatternPhaseValue loadingResult;
     Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
@@ -317,12 +318,12 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
-    boolean catastrophe = false;
+    boolean hasCatastrophe = false;
 
     if (request.getBuildOptions().performAnalysisPhase) {
       ExecutionTool executionTool = new ExecutionTool(env, request);
-      // This timer measures time for loading + analysis + execution.
-      Stopwatch timer = Stopwatch.createStarted();
+      // This timer measures time from the first execution activity to the last.
+      Stopwatch executionTimer = Stopwatch.createUnstarted();
 
       // TODO(b/199053098): implement support for --nobuild.
       AnalysisAndExecutionResult analysisAndExecutionResult;
@@ -334,14 +335,30 @@ public class BuildTool {
                 request,
                 buildOptions,
                 loadingResult,
-                () -> executionTool.prepareForExecution(request.getId()),
-                result::setBuildConfigurationCollection);
+                () -> executionTool.prepareForExecution(request.getId(), executionTimer),
+                result::setBuildConfiguration,
+                new BuildDriverKeyTestContext() {
+                  @Override
+                  public String getTestStrategy() {
+                    return request.getOptions(ExecutionOptions.class).testStrategy;
+                  }
+
+                  @Override
+                  public boolean forceExclusiveTestsInParallel() {
+                    return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
+                  }
+
+                  @Override
+                  public boolean forceExclusiveIfLocalTestsInParallel() {
+                    return executionTool
+                        .getTestActionContext()
+                        .forceExclusiveIfLocalTestsInParallel();
+                  }
+                });
         buildCompleted = true;
         executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
       } catch (InvalidConfigurationException
-          | TargetParsingException
           | RepositoryMappingResolutionException
-          | LoadingFailedException
           | ViewCreationFailedException
           | BuildFailedException
           | TestExecException e) {
@@ -350,15 +367,34 @@ public class BuildTool {
         throw e;
       } catch (Error | RuntimeException e) {
         // These are catastrophic.
-        catastrophe = true;
+        hasCatastrophe = true;
         throw e;
       } finally {
-        executionTool.unconditionalExecutionPhaseFinalizations(timer, env.getSkyframeExecutor());
-        if (!catastrophe) {
+        executionTool.unconditionalExecutionPhaseFinalizations(
+            executionTimer, env.getSkyframeExecutor());
+
+        // For the --noskymeld code path, this is done after the analysis phase.
+        BuildResultListener buildResultListener = env.getBuildResultListener();
+        result.setActualTargets(buildResultListener.getAnalyzedTargets());
+        result.setTestTargets(buildResultListener.getAnalyzedTests());
+
+        if (!hasCatastrophe) {
           executionTool.nonCatastrophicFinalizations(
-              result, executionTool.getActionCache(), /*explanationHandler=*/ null, buildCompleted);
+              result,
+              env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
+              /*explanationHandler=*/ null,
+              buildCompleted);
         }
       }
+
+      // This is the --keep_going code path: Time to throw the delayed exceptions.
+      // Keeping legacy behavior: for execution errors, keep the message of the BuildFailedException
+      // empty.
+      if (analysisAndExecutionResult.getExecutionDetailedExitCode() != null) {
+        throw new BuildFailedException(
+            null, analysisAndExecutionResult.getExecutionDetailedExitCode());
+      }
+
       FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
       if (delayedFailureDetail != null) {
         throw new BuildFailedException(

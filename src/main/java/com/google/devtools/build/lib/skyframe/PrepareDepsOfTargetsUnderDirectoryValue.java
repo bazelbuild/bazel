@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
@@ -76,8 +74,8 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
    */
   @AutoCodec
   public static final class PrepareDepsOfTargetsUnderDirectoryKey implements SkyKey {
-    private static final Interner<PrepareDepsOfTargetsUnderDirectoryKey> interners =
-        BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<PrepareDepsOfTargetsUnderDirectoryKey> interner =
+        SkyKey.newInterner();
 
     private final RecursivePkgKey recursivePkgKey;
     private final FilteringPolicy filteringPolicy;
@@ -91,7 +89,7 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
     @AutoCodec.Instantiator
     public static PrepareDepsOfTargetsUnderDirectoryKey create(
         RecursivePkgKey recursivePkgKey, FilteringPolicy filteringPolicy) {
-      return interners.intern(
+      return interner.intern(
           new PrepareDepsOfTargetsUnderDirectoryKey(recursivePkgKey, filteringPolicy));
     }
 
@@ -133,6 +131,11 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
               .add("pkg-key", recursivePkgKey)
               .add("filtering policy", filteringPolicy)
               .toString();
+    }
+
+    @Override
+    public SkyKeyInterner<PrepareDepsOfTargetsUnderDirectoryKey> getSkyKeyInterner() {
+      return interner;
     }
   }
 }

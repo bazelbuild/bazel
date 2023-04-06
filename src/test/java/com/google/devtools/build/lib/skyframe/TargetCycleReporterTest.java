@@ -50,12 +50,12 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
     CycleInfo cycle =
         new CycleInfo(
             ImmutableList.of(
-                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:b")),
-                TransitiveTargetKey.of(Label.parseAbsoluteUnchecked("//foo:c"))));
+                TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//foo:b")),
+                TransitiveTargetKey.of(Label.parseCanonicalUnchecked("//foo:c"))));
 
     ConfiguredTargetKey ctKey =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//foo:a"))
+            .setLabel(Label.parseCanonicalUnchecked("//foo:a"))
             .setConfiguration(targetConfig)
             .build();
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
@@ -73,8 +73,8 @@ public final class TargetCycleReporterTest extends BuildViewTestCase {
         AspectKeyCreator.createTopLevelAspectsKey(
             ImmutableList.of(
                 new StarlarkAspectClass(
-                    Label.parseAbsoluteUnchecked("//foo:b"), "my Starlark key")),
-            Label.parseAbsoluteUnchecked("//foo:a"),
+                    Label.parseCanonicalUnchecked("//foo:b"), "my Starlark key")),
+            Label.parseCanonicalUnchecked("//foo:a"),
             targetConfig,
             /* topLevelAspectsParameters= */ ImmutableMap.of());
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, starlarkAspectKey, cycle))

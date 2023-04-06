@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -165,7 +164,7 @@ public class AndroidCommon {
       NestedSet<Artifact> runtimeJars) {
     NestedSetBuilder<Artifact> neverlinkedRuntimeJars = NestedSetBuilder.naiveLinkOrder();
     for (AndroidNeverLinkLibrariesProvider provider :
-        AnalysisUtils.getProviders(deps, AndroidNeverLinkLibrariesProvider.class)) {
+        AnalysisUtils.getProviders(deps, AndroidNeverLinkLibrariesProvider.PROVIDER)) {
       neverlinkedRuntimeJars.addTransitive(provider.getTransitiveNeverLinkLibraries());
     }
 
@@ -386,7 +385,7 @@ public class AndroidCommon {
     if (!keys.isEmpty()) {
       return keys;
     }
-    return ImmutableList.of(ruleContext.getHostPrerequisiteArtifact("debug_key"));
+    return ImmutableList.of(ruleContext.getPrerequisiteArtifact("debug_key"));
   }
 
   private void compileResources(
@@ -454,19 +453,7 @@ public class AndroidCommon {
     }
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    BootClassPathInfo bootClassPathInfo;
-    AndroidSdkProvider androidSdkProvider = AndroidSdkProvider.fromRuleContext(ruleContext);
-    if (androidSdkProvider.getSystem() != null) {
-      bootClassPathInfo = androidSdkProvider.getSystem();
-    } else {
-      NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
-      if (getAndroidConfig(ruleContext).desugarJava8()) {
-        bootclasspath.addTransitive(
-            PrerequisiteArtifacts.nestedSet(ruleContext, "$desugar_java8_extra_bootclasspath"));
-      }
-      bootclasspath.add(androidSdkProvider.getAndroidJar());
-      bootClassPathInfo = BootClassPathInfo.create(bootclasspath.build());
-    }
+    BootClassPathInfo bootClassPathInfo = androidSemantics.getBootClassPathInfo(ruleContext);
 
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));

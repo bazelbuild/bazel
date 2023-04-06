@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Using Bazel on Windows
 
+{% include "_buttons.html" %}
+
 This page covers Best Practices for using Bazel on Windows. For installation
 instructions, see [Install Bazel on Windows](/install/windows).
 

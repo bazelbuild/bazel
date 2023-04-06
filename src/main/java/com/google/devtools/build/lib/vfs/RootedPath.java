@@ -13,61 +13,77 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Comparator;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * A {@link PathFragment} relative to a {@link Root}. Typically the root will be a package path
- * entry.
+ * A {@link PathFragment} relative to a {@link Root}. Typically, the root is a package path entry.
  *
  * <p>Two {@link RootedPath}s are considered equal iff they have equal roots and equal relative
  * paths.
  *
- * <p>TODO(bazel-team): use an opaque root representation so as to not expose the absolute path to
- * clients via #asPath or #getRoot.
+ * <p>Instances are interned (except on Windows), which results in a large memory benefit (see
+ * cl/516855266). In addition to being a {@link SkyKey} itself, {@link RootedPath} is used as a
+ * field in several other common {@link SkyKey} types. Interning on the level of those keys does not
+ * deduplicate referenced {@link RootedPath} instances which are also used as a {@link SkyKey}
+ * directly.
  */
 @AutoCodec
-public class RootedPath implements Comparable<RootedPath>, FileStateKey {
+public final class RootedPath implements Comparable<RootedPath>, FileStateKey {
+
+  // Interning on Windows (case-insensitive) surfaces a bug where paths that only differ in casing
+  // use the same RootedPath instance.
+  // TODO(#17904): Investigate this bug and add test coverage.
+  @Nullable
+  private static final SkyKeyInterner<RootedPath> interner =
+      OsPathPolicy.getFilePathOs().isCaseSensitive() ? SkyKey.newInterner() : null;
+
   private final Root root;
   private final PathFragment rootRelativePath;
+
+  // Cache the hash code: RootedPath is used in several of the most common SkyKeys, and we have a
+  // free field to spend on it.
+  private final transient int hashCode;
 
   /** Constructs a {@link RootedPath} from a {@link Root} and path fragment relative to the root. */
   @AutoCodec.Instantiator
   @AutoCodec.VisibleForSerialization
-  RootedPath(Root root, PathFragment rootRelativePath) {
-    Preconditions.checkState(
+  static RootedPath createInternal(Root root, PathFragment rootRelativePath) {
+    checkArgument(
         rootRelativePath.isAbsolute() == root.isAbsolute(),
         "rootRelativePath: %s root: %s",
         rootRelativePath,
         root);
+    var rootedPath = new RootedPath(root, rootRelativePath);
+    return interner != null ? interner.intern(rootedPath) : rootedPath;
+  }
+
+  private RootedPath(Root root, PathFragment rootRelativePath) {
     this.root = root;
     this.rootRelativePath = rootRelativePath;
+    this.hashCode = 31 * root.hashCode() + rootRelativePath.hashCode();
   }
 
   /** Returns a rooted path representing {@code rootRelativePath} relative to {@code root}. */
   public static RootedPath toRootedPath(Root root, PathFragment rootRelativePath) {
-    if (rootRelativePath.isAbsolute()) {
-      if (root.isAbsolute()) {
-        return new RootedPath(root, rootRelativePath);
-      } else {
-        Preconditions.checkArgument(
-            root.contains(rootRelativePath),
-            "rootRelativePath '%s' is absolute, but it's not under root '%s'",
-            rootRelativePath,
-            root);
-        return new RootedPath(root, root.relativize(rootRelativePath));
-      }
-    } else {
-      return new RootedPath(root, rootRelativePath);
+    if (rootRelativePath.isAbsolute() && !root.isAbsolute()) {
+      checkArgument(
+          root.contains(rootRelativePath),
+          "rootRelativePath '%s' is absolute, but it's not under root '%s'",
+          rootRelativePath,
+          root);
+      rootRelativePath = root.relativize(rootRelativePath);
     }
+    return createInternal(root, rootRelativePath);
   }
 
   /** Returns a rooted path representing {@code path} under the root {@code root}. */
   public static RootedPath toRootedPath(Root root, Path path) {
-    Preconditions.checkState(root.contains(path), "path: %s root: %s", path, root);
+    checkArgument(root.contains(path), "path: %s root: %s", path, root);
     return toRootedPath(root, path.asFragment());
   }
 
@@ -103,7 +119,7 @@ public class RootedPath implements Comparable<RootedPath>, FileStateKey {
     if (rootRelativeParentDirectory == null) {
       return null;
     }
-    return new RootedPath(root, rootRelativeParentDirectory);
+    return createInternal(root, rootRelativeParentDirectory);
   }
 
   @Override
@@ -115,17 +131,14 @@ public class RootedPath implements Comparable<RootedPath>, FileStateKey {
       return false;
     }
     RootedPath other = (RootedPath) obj;
-    return Objects.equals(root, other.root)
-        && Objects.equals(rootRelativePath, other.rootRelativePath);
+    return hashCode == other.hashCode
+        && root.equals(other.root)
+        && rootRelativePath.equals(other.rootRelativePath);
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + root.hashCode();
-    result = prime * result + rootRelativePath.hashCode();
-    return result;
+    return hashCode;
   }
 
   @Override
@@ -144,5 +157,11 @@ public class RootedPath implements Comparable<RootedPath>, FileStateKey {
   @Override
   public RootedPath argument() {
     return this;
+  }
+
+  @Override
+  @Nullable
+  public SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
   }
 }

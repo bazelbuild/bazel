@@ -73,9 +73,6 @@ CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
 # Name of the action stripping the binary.
 STRIP_ACTION_NAME = "strip"
 
-# A string constant for the objc archive action.
-OBJC_ARCHIVE_ACTION_NAME = "objc-archive"
-
 # A string constant for the objc compilation action.
 OBJC_COMPILE_ACTION_NAME = "objc-compile"
 
@@ -85,14 +82,14 @@ OBJCPP_COMPILE_ACTION_NAME = "objc++-compile"
 # A string constant for the objc executable link action.
 OBJC_EXECUTABLE_ACTION_NAME = "objc-executable"
 
-# A string constant for the objc++ executable link action.
-OBJCPP_EXECUTABLE_ACTION_NAME = "objc++-executable"
-
 # A string constant for the objc fully-link link action.
 OBJC_FULLY_LINK_ACTION_NAME = "objc-fully-link"
 
 # A string constant for the clif actions.
 CLIF_MATCH_ACTION_NAME = "clif-match"
+
+# A string constant for the obj copy actions.
+OBJ_COPY_ACTION_NAME = "objcopy_embed_data"
 
 ACTION_NAMES = struct(
     c_compile = C_COMPILE_ACTION_NAME,
@@ -115,11 +112,10 @@ ACTION_NAMES = struct(
     cpp_link_nodeps_dynamic_library = CPP_LINK_NODEPS_DYNAMIC_LIBRARY_ACTION_NAME,
     cpp_link_static_library = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
     strip = STRIP_ACTION_NAME,
-    objc_archive = OBJC_ARCHIVE_ACTION_NAME,
     objc_compile = OBJC_COMPILE_ACTION_NAME,
     objc_executable = OBJC_EXECUTABLE_ACTION_NAME,
     objc_fully_link = OBJC_FULLY_LINK_ACTION_NAME,
     objcpp_compile = OBJCPP_COMPILE_ACTION_NAME,
-    objcpp_executable = OBJCPP_EXECUTABLE_ACTION_NAME,
     clif_match = CLIF_MATCH_ACTION_NAME,
+    objcopy_embed_data = OBJ_COPY_ACTION_NAME,
 )

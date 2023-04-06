@@ -25,10 +25,6 @@ import java.util.List;
 
 /** Codec for {@link LazyStringList} so protobuf objects have proper type, not just a list. */
 class LazyStringListCodec implements ObjectCodec<LazyStringList> {
-  // If LazyStringArrayList.EMPTY ever goes away, just replace with our own empty one.
-  private static final UnmodifiableLazyStringList EMPTY_UNMODIFIABLE =
-      new UnmodifiableLazyStringList(LazyStringArrayList.EMPTY);
-
   @Override
   public Class<LazyStringList> getEncodedClass() {
     return LazyStringList.class;
@@ -50,17 +46,19 @@ class LazyStringListCodec implements ObjectCodec<LazyStringList> {
   }
 
   @Override
-  public UnmodifiableLazyStringList deserialize(
-      DeserializationContext context, CodedInputStream codedIn)
+  public LazyStringList deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
     int size = codedIn.readInt32();
     if (size == 0) {
-      return EMPTY_UNMODIFIABLE;
+      // TODO(b/262434157) LazyStringArrayList.EMPTY is deprecated. Use
+      // LazyStringArrayList.emptyList() once it is in a public OSS release.
+      return LazyStringArrayList.EMPTY;
     }
     LazyStringArrayList list = new LazyStringArrayList(size);
     for (int i = 0; i < size; i++) {
       list.add((String) context.deserialize(codedIn));
     }
-    return new UnmodifiableLazyStringList(list);
+    list.makeImmutable();
+    return list;
   }
 }

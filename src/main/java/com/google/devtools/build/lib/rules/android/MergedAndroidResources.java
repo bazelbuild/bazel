@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -169,7 +171,18 @@ public class MergedAndroidResources extends ParsedAndroidResources {
    */
   public ValidatedAndroidResources validate(AndroidDataContext dataContext)
       throws InterruptedException {
-    return ValidatedAndroidResources.validateFrom(dataContext, this);
+    return ValidatedAndroidResources.validateFrom(dataContext, this, ImmutableList.of());
+  }
+
+  /**
+   * Validates and packages this rule's resources.
+   *
+   * <p>See {@link ValidatedAndroidResources#validateFrom(AndroidDataContext,
+   * MergedAndroidResources)}. This method is a convenience method for calling that one.
+   */
+  public ValidatedAndroidResources validate(
+      AndroidDataContext dataContext, List<Artifact> resApkDeps) throws InterruptedException {
+    return ValidatedAndroidResources.validateFrom(dataContext, this, resApkDeps);
   }
 
   @Override

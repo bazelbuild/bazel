@@ -181,7 +181,8 @@ final class JavaInfoBuildHelper {
       Artifact outputSourceJar,
       List<Artifact> sourceFiles,
       List<Artifact> sourceJars,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     if (outputJar == null && outputSourceJar == null) {
       throw Starlark.errorf(
@@ -202,7 +203,8 @@ final class JavaInfoBuildHelper {
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceFiles),
         NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, sourceJars),
         outputSourceJar,
-        javaToolchain);
+        javaToolchain,
+        execGroup);
     return outputSourceJar;
   }
 
@@ -284,6 +286,28 @@ final class JavaInfoBuildHelper {
 
     JavaToolchainProvider toolchainProvider = javaToolchain;
 
+    JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
+    ImmutableList.Builder<String> allJavacOptsBuilder =
+        ImmutableList.<String>builder()
+            .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))
+            .addAll(
+                javaSemantics.getCompatibleJavacOptions(
+                    starlarkRuleContext.getRuleContext(), toolchainProvider));
+    if (pluginInfo
+        .plugins()
+        .processorClasses()
+        .toSet()
+        .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
+      allJavacOptsBuilder.add(
+          "-Abazel.repository=" + starlarkRuleContext.getRuleContext().getRepository().getName());
+    }
+    allJavacOptsBuilder
+        .addAll(
+            JavaCommon.computePerPackageJavacOpts(
+                starlarkRuleContext.getRuleContext(), toolchainProvider))
+        .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
+        .addAll(tokenize(javacOpts));
+
     JavaLibraryHelper helper =
         new JavaLibraryHelper(starlarkRuleContext.getRuleContext())
             .setOutput(outputJar)
@@ -295,18 +319,7 @@ final class JavaInfoBuildHelper {
             .setSourcePathEntries(sourcepathEntries)
             .addAdditionalOutputs(annotationProcessorAdditionalOutputs)
             .enableJspecify(enableJSpecify)
-            .setJavacOpts(
-                ImmutableList.<String>builder()
-                    .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))
-                    .addAll(
-                        javaSemantics.getCompatibleJavacOptions(
-                            starlarkRuleContext.getRuleContext(), toolchainProvider))
-                    .addAll(
-                        JavaCommon.computePerPackageJavacOpts(
-                            starlarkRuleContext.getRuleContext(), toolchainProvider))
-                    .addAll(JavaModuleFlagsProvider.toFlags(addExports, addOpens))
-                    .addAll(tokenize(javacOpts))
-                    .build());
+            .setJavacOpts(allJavacOptsBuilder.build());
 
     if (injectingRuleKind != Starlark.NONE) {
       helper.setInjectingRuleKind((String) injectingRuleKind);
@@ -316,7 +329,6 @@ final class JavaInfoBuildHelper {
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
     streamProviders(exports, JavaCompilationArgsProvider.class).forEach(helper::addExport);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(Ascii.toUpperCase(strictDepsMode)));
-    JavaPluginInfo pluginInfo = mergeExportedJavaPluginInfo(plugins, deps);
     // Optimization: skip this if there are no annotation processors, to avoid unnecessarily
     // disabling the direct classpath optimization if `enable_annotation_processor = False`
     // but there aren't any annotation processors.
@@ -404,11 +416,18 @@ final class JavaInfoBuildHelper {
   public Artifact buildIjar(
       StarlarkActionFactory actions,
       Artifact inputJar,
+      @Nullable Artifact outputJar,
       @Nullable Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
-    String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
-    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
+    Artifact interfaceJar;
+    if (outputJar != null) {
+      interfaceJar = outputJar;
+    } else {
+      String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
+      interfaceJar = actions.declareFile(ijarBasename, inputJar);
+    }
     FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
@@ -423,7 +442,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Extracting interface for jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return interfaceJar;
   }
@@ -432,7 +452,8 @@ final class JavaInfoBuildHelper {
       StarlarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      JavaToolchainProvider javaToolchain)
+      JavaToolchainProvider javaToolchain,
+      String execGroup)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
     Artifact outputJar = actions.declareFile(basename, inputJar);
@@ -452,7 +473,8 @@ final class JavaInfoBuildHelper {
             .setProgressMessage("Stamping target label into jar %s", inputJar.getFilename())
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
-            .setMnemonic("JavaIjar");
+            .setMnemonic("JavaIjar")
+            .setExecGroup(execGroup);
     actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return outputJar;
   }

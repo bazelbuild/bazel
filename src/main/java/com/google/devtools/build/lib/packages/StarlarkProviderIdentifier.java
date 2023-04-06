@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -25,6 +26,7 @@ import javax.annotation.Nullable;
  * A wrapper around Starlark provider identifier, representing either a declared provider ({@see
  * StarlarkProvider}) or a "legacy" string identifier.
  */
+@AutoCodec
 public final class StarlarkProviderIdentifier {
   private static final Interner<StarlarkProviderIdentifier> interner =
       BlazeInterners.newWeakInterner();
@@ -34,6 +36,7 @@ public final class StarlarkProviderIdentifier {
   @Nullable private final Provider.Key key;
 
   /** Creates an id for a declared provider with a given key ({@see StarlarkProvider}). */
+  @AutoCodec.Instantiator
   public static StarlarkProviderIdentifier forKey(Provider.Key key) {
     return interner.intern(new StarlarkProviderIdentifier(key));
   }

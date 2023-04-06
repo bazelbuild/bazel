@@ -1,4 +1,4 @@
-load("//tools/python:private/defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 package(default_visibility = ["//tools:__pkg__"])
 

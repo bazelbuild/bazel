@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.github.luben.zstd.Zstd;
 import com.google.devtools.build.lib.remote.Chunker.Chunk;
+import com.google.devtools.build.lib.remote.Chunker.ChunkDataSupplier;
 import com.google.protobuf.ByteString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,7 +27,6 @@ import java.io.InputStream;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -84,8 +84,17 @@ public class ChunkerTest {
 
   @Test
   public void emptyData() throws Exception {
-    byte[] data = new byte[0];
-    Chunker chunker = Chunker.builder().setInput(data).build();
+    var inp =
+        new ByteArrayInputStream(new byte[0]) {
+          private boolean closed;
+
+          @Override
+          public void close() throws IOException {
+            closed = true;
+            super.close();
+          }
+        };
+    Chunker chunker = Chunker.builder().setInput(0, inp).build();
 
     assertThat(chunker.hasNext()).isTrue();
 
@@ -96,6 +105,7 @@ public class ChunkerTest {
     assertThat(next.getOffset()).isEqualTo(0);
 
     assertThat(chunker.hasNext()).isFalse();
+    assertThat(inp.closed).isTrue();
 
     assertThrows(NoSuchElementException.class, () -> chunker.next());
   }
@@ -126,7 +136,7 @@ public class ChunkerTest {
 
     byte[] data = new byte[] {1, 2};
     final AtomicReference<InputStream> in = new AtomicReference<>();
-    Supplier<InputStream> supplier =
+    ChunkDataSupplier supplier =
         () -> {
           in.set(Mockito.spy(new ByteArrayInputStream(data)));
           return in.get();
@@ -191,6 +201,21 @@ public class ChunkerTest {
     assertThat(chunk.getOffset()).isEqualTo(8);
     assertThat(chunk.getData().toByteArray()).isEqualTo(new byte[] {8, 9});
     assertThat(chunker.hasNext()).isFalse();
+  }
+
+  @Test
+  public void seekEmptyData() throws IOException {
+    var chunker = Chunker.builder().setInput(new byte[0]).build();
+    for (var i = 0; i < 2; i++) {
+      chunker.seek(0);
+      var next = chunker.next();
+      assertThat(next).isNotNull();
+      assertThat(next.getData()).isEmpty();
+      assertThat(next.getOffset()).isEqualTo(0);
+
+      assertThat(chunker.hasNext()).isFalse();
+      assertThrows(NoSuchElementException.class, chunker::next);
+    }
   }
 
   @Test

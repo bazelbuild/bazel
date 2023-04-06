@@ -95,6 +95,37 @@ import import_module
 EOF
 
   cat << 'EOF' > examples/hermetic/BUILD
+
+load(
+  "test.bzl",
+  "overwrite_via_symlink",
+  "overwrite_file_from_declared_directory",
+  "subdirectories_in_declared_directory",
+  "other_artifacts",
+)
+
+overwrite_via_symlink(
+  name = "overwrite_via_resolved_symlink",
+  resolve_symlink = True
+)
+
+overwrite_via_symlink(
+  name = "overwrite_via_unresolved_symlink",
+  resolve_symlink = False
+)
+
+overwrite_file_from_declared_directory(
+  name = "overwrite_file_from_declared_directory"
+)
+
+subdirectories_in_declared_directory(
+  name = "subdirectories_in_declared_directory"
+)
+
+other_artifacts(
+  name = "other_artifacts"
+)
+
 genrule(
   name = "absolute_path",
   srcs = ["script_absolute_path.sh"], # unknown_file.txt not referenced.
@@ -130,6 +161,141 @@ genrule(
          (echo success > $@)) || (echo fail > $@)",
 )
 EOF
+
+  cat << 'EOF' > examples/hermetic/test.bzl
+
+def _overwrite_via_symlink_impl(ctx):
+    file = ctx.actions.declare_file(ctx.attr.name + ".file")
+    if ctx.attr.resolve_symlink:
+        symlink = ctx.actions.declare_file(ctx.attr.name + ".symlink")
+    else:
+        symlink = ctx.actions.declare_symlink(ctx.attr.name + ".symlink")
+
+    ctx.actions.write(file, "")
+
+    if ctx.attr.resolve_symlink:
+        ctx.actions.symlink(
+            output = symlink,
+            target_file = file
+        )
+        # Symlink become resolved to RegularFileArtifactValue.
+        needed_inputs = [symlink]
+    else:
+        ctx.actions.symlink(
+            output = symlink,
+            target_path = file.basename
+        )
+        # Symlink become UnresolvedSymlinkArtifactValue and would be
+        # dangling unless also providing the actual file as input to sandbox.
+        needed_inputs = [symlink, file]
+
+    result_file = ctx.actions.declare_file(ctx.attr.name + ".result")
+
+    # Try invalid write to the input file via the symlink
+    ctx.actions.run_shell(
+       command = "chmod u+w $1 && echo hello >> $1 && ls -lR > $2",
+       arguments = [symlink.path, result_file.path],
+       inputs = needed_inputs,
+       outputs = [result_file],
+    )
+
+    return [DefaultInfo(files = depset([result_file]))]
+
+overwrite_via_symlink = rule(
+    attrs = {
+        "resolve_symlink" : attr.bool(),
+    },
+    implementation = _overwrite_via_symlink_impl,
+)
+
+
+def _overwrite_file_from_declared_directory_impl(ctx):
+    dir = ctx.actions.declare_directory(ctx.attr.name + ".dir")
+
+    ctx.actions.run_shell(
+        command = "mkdir -p $1/subdir && touch $1/subdir/file",
+        arguments = [dir.path],
+        outputs = [dir],
+    )
+
+    # Try invalid write to input file, with file as implicit input
+    # from declared directory.
+    result_file = ctx.actions.declare_file(ctx.attr.name + ".result")
+    ctx.actions.run_shell(
+       command = "chmod -R u+w $1 && echo hello >> $1/subdir/file && touch $2",
+       arguments = [dir.path, result_file.path],
+       inputs = [dir],
+       outputs = [result_file],
+    )
+
+    return [DefaultInfo(files = depset([result_file]))]
+
+overwrite_file_from_declared_directory = rule(
+    implementation = _overwrite_file_from_declared_directory_impl,
+)
+
+
+def _subdirectories_in_declared_directory_impl(ctx):
+    dir = ctx.actions.declare_directory(ctx.attr.name + ".dir")
+
+    ctx.actions.run_shell(
+        command = "mkdir -p %s/subdir1/subdir2" % dir.path,
+        outputs = [dir],
+    )
+
+    result_file = ctx.actions.declare_file(ctx.attr.name + ".result")
+    ctx.actions.run_shell(
+        command = "ls -lRH %s > %s" % (dir.path, result_file.path),
+        inputs = [dir],
+        outputs = [result_file],
+    )
+
+    return [DefaultInfo(files = depset([result_file]))]
+
+subdirectories_in_declared_directory = rule(
+    implementation = _subdirectories_in_declared_directory_impl,
+)
+
+
+def _other_artifacts_impl(ctx):
+
+    # Produce artifacts of other types
+
+    regular_file_artifact = ctx.actions.declare_file(ctx.attr.name + ".regular_file_artifact")
+    directory_artifact = ctx.actions.declare_file(ctx.attr.name + ".directory_artifact")
+    tree_artifact = ctx.actions.declare_directory(ctx.attr.name + ".tree_artifact")
+    unresolved_symlink_artifact = ctx.actions.declare_symlink(ctx.attr.name + ".unresolved_symlink_artifact")
+
+    ctx.actions.run_shell(
+        command = "touch %s && mkdir %s" % (regular_file_artifact.path, directory_artifact.path),
+        outputs = [regular_file_artifact, tree_artifact, directory_artifact],
+    )
+
+    ctx.actions.symlink(
+        output = unresolved_symlink_artifact,
+        target_path="dangling"
+    )
+
+    # Test other artifact types as input to hermetic sandbox.
+
+    all_artifacts = [regular_file_artifact,
+                     directory_artifact,
+                     tree_artifact,
+                     unresolved_symlink_artifact]
+    input_paths_string = " ".join([a.path for a in all_artifacts])
+    result_file = ctx.actions.declare_file(ctx.attr.name + ".result")
+    ctx.actions.run_shell(
+        command = "ls -lR %s > %s" % (input_paths_string, result_file.path),
+        inputs = all_artifacts,
+        outputs = [result_file],
+    )
+
+    return [DefaultInfo(files = depset([result_file]))]
+
+other_artifacts = rule(
+    implementation = _other_artifacts_impl,
+)
+EOF
 }
 
 # Test that the build can't escape the sandbox via absolute path.
@@ -141,8 +307,6 @@ function test_absolute_path() {
 
 # Test that the build can't escape the sandbox by resolving symbolic link.
 function test_symbolic_link() {
-  [ "$PLATFORM" != "darwin" ] || return 0
-
   bazel build examples/hermetic:symbolic_link &> $TEST_log \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:symbolic_link" || true
   expect_log "cat: \/execroot\/main\/examples\/hermetic\/unknown_file.txt: No such file or directory"
@@ -150,8 +314,6 @@ function test_symbolic_link() {
 
 # Test that the sandbox discover if the bazel python rule miss dependencies.
 function test_missing_python_deps() {
-  [ "$PLATFORM" != "darwin" ] || return 0
-
   bazel test examples/hermetic:py_module_test --test_output=all &> $TEST_TMPDIR/log \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:py_module_test" || true
 
@@ -160,7 +322,6 @@ function test_missing_python_deps() {
 
 # Test that the intermediate corrupt input file gets re:evaluated
 function test_writing_input_file() {
-  [ "$PLATFORM" != "darwin" ] || return 0
   # Write an input file, this should cause the hermetic sandbox to fail with an exception
   bazel build examples/hermetic:write_input_test &> $TEST_log  \
     && fail "Fail due to non hermetic sandbox: examples/hermetic:write_input_test" || true
@@ -177,7 +338,48 @@ function test_writing_input_file() {
   expect_log "original text input"
 }
 
+# Test that invalid write of input file is detected, when file is accessed via resolved symlink.
+function test_overwrite_via_resolved_symlink() {
+  bazel build examples/hermetic:overwrite_via_resolved_symlink &> $TEST_log  \
+    && fail "Hermetic sandbox did not detect invalid write to input file"
+  expect_log "input dependency .* was modified during execution."
+}
+
+# Test that invalid write of input file is detected, when file is accessed via unresolved symlink.
+function test_overwrite_via_unresolved_symlink() {
+  bazel build examples/hermetic:overwrite_via_unresolved_symlink &> $TEST_log  \
+    && fail "Hermetic sandbox did not detect invalid write to input file"
+  expect_log "input dependency .* was modified during execution."
+}
+
+# Test that invalid write of input file is detected, when file is found implicit via declared directory.
+function test_overwrite_file_from_declared_directory() {
+  bazel build examples/hermetic:overwrite_file_from_declared_directory &> $TEST_log  \
+    && fail "Hermetic sandbox did not detect invalid write to input file"
+  expect_log "input dependency .* was modified during execution."
+}
+
+# Test that the sandbox can handle deep directory trees from declared directory.
+function test_subdirectories_in_declared_directory() {
+  bazel build examples/hermetic:subdirectories_in_declared_directory &> $TEST_log
+  cat bazel-bin/examples/hermetic/subdirectories_in_declared_directory.result
+  assert_contains "dir/subdir1/subdir2" "bazel-bin/examples/hermetic/subdirectories_in_declared_directory.result"
+}
+
+# Test that the sandbox is not crashing and not producing warnings for various types of artifacts.
+# Regression test for Issue #15340
+function test_other_artifacts() {
+  bazel shutdown # Clear memory about duplicated warnings
+  bazel build examples/hermetic:other_artifacts &> $TEST_log
+  expect_not_log "WARNING"
+  assert_contains "regular_file_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains "unresolved_symlink_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains "directory_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+  assert_contains "tree_artifact" "bazel-bin/examples/hermetic/other_artifacts.result"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_sandbox_allowed || exit 0
+[ "$PLATFORM" != "darwin" ] || exit 0
 
 run_suite "hermetic_sandbox"

@@ -52,6 +52,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
@@ -122,8 +123,6 @@ public final class PackageFactory {
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
-  private final ImmutableMap<String, PackageArgument<?>> packageArguments;
-
   private final PackageSettings packageSettings;
   private final PackageValidator packageValidator;
   private final PackageOverheadEstimator packageOverheadEstimator;
@@ -201,7 +200,6 @@ public final class PackageFactory {
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
-    this.packageArguments = createPackageArguments(this.environmentExtensions);
     this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
     this.packageOverheadEstimator = packageOverheadEstimator;
@@ -211,7 +209,7 @@ public final class PackageFactory {
             ruleClassProvider,
             buildRuleFunctions(ruleFactory),
             this.environmentExtensions,
-            newPackageFunction(packageArguments),
+            newPackageFunction(createPackageArguments(this.environmentExtensions)),
             version);
   }
 
@@ -414,7 +412,6 @@ public final class PackageFactory {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
             context.eventHandler,
-            thread.getSemantics(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(e);
@@ -464,6 +461,8 @@ public final class PackageFactory {
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId,
       String workspaceName,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping) {
@@ -471,6 +470,8 @@ public final class PackageFactory {
         packageSettings,
         packageId,
         workspaceName,
+        associatedModuleName,
+        associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
         mainRepositoryMapping);
@@ -670,10 +671,10 @@ public final class PackageFactory {
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,
               ruleClassProvider.getToolsRepository(),
-              /*fragmentNameToClass=*/ null,
+              /* fragmentNameToClass= */ null,
               new SymbolGenerator<>(pkgBuilder.getPackageIdentifier()),
-              /*analysisRuleLabel=*/ null,
-              /*networkAllowlistForTests=*/ null)
+              /* analysisRuleLabel= */ null,
+              ruleClassProvider.getNetworkAllowlistForTests().orElse(null))
           .storeInThread(thread);
 
       // TODO(adonovan): save this as a field in BazelStarlarkContext.
@@ -768,7 +769,7 @@ public final class PackageFactory {
 
               Expression excludeDirectories = null;
               Expression include = null;
-              List<Argument> arguments = call.getArguments();
+              ImmutableList<Argument> arguments = call.getArguments();
               for (int i = 0; i < arguments.size(); i++) {
                 Argument arg = arguments.get(i);
                 String name = arg.getName();

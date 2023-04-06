@@ -27,9 +27,10 @@ def _check_proto_registry_collision(ctx):
     pass
 
 def _get_coverage_runner(ctx):
-    runner = ctx.attr._java_toolchain[java_common.JavaToolchainInfo].jacocorunner
+    toolchain = _find_java_toolchain(ctx)
+    runner = toolchain.jacocorunner
     if not runner:
-        fail("jacocorunner not set in java_toolchain")
+        fail("jacocorunner not set in java_toolchain: %s" % toolchain.label)
     runner_jar = runner.executable
 
     # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
@@ -44,16 +45,24 @@ def _find_java_toolchain(ctx):
 def _find_java_runtime_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 
+def _stamping_enabled(ctx, stamp):
+    if ctx.configuration.is_tool_configuration():
+        stamp = 0
+    return (stamp == 1) or (stamp == -1 and ctx.configuration.stamp_binaries())
+
+def _get_build_info(ctx, stamp):
+    return java_common.get_build_info(ctx, _stamping_enabled(ctx, stamp))
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
     JAVA_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:toolchain_type", mandatory = True),
     find_java_toolchain = _find_java_toolchain,
+    get_build_info = _get_build_info,
     JAVA_RUNTIME_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:runtime_toolchain_type",
     JAVA_RUNTIME_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:runtime_toolchain_type", mandatory = True),
     find_java_runtime_toolchain = _find_java_runtime_toolchain,
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
-    PROGUARD_ALLOWLISTER_LABEL = "@bazel_tools//tools/jdk:proguard_whitelister",
     EXTRA_SRCS_TYPES = [],
     ALLOWED_RULES_IN_DEPS = [
         "cc_binary",  # NB: linkshared=1
@@ -73,4 +82,7 @@ semantics = struct(
     check_proto_registry_collision = _check_proto_registry_collision,
     get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
+    JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
+    BUILD_INFO_TRANSLATOR_LABEL = None,
+    JAVA_TEST_RUNNER_LABEL = "@bazel_tools//tools/jdk:TestRunner",
 )

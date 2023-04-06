@@ -1,6 +1,6 @@
 workspace(name = "io_bazel")
 
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file", "http_jar")
+load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
 load("//:distdir.bzl", "dist_http_archive", "dist_http_file", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 
@@ -78,7 +78,7 @@ list_source_repository(name = "local_bazel_source_list")
 # android_sdk_repository(name = "androidsdk")
 # android_ndk_repository(name = "androidndk")
 
-# In order to run //src/test/shell/bazel:maven_skylark_test, follow the
+# In order to run //src/test/shell/bazel:maven_starlark_test, follow the
 # instructions above for the Android integration tests and uncomment the
 # following lines:
 # load("//tools/build_defs/repo:maven_rules.bzl", "maven_dependency_plugin")
@@ -92,18 +92,8 @@ bind(
 
 dist_http_archive(
     name = "com_google_protobuf",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-)
-
-# This is a mock version of bazelbuild/rules_python that contains only
-# @rules_python//python:defs.bzl. It is used by protobuf.
-# TODO(#9029): We could potentially replace this with the real @rules_python.
-new_local_repository(
-    name = "rules_python",
-    build_file = "//third_party/rules_python:BUILD",
-    path = "./third_party/rules_python",
-    workspace_file = "//third_party/rules_python:rules_python.WORKSPACE",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 local_repository(
@@ -124,63 +114,35 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar",
         # for android_gmaven_r8
-        "r8-3.3.28.jar",
+        "r8-8.0.40.jar",
     ],
     dirname = "derived/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "additional_distfiles" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
-        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
+        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
+        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
-        "android_tools_pkg-0.27.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
         ],
-        "r8-3.3.28.jar": [
-            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
+        "r8-8.0.40.jar": [
+            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
         ],
     },
 )
 
 # OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
-http_file(
-    name = "openjdk_linux",
-    downloaded_file_path = "zulu-linux.tar.gz",
-    sha256 = "65bfe4e0ffa74a680ee4410db46b17e30cd9397b664a92a886599fe1f3530969",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64-linux_x64-allmodules-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689070.tar.gz"],
-)
-
 dist_http_file(
     name = "openjdk_linux_vanilla",
     downloaded_file_path = "zulu-linux-vanilla.tar.gz",
 )
 
-http_file(
-    name = "openjdk_linux_minimal",
-    downloaded_file_path = "zulu-linux-minimal.tar.gz",
-    sha256 = "91f7d52f695c681d4e21499b4319d548aadef249a6b3053e306308992e1e29ae",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-linux_x64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689068.tar.gz"],
-)
-
-http_file(
-    name = "openjdk_linux_aarch64",
-    downloaded_file_path = "zulu-linux-aarch64.tar.gz",
-    sha256 = "6b245793087300db3ee82ab0d165614f193a73a60f2f011e347756c1e6ca5bac",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64-allmodules-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581690750.tar.gz"],
-)
-
 dist_http_file(
     name = "openjdk_linux_aarch64_vanilla",
     downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-)
-
-http_file(
-    name = "openjdk_linux_aarch64_minimal",
-    downloaded_file_path = "zulu-linux-aarch64-minimal.tar.gz",
-    sha256 = "06f6520a877704c77614bcfc4f846cc7cbcbf5eaad149bf7f19f4f16e285c9de",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581690750.tar.gz"],
 )
 
 dist_http_file(
@@ -193,49 +155,14 @@ dist_http_file(
     downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
 )
 
-http_file(
-    name = "openjdk_macos_x86_64",
-    downloaded_file_path = "zulu-macos.tar.gz",
-    sha256 = "8e283cfd23c7555be8e17295ed76eb8f00324c88ab904b8de37bbe08f90e569b",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64-allmodules-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689066.tar.gz"],
-)
-
 dist_http_file(
     name = "openjdk_macos_x86_64_vanilla",
     downloaded_file_path = "zulu-macos-vanilla.tar.gz",
 )
 
-http_file(
-    name = "openjdk_macos_x86_64_minimal",
-    downloaded_file_path = "zulu-macos-minimal.tar.gz",
-    sha256 = "1bacb1c07035d4066d79f0b65b4ea0ebd1954f3662bdfe3618da382ac8fd23a6",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689063.tar.gz"],
-)
-
-http_file(
-    name = "openjdk_macos_aarch64",
-    downloaded_file_path = "zulu-macos-aarch64.tar.gz",
-    sha256 = "a900ef793cb34b03ac5d93ea2f67291b6842e99d500934e19393a8d8f9bfa6ff",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.45.27-ca-jdk11.0.10/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64-allmodules-1611665569.tar.gz"],
-)
-
 dist_http_file(
     name = "openjdk_macos_aarch64_vanilla",
     downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-)
-
-http_file(
-    name = "openjdk_macos_aarch64_minimal",
-    downloaded_file_path = "zulu-macos-aarch64-minimal.tar.gz",
-    sha256 = "f4f606926e6deeaa8b8397e299313d9df87642fe464b0ccf1ed0432aeb00640b",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.45.27-ca-jdk11.0.10/zulu11.45.27-ca-jdk11.0.10-macosx_aarch64-minimal-1611665562.tar.gz"],
-)
-
-http_file(
-    name = "openjdk_win",
-    downloaded_file_path = "zulu-win.zip",
-    sha256 = "8e1604b3a27dcf639bc6d1a73103f1211848139e4cceb081d0a74a99e1e6f995",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64-allmodules-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689080.zip"],
 )
 
 dist_http_file(
@@ -246,13 +173,6 @@ dist_http_file(
 dist_http_file(
     name = "openjdk_win_arm64_vanilla",
     downloaded_file_path = "zulu-win-arm64.zip",
-)
-
-http_file(
-    name = "openjdk_win_minimal",
-    downloaded_file_path = "zulu-win-minimal.zip",
-    sha256 = "b90a713c9c2d9ea23cad44d2c2dfcc9af22faba9bde55dedc1c3bb9f556ac1ae",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581689080.zip"],
 )
 
 dist_http_archive(
@@ -283,6 +203,16 @@ dist_http_archive(
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
+
+dist_http_archive(
+    name = "rules_python",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 dist_http_archive(
     name = "zstd-jni",
@@ -359,21 +289,21 @@ dist_http_archive(
 distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
-        "android_tools_pkg-0.27.0.tar.gz",
-        "r8-3.3.28.jar",
+        "android_tools_pkg-0.28.0.tar",
+        "r8-8.0.40.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
-        "android_tools_pkg-0.27.0.tar.gz": "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",
-        "r8-3.3.28.jar": "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
+        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
+        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
-        "android_tools_pkg-0.27.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+        "android_tools_pkg-0.28.0.tar": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
         ],
-        "r8-3.3.28.jar": [
-            "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
+        "r8-8.0.40.jar": [
+            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
         ],
     },
 )
@@ -382,41 +312,26 @@ dist_http_archive(
     name = "io_bazel_skydoc",
 )
 
-# Stardoc recommends declaring its dependencies via "*_dependencies" functions.
-# This requires that the repositories these functions come from need to be
-# fetched unconditionally for everything (including just building bazel!), so
-# provide them as http_archives that can be shiped in the distdir, to keep the
-# distribution archive self-contained.
-dist_http_archive(
-    name = "io_bazel_rules_sass",
-)
-
-dist_http_archive(
-    name = "rules_nodejs",
-)
-
-dist_http_archive(
-    name = "build_bazel_rules_nodejs",
-)
-
 dist_http_archive(
     name = "platforms",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+# and tools/android/android_extensions.bzl
 http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "1afa4b7e13c82523c8b69e87f8d598c891ec7e2baa41d9e24e08becd723edb4d",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.27.0.tar.gz",
+    sha256 = "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+# and tools/android/android_extensions.bzl
 http_jar(
     name = "android_gmaven_r8_for_testing",
-    sha256 = "8626ca32fb47aba7fddd2c897615e2e8ffcdb4d4b213572a2aefb3f838f01972",
-    url = "https://maven.google.com/com/android/tools/r8/3.3.28/r8-3.3.28.jar",
+    sha256 = "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
+    url = "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
 )
 
 dist_http_archive(
@@ -488,8 +403,8 @@ dist_http_archive(
         patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
         patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     )
-    for version in ("17", "18")
-    for os in ("linux", "macos", "macos_aarch64", "win", "win_arm64")
+    for version in ("17", "19")
+    for os in ("linux", "linux_s390x", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
 ]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -515,7 +430,14 @@ dist_http_archive(
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
 dist_http_archive(
-    name = "remote_java_tools_darwin_for_testing",
+    name = "remote_java_tools_darwin_x86_64_for_testing",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+dist_http_archive(
+    name = "remote_java_tools_darwin_arm64_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
@@ -543,13 +465,29 @@ dist_http_archive(
 
 # Used in src/test/shell/bazel/testdata/jdk_http_archives.
 dist_http_archive(
-    name = "remote_java_tools_test_darwin",
+    name = "remote_java_tools_test_darwin_x86_64",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+)
+
+# Used in src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "remote_java_tools_test_darwin_arm64",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 dist_http_archive(
     name = "openjdk11_linux_archive",
+    build_file_content = """
+java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
+exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
+""",
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+dist_http_archive(
+    name = "openjdk11_linux_s390x_archive",
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -601,29 +539,13 @@ java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     )
-    for version in ("17", "18")
-    for os in ("linux", "darwin", "darwin_aarch64", "windows", "windows_arm64")
+    for version in ("17", "19")
+    for os in ("linux", "linux_s390x", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
 ]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
 stardoc_repositories()
-
-load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
-
-rules_sass_dependencies()
-
-load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
-
-build_bazel_rules_nodejs_dependencies()
-
-load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
-
-node_repositories()
-
-load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
-
-sass_repositories()
 
 register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
 
@@ -678,6 +600,10 @@ dist_http_archive(
     name = "bazel_gazelle",
 )
 
+dist_http_archive(
+    name = "rules_jvm_external",
+)
+
 # Projects using gRPC as an external dependency must call both grpc_deps() and
 # grpc_extra_deps().
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
@@ -695,3 +621,167 @@ debian_deps()
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
+
+load("@rules_jvm_external//:repositories.bzl", "rules_jvm_external_deps")
+
+rules_jvm_external_deps()
+
+load("@rules_jvm_external//:setup.bzl", "rules_jvm_external_setup")
+
+rules_jvm_external_setup()
+
+load("@rules_jvm_external//:defs.bzl", "maven_install")
+load("@rules_jvm_external//:specs.bzl", "maven")
+
+maven_install(
+    artifacts = [
+        "com.beust:jcommander:1.48",
+        "com.github.ben-manes.caffeine:caffeine:3.0.5",
+        "com.github.kevinstern:software-and-algorithms:1.0",
+        "com.github.stephenc.jcip:jcip-annotations:1.0-1",
+        "com.google.api-client:google-api-client-gson:1.35.2",
+        "com.google.api-client:google-api-client:1.35.2",
+        "com.google.auth:google-auth-library-credentials:1.6.0",
+        "com.google.auth:google-auth-library-oauth2-http:1.6.0",
+        "com.google.auto.service:auto-service-annotations:1.0.1",
+        "com.google.auto.service:auto-service:1.0",
+        "com.google.auto.value:auto-value-annotations:1.9",
+        "com.google.auto.value:auto-value:1.8.2",
+        "com.google.auto:auto-common:1.2.1",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.code.gson:gson:2.9.0",
+        "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
+        "com.google.errorprone:error_prone_annotation:2.18.0",
+        "com.google.errorprone:error_prone_annotations:2.18.0",
+        "com.google.errorprone:error_prone_check_api:2.18.0",
+        "com.google.errorprone:error_prone_core:2.18.0",
+        "com.google.errorprone:error_prone_type_annotations:2.18.0",
+        "com.google.flogger:flogger-system-backend:0.5.1",
+        "com.google.flogger:flogger:0.5.1",
+        "com.google.flogger:google-extensions:0.5.1",
+        "com.google.guava:failureaccess:1.0.1",
+        "com.google.guava:guava:31.1-jre",
+        "com.google.http-client:google-http-client-gson:1.42.0",
+        "com.google.http-client:google-http-client:1.42.0",
+        "com.google.j2objc:j2objc-annotations:1.3",
+        "com.ryanharter.auto.value:auto-value-gson-extension:1.3.1",
+        "com.ryanharter.auto.value:auto-value-gson-runtime:1.3.1",
+        "com.ryanharter.auto.value:auto-value-gson-factory:1.3.1",
+        "com.squareup:javapoet:1.12.0",
+        "commons-collections:commons-collections:3.2.2",
+        "commons-lang:commons-lang:2.6",
+        "io.github.java-diff-utils:java-diff-utils:4.0",
+        "io.grpc:grpc-api:1.47.0",
+        "io.grpc:grpc-auth:1.47.0",
+        "io.grpc:grpc-context:1.47.0",
+        "io.grpc:grpc-core:1.47.0",
+        "io.grpc:grpc-netty:1.47.0",
+        "io.grpc:grpc-protobuf-lite:1.47.0",
+        "io.grpc:grpc-protobuf:1.47.0",
+        "io.grpc:grpc-stub:1.47.0",
+        "io.netty:netty-buffer:4.1.87.Final",
+        "io.netty:netty-codec-http2:4.1.87.Final",
+        "io.netty:netty-codec-http:4.1.87.Final",
+        "io.netty:netty-codec:4.1.87.Final",
+        "io.netty:netty-common:4.1.87.Final",
+        "io.netty:netty-handler-proxy:4.1.87.Final",
+        "io.netty:netty-handler:4.1.87.Final",
+        "io.netty:netty-resolver-dns:4.1.87.Final",
+        "io.netty:netty-resolver:4.1.87.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final",
+        "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final",
+        "io.netty:netty-tcnative-classes:2.0.56.Final",
+        "io.netty:netty-transport-classes-epoll:4.1.87.Final",
+        "io.netty:netty-transport-classes-kqueue:4.1.87.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-native-unix-common:4.1.87.Final",
+        "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.87.Final",
+        "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.87.Final",
+        "io.netty:netty-transport-sctp:4.1.87.Final",
+        "io.netty:netty-transport:4.1.87.Final",
+        "io.reactivex.rxjava3:rxjava:3.1.2",
+        "javax.activation:javax.activation-api:1.2.0",
+        "javax.annotation:javax.annotation-api:1.3.2",
+        "javax.inject:javax.inject:1",
+        "net.bytebuddy:byte-buddy-agent:1.11.13",
+        "net.bytebuddy:byte-buddy:1.11.13",
+        "org.apache.commons:commons-compress:1.19",
+        "org.apache.commons:commons-pool2:2.8.0",
+        "org.apache.tomcat:tomcat-annotations-api:8.0.5",
+        "org.apache.velocity:velocity:1.7",
+        "org.checkerframework:checker-qual:3.19.0",
+        "org.ow2.asm:asm-analysis:9.2",
+        "org.ow2.asm:asm-commons:9.2",
+        "org.ow2.asm:asm-tree:9.2",
+        "org.ow2.asm:asm-util:9.2",
+        "org.ow2.asm:asm:9.2",
+        "org.pcollections:pcollections:3.1.4",
+        "org.threeten:threeten-extra:1.5.0",
+        "org.tukaani:xz:1.9",
+        # The following jars are for testing.
+        # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
+        # and hamcrest is a dependency of junit.
+        "junit:junit:4.13.2",
+        "org.hamcrest:hamcrest-core:1.3",
+        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
+        maven.artifact("com.google.jimfs", "jimfs", "1.2", testonly = True),
+        maven.artifact("com.google.testing.compile", "compile-testing", "0.18", testonly = True),
+        maven.artifact("com.google.truth", "truth", "1.1.3", testonly = True),
+        maven.artifact("com.google.truth.extensions", "truth-java8-extension", "1.1.3", testonly = True),
+        maven.artifact("com.google.truth.extensions", "truth-liteproto-extension", "1.1.3", testonly = True),
+        maven.artifact("com.google.truth.extensions", "truth-proto-extension", "1.1.3", testonly = True),
+        maven.artifact("org.mockito", "mockito-core", "3.12.4", testonly = True),
+    ],
+    excluded_artifacts = [
+        # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
+        # require java.security.jgss module to be embedded in the Bazel binary.
+        "org.apache.httpcomponents:httpclient",
+        "org.apache.httpcomponents:httpcore",
+        "org.eclipse.jgit:org.eclipse.jgit",
+        # We build protobuf Java library from source, exclude protobuf jars to be safe.
+        "com.google.protobuf:protobuf-java",
+        "com.google.protobuf:protobuf-javalite",
+    ],
+    fail_if_repin_required = True,
+    maven_install_json = "//:maven_install.json",
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+    strict_visibility = True,
+)
+
+load("@maven//:defs.bzl", "pinned_maven_install")
+
+pinned_maven_install()
+
+maven_install(
+    name = "maven_android",
+    artifacts = [
+        "androidx.databinding:databinding-compiler:3.4.0-alpha10",
+        "com.android.tools.build:builder:7.1.3",
+        "com.android.tools.build:manifest-merger:30.1.3",
+        "com.android.tools:sdk-common:30.1.3",
+        "com.android.tools:annotations:30.1.3",
+        "com.android.tools.layoutlib:layoutlib-api:30.1.3",
+        "com.android.tools:common:30.1.3",
+        "com.android.tools:repository:30.1.3",
+    ],
+    fail_if_repin_required = True,
+    maven_install_json = "//src/tools/android:maven_android_install.json",
+    repositories = [
+        "https://dl.google.com/android/maven2",
+        "https://repo1.maven.org/maven2",
+    ],
+)
+
+load("@maven_android//:defs.bzl", pinned_maven_install_android = "pinned_maven_install")
+
+pinned_maven_install_android()

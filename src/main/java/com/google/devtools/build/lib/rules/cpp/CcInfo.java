@@ -77,7 +77,8 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   @Override
   public Depset getCcTransitiveNativeLibraries(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(LibraryToLink.TYPE, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+    return Depset.of(
+        LibraryToLink.class, getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
   }
 
   public CcDebugInfoContext getCcDebugInfoContext() {

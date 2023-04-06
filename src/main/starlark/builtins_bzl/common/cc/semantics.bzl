@@ -16,8 +16,6 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 
-cc_common = _builtins.toplevel.cc_common
-
 def _get_proto_aspects():
     return []
 
@@ -58,9 +56,16 @@ def _get_licenses_attr():
 def _get_loose_mode_in_hdrs_check_allowed_attr():
     return {}
 
+def _def_parser_computed_default(name, tags):
+    # This is needed to break the dependency cycle.
+    if "__DONT_DEPEND_ON_DEF_PARSER__" in tags or "def_parser" in name:
+        return None
+    else:
+        return Label("@bazel_tools//tools/def_parser:def_parser")
+
 def _get_def_parser():
     return attr.label(
-        default = _builtins.internal.cc_internal.def_parser_computed_default(),
+        default = _def_parser_computed_default,
         allow_single_file = True,
         cfg = "exec",
     )
@@ -71,23 +76,20 @@ def _get_grep_includes():
 def _get_runtimes_toolchain():
     return []
 
-def _get_test_toolchain_attr():
-    return {}
-
 def _get_test_malloc_attr():
     return {}
 
 def _get_coverage_attrs():
     return {
         "_lcov_merger": attr.label(
-            default = "@bazel_tools//tools/test:lcov_merger",
+            default = configuration_field(fragment = "coverage", name = "output_generator"),
             executable = True,
-            cfg = "target",
+            cfg = "exec",
         ),
         "_collect_cc_coverage": attr.label(
             default = "@bazel_tools//tools/test:collect_cc_coverage",
             executable = True,
-            cfg = "target",
+            cfg = "exec",
         ),
     }
 
@@ -125,12 +127,15 @@ def _get_coverage_env(ctx):
 def _get_cc_runtimes(ctx, is_library):
     if is_library:
         return []
-    if ctx.fragments.cpp.custom_malloc != None:
-        return [ctx.attr._default_malloc]
-    return [ctx.attr.malloc]
 
-def _should_use_legacy_cc_test(_):
-    return True
+    runtimes = [ctx.attr._link_extra_lib]
+
+    if ctx.fragments.cpp.custom_malloc != None:
+        runtimes.append(ctx.attr._default_malloc)
+    else:
+        runtimes.append(ctx.attr.malloc)
+
+    return runtimes
 
 def _get_implementation_deps_allowed_attr():
     return {}
@@ -139,10 +144,6 @@ def _check_can_use_implementation_deps(ctx):
     experimental_cc_implementation_deps = ctx.fragments.cpp.experimental_cc_implementation_deps()
     if (not experimental_cc_implementation_deps and ctx.attr.implementation_deps):
         fail("requires --experimental_cc_implementation_deps", attr = "implementation_deps")
-
-def _check_experimental_cc_shared_library(ctx):
-    if not cc_common.check_experimental_cc_shared_library():
-        fail("Pass --experimental_cc_shared_library to use cc_shared_library")
 
 def _get_linkstatic_default(ctx):
     if ctx.attr._is_test:
@@ -154,6 +155,15 @@ def _get_linkstatic_default(ctx):
     else:
         # Binaries link statically.
         return True
+
+def _get_nocopts_attr():
+    return {}
+
+def _get_experimental_link_static_libraries_once(ctx):
+    return ctx.fragments.cpp.experimental_link_static_libraries_once()
+
+def _check_cc_shared_library_tags(ctx):
+    pass
 
 semantics = struct(
     ALLOWED_RULES_IN_DEPS = [
@@ -184,14 +194,14 @@ semantics = struct(
     get_grep_includes = _get_grep_includes,
     get_implementation_deps_allowed_attr = _get_implementation_deps_allowed_attr,
     check_can_use_implementation_deps = _check_can_use_implementation_deps,
-    check_experimental_cc_shared_library = _check_experimental_cc_shared_library,
     get_linkstatic_default = _get_linkstatic_default,
     get_runtimes_toolchain = _get_runtimes_toolchain,
     get_test_malloc_attr = _get_test_malloc_attr,
-    get_test_toolchain_attr = _get_test_toolchain_attr,
     get_cc_runtimes = _get_cc_runtimes,
-    should_use_legacy_cc_test = _should_use_legacy_cc_test,
     get_coverage_attrs = _get_coverage_attrs,
     get_coverage_env = _get_coverage_env,
     get_proto_aspects = _get_proto_aspects,
+    get_nocopts_attr = _get_nocopts_attr,
+    get_experimental_link_static_libraries_once = _get_experimental_link_static_libraries_once,
+    check_cc_shared_library_tags = _check_cc_shared_library_tags,
 )

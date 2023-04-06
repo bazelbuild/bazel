@@ -47,7 +47,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo
 
   @Override
   public Depset /*<Artifact>*/ getNativeLibsForStarlark() {
-    return Depset.of(Artifact.TYPE, nativeLibs);
+    return Depset.of(Artifact.class, nativeLibs);
   }
 
   NestedSet<Artifact> getNativeLibs() {

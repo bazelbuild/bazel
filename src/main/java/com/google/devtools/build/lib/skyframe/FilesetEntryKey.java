@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.stream.StreamSupport;
@@ -25,7 +23,7 @@ import java.util.stream.StreamSupport;
 /** A {@link SkyKey} for the {@link FilesetEntryFunction} */
 @AutoValue
 public abstract class FilesetEntryKey implements SkyKey {
-  private static final Interner<FilesetEntryKey> INTERNER = BlazeInterners.newWeakInterner();
+  private static final SkyKeyInterner<FilesetEntryKey> interner = SkyKey.newInterner();
 
   abstract FilesetTraversalParams params();
 
@@ -40,12 +38,17 @@ public abstract class FilesetEntryKey implements SkyKey {
   }
 
   public static FilesetEntryKey key(FilesetTraversalParams param) {
-    return INTERNER.intern(new AutoValue_FilesetEntryKey(param));
+    return interner.intern(new AutoValue_FilesetEntryKey(param));
   }
 
   public static ImmutableList<FilesetEntryKey> keys(Iterable<FilesetTraversalParams> params) {
     return StreamSupport.stream(params.spliterator(), /*parallel=*/ false)
         .map(FilesetEntryKey::key)
         .collect(ImmutableList.toImmutableList());
+  }
+
+  @Override
+  public SkyKeyInterner<FilesetEntryKey> getSkyKeyInterner() {
+    return interner;
   }
 }

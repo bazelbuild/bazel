@@ -79,7 +79,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
@@ -234,7 +233,6 @@ public class ByteStreamUploaderTest {
 
               @Override
               public void onCompleted() {
-                streamObserver.onCompleted();
               }
             };
           }
@@ -480,6 +478,65 @@ public class ByteStreamUploaderTest {
   }
 
   @Test
+  public void progressiveCompressedUploadSeesAlreadyExistsAtTheEnd() throws Exception {
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(
+            () -> new FixedBackoff(1, 0),
+            e -> Status.fromThrowable(e).getCode() == Code.INTERNAL,
+            retryService);
+    ByteStreamUploader uploader =
+        new ByteStreamUploader(
+            INSTANCE_NAME,
+            referenceCountedChannel,
+            CallCredentialsProvider.NO_CREDENTIALS,
+            300,
+            retrier,
+            /* maximumOpenFiles= */ -1);
+
+    int chunkSize = 1024;
+    byte[] blob = new byte[chunkSize * 2 + 1];
+    new Random().nextBytes(blob);
+
+    Chunker chunker =
+        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(chunkSize).build();
+    Digest digest = DIGEST_UTIL.compute(blob);
+
+    serviceRegistry.addService(
+        new ByteStreamImplBase() {
+          @Override
+          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
+            return new StreamObserver<WriteRequest>() {
+              @Override
+              public void onNext(WriteRequest writeRequest) {}
+
+              @Override
+              public void onError(Throwable throwable) {
+                fail("onError should never be called.");
+              }
+
+              @Override
+              public void onCompleted() {
+                streamObserver.onError(Status.INTERNAL.asException());
+              }
+            };
+          }
+
+          @Override
+          public void queryWriteStatus(
+              QueryWriteStatusRequest request, StreamObserver<QueryWriteStatusResponse> response) {
+            response.onNext(
+                QueryWriteStatusResponse.newBuilder()
+                    .setCommittedSize(blob.length)
+                    .setComplete(true)
+                    .build());
+            response.onCompleted();
+          }
+        });
+
+    uploader.uploadBlob(context, digest, chunker);
+  }
+
+  @Test
   public void concurrentlyCompletedUploadIsNotRetried() throws Exception {
     // Test that after an upload has failed and the QueryWriteStatus call returns
     // that the upload has completed that we'll not retry the upload.
@@ -611,8 +668,7 @@ public class ByteStreamUploaderTest {
 
   @Test
   public void earlyWriteResponseShouldCompleteUpload() throws Exception {
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> mockBackoff, e -> false, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -702,8 +758,7 @@ public class ByteStreamUploaderTest {
 
   @Test
   public void incorrectCommittedSizeDoesNotFailIncompleteUpload() throws Exception {
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(() -> mockBackoff, (e) -> true, retryService);
+    RemoteRetrier retrier = TestUtils.newRemoteRetrier(() -> mockBackoff, e -> false, retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
             INSTANCE_NAME,
@@ -780,7 +835,7 @@ public class ByteStreamUploaderTest {
     Chunker chunker = Mockito.mock(Chunker.class);
     Digest digest = DIGEST_UTIL.compute(blob);
     Mockito.doThrow(new IOException("Too many open files")).when(chunker).seek(0);
-    Mockito.when(chunker.getSize()).thenReturn(digest.getSizeBytes());
+    Mockito.when(chunker.getUncompressedSize()).thenReturn(digest.getSizeBytes());
     serviceRegistry.addService(new MaybeFailOnceUploadService(ImmutableMap.of()));
 
     String newMessage =
@@ -1637,7 +1692,7 @@ public class ByteStreamUploaderTest {
   /* Custom Chunker used to track number of open files */
   private static class TestChunker extends Chunker {
 
-    TestChunker(Supplier<InputStream> dataSupplier, long size, int chunkSize, boolean compressed) {
+    TestChunker(ChunkDataSupplier dataSupplier, long size, int chunkSize, boolean compressed) {
       super(dataSupplier, size, chunkSize, compressed);
     }
 

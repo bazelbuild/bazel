@@ -94,7 +94,8 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationSyntaxErrors() throws Exception {
     genrule("$(location )");
     assertExpansionFails(
-        "invalid label in $(location) expression: empty package-relative label", "//test");
+        "invalid label in $(location) expression: invalid target name '': empty target name",
+        "//test");
 
     genrule("$(location foo bar");
     assertExpansionFails("unterminated variable reference", "//test");
@@ -220,7 +221,8 @@ public final class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
   public void testLocationsSyntaxErrors() throws Exception {
     genrule("$(locations )");
     assertExpansionFails(
-        "invalid label in $(locations) expression: empty package-relative label", "//test");
+        "invalid label in $(locations) expression: invalid target name '': empty target name",
+        "//test");
 
     genrule("$(locations foo bar");
     assertExpansionFails("unterminated variable reference", "//test");

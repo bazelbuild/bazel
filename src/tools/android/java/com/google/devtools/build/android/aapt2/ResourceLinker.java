@@ -29,8 +29,8 @@ import static java.util.stream.Collectors.toList;
 import static java.util.zip.ZipEntry.DEFLATED;
 import static java.util.zip.ZipEntry.STORED;
 
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.core.VariantType;
+import com.android.builder.core.DefaultManifestParser;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.repository.Revision;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -156,6 +156,7 @@ public class ResourceLinker {
   private List<Path> assetDirs = ImmutableList.of();
   private boolean conditionalKeepRules = false;
   private boolean includeProguardLocationReferences = false;
+  private List<StaticLibrary> resourceApks = ImmutableList.of();
 
   private ResourceLinker(
       Path aapt2, ListeningExecutorService executorService, Path workingDirectory) {
@@ -244,6 +245,12 @@ public class ResourceLinker {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public ResourceLinker resourceApks(List<StaticLibrary> resourceApks) {
+    this.resourceApks = resourceApks;
+    return this;
+  }
+
   /**
    * Statically links the {@link CompiledResources} with the dependencies to produce a {@link
    * StaticLibrary}.
@@ -256,10 +263,12 @@ public class ResourceLinker {
       Path javaSourceDirectory = workingDirectory.resolve("java");
       profiler.startTask("linkstatic");
       final Collection<String> pathsToLinkAgainst = StaticLibrary.toPathStrings(linkAgainst);
+      final Collection<String> resourceApkPathsToLinkAgainst =
+          StaticLibrary.toPathStrings(resourceApks);
       logger.finer(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
-              .forVariantType(VariantType.LIBRARY)
+              .forVariantType(VariantTypeImpl.LIBRARY)
               .add("link")
               .when(outputAsProto) // Used for testing: aapt2 does not output static libraries in
               // proto format.
@@ -274,6 +283,7 @@ public class ResourceLinker {
               .addParameterableRepeated(
                   "-R", compiledResourcesToPaths(compiled, IS_FLAT_FILE), workingDirectory)
               .addRepeated("-I", pathsToLinkAgainst)
+              .addRepeated("-I", resourceApkPathsToLinkAgainst)
               .add("--auto-add-overlay")
               .when(OVERRIDE_STYLES_INSTEAD_OF_OVERLAYING)
               .thenAdd("--override-styles-instead-of-overlaying")
@@ -290,7 +300,7 @@ public class ResourceLinker {
         logger.finer(
             new AaptCommandBuilder(aapt2)
                 .forBuildToolsVersion(buildToolsVersion)
-                .forVariantType(VariantType.LIBRARY)
+                .forVariantType(VariantTypeImpl.LIBRARY)
                 .add("link")
                 .add("--manifest", compiled.getManifest())
                 .add("--no-static-lib-packages")
@@ -300,6 +310,7 @@ public class ResourceLinker {
                 .thenAdd("--proto-format")
                 // only link against jars
                 .addRepeated("-I", pathsToLinkAgainst.stream().filter(IS_JAR).collect(toList()))
+                .addRepeated("-I", resourceApkPathsToLinkAgainst)
                 .add("-R", outPath)
                 // only include non-jars
                 .addRepeated(
@@ -411,7 +422,7 @@ public class ResourceLinker {
     logger.fine(
         new AaptCommandBuilder(aapt2)
             .forBuildToolsVersion(buildToolsVersion)
-            .forVariantType(VariantType.DEFAULT)
+            .forVariantType(VariantTypeImpl.BASE_APK)
             .add("link")
             .whenVersionIsAtLeast(new Revision(23))
             .thenAdd("--no-version-vectors")
@@ -443,6 +454,7 @@ public class ResourceLinker {
                         compiled.getAssetsStrings().stream())
                     .collect(toList()))
             .addRepeated("-I", StaticLibrary.toPathStrings(linkAgainst))
+            .addRepeated("-I", StaticLibrary.toPathStrings(resourceApks))
             .addParameterableRepeated(
                 "-R",
                 compiledResourcesToPaths(
@@ -599,7 +611,13 @@ public class ResourceLinker {
     Path packages = workingDirectory.resolve("packages");
     try (BufferedWriter writer = Files.newBufferedWriter(packages, StandardOpenOption.CREATE_NEW)) {
       for (CompiledResources resources : FluentIterable.from(include).append(compiled)) {
-        writer.append(VariantConfiguration.getManifestPackage(resources.getManifest().toFile()));
+        writer.append(
+            new DefaultManifestParser(
+                    resources.getManifest().toFile(),
+                    /* canParseManifest= */ () -> true,
+                    /* isManifestFileRequired= */ true,
+                    /* issueReporter= */ null)
+                .getPackage());
         writer.newLine();
       }
     }
@@ -630,7 +648,7 @@ public class ResourceLinker {
     logger.fine(
         new AaptCommandBuilder(aapt2)
             .forBuildToolsVersion(buildToolsVersion)
-            .forVariantType(VariantType.DEFAULT)
+            .forVariantType(VariantTypeImpl.BASE_APK)
             .add("optimize")
             .when(Objects.equals(logger.getLevel(), Level.FINE))
             .thenAdd("-v")
@@ -687,7 +705,7 @@ public class ResourceLinker {
       logger.fine(
           new AaptCommandBuilder(aapt2)
               .forBuildToolsVersion(buildToolsVersion)
-              .forVariantType(VariantType.DEFAULT)
+              .forVariantType(VariantTypeImpl.BASE_APK)
               .add("convert")
               .when(Objects.equals(logger.getLevel(), Level.FINE))
               .thenAdd("-v")

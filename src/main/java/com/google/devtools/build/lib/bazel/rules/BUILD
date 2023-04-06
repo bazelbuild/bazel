@@ -2,6 +2,7 @@ load("//:distdir_deps.bzl", "gen_workspace_stanza")
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -51,7 +52,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/common",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:bazel_cpp_semantics",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp/proto",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
@@ -68,7 +68,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
-        "//src/main/java/com/google/devtools/build/lib/rules:core_rules",
         "//src/main/java/com/google/devtools/build/lib/rules:core_workspace_rules",
         "//src/main/java/com/google/devtools/build/lib/rules:extra/action_listener_rule",
         "//src/main/java/com/google/devtools/build/lib/rules:extra/extra_action_rule",
@@ -81,6 +80,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/swift",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
+        "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery",
@@ -91,7 +91,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
+        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/objc",

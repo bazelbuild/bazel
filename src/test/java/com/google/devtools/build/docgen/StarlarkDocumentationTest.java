@@ -18,7 +18,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
@@ -232,7 +233,7 @@ public class StarlarkDocumentationTest {
    * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
    * shows up.
    */
-  @DocumentMethods
+  @GlobalMethods(environment = Environment.BZL)
   @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
     @StarlarkMethod(

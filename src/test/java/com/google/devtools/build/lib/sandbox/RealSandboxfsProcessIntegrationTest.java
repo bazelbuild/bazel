@@ -44,7 +44,7 @@ public class RealSandboxfsProcessIntegrationTest extends BaseSandboxfsProcessInt
   }
 
   @Override
-  SandboxfsProcess mount(Path mountPoint) throws IOException {
+  SandboxfsProcess mount(Path mountPoint) throws IOException, InterruptedException {
     String rawSandboxfs = System.getenv("SANDBOXFS");
     if (rawSandboxfs == null) {
       fail("Test requires SANDBOXFS to be defined in the environment");

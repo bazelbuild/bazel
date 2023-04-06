@@ -150,7 +150,16 @@ def _debug_files_test_impl(ctx):
     actual_files = []
     for debug_file in target_under_test[OutputGroupInfo].rule_impl_debug_files.to_list():
         actual_files.append(debug_file.basename)
-    expected_files = ["bar_so_exports.txt", "bar_so_link_once_static_libs.txt", "foo_so_exports.txt", "foo_so_link_once_static_libs.txt", "binary_link_once_static_libs.txt"]
+
+    expected_files = [
+        "bar_so_exports.txt",
+        "bar_so_link_once_static_libs.txt",
+        "diff_pkg_so_exports.txt",
+        "diff_pkg_so_link_once_static_libs.txt",
+        "foo_so_exports.txt",
+        "foo_so_link_once_static_libs.txt",
+        "binary_link_once_static_libs.txt",
+    ]
     asserts.equals(env, expected_files, actual_files)
 
     return analysistest.end(env)
@@ -166,8 +175,10 @@ def _runfiles_test_impl(ctx):
     expected_suffixes = [
         "libfoo_so.so",
         "libbar_so.so",
+        "libdiff_pkg_so.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibfoo_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary_Slibbar_Uso.so",
+        "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary3_Slibdiff_Upkg_Uso.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
     ]
@@ -210,4 +221,106 @@ interface_library_output_group_test = analysistest.make(
     attrs = {
         "is_windows": attr.bool(),
     },
+)
+
+def _check_linking_action_lib_parameters_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    actions = analysistest.target_actions(env)
+
+    target_action = None
+    for action in actions:
+        if action.mnemonic == "FileWrite":
+            target_action = action
+            break
+    args = target_action.content.split("\n")
+    for arg in args:
+        for bad_lib_entry in ctx.attr.libs_that_shouldnt_be_present:
+            asserts.true(env, arg.find("{}.".format(bad_lib_entry)) == -1, "Should not have seen library `{}` in command line".format(arg))
+
+    return analysistest.end(env)
+
+check_linking_action_lib_parameters_test = analysistest.make(
+    _check_linking_action_lib_parameters_test_impl,
+    attrs = {
+        "libs_that_shouldnt_be_present": attr.string_list(),
+    },
+)
+
+AspectCcInfo = provider("Takes a cc_info.", fields = {"cc_info": "cc_info"})
+WrappedCcInfo = provider("Takes a cc_info.", fields = {"cc_info": "cc_info"})
+
+def _forwarding_cc_lib_aspect_impl(target, ctx):
+    cc_info = target[WrappedCcInfo].cc_info
+    linker_inputs = []
+    owner = ctx.label.relative(ctx.label.name + ".custom")
+    for linker_input in cc_info.linking_context.linker_inputs.to_list():
+        if linker_input.owner == ctx.label.relative("indirect_dep"):
+            linker_inputs.append(cc_common.create_linker_input(
+                owner = owner,
+                libraries = depset(linker_input.libraries),
+            ))
+        else:
+            linker_inputs.append(linker_input)
+    cc_info = CcInfo(
+        compilation_context = cc_info.compilation_context,
+        linking_context = cc_common.create_linking_context(
+            linker_inputs = depset(linker_inputs),
+        ),
+    )
+    return [
+        AspectCcInfo(cc_info = cc_info),
+        CcSharedLibraryHintInfo(
+            owners = [owner],
+        ),
+    ]
+
+forwarding_cc_lib_aspect = aspect(
+    implementation = _forwarding_cc_lib_aspect_impl,
+    required_providers = [WrappedCcInfo],
+    provides = [AspectCcInfo, CcSharedLibraryHintInfo],
+)
+
+def _wrapped_cc_lib_impl(ctx):
+    return [WrappedCcInfo(cc_info = ctx.attr.deps[0][CcInfo]), ProtoInfo()]
+
+wrapped_cc_lib = rule(
+    implementation = _wrapped_cc_lib_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [CcInfo]),
+    },
+    provides = [WrappedCcInfo, ProtoInfo],
+)
+
+def _forwarding_cc_lib_impl(ctx):
+    hints = CcSharedLibraryHintInfo(attributes = ["deps"])
+    if ctx.attr.deps:
+        return [ctx.attr.deps[0][AspectCcInfo].cc_info, hints]
+    else:
+        return [ctx.attr.do_not_follow_deps[0][AspectCcInfo].cc_info, hints]
+
+forwarding_cc_lib = rule(
+    implementation = _forwarding_cc_lib_impl,
+    attrs = {
+        "deps": attr.label_list(providers = [WrappedCcInfo], aspects = [forwarding_cc_lib_aspect]),
+        "do_not_follow_deps": attr.label_list(providers = [WrappedCcInfo], aspects = [forwarding_cc_lib_aspect]),
+    },
+    provides = [CcInfo, CcSharedLibraryHintInfo],
+)
+
+def _nocode_cc_lib_impl(ctx):
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        additional_inputs = depset([ctx.files.additional_inputs[0]]),
+    )
+    cc_info = CcInfo(linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_input])))
+    return [cc_common.merge_cc_infos(cc_infos = [cc_info, ctx.attr.deps[0][CcInfo]])]
+
+nocode_cc_lib = rule(
+    implementation = _nocode_cc_lib_impl,
+    attrs = {
+        "additional_inputs": attr.label_list(allow_files = True),
+        "deps": attr.label_list(),
+    },
+    provides = [CcInfo],
 )

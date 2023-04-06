@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules;
 
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_JAVA_LIBRARY_EXPORT;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
@@ -45,6 +47,8 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
+import net.starlark.java.eval.FlagGuardedValue;
+import net.starlark.java.eval.Starlark;
 
 /** Rules for Java support in Bazel. */
 public class JavaRules implements RuleSet {
@@ -87,6 +91,11 @@ public class JavaRules implements RuleSet {
             JavaInfo.PROVIDER,
             JavaPluginInfo.PROVIDER,
             ProguardSpecProvider.PROVIDER));
+
+    builder.addStarlarkAccessibleTopLevels(
+        "experimental_java_library_export_do_not_use",
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));
 
     try {
       builder.addWorkspaceFileSuffix(

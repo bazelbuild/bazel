@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.supplier.MemoizingInterruptibleSupplier;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Map;
@@ -124,11 +123,12 @@ public interface QueryableGraph {
    * @param previouslyRequestedDeps deps that have already been requested during this build and
    *     should not be prefetched because they will be subsequently fetched anyway
    * @return {@code previouslyRequestedDeps} as a set if the implementation called {@link
-   *     GroupedList#toSet} (so that the caller may reuse it), otherwise {@code null}
+   *     GroupedDeps#toSet} (so that the caller may reuse it), otherwise {@code null}
    */
+  @CanIgnoreReturnValue
   @Nullable
   default ImmutableSet<SkyKey> prefetchDeps(
-      SkyKey requestor, Set<SkyKey> oldDeps, GroupedList<SkyKey> previouslyRequestedDeps)
+      SkyKey requestor, Set<SkyKey> oldDeps, GroupedDeps previouslyRequestedDeps)
       throws InterruptedException {
     return null;
   }

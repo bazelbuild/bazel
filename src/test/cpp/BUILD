@@ -15,8 +15,8 @@ cc_test(
             "blaze_util_windows_test.cc",
         ],
         "//conditions:default": [
-            "blaze_util_test.cc",
             "blaze_util_posix_test.cc",
+            "blaze_util_test.cc",
         ],
     }),
     deps = [

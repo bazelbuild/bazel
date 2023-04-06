@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.skyframe.TestExpansionValue.TestExpansionKe
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
+import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -158,7 +158,7 @@ final class TestExpansionFunction implements SkyFunction {
           pkgIdentifiers.add(label.getPackageIdentifier());
         });
     ImmutableList<SkyKey> skyKeys = PackageValue.keys(pkgIdentifiers);
-    SkyframeIterableResult packages = env.getOrderedValuesAndExceptions(skyKeys);
+    SkyframeLookupResult packages = env.getValuesAndExceptions(skyKeys);
     if (env.valuesMissing()) {
       return false;
     }
@@ -168,7 +168,7 @@ final class TestExpansionFunction implements SkyFunction {
       try {
         packageMap.put(
             (PackageIdentifier) key.argument(),
-            ((PackageValue) packages.nextOrThrow(NoSuchPackageException.class)).getPackage());
+            ((PackageValue) packages.getOrThrow(key, NoSuchPackageException.class)).getPackage());
       } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));
         hasError = true;

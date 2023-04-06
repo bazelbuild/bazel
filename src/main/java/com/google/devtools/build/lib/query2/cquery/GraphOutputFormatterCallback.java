@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -65,12 +66,15 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
             };
 
         @Override
-        public String getLabel(Node<KeyedConfiguredTarget> node) {
+        public String getLabel(
+            Node<KeyedConfiguredTarget> node, RepositoryMapping mainRepositoryMapping) {
           // Node payloads are ConfiguredTargets. Output node labels are target labels + config
           // hashes.
           KeyedConfiguredTarget kct = node.getLabel();
           return String.format(
-              "%s (%s)", kct.getLabel(), shortId(getConfiguration(kct.getConfigurationKey())));
+              "%s (%s)",
+              kct.getLabel().getDisplayForm(mainRepositoryMapping),
+              shortId(getConfiguration(kct.getConfigurationKey())));
         }
 
         @Override
@@ -79,15 +83,19 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
         }
       };
 
+  private final RepositoryMapping mainRepoMapping;
+
   GraphOutputFormatterCallback(
       ExtendedEventHandler eventHandler,
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTarget> accessor,
-      DepsRetriever depsRetriever) {
+      DepsRetriever depsRetriever,
+      RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.depsRetriever = depsRetriever;
+    this.mainRepoMapping = mainRepoMapping;
   }
 
   @Override
@@ -117,7 +125,8 @@ class GraphOutputFormatterCallback extends CqueryThreadsafeCallback {
             // select() conditions don't matter for cquery because cquery operates post-analysis
             // phase, when select()s have been resolved and removed from the graph.
             /*maxConditionalEdges=*/ 0,
-            options.graphFactored);
+            options.graphFactored,
+            mainRepoMapping);
     graphWriter.write(graph, /*conditionalEdges=*/ null, outputStream);
   }
 }

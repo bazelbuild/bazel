@@ -44,7 +44,7 @@ public class VisibilityTest extends AnalysisTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'data' : attr.label(allow_files=True),",
-        "    '_tool' : attr.label(cfg='host', allow_files=True,",
+        "    '_tool' : attr.label(cfg='exec', allow_files=True,",
         "                         default = Label('//tool:tool.sh')),",
         "  },",
         "  outputs = {'out' : '%{name}.out'},",

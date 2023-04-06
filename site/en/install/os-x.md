@@ -3,19 +3,53 @@ Book: /_book.yaml
 
 # Installing Bazel on macOS
 
+{% include "_buttons.html" %}
+
 This page describes how to install Bazel on macOS and set up your environment.
 
 You can install Bazel on macOS using one of the following methods:
 
 *   *Recommended*: [Use Bazelisk](/install/bazelisk)
-*   [Use the binary installer](#install-with-installer-mac-os-x)
 *   [Use Homebrew](#install-on-mac-os-x-homebrew)
+*   [Use the binary installer](#install-with-installer-mac-os-x)
 *   [Compile Bazel from source](/install/compile-source)
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
 
 *   Access the [bash completion script](/install/completion#bash)
 *   Install the [zsh completion script](/install/completion#zsh)
+
+<h2 id="install-on-mac-os-x-homebrew">Installing using Homebrew</h2>
+
+### Step 1: Install Homebrew on macOS
+
+Install [Homebrew](https://brew.sh/) (a one-time step):
+
+```posix-terminal
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+### Step 2: Install Bazel via Homebrew
+
+Install the Bazel package via Homebrew as follows:
+
+```posix-terminal
+brew install bazel
+```
+
+All set! You can confirm Bazel is installed successfully by running the
+following command:
+
+```posix-terminal
+bazel --version
+```
+
+Once installed, you can upgrade to a newer version of Bazel using the
+following command:
+
+```posix-terminal
+brew upgrade bazel
+```
 
 <h2 id="install-with-installer-mac-os-x">Installing using the binary installer</h2>
 
@@ -105,35 +139,3 @@ bazel --version
 ```
 To update to a newer release of Bazel, download and install the desired version.
 
-<h2 id="install-on-mac-os-x-homebrew">Installing using Homebrew</h2>
-
-### Step 1: Install Homebrew on macOS
-
-Install Homebrew (a one-time step):
-
-```posix-terminal
-/bin/bash -c "$(curl -fsSL \
-https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-```
-
-### Step 2: Install Bazel via Homebrew
-
-Install the Bazel package via Homebrew as follows:
-
-```posix-terminal
-brew install bazel
-```
-
-All set! You can confirm Bazel is installed successfully by running the
-following command:
-
-```posix-terminal
-bazel --version
-```
-
-Once installed, you can upgrade to a newer version of Bazel using the
-following command:
-
-```posix-terminal
-brew upgrade bazel
-```

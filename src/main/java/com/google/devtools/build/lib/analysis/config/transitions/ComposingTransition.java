@@ -88,11 +88,6 @@ public final class ComposingTransition implements ConfigurationTransition {
     return "(" + transition1.getName() + " + " + transition2.getName() + ")";
   }
 
-  @Override
-  public boolean isHostTransition() {
-    return transition1.isHostTransition() || transition2.isHostTransition();
-  }
-
   // Override to allow recursive visiting.
   @Override
   public <E extends Exception> void visit(Visitor<E> visitor) throws E {
@@ -117,8 +112,7 @@ public final class ComposingTransition implements ConfigurationTransition {
    * transition1 -> transition2 -> toOptions }.
    *
    * <p>Note that this method checks for transitions that cannot be composed, such as if one of the
-   * transitions is {@link NoTransition} or the host transition, and returns an efficiently composed
-   * transition.
+   * transitions is {@link NoTransition}, and returns an efficiently composed transition.
    */
   public static ConfigurationTransition of(
       ConfigurationTransition transition1, ConfigurationTransition transition2) {
@@ -137,11 +131,7 @@ public final class ComposingTransition implements ConfigurationTransition {
       // Since transition2 causes no changes, use transition 1 directly.
       return transition1;
     } else if (isFinal(transition2)) {
-      // When the second transition is null or a HOST transition, there's no need to compose. But
-      // this also
-      // improves performance: host transitions are common, and ConfiguredTargetFunction has special
-      // optimized logic to handle them. If they were buried in the last segment of a
-      // ComposingTransition, those optimizations wouldn't trigger.
+      // When the second transition is null, there's no need to compose.
       return transition2;
     }
 
@@ -149,7 +139,7 @@ public final class ComposingTransition implements ConfigurationTransition {
   }
 
   private static boolean isFinal(ConfigurationTransition transition) {
-    return transition == NullTransition.INSTANCE || transition.isHostTransition();
+    return transition == NullTransition.INSTANCE;
   }
 
   /**

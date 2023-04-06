@@ -36,7 +36,7 @@ public final class SkyKeyTest {
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(0);
 
     // When a SkyKey is constructed with that HashCodeSpy as its argument,
-    SkyKey originalKey = new Key(hashCodeSpy);
+    SkyKey originalKey = new HashCodeSpyKey(hashCodeSpy);
 
     // Then the HashCodeSpy reports that its hashcode method was called once.
     assertThat(hashCodeSpy.numberOfTimesHashCodeCalled).isEqualTo(1);
@@ -85,9 +85,9 @@ public final class SkyKeyTest {
   }
 
   @AutoCodec
-  static final class Key extends AbstractSkyKey<HashCodeSpy> {
+  static final class HashCodeSpyKey extends AbstractSkyKey.WithCachedHashCode<HashCodeSpy> {
 
-    Key(HashCodeSpy arg) {
+    HashCodeSpyKey(HashCodeSpy arg) {
       super(arg);
     }
 

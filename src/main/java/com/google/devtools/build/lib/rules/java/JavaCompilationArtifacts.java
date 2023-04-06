@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -51,11 +50,6 @@ public abstract class JavaCompilationArtifacts {
 
   @Nullable
   public abstract Artifact getCompileTimeDependencyArtifact();
-
-  /** Returns a builder for a {@link JavaCompilationArtifacts}. */
-  public static Builder builder() {
-    return new Builder();
-  }
 
   private static JavaCompilationArtifacts create(
       ImmutableList<Artifact> runtimeJars,
@@ -100,12 +94,6 @@ public abstract class JavaCompilationArtifacts {
     }
 
     @CanIgnoreReturnValue
-    public Builder addRuntimeJars(Iterable<Artifact> jars) {
-      Iterables.addAll(this.runtimeJars, jars);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder addInterfaceJarWithFullJar(Artifact ijar, Artifact fullJar) {
       this.compileTimeJars.add(ijar);
       this.fullCompileTimeJars.add(fullJar);
@@ -116,15 +104,6 @@ public abstract class JavaCompilationArtifacts {
     public Builder addCompileTimeJarAsFullJar(Artifact jar) {
       this.compileTimeJars.add(jar);
       this.fullCompileTimeJars.add(jar);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    Builder addInterfaceJarsWithFullJars(
-        Iterable<Artifact> compileTimeJars, Iterable<Artifact> fullCompileTimeJars) {
-      Iterables.addAll(this.compileTimeJars, compileTimeJars);
-      Iterables.addAll(this.fullCompileTimeJars, fullCompileTimeJars);
-      validate();
       return this;
     }
 

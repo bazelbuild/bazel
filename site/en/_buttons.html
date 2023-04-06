@@ -1,0 +1,13 @@
+<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/issues/new?title=%5Bbazel.build%5D+Problem+with+{% dynamic print request.path %}&template=doc_issue.yml&link=https%3A%2F%2Fbazel.build{% dynamic print request.path %}" target="_blank">
+  Report an issue<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+</a>
+{% dynamic if not setvar.source_file %}
+<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/site/en{% dynamic print request.path %}.md" target="_blank">
+  View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+</a>
+{% dynamic elif setvar.source_file != "NONE" %}
+<a class="button button-with-icon" href="https://github.com/bazelbuild/bazel/tree/master/{% dynamic print setvar.source_file %}" target="_blank">
+  View source<span class="material-icons icon-after" aria-hidden="true">open_in_new</span>
+</a>
+{% dynamic endif %}
+</p>

@@ -46,9 +46,14 @@ def create_single_jar(ctx, output, *input_depsets):
         mnemonic = "JavaSingleJar",
         progress_message = "Building singlejar jar %s" % output.short_path,
         executable = toolchain.single_jar,
+        toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
         inputs = all_inputs,
         tools = [toolchain.single_jar],
         outputs = [output],
         arguments = [args],
     )
     return output
+
+# TODO(hvd): use skylib shell.quote()
+def shell_quote(s):
+    return "'" + s.replace("'", "'\\''") + "'"

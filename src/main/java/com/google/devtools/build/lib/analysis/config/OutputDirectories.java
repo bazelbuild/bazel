@@ -73,11 +73,6 @@ public class OutputDirectories {
    * build step, you're guaranteed not to have to rebuild it. The important exception has to do with
    * multiple configurations: every configuration in the build must have a different output
    * directory name so that their artifacts do not conflict.
-   *
-   * <p>The host configuration is special-cased: in order to guarantee that its output directory is
-   * always separate from that of the target configuration, we simply pin it to "host". We do this
-   * so that the build works even if the two configurations are too close (which is common) and so
-   * that the path of artifacts in the host configuration is a bit more readable.
    */
   public enum OutputDirectory {
     BIN("bin"),
@@ -114,7 +109,6 @@ public class OutputDirectories {
 
   private final BlazeDirectories directories;
   private final String mnemonic;
-  private final String outputDirName;
 
   private final ArtifactRoot outputDirectory;
   private final ArtifactRoot binDirectory;
@@ -142,21 +136,20 @@ public class OutputDirectories {
     this.directories = directories;
     this.mnemonic =
         buildMnemonic(options, platformOptions, fragments, transitionDirectoryNameFragment);
-    this.outputDirName = options.isHost ? "host" : mnemonic;
 
     this.outputDirectory =
-        OutputDirectory.OUTPUT.getRoot(outputDirName, directories, mainRepositoryName);
-    this.binDirectory = OutputDirectory.BIN.getRoot(outputDirName, directories, mainRepositoryName);
+        OutputDirectory.OUTPUT.getRoot(mnemonic, directories, mainRepositoryName);
+    this.binDirectory = OutputDirectory.BIN.getRoot(mnemonic, directories, mainRepositoryName);
     this.buildInfoDirectory =
-        OutputDirectory.BUILDINFO.getRoot(outputDirName, directories, mainRepositoryName);
+        OutputDirectory.BUILDINFO.getRoot(mnemonic, directories, mainRepositoryName);
     this.genfilesDirectory =
-        OutputDirectory.GENFILES.getRoot(outputDirName, directories, mainRepositoryName);
+        OutputDirectory.GENFILES.getRoot(mnemonic, directories, mainRepositoryName);
     this.coverageDirectory =
-        OutputDirectory.COVERAGE.getRoot(outputDirName, directories, mainRepositoryName);
+        OutputDirectory.COVERAGE.getRoot(mnemonic, directories, mainRepositoryName);
     this.testlogsDirectory =
-        OutputDirectory.TESTLOGS.getRoot(outputDirName, directories, mainRepositoryName);
+        OutputDirectory.TESTLOGS.getRoot(mnemonic, directories, mainRepositoryName);
     this.middlemanDirectory =
-        OutputDirectory.MIDDLEMAN.getRoot(outputDirName, directories, mainRepositoryName);
+        OutputDirectory.MIDDLEMAN.getRoot(mnemonic, directories, mainRepositoryName);
 
     this.mergeGenfilesDirectory = options.mergeGenfilesDirectory;
     this.siblingRepositoryLayout = siblingRepositoryLayout;
@@ -266,7 +259,7 @@ public class OutputDirectories {
         rootType,
         directories.getRelativeOutputPath(),
         repository.getName(),
-        outputDirName,
+        mnemonic,
         nameFragment);
   }
 
@@ -342,7 +335,7 @@ public class OutputDirectories {
   }
 
   String getOutputDirName() {
-    return outputDirName;
+    return getMnemonic();
   }
 
   boolean mergeGenfilesDirectory() {

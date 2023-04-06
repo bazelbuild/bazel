@@ -296,12 +296,12 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr(CcToolchainInputsTransitionFactory.ATTR_NAME, BOOLEAN).value(true))
         .add(
             attr("$interface_library_builder", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
         .add(
             attr("$link_dynamic_library_tool", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
@@ -309,7 +309,7 @@ public final class CcToolchainRule implements RuleDefinition {
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(
             attr(":zipper", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(
                     LabelLateBoundDefault.fromTargetConfiguration(

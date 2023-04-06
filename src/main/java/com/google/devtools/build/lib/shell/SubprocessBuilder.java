@@ -14,9 +14,14 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.jni.JniLoader;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.util.OS;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.File;
 import java.io.IOException;
@@ -52,14 +57,24 @@ public class SubprocessBuilder {
   private long timeoutMillis;
   private boolean redirectErrorStream;
 
-  static SubprocessFactory defaultFactory = JavaSubprocessFactory.INSTANCE;
+  static SubprocessFactory defaultFactory = subprocessFactoryImplementation();
+
+  private static SubprocessFactory subprocessFactoryImplementation() {
+    if (JniLoader.isJniAvailable() && OS.getCurrent() == OS.WINDOWS) {
+      return WindowsSubprocessFactory.INSTANCE;
+    } else {
+      return JavaSubprocessFactory.INSTANCE;
+    }
+  }
 
   /**
    * Sets the default factory class for creating subprocesses. Passing {@code null} resets it to the
    * initial state.
    */
+  @VisibleForTesting
   public static void setDefaultSubprocessFactory(SubprocessFactory factory) {
-    SubprocessBuilder.defaultFactory = factory != null ? factory : JavaSubprocessFactory.INSTANCE;
+    SubprocessBuilder.defaultFactory =
+        factory != null ? factory : subprocessFactoryImplementation();
   }
 
   public SubprocessBuilder() {
@@ -234,7 +249,9 @@ public class SubprocessBuilder {
     return this;
   }
 
-  public Subprocess start() throws IOException {
-    return factory.create(this);
+  public Subprocess start() throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("Starting subprocess")) {
+      return factory.create(this);
+    }
   }
 }

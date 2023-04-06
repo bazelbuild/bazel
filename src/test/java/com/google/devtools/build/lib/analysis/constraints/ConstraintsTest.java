@@ -58,8 +58,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setUndocumented()
-          .compatibleWith(Label.parseAbsoluteUnchecked("//buildenv/rule_class_compat:b"))
-          .restrictedTo(Label.parseAbsoluteUnchecked("//buildenv/rule_class_restrict:d"))
+          .compatibleWith(Label.parseCanonicalUnchecked("//buildenv/rule_class_compat:b"))
+          .restrictedTo(Label.parseCanonicalUnchecked("//buildenv/rule_class_restrict:d"))
           .build();
     }
 
@@ -87,9 +87,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
                       // These defaults are invalid since compatibleWith and restrictedTo can't mix
                       // environments from the same group.
                       .compatibleWith(
-                          Label.parseAbsoluteUnchecked("//buildenv/rule_class_compat:a"))
+                          Label.parseCanonicalUnchecked("//buildenv/rule_class_compat:a"))
                       .restrictedTo(
-                          Label.parseAbsoluteUnchecked("//buildenv/rule_class_compat:b")));
+                          Label.parseCanonicalUnchecked("//buildenv/rule_class_compat:b")));
 
   private static final MockRule RULE_WITH_IMPLICIT_AND_LATEBOUND_DEFAULTS =
       () ->
@@ -100,26 +100,28 @@ public class ConstraintsTest extends AbstractConstraintsTest {
                       .setUndocumented()
                       .add(
                           Attribute.attr("$implicit", BuildType.LABEL)
-                              .value(Label.parseAbsoluteUnchecked("//helpers:implicit")))
+                              .value(Label.parseCanonicalUnchecked("//helpers:implicit")))
                       .add(
                           Attribute.attr(":latebound", BuildType.LABEL)
                               .value(
                                   Attribute.LateBoundDefault.fromConstantForTesting(
-                                      Label.parseAbsoluteUnchecked("//helpers:latebound"))))
+                                      Label.parseCanonicalUnchecked("//helpers:latebound"))))
                       .add(
                           Attribute.attr("normal", BuildType.LABEL)
                               .allowedFileTypes(FileTypeSet.NO_FILE)
-                              .value(Label.parseAbsoluteUnchecked("//helpers:default"))));
+                              .value(Label.parseCanonicalUnchecked("//helpers:default"))));
 
-  private static final MockRule RULE_WITH_ENFORCED_IMPLICIT_ATTRIBUTE = () -> MockRule.define(
-      "rule_with_enforced_implicit_deps",
-      (builder, env) ->
-          builder
-              .setUndocumented()
-              .add(Attribute.attr("$implicit", BuildType.LABEL)
-                  .value(Label.parseAbsoluteUnchecked("//helpers:implicit"))
-                  .checkConstraints()));
-
+  private static final MockRule RULE_WITH_ENFORCED_IMPLICIT_ATTRIBUTE =
+      () ->
+          MockRule.define(
+              "rule_with_enforced_implicit_deps",
+              (builder, env) ->
+                  builder
+                      .setUndocumented()
+                      .add(
+                          Attribute.attr("$implicit", BuildType.LABEL)
+                              .value(Label.parseCanonicalUnchecked("//helpers:implicit"))
+                              .checkConstraints()));
 
   private static final MockRule RULE_WITH_SKIPPED_ATTRIBUTE = () -> MockRule.define(
       "rule_with_skipped_attr",
@@ -584,23 +586,6 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
-  public void constraintEnforcementDisabledHostConfig() throws Exception {
-    useConfiguration("--enforce_constraints=0");
-    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults().make();
-    scratch.file("hello/BUILD",
-        "genrule(",
-        "    name = 'gen',",
-        "    srcs = [],",
-        "    outs = ['gen.out'],",
-        "    cmd = '',",
-        "    tools = [':main'])",
-        getDependencyRule(),
-        getDependingRule(compatibleWith("//buildenv/foo:a")));
-    assertThat(getConfiguredTarget("//hello:gen")).isNotNull();
-    assertNoEvents();
-  }
-
-  @Test
   public void constraintEnforcementDisabledExecConfig() throws Exception {
     useConfiguration("--enforce_constraints=0");
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults().make();
@@ -653,8 +638,8 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   /**
-   * Tests that package defaults restriction produces an valid dependency that would otherwise
-   * be invalid.
+   * Tests that package defaults restriction produces a valid dependency that would otherwise be
+   * invalid.
    */
   @Test
   public void restrictionPackageDefaults() throws Exception {
@@ -733,7 +718,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "my_rule = rule(",
         "    implementation = _impl,",
         "    attrs = {",
-        "        'tool': attr.label(cfg = 'host',),",
+        "        'tool': attr.label(cfg = 'exec',),",
         "    },",
         ")");
     scratch.file(

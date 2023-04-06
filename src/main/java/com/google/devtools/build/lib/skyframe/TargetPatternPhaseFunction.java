@@ -51,9 +51,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatt
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyframeIterableResult;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -238,7 +236,11 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 mapOriginalPatternsToLabels(expandedPatterns, targets.getTargets()),
                 testSuiteExpansions.buildOrThrow()));
     env.getListener()
-        .post(new LoadingPhaseCompleteEvent(result.getTargetLabels(), removedTargetLabels));
+        .post(
+            new LoadingPhaseCompleteEvent(
+                result.getTargetLabels(),
+                removedTargetLabels,
+                repositoryMappingValue.getRepositoryMapping()));
     return result;
   }
 
@@ -308,13 +310,14 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
-    SkyframeIterableResult resolvedPatterns = env.getOrderedValuesAndExceptions(patternSkyKeys);
+    SkyframeLookupResult resolvedPatterns = env.getValuesAndExceptions(patternSkyKeys);
     List<ExpandedPattern> expandedPatterns = new ArrayList<>(patternSkyKeys.size());
 
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
-        value = (TargetPatternValue) resolvedPatterns.nextOrThrow(TargetParsingException.class);
+        value =
+            (TargetPatternValue) resolvedPatterns.getOrThrow(pattern, TargetParsingException.class);
       } catch (TargetParsingException e) {
         String rawPattern = pattern.getPattern();
         String errorMessage = e.getMessage();
@@ -435,12 +438,13 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
       expandedSuiteKeys.add(TestsForTargetPatternValue.key(value.getTargets().getTargets()));
     }
-    SkyframeIterableResult expandedSuites = env.getOrderedValuesAndExceptions(expandedSuiteKeys);
+    SkyframeLookupResult expandedSuites = env.getValuesAndExceptions(expandedSuiteKeys);
     if (env.valuesMissing()) {
       return null;
     }
 
     ResolvedTargets.Builder<Target> testTargetsBuilder = ResolvedTargets.builder();
+    int suiteKeyIndex = 0;
     for (TargetPatternKey pattern : patternSkyKeys) {
       TargetPatternValue value;
       try {
@@ -458,7 +462,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
 
       TestsForTargetPatternValue expandedSuitesValue =
-          (TestsForTargetPatternValue) expandedSuites.next();
+          (TestsForTargetPatternValue) expandedSuites.get(expandedSuiteKeys.get(suiteKeyIndex++));
       if (expandedSuitesValue == null) {
         BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", pattern);
         return null;

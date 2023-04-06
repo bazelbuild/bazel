@@ -37,14 +37,23 @@ import net.starlark.java.eval.Sequence;
     name = "py_wrap_cc_helper_do_not_use",
     documented = false,
     doc = "",
-    category = DocCategory.TOP_LEVEL_TYPE)
+    category = DocCategory.TOP_LEVEL_MODULE)
 public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT, ?, ?>,
+        CcToolchainProviderT extends
+            CcToolchainProviderApi<
+                    FeatureConfigurationT,
+                    ?,
+                    ?,
+                    ConstraintValueT,
+                    StarlarkRuleContextT,
+                    ?,
+                    ? extends CppConfigurationApi<?>,
+                    ?>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         CcCompilationContextT extends CcCompilationContextApi<FileT>,
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>

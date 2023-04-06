@@ -26,6 +26,7 @@ import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -165,7 +166,7 @@ public class BzlLoadFunction implements SkyFunction {
         // (b) The memory overhead of the extra Skyframe node and edge per bzl file is pure
         // waste.
         new InliningAndCachingGetter(packageFactory, hashFunction, bzlCompileCache),
-        /*cachedBzlLoadDataManager=*/ null);
+        /* cachedBzlLoadDataManager= */ null);
   }
 
   public static BzlLoadFunction createForInlining(
@@ -188,7 +189,7 @@ public class BzlLoadFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     BzlLoadValue.Key key = (BzlLoadValue.Key) skyKey.argument();
     try {
-      return computeInternal(key, env, /*inliningState=*/ null);
+      return computeInternal(key, env, /* inliningState= */ null);
     } catch (BzlLoadFailedException e) {
       throw new BzlLoadFunctionException(e);
     }
@@ -455,12 +456,12 @@ public class BzlLoadFunction implements SkyFunction {
     static InliningState create(Environment env) {
       return new InliningState(
           new RecordingSkyFunctionEnvironment(env, x -> {}, x -> {}, x -> {}),
-          /*cachedDataBuilder=*/ null,
-          /*loadStack=*/ new LinkedHashSet<>(),
-          /*successfulLoads=*/ new HashMap<>(),
-          /*unsuccessfulLoads=*/ new HashSet<>(),
+          /* cachedDataBuilder= */ null,
+          /* loadStack= */ new LinkedHashSet<>(),
+          /* successfulLoads= */ new HashMap<>(),
+          /* unsuccessfulLoads= */ new HashSet<>(),
           // No parent value to mutate
-          /*childCachedDataHandler=*/ x -> {});
+          /* childCachedDataHandler= */ x -> {});
     }
 
     /**
@@ -598,7 +599,10 @@ public class BzlLoadFunction implements SkyFunction {
             env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
       } else {
         return StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(), inliningState, packageFactory, /*bzlLoadFunction=*/ this);
+            StarlarkBuiltinsValue.key(),
+            inliningState,
+            packageFactory,
+            /* bzlLoadFunction= */ this);
       }
     } catch (BuiltinsFailedException e) {
       throw BzlLoadFailedException.builtinsFailed(key.getLabel(), e);
@@ -776,7 +780,7 @@ public class BzlLoadFunction implements SkyFunction {
         loadValues,
         loadKeys,
         programLoads,
-        /*demoteErrorsToWarnings=*/ !builtins.starlarkSemantics.getBool(
+        /* demoteErrorsToWarnings= */ !builtins.starlarkSemantics.getBool(
             BuildLanguageOptions.CHECK_BZL_VISIBILITY),
         env.getListener());
 
@@ -845,7 +849,8 @@ public class BzlLoadFunction implements SkyFunction {
   private static RepositoryMapping getRepositoryMapping(
       BzlLoadValue.Key key, StarlarkSemantics semantics, Environment env)
       throws InterruptedException {
-    if (key.isBuiltins() && !semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
+    boolean bzlmod = semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
+    if (key.isBuiltins() && !bzlmod) {
       // Without Bzlmod, builtins .bzls never have a repo mapping defined for them, so return
       // without requesting a RepositoryMappingValue. (NB: In addition to being a slight
       // optimization, this avoids adding a reverse dependency on the special //external package,
@@ -862,9 +867,10 @@ public class BzlLoadFunction implements SkyFunction {
     if (key instanceof BzlLoadValue.KeyForWorkspace) {
       // Still during workspace file evaluation
       BzlLoadValue.KeyForWorkspace keyForWorkspace = (BzlLoadValue.KeyForWorkspace) key;
+      RepositoryMapping pureWorkspaceMapping;
       if (keyForWorkspace.getWorkspaceChunk() == 0) {
         // There is no previous workspace chunk
-        return RepositoryMapping.ALWAYS_FALLBACK;
+        pureWorkspaceMapping = RepositoryMapping.ALWAYS_FALLBACK;
       } else {
         SkyKey workspaceFileKey =
             WorkspaceFileValue.key(
@@ -872,11 +878,26 @@ public class BzlLoadFunction implements SkyFunction {
         WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
         // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do
         // not need to check if it is null
-        return RepositoryMapping.createAllowingFallback(
-            workspaceFileValue.getRepositoryMapping().getOrDefault(repoName, ImmutableMap.of()));
-        // NOTE(wyv): this means that, in the WORKSPACE file, we can't load from a repo generated by
-        // bzlmod. If that's a problem, we should "fall back" to the bzlmod case below.
+        pureWorkspaceMapping =
+            RepositoryMapping.createAllowingFallback(
+                workspaceFileValue
+                    .getRepositoryMapping()
+                    .getOrDefault(repoName, ImmutableMap.of()));
       }
+      if (!bzlmod) {
+        // Without Bzlmod, we just return the mapping purely computed from WORKSPACE stuff.
+        return pureWorkspaceMapping;
+      }
+      // If Bzlmod is in play, we need to make sure that pure WORKSPACE mapping is composed with the
+      // root module's mapping (just like how all WORKSPACE repos can see what the root module sees
+      // _after_ WORKSPACE evaluation).
+      RepositoryMappingValue rootModuleMappingValue =
+          (RepositoryMappingValue)
+              env.getValue(RepositoryMappingValue.KEY_FOR_ROOT_MODULE_WITHOUT_WORKSPACE_REPOS);
+      if (rootModuleMappingValue == null) {
+        return null;
+      }
+      return pureWorkspaceMapping.composeWith(rootModuleMappingValue.getRepositoryMapping());
     }
 
     if (key instanceof BzlLoadValue.KeyForBzlmod) {
@@ -903,9 +924,8 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
 
-    // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod (in which case the
-    // .bzl file *has* to be from a Bazel module anyway). So we can just use the full repo mapping
-    // from RepositoryMappingFunction.
+    // This is either a .bzl loaded from BUILD files, or a .bzl loaded for bzlmod, so we can just
+    // use the full repo mapping from RepositoryMappingFunction.
     RepositoryMappingValue repositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(repoName));
     if (repositoryMappingValue == null) {
@@ -952,7 +972,9 @@ public class BzlLoadFunction implements SkyFunction {
       // Parse the load statement's module string as a label.
       // It must end in .bzl and not be in package "//external".
       try {
-        Label label = buildLabel.getRelativeWithRemapping(load.first, repoMapping);
+        Label label =
+            Label.parseWithPackageContext(
+                load.first, PackageContext.of(buildLabel.getPackageIdentifier(), repoMapping));
         checkValidLoadLabel(
             label,
             /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()));

@@ -25,6 +25,11 @@ filegroup(
 )
 
 cc_library(
+    name = "link_extra_lib",
+    srcs = [],
+)
+
+cc_library(
     name = "malloc",
     srcs = [],
 )

@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = 1,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -17,19 +18,23 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestThread",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/lib/testutil:ThrowingRecordableRunnableWrapper",
+        "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
     ],
 )
 
 java_test(
     name = "ConcurrentTests",
-    size = "small",
+    size = "medium",
     tags = [
         "foundations",
     ],

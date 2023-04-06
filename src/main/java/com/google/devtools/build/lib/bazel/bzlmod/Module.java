@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
  * discovery but before selection, or when there's a multiple_version_override in play).
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class Module {
 
   /**
@@ -115,7 +117,7 @@ public abstract class Module {
 
   /**
    * Returns a {@link RepositoryMapping} with only Bazel module repos and no repos from module
-   * extensions. For the full mapping, see {@link BazelModuleResolutionValue#getFullRepoMapping}.
+   * extensions. For the full mapping, see {@link BazelDepGraphValue#getFullRepoMapping}.
    */
   public final RepositoryMapping getRepoMappingWithBazelDepsOnly() {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
@@ -186,6 +188,8 @@ public abstract class Module {
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
 
+    public abstract Builder setBazelCompatibility(ImmutableList<String> value);
+
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
 
     @CanIgnoreReturnValue
@@ -194,6 +198,8 @@ public abstract class Module {
       return this;
     }
 
+    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
+
     abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 
     @CanIgnoreReturnValue
@@ -201,6 +207,8 @@ public abstract class Module {
       executionPlatformsToRegisterBuilder().addAll(values);
       return this;
     }
+
+    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
     abstract ImmutableList.Builder<String> toolchainsToRegisterBuilder();
 
@@ -241,6 +249,8 @@ public abstract class Module {
       extensionUsagesBuilder().add(value);
       return this;
     }
+
+    abstract ModuleKey getKey();
 
     abstract String getName();
 

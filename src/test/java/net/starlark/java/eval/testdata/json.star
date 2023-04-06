@@ -44,7 +44,7 @@ assert_fails(lambda: json.encode(struct(x = [1, {"x": len}])),
   "in struct field .x: at list index 1: in dict key \"x\": cannot encode builtin_function_or_method as JSON")
 
 def f(deep):
-  for x in range(10000):
+  for x in range(100000):
     deep = [deep]
   json.encode(deep)
 assert_fails(lambda: f(None), "nesting depth limit exceeded")
@@ -80,6 +80,9 @@ assert_eq(json.decode('"\\u0123"'), 'ģ')
 assert_eq(json.decode('\t[\t1,\r2,\n3]\n'), [1, 2, 3]) # whitespace other than ' '
 assert_eq(json.decode('\n{\t"a":\r1\t}\n'), {'a': 1}) # same, with dict
 assert_eq(json.decode(r'"\\\/\"\n\r\t"'), "\\/\"\n\r\t") # TODO(adonovan): test \b\f when Starlark/Java supports them
+assert_eq(json.decode('{"x": 1, "x": 2}'), {"x": 2})
+assert_eq(json.decode('{"x": {"y": 1, "y": 2}}'), {"x": {"y": 2}})
+assert_eq(json.decode('{"x": {"y": 1, "z": 1}, "x": {"y": 2}}'), {"x": {"y": 2}})
 
 # We accept UTF-16 strings that have been arbitrarily truncated,
 # as many Java and JavaScript programs emit them.
@@ -123,12 +126,11 @@ assert_fails(lambda: json.decode('[1, 2}'), "got \"}\", want ',' or ']'")
 assert_fails(lambda: json.decode('{"one": 1'), "unexpected end of file")
 assert_fails(lambda: json.decode('{"one" 1'), 'after object key, got "1", want \':\'')
 assert_fails(lambda: json.decode('{"one": 1 "two": 2'), "in object, got ..\"., want ',' or '}'")
-assert_fails(lambda: json.decode('{"x": 1, "x": 2}'), 'object has duplicate key: "x"')
 assert_fails(lambda: json.decode('{1:2}'), "got int for object key, want string")
 assert_fails(lambda: json.decode('{"one": 1,'), "unexpected end of file")
 assert_fails(lambda: json.decode('{"one": 1, }'), 'unexpected character "}"')
 # FIXME assert_fails(lambda: json.decode('{"one": 1]'), 'in object, got "]", want ',' or \'}\'')
-assert_fails(lambda: json.decode('[' * 10000), "nesting depth limit exceeded")
+assert_fails(lambda: json.decode('[' * 100000), "nesting depth limit exceeded")
 # Unescaped control codes (even tabs) are forbidden in strings.
 assert_fails(lambda: json.decode('"\t"'), r"invalid character '\\x09' in string literal")
 assert_fails(lambda: json.decode('"\\u123"'), r"incomplete \\uXXXX escape")

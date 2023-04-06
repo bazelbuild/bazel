@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -30,9 +32,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Bazel-specific Python configuration. */
 @Immutable
+@StarlarkBuiltin(name = "bazel_py", category = DocCategory.CONFIGURATION_FRAGMENT)
 @RequiresOptions(options = {BazelPythonConfiguration.Options.class, PythonOptions.class})
 public class BazelPythonConfiguration extends Fragment {
 
@@ -92,12 +97,10 @@ public class BazelPythonConfiguration extends Fragment {
                 + "is less likely to experience import name collisions.")
     public boolean experimentalPythonImportAllRepositories;
 
-     /**
-     * Make Python configuration options available for host configurations as well
-     */
+    /** Make Python configuration options available for exec configurations as well */
     @Override
-    public FragmentOptions getHost() {
-      return clone(); // host options are the same as target options
+    public FragmentOptions getExec() {
+      return clone(); // exec options are the same as target options
     }
   }
 
@@ -143,16 +146,26 @@ public class BazelPythonConfiguration extends Fragment {
     }
   }
 
+  @StarlarkConfigurationField(
+      name = "python_top",
+      doc = "The value of the --python_top flag; may be None if not specified")
   public Label getPythonTop() {
     return options.pythonTop;
   }
 
+  @StarlarkMethod(
+      name = "python_path",
+      structField = true,
+      doc = "The value of the --python_path flag.")
   public String getPythonPath() {
     return options.pythonPath == null ? "python" : options.pythonPath;
   }
 
+  @StarlarkMethod(
+      name = "python_import_all_repositories",
+      structField = true,
+      doc = "The value of the --experimental_python_import_all_repositories flag.")
   public boolean getImportAllRepositories() {
     return options.experimentalPythonImportAllRepositories;
   }
-
 }

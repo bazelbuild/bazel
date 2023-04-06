@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Build Event Protocol Glossary
 
+{% include "_buttons.html" %}
 
 Each BEP event type has its own semantics, minimally documented in
 [build\_event\_stream.proto](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto){: .external}.
@@ -147,7 +148,7 @@ indicates which representation it conveys; three such events appear in the BEP:
 
 ## Configuration {:#configuration}
 
-A `Configuration` event is sent for every [`configuration`](/rules/config)
+A `Configuration` event is sent for every [`configuration`](/extending/config)
 used in the top-level targets in a build. At least one configuration event is
 always be present. The `id` is reused by the `TargetConfigured` and
 `TargetComplete` event IDs and is necessary to disambiguate those events in
@@ -218,11 +219,11 @@ appear in the BEP stream.
 ## NamedSetOfFiles {:#namedsetoffiles}
 
 `NamedSetOfFiles` events report a structure matching a
-[`depset`](/rules/depsets) of files produced during command evaluation.
+[`depset`](/extending/depsets) of files produced during command evaluation.
 Transitively included depsets are identified by `NamedSetOfFilesId`.
 
 For more information on interpreting a stream's `NamedSetOfFiles` events, see the
-[BEP examples page](/docs/bep-examples#consuming-namedsetoffiles).
+[BEP examples page](/remote/bep-examples#consuming-namedsetoffiles).
 
 ## OptionsParsed {:#optionsparsed}
 
@@ -400,7 +401,7 @@ differentiate `FLAKY` tests from `FAILED` tests.
 
 Unlike [CommandLine](#commandline), this event carries the unparsed commandline
 flags in string form as encountered by the build tool after expanding all
-[`.bazelrc`](/docs/bazelrc) files and
+[`.bazelrc`](/run/bazelrc) files and
 considering the `--config` flag.
 
 The `UnstructuredCommandLine` event may be relied upon to precisely reproduce a

@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -147,20 +146,6 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   }
 
   @Override
-  public SkyframeIterableResult getOrderedValuesAndExceptions(Iterable<? extends SkyKey> depKeys)
-      throws InterruptedException {
-    recordDeps(depKeys);
-    try {
-      return delegate.getOrderedValuesAndExceptions(depKeys);
-    } catch (
-        @SuppressWarnings("InterruptedExceptionSwallowed")
-        Exception e) {
-      noteException(e);
-      throw e;
-    }
-  }
-
-  @Override
   public ExtendedEventHandler getListener() {
     return delegate.getListener();
   }
@@ -172,7 +157,7 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
 
   @Nullable
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return delegate.getTemporaryDirectDeps();
   }
 
@@ -194,6 +179,11 @@ public final class RecordingSkyFunctionEnvironment implements Environment {
   @Override
   public boolean restartPermitted() {
     return delegate.restartPermitted();
+  }
+
+  @Override
+  public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
+    return delegate.getLookupHandleForPreviouslyRequestedDeps();
   }
 
   @Override

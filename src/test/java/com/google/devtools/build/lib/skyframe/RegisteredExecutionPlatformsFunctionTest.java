@@ -147,8 +147,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -162,8 +162,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         "platform(name = 'execution_platform_2')");
 
     useConfiguration(
-        "--extra_execution_platforms=//extra:execution_platform_1",
-        "--extra_execution_platforms=//extra:execution_platform_2");
+        "--extra_execution_platforms=//extra:execution_platform_1,//extra:execution_platform_2");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -174,8 +173,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -199,8 +198,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -227,8 +226,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_1"),
-            Label.parseAbsoluteUnchecked("@myrepo//platforms:execution_platform_2"))
+            Label.parseCanonicalUnchecked("@myrepo//platforms:execution_platform_1"),
+            Label.parseCanonicalUnchecked("@myrepo//platforms:execution_platform_2"))
         .inOrder();
   }
 
@@ -255,8 +254,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertExecutionPlatformLabels(
             result.get(executionPlatformsKey), PackageIdentifier.createInMainRepo("extra"))
         .containsExactly(
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -280,8 +279,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     // list.
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsAtLeast(
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_1"),
-            Label.parseAbsoluteUnchecked("//extra:execution_platform_2"))
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
         .inOrder();
   }
 
@@ -309,7 +308,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_reload() throws Exception {
-    scratch.file(
+    scratch.overwriteFile(
         "platform/BUILD",
         "platform(name = 'execution_platform_1')",
         "platform(name = 'execution_platform_2')");
@@ -321,7 +320,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .contains(Label.parseAbsoluteUnchecked("//platform:execution_platform_1"));
+        .contains(Label.parseCanonicalUnchecked("//platform:execution_platform_1"));
 
     // Re-write the WORKSPACE.
     rewriteWorkspace("register_execution_platforms('//platform:execution_platform_2')");
@@ -330,7 +329,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     result = requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
     assertThatEvaluationResult(result).hasNoError();
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
-        .contains(Label.parseAbsoluteUnchecked("//platform:execution_platform_2"));
+        .contains(Label.parseCanonicalUnchecked("//platform:execution_platform_2"));
   }
 
   @Test
@@ -398,12 +397,12 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
       throws ConstraintCollection.DuplicateConstraintException {
     ConfiguredTargetKey executionPlatformKey1 =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//test:executionPlatform1"))
+            .setLabel(Label.parseCanonicalUnchecked("//test:executionPlatform1"))
             .setConfigurationKey(null)
             .build();
     ConfiguredTargetKey executionPlatformKey2 =
         ConfiguredTargetKey.builder()
-            .setLabel(Label.parseAbsoluteUnchecked("//test:executionPlatform2"))
+            .setLabel(Label.parseCanonicalUnchecked("//test:executionPlatform2"))
             .setConfigurationKey(null)
             .build();
 

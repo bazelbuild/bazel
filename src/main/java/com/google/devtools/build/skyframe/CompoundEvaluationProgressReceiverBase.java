@@ -63,9 +63,10 @@ public class CompoundEvaluationProgressReceiverBase implements EvaluationProgres
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {
+      EvaluationState state,
+      @Nullable GroupedDeps directDeps) {
     for (EvaluationProgressReceiver receiver : receivers) {
-      receiver.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
+      receiver.evaluated(skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
     }
   }
 }

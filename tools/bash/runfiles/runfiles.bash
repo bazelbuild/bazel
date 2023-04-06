@@ -12,9 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Runfiles lookup library for Bazel-built Bash binaries and tests, version 2.
+# Runfiles lookup library for Bazel-built Bash binaries and tests, version 3.
 #
 # VERSION HISTORY:
+# - version 3: Fixes a bug in the init code on macOS and makes the library aware
+#              of Bzlmod repository mappings.
+#   Features:
+#     - With Bzlmod enabled, rlocation now takes the repository mapping of the
+#       Bazel repository containing the calling script into account when
+#       looking up runfiles. The new, optional second argument to rlocation can
+#       be used to specify the canonical name of the Bazel repository to use
+#       instead of this default. The new runfiles_current_repository function
+#       can be used to obtain the canonical name of the N-th caller's Bazel
+#       repository.
+#   Fixed:
+#     - Sourcing a shell script that contains the init code from a shell script
+#       that itself contains the init code no longer fails on macOS.
+#   Compatibility:
+#     - The init script and the runfiles library are backwards and forwards
+#       compatible with version 2.
 # - version 2: Shorter init code.
 #   Features:
 #     - "set -euo pipefail" only at end of init code.
@@ -51,16 +67,16 @@
 #     up the library's runtime location, thus we have a chicken-and-egg problem.
 #     Insert the following code snippet to the top of your main script:
 #
-#       # --- begin runfiles.bash initialization v2 ---
-#       # Copy-pasted from the Bazel Bash runfiles library v2.
-#       set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+#       # --- begin runfiles.bash initialization v3 ---
+#       # Copy-pasted from the Bazel Bash runfiles library v3.
+#       set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
 #       source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 #         source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
 #         source "$0.runfiles/$f" 2>/dev/null || \
 #         source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
 #         source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
 #         { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
-#       # --- end runfiles.bash initialization v2 ---
+#       # --- end runfiles.bash initialization v3 ---
 #
 #
 # 3.  Use rlocation to look up runfile paths.
@@ -89,7 +105,17 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
+# Does not exit with a non-zero exit code if no match is found.
+function __runfiles_maybe_grep() {
+  grep "$@" || test $? = 1;
+}
+export -f __runfiles_maybe_grep
+
 # Prints to stdout the runtime location of a data-dependency.
+# The optional second argument can be used to specify the canonical name of the
+# repository whose repository mapping should be used to resolve the repository
+# part of the provided path. If not specified, the repository of the caller is
+# used.
 function rlocation() {
   if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
     echo >&2 "INFO[runfiles.bash]: rlocation($1): start"
@@ -100,6 +126,7 @@ function rlocation() {
     fi
     # If the path is absolute, print it as-is.
     echo "$1"
+    return 0
   elif [[ "$1" == ../* || "$1" == */.. || "$1" == ./* || "$1" == */./* || "$1" == "*/." || "$1" == *//* ]]; then
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "ERROR[runfiles.bash]: rlocation($1): path is not normalized"
@@ -111,72 +138,43 @@ function rlocation() {
                "drive name"
     fi
     return 1
-  else
-    if [[ -e "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
-      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-        echo >&2 "INFO[runfiles.bash]: rlocation($1): found under RUNFILES_DIR ($RUNFILES_DIR), return"
-      fi
-      echo "${RUNFILES_DIR}/$1"
-    elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
-      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-        echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
-      fi
-      local -r result=$(grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
-      if [[ -z "$result" ]]; then
-        # If path references a runfile that lies under a directory that itself
-        # is a runfile, then only the directory is listed in the manifest. Look
-        # up all prefixes of path in the manifest and append the relative path
-        # from the prefix if there is a match.
-        local prefix="$1"
-        local prefix_result=
-        local new_prefix=
-        while true; do
-          new_prefix="${prefix%/*}"
-          [[ "$new_prefix" == "$prefix" ]] && break
-          prefix="$new_prefix"
-          prefix_result=$(grep -m1 "^$prefix " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
-          [[ -z "$prefix_result" ]] && continue
-          local -r candidate="${prefix_result}${1#"${prefix}"}"
-          if [[ -e "$candidate" ]]; then
-            if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-              echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($candidate) via prefix ($prefix)"
-            fi
-            echo "$candidate"
-            return 0
-          fi
-          # At this point, the manifest lookup of prefix has been successful,
-          # but the file at the relative path given by the suffix does not
-          # exist. We do not continue the lookup with a shorter prefix for two
-          # reasons:
-          # 1. Manifests generated by Bazel never contain a path that is a
-          #    prefix of another path.
-          # 2. Runfiles libraries for other languages do not check for file
-          #    existence and would have returned the non-existent path. It seems
-          #    better to return no path rather than a potentially different,
-          #    non-empty path.
-          break
-        done
-        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-          echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest"
-        fi
-        echo ""
+  fi
+
+  if [[ -f "$RUNFILES_REPO_MAPPING" ]]; then
+    local -r target_repo_apparent_name=$(echo "$1" | cut -d / -f 1)
+     # Use -s to get an empty remainder if the argument does not contain a slash.
+    # The repo mapping should not be applied to single segment paths, which may
+    # be root symlinks.
+    local -r remainder=$(echo "$1" | cut -s -d / -f 2-)
+    if [[ -n "$remainder" ]]; then
+      if [[ -z "${2+x}" ]]; then
+        local -r source_repo=$(runfiles_current_repository 2)
       else
-        if [[ -e "$result" ]]; then
-          if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-            echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
-          fi
-          echo "$result"
-        fi
+        local -r source_repo=$2
+      fi
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: rlocation($1): looking up canonical name for ($target_repo_apparent_name) from ($source_repo) in ($RUNFILES_REPO_MAPPING)"
+      fi
+      local -r target_repo=$(__runfiles_maybe_grep -m1 "^$source_repo,$target_repo_apparent_name," "$RUNFILES_REPO_MAPPING" | cut -d , -f 3)
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: rlocation($1): canonical name of target repo is ($target_repo)"
+      fi
+      if [[ -n "$target_repo" ]]; then
+        local -r rlocation_path="$target_repo/$remainder"
+      else
+        local -r rlocation_path="$1"
       fi
     else
-      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
-        echo >&2 "ERROR[runfiles.bash]: cannot look up runfile \"$1\" " \
-                 "(RUNFILES_DIR=\"${RUNFILES_DIR:-}\"," \
-                 "RUNFILES_MANIFEST_FILE=\"${RUNFILES_MANIFEST_FILE:-}\")"
-      fi
-      return 1
+      local -r rlocation_path="$1"
     fi
+  else
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "INFO[runfiles.bash]: rlocation($1): not using repository mapping ($RUNFILES_REPO_MAPPING) since it does not exist"
+    fi
+    local -r rlocation_path="$1"
   fi
+
+  runfiles_rlocation_checked "$rlocation_path"
 }
 export -f rlocation
 
@@ -214,3 +212,176 @@ function runfiles_export_envvars() {
   fi
 }
 export -f runfiles_export_envvars
+
+# Returns the canonical name of the Bazel repository containing the script that
+# calls this function.
+# The optional argument N, which defaults to 1, can be used to return the
+# canonical name of the N-th caller instead.
+#
+# Note: This function only works correctly with Bzlmod enabled. Without Bzlmod,
+# its return value is ignored if passed to rlocation.
+function runfiles_current_repository() {
+  local -r idx=${1:-1}
+  local -r caller_path="${BASH_SOURCE[$idx]}"
+  if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+    echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): caller's path is ($caller_path)"
+  fi
+
+  local rlocation_path=
+
+  # If the runfiles manifest exists, search for an entry with target the caller's path.
+  if [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    # Escape $caller_path for use in the grep regex below. Also replace \ with / since the manifest
+    # uses / as the path separator even on Windows.
+    local -r normalized_caller_path="$(echo "$caller_path" | sed 's|\\\\*|/|g')"
+    local -r escaped_caller_path="$(echo "$normalized_caller_path" | sed 's/[^-A-Za-z0-9_/]/\\&/g')"
+    rlocation_path=$(__runfiles_maybe_grep -m1 "^[^ ]* ${escaped_caller_path}$" "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 1)
+    if [[ -z "$rlocation_path" ]]; then
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "ERROR[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is not the target of an entry in the runfiles manifest ($RUNFILES_MANIFEST_FILE)"
+      fi
+      return 1
+    else
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) is the target of ($rlocation_path) in the runfiles manifest"
+      fi
+    fi
+  fi
+
+  # If the runfiles directory exists, check if the caller's path is of the form
+  # $RUNFILES_DIR/rlocation_path and if so, set $rlocation_path.
+  if [[ -z "$rlocation_path" && -d "${RUNFILES_DIR:-/dev/null}" ]]; then
+    local -r normalized_caller_path="$(echo "$caller_path" | sed 's|\\\\*|/|g')"
+    local -r normalized_dir="$(echo "${RUNFILES_DIR%[\/]}" | sed 's|\\\\*|/|g')"
+    if [[ "$normalized_caller_path" == "$normalized_dir"/* ]]; then
+      rlocation_path=${normalized_caller_path:${#normalized_dir}}
+      rlocation_path=${rlocation_path:1}
+    fi
+    if [[ -z "$rlocation_path" ]]; then
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) does not lie under the runfiles directory ($normalized_dir)"
+      fi
+      # The only shell script that is not executed from the runfiles directory (if it is populated)
+      # is the sh_binary entrypoint. Parse its path under the execroot, using the last match to
+      # allow for nested execroots (e.g. in Bazel integration tests).
+      local -r repository=$(echo "$normalized_caller_path" | __runfiles_maybe_grep -E -o '(^|/)bazel-out/[^/]+/bin/external/[^/]+/' | tail -1 | rev | cut -d / -f 2 | rev)
+      if [[ -n "$repository" ]]; then
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in repository ($repository)"
+        fi
+        echo "$repository"
+      else
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($normalized_caller_path) lies in the main repository"
+        fi
+        echo ""
+      fi
+      return 0
+    else
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($caller_path) has path ($rlocation_path) relative to the runfiles directory ($RUNFILES_DIR)"
+      fi
+    fi
+  fi
+
+  if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+    echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($caller_path) corresponds to rlocation path ($rlocation_path)"
+  fi
+  # Normalize the rlocation path to be of the form repo/pkg/file.
+  rlocation_path=${rlocation_path#_main/external/}
+  rlocation_path=${rlocation_path#_main/../}
+  local -r repository=$(echo "$rlocation_path" | cut -d / -f 1)
+  if [[ "$repository" == _main ]]; then
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($rlocation_path) lies in the main repository"
+    fi
+    echo ""
+  else
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "INFO[runfiles.bash]: runfiles_current_repository($idx): ($rlocation_path) lies in repository ($repository)"
+    fi
+    echo "$repository"
+  fi
+}
+export -f runfiles_current_repository
+
+function runfiles_rlocation_checked() {
+  # FIXME: If the runfiles lookup fails, the exit code of this function is 0 if
+  #  and only if the runfiles manifest exists. In particular, the exit code
+  #  behavior is not consistent across platforms.
+  if [[ -e "${RUNFILES_DIR:-/dev/null}/$1" ]]; then
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "INFO[runfiles.bash]: rlocation($1): found under RUNFILES_DIR ($RUNFILES_DIR), return"
+    fi
+    echo "${RUNFILES_DIR}/$1"
+  elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
+    fi
+    local -r result=$(__runfiles_maybe_grep -m1 "^$1 " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+    if [[ -z "$result" ]]; then
+      # If path references a runfile that lies under a directory that itself
+      # is a runfile, then only the directory is listed in the manifest. Look
+      # up all prefixes of path in the manifest and append the relative path
+      # from the prefix if there is a match.
+      local prefix="$1"
+      local prefix_result=
+      local new_prefix=
+      while true; do
+        new_prefix="${prefix%/*}"
+        [[ "$new_prefix" == "$prefix" ]] && break
+        prefix="$new_prefix"
+        prefix_result=$(__runfiles_maybe_grep -m1 "^$prefix " "${RUNFILES_MANIFEST_FILE}" | cut -d ' ' -f 2-)
+        [[ -z "$prefix_result" ]] && continue
+        local -r candidate="${prefix_result}${1#"${prefix}"}"
+        if [[ -e "$candidate" ]]; then
+          if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+            echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($candidate) via prefix ($prefix)"
+          fi
+          echo "$candidate"
+          return 0
+        fi
+        # At this point, the manifest lookup of prefix has been successful,
+        # but the file at the relative path given by the suffix does not
+        # exist. We do not continue the lookup with a shorter prefix for two
+        # reasons:
+        # 1. Manifests generated by Bazel never contain a path that is a
+        #    prefix of another path.
+        # 2. Runfiles libraries for other languages do not check for file
+        #    existence and would have returned the non-existent path. It seems
+        #    better to return no path rather than a potentially different,
+        #    non-empty path.
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($candidate) via prefix ($prefix), but file does not exist"
+        fi
+        break
+      done
+      if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+        echo >&2 "INFO[runfiles.bash]: rlocation($1): not found in manifest"
+      fi
+      echo ""
+    else
+      if [[ -e "$result" ]]; then
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result)"
+        fi
+        echo "$result"
+      else
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): found in manifest as ($result), but file does not exist"
+        fi
+        echo ""
+      fi
+    fi
+  else
+    if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+      echo >&2 "ERROR[runfiles.bash]: cannot look up runfile \"$1\" " \
+               "(RUNFILES_DIR=\"${RUNFILES_DIR:-}\"," \
+               "RUNFILES_MANIFEST_FILE=\"${RUNFILES_MANIFEST_FILE:-}\")"
+    fi
+    return 1
+  fi
+}
+export -f runfiles_rlocation_checked
+
+export RUNFILES_REPO_MAPPING=$(runfiles_rlocation_checked _repo_mapping 2> /dev/null)

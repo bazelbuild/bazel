@@ -74,7 +74,7 @@ public class TestTrimmingTransitionTest {
 
   @Test
   public void retainsStarlarkOptions() throws OptionsParsingException, InterruptedException {
-    Label starlarkOptionKey = Label.parseAbsoluteUnchecked("//options:foo");
+    Label starlarkOptionKey = Label.parseCanonicalUnchecked("//options:foo");
     String starlarkOptionValue = "bar";
 
     BuildOptions options =
@@ -98,10 +98,10 @@ public class TestTrimmingTransitionTest {
   @Test
   public void composeCommutativelyWithExecutionTransition()
       throws OptionsParsingException, InterruptedException {
-    Label executionPlatform = Label.parseAbsoluteUnchecked("//platform:exec");
+    Label executionPlatform = Label.parseCanonicalUnchecked("//platform:exec");
 
     PatchTransition execTransition =
-        ExecutionTransitionFactory.create()
+        ExecutionTransitionFactory.createFactory()
             .create(
                 AttributeTransitionData.builder()
                     .attributes(FakeAttributeMapper.empty())

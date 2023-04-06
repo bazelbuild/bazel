@@ -57,6 +57,10 @@ public abstract class ValueWithMetadata implements SkyValue {
     return new ErrorInfoValue(errorInfo, value, transitiveEvents);
   }
 
+  public boolean hasError() {
+    return false;
+  }
+
   @Nullable
   SkyValue getValue() {
     return value;
@@ -158,6 +162,11 @@ public abstract class ValueWithMetadata implements SkyValue {
       super(value);
       this.errorInfo = Preconditions.checkNotNull(errorInfo);
       this.transitiveEvents = Preconditions.checkNotNull(transitiveEvents);
+    }
+
+    @Override
+    public boolean hasError() {
+      return true;
     }
 
     @Nullable

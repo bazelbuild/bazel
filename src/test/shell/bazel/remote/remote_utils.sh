@@ -96,3 +96,12 @@ function count_remote_cas_files() {
     echo 0
   fi
 }
+
+function remote_cas_file_exist() {
+  local file=$1
+  [ -f "$cas_path/cas/${file:0:2}/$file" ]
+}
+
+function append_remote_cas_files() {
+  find "$cas_path/cas" -type f >> $1
+}

@@ -21,17 +21,10 @@ Limiting libraries to using these flags prevents drastic, sweeping effects
 binary through a library dependency.
 """
 
+import argparse
 import re
 from typing import Sequence
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
-from absl import app
-from absl import flags
-
-flags.DEFINE_string('path', None, 'Path to the proguard config to validate')
-flags.DEFINE_string('output', None, 'Where to put the validated config')
-
-FLAGS = flags.FLAGS
 PROGUARD_COMMENTS_PATTERN = '#.*(\n|$)'
 
 
@@ -83,10 +76,29 @@ class ProguardConfigValidator(object):
     return False
 
 
-def main(unused_argv: Sequence[str]):
-  validator = ProguardConfigValidator(FLAGS.path, FLAGS.output)
+def ParseCommandLine() -> Sequence[str]:
+  """Parses the command line and returns a flags block."""
+  parser = argparse.ArgumentParser(
+      description="""Checks for proguard configuration rules that cannot be combined across libs.
+
+The only valid proguard arguments for a library are -keep, -assumenosideeffects,
+-assumevalues and -dontnote and -dontwarn when they are provided with arguments.
+Limiting libraries to using these flags prevents drastic, sweeping effects
+(such as obfuscation being disabled) from being inadvertently applied to a
+binary through a library dependency.""")
+  parser.add_argument('--path', required=True,
+                      help='Path to the proguard config to validate')
+  parser.add_argument('--output', required=True,
+                      help='Where to put the validated config')
+  flags = parser.parse_args()
+  return flags
+
+
+def main():
+  flags = ParseCommandLine()
+  validator = ProguardConfigValidator(flags.path, flags.output)
   validator.ValidateAndWriteOutput()
 
 
 if __name__ == '__main__':
-  app.run(main)
+  main()

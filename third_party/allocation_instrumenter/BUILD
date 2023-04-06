@@ -1,5 +1,4 @@
 load("@rules_license//rules:license.bzl", "license")
-load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 package(
     default_applicable_licenses = [":license"],
@@ -23,8 +22,7 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-distrib_java_import(
+java_library(
     name = "allocation_instrumenter",
-    enable_distributions = ["debian"],
-    jars = ["java-allocation-instrumenter-3.3.0.jar"],
+    exports = ["@maven//:com_google_code_java_allocation_instrumenter_java_allocation_instrumenter"]
 )

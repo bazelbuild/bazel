@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -91,7 +92,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setDirectories(directories)
             .setActionKeyContext(new ActionKeyContext())
             .setExtraSkyFunctions(AnalysisMock.get().getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
                     PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
@@ -106,6 +107,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         Options.getDefaults(BuildLanguageOptions.class),
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(null));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.injectExtraPrecomputedValues(
@@ -215,7 +217,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
-            .setNumThreads(100)
+            .setParallelism(100)
             .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =

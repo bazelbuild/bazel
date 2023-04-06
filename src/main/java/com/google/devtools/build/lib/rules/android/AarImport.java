@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -403,7 +404,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   private static SpawnAction createAarJarsMergingActions(
       RuleContext ruleContext, Artifact jarsTreeArtifact, Artifact mergedJar, Artifact paramFile) {
     SpawnAction.Builder builder = new SpawnAction.Builder().useDefaultShellEnvironment();
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     return builder
         .setExecutable(singleJar)
         .setMnemonic("AarJarsMerger")

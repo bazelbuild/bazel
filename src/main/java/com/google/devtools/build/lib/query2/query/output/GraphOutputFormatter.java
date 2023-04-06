@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.hash.HashFunction;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -40,9 +41,9 @@ class GraphOutputFormatter extends OutputFormatter {
         private final TargetOrdering targetOrdering = new FormatUtils.TargetOrdering();
 
         @Override
-        public String getLabel(Node<Target> node) {
+        public String getLabel(Node<Target> node, RepositoryMapping mainRepositoryMapping) {
           // Node payloads are Targets. Output node labels are target labels.
-          return node.getLabel().getLabel().toString();
+          return node.getLabel().getLabel().getDisplayForm(mainRepositoryMapping);
         }
 
         @Override
@@ -58,7 +59,8 @@ class GraphOutputFormatter extends OutputFormatter {
       OutputStream out,
       AspectResolver aspectProvider,
       EventHandler eventHandler,
-      HashFunction hashFunction) {
+      HashFunction hashFunction,
+      RepositoryMapping mainRepoMapping) {
     boolean sortLabels = options.orderOutput == OrderOutput.FULL;
     GraphOutputWriter<Target> graphWriter =
         new GraphOutputWriter<>(
@@ -67,7 +69,8 @@ class GraphOutputFormatter extends OutputFormatter {
             sortLabels,
             options.graphNodeStringLimit,
             options.graphConditionalEdgesLimit,
-            options.graphFactored);
+            options.graphFactored,
+            mainRepoMapping);
     graphWriter.write(result, new ConditionalEdges(result), out);
   }
 }

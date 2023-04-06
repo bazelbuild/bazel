@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Guide for Bazel Maintainers
 
+{% include "_buttons.html" %}
+
 This is a guide for the maintainers of the Bazel open source project.
 
 If you are looking to contribute to Bazel, please read [Contributing to
@@ -15,7 +17,7 @@ The objectives of this page are to:
 1. Set expectations between the community contributors and the project
    maintainers.
 
-Bazel's [core group of contributors](/contribute/contribution-policy) has dedicated
+Bazel's [core group of contributors](/contribute/policy) has dedicated
 subteams to manage aspects of the open source project. These are:
 
 * **Release Process**: Manage Bazel's release process.
@@ -64,6 +66,8 @@ repository.
    or `type: feature request`, according to the type of the issue.
 1. For platform-specific issues, the DevEx member assigns one `platform:` label,
    such as `platform:apple` for Mac-specific issues.
+1. If the issue is low priority and can be worked on by a new community
+   contributor, the DevEx member assigns the `good first issue` label.
 At this stage, the issue enters the pool of [untriaged open
 issues](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3Auntriaged){: .external}.
 
@@ -169,36 +173,40 @@ issues.
     *   Contact: [ahumesky](https://github.com/ahumesky){: .external}
 *   [`team-Bazel`](https://github.com/bazelbuild/bazel/labels/team-Bazel){: .external}: General Bazel product/strategy issues
     * Contact: [sventiffe](https://github.com/sventiffe){: .external}
-*   [`team-Build-Language`](https://github.com/bazelbuild/bazel/labels/team-Build-Language): Issues for the BUILD, .bzl APIs and Stardoc.
-    * Contact: [brandjon](https://github.com/brandjon)
-*   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team
+*   [`team-CLI`](https://github.com/bazelbuild/bazel/labels/team-CLI){: .external}: Console UI
+    * Contact: [meisterT](https://github.com/meisterT){: .external}
+*   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team. Includes: Core build configuration and transition system. Does *not* include: Changes to new or existing flags
     * Contact: [gregestren](https://github.com/gregestren){: .external}
-*   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Issues for Core team
+*   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Skyframe, bazel query, BEP, options parsing, bazelrc
     * Contact: [haxorz](https://github.com/haxorz){: .external}
 *   [`team-Documentation`](https://github.com/bazelbuild/bazel/labels/team-Documentation){: .external}: Issues for Documentation team
-    * Contact: [communikit](https://github.com/communikit){: .external}
-*   [`team-ExternalDeps`](https://github.com/bazelbuild/bazel/labels/team-ExternalDeps): External dependency handling, Bzlmod, remote repositories, WORKSPACE file
-    * Contact: [meteorcloudy](https://github.com/meteorcloudy)
+    * Contact: [philomathing](https://github.com/philomathing){: .external}
+*   [`team-ExternalDeps`](https://github.com/bazelbuild/bazel/labels/team-ExternalDeps){: .external}: External dependency handling, Bzlmod, remote repositories, WORKSPACE file
+    * Contact: [meteorcloudy](https://github.com/meteorcloudy){: .external}
+*   [`team-Loading-API`](https://github.com/bazelbuild/bazel/labels/team-Loading-API){: .external}: BUILD file and macro processing: labels, package(), visibility, glob
+    * Contact: [brandjon](https://github.com/brandjon){: .external}
 *   [`team-Local-Exec`](https://github.com/bazelbuild/bazel/labels/team-Local-Exec){: .external}: Issues for Execution (Local) team
     * Contact: [meisterT](https://github.com/meisterT){: .external}
-*   [`team-OSS`](https://github.com/bazelbuild/bazel/labels/team-OSS): Issues for Bazel OSS team: installation, release process, Bazel packaging, website, docs infrastructure
-    * Contact: [meteorcloudy](https://github.com/meteorcloudy)
+*   [`team-OSS`](https://github.com/bazelbuild/bazel/labels/team-OSS){: .external}: Issues for Bazel OSS team: installation, release process, Bazel packaging, website, docs infrastructure
+    * Contact: [meteorcloudy](https://github.com/meteorcloudy){: .external}
 *   [`team-Performance`](https://github.com/bazelbuild/bazel/labels/team-Performance){: .external}: Issues for Bazel Performance team
     * Contact: [meisterT](https://github.com/meisterT){: .external}
 *   [`team-Remote-Exec`](https://github.com/bazelbuild/bazel/labels/team-Remote-Exec){: .external}: Issues for Execution (Remote) team
     * Contact: [coeuvre](https://github.com/coeuvre){: .external}
-* [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP): Issues for C++ rules, including native Apple rule logic
+*   [`team-Rules-API`](https://github.com/bazelbuild/bazel/labels/team-Rules-API){: .external}: API for writing rules/aspects: providers, runfiles, actions, artifacts
+    * Contact: [comius](https://github.com/comius){: .external}
+*   [`team-Rules-CPP`](https://github.com/bazelbuild/bazel/labels/team-Rules-CPP){: .external}: Issues for C++ rules, including native Apple rule logic
     * Contact: [oquenchil](https://github.com/oquenchil){: .external}
 *   [`team-Rules-Java`](https://github.com/bazelbuild/bazel/labels/team-Rules-Java){: .external}: Issues for Java rules
-    * Contact: [comius](https://github.com/comius){: .external}
+    * Contact: [hvadehra](https://github.com/hvadehra){: .external}
 *   [`team-Rules-Python`](https://github.com/bazelbuild/bazel/labels/team-Rules-Python){: .external}: Issues for the native Python rules
-    * Contact: [comius](https://github.com/comius){: .external}
+    * Contact: [rickeylev](https://github.com/rickeylev){: .external}
 *   [`team-Rules-Server`](https://github.com/bazelbuild/bazel/labels/team-Rules-Server){: .external}: Issues for server-side rules included with Bazel
     * Contact: [comius](https://github.com/comius){: .external}
-*   [`team-Starlark-integration`](https://github.com/bazelbuild/bazel/labels/team-Starlark-integration): Non-API Bazel + Starlark integration. Includes: how Bazel triggers the Starlark interpreter, Stardoc, builtins injection, character encoding.  Does *not* include: BUILD or .bzl language issues.
-    * Contact: [brandjon](https://github.com/brandjon)
-*   [`team-Starlark-interpreter`](https://github.com/bazelbuild/bazel/labels/team-Starlark-interpreter): Issues for the Starlark interpreter (anything in [java.net.starlark](https://github.com/bazelbuild/bazel/tree/master/src/main/java/net/starlark/java)). BUILD and .bzl API issues (which represent Bazel's *integration* with Starlark) go in `team-Build-Language`.
-    * Contact: [brandjon](https://github.com/brandjon)
+*   [`team-Starlark-Integration`](https://github.com/bazelbuild/bazel/labels/team-Starlark-Integration){: .external}: Non-API Bazel + Starlark integration. Includes: how Bazel triggers the Starlark interpreter, Stardoc, builtins injection, character encoding.  Does *not* include: BUILD or .bzl language issues.
+    * Contact: [brandjon](https://github.com/brandjon){: .external}
+*   [`team-Starlark-Interpreter`](https://github.com/bazelbuild/bazel/labels/team-Starlark-Interpreter){: .external}: Issues for the Starlark interpreter (anything in [java.net.starlark](https://github.com/bazelbuild/bazel/tree/master/src/main/java/net/starlark/java)). BUILD and .bzl API issues (which represent Bazel's *integration* with Starlark) go in `team-Build-Language`.
+    * Contact: [brandjon](https://github.com/brandjon){: .external}
 
 For new issues, we deprecated the `category: *` labels in favor of the team
 labels.

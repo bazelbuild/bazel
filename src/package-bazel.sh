@@ -37,6 +37,7 @@ ROOT="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
 RECOMP="$ROOT/recomp"
 PACKAGE_DIR="$ROOT/pkg"
 DEPLOY_UNCOMP="$ROOT/deploy-uncompressed.jar"
+FILE_LIST="$ROOT/file.list"
 mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr ${ROOT}" EXIT
 
@@ -101,14 +102,14 @@ fi
   find . -type f | sort
   # And install_base_key must be last.
   echo install_base_key
-) > files.list
+) > $FILE_LIST
 
 # Move these after the 'find' above.
 cp $DEPLOY_JAR $PACKAGE_DIR/A-server.jar
 cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
 
 # Zero timestamps.
-(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < files.list
+(cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < $FILE_LIST
 
 if [[ "$DEV_BUILD" -eq 1 ]]; then
   # Create output zip with lowest compression, but fast.
@@ -117,6 +118,6 @@ else
   # Create output zip with highest compression, but slow.
   ZIP_ARGS="-q9DX@"
 fi
-(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < files.list
+(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < $FILE_LIST
 
 

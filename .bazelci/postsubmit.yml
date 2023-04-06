@@ -1,5 +1,15 @@
 ---
+matrix:
+  bzlmod_platforms: ["centos7_java11_devtoolset10", "ubuntu2004", "macos", "windows"]
+
 tasks:
+  bzlmod_builds:
+    name: "Bazel Bzlmod build"
+    platform: ${{ bzlmod_platforms }}
+    build_flags:
+      - "--config=bzlmod"
+    build_targets:
+      - "//src:bazel_nojdk"
   centos7_java11_devtoolset10:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -158,7 +168,6 @@ tasks:
       - build
       - test
   macos:
-    xcode_version: "13.0"
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
@@ -193,10 +202,91 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
-      - "//tools/osx/crosstool/..."
       - "//tools/python/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      # MacOS does not have cgroups so it can't support hardened sandbox
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      # https://github.com/bazelbuild/bazel/issues/16526
+      - "-//src/test/shell/bazel:starlark_repository_test"
+      # https://github.com/bazelbuild/bazel/issues/17407
+      - "-//src/test/shell/bazel/apple:bazel_apple_test"
+      # https://github.com/bazelbuild/bazel/issues/17408
+      - "-//src/test/shell/bazel/apple:bazel_objc_test"
+      # https://github.com/bazelbuild/bazel/issues/16526#issuecomment-1415858550
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_head_android_tools"
+      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
+      # https://github.com/bazelbuild/bazel/issues/17410
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+      # https://github.com/bazelbuild/bazel/issues/17411
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:PatchApiBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17447
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:GitRepositoryBlackBoxTest"
+      # https://github.com/bazelbuild/bazel/issues/17456
+      - "-//src/test/shell/bazel:bazel_determinism_test"
+      # https://github.com/bazelbuild/bazel/issues/17457
+      - "-//src/test/shell/bazel:jdeps_test"
+    include_json_profile:
+      - build
+      - test
+  macos_arm64:
+    shell_commands:
+      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
+        android_ndk_repository/android_ndk_repository/' WORKSPACE
+      - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+      - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      - "--noremote_accept_cached"
+    build_targets:
+      - "//src:bazel"
+      - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
+      - "//src/main/java/..."
+    test_flags:
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
+      # Configure and enable tests that require access to the network.
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+    test_targets:
+      - "//scripts/..."
+      - "//src/test/..."
+      - "//src/tools/execlog/..."
+      - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
+      - "//third_party/ijar/..."
+      - "//tools/android/..."
+      - "//tools/aquery_differ/..."
+      - "//tools/python/..."
+      # C++ coverage is not supported on macOS yet.
+      - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
+      # MacOS does not have cgroups so it can't support hardened sandbox
+      - "-//src/test/shell/integration:bazel_hardened_sandboxed_worker_test"
+      # https://github.com/bazelbuild/bazel/issues/16521
+      - "-//src/test/shell/bazel/android/..."
+      - "-//src/tools/android/java/com/google/devtools/build/android/..."
+      - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
+      # https://github.com/bazelbuild/bazel/issues/16525
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:KeepGoingTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:DanglingSymlinkTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:CompileOneDependencyIntegrationTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:SkymeldBuildIntegrationTest"
+      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest"
+      - "-//src/test/java/com/google/devtools/build/lib/skyframe/rewinding:RewindingTest"
+      - "-//src/test/java/com/google/devtools/build/lib/buildtool:MiscAnalysisTest"
+      - "-//src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests"
+      # https://github.com/bazelbuild/bazel/issues/16975
+      - "-//scripts/docs:rewriter_test"
+      # https://github.com/bazelbuild/bazel/issues/17007
+      - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
     include_json_profile:
       - build
       - test
@@ -308,6 +398,10 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
+      - "-//src/test/py/bazel:bazel_lockfile_test"
+      - "-//src/test/py/bazel:bazel_overrides_test"
+      - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/shell/bazel:verify_workspace"
     include_json_profile:
       - build

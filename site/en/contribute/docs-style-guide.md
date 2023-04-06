@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Bazel docs style guide
 
+{% include "_buttons.html" %}
+
 Thank you for contributing to Bazel's documentation. This serves as a quick
 documentation style guide to get you started. For any style questions not
 answered by this guide, follow the

@@ -17,27 +17,46 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A {@link MetadataProvider} backed by static data */
 public final class StaticMetadataProvider implements MetadataProvider {
 
-  private final ImmutableMap<ActionInput, FileArtifactValue> metadata;
+  private static final StaticMetadataProvider EMPTY = new StaticMetadataProvider(ImmutableMap.of());
 
-  public StaticMetadataProvider(Map<ActionInput, FileArtifactValue> metadata) {
-    this.metadata = ImmutableMap.copyOf(metadata);
+  public static StaticMetadataProvider empty() {
+    return EMPTY;
+  }
+
+  private final ImmutableMap<ActionInput, FileArtifactValue> inputToMetadata;
+  private final ImmutableMap<String, ActionInput> execPathToInput;
+
+  public StaticMetadataProvider(Map<ActionInput, FileArtifactValue> inputToMetadata) {
+    this.inputToMetadata = ImmutableMap.copyOf(inputToMetadata);
+    this.execPathToInput = constructExecPathToInputMap(inputToMetadata.keySet());
+  }
+
+  private static ImmutableMap<String, ActionInput> constructExecPathToInputMap(
+      Collection<ActionInput> inputs) {
+    ImmutableMap.Builder<String, ActionInput> builder =
+        ImmutableMap.builderWithExpectedSize(inputs.size());
+    for (ActionInput input : inputs) {
+      builder.put(input.getExecPath().getPathString(), input);
+    }
+    return builder.buildOrThrow();
   }
 
   @Nullable
   @Override
   public FileArtifactValue getMetadata(ActionInput input) {
-    return metadata.get(input);
+    return inputToMetadata.get(input);
   }
 
   @Nullable
   @Override
   public ActionInput getInput(String execPath) {
-    throw new UnsupportedOperationException();
+    return execPathToInput.get(execPath);
   }
 }

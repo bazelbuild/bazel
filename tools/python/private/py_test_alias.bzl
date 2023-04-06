@@ -19,8 +19,6 @@ macro that generates a py_test for PY2 and PY3, to help migrating scripts.
 Bazel's Python scripts don't need that macro, so we alias it to py_test.
 """
 
-load(":private/defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 
-# TODO(bazel-team): delete this alias, replace with py_test everywhere as part
-# of fixing https://github.com/bazelbuild/bazel/issues/10127
 py_test_alias = py_test

@@ -116,10 +116,13 @@ class AndroidLintActionBuilder {
     cmd.addExecPath("--xml", result);
 
     NestedSetBuilder<Artifact> toolInputs = NestedSetBuilder.stableOrder();
-    androidLint.tool().buildCommandLine(spawnAction.executableArguments(), toolchain, toolInputs);
+    androidLint.tool().addInputs(toolchain, toolInputs);
+
     semantics.setLintProgressMessage(spawnAction);
     ruleContext.registerAction(
         spawnAction
+            .addCommandLine(
+                androidLint.tool().getCommandLine(toolchain, /* stripOutputPath= */ null))
             .addCommandLine(cmd.build(), PARAM_FILE_INFO)
             .addInputs(attributes.getSourceFiles())
             .addInputs(allSrcJars)

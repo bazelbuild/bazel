@@ -36,7 +36,7 @@ _BAZEL_ARGS="--spawn_strategy=standalone \
       --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
       --compilation_mode=opt \
       --distdir=derived/distdir \
-      --extra_toolchains=//scripts/bootstrap:bootstrap_toolchain_definition \
+      --extra_toolchains=//scripts/bootstrap:all \
       ${DIST_BOOTSTRAP_ARGS:-} \
       ${EXTRA_BAZEL_ARGS:-}"
 

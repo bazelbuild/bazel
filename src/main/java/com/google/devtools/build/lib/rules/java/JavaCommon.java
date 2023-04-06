@@ -19,12 +19,10 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -41,6 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -48,8 +47,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -168,28 +165,6 @@ public class JavaCommon {
 
   public JavaSemantics getJavaSemantics() {
     return semantics;
-  }
-
-  /**
-   * Creates an action to aggregate all metadata artifacts into a single
-   * &lt;target_name&gt;_instrumented.jar file.
-   */
-  public static void createInstrumentedJarAction(
-      RuleContext ruleContext,
-      JavaSemantics semantics,
-      List<Artifact> metadataArtifacts,
-      Artifact instrumentedJar,
-      String mainClass)
-      throws InterruptedException {
-    // In Jacoco's setup, metadata artifacts are real jars.
-    new DeployArchiveBuilder(semantics, ruleContext)
-        .setOutputJar(instrumentedJar)
-        // We need to save the original mainClass because we're going to run inside CoverageRunner
-        .setJavaStartClass(mainClass)
-        .setAttributes(new JavaTargetAttributes.Builder(semantics).build())
-        .addRuntimeJars(ImmutableList.copyOf(metadataArtifacts))
-        .setCompression(DeployArchiveBuilder.Compression.UNCOMPRESSED)
-        .build();
   }
 
   public static ImmutableList<String> getConstraints(RuleContext ruleContext) {
@@ -364,16 +339,20 @@ public class JavaCommon {
     return builder.build();
   }
 
-  public final void initializeJavacOpts() {
-    Preconditions.checkState(javacOpts == null);
-    javacOpts = computeJavacOpts(getCompatibleJavacOptions());
-  }
-
   /** Computes javacopts for the current rule. */
   private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
-    return ImmutableList.<String>builder()
-        .addAll(javaToolchain.getJavacOptions(ruleContext))
-        .addAll(extraRuleJavacOpts)
+    ImmutableList.Builder<String> javacOpts =
+        ImmutableList.<String>builder()
+            .addAll(javaToolchain.getJavacOptions(ruleContext))
+            .addAll(extraRuleJavacOpts);
+    if (activePlugins
+        .plugins()
+        .processorClasses()
+        .toSet()
+        .contains("com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor")) {
+      javacOpts.add("-Abazel.repository=" + ruleContext.getRepository().getName());
+    }
+    return javacOpts
         .addAll(computePerPackageJavacOpts(ruleContext, javaToolchain))
         .addAll(addModuleJavacopts(ruleContext))
         .addAll(ruleContext.getExpander().withDataLocations().tokenized("javacopts"))
@@ -523,7 +502,7 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() {
+  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
   }
 
@@ -536,10 +515,10 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws RuleErrorException {
     Preconditions.checkState(javacOpts == null);
-    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
     activePlugins = collectPlugins();
+    javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
 
     JavaTargetAttributes.Builder javaTargetAttributes = new JavaTargetAttributes.Builder(semantics);
     javaCompilationHelper =
@@ -828,32 +807,6 @@ public class JavaCommon {
     return ImmutableList.of();
   }
 
-  JavaPluginInfo createJavaPluginInfo(
-      RuleContext ruleContext, ImmutableList<JavaOutput> javaOutputs) {
-    NestedSet<String> processorClasses =
-        NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, getProcessorClasses(ruleContext));
-    NestedSet<Artifact> processorClasspath = getRuntimeClasspath();
-    FileProvider dataProvider = ruleContext.getPrerequisite("data", FileProvider.class);
-    NestedSet<Artifact> data =
-        dataProvider != null
-            ? dataProvider.getFilesToBuild()
-            : NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    return JavaPluginInfo.create(
-        JavaPluginData.create(processorClasses, processorClasspath, data),
-        ruleContext.attributes().get("generates_api", Type.BOOLEAN),
-        javaOutputs);
-  }
-
-  /**
-   * Returns the class that should be passed to javac in order to run the annotation processor this
-   * class represents.
-   */
-  private static ImmutableSet<String> getProcessorClasses(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttributeValueExplicitlySpecified("processor_class")
-        ? ImmutableSet.of(ruleContext.attributes().get("processor_class", Type.STRING))
-        : ImmutableSet.of();
-  }
-
   public static JavaPluginInfo getTransitivePlugins(RuleContext ruleContext) {
     return JavaPluginInfo.mergeWithoutJavaOutputs(
         Iterables.concat(
@@ -886,11 +839,17 @@ public class JavaCommon {
       depsForRunfiles.addAll(ruleContext.getPrerequisites("exports"));
     }
 
-    runfilesBuilder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
+    runfilesBuilder.addTargets(
+        depsForRunfiles,
+        RunfilesProvider.DEFAULT_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
 
     TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
     if (launcher != null) {
-      runfilesBuilder.addTarget(launcher, RunfilesProvider.DATA_RUNFILES);
+      runfilesBuilder.addTarget(
+          launcher,
+          RunfilesProvider.DATA_RUNFILES,
+          ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
     }
 
     semantics.addRunfilesForLibrary(ruleContext, runfilesBuilder);
@@ -905,27 +864,6 @@ public class JavaCommon {
   /** Gets all the deps that implement a particular provider. */
   public final <P extends TransitiveInfoProvider> List<P> getDependencies(Class<P> provider) {
     return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
-  }
-
-  /**
-   * Returns a list of the current target's runtime jars and the first two levels of its direct
-   * dependencies.
-   *
-   * <p>This method is meant to aid the persistent test runner, which aims at avoiding loading all
-   * classes on the classpath for each test run. To that extent this method computes a small jars
-   * set of the most likely to be changed classes when writing code for a test. Their classes should
-   * be loaded in a separate classloader by the persistent test runner.
-   */
-  public ImmutableSet<Artifact> getDirectRuntimeClasspath() {
-    ImmutableSet.Builder<Artifact> directDeps = new ImmutableSet.Builder<>();
-    directDeps.addAll(javaArtifacts.getRuntimeJars());
-    for (TransitiveInfoCollection dep : targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY)) {
-      JavaInfo javaInfo = JavaInfo.getJavaInfo(dep);
-      if (javaInfo != null) {
-        directDeps.addAll(javaInfo.getDirectRuntimeJars());
-      }
-    }
-    return directDeps.build();
   }
 
   /**

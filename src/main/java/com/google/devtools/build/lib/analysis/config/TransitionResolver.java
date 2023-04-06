@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.packages.Rule;
@@ -66,23 +65,17 @@ public final class TransitionResolver {
       return NullTransition.INSTANCE;
     }
 
-    // III. Host configurations never switch to another. All prerequisites of host targets have the
-    // same host configuration.
-    if (fromConfig.isHostConfiguration()) {
-      return NoTransition.INSTANCE;
-    }
-
     // The current transition to apply. When multiple transitions are requested, this is a
     // ComposingTransition, which encapsulates them into a single object so calling code
     // doesn't need special logic for combinations.
-    // IV. Apply whatever transition the attribute requires.
+    // III. Apply whatever transition the attribute requires.
     ConfigurationTransition currentTransition = baseTransition;
 
-    // V. Applies any rule transitions associated with the dep target and composes their
+    // IV. Applies any rule transitions associated with the dep target and composes their
     // transitions with a passed-in existing transition.
     currentTransition = applyRuleTransition(currentTransition, toTarget);
 
-    // VI. Applies a transition to trim the result and returns it. (note: this is a temporary
+    // V. Applies a transition to trim the result and returns it. (note: this is a temporary
     // feature; see the corresponding methods in ConfiguredRuleClassProvider)
     return applyTransitionFromFactory(currentTransition, toTarget, trimmingTransitionFactory);
   }

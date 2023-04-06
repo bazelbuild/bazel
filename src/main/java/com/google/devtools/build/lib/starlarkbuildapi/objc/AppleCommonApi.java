@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -44,6 +45,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
 @StarlarkBuiltin(
     name = "apple_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
         FileApiT extends FileApi,
@@ -268,6 +270,7 @@ public interface AppleCommonApi<
             name = "objc",
             named = true,
             positional = false,
+            defaultValue = "None",
             doc =
                 "An ObjcProvider which contains information about the transitive "
                     + "dependencies linked into the binary."),
@@ -295,13 +298,15 @@ public interface AppleCommonApi<
             doc =
                 "The full set of artifacts that should be included as inputs to link against the "
                     + "dynamic framework")
-      })
+      },
+      useStarlarkThread = true)
   AppleDynamicFrameworkInfoApi<?> newDynamicFrameworkProvider(
       Object dylibBinary,
       Object depsCcInfo,
-      ObjcProviderApiT depsObjcProvider,
+      Object depsObjcProvider,
       Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles)
+      Object dynamicFrameworkFiles,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -330,12 +335,14 @@ public interface AppleCommonApi<
             name = "objc",
             named = true,
             positional = false,
+            defaultValue = "None",
             doc =
                 "An ObjcProvider which contains information about the transitive "
                     + "dependencies linked into the binary.")
-      })
+      },
+      useStarlarkThread = true)
   AppleExecutableBinaryApi newExecutableBinaryProvider(
-      Object executableBinary, Object depsCcInfo, ObjcProviderApiT depsObjcProvider)
+      Object executableBinary, Object depsCcInfo, Object depsObjcProvider, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

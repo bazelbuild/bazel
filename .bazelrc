@@ -3,6 +3,7 @@ common --enable_platform_specific_config
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
+build:remote_shared --remote_download_toplevel
 build:remote_shared --remote_timeout=600
 build:remote_shared --google_default_credentials
 build:remote_shared --jobs=100
@@ -16,8 +17,7 @@ build:remote_shared --noexperimental_check_desugar_deps
 build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//java:all
 build:ubuntu1804_java11 --crosstool_top=@rbe_ubuntu1804_java11//cc:toolchain
 build:ubuntu1804_java11 --extra_toolchains=@rbe_ubuntu1804_java11//config:cc-toolchain
-build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_platform
-build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_highcpu_platform
+build:ubuntu1804_java11 --extra_execution_platforms=//:rbe_ubuntu1804_java11_platform,//:rbe_ubuntu1804_java11_highcpu_platform
 build:ubuntu1804_java11 --host_platform=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --platforms=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --config=remote_shared
@@ -28,11 +28,15 @@ build:remote --config=ubuntu1804_java11
 build:macos --macos_minimum_os=10.10
 
 # Enable Bzlmod
-build:bzlmod --experimental_enable_bzlmod
+build:bzlmod --enable_bzlmod
+build:bzlmod --check_direct_dependencies=error
 
 # Enable Java 11 language features (https://github.com/bazelbuild/bazel/issues/14592)
 build --java_language_version=11
 build --tool_java_language_version=11
+
+# Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
+build --incompatible_disallow_empty_glob
 
 # User-specific .bazelrc
 try-import %workspace%/user.bazelrc

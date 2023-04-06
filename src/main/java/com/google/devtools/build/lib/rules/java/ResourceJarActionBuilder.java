@@ -90,7 +90,7 @@ public class ResourceJarActionBuilder {
     return this;
   }
 
-  public void build(JavaSemantics semantics, RuleContext ruleContext) {
+  public void build(JavaSemantics semantics, RuleContext ruleContext, String execGroup) {
     checkNotNull(outputJar, "outputJar must not be null");
     checkNotNull(javaToolchain, "javaToolchain must not be null");
     checkNotNull(javaToolchain.getJavaRuntime(), "javabase must not be null");
@@ -118,6 +118,7 @@ public class ResourceJarActionBuilder {
     if (!classpathResources.isEmpty()) {
       command.addExecPaths("--classpath_resources", classpathResources);
     }
+
     ruleContext.registerAction(
         builder
             .setExecutable(javaToolchain.getSingleJar())
@@ -131,6 +132,7 @@ public class ResourceJarActionBuilder {
             .addCommandLine(command.build(), PARAM_FILE_INFO)
             .setProgressMessage("Building Java resource jar")
             .setMnemonic(MNEMONIC)
+            .setExecGroup(execGroup)
             .build(ruleContext));
   }
 

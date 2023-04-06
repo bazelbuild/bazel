@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # C++ Toolchain Configuration
 
+{% include "_buttons.html" %}
+
 ## Overview {:#overview}
 
 To invoke the compiler with the right options, Bazel needs some knowledge about
@@ -566,7 +568,7 @@ within the flag value, which the compiler expands when adding the flag to the
 build command. For example:
 
     flag_group (
-        flags = ["%{output_file_path}"],
+        flags = ["%{output_execpath}"],
     )
 
 

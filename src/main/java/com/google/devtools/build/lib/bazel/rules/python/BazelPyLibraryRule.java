@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.python;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBaseRule;
@@ -49,7 +50,7 @@ public final class BazelPyLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("py_library")
         .ancestors(PyBaseRule.class)
-        .factoryClass(BazelPyLibrary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

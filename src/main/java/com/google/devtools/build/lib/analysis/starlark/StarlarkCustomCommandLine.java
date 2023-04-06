@@ -120,7 +120,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static void push(
-        List<Object> arguments, Builder arg, StarlarkSemantics starlarkSemantics) {
+        ImmutableListBuilderWithSize<Object> arguments,
+        Builder arg,
+        StarlarkSemantics starlarkSemantics) {
       int features = 0;
       features |= arg.mapEach != null ? HAS_MAP_EACH : 0;
       features |= arg.nestedSet != null ? IS_NESTED_SET : 0;
@@ -590,7 +592,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return interner.intern(new ScalarArg(hasFormat));
     }
 
-    private static void push(List<Object> arguments, Builder arg) {
+    private static void push(ImmutableListBuilderWithSize<Object> arguments, Builder arg) {
       ScalarArg scalarArg = ScalarArg.create(arg.format != null);
       arguments.add(scalarArg);
       arguments.add(arg.object);
@@ -656,11 +658,33 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
+  /** A variant of {@link ImmutableList.Builder} that keeps track of the current size. */
+  private static class ImmutableListBuilderWithSize<T> {
+    final ImmutableList.Builder<T> builder = ImmutableList.builder();
+    int size = 0;
+
+    @CanIgnoreReturnValue
+    ImmutableListBuilderWithSize<T> add(T element) {
+      builder.add(element);
+      size++;
+      return this;
+    }
+
+    ImmutableList<T> build() {
+      return builder.build();
+    }
+
+    int size() {
+      return size;
+    }
+  }
+
   static class Builder {
     private final StarlarkSemantics starlarkSemantics;
-    private final List<Object> arguments = new ArrayList<>();
+    private final ImmutableListBuilderWithSize<Object> arguments =
+        new ImmutableListBuilderWithSize<>();
     // Indexes in arguments list where individual args begin
-    private final List<Integer> argStartIndexes = new ArrayList<>();
+    private final ImmutableList.Builder<Integer> argStartIndexes = ImmutableList.builder();
 
     public Builder(StarlarkSemantics starlarkSemantics) {
       this.starlarkSemantics = starlarkSemantics;
@@ -692,10 +716,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     StarlarkCustomCommandLine build(boolean flagPerLine) {
       if (flagPerLine) {
-        return new StarlarkCustomCommandLineWithIndexes(
-            ImmutableList.copyOf(arguments), ImmutableList.copyOf(argStartIndexes));
+        return new StarlarkCustomCommandLineWithIndexes(arguments.build(), argStartIndexes.build());
       } else {
-        return new StarlarkCustomCommandLine(ImmutableList.copyOf(arguments));
+        return new StarlarkCustomCommandLine(arguments.build());
       }
     }
   }
@@ -732,7 +755,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         result.add(expandToCommandLine(arg, stripPaths));
       }
     }
-    return ImmutableList.copyOf(stripPaths.stripCustomStarlarkArgs(result));
+    return ImmutableList.copyOf(stripPaths.mapCustomStarlarkArgs(result));
   }
 
   private static String expandToCommandLine(Object object, CommandAdjuster pathStripper) {
@@ -740,7 +763,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     // to explicitly check if an object is a DerivedArtifact. Unfortunately that would require
     // a lot more dependencies on the Java library DerivedArtifact is built into.
     return object instanceof DerivedArtifact
-        ? pathStripper.strip(((DerivedArtifact) object).getExecPath()).getPathString()
+        ? pathStripper.map(((DerivedArtifact) object).getExecPath()).getPathString()
         : CommandLineItem.expandToCommandLine(object);
   }
 

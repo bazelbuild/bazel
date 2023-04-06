@@ -14,11 +14,15 @@
 // Copyright 2017 The Bazel Authors. All rights reserved.
 package com.google.devtools.build.android;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.XmlNode;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
@@ -38,10 +42,15 @@ import java.util.Map;
 import java.util.Optional;
 
 /** Performs resource validation and static linking for compiled android resources. */
-public class ValidateAndLinkResourcesAction {
+public final class ValidateAndLinkResourcesAction {
 
   /** Action configuration options. */
   public static class Options extends OptionsBase {
+    /**
+     * TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
+     *
+     * @deprecated Use --resources.
+     */
     @Option(
         name = "compiled",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -51,7 +60,6 @@ public class ValidateAndLinkResourcesAction {
         category = "input",
         help = "Compiled resources to link.",
         deprecationWarning = "Use --resources.")
-    // TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
     @Deprecated
     public Path compiled;
 
@@ -66,6 +74,11 @@ public class ValidateAndLinkResourcesAction {
         help = "Compiled resource dependencies to link.")
     public List<Path> compiledDeps;
 
+    /**
+     * TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
+     *
+     * @deprecated Use --resources.
+     */
     @Option(
         name = "manifest",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -75,7 +88,6 @@ public class ValidateAndLinkResourcesAction {
         category = "input",
         help = "Manifest for the library.",
         deprecationWarning = "Use --resources.")
-    // TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
     @Deprecated
     public Path manifest;
 
@@ -149,6 +161,16 @@ public class ValidateAndLinkResourcesAction {
         category = "output",
         help = "Generated java classes from the resources.")
     public Path sourceJarOut;
+
+    @Option(
+        name = "resourceApks",
+        defaultValue = "null",
+        category = "input",
+        converter = PathListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "List of reource only APK files to link against.")
+    public List<Path> resourceApks;
   }
 
   public static void main(String[] args) throws Exception {
@@ -183,16 +205,20 @@ public class ValidateAndLinkResourcesAction {
                           .writeDummyManifestForAapt(
                               scopedTmp.getPath().resolve("manifest-aapt-dummy"),
                               options.packageForR));
-      List<CompiledResources> deps =
-          options.compiledDeps.stream()
-              .map(CompiledResources::from)
-              .collect(ImmutableList.toImmutableList());
+      ImmutableList<CompiledResources> includes =
+          options.compiledDeps.stream().map(CompiledResources::from).collect(toImmutableList());
       profiler.recordEndOf("manifest").startTask("validate");
 
       // TODO(b/146663858): distinguish direct/transitive deps for "strict deps".
       // TODO(b/128711690): validate AndroidManifest.xml
       checkVisibilityOfResourceReferences(
-          /*androidManifest=*/ XmlNode.getDefaultInstance(), resources, deps);
+          /* androidManifest= */ XmlNode.getDefaultInstance(), resources, includes);
+
+      ImmutableList<StaticLibrary> resourceApks = ImmutableList.of();
+      if (options.resourceApks != null) {
+        resourceApks =
+            options.resourceApks.stream().map(StaticLibrary::from).collect(toImmutableList());
+      }
 
       profiler.recordEndOf("validate").startTask("link");
       ResourceLinker.create(aapt2Options.aapt2, executorService, scopedTmp.getPath())
@@ -200,8 +226,10 @@ public class ValidateAndLinkResourcesAction {
           // NB: these names are really confusing.
           //   .dependencies is meant for linking in android.jar
           //   .include is meant for regular dependencies
+          //   .resourceApks is meant for linking runtime resource only apks
           .dependencies(Optional.ofNullable(options.deprecatedLibraries).orElse(options.libraries))
-          .include(deps)
+          .include(includes)
+          .resourceApks(resourceApks)
           .buildVersion(aapt2Options.buildToolsVersion)
           .outputAsProto(aapt2Options.resourceTableAsProto)
           .linkStatically(resources)
@@ -228,21 +256,21 @@ public class ValidateAndLinkResourcesAction {
             .flatMap(
                 cr ->
                     AndroidCompiledDataDeserializer.create(
-                        /*includeFileContentsForValidation=*/ false)
+                        /* includeFileContentsForValidation= */ false)
                         .read(DependencyInfo.UNKNOWN, cr.getZip())
                         .entrySet()
                         .stream())
             .filter(entry -> entry.getValue().getVisibility() == Visibility.PRIVATE)
             .map(entry -> ((FullyQualifiedName) entry.getKey()).asQualifiedReference())
-            .collect(ImmutableSet.toImmutableSet());
+            .collect(toImmutableSet());
 
     StringBuilder errorMessage = new StringBuilder();
     {
-      List<String> referencedPrivateResources =
+      ImmutableList<String> referencedPrivateResources =
           ProtoXmlUtils.getAllResourceReferences(androidManifest).stream()
               .map(Reference::getName)
               .filter(privateResourceNames::contains)
-              .collect(ImmutableList.toImmutableList());
+              .collect(toImmutableList());
       if (!referencedPrivateResources.isEmpty()) {
         errorMessage
             .append("AndroidManifest.xml references external private resources ")
@@ -255,11 +283,11 @@ public class ValidateAndLinkResourcesAction {
         AndroidCompiledDataDeserializer.create(/*includeFileContentsForValidation=*/ true)
             .read(DependencyInfo.UNKNOWN, compiled.getZip())
             .entrySet()) {
-      List<String> referencedPrivateResources =
+      ImmutableList<String> referencedPrivateResources =
           resource.getValue().getReferencedResources().stream()
               .map(Reference::getName)
               .filter(privateResourceNames::contains)
-              .collect(ImmutableList.toImmutableList());
+              .collect(toImmutableList());
 
       if (!referencedPrivateResources.isEmpty()) {
         errorMessage
@@ -276,4 +304,6 @@ public class ValidateAndLinkResourcesAction {
       throw new UserException(errorMessage.toString());
     }
   }
+
+  private ValidateAndLinkResourcesAction() {}
 }

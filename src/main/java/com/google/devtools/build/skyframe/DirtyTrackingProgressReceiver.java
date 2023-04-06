@@ -111,9 +111,11 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {
+      EvaluationState state,
+      @Nullable GroupedDeps directDeps) {
     if (progressReceiver != null) {
-      progressReceiver.evaluated(skyKey, newValue, newError, evaluationSuccessState, state);
+      progressReceiver.evaluated(
+          skyKey, newValue, newError, evaluationSuccessState, state, directDeps);
     }
 
     // This key was either built or marked clean, so we can remove it from both the dirty and
@@ -123,8 +125,12 @@ public class DirtyTrackingProgressReceiver implements EvaluationProgressReceiver
   }
 
   /** Returns if the key is enqueued for evaluation. */
-  protected boolean isInflight(SkyKey skyKey) {
+  final boolean isInflight(SkyKey skyKey) {
     return inflightKeys.contains(skyKey);
+  }
+
+  final void removeFromInflight(SkyKey skyKey) {
+    inflightKeys.remove(skyKey);
   }
 
   /** Returns the set of all keys that are enqueued for evaluation, and resets the set to empty. */

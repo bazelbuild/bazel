@@ -41,6 +41,7 @@ gen_workspace_stanza(
     out = "rules_proto_stanza.txt",
     repos = [
         "rules_proto",
+        "rules_python",
     ],
 )
 
@@ -244,16 +245,6 @@ sh_test(
     ],
     tags = ["no_windows"],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-)
-
-sh_test(
-    name = "output_filter_test",
-    size = "large",
-    srcs = ["output_filter_test.sh"],
-    data = [
-        ":test-deps",
-        "@bazel_tools//tools/bash/runfiles",
-    ],
 )
 
 sh_test(
@@ -563,6 +554,25 @@ sh_test(
     srcs = ["bazel_worker_test.sh"],
     args = [
         "--worker_sandboxing",
+        "sandboxed",
+        "proto",
+    ],
+    data = [
+        ":test-deps",
+        "//src/test/java/com/google/devtools/build/lib/worker:ExampleWorker_deploy.jar",
+    ],
+    shard_count = 3,
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
+    name = "bazel_hardened_sandboxed_worker_test",
+    size = "large",
+    srcs = ["bazel_worker_test.sh"],
+    args = [
+        "'--worker_sandboxing --experimental_worker_sandbox_hardening'",
         "sandboxed",
         "proto",
     ],

@@ -14,36 +14,4 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 
-/** Event reporting on progress mading fetching a remote git repository. */
-public class GitFetchProgress implements FetchProgress {
-  private final String remote;
-  private final String message;
-  private final boolean isFinished;
-
-  GitFetchProgress(String remote, String message, boolean isFinished) {
-    this.remote = remote;
-    this.message = message;
-    this.isFinished = isFinished;
-  }
-
-  GitFetchProgress(String remote, String message) {
-    this(remote, message, false);
-  }
-
-  @Override
-  public String getResourceIdentifier() {
-    return remote;
-  }
-
-  @Override
-  public String getProgress() {
-    return message;
-  }
-
-  @Override
-  public boolean isFinished() {
-    return isFinished;
-  }
-}

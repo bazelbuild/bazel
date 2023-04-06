@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Java and Bazel
 
+{% include "_buttons.html" %}
+
 This page contains resources that help you use Bazel with Java projects. It
 links to a tutorial, build rules, and other information specific to building
 Java projects with Bazel.
@@ -11,7 +13,7 @@ Java projects with Bazel.
 
 The following resources will help you work with Bazel on Java projects:
 
-*   [Tutorial: Building a Java Project](/tutorials/java)
+*   [Tutorial: Building a Java Project](/start/java)
 *   [Java rules](/reference/be/java)
 
 ## Migrating to Bazel {:#migrating-to-bazel}
@@ -84,7 +86,7 @@ For more details, see
 
 ## Best practices {:#best-practices}
 
-In addition to [general Bazel best practices](/docs/best-practices), below are
+In addition to [general Bazel best practices](/configure/best-practices), below are
 best practices specific to Java projects.
 
 ### Directory structure {:#directory-structure}
@@ -126,7 +128,7 @@ Follow these guidelines when creating your `BUILD` files:
 not need it when getting started with Bazel.
 
 The following modules, configuration fragments, and providers will help you
-[extend Bazel's capabilities](/rules/concepts) when building your Java
+[extend Bazel's capabilities](/extending/concepts) when building your Java
 projects:
 
 *   Main Java provider: [`java_common`](/rules/lib/java_common)
@@ -181,7 +183,8 @@ remote_java_repository(
   name = "openjdk_canary_linux_arm",
   prefix = "openjdk_canary", # Can be used with --java_runtime_version=openjdk_canary_11
   version = "11",            # or --java_runtime_version=11
-  target_compatible_with = [   # Specifies constraints this JVM is compatible with "@platforms//cpu:arm",
+  target_compatible_with = [ # Specifies constraints this JVM is compatible with
+    "@platforms//cpu:arm",
     "@platforms//os:linux",
   ],
   urls = ...,               # Other parameters are from http_repository rule.
@@ -333,7 +336,7 @@ version may be grouped with `.bazelrc` configs":
 
 ```python
 build:java8 --java_language_version=8
-build:java8 --java_runtime_version=localjdk_8
+build:java8 --java_runtime_version=local_jdk_8
 build:java11 --java_language_version=11
 build:java11 --java_runtime_version=remotejdk_11
 ```

@@ -1,12 +1,10 @@
-load("@rules_java//java:defs.bzl", "java_import")
-
 package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-java_import(
+alias(
     name = "jcommander",
-    jars = ["jcommander-1.48.jar"],
+    actual = "@maven//:com_beust_jcommander",
 )
 
 filegroup(

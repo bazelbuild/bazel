@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.util.Pair;
+import net.starlark.java.eval.Tuple;
 
 /** An implementation class for the InstrumentedFilesProvider interface. */
 public final class InstrumentedFilesInfo extends NativeInfo implements InstrumentedFilesInfoApi {
@@ -45,7 +46,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
   private final NestedSet<Artifact> baselineCoverageArtifacts;
   private final NestedSet<Artifact> coverageSupportFiles;
   private final NestedSet<Pair<String, String>> coverageEnvironment;
-  private final NestedSet<Pair<String, String>> reportedToActualSources;
+  private final NestedSet<Tuple> reportedToActualSources;
 
   public InstrumentedFilesInfo(
       NestedSet<Artifact> instrumentedFiles,
@@ -54,7 +55,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
       NestedSet<Artifact> baselineCoverageArtifacts,
       NestedSet<Artifact> coverageSupportFiles,
       NestedSet<Pair<String, String>> coverageEnvironment,
-      NestedSet<Pair<String, String>> reportedToActualSources) {
+      NestedSet<Tuple> reportedToActualSources) {
     this.instrumentedFiles = instrumentedFiles;
     this.instrumentationMetadataFiles = instrumentationMetadataFiles;
     this.baselineCoverageFiles = baselineCoverageFiles;
@@ -76,7 +77,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentedFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getInstrumentedFiles());
+    return Depset.of(Artifact.class, getInstrumentedFiles());
   }
 
   /** Returns a collection of instrumentation metadata files. */
@@ -86,7 +87,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
 
   @Override
   public Depset getInstrumentationMetadataFilesForStarlark() {
-    return Depset.of(Artifact.TYPE, getInstrumentationMetadataFiles());
+    return Depset.of(Artifact.class, getInstrumentationMetadataFiles());
   }
 
   /**
@@ -135,7 +136,7 @@ public final class InstrumentedFilesInfo extends NativeInfo implements Instrumen
    * "bazel-out/k8-fastbuild/bin/include/common/_virtual_includes/strategy/strategy.h", but its
    * actual source path is "include/common/strategy.h".
    */
-  public NestedSet<Pair<String, String>> getReportedToActualSources() {
+  public NestedSet<Tuple> getReportedToActualSources() {
     return reportedToActualSources;
   }
 

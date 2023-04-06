@@ -41,6 +41,7 @@ def _gensource_impl(ctx):
         inputs = srcs + includes,
         tools = [ctx.executable._java_plugin, ctx.executable._protoc],
         outputs = [srcdotjar],
+        mnemonic = "JavaGrpcGenSource",
         use_default_shell_env = True,
     )
 
@@ -67,7 +68,7 @@ _java_grpc_gensource = rule(
             allow_single_file = True,
         ),
         "_java_plugin": attr.label(
-            default = Label("@io_bazel//third_party/grpc-java:grpc-java-plugin"),
+            default = Label("//third_party/grpc-java:grpc-java-plugin"),
             executable = True,
             cfg = "host",
         ),
@@ -111,10 +112,10 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
         srcs = [gensource_name],
         visibility = visibility,
         deps = [
-            "@io_bazel//third_party:javax_annotations",
-            "@io_bazel//third_party:jsr305",
-            "@io_bazel//third_party/grpc-java:grpc-jar",
-            "@io_bazel//third_party:guava",
+            Label("//third_party:javax_annotations"),
+            Label("//third_party:jsr305"),
+            Label("//third_party/grpc-java:grpc-jar"),
+            Label("//third_party:guava"),
             "@com_google_protobuf//:protobuf_java",
         ] + deps,
         **kwargs

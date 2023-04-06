@@ -15,32 +15,28 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.android.builder.core.VariantType;
+import com.android.builder.core.VariantTypeImpl;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.Invoker;
 import com.android.manifmerger.ManifestMerger2.Invoker.Feature;
 import com.android.manifmerger.ManifestMerger2.MergeFailureException;
 import com.android.manifmerger.ManifestMerger2.MergeType;
-import com.android.manifmerger.ManifestMerger2.SystemProperty;
+import com.android.manifmerger.ManifestSystemProperty;
 import com.android.manifmerger.MergingReport;
 import com.android.manifmerger.MergingReport.MergedManifestKind;
 import com.android.manifmerger.PlaceholderHandler;
-import com.android.utils.Pair;
 import com.android.utils.StdLogger;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventFactory;
@@ -67,11 +63,11 @@ public class AndroidManifestProcessor {
     }
   }
 
-  private static final ImmutableMap<SystemProperty, String> SYSTEM_PROPERTY_NAMES =
+  private static final ImmutableMap<ManifestSystemProperty, String> SYSTEM_PROPERTY_NAMES =
       Maps.toMap(
-          Arrays.asList(SystemProperty.values()),
+          Arrays.asList(ManifestSystemProperty.values()),
           property -> {
-            if (property == SystemProperty.PACKAGE) {
+            if (property == ManifestSystemProperty.PACKAGE) {
               return "applicationId";
             } else {
               return property.toCamelCase();
@@ -119,30 +115,30 @@ public class AndroidManifestProcessor {
       return manifest;
     }
 
-    Invoker<?> manifestMerger = ManifestMerger2.newMerger(manifest.toFile(), stdLogger, mergeType);
+    Invoker manifestMerger = ManifestMerger2.newMerger(manifest.toFile(), stdLogger, mergeType);
+    manifestMerger.withFeatures(Feature.HANDLE_VALUE_CONFLICTS_AUTOMATICALLY);
     MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
     if (mergeType == MergeType.APPLICATION) {
       manifestMerger.withFeatures(Feature.REMOVE_TOOLS_DECLARATIONS);
     }
 
     // Add mergee manifests
-    List<Pair<String, File>> libraryManifests = new ArrayList<>();
     for (Map.Entry<Path, String> mergeeManifest : mergeeManifests.entrySet()) {
-      libraryManifests.add(Pair.of(mergeeManifest.getValue(), mergeeManifest.getKey().toFile()));
+      manifestMerger.addLibraryManifest(
+          mergeeManifest.getValue(), mergeeManifest.getKey().toFile());
     }
-    manifestMerger.addLibraryManifests(libraryManifests);
 
     // Extract SystemProperties from the provided values.
     Map<String, Object> placeholders = new LinkedHashMap<>();
     placeholders.putAll(values);
-    for (SystemProperty property : SystemProperty.values()) {
+    for (ManifestSystemProperty property : ManifestSystemProperty.values()) {
       if (values.containsKey(SYSTEM_PROPERTY_NAMES.get(property))) {
         manifestMerger.setOverride(property, values.get(SYSTEM_PROPERTY_NAMES.get(property)));
 
         // The manifest merger does not allow explicitly specifying either applicationId or
-        // packageName as placeholders if SystemProperty.PACKAGE is specified. It forces these
-        // placeholders to have the same value as specified by SystemProperty.PACKAGE.
-        if (property == SystemProperty.PACKAGE) {
+        // packageName as placeholders if ManifestSystemProperty.PACKAGE is specified. It forces
+        // these placeholders to have the same value as specified by ManifestSystemProperty.PACKAGE.
+        if (property == ManifestSystemProperty.PACKAGE) {
           placeholders.remove(PlaceholderHandler.APPLICATION_ID);
           placeholders.remove(PlaceholderHandler.PACKAGE_NAME);
         }
@@ -157,7 +153,7 @@ public class AndroidManifestProcessor {
 
     // Ignore custom package at the binary level.
     if (!Strings.isNullOrEmpty(customPackage) && mergeType == MergeType.LIBRARY) {
-      manifestMerger.setOverride(SystemProperty.PACKAGE, customPackage);
+      manifestMerger.setOverride(ManifestSystemProperty.PACKAGE, customPackage);
     }
 
     try {
@@ -197,7 +193,7 @@ public class AndroidManifestProcessor {
 
   /** Process a manifest for a library or a binary and return the merged android data. */
   public MergedAndroidData processManifest(
-      VariantType variantType,
+      VariantTypeImpl variantType,
       String customPackageForR,
       String applicationId,
       int versionCode,
@@ -207,12 +203,12 @@ public class AndroidManifestProcessor {
       boolean logWarnings) {
 
     ManifestMerger2.MergeType mergeType =
-        variantType == VariantType.DEFAULT
+        variantType == VariantTypeImpl.BASE_APK
             ? ManifestMerger2.MergeType.APPLICATION
             : ManifestMerger2.MergeType.LIBRARY;
 
     String newManifestPackage =
-        variantType == VariantType.DEFAULT ? applicationId : customPackageForR;
+        variantType == VariantTypeImpl.BASE_APK ? applicationId : customPackageForR;
 
     if (versionCode != -1 || versionName != null || newManifestPackage != null) {
       processManifest(
@@ -263,20 +259,19 @@ public class AndroidManifestProcessor {
     try {
       Files.createDirectories(processedManifest.getParent());
 
-      // The generics on Invoker don't make sense, so ignore them.
-      @SuppressWarnings("unchecked")
-      Invoker<?> manifestMergerInvoker =
+      Invoker manifestMergerInvoker =
           ManifestMerger2.newMerger(primaryManifest.toFile(), stdLogger, mergeType);
       // Stamp new package
       if (newManifestPackage != null) {
-        manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
+        manifestMergerInvoker.setOverride(ManifestSystemProperty.PACKAGE, newManifestPackage);
       }
       // Stamp version and applicationId (if provided) into the manifest
       if (versionCode > 0) {
-        manifestMergerInvoker.setOverride(SystemProperty.VERSION_CODE, String.valueOf(versionCode));
+        manifestMergerInvoker.setOverride(
+            ManifestSystemProperty.VERSION_CODE, String.valueOf(versionCode));
       }
       if (versionName != null) {
-        manifestMergerInvoker.setOverride(SystemProperty.VERSION_NAME, versionName);
+        manifestMergerInvoker.setOverride(ManifestSystemProperty.VERSION_NAME, versionName);
       }
 
       MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
@@ -354,7 +349,6 @@ public class AndroidManifestProcessor {
         if (event.isStartElement()
             && event.asStartElement().getName().toString().equalsIgnoreCase("manifest")) {
           StartElement element = event.asStartElement();
-          @SuppressWarnings("unchecked")
           Iterator<Attribute> attributes = element.getAttributes();
           ImmutableList.Builder<Attribute> newAttributes = ImmutableList.builder();
           while (attributes.hasNext()) {

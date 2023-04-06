@@ -57,10 +57,25 @@ public interface JavaConfigurationApi extends StarlarkValue {
   String starlarkOneVersionEnforcementLevel();
 
   @StarlarkMethod(
+      name = "one_version_enforcement_on_java_tests",
+      structField = true,
+      documented = false)
+  boolean enforceOneVersionOnJavaTests();
+
+  @StarlarkMethod(name = "add_test_support_to_compile_deps", structField = true, documented = false)
+  boolean addTestSupportToCompileTimeDeps();
+
+  @StarlarkMethod(
       name = "run_android_lint",
       structField = true,
       doc = "The value of the --experimental_run_android_lint_on_java_rules flag.")
   boolean runAndroidLint();
+
+  @StarlarkMethod(
+      name = "enforce_explicit_java_test_deps",
+      useStarlarkThread = true,
+      documented = false)
+  boolean explicitJavaTestDepsStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
       name = "multi_release_deploy_jars",
@@ -91,4 +106,27 @@ public interface JavaConfigurationApi extends StarlarkValue {
       doc = "Returns true if java_import exports are not allowed.",
       useStarlarkThread = true)
   boolean getDisallowJavaImportExportsInStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "bytecode_optimizer_mnemonic",
+      structField = true,
+      doc = "The mnemonic for the bytecode optimizer.")
+  String getBytecodeOptimizerMnemonic();
+
+  @StarlarkMethod(
+      name = "split_bytecode_optimization_pass",
+      structField = true,
+      doc =
+          "Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across"
+              + " two actions.")
+  boolean splitBytecodeOptimizationPass();
+
+  @StarlarkMethod(
+      name = "bytecode_optimization_pass_actions",
+      structField = true,
+      doc =
+          "This specifies the number of actions to divide the OPTIMIZATION stage of the bytecode"
+              + " optimizer into. Note that if split_bytecode_optimization_pass is set, this will"
+              + " only change behavior if it is > 2.")
+  int bytecodeOptimizationPassActions();
 }

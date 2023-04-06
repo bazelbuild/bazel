@@ -49,16 +49,16 @@ public class LocationFunctionTest {
   public void absoluteAndRelativeLabels() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/src/bar").build();
-    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("src/bar");
-    assertThat(func.apply(":foo", RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("src/bar");
-    assertThat(func.apply("foo", RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("src/bar");
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null)).isEqualTo("src/bar");
+    assertThat(func.apply(":foo", RepositoryMapping.ALWAYS_FALLBACK, null)).isEqualTo("src/bar");
+    assertThat(func.apply("foo", RepositoryMapping.ALWAYS_FALLBACK, null)).isEqualTo("src/bar");
   }
 
   @Test
   public void pathUnderExecRootUsesDotSlash() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/bar").build();
-    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK)).isEqualTo("./bar");
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null)).isEqualTo("./bar");
   }
 
   @Test
@@ -67,7 +67,7 @@ public class LocationFunctionTest {
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class,
-            () -> func.apply("//bar", RepositoryMapping.ALWAYS_FALLBACK));
+            () -> func.apply("//bar", RepositoryMapping.ALWAYS_FALLBACK, null));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -81,7 +81,7 @@ public class LocationFunctionTest {
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class,
-            () -> func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK));
+            () -> func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo("label '//foo:foo' in $(location) expression expands to no files");
@@ -94,7 +94,7 @@ public class LocationFunctionTest {
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class,
-            () -> func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK));
+            () -> func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -109,7 +109,7 @@ public class LocationFunctionTest {
     IllegalStateException expected =
         assertThrows(
             IllegalStateException.class,
-            () -> func.apply("//bar", RepositoryMapping.ALWAYS_FALLBACK));
+            () -> func.apply("//bar", RepositoryMapping.ALWAYS_FALLBACK, null));
     assertThat(expected)
         .hasMessageThat()
         .isEqualTo(
@@ -121,7 +121,7 @@ public class LocationFunctionTest {
   public void fileWithSpace() throws Exception {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("//foo", "/exec/file/with space").build();
-    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK))
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null))
         .isEqualTo("'file/with space'");
   }
 
@@ -130,7 +130,7 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", true)
         .add("//foo", "/exec/foo/bar", "/exec/out/foo/foobar")
         .build();
-    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK))
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null))
         .isEqualTo("foo/bar foo/foobar");
   }
 
@@ -139,18 +139,30 @@ public class LocationFunctionTest {
     LocationFunction func = new LocationFunctionBuilder("//foo", true)
         .add("//foo", "/exec/file/with space", "/exec/file/with spaces ")
         .build();
-    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK))
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null))
         .isEqualTo("'file/with space' 'file/with spaces '");
   }
 
   @Test
   public void execPath() throws Exception {
-    LocationFunction func = new LocationFunctionBuilder("//foo", true)
-        .setExecPaths(true)
-        .add("//foo", "/exec/bar", "/exec/out/foobar")
-        .build();
-    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK))
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", true)
+            .setPathType(LocationFunction.PathType.EXEC)
+            .add("//foo", "/exec/bar", "/exec/out/foobar")
+            .build();
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, null))
         .isEqualTo("./bar out/foobar");
+  }
+
+  @Test
+  public void rlocationPath() throws Exception {
+    LocationFunction func =
+        new LocationFunctionBuilder("//foo", true)
+            .setPathType(LocationFunction.PathType.RLOCATION)
+            .add("//foo", "/exec/bar", "/exec/out/foobar")
+            .build();
+    assertThat(func.apply("//foo", RepositoryMapping.ALWAYS_FALLBACK, "workspace"))
+        .isEqualTo("workspace/bar workspace/foobar");
   }
 
   @Test
@@ -159,7 +171,9 @@ public class LocationFunctionTest {
     ImmutableMap<String, RepositoryName> repositoryMapping = ImmutableMap.of("a", b);
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@b//foo", "/exec/src/bar").build();
-    assertThat(func.apply("@a//foo", RepositoryMapping.createAllowingFallback(repositoryMapping)))
+    assertThat(
+            func.apply(
+                "@a//foo", RepositoryMapping.createAllowingFallback(repositoryMapping), null))
         .isEqualTo("src/bar");
   }
 
@@ -170,7 +184,8 @@ public class LocationFunctionTest {
     LocationFunction func =
         new LocationFunctionBuilder("//foo", false).add("@potato//foo", "/exec/src/bar").build();
     assertThat(
-            func.apply("@potato//foo", RepositoryMapping.createAllowingFallback(repositoryMapping)))
+            func.apply(
+                "@potato//foo", RepositoryMapping.createAllowingFallback(repositoryMapping), null))
         .isEqualTo("src/bar");
   }
 }
@@ -178,23 +193,23 @@ public class LocationFunctionTest {
 final class LocationFunctionBuilder {
   private final Label root;
   private final boolean multiple;
-  private boolean execPaths;
+  private LocationFunction.PathType pathType = LocationFunction.PathType.LOCATION;
   private boolean legacyExternalRunfiles;
   private final Map<Label, Collection<Artifact>> labelMap = new HashMap<>();
 
   LocationFunctionBuilder(String rootLabel, boolean multiple) {
-    this.root = Label.parseAbsoluteUnchecked(rootLabel);
+    this.root = Label.parseCanonicalUnchecked(rootLabel);
     this.multiple = multiple;
   }
 
   public LocationFunction build() {
     return new LocationFunction(
-        root, Suppliers.ofInstance(labelMap), execPaths, legacyExternalRunfiles, multiple);
+        root, Suppliers.ofInstance(labelMap), pathType, legacyExternalRunfiles, multiple);
   }
 
   @CanIgnoreReturnValue
-  public LocationFunctionBuilder setExecPaths(boolean execPaths) {
-    this.execPaths = execPaths;
+  public LocationFunctionBuilder setPathType(LocationFunction.PathType pathType) {
+    this.pathType = pathType;
     return this;
   }
 
@@ -207,7 +222,7 @@ final class LocationFunctionBuilder {
   @CanIgnoreReturnValue
   public LocationFunctionBuilder add(String label, String... paths) {
     labelMap.put(
-        Label.parseAbsoluteUnchecked(label),
+        Label.parseCanonicalUnchecked(label),
         Arrays.stream(paths)
             .map(LocationFunctionBuilder::makeArtifact)
             .collect(Collectors.toList()));

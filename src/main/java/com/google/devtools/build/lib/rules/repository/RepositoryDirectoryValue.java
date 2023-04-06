@@ -19,9 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -166,7 +164,7 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   public static class Key extends AbstractSkyKey<RepositoryName> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(RepositoryName arg) {
       super(arg);
@@ -181,6 +179,11 @@ public abstract class RepositoryDirectoryValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.REPOSITORY_DIRECTORY;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

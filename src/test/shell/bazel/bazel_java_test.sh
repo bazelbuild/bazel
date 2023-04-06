@@ -82,7 +82,8 @@ if [[ "${JAVA_TOOLS_PREBUILT_ZIP}" != "released" ]]; then
   inplace-sed "/override_repository=remote_java_tools=/d" "$TEST_TMPDIR/bazelrc"
   inplace-sed "/override_repository=remote_java_tools_linux=/d" "$TEST_TMPDIR/bazelrc"
   inplace-sed "/override_repository=remote_java_tools_windows=/d" "$TEST_TMPDIR/bazelrc"
-  inplace-sed "/override_repository=remote_java_tools_darwin=/d" "$TEST_TMPDIR/bazelrc"
+  inplace-sed "/override_repository=remote_java_tools_darwin_x86_64=/d" "$TEST_TMPDIR/bazelrc"
+  inplace-sed "/override_repository=remote_java_tools_darwin_arm64=/d" "$TEST_TMPDIR/bazelrc"
 fi
 JAVA_TOOLS_PREBUILT_ZIP_FILE_URL=${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL:-}
 
@@ -129,7 +130,11 @@ http_archive(
     urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 http_archive(
-    name = "remote_java_tools_darwin",
+    name = "remote_java_tools_darwin_x86_64",
+    urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
+)
+http_archive(
+    name = "remote_java_tools_darwin_arm64",
     urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
@@ -323,6 +328,12 @@ function test_build_hello_world() {
   write_hello_library_files
 
   bazel build //java/main:main &> $TEST_log || fail "build failed"
+}
+
+function test_build_hello_world_reduced_classpath() {
+  write_hello_library_files
+
+  bazel build --experimental_java_classpath=bazel //java/main:main &> $TEST_log || fail "build failed"
 }
 
 function test_worker_strategy_is_default() {
@@ -1761,6 +1772,192 @@ public class Proc extends AbstractProcessor {
 EOF
 
   bazel build //java/main:C2 &>"${TEST_log}" || fail "Expected to build"
+}
+
+function test_auto_bazel_repository() {
+  cat >> WORKSPACE <<'EOF'
+local_repository(
+  name = "other_repo",
+  path = "other_repo",
+)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD.bazel <<'EOF'
+java_library(
+  name = "library",
+  srcs = ["Library.java"],
+  deps = ["@bazel_tools//tools/java/runfiles"],
+  visibility = ["//visibility:public"],
+)
+
+java_binary(
+  name = "binary",
+  srcs = ["Binary.java"],
+  main_class = "com.example.Binary",
+  deps = [
+    ":library",
+    "@bazel_tools//tools/java/runfiles",
+  ],
+)
+
+java_test(
+  name = "test",
+  srcs = ["Test.java"],
+  main_class = "com.example.Test",
+  use_testrunner = False,
+  deps = [
+    ":library",
+    "@bazel_tools//tools/java/runfiles",
+  ],
+)
+EOF
+
+  cat > pkg/Library.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.AutoBazelRepository;
+
+@AutoBazelRepository
+public class Library {
+  public static void printRepositoryName() {
+    System.out.printf("in pkg/Library.java: '%s'%n", AutoBazelRepository_Library.NAME);
+  }
+}
+EOF
+
+  cat > pkg/Binary.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.AutoBazelRepository;
+
+public class Binary {
+  @AutoBazelRepository
+  private static class Class1 {
+  }
+
+  public static void main(String[] args) {
+    System.out.printf("in pkg/Binary.java: '%s'%n", AutoBazelRepository_Binary_Class1.NAME);
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  cat > pkg/Test.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.AutoBazelRepository;
+
+public class Test {
+  private static class Class1 {
+    @AutoBazelRepository
+    private static class Class2 {
+    }
+  }
+
+  public static void main(String[] args) {
+    System.out.printf("in pkg/Test.java: '%s'%n", AutoBazelRepository_Test_Class1_Class2.NAME);
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  mkdir -p other_repo
+  touch other_repo/WORKSPACE
+
+  mkdir -p other_repo/pkg
+  cat > other_repo/pkg/BUILD.bazel <<'EOF'
+java_library(
+  name = "library2",
+  srcs = ["Library2.java"],
+  deps = ["@bazel_tools//tools/java/runfiles"],
+)
+
+java_binary(
+  name = "binary",
+  srcs = ["Binary.java"],
+  main_class = "com.example.Binary",
+  deps = [
+    ":library2",
+    "@//pkg:library",
+    "@bazel_tools//tools/java/runfiles",
+  ],
+)
+java_test(
+  name = "test",
+  srcs = ["Test.java"],
+  main_class = "com.example.Test",
+  use_testrunner = False,
+  deps = [
+    ":library2",
+    "@//pkg:library",
+    "@bazel_tools//tools/java/runfiles",
+  ],
+)
+EOF
+
+  cat > other_repo/pkg/Library2.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.AutoBazelRepository;
+
+@AutoBazelRepository
+public class Library2 {
+  public static void printRepositoryName() {
+    System.out.printf("in external/other_repo/pkg/Library2.java: '%s'%n", AutoBazelRepository_Library2.NAME);
+  }
+}
+EOF
+
+  cat > other_repo/pkg/Binary.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.AutoBazelRepository;
+import static com.example.AutoBazelRepository_Binary.NAME;
+
+@AutoBazelRepository
+public class Binary {
+  public static void main(String[] args) {
+    System.out.printf("in external/other_repo/pkg/Binary.java: '%s'%n", NAME);
+    Library2.printRepositoryName();
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  cat > other_repo/pkg/Test.java <<'EOF'
+package com.example;
+
+import com.google.devtools.build.runfiles.AutoBazelRepository;
+
+@AutoBazelRepository
+public class Test {
+  public static void main(String[] args) {
+    System.out.printf("in external/other_repo/pkg/Test.java: '%s'%n", AutoBazelRepository_Test.NAME);
+    Library2.printRepositoryName();
+    Library.printRepositoryName();
+  }
+}
+EOF
+
+  bazel run //pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in pkg/Binary.java: ''"
+  expect_log "in pkg/Library.java: ''"
+
+  bazel test --test_output=streamed //pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in pkg/Test.java: ''"
+  expect_log "in pkg/Library.java: ''"
+
+  bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
+  expect_log "in external/other_repo/pkg/Binary.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in pkg/Library.java: ''"
+
+  bazel test --test_output=streamed \
+    @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
+  expect_log "in external/other_repo/pkg/Test.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in pkg/Library.java: ''"
 }
 
 

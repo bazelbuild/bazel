@@ -238,32 +238,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testWatchSimulatorDepCompile() throws Exception {
-    scratch.file(
-        "package/BUILD",
-        "load('//test_starlark:apple_static_library.bzl', 'apple_static_library')",
-        "apple_static_library(",
-        "    name = 'test',",
-        "    deps = [':objcLib'],",
-        "    platform_type = 'watchos',",
-        "    minimum_os_version = '2.0',",
-        ")",
-        "objc_library(name = 'objcLib', srcs = [ 'a.m' ])");
-
-    Action lipoAction = lipoLibAction("//package:test");
-
-    String i386Bin = "i386-apple-watchos-fl.a";
-    Artifact libArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), i386Bin);
-    CommandAction linkAction = (CommandAction) getGeneratingAction(libArtifact);
-    CommandAction objcLibCompileAction =
-        (CommandAction)
-            getGeneratingAction(getFirstArtifactEndingWith(linkAction.getInputs(), "libobjcLib.a"));
-
-    assertAppleSdkPlatformEnv(objcLibCompileAction, "WatchSimulator");
-    assertThat(objcLibCompileAction.getArguments()).containsAtLeast("-arch_only", "i386").inOrder();
-  }
-
-  @Test
   public void testMultiarchCcDep() throws Exception {
     scratch.file(
         "package/BUILD",

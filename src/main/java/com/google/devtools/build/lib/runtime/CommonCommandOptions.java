@@ -209,7 +209,7 @@ public class CommonCommandOptions extends OptionsBase {
       oldName = "experimental_generate_json_trace_profile",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "If enabled, Bazel profiles the build and writes a JSON-format profile into a file in"
               + " the output base. View profile by loading into chrome://tracing. By default Bazel"
@@ -222,7 +222,7 @@ public class CommonCommandOptions extends OptionsBase {
       defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Specifies additional profile tasks to be included in the profile.")
   public List<ProfilerTask> additionalProfileTasks;
 
@@ -231,7 +231,7 @@ public class CommonCommandOptions extends OptionsBase {
       oldName = "experimental_slim_json_profile",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
@@ -242,7 +242,7 @@ public class CommonCommandOptions extends OptionsBase {
       oldName = "experimental_include_primary_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "Includes the extra \"out\" attribute in action events that contains the exec path "
               + "to the action's primary output.")
@@ -252,7 +252,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "experimental_profile_include_target_label",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Includes target label in action events' JSON profile data.")
   public boolean profileIncludeTargetLabel;
 
@@ -260,7 +260,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "experimental_announce_profile_path",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, adds the JSON profile path to the log.")
   public boolean announceProfilePath;
 
@@ -268,7 +268,7 @@ public class CommonCommandOptions extends OptionsBase {
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, profile Bazel and write data to the specified "
@@ -286,8 +286,8 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "record_full_profiler_data",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help =
           "By default, Bazel profiler will record only aggregated data for fast but numerous "
               + "events (such as statting the file). If this option is enabled, profiler will "
@@ -298,32 +298,48 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "experimental_collect_worker_data_in_profiler",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects worker's aggregated resource data.")
   public boolean collectWorkerDataInProfiler;
 
   @Option(
       name = "experimental_collect_load_average_in_profiler",
       defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's overall load average.")
   public boolean collectLoadAverageInProfiler;
 
   @Option(
       name = "experimental_collect_system_network_usage",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "If enabled, the profiler collects the system's network usage.")
   public boolean collectSystemNetworkUsage;
+
+  @Option(
+      name = "experimental_collect_resource_estimation",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects CPU and memory usage estimation for local actions.")
+  public boolean collectResourceEstimation;
+
+  @Option(
+      name = "experimental_collect_pressure_stall_indicators",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects the Linux PSI data.")
+  public boolean collectPressureStallIndicators;
 
   @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = OptionsUtils.PathFragmentConverter.class,
       help =
           "If set, write memory usage data to the specified file at phase ends and stable heap to"
@@ -337,34 +353,13 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = MemoryProfileStableHeapParameters.Converter.class,
       help =
-          "Tune memory profile's computation of stable heap at end of build. Should be two"
-              + " integers separated by a comma. First parameter is the number of GCs to perform."
-              + " Second parameter is the number of seconds to wait between GCs.")
+          "Tune memory profile's computation of stable heap at end of build. Should be and even"
+              + " number of  integers separated by commas. In each pair the first integer is the"
+              + " number of GCs to perform. The second integer in each pair is the number of"
+              + " seconds to wait between GCs. Ex: 2,4,4,0 would 2 GCs with a 4sec pause, followed"
+              + " by 4 GCs with zero second pause")
   public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
-  @Option(
-      name = "experimental_oom_more_eagerly_threshold",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If this flag is set to a value less than 100, Bazel will OOM if, after two full GC's, "
-              + "more than this percentage of the (old gen) heap is still occupied.")
-  public int oomMoreEagerlyThreshold;
-
-  @Option(
-      name = "skyframe_high_water_mark_threshold",
-      defaultValue = "85",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "Flag for advanced configuration of Bazel's internal Skyframe engine. If Bazel detects"
-              + " its retained heap percentage usage is at least this threshold, it will drop"
-              + " unnecessary temporary Skyframe state. Tweaking this may let you mitigate wall"
-              + " time impact of GC thrashing, when the GC thrashing is (i) caused by the memory"
-              + " usage of this temporary state and (ii) more costly than reconstituting the state"
-              + " when it is needed.")
-  public int skyframeHighWaterMarkMemoryThreshold;
 
   @Option(
       name = "heap_dump_on_oom",
@@ -524,6 +519,20 @@ public class CommonCommandOptions extends OptionsBase {
               + " configuration information can be passed to repositories through options without"
               + " invalidating the action graph.")
   public List<Map.Entry<String, String>> repositoryEnvironment;
+
+  @Option(
+      name = "heuristically_drop_nodes",
+      oldName = "experimental_heuristically_drop_nodes",
+      oldNameWarning = false,
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If true, Blaze will remove FileState and DirectoryListingState nodes after related File"
+              + " and DirectoryListing node is done to save memory. We expect that it is less"
+              + " likely that these nodes will be needed again. If so, the program will re-evaluate"
+              + " them.")
+  public boolean heuristicallyDropNodes;
 
   /** The option converter to check that the user can only specify legal profiler tasks. */
   public static class ProfilerTaskConverter extends EnumConverter<ProfilerTask> {

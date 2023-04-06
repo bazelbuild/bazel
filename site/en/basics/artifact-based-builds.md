@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Artifact-Based Build Systems
 
+{% include "_buttons.html" %}
+
 This page covers artifact-based build systems and the philosophy behind their
 creation. Bazel is an artifact-based build system. While task-based build
 systems are good step above build scripts, they give too much power to
@@ -170,7 +172,7 @@ at a known location. Just like any other dependency, if the Java compiler
 changes, every artifact that depends on it is rebuilt.
 
 Bazel solves the second part of the problem, platform independence, by setting
-[build configurations](/docs/build#build-config-cross-compilation). Rather than
+[build configurations](/run/build#build-config-cross-compilation). Rather than
 targets depending directly on their tools, they depend on types of configurations:
 
 *   **Host configuration**: building tools that run during the build
@@ -183,7 +185,7 @@ box, but engineers will always want to do more—part of the benefit of task-bas
 systems is their flexibility in supporting any kind of build process, and it
 would be better not to give that up in an artifact-based build system.
 Fortunately, Bazel allows its supported target types to be extended by
-[adding custom rules](/rules/rules).
+[adding custom rules](/extending/rules).
 
 To define a rule in Bazel, the rule author declares the inputs that the rule
 requires (in the form of attributes passed in the `BUILD` file) and the fixed

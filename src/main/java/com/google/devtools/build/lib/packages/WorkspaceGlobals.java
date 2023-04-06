@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -68,7 +67,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
     RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
     RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-    Map<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
+    ImmutableMap<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
     try {
       // This effectively adds a "local_repository(name = "<ws>", path = ".")"
       // definition to the WORKSPACE file.
@@ -77,7 +76,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
           localRepositoryRuleClass,
           bindRuleClass,
           kwargs,
-          thread.getSemantics(),
           thread.getCallStack());
     } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());
@@ -93,7 +91,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       return RepositoryName.MAIN;
     }
 
-    // registeration happened in a loaded bzl file
+    // registration happened in a loaded bzl file
     return label.getRepository();
   }
 
@@ -151,7 +149,6 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
           ruleClass,
           nameLabel,
           actual == NONE ? null : Label.parseCanonical((String) actual),
-          thread.getSemantics(),
           thread.getCallStack());
     } catch (InvalidRuleException | Package.NameConflictException | LabelSyntaxException e) {
       throw Starlark.errorf("%s", e.getMessage());

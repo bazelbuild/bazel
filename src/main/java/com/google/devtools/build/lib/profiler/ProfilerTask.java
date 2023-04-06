@@ -65,10 +65,13 @@ public enum ProfilerTask {
   CRITICAL_PATH_COMPONENT("critical path component"),
   HANDLE_GC_NOTIFICATION("gc notification"),
   ACTION_COUNTS("action count"),
+  ACTION_CACHE_COUNTS("action cache count"),
   LOCAL_CPU_USAGE("CPU usage (Bazel)"),
   SYSTEM_CPU_USAGE("CPU usage (total)"),
+  CPU_USAGE_ESTIMATION("CPU usage estimation"),
   LOCAL_MEMORY_USAGE("Memory usage (Bazel)"),
   SYSTEM_MEMORY_USAGE("Memory usage (total)"),
+  MEMORY_USAGE_ESTIMATION("Memory usage estimation"),
   SYSTEM_NETWORK_UP_USAGE("Network Up usage (total)"),
   SYSTEM_NETWORK_DOWN_USAGE("Network Down usage (total)"),
   WORKERS_MEMORY_USAGE("Workers memory usage"),
@@ -89,15 +92,15 @@ public enum ProfilerTask {
   WORKER_WORKING("waiting for response from worker"),
   WORKER_COPYING_OUTPUTS("copying outputs from worker"),
   CREDENTIAL_HELPER("calling credential helper"),
+  PRESSURE_STALL_IO("I/O pressure stall level"),
+  PRESSURE_STALL_MEMORY("Memory pressure stall level"),
+  DYNAMIC_LOCK("Acquiring dynamic execution output lock", Threshold.FIFTY_MILLIS),
   UNKNOWN("Unknown event");
 
   private static class Threshold {
     private static final Duration TEN_MILLIS = Duration.ofMillis(10);
     private static final Duration FIFTY_MILLIS = Duration.ofMillis(50);
   }
-
-  // Size of the ProfilerTask value space.
-  public static final int TASK_COUNT = ProfilerTask.values().length;
 
   /** Human readable description for the task. */
   public final String description;

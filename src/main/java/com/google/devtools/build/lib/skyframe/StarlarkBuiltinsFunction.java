@@ -72,7 +72,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * {@code @_builtins} to avoid confusion.)
    */
   static final Label EXPORTS_ENTRYPOINT =
-      Label.parseAbsoluteUnchecked("@_builtins//:exports.bzl"); // unused
+      Label.parseCanonicalUnchecked("@_builtins//:exports.bzl"); // unused
 
   /**
    * Key for loading exports.bzl. Note that {@code keyForBuiltins} (as opposed to {@code

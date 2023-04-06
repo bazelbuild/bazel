@@ -16,6 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -75,6 +76,23 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Str
   @Override
   public String repositoryName(StarlarkThread thread) {
     return "";
+  }
+
+  @Override
+  public Label packageRelativeLabel(Object input, StarlarkThread thread) throws EvalException {
+    return Label.parseCanonicalUnchecked("//:fake_label");
+  }
+
+  @Nullable
+  @Override
+  public String moduleName(StarlarkThread thread) throws EvalException {
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public String moduleVersion(StarlarkThread thread) throws EvalException {
+    return null;
   }
 
   @Override

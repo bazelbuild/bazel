@@ -183,7 +183,7 @@ def get_cpu_value(repository_ctx):
     arch = repository_ctx.os.arch
     if os_name.startswith("mac os"):
         # Check if we are on x86_64 or arm64 and return the corresponding cpu value.
-        return "darwin" + ("_arm64" if arch == "aarch64" else "")
+        return "darwin_" + ("arm64" if arch == "aarch64" else "x86_64")
     if os_name.find("freebsd") != -1:
         return "freebsd"
     if os_name.find("openbsd") != -1:

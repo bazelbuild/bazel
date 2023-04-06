@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import org.junit.Rule;
@@ -111,40 +110,6 @@ public class WorkerModuleTest {
   }
 
   @Test
-  public void buildStarting_workersDestroyedOnRestart()
-      throws IOException, AbruptExitException, InterruptedException, OptionsParsingException {
-    WorkerModule module = new WorkerModule();
-    WorkerOptions options = WorkerOptions.DEFAULTS;
-    options.workerVerbose = true;
-    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
-    setupEnvironment("/outputRoot");
-
-    module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
-    WorkerKey workerKey = TestUtils.createWorkerKey(JSON, fs, true);
-    Worker worker = module.workerPool.borrowObject(workerKey);
-    assertThat(worker.workerKey).isEqualTo(workerKey);
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Created new sandboxed dummy worker");
-    storedEventHandler.clear();
-
-    Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
-    Path aLog = workerDir.getRelative("f.log");
-    workerDir.createDirectoryAndParents();
-    aLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
-    WorkerPool oldPool = module.workerPool;
-    options.highPriorityWorkers = ImmutableList.of("Foobar");
-    module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Worker pool configuration has changed");
-    assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    assertThat(aLog.exists()).isTrue();
-  }
-
-  @Test
   public void buildStarting_restartsOnOutputbaseChanges() throws IOException, AbruptExitException {
     WorkerModule module = new WorkerModule();
     WorkerOptions options = WorkerOptions.DEFAULTS;
@@ -195,34 +160,6 @@ public class WorkerModuleTest {
     assertThat(oldLog.exists()).isFalse();
   }
 
-  @Test
-  public void buildStarting_restartsOnHiPrioChanges() throws IOException, AbruptExitException {
-    WorkerModule module = new WorkerModule();
-    WorkerOptions options = WorkerOptions.DEFAULTS;
-    when(request.getOptions(WorkerOptions.class)).thenReturn(options);
-    setupEnvironment("/outputRoot");
-
-    module.beforeCommand(env);
-    // Check that new pools/factories are made with default options
-    module.buildStarting(BuildStartingEvent.create(env, request));
-    assertThat(storedEventHandler.getEvents()).isEmpty();
-
-    // Logs are only cleared on factory reset, not on pool reset, so this file should survive
-    Path workerDir = fs.getPath("/outputRoot/outputBase/bazel-workers");
-    Path oldLog = workerDir.getRelative("f.log");
-    workerDir.createDirectoryAndParents();
-    oldLog.createSymbolicLink(PathFragment.EMPTY_FRAGMENT);
-
-    WorkerPool oldPool = module.workerPool;
-    options.highPriorityWorkers = ImmutableList.of("foo");
-    module.beforeCommand(env);
-    module.buildStarting(BuildStartingEvent.create(env, request));
-    assertThat(storedEventHandler.getEvents()).hasSize(1);
-    assertThat(storedEventHandler.getEvents().get(0).getMessage())
-        .contains("Worker pool configuration has changed");
-    assertThat(module.workerPool).isNotSameInstanceAs(oldPool);
-    assertThat(oldLog.exists()).isTrue();
-  }
 
   @Test
   public void buildStarting_restartsOnNumMultiplexWorkersChanges()
@@ -319,12 +256,13 @@ public class WorkerModuleTest {
         new BlazeWorkspace(
             blazeRuntime,
             blazeDirectories,
-            null,
+            /* skyframeExecutor= */ null,
             new RecordingExceptionHandler(),
-            null,
+            /* workspaceStatusActionFactory= */ null,
             BinTools.forUnitTesting(blazeDirectories, ImmutableList.of()),
-            null,
-            null);
+            /* allocationTracker= */ null,
+            /* syscallCache= */ null,
+            /* allowExternalRepositories= */ true);
     when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
     when(env.getDirectories()).thenReturn(blazeDirectories);
     EventBus eventBus = new EventBus();

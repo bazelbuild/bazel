@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -460,7 +459,8 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase,
+          Label targetLabel,
+          ConfiguredTarget ct,
           RuleContext ruleContext,
           AspectParameters parameters,
           RepositoryName toolsRepository)
@@ -516,7 +516,7 @@ public class AspectTest extends AnalysisTestCase {
                                     .aspect(AspectThatRegistersAction.INSTANCE))
                             .add(
                                 attr(":action_listener", LABEL_LIST)
-                                    .cfg(ExecutionTransitionFactory.create())
+                                    .cfg(ExecutionTransitionFactory.createFactory())
                                     .value(ACTION_LISTENER)));
 
     public static class AspectThatRegistersAction extends NativeAspectClass
@@ -533,7 +533,8 @@ public class AspectTest extends AnalysisTestCase {
 
       @Override
       public ConfiguredAspect create(
-          ConfiguredTargetAndData ctadBase,
+          Label targetLabel,
+          ConfiguredTarget ct,
           RuleContext ruleContext,
           AspectParameters parameters,
           RepositoryName toolsRepository)
@@ -867,8 +868,7 @@ public class AspectTest extends AnalysisTestCase {
     ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     AspectApplyingToFiles.Provider provider =
         aspect.getProvider(AspectApplyingToFiles.Provider.class);
-    assertThat(provider.getLabel())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
+    assertThat(provider.getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:x_deploy.jar"));
   }
 
   @Test
@@ -885,6 +885,27 @@ public class AspectTest extends AnalysisTestCase {
         "//a:x.java");
     ConfiguredAspect aspect = Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     assertThat(aspect.getProvider(AspectApplyingToFiles.Provider.class)).isNull();
+  }
+
+  @Test
+  public void aspectApplyingToPackageGroupIgnored() throws Exception {
+    AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
+    pkg("b");
+    pkg(
+        "a",
+        "package_group(name = 'group', packages = ['//b'])",
+        "java_binary(name = 'x', main_class = 'x.F', srcs = ['x.java'], visibility = [':group'])");
+    scratch.file("a/x.java", "");
+
+    // This exercises a code path that crashes if the PackageGroup is matched as an aspect provider.
+    AnalysisResult analysisResult =
+        update(
+            new EventBus(),
+            defaultFlags(),
+            ImmutableList.of(aspectApplyingToFiles.getName()),
+            "//a:group");
+    assertThat(analysisResult.getAspectsMap()).hasSize(1);
   }
 
   @Test

@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # BUILD Style Guide
 
+{% include "_buttons.html" %}
+
 `BUILD` file formatting follows the same approach as Go, where a standardized
 tool takes care of most formatting issues.
 [Buildifier](https://github.com/bazelbuild/buildifier){: .external} is a tool that parses and

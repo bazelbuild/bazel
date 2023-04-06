@@ -97,6 +97,16 @@ public final class CcImportRule implements RuleDefinition {
         please upgrade your VS 2017 to the latest version.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("alwayslink", BOOLEAN))
+        /* <!-- #BLAZE_RULE(cc_import).ATTRIBUTE(deps) -->
+        The list of other libraries that the target depends upon.
+        See general comments about <code>deps</code>
+        at <a href="${link common-definitions#typical-attributes}">Typical attributes defined by
+        most build rules</a>.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr("deps", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                .mandatoryProviders(CcInfo.PROVIDER.id()))
         .add(attr("data", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE).dontCheckConstraints())
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(env))
         .build();

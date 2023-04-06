@@ -37,7 +37,6 @@
 namespace blaze {
 
 using std::map;
-using std::min;
 using std::string;
 using std::vector;
 

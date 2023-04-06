@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Starlark Roadmap
 
+{% include "_buttons.html" %}
+
 *Last verified: 2020-04-21*
 ([update history](https://github.com/bazelbuild/bazel-website/commits/master/roadmaps/starlark.md))
 

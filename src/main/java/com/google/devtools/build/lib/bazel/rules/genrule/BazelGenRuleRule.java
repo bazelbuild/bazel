@@ -41,7 +41,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .setOutputToGenfiles()
         .add(
             attr("$genrule_setup", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
 
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
@@ -71,10 +71,17 @@ public final class BazelGenRuleRule implements RuleDefinition {
   for you.
 </p>
 <p>
+  Note that genrule requires a shell to interpret the command argument.
+  It is also easy to reference arbitrary programs available on the PATH, however this makes the
+  command non-hermetic and may not be reproducible.
+  If you only need to run a single tool, consider using
+  <a href="https://github.com/bazelbuild/bazel-skylib/blob/main/docs/run_binary_doc.md">run_binary</a>
+  instead.
+<p>
   Do not use a genrule for running tests. There are special dispensations for tests and test
   results, including caching policies and environment variables. Tests generally need to be run
   after the build is complete and on the target architecture, whereas genrules are executed during
-  the build and on the host architecture (the two may be different). If you need a general purpose
+  the build and on the exec architecture (the two may be different). If you need a general purpose
   testing rule, use <a href="${link sh_test}"><code>sh_test</code></a>.
 </p>
 
@@ -92,7 +99,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
   itself has to.
 </p>
 <p>
-  The build system uses the host configuration to describe the machine(s) on which the build runs
+  The build system uses the exec configuration to describe the machine(s) on which the build runs
   and the target configuration to describe the machine(s) on which the output of the build is
   supposed to run. It provides options to configure each of these and it segregates the
   corresponding files into separate directories to avoid conflicts.
@@ -100,7 +107,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
 <p>
   For genrules, the build system ensures that dependencies are built appropriately:
   <code>srcs</code> are built (if necessary) for the <em>target</em> configuration,
-  <code>tools</code> are built for the <em>host</em> configuration, and the output is considered to
+  <code>tools</code> are built for the <em>exec</em> configuration, and the output is considered to
   be for the <em>target</em> configuration. It also provides <a href="${link make-variables}">
   "Make" variables</a> that genrule commands can pass to the corresponding tools.
 </p>
@@ -114,12 +121,12 @@ public final class BazelGenRuleRule implements RuleDefinition {
 <h4>Special Cases</h4>
 
 <p>
-  <i>Host-host compilation</i>: in some cases, the build system needs to run genrules such that the
+  <i>Exec-exec compilation</i>: in some cases, the build system needs to run genrules such that the
   output can also be executed during the build. If for example a genrule builds some custom compiler
   which is subsequently used by another genrule, the first one has to produce its output for the
-  host configuration, because that's where the compiler will run in the other genrule. In this case,
+  exec configuration, because that's where the compiler will run in the other genrule. In this case,
   the build system does the right thing automatically: it builds the <code>srcs</code> and
-  <code>outs</code> of the first genrule for the host configuration instead of the target
+  <code>outs</code> of the first genrule for the exec configuration instead of the target
   configuration. See <a href="${link user-manual#configurations}">the user manual</a> for more
   info.
 </p>

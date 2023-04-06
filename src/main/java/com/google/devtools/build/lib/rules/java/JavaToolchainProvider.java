@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -56,12 +55,10 @@ public final class JavaToolchainProvider extends NativeInfo
   /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
   public static JavaToolchainProvider from(RuleContext ruleContext) {
     ToolchainInfo toolchainInfo =
-        ruleContext
-            .getToolchainContext()
-            .forToolchainType(
-                ruleContext
-                    .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
-                    .getLabel());
+        ruleContext.getToolchainInfo(
+            ruleContext
+                .getPrerequisite(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME)
+                .getLabel());
     return from(toolchainInfo, ruleContext);
   }
 
@@ -112,7 +109,7 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
-      Artifact singleJar,
+      FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
@@ -174,7 +171,7 @@ public final class JavaToolchainProvider extends NativeInfo
   private final ImmutableSet<String> headerCompilerBuiltinProcessors;
   private final ImmutableSet<String> reducedClasspathIncompatibleProcessors;
   private final boolean forciblyDisableHeaderCompilation;
-  private final Artifact singleJar;
+  private final FilesToRunProvider singleJar;
   @Nullable private final FilesToRunProvider oneVersion;
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
@@ -208,7 +205,7 @@ public final class JavaToolchainProvider extends NativeInfo
       ImmutableSet<String> headerCompilerBuiltinProcessors,
       ImmutableSet<String> reducedClasspathIncompatibleProcessors,
       boolean forciblyDisableHeaderCompilation,
-      Artifact singleJar,
+      FilesToRunProvider singleJar,
       @Nullable FilesToRunProvider oneVersion,
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
@@ -263,6 +260,7 @@ public final class JavaToolchainProvider extends NativeInfo
   }
 
   /** Returns the label for this {@code java_toolchain}. */
+  @Override
   public Label getToolchainLabel() {
     return label;
   }
@@ -333,14 +331,14 @@ public final class JavaToolchainProvider extends NativeInfo
     return forciblyDisableHeaderCompilation;
   }
 
-  /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  /** Returns the {@link FilesToRunProvider} of the SingleJar tool. */
   @Override
-  public Artifact getSingleJar() {
+  public FilesToRunProvider getSingleJar() {
     return singleJar;
   }
 
   /**
-   * Return the {@link Artifact} of the binary that enforces one-version compliance of java
+   * Return the {@link FilesToRunProvider} of the tool that enforces one-version compliance of Java
    * binaries.
    */
   @Override
@@ -499,17 +497,17 @@ public final class JavaToolchainProvider extends NativeInfo
 
   @Override
   public Depset getStarlarkBootclasspath() {
-    return Depset.of(Artifact.TYPE, getBootclasspath().bootclasspath());
+    return Depset.of(Artifact.class, getBootclasspath().bootclasspath());
   }
 
   @Override
   public Depset getStarlarkJvmOptions() {
-    return Depset.of(ElementType.STRING, getJvmOptions());
+    return Depset.of(String.class, getJvmOptions());
   }
 
   @Override
   public Depset getStarlarkTools() {
-    return Depset.of(Artifact.TYPE, getTools());
+    return Depset.of(Artifact.class, getTools());
   }
 
   @Override

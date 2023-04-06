@@ -63,7 +63,11 @@ public class AndroidBootstrap implements Bootstrap {
       AndroidFeatureFlagSetProviderApi.Provider androidFeatureFlagSetProviderApiProvider,
       ProguardMappingProviderApi.Provider<?> proguardMappingProviderApiProvider,
       AndroidBinaryDataInfoApi.Provider<?, ?, ?, ?> androidBinaryDataInfoProvider,
-      BaselineProfileProviderApi.Provider<?> baselineProfileProvider) {
+      AndroidBinaryNativeLibsInfoApi.Provider<?> androidBinaryInternalNativeLibsInfoApiProvider,
+      BaselineProfileProviderApi.Provider<?> baselineProfileProvider,
+      AndroidNeverLinkLibrariesProviderApi.Provider<?> androidNeverLinkLibrariesProvider,
+      AndroidOptimizedJarInfoApi.Provider<?> androidOptimizedJarInfo,
+      AndroidDexInfoApi.Provider<?> androidDexInfoApiProvider) {
 
     this.androidCommon = androidCommon;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
@@ -73,6 +77,8 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(AndroidResourcesInfoApi.NAME, androidResourcesInfoProvider);
     builder.put(AndroidNativeLibsInfoApi.NAME, androidNativeLibsInfoProvider);
     builder.put(AndroidApplicationResourceInfoApi.NAME, androidApplicationResourceInfoApiProvider);
+    builder.put(
+        AndroidBinaryNativeLibsInfoApi.NAME, androidBinaryInternalNativeLibsInfoApiProvider);
     builder.put(AndroidSdkProviderApi.NAME, androidSdkProviderApi);
     builder.put(AndroidManifestInfoApi.NAME, androidManifestInfo);
     builder.put(AndroidAssetsInfoApi.NAME, androidAssetsInfoProvider);
@@ -90,6 +96,9 @@ public class AndroidBootstrap implements Bootstrap {
     builder.put(ProguardMappingProviderApi.NAME, proguardMappingProviderApiProvider);
     builder.put(AndroidBinaryDataInfoApi.NAME, androidBinaryDataInfoProvider);
     builder.put(BaselineProfileProviderApi.NAME, baselineProfileProvider);
+    builder.put(AndroidNeverLinkLibrariesProviderApi.NAME, androidNeverLinkLibrariesProvider);
+    builder.put(AndroidOptimizedJarInfoApi.NAME, androidOptimizedJarInfo);
+    builder.put(AndroidDexInfoApi.NAME, androidDexInfoApiProvider);
     providers = builder.build();
   }
 

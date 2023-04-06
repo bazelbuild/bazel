@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
+import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -162,7 +163,14 @@ public final class SpawnLogModule extends BlazeModule {
         spawnLogContext.close();
         if (!outputStreams.isEmpty()) {
           InputStream in = rawOutput.getInputStream();
-          StableSort.stableSort(in, outputStreams);
+          if (spawnLogContext.shouldSort()) {
+            StableSort.stableSort(in, outputStreams);
+          } else {
+            while (in.available() > 0) {
+              SpawnExec ex = SpawnExec.parseDelimitedFrom(in);
+              outputStreams.write(ex);
+            }
+          }
           outputStreams.close();
         }
         done = true;

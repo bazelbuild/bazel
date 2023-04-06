@@ -14,6 +14,7 @@
 
 """A Starlark implementation of the java_lite_proto_library rule."""
 
+load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "bazel_java_proto_library_rule", "java_compile_for_protos")
@@ -21,7 +22,6 @@ load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "bazel_
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
 
 java_common = _builtins.toplevel.java_common
-ProtoInfo = _builtins.toplevel.ProtoInfo
 JavaInfo = _builtins.toplevel.JavaInfo
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 

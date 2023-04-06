@@ -135,7 +135,7 @@ class NestedSetSerializationCache {
             // Failure to fetch the NestedSet contents is unexpected, but the failed future can be
             // stored as the NestedSet children. This way the exception is only propagated if the
             // NestedSet is consumed (unrolled).
-            bugReporter.sendBugReport(t);
+            bugReporter.sendNonFatalBugReport(t);
           }
         },
         directExecutor());

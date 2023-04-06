@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.resources.ResourceTypeEnum;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.MacroXmlResourceValue;
@@ -227,7 +228,7 @@ public class XmlResourceValues {
     String typeAttr = attributes.get(SdkConstants.ATTR_TYPE);
     ResourceType type;
     if (typeAttr != null) {
-      type = ResourceType.getEnum(typeAttr);
+      type = ResourceTypeEnum.get(typeAttr);
       if (type == null || type == ResourceType.PUBLIC) {
         throw new XMLStreamException(
             String.format("<public> tag has invalid type attribute %s", start),
@@ -327,14 +328,10 @@ public class XmlResourceValues {
     return contents.toString();
   }
 
-  @SuppressWarnings({
-    "unchecked"
-  }) // The interface returns Iterator, force casting based on documentation.
   public static Iterator<Attribute> iterateAttributesFrom(StartElement start) {
     return start.getAttributes();
   }
 
-  @SuppressWarnings("unchecked")
   public static Iterator<Namespace> iterateNamespacesFrom(StartElement start) {
     return start.getNamespaces();
   }

@@ -155,7 +155,7 @@ public class RunfilesTest extends FoundationTestCase {
     assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.ERROR);
   }
 
-  private static final class SimpleActionLookupKey implements ActionLookupKey {
+  private static final class SimpleActionLookupKey extends ActionLookupKey {
     private final String name;
 
     SimpleActionLookupKey(String name) {

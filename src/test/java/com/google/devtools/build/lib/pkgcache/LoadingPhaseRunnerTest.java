@@ -42,12 +42,13 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PatternExpandingError;
@@ -107,7 +108,7 @@ public final class LoadingPhaseRunnerTest {
   private static List<Label> getLabels(String... labels) {
     List<Label> result = new ArrayList<>();
     for (String label : labels) {
-      result.add(Label.parseAbsoluteUnchecked(label));
+      result.add(Label.parseCanonicalUnchecked(label));
     }
     return result;
   }
@@ -248,8 +249,7 @@ public final class LoadingPhaseRunnerTest {
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "invalid target format 'foo//bar:missing': invalid package name 'foo//bar': package"
-                + " names may not contain '//' path separators");
+            "invalid package name 'foo//bar': package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
@@ -257,7 +257,7 @@ public final class LoadingPhaseRunnerTest {
   @Test
   public void testEmptyTarget() {
     TargetParsingException e = assertThrows(TargetParsingException.class, () -> tester.load(""));
-    assertThat(e).hasMessageThat().contains("the empty string is not a valid target");
+    assertThat(e).hasMessageThat().contains("invalid target name '': empty target name");
   }
 
   @Test
@@ -265,8 +265,7 @@ public final class LoadingPhaseRunnerTest {
     TargetPatternPhaseValue result = tester.loadKeepGoing("foo//bar:missing");
     assertThat(result.hasError()).isTrue();
     tester.assertContainsError(
-        "invalid target format 'foo//bar:missing': invalid package name 'foo//bar': package names"
-            + " may not contain '//' path separators");
+        "invalid package name 'foo//bar': package names may not contain '//' path separators");
     ParsingFailedEvent err = tester.findPostOnce(ParsingFailedEvent.class);
     assertThat(err.getPattern()).isEqualTo("foo//bar:missing");
   }
@@ -474,7 +473,7 @@ public final class LoadingPhaseRunnerTest {
     assertThat(tester.getOriginalTargets())
         .containsExactlyElementsIn(getLabels("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
-        .containsExactly(Label.parseAbsoluteUnchecked("//cc:tests"));
+        .containsExactly(Label.parseCanonicalUnchecked("//cc:tests"));
   }
 
   @Test
@@ -874,10 +873,10 @@ public final class LoadingPhaseRunnerTest {
 
     assertThat(tester.getOriginalPatternsToLabels())
         .containsExactly(
-            "test/a:all", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
-            "test/b:all", Label.parseAbsoluteUnchecked("//test/b:b_lib"),
-            "test/...", Label.parseAbsoluteUnchecked("//test/a:a_lib"),
-            "test/...", Label.parseAbsoluteUnchecked("//test/b:b_lib"));
+            "test/a:all", Label.parseCanonicalUnchecked("//test/a:a_lib"),
+            "test/b:all", Label.parseCanonicalUnchecked("//test/b:b_lib"),
+            "test/...", Label.parseCanonicalUnchecked("//test/a:a_lib"),
+            "test/...", Label.parseCanonicalUnchecked("//test/b:b_lib"));
   }
 
   @Test
@@ -1142,8 +1141,7 @@ public final class LoadingPhaseRunnerTest {
   public void testPatternWithSingleSlashIsError() {
     expectError(
         "/single/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '/single/slash'");
+        "invalid target name '/single/slash': target names may not start with '/'");
   }
 
   @Test
@@ -1151,28 +1149,26 @@ public final class LoadingPhaseRunnerTest {
     tester.setRelativeWorkingDirectory("base");
     expectError(
         "/single/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '/single/slash'");
+        "invalid target name '/single/slash': target names may not start with '/'");
   }
 
   @Test
   public void testPatternWithTripleSlashIsError() {
     expectError(
         "///triple/slash",
-        "not a valid absolute pattern (absolute target patterns must start with exactly "
-            + "two slashes): '///triple/slash'");
+        "invalid package name '/triple/slash': package names may not start with '/'");
   }
 
   @Test
   public void testPatternEndingWithSingleSlashIsError() {
-    expectError("foo/", "The package part of 'foo/' should not end in a slash");
+    expectError("foo/", "invalid target name 'foo/': target names may not end with '/'");
   }
 
   @Test
   public void testPatternStartingWithDotDotSlash() {
     expectError(
         "../foo",
-        "Bad target pattern '../foo': package name component contains only '.' characters");
+        "invalid target name '../foo': target names may not contain up-level references '..'");
   }
 
   private void runTestPackageLoadingError(boolean keepGoing, String... patterns) throws Exception {
@@ -1369,7 +1365,7 @@ public final class LoadingPhaseRunnerTest {
               .setDirectories(directories)
               .setActionKeyContext(new ActionKeyContext())
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-              .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+              .setSyscallCache(SyscallCache.NO_CACHE)
               .build();
       SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
@@ -1381,7 +1377,7 @@ public final class LoadingPhaseRunnerTest {
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
       PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
-      packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+      packageOptions.defaultVisibility = RuleVisibility.PRIVATE;
       packageOptions.showLoadingProgress = true;
       packageOptions.globbingThreads = 7;
       skyframeExecutor.injectExtraPrecomputedValues(
@@ -1395,6 +1391,7 @@ public final class LoadingPhaseRunnerTest {
           Options.getDefaults(BuildLanguageOptions.class),
           UUID.randomUUID(),
           ImmutableMap.of(),
+          QuiescingExecutorsImpl.forTesting(),
           new TimestampGranularityMonitor(clock));
       skyframeExecutor.setActionEnv(ImmutableMap.of());
       this.options = Options.getDefaults(LoadingOptions.class);
@@ -1493,7 +1490,7 @@ public final class LoadingPhaseRunnerTest {
     public Target getTarget(String targetName) throws Exception {
       StoredEventHandler eventHandler = new StoredEventHandler();
       Target target =
-          getPkgManager().getTarget(eventHandler, Label.parseAbsoluteUnchecked(targetName));
+          getPkgManager().getTarget(eventHandler, Label.parseCanonicalUnchecked(targetName));
       assertThat(eventHandler.hasErrors()).isFalse();
       return target;
     }

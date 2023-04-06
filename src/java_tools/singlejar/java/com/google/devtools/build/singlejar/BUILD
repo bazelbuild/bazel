@@ -3,7 +3,10 @@ load("@rules_java//java:defs.bzl", "java_library")
 # Description:
 #   SingleJar combines multiple zip files and additional files
 #   into a single zip file.
-package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src/java_tools/singlejar:singlejar_package_group"],
+)
 
 filegroup(
     name = "srcs",

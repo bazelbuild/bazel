@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.JAVA_LAUNCHER_LINK;
 import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINKING_MODE;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -325,7 +327,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         semantics,
         NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
         transitiveSourceJars,
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR),
+        ruleContext.useAutoExecGroups()
+            ? semantics.getJavaToolchainType()
+            : DEFAULT_EXEC_GROUP_NAME);
 
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     builder.add(
@@ -406,6 +411,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     ImmutableList<String> deployManifestLines =
         getDeployManifestLines(ruleContext, originalMainClass);
 
+    // Create the java_binary target specific CDS archive.
     Artifact jsa = createSharedArchive(ruleContext, javaArtifacts, attributes);
 
     if (ruleContext.isAttrDefined("hermetic", BOOLEAN)
@@ -413,15 +419,23 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       if (!createExecutable) {
         ruleContext.ruleError("hermetic specified but create_executable is false");
       }
+
       JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext);
-      if (javaRuntime.libModules() == null) {
-        ruleContext.attributeError(
-            "hermetic", "hermetic specified but java_runtime.lib_modules is absent");
+      if (!javaRuntime.hermeticInputs().isEmpty()
+          && javaRuntime.libModules() != null
+          && !javaRuntime.hermeticStaticLibs().isEmpty()) {
+        deployArchiveBuilder
+            .setJavaHome(javaRuntime.javaHomePathFragment())
+            .setLibModules(javaRuntime.libModules())
+            .setHermeticInputs(javaRuntime.hermeticInputs());
       }
-      deployArchiveBuilder
-          .setJavaHome(javaRuntime.javaHomePathFragment())
-          .setLibModules(javaRuntime.libModules())
-          .setHermeticInputs(javaRuntime.hermeticInputs());
+
+      if (jsa == null) {
+        // Use the JDK default CDS specified by the JavaRuntime if the
+        // java_binary target specific CDS archive is null, when building
+        // a hermetic deploy JAR.
+        jsa = javaRuntime.defaultCDS();
+      }
     }
 
     deployArchiveBuilder
@@ -495,6 +509,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
                   // This matches the code below in collectDefaultRunfiles.
                   .addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath())
                   .build(),
+              null,
               true));
       filesBuilder.add(runtimeClasspathArtifact);
 
@@ -509,9 +524,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
       // Make single jar reachable from the coverage environment because it needs to be executed
       // by the coverage collection script.
-      Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
-      coverageEnvironment.add(new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecPathString()));
-      coverageSupportFiles.add(singleJar);
+      FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+      coverageEnvironment.add(
+          new Pair<>("SINGLE_JAR_TOOL", singleJar.getExecutable().getExecPathString()));
+      coverageSupportFiles.addTransitive(singleJar.getFilesToRun());
     }
 
     common.addTransitiveInfoProviders(
@@ -739,7 +755,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         builder.addSymlinks(runfiles.getSymlinks());
         builder.addRootSymlinks(runfiles.getRootSymlinks());
       } else {
-        builder.addTarget(defaultLauncher, RunfilesProvider.DEFAULT_RUNFILES);
+        builder.addTarget(
+            defaultLauncher,
+            RunfilesProvider.DEFAULT_RUNFILES,
+            ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
       }
     }
 
@@ -748,7 +767,10 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     List<? extends TransitiveInfoCollection> runtimeDeps =
         ruleContext.getPrerequisites("runtime_deps");
-    builder.addTargets(runtimeDeps, RunfilesProvider.DEFAULT_RUNFILES);
+    builder.addTargets(
+        runtimeDeps,
+        RunfilesProvider.DEFAULT_RUNFILES,
+        ruleContext.getConfiguration().alwaysIncludeFilesToBuildInData());
 
     builder.addTransitiveArtifactsWrappedInStableOrder(common.getRuntimeClasspath());
 

@@ -23,11 +23,13 @@ package_group(
     packages = ["//src/..."],
 )
 
-# Approved clients of java.starlark.net.
+# The Java Starlark interpreter is not supported for general use as a public
+# API. However, Copybara and Stardoc are approved clients.
+#
+# We do not use visibility to prevent other dependencies, because cross-repo
+# visibility restrictions do not make sense. Just be aware this is not
+# guaranteed as a stable API.
 package_group(
     name = "clients",
-    # TODO(#11261, 16355): The meaning of `//...` changed from "public" to "this
-    # repo only" in Bazel 6.0. Switch this to `public` in a subsequent release.
-    # (This must remain `//...` in 6.0 to allow bootstrapping Bazel with 5.x.)
-    packages = ["//..."],  # anyone
+    packages = ["public"],
 )

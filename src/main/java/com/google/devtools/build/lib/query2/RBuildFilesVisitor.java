@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -201,8 +200,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
    * <p>If includeAncestorKeys is true, we will include a directory listing state of the first
    * ancestor directory that exists and file states for non-existent ancestors.
    */
-  @VisibleForTesting
-  static Set<SkyKey> getSkyKeysForFileFragments(
+  public static Set<SkyKey> getSkyKeysForFileFragments(
       WalkableGraph graph, Iterable<PathFragment> pathFragments, boolean includeAncestorKeys)
       throws InterruptedException {
     if (Iterables.isEmpty(pathFragments)) {

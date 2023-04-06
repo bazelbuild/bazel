@@ -149,6 +149,6 @@ landing_page:
         Defines whether a target can be depended upon by other targets.
     - heading: Hermeticity
       classname: fully-clickable
-      path: /concepts/hermeticity
+      path: /basics/hermeticity
       description: >
         Builds with no external influences for deterministic and correct results.

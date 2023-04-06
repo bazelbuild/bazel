@@ -48,11 +48,10 @@ import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJar;
 import com.google.devtools.build.lib.bazel.rules.android.BazelDexArchiveAspect;
 import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppSemantics;
-import com.google.devtools.build.lib.bazel.rules.cpp.proto.BazelCcProtoAspect;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaProtoLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
@@ -63,11 +62,13 @@ import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidAssetsInfo;
 import com.google.devtools.build.lib.rules.android.AndroidBinaryDataInfo;
+import com.google.devtools.build.lib.rules.android.AndroidBinaryNativeLibsInfo;
 import com.google.devtools.build.lib.rules.android.AndroidCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceBrokerInfo;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceRule;
 import com.google.devtools.build.lib.rules.android.AndroidDeviceScriptFixtureRule;
+import com.google.devtools.build.lib.rules.android.AndroidDexInfo;
 import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
 import com.google.devtools.build.lib.rules.android.AndroidHostServiceFixtureRule;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
@@ -81,7 +82,9 @@ import com.google.devtools.build.lib.rules.android.AndroidLocalTestBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidManifestInfo;
 import com.google.devtools.build.lib.rules.android.AndroidNativeLibsInfo;
+import com.google.devtools.build.lib.rules.android.AndroidNeverLinkLibrariesProvider;
 import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
+import com.google.devtools.build.lib.rules.android.AndroidOptimizedJarInfo;
 import com.google.devtools.build.lib.rules.android.AndroidPreDexJarProvider;
 import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
@@ -98,10 +101,9 @@ import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryPermissionsRule;
 import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
-import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
+import com.google.devtools.build.lib.rules.cpp.GoogleLegacyStubs;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.objc.BazelObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
@@ -109,11 +111,10 @@ import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
+import com.google.devtools.build.lib.rules.python.PyCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
-import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
@@ -121,6 +122,7 @@ import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.test.TestingSupportRules;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ContextGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
@@ -137,6 +139,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 
 /** A rule class provider implementing the rules Bazel knows. */
 public class BazelRuleClassProvider {
@@ -157,10 +160,10 @@ public class BazelRuleClassProvider {
     public boolean useStrictActionEnv;
 
     @Override
-    public StrictActionEnvOptions getHost() {
-      StrictActionEnvOptions host = (StrictActionEnvOptions) getDefault();
-      host.useStrictActionEnv = useStrictActionEnv;
-      return host;
+    public StrictActionEnvOptions getExec() {
+      StrictActionEnvOptions exec = (StrictActionEnvOptions) getDefault();
+      exec.useStrictActionEnv = useStrictActionEnv;
+      return exec;
     }
   }
 
@@ -210,6 +213,9 @@ public class BazelRuleClassProvider {
 
   public static final Function<BuildOptions, ActionEnvironment> SHELL_ACTION_ENV =
       (BuildOptions options) -> {
+        if (options.hasNoConfig()) {
+          return ActionEnvironment.EMPTY;
+        }
         boolean strictActionEnv = options.get(StrictActionEnvOptions.class).useStrictActionEnv;
         OS os = OS.getCurrent();
         // TODO(ulfjack): instead of using the OS Bazel runs on, we need to use the exec platform,
@@ -316,7 +322,6 @@ public class BazelRuleClassProvider {
 
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
-                  ProtoInfo.PROVIDER,
                   BazelProtoCommon.INSTANCE,
                   new StarlarkAspectStub(),
                   new ProviderStub());
@@ -333,9 +338,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(ConfiguredRuleClassProvider.Builder builder) {
-          CcProtoAspect ccProtoAspect = new BazelCcProtoAspect(BazelCppSemantics.CPP, builder);
-          builder.addNativeAspectClass(ccProtoAspect);
-          builder.addRuleDefinition(new CcProtoLibraryRule(ccProtoAspect));
+          builder.addRuleDefinition(new CcProtoLibraryRule());
         }
 
         @Override
@@ -421,7 +424,11 @@ public class BazelRuleClassProvider {
                   AndroidFeatureFlagSetProvider.PROVIDER,
                   ProguardMappingProvider.PROVIDER,
                   AndroidBinaryDataInfo.PROVIDER,
-                  BaselineProfileProvider.PROVIDER);
+                  AndroidBinaryNativeLibsInfo.PROVIDER,
+                  BaselineProfileProvider.PROVIDER,
+                  AndroidNeverLinkLibrariesProvider.PROVIDER,
+                  AndroidOptimizedJarInfo.PROVIDER,
+                  AndroidDexInfo.PROVIDER);
           builder.addStarlarkBootstrap(bootstrap);
 
           try {
@@ -457,9 +464,20 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
 
+          // This symbol is overridden by exports.bzl
+          builder.addStarlarkAccessibleTopLevels(
+              "py_internal",
+              ContextGuardedValue.onlyInAllowedRepos(
+                  Starlark.NONE, PyBootstrap.allowedRepositories));
+          builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
+
           builder.addStarlarkBootstrap(
               new PyBootstrap(
-                  PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER, PyStarlarkTransitions.INSTANCE));
+                  PyInfo.PROVIDER,
+                  PyStarlarkTransitions.INSTANCE,
+                  new GoogleLegacyStubs.PyWrapCcHelper(),
+                  new GoogleLegacyStubs.PyWrapCcInfoProvider(),
+                  PyCcLinkParamsProvider.PROVIDER));
 
           builder.addSymlinkDefinition(PySymlink.PY2);
           builder.addSymlinkDefinition(PySymlink.PY3);
@@ -488,7 +506,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidNdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
           builder.addRuleDefinition(new CcSharedLibraryRule());
-          builder.addRuleDefinition(new CcSharedLibraryPermissionsRule());
 
           try {
             builder.addWorkspaceFileSuffix(
@@ -540,8 +557,8 @@ public class BazelRuleClassProvider {
       // searches PATH for "python3", so if we don't include this directory then we can't run PY3
       // targets with this toolchain if strict action environment is on.
       //
-      // Note that --action_env does not propagate to the host config, so it is not a viable
-      // workaround when a genrule is itself built in the host config (e.g. nested genrules). See
+      // Note that --action_env does not propagate to the exec config, so it is not a viable
+      // workaround when a genrule is itself built in the exec config (e.g. nested genrules). See
       // #8536.
       return "/bin:/usr/bin:/usr/local/bin";
     }

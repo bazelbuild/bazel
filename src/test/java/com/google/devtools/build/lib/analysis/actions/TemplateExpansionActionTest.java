@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -117,7 +118,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   @Test
   public void testExpansion() throws Exception {
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
-    create().execute(createContext(executor));
+    ActionResult unused = create().execute(createContext(executor));
     String content = new String(FileSystemUtils.readContentAsLatin1(output));
     String expected = Joiner.on('\n').join("key=foo", "value=bar");
     assertThat(content).isEqualTo(expected);
@@ -221,7 +222,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
   private void executeTemplateExpansion(String expected, List<Substitution> substitutions)
       throws Exception {
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
-    createWithArtifact(substitutions).execute(createContext(executor));
+    ActionResult unused = createWithArtifact(substitutions).execute(createContext(executor));
     String actual = FileSystemUtils.readContent(output, StandardCharsets.UTF_8);
     assertThat(actual).isEqualTo(expected);
   }

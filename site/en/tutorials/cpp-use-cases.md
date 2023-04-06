@@ -3,10 +3,12 @@ Book: /_book.yaml
 
 # Common C++ Build Use Cases
 
+{% include "_buttons.html" %}
+
 Here you will find some of the most common use cases for building C++ projects
 with Bazel. If you have not done so already, get started with building C++
 projects with Bazel by completing the tutorial
-[Introduction to Bazel: Build a C++ Project](/tutorials/cpp).
+[Introduction to Bazel: Build a C++ Project](/start/cpp).
 
 For information on cc_library and hdrs header files, see
 <a href="/reference/be/c-cpp#cc_library">cc_library</a>.

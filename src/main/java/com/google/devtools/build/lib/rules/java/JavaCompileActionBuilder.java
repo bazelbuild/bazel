@@ -143,6 +143,7 @@ public final class JavaCompileActionBuilder {
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider toolchain;
+  private final String execGroup;
   private ImmutableSet<Artifact> additionalOutputs = ImmutableSet.of();
   private Artifact coverageArtifact;
   private ImmutableSet<Artifact> sourceFiles = ImmutableSet.of();
@@ -171,9 +172,11 @@ public final class JavaCompileActionBuilder {
   private JavaClasspathMode classpathMode;
   private Artifact manifestOutput;
 
-  public JavaCompileActionBuilder(RuleContext ruleContext, JavaToolchainProvider toolchain) {
+  public JavaCompileActionBuilder(
+      RuleContext ruleContext, JavaToolchainProvider toolchain, String execGroup) {
     this.ruleContext = ruleContext;
     this.toolchain = toolchain;
+    this.execGroup = execGroup;
   }
 
   public JavaCompileAction build() {
@@ -200,9 +203,7 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
-
-    CustomCommandLine.Builder executableLine =
-        javaBuilder.buildCommandLine(toolchain, toolsBuilder);
+    javaBuilder.addInputs(toolchain, toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
@@ -267,13 +268,14 @@ public final class JavaCompileActionBuilder {
             JavaCompileAction.allInputs(
                 mandatoryInputs, classpathEntries, compileTimeDependencyArtifacts),
             ruleContext.getConfiguration());
-    if (stripOutputPaths) {
-      executableLine.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
-    }
+    CustomCommandLine executableLine =
+        javaBuilder.getCommandLine(
+            toolchain,
+            stripOutputPaths ? JavaCompilationHelper.outputBase(outputs.output()) : null);
 
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
-        /* owner= */ ruleContext.getActionOwner(),
+        /* owner= */ ruleContext.getActionOwner(execGroup),
         /* env= */ actionEnvironment,
         /* tools= */ tools,
         /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
@@ -289,7 +291,7 @@ public final class JavaCompileActionBuilder {
         /* outputs= */ allOutputs(),
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-        /* executableLine= */ executableLine.build(),
+        /* executableLine= */ executableLine,
         /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,

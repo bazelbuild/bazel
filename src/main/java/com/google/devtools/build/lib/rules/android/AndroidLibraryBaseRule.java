@@ -115,7 +115,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("exported_plugins", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .allowedFileTypes(FileTypeSet.NO_FILE))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))

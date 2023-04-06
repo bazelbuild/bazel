@@ -14,7 +14,7 @@ load(
     "java_runtime_version_alias",
     "java_toolchain_alias",
 )
-load("//tools/python:private/defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -116,21 +116,6 @@ cc_library(
     }),
 )
 
-alias(
-    name = "java",
-    actual = "@local_jdk//:java",
-)
-
-alias(
-    name = "jar",
-    actual = "@local_jdk//:jar",
-)
-
-alias(
-    name = "javadoc",
-    actual = "@local_jdk//:javadoc",
-)
-
 [
     (
         alias(
@@ -146,7 +131,8 @@ alias(
     )
     for OS in [
         "linux",
-        "darwin",
+        "darwin_x86_64",
+        "darwin_arm64",
         "windows",
     ]
 ]
@@ -163,7 +149,8 @@ alias(
     name = "ijar_prebuilt_binary_or_cc_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
         "//conditions:default": "@remote_java_tools//:ijar_cc_binary",
     }),
@@ -173,7 +160,8 @@ alias(
     name = "ijar_prebuilt_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":ijar_prebuilt_binary_linux",
-        "//src/conditions:darwin": ":ijar_prebuilt_binary_darwin",
+        "//src/conditions:darwin_x86_64": ":ijar_prebuilt_binary_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":ijar_prebuilt_binary_darwin_arm64",
         "//src/conditions:windows": ":ijar_prebuilt_binary_windows",
     }),
 )
@@ -193,7 +181,8 @@ alias(
     name = "singlejar_prebuilt_or_cc_binary",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
         "//conditions:default": "@remote_java_tools//:singlejar_cc_bin",
     }),
@@ -203,14 +192,14 @@ alias(
     name = "prebuilt_singlejar",
     actual = select({
         "//src/conditions:linux_x86_64": ":prebuilt_singlejar_linux",
-        "//src/conditions:darwin": ":prebuilt_singlejar_darwin",
+        "//src/conditions:darwin_x86_64": ":prebuilt_singlejar_darwin_x86_64",
+        "//src/conditions:darwin_arm64": ":prebuilt_singlejar_darwin_arm64",
         "//src/conditions:windows": ":prebuilt_singlejar_windows",
     }),
 )
 
 exports_files([
     "BUILD.java_tools",
-    "jdk.BUILD",
 ])
 
 alias(
@@ -274,20 +263,6 @@ alias(
     actual = "@remote_java_tools//:proguard",
 )
 
-BOOTCLASS_JARS = [
-    "rt.jar",
-    "resources.jar",
-    "jsse.jar",
-    "jce.jar",
-    "charsets.jar",
-]
-
-# TODO(cushon): this isn't compatible with JDK 9
-alias(
-    name = "bootclasspath",
-    actual = "@local_jdk//:bootclasspath",
-)
-
 alias(
     name = "jre",
     actual = "@local_jdk//:jre",
@@ -306,8 +281,8 @@ alias(
 bootclasspath(
     name = "platformclasspath",
     src = "DumpPlatformClassPath.java",
-    host_javabase = "current_java_runtime",
-    target_javabase = "current_java_runtime",
+    host_javabase = ":current_java_runtime",
+    target_javabase = ":current_java_runtime",
 )
 
 default_java_toolchain(
@@ -369,13 +344,13 @@ default_java_toolchain(
     target_version = "17",
 )
 
-# A toolchain that targets java 18.
+# A toolchain that targets java 19.
 default_java_toolchain(
-    name = "toolchain_jdk_18",
+    name = "toolchain_jdk_19",
     configuration = dict(),
-    java_runtime = "@bazel_tools//tools/jdk:remotejdk_18",
-    source_version = "18",
-    target_version = "18",
+    java_runtime = "@bazel_tools//tools/jdk:remotejdk_19",
+    source_version = "19",
+    target_version = "19",
 )
 
 default_java_toolchain(
@@ -394,9 +369,6 @@ py_binary(
     name = "proguard_whitelister",
     srcs = [
         "proguard_whitelister.py",
-    ],
-    deps = [
-        "//third_party/py/abseil",
     ],
 )
 
@@ -421,8 +393,8 @@ _JDKS = [
     "remotejdk11_linux_s390x",
 ] + [
     "remotejdk%s_%s" % (version, os)
-    for os in ("linux", "linux_aarch64", "macos", "macos_aarch64", "win", "win_arm64")
-    for version in ("17", "18")
+    for version in ("17", "19")
+    for os in ("linux", "linux_aarch64", "linux_s390x", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
 ]
 
 [
@@ -460,8 +432,8 @@ java_runtime_version_alias(
 )
 
 java_runtime_version_alias(
-    name = "remotejdk_18",
-    runtime_version = "remotejdk_18",
+    name = "remotejdk_19",
+    runtime_version = "remotejdk_19",
     visibility = ["//visibility:public"],
 )
 
@@ -470,3 +442,5 @@ java_runtime_version_alias(
     runtime_version = "8",
     visibility = ["//visibility:public"],
 )
+
+exports_files(["java_stub_template.txt"])

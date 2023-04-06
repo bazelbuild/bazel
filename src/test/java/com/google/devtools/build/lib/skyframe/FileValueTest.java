@@ -42,14 +42,14 @@ public class FileValueTest {
                 FsUtils.TEST_ROOTED_PATH, FileStateValue.DIRECTORY_FILE_STATE_NODE),
             new FileValue.SymlinkFileValueWithStoredChain(
                 FsUtils.TEST_ROOTED_PATH,
-                new FileStateValue.RegularFileStateValue(
-                    /*size=*/ 100, /*digest=*/ new byte[] {1, 2, 3, 4, 5}, /*contentsProxy=*/ null),
+                new FileStateValue.RegularFileStateValueWithDigest(
+                    /* size= */ 100, /* digest= */ new byte[] {1, 2, 3, 4, 5}),
                 ImmutableList.of(FsUtils.TEST_ROOTED_PATH),
                 PathFragment.create("somewhere/else")),
             new FileValue.SymlinkFileValueWithoutStoredChain(
                 FsUtils.TEST_ROOTED_PATH,
-                new FileStateValue.RegularFileStateValue(
-                    /*size=*/ 100, /*digest=*/ new byte[] {1, 2, 3, 4, 5}, /*contentsProxy=*/ null),
+                new FileStateValue.RegularFileStateValueWithDigest(
+                    /* size= */ 100, /* digest= */ new byte[] {1, 2, 3, 4, 5}),
                 PathFragment.create("somewhere/else")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();

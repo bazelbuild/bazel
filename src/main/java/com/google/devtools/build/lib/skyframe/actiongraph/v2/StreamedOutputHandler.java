@@ -31,7 +31,10 @@ import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.PrintStream;
 
-/** Manages the various streamed output channels of aquery. This does not support JSON format. */
+/**
+ * Manages the various streamed output channels of aquery. This does not support JSON format.
+ * TODO(b/274595070) Remove this class after the flag flip.
+ */
 public class StreamedOutputHandler implements AqueryOutputHandler {
   private final OutputType outputType;
   private final CodedOutputStream outputStream;

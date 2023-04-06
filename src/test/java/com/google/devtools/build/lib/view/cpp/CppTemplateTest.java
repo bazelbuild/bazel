@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
@@ -137,17 +136,14 @@ public class CppTemplateTest extends BuildIntegrationTestCase {
         .getEvaluator()
         .getDoneValues()
         .forEach(
-            (k, v) -> {
-              if (k instanceof ActionLookupData) {
+            (k, v) ->
                 assertWithMessage("Node " + k + " warnings")
                     .that(ValueWithMetadata.getEvents(v).toList())
-                    .isEmpty();
-              }
-            });
+                    .isEmpty());
 
-    // Warning is shown on a no-op incremental build.
+    // Warning is not replayed on a no-op incremental build.
     events.clear();
     buildTarget("//cc:cc");
-    events.assertContainsEvent(EventKind.WARNING, "This is a warning");
+    events.assertDoesNotContainEvent("This is a warning");
   }
 }

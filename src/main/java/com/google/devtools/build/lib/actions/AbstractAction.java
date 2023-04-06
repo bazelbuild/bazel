@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -363,12 +364,45 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   @Override
   public final String getProgressMessage() {
+    return getProgressMessageChecked(null);
+  }
+
+  @Nullable
+  @Override
+  public final String getProgressMessage(RepositoryMapping mainRepositoryMapping) {
+    Preconditions.checkNotNull(mainRepositoryMapping);
+    return getProgressMessageChecked(mainRepositoryMapping);
+  }
+
+  private String getProgressMessageChecked(@Nullable RepositoryMapping mainRepositoryMapping) {
     String message = getRawProgressMessage();
     if (message == null) {
       return null;
     }
+    message = replaceProgressMessagePlaceholders(message, mainRepositoryMapping);
     String additionalInfo = getOwner().getAdditionalProgressInfo();
     return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
+  }
+
+  private String replaceProgressMessagePlaceholders(
+      String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
+    if (progressMessage.contains("%{label}") && getOwner().getLabel() != null) {
+      String labelString;
+      if (mainRepositoryMapping != null) {
+        labelString = getOwner().getLabel().getDisplayForm(mainRepositoryMapping);
+      } else {
+        labelString = getOwner().getLabel().toString();
+      }
+      progressMessage = progressMessage.replace("%{label}", labelString);
+    }
+    if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
+      progressMessage =
+          progressMessage.replace("%{output}", getPrimaryOutput().getExecPathString());
+    }
+    if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
+      progressMessage = progressMessage.replace("%{input}", getPrimaryInput().getExecPathString());
+    }
+    return progressMessage;
   }
 
   /**
@@ -650,12 +684,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public Depset getStarlarkInputs() {
-    return Depset.of(Artifact.TYPE, getInputs());
+    return Depset.of(Artifact.class, getInputs());
   }
 
   @Override
   public Depset getStarlarkOutputs() {
-    return Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
+    return Depset.of(Artifact.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getOutputs()));
   }
 
   @Override

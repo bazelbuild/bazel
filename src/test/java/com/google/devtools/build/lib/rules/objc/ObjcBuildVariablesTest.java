@@ -223,7 +223,7 @@ public class ObjcBuildVariablesTest extends LinkBuildVariablesTestCase {
         ")");
     scratch.file("x/a.cc");
 
-    ConfiguredTarget target = getHostConfiguredTarget("//x:bin");
+    ConfiguredTarget target = getExecConfiguredTarget("//x:bin");
     Artifact lipoBin =
         getBinArtifact(Label.parseCanonical("//x:bin").getName() + "_lipobin", target);
     Action lipoAction = getGeneratingAction(lipoBin);

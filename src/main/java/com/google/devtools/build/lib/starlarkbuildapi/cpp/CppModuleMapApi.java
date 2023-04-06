@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
-@StarlarkBuiltin(name = "CcModuleMap", category = DocCategory.TOP_LEVEL_TYPE, documented = false)
+@StarlarkBuiltin(name = "CcModuleMap", category = DocCategory.TOP_LEVEL_MODULE, documented = false)
 public interface CppModuleMapApi<FileT extends FileApi> extends StarlarkValue {
 
   @StarlarkMethod(name = "file", documented = false, useStarlarkThread = true)

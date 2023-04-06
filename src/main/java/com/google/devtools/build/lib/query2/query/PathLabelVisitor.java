@@ -237,6 +237,12 @@ final class PathLabelVisitor {
 
     private void enqueue(Target from, Attribute attribute, Label label)
         throws InterruptedException, NoSuchThingException {
+      if (mode == VisitorMode.SAME_PKG_DIRECT_RDEPS) {
+        // Only track same-package dependencies to avoid loading unneeded packages.
+        if (!label.getPackageIdentifier().equals(from.getLabel().getPackageIdentifier())) {
+          return;
+        }
+      }
       Target target = targetProvider.getTarget(eventHandler, label);
       enqueue(from, attribute, target);
     }
@@ -328,7 +334,7 @@ final class PathLabelVisitor {
         if (AspectDefinition.satisfies(
             aspect, toRule.getRuleClassObject().getAdvertisedProviders())) {
           Multimap<Attribute, Label> allLabels = HashMultimap.create();
-          AspectDefinition.addAllAttributesOfAspect(fromRule, allLabels, aspect, edgeFilter);
+          AspectDefinition.addAllAttributesOfAspect(allLabels, aspect, edgeFilter);
           for (Map.Entry<Attribute, Label> e : allLabels.entries()) {
             enqueue(from, e.getKey(), e.getValue());
           }

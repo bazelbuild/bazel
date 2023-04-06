@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
@@ -32,6 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Helper module for accessing test infrastructure. */
 @StarlarkBuiltin(
     name = "testing",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi extends StarlarkValue {
 

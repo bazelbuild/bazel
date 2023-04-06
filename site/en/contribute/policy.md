@@ -6,6 +6,8 @@ page_type: lcat
 
 # Contribution policy
 
+{% include "_buttons.html" %}
+
 This page covers Bazel's governance model and contribution policy.
 
 ## Governance model

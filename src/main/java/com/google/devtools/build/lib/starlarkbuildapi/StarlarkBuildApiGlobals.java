@@ -14,14 +14,15 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that belong in the global namespace. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public interface StarlarkBuildApiGlobals {
 
   @StarlarkMethod(
@@ -90,7 +91,8 @@ public interface StarlarkBuildApiGlobals {
           "References a late-bound default value for an attribute of type <a"
               + " href=\"attr.html#label\">label</a>. A value is 'late-bound' if it requires the"
               + " configuration to be built before determining the value. Any attribute using this"
-              + " as a value must <a href=\"https://bazel.build/rules/rules#private-attributes\">be"
+              + " as a value must"
+              + " <a href=\"https://bazel.build/extending/rules#private-attributes\">be"
               + " private</a>. <p>Example usage: <p>Defining a rule attribute: <br><pre"
               + " class=language-python>'_foo':"
               + " attr.label(default=configuration_field(fragment='java', "

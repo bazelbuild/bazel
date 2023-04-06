@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
@@ -172,7 +173,7 @@ public class CommandLines {
           String paramArg =
               SingleStringArgFormatter.format(
                   paramFileInfo.getFlagFormatString(),
-                  pathStripper.strip(paramFileExecPath).getPathString());
+                  pathStripper.map(paramFileExecPath).getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
 
@@ -275,7 +276,7 @@ public class CommandLines {
   }
 
   /** An in-memory param file virtual action input. */
-  public static final class ParamFileActionInput implements VirtualActionInput {
+  public static final class ParamFileActionInput extends VirtualActionInput {
     private final PathFragment paramFileExecPath;
     private final Iterable<String> arguments;
     private final ParameterFileType type;
@@ -317,6 +318,13 @@ public class CommandLines {
     @Override
     public void writeTo(OutputStream out) throws IOException {
       ParameterFile.writeParameterFile(out, arguments, type, charset);
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
+      // This is needed for internal path wrangling reasons :(
+      return super.atomicallyWriteTo(outputPath, uniqueSuffix);
     }
 
     @Override
@@ -486,7 +494,7 @@ public class CommandLines {
         @Nullable ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
         throws CommandLineExpansionException, InterruptedException {
       if (arg instanceof PathStrippable) {
-        return ImmutableList.of(((PathStrippable) arg).expand(pathStripper::strip));
+        return ImmutableList.of(((PathStrippable) arg).expand(pathStripper::map));
       }
       return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
     }

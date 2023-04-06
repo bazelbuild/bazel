@@ -49,7 +49,8 @@ public final class AspectDescriptor {
 
   @Override
   public int hashCode() {
-    return Objects.hash(aspectClass, aspectParameters);
+    // Inlines the implementation of Objects.hashCode to avoid generating garbage.
+    return 31 * aspectClass.hashCode() + aspectParameters.hashCode();
   }
 
   @Override

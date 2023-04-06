@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -23,16 +24,21 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,13 +61,12 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "",
         "sh_test(name = 'small_test_2',",
         "        srcs = ['small_test_2.sh'],",
-        "        data = ['//testing/shbase:googletest.sh'],",
         "        size = 'small',",
         "        tags = ['tag2'])",
         "",
         "sh_test(name = 'large_test_1',",
         "        srcs = ['large_test_1.sh'],",
-        "        data = ['//testing/shbase:googletest.sh', ':xUnit'],",
+        "        data = [':xUnit'],",
         "        size = 'large',",
         "        tags = ['tag1'])",
         "",
@@ -70,6 +75,112 @@ public class TestActionBuilderTest extends BuildViewTestCase {
         "cc_library(name = 'xUnit')",
         "",
         "test_suite(name = 'smallTests', tags=['small'])");
+  }
+
+  private void assertSharded(ConfiguredTarget testRule, int expectSharding) {
+    ImmutableList<Artifact.DerivedArtifact> testStatusList = getTestStatusArtifacts(testRule);
+    if (expectSharding == 0) {
+      Artifact testResult = Iterables.getOnlyElement(testStatusList);
+      TestRunnerAction action = (TestRunnerAction) getGeneratingAction(testResult);
+      assertThat(action.isSharded()).isFalse();
+      assertThat(action.getExecutionSettings().getTotalShards()).isSameInstanceAs(0);
+      assertThat(action.getShardNum()).isSameInstanceAs(0);
+      return;
+    }
+
+    int totalShards = testStatusList.size();
+    Set<Integer> shardNumbers = new HashSet<>();
+    for (Artifact testResult : testStatusList) {
+      TestRunnerAction action = (TestRunnerAction) getGeneratingAction(testResult);
+      assertThat(action.isSharded()).isTrue();
+      assertThat(action.getExecutionSettings().getTotalShards()).isSameInstanceAs(totalShards);
+      assertThat(action.getTestLog().getExecPath().getPathString())
+          .endsWith(
+              String.format("shard_%d_of_%d/test.log", action.getShardNum() + 1, totalShards));
+      shardNumbers.add(action.getShardNum());
+    }
+    assertThat(shardNumbers).isEqualTo(sequenceSet(0, totalShards));
+    assertThat(shardNumbers).hasSize(expectSharding);
+  }
+
+  private static Set<Integer> sequenceSet(int start, int end) {
+    Preconditions.checkArgument(end > start);
+    Set<Integer> seqSet = new HashSet<>();
+    for (int i = start; i < end; i++) {
+      seqSet.add(i);
+    }
+    return seqSet;
+  }
+
+  private void writeJavaTests() throws IOException {
+    scratch.file(
+        "javatests/jt/BUILD",
+        "java_test(name = 'RGT',",
+        "          srcs = ['RGT.java'])",
+        "java_test(name = 'RGT_none',",
+        "          shard_count = 0,",
+        "          srcs = ['RGT.java'])",
+        "java_test(name = 'RGT_many',",
+        "          shard_count = 33,",
+        "          srcs = ['RGT.java'])",
+        "java_test(name = 'RGT_small',",
+        "          srcs = ['RGT.java'],",
+        "          size = 'small')",
+        "",
+        "java_test(name = 'NoRunner',",
+        "          main_class = 'NoTestRunnerTest.java',",
+        "          use_testrunner = 0,",
+        "          srcs = ['NoTestRunnerTest.java'])",
+        "");
+  }
+
+  @Test
+  public void testSharding() throws Exception {
+    useConfiguration("--test_sharding_strategy=explicit");
+
+    assertSharded(getConfiguredTarget("//tests:small_test_1"), 0);
+    assertSharded(getConfiguredTarget("//tests:large_test_1"), 0);
+
+    writeJavaTests();
+    assertSharded(getConfiguredTarget("//javatests/jt:NoRunner"), 0);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT"), 0);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_small"), 0);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_none"), 0);
+
+    // Has an explicit "shard_count" attribute.
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_many"), 33);
+  }
+
+  @Test
+  public void testShardingDisabled() throws Exception {
+    useConfiguration("--test_sharding_strategy=disabled");
+
+    assertSharded(getConfiguredTarget("//tests:small_test_1"), 0);
+    assertSharded(getConfiguredTarget("//tests:large_test_1"), 0);
+
+    writeJavaTests();
+    assertSharded(getConfiguredTarget("//javatests/jt:NoRunner"), 0);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT"), 0);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_small"), 0);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_none"), 0);
+
+    // Has an explicit "shard_count" attribute.
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_many"), 0);
+  }
+
+  @Test
+  public void testShardingForced() throws Exception {
+    useConfiguration("--test_sharding_strategy=forced=5");
+
+    assertSharded(getConfiguredTarget("//tests:small_test_1"), 5);
+    assertSharded(getConfiguredTarget("//tests:large_test_1"), 5);
+
+    writeJavaTests();
+    assertSharded(getConfiguredTarget("//javatests/jt:NoRunner"), 5);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT"), 5);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_small"), 5);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_none"), 5);
+    assertSharded(getConfiguredTarget("//javatests/jt:RGT_many"), 5);
   }
 
   @Test
@@ -216,7 +327,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@//:suite", "@//:test_a", "@//:test_b");
@@ -249,7 +360,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@//:suite", "@//:test_b");
@@ -278,7 +389,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
             /* doAnalysis= */ true,
             new EventBus());
     final StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseAbsoluteUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
 
     List<String> labels = new ArrayList<>();
     for (ConfiguredAspect a : analysisResult.getAspectsMap().values()) {
@@ -364,10 +475,176 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     assertThat(executionInfo).containsExactly("key", "good");
   }
 
+  /**
+   * Overriding the exec group from within the test with --use_target_platform_for_tests.
+   *
+   * <p>This is the same test as testOverrideExecGroup with --use_target_platform_for_tests and a
+   * target platform.
+   */
+  @Test
+  public void testOverrideTestExecGroup() throws Exception {
+    useConfiguration("--use_target_platform_for_tests=true", "--platforms=//:linux_aarch64");
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "        testing.ExecutionInfo({}, exec_group = 'custom_group'),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    exec_groups = {'custom_group': exec_group()},",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "platform(",
+        "    name = 'linux_aarch64',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:aarch64',",
+        "    ],",
+        ")",
+        "some_test(",
+        "    name = 'custom_exec_group_test',",
+        "    exec_properties = {'test.key': 'bad', 'custom_group.key': 'good'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:custom_exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key", "good");
+  }
+
+  /** Adding exec_properties from the platform with --use_target_platform_for_tests. */
+  @Test
+  public void testTargetTestExecGroup() throws Exception {
+    useConfiguration(
+        "--use_target_platform_for_tests=true",
+        "--platforms=//:linux_aarch64",
+        "--host_platform=//:linux_x86");
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "platform(",
+        "    name = 'linux_x86',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    ],",
+        "    exec_properties = {'keyhost': 'bad'},",
+        ")",
+        "platform(",
+        "    name = 'linux_aarch64',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:aarch64',",
+        "    ],",
+        "    exec_properties = {'key2': 'good'},",
+        ")",
+        "some_test(",
+        "    name = 'exec_group_test',",
+        "    exec_properties = {'key': 'bad'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label().getName()).isEqualTo("linux_aarch64");
+
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key2", "good");
+  }
+
+  /** Adding test specific exec_properties with --use_target_platform_for_tests. */
+  @Test
+  @Ignore("https://github.com/bazelbuild/bazel/issues/17466")
+  public void testTargetTestExecGroupInheritance() throws Exception {
+    useConfiguration(
+        "--use_target_platform_for_tests=true",
+        "--platforms=//:linux_aarch64",
+        "--host_platform=//:linux_x86");
+    scratch.file(
+        "some_test.bzl",
+        "def _some_test_impl(ctx):",
+        "    script = ctx.actions.declare_file(ctx.attr.name + '.sh')",
+        "    ctx.actions.write(script, 'shell script goes here', is_executable = True)",
+        "    return [",
+        "        DefaultInfo(executable = script),",
+        "    ]",
+        "",
+        "some_test = rule(",
+        "    implementation = _some_test_impl,",
+        "    test = True,",
+        ")");
+    scratch.file(
+        "BUILD",
+        "load(':some_test.bzl', 'some_test')",
+        "platform(",
+        "    name = 'linux_x86',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "       '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
+        "    ],",
+        "    exec_properties = {'keyhost': 'bad'},",
+        ")",
+        "platform(",
+        "    name = 'linux_aarch64',",
+        "    constraint_values = [",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:linux',",
+        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:aarch64',",
+        "    ],",
+        "    exec_properties = {'key2': 'good'},",
+        ")",
+        "some_test(",
+        "    name = 'exec_group_test',",
+        "    exec_properties = {'test.key': 'good', 'key': 'bad'},",
+        ")");
+    ImmutableList<Artifact.DerivedArtifact> testStatusList =
+        getTestStatusArtifacts("//:exec_group_test");
+    TestRunnerAction testAction = (TestRunnerAction) getGeneratingAction(testStatusList.get(0));
+    assertThat(testAction.getExecutionPlatform().label().getName()).isEqualTo("linux_aarch64");
+
+    ImmutableMap<String, String> executionInfo = testAction.getExecutionInfo();
+    assertThat(executionInfo).containsExactly("key2", "good", "key", "good");
+  }
+
+  @Test
+  public void testNonExecutableCoverageReportGenerator() throws Exception {
+    useConfiguration(
+        "--coverage_report_generator=//bad_gen:bad_cov_gen", "--collect_code_coverage");
+    checkError(
+        "bad_gen",
+        "some_test",
+        "--coverage_report_generator does not refer to an executable target",
+        "sh_library(name = 'bad_cov_gen')",
+        "cc_test(name = 'some_test')");
+  }
+
   private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(String label)
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(label);
     return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
   }
 
+  private ImmutableList<Artifact.DerivedArtifact> getTestStatusArtifacts(
+      TransitiveInfoCollection target) {
+    return target.getProvider(TestProvider.class).getTestParams().getTestStatusArtifacts();
+  }
 }

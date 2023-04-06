@@ -3,9 +3,11 @@ Book: /_book.yaml
 
 # Who's Using Bazel
 
+{% include "_buttons.html" %}
+
 Note: Using Bazel? You can add your company on
 [StackShare](https://stackshare.io/bazel). To add yourself to this page,
-contact [product@bazel.build](mailto:produc@bazel.build).
+contact [product@bazel.build](mailto:product@bazel.build).
 
 This page lists companies and OSS projects that are known to use Bazel.
 This does not constitute an endorsement.
@@ -63,7 +65,7 @@ even posted a
 <img src="https://upload.wikimedia.org/wikipedia/en/3/3b/Canva_Logo.png" width="90" align="right">
 
 Canva leverages Bazel to manage its large polyglot codebase, which includes
-Java, Typescript, Scala, Python, and more. Migration to Bazel has delivered
+Java, TypeScript, Scala, Python, and more. Migration to Bazel has delivered
 significant developer and compute infrastructure efficiencies, for example 5-6x
 decreases in average CI build times, and it continues to become the foundation
 of fast, reproducible, and standardised software builds at the company.
@@ -114,7 +116,7 @@ baking and deploying all their 3D Assets.
 ### [Dropbox](https://www.dropbox.com/){: .external}
 <img src="/community/images/dropbox.png" width="150" align="right">
 At Dropbox, Bazel is a key component to our distributed build and test
-environment. We use Bazel to combine Typescript/Python/Go/C/Rust into reliable
+environment. We use Bazel to combine TypeScript/Python/Go/C/Rust into reliable
 production releases.
 
 ### [Engel & Völkers](https://www.engelvoelkers.com){: .external}
@@ -249,9 +251,25 @@ for our go, java and python projects.
 LinkedIn, a subsidiary of Microsoft, is the world’s largest professional social
 network. LinkedIn uses Bazel for building its iOS Apps.
 
+### [Lucid Software](https://lucid.co/){: .external}
+
+<img src="/community/images/Lucid_Software-logo.svg" width="150" align="right">
+
+Lucid Software is a leader in visual collaboration, helping teams see and build the
+future from idea to reality. With its products—[Lucidchart](https://www.lucidchart.com/),
+[Lucidspark](https://lucidspark.com/), and [Lucidscale](https://lucidscale.com/)—teams
+can align around a shared vision, clarify complexity, and collaborate visually, no
+matter where they’re located.
+
+Lucid uses Bazel to build millions of lines of Scala and TypeScript.
+Migrating to Bazel has tremendously sped up its builds, reduced external
+dependencies on the build environment, and simplified developers' experience
+with the build system. Bazel has improved developer productivity at Lucid and
+unlocked further growth.
+
 ### [Lyft](https://www.lyft.com/){: .external}
 
-Lyft is using Bazel for their iOS Apps ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)).
+Lyft is using Bazel for their iOS ([source](https://twitter.com/SmileyKeith/status/1116486751806033920)) and Android Apps.
 
 ### [Makani](https://www.google.com/makani){: .external}
 Makani, now a Google subsidiary, develops energy kites and uses Bazel to build
@@ -336,10 +354,16 @@ in 2020 ([source](https://twitter.com/wew/status/1326957862816509953){: .externa
 details about their process, see their [engineering blog](https://eng.snap.com/blog/){: .external}.
 
 ### [Stripe](https://stripe.com){: .external}
-<img src="https://upload.wikimedia.org/wikipedia/en/thumb/e/eb/Stripe_logo%2C_revised_2016.png/320px-Stripe_logo%2C_revised_2016.png" width="150" align="right">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Stripe_Logo%2C_revised_2016.svg/320px-Stripe_Logo%2C_revised_2016.svg.png" width="150" align="right">
 
 Stripe provides mobile payment solutions.  They are the main maintainers of the
 [Bazel Scala rules](https://github.com/bazelbuild/rules_scala){: .external}.
+
+### [Tinder](https://tinder.com){: .external}
+<img src="https://policies.tinder.com/static/b0327365f4c0a31c4337157c10e9fadf/c1b63/tinder_full_color_watermark.png" width="150" align="right">
+
+Tinder migrated its iOS app from CocoaPods to Bazel
+in 2021 ([source](https://medium.com/tinder/bazel-hermetic-toolchain-and-tooling-migration-c244dc0d3ae){: .external}).
 
 ### [Tink](https://tink.com/){: .external}
 <img src="https://cdn.tink.se/tink-logos/LOW/Tink_Black.png" width="150" align="right">
@@ -543,6 +567,12 @@ seamlessly from normal Java code.
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
 
+### [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer){: .external}
+
+<img src="https://www.code-intelligence.com/hubfs/Logos/CI%20Logos/Jazzer_einfach.png" width="120" align="right">
+
+Jazzer is a fuzzer for Java and other JVM-based languages that integrates with JUnit 5.
+
 ### [JGit](https://eclipse.org/jgit/){: .external}
 
 JGit is a lightweight, pure Java library implementing the Git version control
@@ -635,6 +665,10 @@ networks.
 
 Sorbet is a fast, powerful type checker for a subset of Ruby. It scales to
 codebases with millions of lines of code and can be adopted incrementally.
+
+### [Spotify](https://spotify.com){: .external}
+
+Spotify is using Bazel to build their iOS and Android Apps ([source](https://twitter.com/BalestraPatrick/status/1573355078995566594)).
 
 ### [Tink](https://github.com/google/tink){: .external}
 

@@ -277,7 +277,21 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
   }
 
+  @Override
+  public String getRuleClassString() {
+    if (!(base instanceof AbstractConfiguredTarget)) {
+      return super.getRuleClassString();
+    }
+    AbstractConfiguredTarget act = (AbstractConfiguredTarget) base;
+    return act.getRuleClassString();
+  }
+
   public ConfiguredTarget getBaseConfiguredTarget() {
     return base;
+  }
+
+  @Override
+  public ConfiguredTarget unwrapIfMerged() {
+    return base.unwrapIfMerged();
   }
 }

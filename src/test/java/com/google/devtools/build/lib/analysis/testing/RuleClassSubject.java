@@ -62,7 +62,7 @@ public class RuleClassSubject extends Subject {
   }
 
   public ToolchainTypeRequirementSubject toolchainType(String toolchainTypeLabel) {
-    return toolchainType(Label.parseAbsoluteUnchecked(toolchainTypeLabel));
+    return toolchainType(Label.parseCanonicalUnchecked(toolchainTypeLabel));
   }
 
   public ToolchainTypeRequirementSubject toolchainType(Label toolchainType) {

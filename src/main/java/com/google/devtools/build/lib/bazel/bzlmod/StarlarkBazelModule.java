@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.LabelConverter;
@@ -33,10 +34,12 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.spelling.SpellChecker;
 
 /** A Starlark object representing a Bazel module in the external dependency graph. */
 @StarlarkBuiltin(
     name = "bazel_module",
+    category = DocCategory.BUILTIN,
     doc = "Represents a Bazel module in the external dependency graph.")
 public class StarlarkBazelModule implements StarlarkValue {
   private final String name;
@@ -46,6 +49,7 @@ public class StarlarkBazelModule implements StarlarkValue {
 
   @StarlarkBuiltin(
       name = "bazel_module_tags",
+      category = DocCategory.BUILTIN,
       doc =
           "Contains the tags in a module for the module extension currently being processed. This"
               + " object has a field for each tag class of the extension, and the value of the"
@@ -115,10 +119,11 @@ public class StarlarkBazelModule implements StarlarkValue {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
             "The module extension defined at %s does not have a tag class named %s, but its use is"
-                + " attempted at %s",
+                + " attempted at %s%s",
             extension.getLocation(),
             tag.getTagName(),
-            tag.getLocation());
+            tag.getLocation(),
+            SpellChecker.didYouMean(tag.getTagName(), extension.getTagClasses().keySet()));
       }
 
       // Now we need to type-check the attribute values and convert them into "build language types"

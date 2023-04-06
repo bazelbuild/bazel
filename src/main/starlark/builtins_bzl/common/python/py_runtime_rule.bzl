@@ -14,17 +14,25 @@
 """Implementation of py_runtime rule."""
 
 load(":common/paths.bzl", "paths")
+load(":common/python/providers.bzl", "DEFAULT_BOOTSTRAP_TEMPLATE", "DEFAULT_STUB_SHEBANG", _PyRuntimeInfo = "PyRuntimeInfo")
+load(":common/python/common.bzl", "check_native_allowed")
+load(":common/python/attributes.bzl", "NATIVE_RULES_ALLOWLIST_ATTRS")
 
-_PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
+_py_builtins = _builtins.internal.py_builtins
 
 def _py_runtime_impl(ctx):
-    interpreter_path = ctx.attr.interpreter_path
+    check_native_allowed(ctx)
+    interpreter_path = ctx.attr.interpreter_path or None  # Convert empty string to None
     interpreter = ctx.file.interpreter
     if (interpreter_path and interpreter) or (not interpreter_path and not interpreter):
         fail("exactly one of the 'interpreter' or 'interpreter_path' attributes must be specified")
 
+    runtime_files = depset(transitive = [
+        t[DefaultInfo].files
+        for t in ctx.attr.files
+    ])
+
     hermetic = bool(interpreter)
-    runtime_files = ctx.attr.files[DefaultInfo].files
     if not hermetic:
         if runtime_files:
             fail("if 'interpreter_path' is given then 'files' must be empty")
@@ -34,11 +42,8 @@ def _py_runtime_impl(ctx):
     if ctx.attr.coverage_tool:
         coverage_di = ctx.attr.coverage_tool[DefaultInfo]
 
-        # TODO(b/254866025): Use a Java helper to call NestedSet.isSingleton
-        # instead of always flattening to a list
-        coverage_di_files = coverage_di.files.to_list()
-        if len(coverage_di_files) == 1:
-            coverage_tool = coverage_di_files[0]
+        if _py_builtins.is_singleton_depset(coverage_di.files):
+            coverage_tool = coverage_di.files.to_list()[0]
         elif coverage_di.files_to_run and coverage_di.files_to_run.executable:
             coverage_tool = coverage_di.files_to_run.executable
         else:
@@ -62,15 +67,23 @@ def _py_runtime_impl(ctx):
                 "Python runtime mechanism (`--incompatible_use_python_toolchains=false`).",
             )
         else:
-            python_version = ctx.fragments.default_python_version
+            python_version = ctx.fragments.py.default_python_version
+
+    # TODO: Uncomment this after --incompatible_python_disable_py2 defaults to true
+    # if ctx.fragments.py.disable_py2 and python_version == "PY2":
+    #     fail("Using Python 2 is not supported and disabled; see " +
+    #          "https://github.com/bazelbuild/bazel/issues/15684")
 
     return [
         _PyRuntimeInfo(
-            files = runtime_files,
+            interpreter_path = interpreter_path or None,
+            interpreter = interpreter,
+            files = runtime_files if hermetic else None,
             coverage_tool = coverage_tool,
             coverage_files = coverage_files,
             python_version = python_version,
             stub_shebang = ctx.attr.stub_shebang,
+            bootstrap_template = ctx.file.bootstrap_template,
         ),
         DefaultInfo(
             files = runtime_files,
@@ -114,7 +127,7 @@ py_runtime(
 ```
 """,
     fragments = ["py"],
-    attrs = {
+    attrs = NATIVE_RULES_ALLOWLIST_ATTRS | {
         "files": attr.label_list(
             allow_files = True,
             doc = """
@@ -152,6 +165,7 @@ the `run` and `lcov` subcommands.
 """,
         ),
         "python_version": attr.string(
+            default = "_INTERNAL_SENTINEL",
             values = ["PY2", "PY3", "_INTERNAL_SENTINEL"],
             doc = """
 Whether this runtime is for Python major version 2 or 3. Valid values are `"PY2"`
@@ -163,9 +177,7 @@ value.
             """,
         ),
         "stub_shebang": attr.string(
-            # TODO(b/254866025): Have PyRuntimeInfo and this use a shared
-            # constant
-            default = "#!/usr/bin/env python3",
+            default = DEFAULT_STUB_SHEBANG,
             doc = """
 "Shebang" expression prepended to the bootstrapping Python stub script
 used when executing `py_binary` targets.
@@ -174,6 +186,28 @@ See https://github.com/bazelbuild/bazel/issues/8685 for
 motivation.
 
 Does not apply to Windows.
+""",
+        ),
+        "bootstrap_template": attr.label(
+            allow_single_file = True,
+            default = DEFAULT_BOOTSTRAP_TEMPLATE,
+            doc = """
+The bootstrap script template file to use. Should have %python_binary%,
+%workspace_name%, %main%, and %imports%.
+
+This template, after expansion, becomes the executable file used to start the
+process, so it is responsible for initial bootstrapping actions such as finding
+the Python interpreter, runfiles, and constructing an environment to run the
+intended Python application.
+
+While this attribute is currently optional, it will become required when the
+Python rules are moved out of Bazel itself.
+
+The exact variable names expanded is an unstable API and is subject to change.
+The API will become more stable when the Python rules are moved out of Bazel
+itself.
+
+See @bazel_tools//tools/python:python_bootstrap_template.txt for more variables.
 """,
         ),
     },

@@ -161,13 +161,14 @@ RunfilesTest::MockFile::~MockFile() { std::remove(path_.c_str()); }
 TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromManifestNextToBinary) {
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles_manifest").size()));
 
   string error;
-  unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", &error));
-  ASSERT_NE(r, nullptr);
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"", &error));
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
   // We know it's manifest-based because it returns empty string for unknown
@@ -180,13 +181,14 @@ TEST_F(RunfilesTest,
        CreatesManifestBasedRunfilesFromManifestInRunfilesDirectory) {
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" LINE_AS_STRING() ".runfiles/MANIFEST", {"a/b c/d"}));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
   string argv0(mf->Path().substr(
       0, mf->Path().size() - string(".runfiles/MANIFEST").size()));
 
   string error;
-  unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", &error));
-  ASSERT_NE(r, nullptr);
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"", &error));
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
   EXPECT_EQ(r->Rlocation("foo"), argv0 + ".runfiles/foo");
@@ -196,12 +198,12 @@ TEST_F(RunfilesTest,
 TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create("ignore-argv0", mf->Path(),
                                           "non-existent-runfiles_dir", &error));
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
   // We know it's manifest-based because it returns empty string for unknown
@@ -213,12 +215,12 @@ TEST_F(RunfilesTest, CreatesManifestBasedRunfilesFromEnvvar) {
 TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" LINE_AS_STRING() ".runfiles_manifest", {"a b", "nospace"}));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
 
   string error;
   unique_ptr<Runfiles> r(
       Runfiles::Create("ignore-argv0", mf->Path(), "", &error));
-  ASSERT_EQ(r, nullptr);
+  EXPECT_EQ(r, nullptr);
   EXPECT_NE(error.find("bad runfiles manifest entry"), string::npos);
   EXPECT_NE(error.find("line #2: \"nospace\""), string::npos);
 }
@@ -226,13 +228,13 @@ TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
 TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
 
   string error;
   unique_ptr<Runfiles> r(
       Runfiles::Create("ignore-argv0", mf->Path(), "", &error));
 
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
   EXPECT_EQ(r->Rlocation("c/d"), "");
@@ -259,12 +261,12 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
 TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
   unique_ptr<MockFile> dummy(
       MockFile::Create("foo" LINE_AS_STRING() ".runfiles/dummy", {"a/b c/d"}));
-  EXPECT_TRUE(dummy != nullptr);
+  ASSERT_TRUE(dummy != nullptr);
   string dir = dummy->DirName();
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create("ignore-argv0", "", dir, &error));
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   EXPECT_EQ(r->Rlocation("a/b"), dir + "/a/b");
@@ -291,14 +293,14 @@ TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {
 TEST_F(RunfilesTest, ManifestAndDirectoryBasedRunfilesRlocationAndEnvVars) {
   unique_ptr<MockFile> mf(MockFile::Create(
       "foo" LINE_AS_STRING() ".runfiles/MANIFEST", {"a/b c/d"}));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
   string dir = mf->DirName();
 
   string error;
   unique_ptr<Runfiles> r(
       Runfiles::Create("ignore-argv0", mf->Path(), "", &error));
 
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
   EXPECT_EQ(r->Rlocation("a/b"), "c/d");
   EXPECT_EQ(r->Rlocation("c/d"), dir + "/c/d");
@@ -326,12 +328,12 @@ TEST_F(RunfilesTest, ManifestAndDirectoryBasedRunfilesRlocationAndEnvVars) {
 TEST_F(RunfilesTest, ManifestBasedRunfilesEnvVars) {
   unique_ptr<MockFile> mf(
       MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles_manifest")));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
 
   string error;
   unique_ptr<Runfiles> r(
       Runfiles::Create("ignore-argv0", mf->Path(), "", &error));
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   AssertEnvvars(*r, mf->Path(), "");
@@ -345,8 +347,9 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromDirectoryNextToBinary) {
       0, mf->Path().size() - string(".runfiles/dummy").size()));
 
   string error;
-  unique_ptr<Runfiles> r(Runfiles::Create(argv0, "", "", &error));
-  ASSERT_NE(r, nullptr);
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"", &error));
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   EXPECT_EQ(r->Rlocation("a/b"), argv0 + ".runfiles/a/b");
@@ -364,7 +367,7 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
 
   string error;
   unique_ptr<Runfiles> r(Runfiles::Create("ignore-argv0", "", dir, &error));
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   EXPECT_EQ(r->Rlocation("a/b"), dir + "/a/b");
@@ -378,22 +381,23 @@ TEST_F(RunfilesTest, CreatesDirectoryBasedRunfilesFromEnvvar) {
 TEST_F(RunfilesTest, FailsToCreateAnyRunfilesBecauseEnvvarsAreNotDefined) {
   unique_ptr<MockFile> mf(
       MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles/MANIFEST")));
-  EXPECT_TRUE(mf != nullptr);
+  ASSERT_TRUE(mf != nullptr);
 
   string error;
   unique_ptr<Runfiles> r(
       Runfiles::Create("ignore-argv0", mf->Path(), "whatever", &error));
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
   // We create a directory as a side-effect of creating a mock file.
   mf.reset(MockFile::Create(string("foo" LINE_AS_STRING() ".runfiles/dummy")));
   r.reset(Runfiles::Create("ignore-argv0", "", mf->DirName(), &error));
-  ASSERT_NE(r, nullptr);
+  ASSERT_TRUE(r != nullptr);
   EXPECT_TRUE(error.empty());
 
-  r.reset(Runfiles::Create("ignore-argv0", "", "", &error));
-  ASSERT_EQ(r, nullptr);
+  r.reset(Runfiles::Create("ignore-argv0", /*runfiles_manifest_file=*/"",
+                           /*runfiles_dir=*/"", &error));
+  EXPECT_EQ(r, nullptr);
   EXPECT_NE(error.find("cannot find runfiles"), string::npos);
 }
 
@@ -419,7 +423,7 @@ TEST_F(RunfilesTest, MockFileTest) {
   {
     unique_ptr<MockFile> mf(
         MockFile::Create(string("foo" LINE_AS_STRING() "/bar1/qux")));
-    EXPECT_TRUE(mf != nullptr);
+    ASSERT_TRUE(mf != nullptr);
     path = mf->Path();
 
     std::ifstream stm(path);
@@ -436,7 +440,7 @@ TEST_F(RunfilesTest, MockFileTest) {
   {
     unique_ptr<MockFile> mf(MockFile::Create(
         string("foo" LINE_AS_STRING() "/bar2/qux"), vector<string>()));
-    EXPECT_TRUE(mf != nullptr);
+    ASSERT_TRUE(mf != nullptr);
     path = mf->Path();
 
     std::ifstream stm(path);
@@ -454,7 +458,7 @@ TEST_F(RunfilesTest, MockFileTest) {
     unique_ptr<MockFile> mf(
         MockFile::Create(string("foo" LINE_AS_STRING() "/bar3/qux"),
                          {"hello world", "you are beautiful"}));
-    EXPECT_TRUE(mf != nullptr);
+    ASSERT_TRUE(mf != nullptr);
     path = mf->Path();
 
     std::ifstream stm(path);
@@ -488,42 +492,42 @@ TEST_F(RunfilesTest, IsAbsolute) {
 }
 
 TEST_F(RunfilesTest, PathsFromEnvVars) {
-  string mf, dir;
+  string mf, dir, rm;
 
   // Both envvars have a valid value.
   EXPECT_TRUE(TestOnly_PathsFrom(
-      "argv0", "mock1/MANIFEST", "mock2",
-      [](const string& path) { return path == "mock1/MANIFEST"; },
-      [](const string& path) { return path == "mock2"; }, &mf, &dir));
-  EXPECT_EQ(mf, "mock1/MANIFEST");
-  EXPECT_EQ(dir, "mock2");
+      "argv0", "mock1.runfiles/MANIFEST", "mock2.runfiles",
+      [](const string& path) { return path == "mock1.runfiles/MANIFEST"; },
+      [](const string& path) { return path == "mock2.runfiles"; }, &mf, &dir));
+  EXPECT_EQ(mf, "mock1.runfiles/MANIFEST");
+  EXPECT_EQ(dir, "mock2.runfiles");
 
   // RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good and there's a
   // runfiles manifest in the runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
-      "argv0", "mock1/MANIFEST", "mock2",
-      [](const string& path) { return path == "mock2/MANIFEST"; },
-      [](const string& path) { return path == "mock2"; }, &mf, &dir));
-  EXPECT_EQ(mf, "mock2/MANIFEST");
-  EXPECT_EQ(dir, "mock2");
+      "argv0", "mock1.runfiles/MANIFEST", "mock2.runfiles",
+      [](const string& path) { return path == "mock2.runfiles/MANIFEST"; },
+      [](const string& path) { return path == "mock2.runfiles"; }, &mf, &dir));
+  EXPECT_EQ(mf, "mock2.runfiles/MANIFEST");
+  EXPECT_EQ(dir, "mock2.runfiles");
 
   // RUNFILES_MANIFEST_FILE is invalid but RUNFILES_DIR is good, but there's no
   // runfiles manifest in the runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
-      "argv0", "mock1/MANIFEST", "mock2",
+      "argv0", "mock1.runfiles/MANIFEST", "mock2.runfiles",
       [](const string& path) { return false; },
-      [](const string& path) { return path == "mock2"; }, &mf, &dir));
+      [](const string& path) { return path == "mock2.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "");
-  EXPECT_EQ(dir, "mock2");
+  EXPECT_EQ(dir, "mock2.runfiles");
 
   // RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, and it is in
   // a valid-looking runfiles directory.
   EXPECT_TRUE(TestOnly_PathsFrom(
-      "argv0", "mock1/MANIFEST", "mock2",
-      [](const string& path) { return path == "mock1/MANIFEST"; },
-      [](const string& path) { return path == "mock1"; }, &mf, &dir));
-  EXPECT_EQ(mf, "mock1/MANIFEST");
-  EXPECT_EQ(dir, "mock1");
+      "argv0", "mock1.runfiles/MANIFEST", "mock2",
+      [](const string& path) { return path == "mock1.runfiles/MANIFEST"; },
+      [](const string& path) { return path == "mock1.runfiles"; }, &mf, &dir));
+  EXPECT_EQ(mf, "mock1.runfiles/MANIFEST");
+  EXPECT_EQ(dir, "mock1.runfiles");
 
   // RUNFILES_DIR is invalid but RUNFILES_MANIFEST_FILE is good, but it is not
   // in any valid-looking runfiles directory.
@@ -578,6 +582,280 @@ TEST_F(RunfilesTest, PathsFromEnvVars) {
       [](const string& path) { return path == "argv0.runfiles"; }, &mf, &dir));
   EXPECT_EQ(mf, "argv0.runfiles/MANIFEST");
   EXPECT_EQ(dir, "argv0.runfiles");
+}
+
+TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromMain) {
+  string uid = LINE_AS_STRING();
+  unique_ptr<MockFile> rm(
+      MockFile::Create("foo" + uid + ".repo_mapping",
+                       {",config.json,config.json~1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+                        "protobuf~3.19.2,config.json,config.json~1.2.3",
+                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+  ASSERT_TRUE(rm != nullptr);
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" + uid + ".runfiles_manifest",
+      {"_repo_mapping " + rm->Path(), "config.json /etc/config.json",
+       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+       "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
+  ASSERT_TRUE(mf != nullptr);
+  string argv0(mf->Path().substr(
+      0, mf->Path().size() - string(".runfiles_manifest").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"",
+                                          /*source_repository=*/"", &error));
+  ASSERT_TRUE(r != nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("my_module/bar/runfile"),
+            "/the/path/./to/other//other runfile.txt");
+  EXPECT_EQ(r->Rlocation("my_workspace/bar/runfile"),
+            "/the/path/./to/other//other runfile.txt");
+  EXPECT_EQ(r->Rlocation("my_protobuf/foo/runfile"),
+            "C:/Actual Path\\protobuf\\runfile");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir"), "E:\\Actual Path\\Directory");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/file"),
+            "E:\\Actual Path\\Directory/file");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"),
+            "E:\\Actual Path\\Directory/de eply/nes ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"), "");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), "");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"), "");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le"), "");
+
+  EXPECT_EQ(r->Rlocation("_main/bar/runfile"),
+            "/the/path/./to/other//other runfile.txt");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+            "C:/Actual Path\\protobuf\\runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+            "E:\\Actual Path\\Directory");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+            "E:\\Actual Path\\Directory/file");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
+            "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("config.json"), "/etc/config.json");
+  EXPECT_EQ(r->Rlocation("_main"), "");
+  EXPECT_EQ(r->Rlocation("my_module"), "");
+  EXPECT_EQ(r->Rlocation("protobuf"), "");
+}
+
+TEST_F(RunfilesTest, ManifestBasedRlocationWithRepoMapping_fromOtherRepo) {
+  string uid = LINE_AS_STRING();
+  unique_ptr<MockFile> rm(
+      MockFile::Create("foo" + uid + ".repo_mapping",
+                       {",config.json,config.json~1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+                        "protobuf~3.19.2,config.json,config.json~1.2.3",
+                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+  ASSERT_TRUE(rm != nullptr);
+  unique_ptr<MockFile> mf(MockFile::Create(
+      "foo" + uid + ".runfiles_manifest",
+      {"_repo_mapping " + rm->Path(), "config.json /etc/config.json",
+       "protobuf~3.19.2/foo/runfile C:/Actual Path\\protobuf\\runfile",
+       "_main/bar/runfile /the/path/./to/other//other runfile.txt",
+       "protobuf~3.19.2/bar/dir E:\\Actual Path\\Directory"}));
+  ASSERT_TRUE(mf != nullptr);
+  string argv0(mf->Path().substr(
+      0, mf->Path().size() - string(".runfiles_manifest").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"",
+                                          "protobuf~3.19.2", &error));
+  ASSERT_TRUE(r != nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
+            "C:/Actual Path\\protobuf\\runfile");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), "E:\\Actual Path\\Directory");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"),
+            "E:\\Actual Path\\Directory/file");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"),
+            "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("my_module/bar/runfile"), "");
+  EXPECT_EQ(r->Rlocation("my_protobuf/foo/runfile"), "");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir"), "");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/file"), "");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"), "");
+
+  EXPECT_EQ(r->Rlocation("_main/bar/runfile"),
+            "/the/path/./to/other//other runfile.txt");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+            "C:/Actual Path\\protobuf\\runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+            "E:\\Actual Path\\Directory");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+            "E:\\Actual Path\\Directory/file");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
+            "E:\\Actual Path\\Directory/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("config.json"), "/etc/config.json");
+  EXPECT_EQ(r->Rlocation("_main"), "");
+  EXPECT_EQ(r->Rlocation("my_module"), "");
+  EXPECT_EQ(r->Rlocation("protobuf"), "");
+}
+
+TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromMain) {
+  string uid = LINE_AS_STRING();
+  unique_ptr<MockFile> rm(
+      MockFile::Create("foo" + uid + ".runfiles/_repo_mapping",
+                       {",config.json,config.json~1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+                        "protobuf~3.19.2,config.json,config.json~1.2.3",
+                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"",
+                                          /*source_repository=*/"", &error));
+  ASSERT_TRUE(r != nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("my_module/bar/runfile"), dir + "/_main/bar/runfile");
+  EXPECT_EQ(r->Rlocation("my_workspace/bar/runfile"),
+            dir + "/_main/bar/runfile");
+  EXPECT_EQ(r->Rlocation("my_protobuf/foo/runfile"),
+            dir + "/protobuf~3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir"),
+            dir + "/protobuf~3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/file"),
+            dir + "/protobuf~3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes ted/fi~le"),
+            dir + "/protobuf~3.19.2/bar/dir/de eply/nes ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
+            dir + "/protobuf/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/dir/de eply/nes ted/fi~le"),
+            dir + "/protobuf/bar/dir/dir/de eply/nes ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("_main/bar/runfile"), dir + "/_main/bar/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+            dir + "/protobuf~3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+            dir + "/protobuf~3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+            dir + "/protobuf~3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("config.json"), dir + "/config.json");
+}
+
+TEST_F(RunfilesTest, DirectoryBasedRlocationWithRepoMapping_fromOtherRepo) {
+  string uid = LINE_AS_STRING();
+  unique_ptr<MockFile> rm(
+      MockFile::Create("foo" + uid + ".runfiles/_repo_mapping",
+                       {",config.json,config.json~1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+                        "protobuf~3.19.2,config.json,config.json~1.2.3",
+                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"",
+                                          "protobuf~3.19.2", &error));
+  ASSERT_TRUE(r != nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
+            dir + "/protobuf~3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), dir + "/protobuf~3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"),
+            dir + "/protobuf~3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("my_module/bar/runfile"),
+            dir + "/my_module/bar/runfile");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("_main/bar/runfile"), dir + "/_main/bar/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+            dir + "/protobuf~3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+            dir + "/protobuf~3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+            dir + "/protobuf~3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("config.json"), dir + "/config.json");
+}
+
+TEST_F(RunfilesTest,
+       DirectoryBasedRlocationWithRepoMapping_fromOtherRepo_withSourceRepo) {
+  string uid = LINE_AS_STRING();
+  unique_ptr<MockFile> rm(
+      MockFile::Create("foo" + uid + ".runfiles/_repo_mapping",
+                       {",config.json,config.json~1.2.3", ",my_module,_main",
+                        ",my_protobuf,protobuf~3.19.2", ",my_workspace,_main",
+                        "protobuf~3.19.2,config.json,config.json~1.2.3",
+                        "protobuf~3.19.2,protobuf,protobuf~3.19.2"}));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"",
+                                          /*source_repository=*/"", &error));
+  r = r->WithSourceRepository("protobuf~3.19.2");
+  ASSERT_TRUE(r != nullptr);
+  EXPECT_TRUE(error.empty());
+
+  EXPECT_EQ(r->Rlocation("protobuf/foo/runfile"),
+            dir + "/protobuf~3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir"), dir + "/protobuf~3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/file"),
+            dir + "/protobuf~3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("my_module/bar/runfile"),
+            dir + "/my_module/bar/runfile");
+  EXPECT_EQ(r->Rlocation("my_protobuf/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/my_protobuf/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("_main/bar/runfile"), dir + "/_main/bar/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/foo/runfile"),
+            dir + "/protobuf~3.19.2/foo/runfile");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir"),
+            dir + "/protobuf~3.19.2/bar/dir");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/file"),
+            dir + "/protobuf~3.19.2/bar/dir/file");
+  EXPECT_EQ(r->Rlocation("protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le"),
+            dir + "/protobuf~3.19.2/bar/dir/de eply/nes  ted/fi~le");
+
+  EXPECT_EQ(r->Rlocation("config.json"), dir + "/config.json");
+}
+
+TEST_F(RunfilesTest, InvalidRepoMapping) {
+  string uid = LINE_AS_STRING();
+  unique_ptr<MockFile> rm(
+      MockFile::Create("foo" + uid + ".runfiles/_repo_mapping", {"a,b"}));
+  ASSERT_TRUE(rm != nullptr);
+  string dir = rm->DirName();
+  string argv0(dir.substr(0, dir.size() - string(".runfiles").size()));
+
+  string error;
+  unique_ptr<Runfiles> r(Runfiles::Create(argv0, /*runfiles_manifest_file=*/"",
+                                          /*runfiles_dir=*/"",
+                                          /*source_repository=*/"", &error));
+  EXPECT_EQ(r, nullptr);
+  EXPECT_TRUE(error.find("bad repository mapping") != string::npos);
 }
 
 }  // namespace

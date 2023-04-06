@@ -20,15 +20,14 @@ load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/android_lint.bzl", "android_lint_action")
 load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
-load(":common/java/proguard_validation.bzl", "VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS", "validate_proguard_specs")
+load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
 
 JavaInfo = _builtins.toplevel.JavaInfo
 JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-ProtoInfo = _builtins.toplevel.ProtoInfo
-CcInfo = _builtins.toplevel.CcInfo
 
 def _filter_srcs(srcs, ext):
     return [f for f in srcs if f.extension == ext]
@@ -46,7 +45,7 @@ def _filter_javainfo_and_legacy_jars(attr):
     # Native code collected data into a NestedSet, using add for legacy jars and
     # addTransitive for JavaInfo. This resulted in legacy jars being first in the list.
     for dep in attr:
-        kind = java_common.target_kind(dep)
+        kind = java_common.target_kind(dep, dereference_aliases = True)
         if not JavaInfo in dep or kind == "java_binary" or kind == "java_test":
             for file in dep[DefaultInfo].files.to_list():
                 if file.extension == "jar":
@@ -103,7 +102,7 @@ def basic_java_library(
       javacopts: (list[str])
       neverlink: (bool) Whether this library should only be used for compilation and not at runtime.
       enable_compile_jar_action: (bool) Enables header compilation or ijar creation.
-      coverage_config: (struct{runner:Target, support_files:list[File]|depset[File], env:dict[str,str]})
+      coverage_config: (struct{runner:JavaInfo, support_files:list[File]|depset[File], env:dict[str,str]})
         Coverage configuration. `runner` is added to dependencies during
         compilation, `support_files` and `env` is returned in InstrumentedFilesInfo.
       proguard_specs: (list[File]) Files to be used as Proguard specification.
@@ -133,7 +132,7 @@ def basic_java_library(
         ctx.outputs.sourcejar,
         source_files,
         source_jars,
-        collect_deps(deps + [coverage_config.runner]) if coverage_config and coverage_config.runner else collect_deps(deps),
+        collect_deps(deps) + ([coverage_config.runner] if coverage_config and coverage_config.runner else []),
         collect_deps(runtime_deps),
         plugins_javaplugininfo,
         collect_deps(exports),
@@ -272,9 +271,4 @@ BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS = merge_attrs(
             providers = [java_common.JavaToolchainInfo],
         ),
     },
-)
-
-BASIC_JAVA_LIBRARY_WITH_PROGUARD_IMPLICIT_ATTRS = merge_attrs(
-    BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
-    VALIDATE_PROGUARD_SPECS_IMPLICIT_ATTRS,
 )

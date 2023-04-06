@@ -408,10 +408,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               .build(ruleContext));
     }
 
+    AndroidBinaryNativeLibsInfo nativeLibsInfo =
+        ruleContext.getPrerequisite("application_resources", AndroidBinaryNativeLibsInfo.PROVIDER);
+
     NativeLibs nativeLibs;
-    if (androidApplicationResourceInfo != null
-        && androidApplicationResourceInfo.getNativeLibs() != null) {
-      nativeLibs = androidApplicationResourceInfo.getNativeLibs();
+    if (nativeLibsInfo != null && nativeLibsInfo.getNativeLibs() != null) {
+      nativeLibs = nativeLibsInfo.getNativeLibs();
     } else {
       nativeLibs =
           NativeLibs.fromLinkedNativeDeps(
@@ -422,9 +424,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     final NestedSet<Artifact> nativeLibsAar;
-    if (androidApplicationResourceInfo != null
-        && androidApplicationResourceInfo.getTransitiveNativeLibs() != null) {
-      nativeLibsAar = androidApplicationResourceInfo.getTransitiveNativeLibs();
+    if (nativeLibsInfo != null && nativeLibsInfo.getTransitiveNativeLibs() != null) {
+      nativeLibsAar = nativeLibsInfo.getTransitiveNativeLibs();
     } else {
       nativeLibsAar = getTransitiveNativeLibs(ruleContext);
     }
@@ -668,8 +669,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       proguardOutput.addAllToSet(filesBuilder, finalProguardOutputMap);
     }
 
+    BaselineProfileProvider baselineprofileProvider =
+        ruleContext.getPrerequisite("application_resources", BaselineProfileProvider.PROVIDER);
     Artifact artProfileZip =
-        androidSemantics.getArtProfileForApk(ruleContext, finalClassesDex, finalProguardOutputMap);
+        (baselineprofileProvider != null)
+            ? baselineprofileProvider.getArtProfileZip()
+            : androidSemantics.getArtProfileForApk(
+                ruleContext, finalClassesDex, finalProguardOutputMap);
+
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
@@ -1957,7 +1964,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static SpawnAction.Builder singleJarSpawnActionBuilder(RuleContext ruleContext) {
-    Artifact singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
+    FilesToRunProvider singleJar = JavaToolchainProvider.from(ruleContext).getSingleJar();
     SpawnAction.Builder builder =
         createSpawnActionBuilder(ruleContext).useDefaultShellEnvironment();
     builder.setExecutable(singleJar);

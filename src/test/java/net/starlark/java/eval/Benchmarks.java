@@ -205,7 +205,7 @@ public final class Benchmarks {
       // Run benchmarks.
       System.out.printf("File %s:\n", file);
       System.out.printf(
-          "%-20s %10s %10s %10s %10s %10s\n", //
+          "%-25s %10s %10s %10s %10s %10s\n", //
           "benchmark", "ops", "cpu/op", "wall/op", "steps/op", "alloc/op");
       for (Map.Entry<String, StarlarkFunction> e : benchmarks.entrySet()) {
         String name = e.getKey();
@@ -216,7 +216,7 @@ public final class Benchmarks {
           continue;
         }
         System.out.printf(
-            "%-20s %10d %10s %10s %10d %10s\n",
+            "%-25s %10d %10s %10s %10d %10s\n",
             name,
             b.count,
             formatDuration(((double) b.time) / b.count),
@@ -311,6 +311,7 @@ public final class Benchmarks {
         start(thread);
         Starlark.fastcall(thread, f, new Object[] {this}, new Object[0]);
         stop(thread);
+        this.count += n;
 
       } catch (EvalException ex) {
         System.err.println(ex.getMessageWithStack());
@@ -358,8 +359,6 @@ public final class Benchmarks {
       this.steps += steps1 - this.steps0;
       this.alloc += alloc1 - this.alloc0;
       this.cpu += cpu1 - this.cpu0;
-
-      this.count += this.n;
 
       time0 = 0; // stopped
     }

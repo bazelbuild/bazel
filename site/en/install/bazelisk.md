@@ -3,6 +3,8 @@ Book: /_book.yaml
 
 # Installing / Updating Bazel using Bazelisk
 
+{% include "_buttons.html" %}
+
 ## Installing Bazel
 
 [Bazelisk](https://github.com/bazelbuild/bazelisk){: .external} is the

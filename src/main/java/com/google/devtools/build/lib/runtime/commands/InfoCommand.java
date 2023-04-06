@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.runtime.commands.info.ServerPidInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.StarlarkSemanticsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.WorkerMetricsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -189,16 +190,7 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      List<String> starlarkOptions = optionsParsingResult.getSkippedArgs();
       List<String> residue = optionsParsingResult.getResidue();
-      if (!starlarkOptions.isEmpty()) {
-        env.getReporter()
-            .handle(
-                Event.warn(
-                    "info command does not support starlark options. Ignoring options: "
-                        + starlarkOptions));
-      }
-
       env.getEventBus().post(new NoBuildEvent());
       if (!residue.isEmpty()) {
         ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
@@ -300,7 +292,8 @@ public class InfoCommand implements BlazeCommand {
             new DefaultsPackageInfoItem(),
             new BuildLanguageInfoItem(),
             new DefaultPackagePathInfoItem(commandOptions),
-            new StarlarkSemanticsInfoItem(commandOptions));
+            new StarlarkSemanticsInfoItem(commandOptions),
+            new WorkerMetricsInfoItem());
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

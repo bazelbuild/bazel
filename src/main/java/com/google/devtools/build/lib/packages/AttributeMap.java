@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -148,5 +147,4 @@ public interface AttributeMap {
 
   String getPackageDefaultDeprecation();
 
-  ImmutableList<String> getPackageDefaultCopts();
 }

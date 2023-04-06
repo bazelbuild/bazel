@@ -57,7 +57,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addCcLinkingContexts(depsCcInfos)
         .addDeps(ruleContext.getPrerequisites("jre_deps"))
         .addDirectCcCompilationContexts(depsCcInfos)
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setIntermediateArtifacts(new IntermediateArtifacts(ruleContext))
         .build();
   }
 

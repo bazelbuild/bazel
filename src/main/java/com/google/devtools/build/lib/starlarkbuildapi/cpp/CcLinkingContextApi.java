@@ -18,7 +18,6 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
@@ -45,8 +44,9 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
   @StarlarkMethod(
       name = "libraries_to_link",
       doc =
-          "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
-              + "deprecated. See #8118.",
+          "Returns the depset of <code>LibraryToLink</code>. May return a list but this"
+              + " is deprecated. See <a"
+              + " href=\"https://github.com/bazelbuild/bazel/issues/8118\">#8118</a>.",
       disableWithFlag = BuildLanguageOptions.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true,
       useStarlarkSemantics = true)
@@ -71,14 +71,6 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
    */
   @StarlarkMethod(name = "linkstamps", documented = false, useStarlarkThread = true)
   Depset getLinkstampsForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "go_link_c_archive",
-      documented = false,
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  @Nullable
-  ExtraLinkTimeLibraryApi getGoLinkCArchiveForStarlark(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(name = "extra_link_time_libraries", documented = false, useStarlarkThread = true)
   public Object getExtraLinkTimeLibrariesForStarlark(StarlarkThread thread) throws EvalException;

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -92,7 +93,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
-            .setPerCommandSyscallCache(SyscallCache.NO_CACHE)
+            .setSyscallCache(SyscallCache.NO_CACHE)
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
@@ -125,6 +126,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
         buildLanguageOptions,
         UUID.randomUUID(),
         ImmutableMap.of(),
+        QuiescingExecutorsImpl.forTesting(),
         new TimestampGranularityMonitor(clock));
     skyframeExecutor.setActionEnv(ImmutableMap.of());
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));

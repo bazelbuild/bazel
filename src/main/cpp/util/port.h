@@ -140,7 +140,9 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 // wherever else it appears. Find some way to not have to declare a pid_t here,
 // either by making PID handling platform-independent or some other idea; remove
 // the following typedef afterwards.
+#ifndef __MINGW32__
 typedef int pid_t;
+#endif  // __MINGW32__
 #endif  // _WIN32
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_PORT_H_

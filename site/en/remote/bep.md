@@ -3,6 +3,7 @@ Book: /_book.yaml
 
 # Build Event Protocol
 
+{% include "_buttons.html" %}
 
 The [Build Event
 Protocol](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto){: .external}
@@ -53,14 +54,14 @@ network transport, some announced build events may never be posted.
 The event graph's structure reflects the lifecycle of a command. Every BEP
 graph has the following characteristic shape:
 
-1. The root event is always a [`BuildStarted`](/docs/bep-glossary#buildstarted)
+1. The root event is always a [`BuildStarted`](/remote/bep-glossary#buildstarted)
    event. All other events are its descendants.
 1. Immediate children of the BuildStarted event contain metadata about the
    command.
 1. Events containing data produced by the command, such as files built and test
-   results, appear before the [`BuildFinished`](/docs/bep-glossary#buildfinished)
+   results, appear before the [`BuildFinished`](/remote/bep-glossary#buildfinished)
    event.
-1. The [`BuildFinished`](/docs/bep-glossary#buildfinished) event *may* be followed
+1. The [`BuildFinished`](/remote/bep-glossary#buildfinished) event *may* be followed
    by events containing summary information about the build (for example, metric
    or profiling data).
 
@@ -140,7 +141,7 @@ The BEP typically contains many references to log files (test.log, test.xml,
 etc. ) stored on the machine where Bazel is running. A remote BES server
 typically can't access these files as they are on different machines. A way to
 work around this issue is to use Bazel with [remote
-caching](/docs/remote-caching).
+caching](/remote/caching).
 Bazel will upload all output files to the remote cache (including files
 referenced in the BEP) and the BES server can then fetch the referenced files
 from the cache.

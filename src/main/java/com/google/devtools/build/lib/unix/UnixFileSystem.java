@@ -337,7 +337,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public boolean createDirectory(PathFragment path) throws IOException {
     // Note: UNIX mkdir(2), FilesystemUtils.mkdir() and createDirectory all
     // have different ways of representing failure!
-    if (NativePosixFiles.mkdir(path.toString(), 0777)) {
+    if (NativePosixFiles.mkdir(path.toString(), 0755)) {
       return true; // successfully created
     }
 
@@ -356,7 +356,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
-    NativePosixFiles.mkdirs(path.toString(), 0777);
+    NativePosixFiles.mkdirs(path.toString(), 0755);
   }
 
   @Override

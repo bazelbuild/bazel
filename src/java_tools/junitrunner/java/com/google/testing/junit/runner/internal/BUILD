@@ -1,8 +1,11 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = [
-    "//src/java_tools/junitrunner:junitrunner_package_group",
-])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = [
+        "//src/java_tools/junitrunner:junitrunner_package_group",
+    ],
+)
 
 # Internal code for the JUnit runner that does not depend on JUnit 4.
 # Code used by the JUnit runner that does depend on JUnit 4

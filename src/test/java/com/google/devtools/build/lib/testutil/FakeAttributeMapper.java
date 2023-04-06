@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.testutil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -45,7 +44,7 @@ public class FakeAttributeMapper implements AttributeMap {
 
   @Override
   public Label getLabel() {
-    return Label.parseAbsoluteUnchecked("//fake:rule");
+    return Label.parseCanonicalUnchecked("//fake:rule");
   }
 
   @Override
@@ -135,11 +134,6 @@ public class FakeAttributeMapper implements AttributeMap {
   @Override
   public String getPackageDefaultDeprecation() {
     return "???";
-  }
-
-  @Override
-  public ImmutableList<String> getPackageDefaultCopts() {
-    return ImmutableList.of();
   }
 
   public static FakeAttributeMapper empty() {

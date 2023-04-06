@@ -53,6 +53,13 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class GraphlessQueryTest extends AbstractQueryTest<Target> {
+
+  @Override
+  protected boolean includeCppToolchainDependencies() {
+    // These don't exist in graphless mode.
+    return false;
+  }
+
   @Override
   public void boundedRdepsWithError() throws Exception {
     writeFile(
@@ -60,9 +67,9 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
         "sh_library(name = 'foo', deps = [':dep'])",
         "sh_library(name = 'dep', deps = ['//bar:missing'])");
     assertThat(
-            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /*unconditionallyThrows=*/ false)
+            evalThrows("rdeps(//foo:foo, //foo:dep, 1)", /* unconditionallyThrows= */ false)
                 .getMessage())
-        .contains("errors were encountered while computing transitive closure");
+        .contains("preloading transitive closure failed");
   }
 
   @Override
@@ -82,12 +89,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
   @Test
   public void testRegressionBug1686119() {
     // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testDefaultCopts() {
-    // There's no default_copts attribute in Bazel.
   }
 
   @Override

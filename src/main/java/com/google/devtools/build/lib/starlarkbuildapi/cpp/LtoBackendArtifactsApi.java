@@ -33,7 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "CcLtoBackendArtifacts",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_MODULE,
     documented = false)
 public interface LtoBackendArtifactsApi<FileT extends FileApi> extends StarlarkValue {
 

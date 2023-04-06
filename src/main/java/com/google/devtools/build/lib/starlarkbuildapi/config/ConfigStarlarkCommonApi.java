@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -28,6 +29,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Helper utility containing functions regarding configurations.ss */
 @StarlarkBuiltin(
     name = "config_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to interact with Blaze's configurability APIs.")
 public interface ConfigStarlarkCommonApi extends StarlarkValue {
 

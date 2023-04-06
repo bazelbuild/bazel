@@ -36,15 +36,18 @@ import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubst
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
+import com.google.devtools.build.lib.rules.java.JavaBuildInfoFactory;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -95,8 +99,21 @@ public class BazelJavaSemantics implements JavaSemantics {
   private BazelJavaSemantics() {
   }
 
+  private static final String JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type";
+
+  @Override
+  public String getJavaToolchainType() {
+    return JAVA_TOOLCHAIN_TYPE;
+  }
+
   @Override
   public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {
+  }
+
+  @Override
+  public ImmutableList<Artifact> getBuildInfo(RuleContext ruleContext, int stamp)
+      throws RuleErrorException, InterruptedException {
+    return ruleContext.getBuildInfo(JavaBuildInfoFactory.KEY);
   }
 
   @Override
@@ -532,6 +549,9 @@ public class BazelJavaSemantics implements JavaSemantics {
         if (testClass == null) {
           ruleContext.ruleError("cannot determine test class");
         } else {
+          if (JavaRuntimeInfo.from(ruleContext).version() >= 17) {
+            jvmFlags.add("-Djava.security.manager=allow");
+          }
           // Always run junit tests with -ea (enable assertion)
           jvmFlags.add("-ea");
           // "suite" is a misnomer.
@@ -558,6 +578,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   public CustomCommandLine buildSingleJarCommandLine(
       String toolchainIdentifier,
       Artifact output,
+      Label label,
       String mainClass,
       ImmutableList<String> manifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -578,6 +599,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<String> addOpens) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
+            label,
             mainClass,
             manifestLines,
             buildInfoFiles,

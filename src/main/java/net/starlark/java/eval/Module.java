@@ -97,6 +97,26 @@ public final class Module implements Resolver.Module {
   }
 
   /**
+   * Returns the module (file) of the {@code depth}-th innermost enclosing Starlark function on the
+   * call stack, or null if number of the active calls that are functions defined in Starlark is
+   * less than or equal to {@code depth}.
+   *
+   * <p>This method is a temporary workaround for Starlarkification, to check {@code _builtin}
+   * restriction and should not be used anywhere else.
+   *
+   * @param depth the depth for the callstack.
+   * @throws IllegalArgumentException if {@code depth} is negative.
+   */
+  @Nullable
+  public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread, int depth) {
+    StarlarkFunction fn = thread.getInnermostEnclosingStarlarkFunction(depth);
+    if (fn != null) {
+      return fn.getModule();
+    }
+    return null;
+  }
+
+  /**
    * Returns the module (file) of the innermost enclosing Starlark function on the call stack, or
    * null if none of the active calls are functions defined in Starlark.
    *
@@ -104,12 +124,7 @@ public final class Module implements Resolver.Module {
    */
   @Nullable
   public static Module ofInnermostEnclosingStarlarkFunction(StarlarkThread thread) {
-    for (Debug.Frame fr : thread.getDebugCallStack().reverse()) {
-      if (fr.getFunction() instanceof StarlarkFunction) {
-        return ((StarlarkFunction) fr.getFunction()).getModule();
-      }
-    }
-    return null;
+    return ofInnermostEnclosingStarlarkFunction(thread, 0);
   }
 
   /**

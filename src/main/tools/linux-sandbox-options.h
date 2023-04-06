@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+enum NetNamespaceOption { NO_NETNS, NETNS, NETNS_WITH_LOOPBACK };
+
 // Options parsing result.
 struct Options {
   // Working directory (-W)
@@ -28,6 +30,8 @@ struct Options {
   int timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-t)
   int kill_delay_secs;
+  // If set, the process persists after the death of its parent thread (-p)
+  bool persistent_process;
   // Send a SIGTERM to the child on receipt of a SIGINT (-i)
   bool sigint_sends_sigterm;
   // Where to redirect stdout (-l)
@@ -46,8 +50,8 @@ struct Options {
   std::string stats_path;
   // Set the hostname inside the sandbox to 'localhost' (-H)
   bool fake_hostname;
-  // Create a new network namespace (-N)
-  bool create_netns;
+  // Create a new network namespace (-n/-N)
+  NetNamespaceOption create_netns;
   // Pretend to be root inside the namespace (-R)
   bool fake_root;
   // Set the username inside the sandbox to 'nobody' (-U)
@@ -61,6 +65,8 @@ struct Options {
   bool hermetic;
   // The sandbox root directory (-s)
   std::string sandbox_root;
+  // Directory to use for cgroup control
+  std::string cgroups_dir;
   // Command to run (--)
   std::vector<char *> args;
 };

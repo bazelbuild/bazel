@@ -3,8 +3,10 @@ Book: /_book.yaml
 
 # Using the Android Native Development Kit with Bazel
 
+{% include "_buttons.html" %}
+
 _If you're new to Bazel, please start with the [Building Android with
-Bazel](/tutorials/android-app) tutorial._
+Bazel](/start/android-app ) tutorial._
 
 ## Overview {:#overview}
 
@@ -245,8 +247,8 @@ cc_library(
 ## Integration with platforms and toolchains {:#integration-platforms}
 
 Bazel's configuration model is moving towards
-[platforms](/docs/platforms) and
-[toolchains](/docs/toolchains). If your
+[platforms](/extending/platforms) and
+[toolchains](/extending/toolchains). If your
 build uses the `--platforms` flag to select for the architecture or operating system
 to build for, you will need to pass the `--extra_toolchains` flag to Bazel in
 order to use the NDK.
@@ -321,7 +323,7 @@ any special flags, except for `--fat_apk_cpu` and `--android_crosstool_top` for
 ABI and STL configuration.
 
 Behind the scenes, this automatic configuration uses Android [configuration
-transitions](/rules/rules#configurations).
+transitions](/extending/rules#configurations).
 
 A compatible rule, like `android_binary`, automatically changes the
 configuration of its dependencies to an Android configuration, so only
@@ -386,7 +388,7 @@ With this approach, the entire build tree is affected.
 
 Note: All of the targets on the command line must be compatible with
 building for Android when specifying these flags, which may make it difficult to
-use [Bazel wild-cards](/docs/build#specifying-build-targets) like
+use [Bazel wild-cards](/run/build#specifying-build-targets) like
 `/...` and `:all`.
 
 These flags can be put into a `bazelrc` config (one for each ABI), in

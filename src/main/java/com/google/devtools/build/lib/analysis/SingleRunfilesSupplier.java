@@ -34,10 +34,12 @@ import javax.annotation.Nullable;
 /** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
 @AutoCodec
 public final class SingleRunfilesSupplier implements RunfilesSupplier {
+
   private final PathFragment runfilesDir;
   private final Runfiles runfiles;
   private final Supplier<Map<PathFragment, Artifact>> runfilesInputs;
   @Nullable private final Artifact manifest;
+  @Nullable private final Artifact repoMappingManifest;
   private final boolean buildRunfileLinks;
   private final boolean runfileLinksEnabled;
 
@@ -50,14 +52,15 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
         runfilesSupport.getRunfiles(),
         /*runfilesCachingEnabled=*/ false,
         /*manifest=*/ null,
+        runfilesSupport.getRepoMappingManifest(),
         runfilesSupport.isBuildRunfileLinks(),
         runfilesSupport.isRunfilesEnabled());
   }
 
   /**
    * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, Artifact,
-   * boolean, boolean)}, except adds caching for {@linkplain Runfiles#getRunfilesInputs runfiles
-   * inputs}.
+   * Artifact, boolean, boolean)}, except adds caching for {@linkplain Runfiles#getRunfilesInputs
+   * runfiles inputs}.
    *
    * <p>The runfiles inputs are computed lazily and softly cached. Caching is shared across
    * instances created via {@link #withOverriddenRunfilesDir}.
@@ -65,6 +68,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   public static SingleRunfilesSupplier createCaching(
       PathFragment runfilesDir,
       Runfiles runfiles,
+      @Nullable Artifact repoMappingManifest,
       boolean buildRunfileLinks,
       boolean runfileLinksEnabled) {
     return new SingleRunfilesSupplier(
@@ -72,6 +76,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
         runfiles,
         /*runfilesCachingEnabled=*/ true,
         /*manifest=*/ null,
+        repoMappingManifest,
         buildRunfileLinks,
         runfileLinksEnabled);
   }
@@ -92,6 +97,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       PathFragment runfilesDir,
       Runfiles runfiles,
       @Nullable Artifact manifest,
+      @Nullable Artifact repoMappingManifest,
       boolean buildRunfileLinks,
       boolean runfileLinksEnabled) {
     this(
@@ -99,6 +105,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
         runfiles,
         /*runfilesCachingEnabled=*/ false,
         manifest,
+        repoMappingManifest,
         buildRunfileLinks,
         runfileLinksEnabled);
   }
@@ -108,15 +115,19 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       Runfiles runfiles,
       boolean runfilesCachingEnabled,
       @Nullable Artifact manifest,
+      @Nullable Artifact repoMappingManifest,
       boolean buildRunfileLinks,
       boolean runfileLinksEnabled) {
     this(
         runfilesDir,
         runfiles,
         runfilesCachingEnabled
-            ? new RunfilesCacher(runfiles)
-            : () -> runfiles.getRunfilesInputs(/*eventHandler=*/ null, /*location=*/ null),
+            ? new RunfilesCacher(runfiles, repoMappingManifest)
+            : () ->
+                runfiles.getRunfilesInputs(
+                    /*eventHandler=*/ null, /*location=*/ null, repoMappingManifest),
         manifest,
+        repoMappingManifest,
         buildRunfileLinks,
         runfileLinksEnabled);
   }
@@ -126,6 +137,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       Runfiles runfiles,
       Supplier<Map<PathFragment, Artifact>> runfilesInputs,
       @Nullable Artifact manifest,
+      @Nullable Artifact repoMappingManifest,
       boolean buildRunfileLinks,
       boolean runfileLinksEnabled) {
     checkArgument(!runfilesDir.isAbsolute());
@@ -133,6 +145,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     this.runfiles = checkNotNull(runfiles);
     this.runfilesInputs = checkNotNull(runfilesInputs);
     this.manifest = manifest;
+    this.repoMappingManifest = repoMappingManifest;
     this.buildRunfileLinks = buildRunfileLinks;
     this.runfileLinksEnabled = runfileLinksEnabled;
   }
@@ -199,17 +212,21 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             runfiles,
             runfilesInputs,
             manifest,
+            repoMappingManifest,
             buildRunfileLinks,
             runfileLinksEnabled);
   }
 
   /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */
   private static final class RunfilesCacher implements Supplier<Map<PathFragment, Artifact>> {
+
     private final Runfiles runfiles;
+    @Nullable private final Artifact repoMappingManifest;
     private volatile SoftReference<Map<PathFragment, Artifact>> ref = new SoftReference<>(null);
 
-    RunfilesCacher(Runfiles runfiles) {
+    RunfilesCacher(Runfiles runfiles, @Nullable Artifact repoMappingManifest) {
       this.runfiles = runfiles;
+      this.repoMappingManifest = repoMappingManifest;
     }
 
     @Override
@@ -221,7 +238,9 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       synchronized (this) {
         result = ref.get();
         if (result == null) {
-          result = runfiles.getRunfilesInputs(/*eventHandler=*/ null, /*location=*/ null);
+          result =
+              runfiles.getRunfilesInputs(
+                  /*eventHandler=*/ null, /*location=*/ null, repoMappingManifest);
           ref = new SoftReference<>(result);
         }
       }

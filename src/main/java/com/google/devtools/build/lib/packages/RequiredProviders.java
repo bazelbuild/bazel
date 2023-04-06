@@ -63,6 +63,18 @@ public final class RequiredProviders {
     return getDescription();
   }
 
+  /**
+   * Returns the list of sets of acceptable Starlark providers for a restricted constraint, or an
+   * empty list for an "any" or "none" constraint.
+   *
+   * <p>This method is intended for documentation generation. Do not use it for evaluating whether
+   * provider constraints are satisfied: it does not distinguish between {@code acceptsAny} and
+   * {@code acceptsNone}, and it does not export built-in TransitiveInfoProvider constraints.
+   */
+  public ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> getStarlarkProviders() {
+    return starlarkProviders;
+  }
+
   /** Represents one of the constraints as desctibed in {@link RequiredProviders} */
   @VisibleForSerialization
   enum Constraint {
@@ -328,6 +340,18 @@ public final class RequiredProviders {
    */
   public static Builder acceptAnyBuilder() {
     return new Builder(false);
+  }
+
+  /**
+   * Mutates the given {@link AspectDefinition.Builder}, adding in the required providers specified
+   * by this {@link RequiredProviders}.
+   *
+   * <p>We use this indirection for the sake of encapsulating the internal representation of {@link
+   * RequiredProviders}.
+   */
+  void addToAspectDefinitionBuilder(AspectDefinition.Builder aspectDefinitionBuilder) {
+    aspectDefinitionBuilder.requireProviderSets(builtinProviders);
+    aspectDefinitionBuilder.requireStarlarkProviderSets(starlarkProviders);
   }
 
   /**

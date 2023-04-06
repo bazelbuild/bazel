@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_testonly = True,
     default_visibility = ["//src:__subpackages__"],
 )
@@ -34,6 +35,10 @@ test_suite(
 java_library(
     name = "PythonTestUtils",
     srcs = ["PythonTestUtils.java"],
+    deps = [
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:junit4",
+    ],
 )
 
 java_test(
@@ -54,7 +59,6 @@ java_test(
     name = "PyRuntimeConfiguredTargetTest",
     srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
-        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -98,6 +102,7 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":PyExecutableTestBase",
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
@@ -162,6 +167,7 @@ java_test(
     name = "PythonSrcsVersionAspectTest",
     srcs = ["PythonSrcsVersionAspectTest.java"],
     deps = [
+        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -208,10 +214,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//third_party:junit4",
         "//third_party:truth",
     ],

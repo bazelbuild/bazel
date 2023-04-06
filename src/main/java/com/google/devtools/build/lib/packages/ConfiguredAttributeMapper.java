@@ -17,8 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -150,9 +148,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
                       + " expression",
                   attributeName));
         }
-        Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
         @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue(null);
+        T defaultValue = (T) attr.getDefaultValue();
         resolvedList.add(defaultValue);
       } else {
         resolvedList.add(resolvedPath.value);
@@ -164,7 +161,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private static class ConfigKeyAndValue<T> {
     final Label configKey;
     final T value;
-    /** If null, this means the default condition (doesn't correspond to a config_setting). * */
+    /** If null, this means the default condition (doesn't correspond to a config_setting). */
     @Nullable final ConfigMatchingProvider provider;
 
     ConfigKeyAndValue(Label key, T value, @Nullable ConfigMatchingProvider provider) {
@@ -183,42 +180,42 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
     LinkedHashSet<Label> conditionLabels = new LinkedHashSet<>();
 
     // Find the matching condition and record its value (checking for duplicates).
-    for (Map.Entry<Label, T> entry : selector.getEntries().entrySet()) {
-      Label selectorKey = entry.getKey();
-      if (BuildType.Selector.isDefaultConditionLabel(selectorKey)) {
-        continue;
-      }
-
-      ConfigMatchingProvider curCondition = configConditions.get(selectorKey);
-      if (curCondition == null) {
-        // This can happen if the rule is in error
-        continue;
-      }
-      conditionLabels.add(selectorKey);
-
-      if (curCondition.matches()) {
-        // We keep track of all matches which are more precise than any we have found so far.
-        // Therefore, we remove any previous matches which are strictly less precise than this
-        // one, and only add this one if none of the previous matches are more precise.
-        // It is an error if we do not end up with only one most-precise match.
-        boolean suppressed = false;
-        Iterator<Map.Entry<Label, ConfigKeyAndValue<T>>> it =
-            matchingConditions.entrySet().iterator();
-        while (it.hasNext()) {
-          ConfigMatchingProvider existingMatch = it.next().getValue().provider;
-          if (curCondition.refines(existingMatch)) {
-            it.remove();
-          } else if (existingMatch.refines(curCondition)) {
-            suppressed = true;
-            break;
+    selector.forEach(
+        (selectorKey, value) -> {
+          if (BuildType.Selector.isDefaultConditionLabel(selectorKey)) {
+            return;
           }
-        }
-        if (!suppressed) {
-          matchingConditions.put(
-              selectorKey, new ConfigKeyAndValue<>(selectorKey, entry.getValue(), curCondition));
-        }
-      }
-    }
+
+          ConfigMatchingProvider curCondition = configConditions.get(selectorKey);
+          if (curCondition == null) {
+            // This can happen if the rule is in error
+            return;
+          }
+          conditionLabels.add(selectorKey);
+
+          if (curCondition.matches()) {
+            // We keep track of all matches which are more precise than any we have found so
+            // far. Therefore, we remove any previous matches which are strictly less precise
+            // than this one, and only add this one if none of the previous matches are more
+            // precise. It is an error if we do not end up with only one most-precise match.
+            boolean suppressed = false;
+            Iterator<Map.Entry<Label, ConfigKeyAndValue<T>>> it =
+                matchingConditions.entrySet().iterator();
+            while (it.hasNext()) {
+              ConfigMatchingProvider existingMatch = it.next().getValue().provider;
+              if (curCondition.refines(existingMatch)) {
+                it.remove();
+              } else if (existingMatch.refines(curCondition)) {
+                suppressed = true;
+                break;
+              }
+            }
+            if (!suppressed) {
+              matchingConditions.put(
+                  selectorKey, new ConfigKeyAndValue<>(selectorKey, value, curCondition));
+            }
+          }
+        });
 
     if (matchingConditions.size() > 1) {
       throw new ValidationException(

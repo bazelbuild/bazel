@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import java.time.Instant;
-import javax.annotation.Nullable;
 
 /**
  * Contains data about worker statistics during execution. This class contains data for {@link
@@ -28,13 +28,12 @@ public abstract class WorkerMetric {
 
   public abstract WorkerProperties getWorkerProperties();
 
-  @Nullable
   public abstract WorkerStat getWorkerStat();
 
   public abstract boolean isMeasurable();
 
   public static WorkerMetric create(
-      WorkerProperties workerProperties, @Nullable WorkerStat workerStat, boolean isMeasurable) {
+      WorkerProperties workerProperties, WorkerStat workerStat, boolean isMeasurable) {
     return new AutoValue_WorkerMetric(workerProperties, workerStat, isMeasurable);
   }
 
@@ -55,7 +54,7 @@ public abstract class WorkerMetric {
   /** Worker properties */
   @AutoValue
   public abstract static class WorkerProperties {
-    public abstract int getWorkerId();
+    public abstract ImmutableList<Integer> getWorkerIds();
 
     public abstract long getProcessId();
 
@@ -66,9 +65,13 @@ public abstract class WorkerMetric {
     public abstract boolean isSandboxed();
 
     public static WorkerProperties create(
-        int workerId, long processId, String mnemonic, boolean isMultiplex, boolean isSandboxed) {
+        ImmutableList<Integer> workerIds,
+        long processId,
+        String mnemonic,
+        boolean isMultiplex,
+        boolean isSandboxed) {
       return new AutoValue_WorkerMetric_WorkerProperties(
-          workerId, processId, mnemonic, isMultiplex, isSandboxed);
+          workerIds, processId, mnemonic, isMultiplex, isSandboxed);
     }
   }
 
@@ -78,7 +81,7 @@ public abstract class WorkerMetric {
 
     WorkerMetrics.Builder builder =
         WorkerMetrics.newBuilder()
-            .setWorkerId(workerProperties.getWorkerId())
+            .addAllWorkerIds(workerProperties.getWorkerIds())
             .setProcessId((int) workerProperties.getProcessId())
             .setMnemonic(workerProperties.getMnemonic())
             .setIsSandbox(workerProperties.isSandboxed())

@@ -20,9 +20,12 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
 import net.starlark.java.eval.FlagGuardedValue;
+import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {
@@ -34,16 +37,22 @@ public class PyBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
   private final PyInfoProviderApi pyInfoProviderApi;
-  private final PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi;
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
+  private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
+  private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
+  private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
   public PyBootstrap(
       PyInfoProviderApi pyInfoProviderApi,
-      PyRuntimeInfoProviderApi pyRuntimeInfoProviderApi,
-      PyStarlarkTransitionsApi pyStarlarkTransitionsApi) {
+      PyStarlarkTransitionsApi pyStarlarkTransitionsApi,
+      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
+      PyWrapCcInfoApi.Provider pyWrapCcInfoProvider,
+      PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
     this.pyInfoProviderApi = pyInfoProviderApi;
-    this.pyRuntimeInfoProviderApi = pyRuntimeInfoProviderApi;
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
+    this.pyWrapCcHelper = pyWrapCcHelper;
+    this.pyWrapCcInfoProvider = pyWrapCcInfoProvider;
+    this.pyCcLinkInfoParamsInfoProvider = pyCcLinkInfoParamsInfoProvider;
   }
 
   @Override
@@ -58,12 +67,28 @@ public class PyBootstrap implements Bootstrap {
         "PyRuntimeInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            pyRuntimeInfoProviderApi,
+            Starlark.NONE,
             allowedRepositories));
 
     builder.put(
         "py_transitions",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
+    builder.put(
+        "py_wrap_cc_helper_do_not_use",
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyWrapCcHelper));
+    builder.put(
+        "PyWrapCcInfo",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            pyWrapCcInfoProvider,
+            allowedRepositories));
+    builder.put(
+        "PyCcLinkParamsProvider",
+        ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
+            BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
+            pyCcLinkInfoParamsInfoProvider,
+            allowedRepositories));
   }
 }

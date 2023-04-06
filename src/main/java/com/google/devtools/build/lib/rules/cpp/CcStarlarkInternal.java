@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
@@ -35,6 +36,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.syntax.Location;
 
 /** Utility methods for rules in Starlark Builtins */
 @StarlarkBuiltin(name = "cc_internal", category = DocCategory.BUILTIN, documented = false)
@@ -91,16 +93,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     }
   }
 
-  @StarlarkMethod(
-      name = "create_cc_provider",
-      documented = false,
-      parameters = {
-        @Param(name = "cc_info", positional = false, named = true),
-      })
-  public CcStarlarkApiInfo createCcProvider(CcInfo ccInfo) {
-    return new CcStarlarkApiInfo(ccInfo);
-  }
-
   @StarlarkMethod(name = "launcher_provider", documented = false, structField = true)
   public ProviderApi getCcLauncherInfoProvider() throws EvalException {
     return CcLauncherInfo.PROVIDER;
@@ -127,24 +119,6 @@ public class CcStarlarkInternal implements StarlarkValue {
     } catch (CommandLineExpansionException | InterruptedException ex) {
       throw new EvalException(ex);
     }
-  }
-
-  static class DefaultCoptsBuiltinComputedDefault extends ComputedDefault
-      implements NativeComputedDefaultApi {
-    @Override
-    public Object getDefault(AttributeMap rule) {
-      return rule.getPackageDefaultCopts();
-    }
-
-    @Override
-    public boolean resolvableWithRawAttributes() {
-      return true;
-    }
-  }
-
-  @StarlarkMethod(name = "default_copts_computed_default", documented = false)
-  public ComputedDefault getDefaultCoptsComputedDefault() {
-    return new DefaultCoptsBuiltinComputedDefault();
   }
 
   static class DefaultHdrsCheckBuiltinComputedDefault extends ComputedDefault
@@ -181,7 +155,7 @@ public class CcStarlarkInternal implements StarlarkValue {
               // thus a dependency of the def_parser.
               || label.startsWith("@bazel_tools//tools/cpp")
           ? null
-          : Label.parseAbsoluteUnchecked("@bazel_tools//tools/def_parser:def_parser");
+          : Label.parseCanonicalUnchecked("@bazel_tools//tools/def_parser:def_parser");
     }
 
     @Override
@@ -205,7 +179,7 @@ public class CcStarlarkInternal implements StarlarkValue {
     public Object getDefault(AttributeMap rule) {
       return rule.getOrDefault("tags", Type.STRING_LIST, ImmutableList.of()).contains("__CC_STL__")
           ? null
-          : Label.parseAbsoluteUnchecked("@//third_party/stl");
+          : Label.parseCanonicalUnchecked("@//third_party/stl");
     }
 
     @Override
@@ -239,5 +213,18 @@ public class CcStarlarkInternal implements StarlarkValue {
   public CcLauncherInfo createCcLauncherInfo(
       CcInfo ccInfo, CcCompilationOutputs compilationOutputs) {
     return new CcLauncherInfo(ccInfo, compilationOutputs);
+  }
+
+  private static final StarlarkProvider starlarkCcTestRunnerInfo =
+      StarlarkProvider.builder(Location.BUILTIN)
+          .setExported(
+              new StarlarkProvider.Key(
+                  Label.parseCanonicalUnchecked("//tools/cpp/cc_test:toolchain.bzl"),
+                  "CcTestRunnerInfo"))
+          .build();
+
+  @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
+  public StarlarkProvider ccTestRunnerInfo() throws EvalException {
+    return starlarkCcTestRunnerInfo;
   }
 }

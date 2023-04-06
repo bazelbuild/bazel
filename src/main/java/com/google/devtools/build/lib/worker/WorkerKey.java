@@ -27,7 +27,7 @@ import java.util.SortedMap;
 
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
- * {@link WorkerPool}.
+ * {@link WorkerPoolImpl}.
  *
  * <p>We expect a small number of WorkerKeys per mnemonic. Unbounded creation of WorkerKeys will
  * break various things as well as render the workers less useful.
@@ -211,11 +211,12 @@ public final class WorkerKey {
     // debugging.
     return CommandFailureUtils.describeCommand(
         CommandDescriptionForm.COMPLETE,
-        /*prettyPrintArgs=*/ false,
+        /* prettyPrintArgs= */ false,
         args,
         env,
+        /* environmentVariablesToClear= */ null,
         execRoot.getPathString(),
-        /*configurationChecksum=*/ null,
-        /*executionPlatformAsLabelString=*/ null);
+        /* configurationChecksum= */ null,
+        /* executionPlatformAsLabelString= */ null);
   }
 }

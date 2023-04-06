@@ -75,4 +75,21 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
     assertThat(e).hasMessageThat().contains("private API only for use in builtins");
   }
+
+  @Test
+  public void testRunfilesEnabledIsPrivateApi() throws Exception {
+    scratch.file(
+        "example/BUILD", "load(':rule.bzl', 'custom_rule')", "custom_rule(name = 'custom')");
+
+    scratch.file(
+        "example/rule.bzl",
+        "def _impl(ctx):",
+        "  ctx.configuration.runfiles_enabled()",
+        "  return [DefaultInfo()]",
+        "custom_rule = rule(implementation = _impl)");
+
+    AssertionError e =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//example:custom"));
+    assertThat(e).hasMessageThat().contains("private API only for use in builtins");
+  }
 }
