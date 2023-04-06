@@ -22,7 +22,6 @@ import "src/main/protobuf/command_line.proto";
 import "src/main/protobuf/critical_path.proto";
 import "src/main/protobuf/failure_details.proto";
 import "src/main/protobuf/invocation_policy.proto";
-import "src/main/protobuf/spawn.proto";
 
 option java_package = "com.google.devtools.build.lib.buildeventstream";
 option java_outer_classname = "BuildEventStreamProtos";
@@ -224,7 +223,7 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
-  // Next id: 30.
+  // Next id: 28.
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -253,8 +252,6 @@ message BuildEventId {
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
     build.bazel.bep.CriticalPath.BepId critical_path = 27;
-    tools.protos.SpawnMetrics.BepId spawn_metrics = 28;
-    build.bazel.bep.CriticalPathComponent.BepId critical_path_component = 29;
   }
 }
 
@@ -1158,7 +1155,7 @@ message ConvenienceSymlink {
 // that is observed, is provided in the payload. More options for the payload
 // might be added in the future.
 //
-// Next id: 32.
+// Next id: 30.
 message BuildEvent {
   reserved 11, 19;
   BuildEventId id = 1;
@@ -1189,7 +1186,5 @@ message BuildEvent {
     BuildMetadata build_metadata = 26;
     ConvenienceSymlinksIdentified convenience_symlinks_identified = 27;
     build.bazel.bep.CriticalPath critical_path = 29;
-    tools.protos.SpawnMetrics spawn_metrics = 30;
-    build.bazel.bep.CriticalPath critical_path_component = 31;
   }
 }

@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.metrics.criticalpath;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import java.time.Duration;
@@ -102,5 +104,12 @@ public class AggregatedCriticalPath {
    */
   public String toStringSummaryNoRemote() {
     return toString(true, false);
+  }
+
+  /**Posts the {@code BEP} event for the critical path on the provided {@link EventBus}. */
+  public void postEvent(EventBus eventBus) {
+    Preconditions.checkNotNull(eventBus);
+
+    eventBus.post(new CriticalPathEvent(Duration.ofMillis(totalTimeInMs)));
   }
 }

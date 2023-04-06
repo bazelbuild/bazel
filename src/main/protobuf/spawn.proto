@@ -63,11 +63,6 @@ message Platform {
 //
 // Next id: 21
 message SpawnMetrics {
-  // Identifier of a BES event of this type.
-  message BepId {
-    SpawnExecKind exec_kind = 1;
-  }
-
   enum SpawnExecKind {
     OTHER = 0;
     REMOTE = 1;

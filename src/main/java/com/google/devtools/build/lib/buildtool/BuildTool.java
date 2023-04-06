@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.metrics.criticalpath.CriticalPathEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -694,7 +695,9 @@ public class BuildTool {
               new BuildCompleteEvent(
                   result,
                   ImmutableList.of(
-                      BuildEventIdUtil.buildToolLogs(), BuildEventIdUtil.buildMetrics())));
+                      BuildEventIdUtil.buildToolLogs(),
+                      BuildEventIdUtil.buildMetrics(),
+                      CriticalPathEvent.BEP_ID)));
     }
     // Post the build tool logs event; the corresponding local files may be contributed from
     // modules, and this has to happen after posting the BuildCompleteEvent because that's when

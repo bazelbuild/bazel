@@ -225,6 +225,8 @@ public class BuildSummaryStatsModule extends BlazeModule {
           .getResult()
           .getBuildToolLogCollection()
           .addDirectValue("process stats", spawnSummaryString.getBytes(StandardCharsets.UTF_8));
+
+      criticalPath.postEvent(eventBus);
     } finally {
       if (criticalPathComputer != null) {
         eventBus.unregister(criticalPathComputer);

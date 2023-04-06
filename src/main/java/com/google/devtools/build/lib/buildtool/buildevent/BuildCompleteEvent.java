@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool.buildevent;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -36,6 +37,7 @@ public final class BuildCompleteEvent extends BuildCompletingEvent {
     this.result = checkNotNull(result);
   }
 
+  @VisibleForTesting
   public BuildCompleteEvent(BuildResult result) {
     this(result, ImmutableList.of());
   }

@@ -21,12 +21,12 @@ import "google/protobuf/duration.proto";
 option java_package = "build.bazel.bep";
 option java_outer_classname = "CriticalPathProtos";
 // option java_api_version = 2;
+option java_multiple_files = true;
 
 // Represents the critical path of a build.
 //
 // This is an event in the Build Event Stream (BES) with the following
 // children:
-//   - `tools.protos.SpawnMetrics`
 //   - `build.bazel.bep.CriticalPathComponent`
 message CriticalPath {
   // Identifier of a BES event of this type.
@@ -34,12 +34,4 @@ message CriticalPath {
 
   // The total time of the critical path.
   google.protobuf.Duration total_time = 1;
-}
-
-// Represents a single component in the critical path.
-message CriticalPathComponent {
-  // Identifier of a BES event of this type.
-  message BepId {
-    string action_key = 1;
-  }
 }
