@@ -17,9 +17,12 @@
 load("@_builtins//:common/java/java_library.bzl", "java_library")
 load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
-load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_library")
+load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_aspect", "cc_proto_library")
 
-exported_toplevels = {}
+exported_toplevels = {
+  "cc_proto_aspect": cc_proto_aspect
+}
+
 exported_rules = {
     "java_library": java_library,
     "java_plugin": java_plugin,
