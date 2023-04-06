@@ -144,6 +144,9 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
+    if (worker.isDoomed()) {
+      return false;
+    }
     Optional<Integer> exitValue = worker.getExitValue();
     if (exitValue.isPresent()) {
       if (worker.diedUnexpectedly()) {

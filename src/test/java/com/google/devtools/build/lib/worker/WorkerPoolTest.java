@@ -23,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -239,6 +240,27 @@ public class WorkerPoolTest {
         .isTrue();
     verify(factoryMock, times(2)).makeObject(workerKey1);
     verify(factoryMock, times(1)).makeObject(workerKey2);
+  }
+
+  @Test
+  public void testBorrow_doomedWorkers() throws Exception {
+    WorkerPool workerPool =
+        new WorkerPoolImpl(
+            new WorkerPoolConfig(
+                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
+    WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
+    Worker worker1 = workerPool.borrowObject(workerKey);
+    Worker worker2 = workerPool.borrowObject(workerKey);
+
+    workerPool.setDoomedWorkers(ImmutableSet.of(worker1.getWorkerId()));
+
+    assertThat(worker1.isDoomed()).isFalse();
+    assertThat(worker2.isDoomed()).isFalse();
+
+    workerPool.returnObject(workerKey, worker1);
+
+    assertThat(worker1.isDoomed()).isTrue();
+    assertThat(worker2.isDoomed()).isFalse();
   }
 
   private static ImmutableList<Entry<String, Integer>> entryList() {

@@ -39,18 +39,24 @@ public abstract class Worker {
   protected final int workerId;
   /** The path of the log file for this worker. */
   protected final Path logFile;
+  /**
+   * Indicated that worker should be destroyed after usage. If worker doomed, then after its
+   * desctruction we automacically shrink the pool size for its worker key.
+   */
+  protected boolean doomed;
 
   public Worker(WorkerKey workerKey, int workerId, Path logFile) {
     this.workerKey = workerKey;
     this.workerId = workerId;
     this.logFile = logFile;
+    this.doomed = false;
   }
 
   /**
    * Returns a unique id for this worker. This is used to distinguish different worker processes in
    * logs and messages.
    */
-  int getWorkerId() {
+  public int getWorkerId() {
     return this.workerId;
   }
 
@@ -62,6 +68,14 @@ public abstract class Worker {
   /** Returns the worker key of this worker */
   public WorkerKey getWorkerKey() {
     return workerKey;
+  }
+
+  public boolean isDoomed() {
+    return doomed;
+  }
+
+  void setDoomed(boolean doomed) {
+    this.doomed = doomed;
   }
 
   HashCode getWorkerFilesCombinedHash() {

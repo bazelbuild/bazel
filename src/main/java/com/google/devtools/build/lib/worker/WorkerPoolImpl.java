@@ -52,6 +52,9 @@ public class WorkerPoolImpl implements WorkerPool {
   /** Map of multiplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
 
+  /** Set of worker ids which are going to be destroyed after they are returned to the pool */
+  private ImmutableSet<Integer> doomedWorkers = ImmutableSet.of();
+
   public WorkerPoolImpl(WorkerPoolConfig workerPoolConfig) {
     this.workerPoolConfig = workerPoolConfig;
 
@@ -113,7 +116,7 @@ public class WorkerPoolImpl implements WorkerPool {
 
   @Override
   public int getMaxTotalPerKey(WorkerKey key) {
-    return getPool(key).getMaxTotalPerKey();
+    return getPool(key).getMaxTotalPerKey(key);
   }
 
   public int getNumIdlePerKey(WorkerKey key) {
@@ -193,6 +196,9 @@ public class WorkerPoolImpl implements WorkerPool {
     if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
       decrementHighPriorityWorkerCount();
     }
+    if (doomedWorkers.contains(obj.getWorkerId())) {
+      obj.setDoomed(true);
+    }
     getPool(key).returnObject(key, obj);
   }
 
@@ -200,6 +206,9 @@ public class WorkerPoolImpl implements WorkerPool {
   public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
     if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
       decrementHighPriorityWorkerCount();
+    }
+    if (doomedWorkers.contains(obj.getWorkerId())) {
+      obj.setDoomed(true);
     }
     try {
       getPool(key).invalidateObject(key, obj);
@@ -230,6 +239,27 @@ public class WorkerPoolImpl implements WorkerPool {
         highPriorityWorkersInUse.wait();
       }
     }
+  }
+
+  @Override
+  public synchronized void setDoomedWorkers(ImmutableSet<Integer> workerIds) {
+    this.doomedWorkers = workerIds;
+  }
+
+  /** Clear set of doomed workers. Also reset all shrunk subtrahend of all worker pools. */
+  @Override
+  public synchronized void clearDoomedWorkers() {
+    this.doomedWorkers = ImmutableSet.of();
+    for (SimpleWorkerPool pool : workerPools.values()) {
+      pool.clearShrunkBy();
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      pool.clearShrunkBy();
+    }
+  }
+
+  ImmutableSet<Integer> getDoomedWorkers() {
+    return doomedWorkers;
   }
 
   /**
