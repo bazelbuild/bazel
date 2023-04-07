@@ -957,8 +957,8 @@ public class ParallelEvaluatorTest {
 
     graph =
         keepEdges
-            ? InMemoryGraph.create(/* usePooledSkyKeyInterning= */ true)
-            : InMemoryGraph.createEdgeless(/* usePooledSkyKeyInterning= */ true);
+            ? InMemoryGraph.create(/* usePooledInterning= */ true)
+            : InMemoryGraph.createEdgeless(/* usePooledInterning= */ true);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");

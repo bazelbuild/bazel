@@ -188,7 +188,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         trackIncrementalState ? DEFAULT_EVENT_FILTER_WITH_ACTIONS : EventFilter.NO_STORAGE,
         emittedEventState,
         trackIncrementalState,
-        /* usePooledSkyKeyInterning= */ true);
+        /* usePooledInterning= */ true);
   }
 
   @Override

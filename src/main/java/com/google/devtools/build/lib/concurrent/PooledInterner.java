@@ -42,8 +42,6 @@ import javax.annotation.Nullable;
  * <p>Subclasses are only responsible for providing the appropriate {@link Pool} by overriding
  * {@link #getPool()} method.
  */
-// TODO(b/250641010): Implement `LabelInterner` subclass to address `Label` interning memory
-//  overhead issue.
 public abstract class PooledInterner<T> implements Interner<T> {
   private final Interner<T> weakInterner = BlazeInterners.newWeakInterner();
   private final Map<?, ?> internerAsMap = getMapReflectively(weakInterner);

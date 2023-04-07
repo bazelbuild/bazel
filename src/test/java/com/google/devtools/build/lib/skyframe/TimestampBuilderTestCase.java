@@ -314,7 +314,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             EventFilter.FULL_STORAGE,
             new EmittedEventState(),
             /* keepEdges= */ true,
-            /* usePooledSkyKeyInterning= */ true);
+            /* usePooledInterning= */ true);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());

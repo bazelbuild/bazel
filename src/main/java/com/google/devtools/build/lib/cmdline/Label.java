@@ -24,6 +24,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.UsePooledLabelInterningFlag;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -80,7 +83,17 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
-  private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
+  @Nullable
+  private static final LabelInterner pooledInterner =
+      UsePooledLabelInterningFlag.usePooledLabelInterningFlag() ? new LabelInterner() : null;
+
+  private static final Interner<Label> interner =
+      pooledInterner != null ? pooledInterner : BlazeInterners.newWeakInterner();
+
+  @Nullable
+  public static LabelInterner getLabelInterner() {
+    return pooledInterner;
+  }
 
   /** The context of a current repo, necessary to parse a repo-relative label ("//foo:bar"). */
   public interface RepoContext {
@@ -234,7 +247,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     } else if (internedName.equals(SUBPACKAGES_VISIBILITY_NAME)) {
       internedName = SUBPACKAGES_VISIBILITY_NAME;
     }
-    return LABEL_INTERNER.intern(new Label(packageIdentifier, internedName));
+    return interner.intern(new Label(packageIdentifier, internedName));
   }
 
   /** The name and repository of the package. */
@@ -604,6 +617,29 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   private void checkRepoVisibilityForStarlark(String method) throws EvalException {
     if (!getRepository().isVisible()) {
       throw Starlark.errorf("'%s' is not allowed on invalid Label %s", method, this);
+    }
+  }
+
+  /** {@link PooledInterner} for {@link Label}s. */
+  public static final class LabelInterner extends PooledInterner<Label> {
+    @Nullable static Pool<Label> globalPool = null;
+
+    /**
+     * Sets the {@link Pool} to be used for interning.
+     *
+     * <p>The pool is strongly retained until another pool is set. {@code null} can be passed to
+     * clear the global pool.
+     */
+    @ThreadSafety.ThreadCompatible
+    public static void setGlobalPool(Pool<Label> pool) {
+      // No synchronization is needed. Setting global pool is guaranteed to happen sequentially
+      // since only one build can happen at the same time.
+      globalPool = pool;
+    }
+
+    @Override
+    protected Pool<Label> getPool() {
+      return globalPool;
     }
   }
 }
