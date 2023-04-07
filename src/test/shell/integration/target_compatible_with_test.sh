@@ -1609,4 +1609,33 @@ EOF
   expect_not_log "${debug_message5}"
 }
 
+function test_skipping_with_missing_toolchain() {
+  mkdir -p missing_toolchain
+
+  cat > missing_toolchain/BUILD <<'EOF'
+load(":rule.bzl", "my_rule")
+
+toolchain_type(name = "my_toolchain_type")
+
+my_rule(
+    name = "my_rule",
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+EOF
+
+  cat > missing_toolchain/rule.bzl <<'EOF'
+def _my_rule_impl(ctx):
+    pass
+
+my_rule = rule(
+    _my_rule_impl,
+    toolchains = ["//missing_toolchain:my_toolchain_type"],
+)
+EOF
+
+  bazel build --show_result=10 //missing_toolchain:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log "Target //missing_toolchain:my_rule was skipped"
+}
+
 run_suite "target_compatible_with tests"

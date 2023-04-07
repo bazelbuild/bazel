@@ -331,6 +331,7 @@ java_library(
         ":make_variable_supplier",
         ":options_diff_predicate",
         ":package_specification_provider",
+        ":platform_configuration",
         ":platform_options",
         ":provider_collection",
         ":repo_mapping_manifest_action",

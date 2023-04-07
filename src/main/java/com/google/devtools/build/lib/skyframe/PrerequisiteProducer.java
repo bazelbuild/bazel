@@ -318,6 +318,41 @@ public final class PrerequisiteProducer {
     //  would exit this SkyFunction and restart it when permits were available.
     semaphoreLocker.acquireSemaphore();
     try {
+      // Check target compatibility before requesting toolchains - known missing toolchains are a
+      // valid reason for declaring a target incompatible and should not result in the target
+      // failing to build rather than being skipped as incompatible.
+      // Non-rule targets and those that are part of the toolchain resolution system do not support
+      // target compatibility checking anyway.
+      if (targetAndConfiguration.getTarget() instanceof Rule
+          && ((Rule) targetAndConfiguration.getTarget()).useToolchainResolution()) {
+        platformInfo = loadTargetPlatformInfo(env);
+        // loadTargetPlatformInfo may return null even when no deps are missing.
+        if (env.valuesMissing()) {
+          return false;
+        }
+
+        configConditions =
+            computeConfigConditions(
+                env,
+                targetAndConfiguration,
+                transitivePackages,
+                platformInfo,
+                transitiveRootCauses);
+        if (configConditions == null) {
+          return false;
+        }
+
+        if (!checkForIncompatibleTarget(
+            env,
+            state,
+            targetAndConfiguration,
+            configConditions,
+            platformInfo,
+            transitivePackages)) {
+          return false;
+        }
+      }
+
       // Determine what toolchains are needed by this target.
       ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
@@ -335,9 +370,17 @@ public final class PrerequisiteProducer {
           unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
-      configConditions =
-          computeConfigConditions(
-              env, targetAndConfiguration, transitivePackages, platformInfo, transitiveRootCauses);
+      // Has been computed as part of checking for incompatible targets at the beginning of this
+      // function unless the current target is not a rule participating in toolchain resolution.
+      if (configConditions == null) {
+        configConditions =
+            computeConfigConditions(
+                env,
+                targetAndConfiguration,
+                transitivePackages,
+                platformInfo,
+                transitiveRootCauses);
+      }
       if (configConditions == null) {
         return false;
       }
@@ -359,10 +402,6 @@ public final class PrerequisiteProducer {
                 "Cannot compute config conditions",
                 causes,
                 getPrioritizedDetailedExitCode(causes)));
-      }
-
-      if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
-        return false;
       }
 
       // Calculate the dependencies of this target.
@@ -405,13 +444,44 @@ public final class PrerequisiteProducer {
     return true;
   }
 
+  // May return null even when no deps are missing, use env.valuesMissing() to check.
+  @Nullable
+  private PlatformInfo loadTargetPlatformInfo(Environment env)
+      throws InterruptedException, ToolchainException {
+    PlatformConfiguration platformConfiguration =
+        targetAndConfiguration.getConfiguration().getFragment(PlatformConfiguration.class);
+    if (platformConfiguration == null) {
+      // No restart required in this case.
+      return null;
+    }
+    Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
+    ConfiguredTargetKey targetPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(targetAndConfiguration.getConfiguration())
+            .build();
+
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
+        PlatformLookupUtil.getPlatformInfo(ImmutableList.of(targetPlatformKey), env);
+    if (platformInfoMap == null) {
+      return null;
+    }
+
+    return platformInfoMap.get(targetPlatformKey);
+  }
+
   /**
    * Checks if a target is incompatible because of its "target_compatible_with" attribute.
    *
    * @return false if a {@code Skyframe} restart is needed.
    */
-  private boolean checkForIncompatibleTarget(
-      Environment env, State state, @Nullable NestedSetBuilder<Package> transitivePackages)
+  private static boolean checkForIncompatibleTarget(
+      Environment env,
+      State state,
+      TargetAndConfiguration targetAndConfiguration,
+      @Nullable ConfigConditions configConditions,
+      @Nullable PlatformInfo targetPlatformInfo,
+      @Nullable NestedSetBuilder<Package> transitivePackages)
       throws InterruptedException, IncompatibleTargetException {
     if (state.incompatibleTarget == null) {
       if (state.incompatibleTargetProducer == null) {
@@ -421,7 +491,7 @@ public final class PrerequisiteProducer {
                     targetAndConfiguration.getTarget(),
                     targetAndConfiguration.getConfiguration(),
                     configConditions,
-                    platformInfo,
+                    targetPlatformInfo,
                     transitivePackages,
                     state));
       }
