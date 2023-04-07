@@ -3220,7 +3220,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
       if (skyKey.functionName().equals(SkyFunctions.GLOB)) {
         Preconditions.checkArgument(skyKey instanceof GlobDescriptor, skyKey);
-        Preconditions.checkState(!globDeps.containsKey(skyKey), skyKey);
         ImmutableList.Builder<GlobDescriptor> directDepGlobsBuilder = ImmutableList.builder();
         for (SkyKey dep : directDeps.getAllElementsAsIterable()) {
           if (dep.functionName().equals(SkyFunctions.GLOB)) {
