@@ -82,6 +82,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private static final String NAME = RuleClass.NAME_ATTRIBUTE.getName();
   private static final String GENERATOR_FUNCTION = "generator_function";
   private static final String GENERATOR_LOCATION = "generator_location";
+  private static final String GENERATOR_NAME = "generator_name";
 
   private static final int ATTR_SIZE_THRESHOLD = 126;
 
@@ -92,6 +93,26 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   private final RuleClass ruleClass;
   private final Location location;
   @Nullable private final CallStack.Node interiorCallStack;
+
+  /**
+   * The length of this rule's generator name if it is a prefix of its name, otherwise zero.
+   *
+   * <p>The generator name of a rule is the {@code name} parameter passed to a macro that
+   * instantiates the rule. Most rules instantiated via macro follow this pattern:
+   *
+   * <pre>{@code
+   * def some_macro(name):
+   *   some_rule(name = name + '_some_suffix')
+   * }</pre>
+   *
+   * thus resulting in a generator name which is a prefix of the rule name. In such a case, we save
+   * memory by storing the length of the generator name instead of the string. Note that this saves
+   * memory from both the storage in {@link #attrValues} and the string itself (if it is not
+   * otherwise retained). This optimization works because this field does not push the shallow heap
+   * cost of {@link Rule} beyond an 8-byte threshold. If it did, this optimization would be a net
+   * loss.
+   */
+  private int generatorNamePrefixLength = 0;
 
   /**
    * Stores attribute values, taking on one of two shapes:
@@ -452,6 +473,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // Avoid unnecessarily storing the name in attrValues - it's stored in the label.
       return;
     }
+    if (attrName.equals(GENERATOR_NAME)) {
+      String generatorName = (String) value;
+      if (getName().startsWith(generatorName)) {
+        generatorNamePrefixLength = generatorName.length();
+        return;
+      }
+    }
     Integer attrIndex = ruleClass.getAttributeIndex(attrName);
     checkArgument(attrIndex != null, "Attribute %s is not valid for this rule", attrName);
     if (explicit) {
@@ -527,6 +555,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         return interiorCallStack != null ? interiorCallStack.functionName() : "";
       case GENERATOR_LOCATION:
         return interiorCallStack != null ? getRelativeLocation() : "";
+      case GENERATOR_NAME:
+        return generatorNamePrefixLength > 0
+            ? getName().substring(0, generatorNamePrefixLength)
+            : "";
       default:
         return attr.getDefaultValue();
     }
@@ -588,7 +620,9 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (attrName.equals(NAME)) {
       return true;
     }
-    if (attrName.equals(GENERATOR_FUNCTION) || attrName.equals(GENERATOR_LOCATION)) {
+    if (attrName.equals(GENERATOR_FUNCTION)
+        || attrName.equals(GENERATOR_LOCATION)
+        || attrName.equals(GENERATOR_NAME)) {
       return wasCreatedByMacro();
     }
     Integer attrIndex = ruleClass.getAttributeIndex(attrName);
@@ -800,7 +834,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns whether this rule was created by a macro.
    */
   public boolean wasCreatedByMacro() {
-    return interiorCallStack != null || hasStringAttribute("generator_name");
+    return interiorCallStack != null || hasStringAttribute(GENERATOR_NAME);
   }
 
   /** Returns the macro that generated this rule, or an empty string. */
