@@ -110,7 +110,8 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         targetDescription,
         unloadedToolchainContext.requestedLabelToToolchainType(),
         toolchains,
-        templateVariableProviders.build());
+        templateVariableProviders.build(),
+        ImmutableSet.copyOf(toolchainTargets));
   }
 
   /** Returns a description of the target being used, for error messaging. */
@@ -123,6 +124,9 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
 
   /** Returns the template variables that these toolchains provide. */
   public abstract ImmutableList<TemplateVariableInfo> templateVariableProviders();
+
+  /** Returns the actual prerequisites for this context, for use in validation. */
+  public abstract ImmutableSet<ConfiguredTargetAndData> prerequisiteTargets();
 
   /**
    * Returns the toolchain for the given type, or {@code null} if the toolchain type was not

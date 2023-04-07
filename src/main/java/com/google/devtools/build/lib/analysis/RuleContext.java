@@ -141,6 +141,12 @@ public final class RuleContext extends TargetContext
 
   private static final String TOOL_CONFIGURATION_PROGRESS_TAG = "for tool";
 
+  public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
+
+  /** A fake attribute to use for toolchain-related validation errors. */
+  private static final Attribute TOOLCHAIN_ATTRIBUTE =
+      new Attribute.Builder<>(TOOLCHAIN_ATTR_NAME, BuildType.LABEL_LIST).build();
+
   private final Rule rule;
   /**
    * A list of all aspects applied to the target. If this {@code RuleContext} is for a rule
@@ -1749,53 +1755,7 @@ public final class RuleContext extends TargetContext
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
-      // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
-      // accessing attributes without a default condition.
-      // ConfigConditions.EMPTY is always true for non-rules:
-      // https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/skyframe/ConfiguredTargetFunction.java;l=943;drc=720dc5fd640de692db129777c7c7c32924627c43
-      // This can happen in BuildViewForTesting.getRuleContextForTesting as it specifies
-      // ConfigConditions.EMPTY.
-      if (attributeChecks && target instanceof Rule) {
-        checkAttributesNonEmpty(attributes);
-        checkAttributesForDuplicateLabels(attributes);
-      }
-      // This conditionally checks visibility on config_setting rules based on
-      // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
-      // to unconditionally check visibility. See
-      // https://github.com/bazelbuild/bazel/issues/12669.
-      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
-          target.getPackage().getConfigSettingVisibilityPolicy();
-      if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
-        Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
-        for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
-          validateDirectPrerequisite(
-              configSettingAttr,
-              // Another nuance: when both --incompatible_enforce_config_setting_visibility and
-              // --incompatible_config_setting_private_default_visibility are disabled, both of
-              // these are ignored:
-              //
-              //  - visibility settings on a select() -> config_setting dep
-              //  - visibility settings on a select() -> alias -> config_setting dep chain
-              //
-              // In that scenario, both are ignored because the logic here that checks the
-              // select() -> ??? edge is completely skipped.
-              //
-              // When just --incompatible_enforce_config_setting_visibility is on, that means
-              // "enforce config_setting visibility with public default". That's a temporary state
-              // to support depot migration. In that case, we continue to ignore the alias'
-              // visibility in preference for the config_setting. So skip select() -> alias as
-              // before, but now enforce select() -> config_setting_the_alias_refers_to.
-              //
-              // When we also turn on --incompatible_config_setting_private_default_visibility, we
-              // expect full standard visibility compliance. In that case we directly evaluate the
-              // alias visibility, as is usual semantics. So two the following two edges are
-              // checked: 1: select() -> alias and 2: alias -> config_setting.
-              configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
-                  ? condition.fromConfiguredTargetNoCheck(
-                      condition.getConfiguredTarget().getActual())
-                  : condition);
-        }
-      }
+      validateExtraPrerequisites(attributeChecks, attributes);
 
       return new RuleContext(
           this,
@@ -2281,6 +2241,73 @@ public final class RuleContext extends TargetContext
                   .getDescription()));
 
       return false;
+    }
+
+    /**
+     * Perform extra validation of prerequisites. Standard attribute-based dependencies are already
+     * validated as part of {@link #createTargetMap}.
+     */
+    private void validateExtraPrerequisites(
+        boolean attributeChecks, ConfiguredAttributeMapper attributes) {
+      // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
+      // accessing attributes without a default condition.
+      // ConfigConditions.EMPTY is always true for non-rules:
+      // https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/skyframe/ConfiguredTargetFunction.java;l=943;drc=720dc5fd640de692db129777c7c7c32924627c43
+      // This can happen in BuildViewForTesting.getRuleContextForTesting as it specifies
+      // ConfigConditions.EMPTY.
+      if (attributeChecks && target instanceof Rule) {
+        checkAttributesNonEmpty(attributes);
+        checkAttributesForDuplicateLabels(attributes);
+      }
+
+      // This conditionally checks visibility on config_setting rules based on
+      // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
+      // to unconditionally check visibility. See
+      // https://github.com/bazelbuild/bazel/issues/12669.
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+          target.getPackage().getConfigSettingVisibilityPolicy();
+      if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
+
+        // Validate config conditions.
+        Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
+        for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
+          validateDirectPrerequisite(
+              configSettingAttr,
+              // Another nuance: when both --incompatible_enforce_config_setting_visibility and
+              // --incompatible_config_setting_private_default_visibility are disabled, both of
+              // these are ignored:
+              //
+              //  - visibility settings on a select() -> config_setting dep
+              //  - visibility settings on a select() -> alias -> config_setting dep chain
+              //
+              // In that scenario, both are ignored because the logic here that checks the
+              // select() -> ??? edge is completely skipped.
+              //
+              // When just --incompatible_enforce_config_setting_visibility is on, that means
+              // "enforce config_setting visibility with public default". That's a temporary state
+              // to support depot migration. In that case, we continue to ignore the alias'
+              // visibility in preference for the config_setting. So skip select() -> alias as
+              // before, but now enforce select() -> config_setting_the_alias_refers_to.
+              //
+              // When we also turn on --incompatible_config_setting_private_default_visibility, we
+              // expect full standard visibility compliance. In that case we directly evaluate the
+              // alias visibility, as is usual semantics. So two the following two edges are
+              // checked: 1: select() -> alias and 2: alias -> config_setting.
+              configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
+                  ? condition.fromConfiguredTargetNoCheck(
+                      condition.getConfiguredTarget().getActual())
+                  : condition);
+        }
+      }
+
+      // Validate toolchains.
+      if (toolchainContexts != null) {
+        for (var toolchainContext : toolchainContexts.getContextMap().values()) {
+          for (var prerequisite : toolchainContext.prerequisiteTargets()) {
+            validateDirectPrerequisite(TOOLCHAIN_ATTRIBUTE, prerequisite);
+          }
+        }
+      }
     }
 
     private void validateDirectPrerequisite(
