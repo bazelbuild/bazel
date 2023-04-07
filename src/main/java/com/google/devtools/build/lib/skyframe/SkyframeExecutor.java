@@ -912,13 +912,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * idempotent, so that calls after the first one in the same evaluation should be quick.
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
-    memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
-    progressReceiver.globDeps = new ConcurrentHashMap<>();
-    globFunction.complete();
-    clearSyscallCache();
-
-    // So that the supplier object can be GC-ed.
-    mergedSkyframeAnalysisExecutionSupplier = null;
+    try {
+      memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+    } finally {
+      progressReceiver.globDeps = new ConcurrentHashMap<>();
+      globFunction.complete();
+      clearSyscallCache();
+      // So that the supplier object can be GC-ed.
+      mergedSkyframeAnalysisExecutionSupplier = null;
+    }
   }
 
   /**
