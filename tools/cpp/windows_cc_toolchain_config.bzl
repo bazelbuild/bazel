@@ -755,21 +755,6 @@ def _impl(ctx):
             ],
         )
 
-        cxxlatest_standard_feature = feature(
-            name = "c++latest",
-            provides = ["cxx_standard"],
-            flag_sets = [
-                flag_set(
-                    actions = all_cpp_compile_actions,
-                    flag_groups = ([
-                        flag_group(
-                            flags = ["/std:c++latest"],
-                        ),
-                    ]),
-                ),
-            ],
-        )
-
         msvc_compile_env_feature = feature(
             name = "msvc_compile_env",
             env_sets = [
@@ -1191,7 +1176,6 @@ def _impl(ctx):
             cxx14_standard_feature,
             cxx17_standard_feature,
             cxx20_standard_feature,
-            cxxlatest_standard_feature,
             msvc_env_feature,
             msvc_compile_env_feature,
             msvc_link_env_feature,

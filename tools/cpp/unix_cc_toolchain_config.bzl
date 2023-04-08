@@ -431,35 +431,6 @@ def _impl(ctx):
         ],
     )
 
-    c2x_standard_feature = feature(
-        name = "c2x",
-        provides = ["c_standard"],
-        flag_sets = [
-            flag_set(
-                actions = [ACTION_NAMES.c_compile],
-                flag_groups = ([
-                    flag_group(
-                        flags = ["-std=c2x"],
-                    ),
-                ]),
-                with_features = [
-                    with_feature_set(not_features = ["gnu_extensions"]),
-                ],
-            ),
-            flag_set(
-                actions = [ACTION_NAMES.c_compile],
-                flag_groups = ([
-                    flag_group(
-                        flags = ["-std=gnu2x"],
-                    ),
-                ]),
-                with_features = [
-                    with_feature_set(features = ["gnu_extensions"]),
-                ],
-            ),
-        ],
-    )
-
     cxx98_standard_feature = feature(
         name = "c++98",
         provides = ["cxx_standard"],
@@ -596,35 +567,6 @@ def _impl(ctx):
                 flag_groups = ([
                     flag_group(
                         flags = ["-std=gnu++20"],
-                    ),
-                ]),
-                with_features = [
-                    with_feature_set(features = ["gnu_extensions"]),
-                ],
-            ),
-        ],
-    )
-
-    cxx2b_standard_feature = feature(
-        name = "c++2b",
-        provides = ["cxx_standard"],
-        flag_sets = [
-            flag_set(
-                actions = all_cpp_compile_actions,
-                flag_groups = ([
-                    flag_group(
-                        flags = ["-std=c++2b"],
-                    ),
-                ]),
-                with_features = [
-                    with_feature_set(not_features = ["gnu_extensions"]),
-                ],
-            ),
-            flag_set(
-                actions = all_cpp_compile_actions,
-                flag_groups = ([
-                    flag_group(
-                        flags = ["-std=gnu++2b"],
                     ),
                 ]),
                 with_features = [
@@ -1749,13 +1691,11 @@ def _impl(ctx):
             c99_standard_feature,
             c11_standard_feature,
             c17_standard_feature,
-            c2x_standard_feature,
             cxx98_standard_feature,
             cxx11_standard_feature,
             cxx14_standard_feature,
             cxx17_standard_feature,
             cxx20_standard_feature,
-            cxx2b_standard_feature,
             default_link_flags_feature,
             libraries_to_link_feature,
             user_link_flags_feature,
@@ -1803,13 +1743,11 @@ def _impl(ctx):
             c99_standard_feature,
             c11_standard_feature,
             c17_standard_feature,
-            c2x_standard_feature,
             cxx98_standard_feature,
             cxx11_standard_feature,
             cxx14_standard_feature,
             cxx17_standard_feature,
             cxx20_standard_feature,
-            cxx2b_standard_feature,
             default_link_flags_feature,
             user_link_flags_feature,
             default_link_libs_feature,
