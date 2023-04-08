@@ -156,6 +156,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     }
 
     final boolean isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+    final long lastChangeTime = WindowsFileOperations.getLastChangeTime(
+        getNioPath(path).toString(), followSymlinks);
     FileStatus status =
         new FileStatus() {
           @Override
@@ -193,8 +195,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
+            return lastChangeTime;
           }
 
           @Override
