@@ -228,7 +228,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
               + ":\n"
               + Joiner.on("\n").join(matchingConditions.keySet())
               + "\nMultiple matches are not allowed unless one is unambiguously "
-              + "more specialized or they resolve to the same value.");
+              + "more specialized or they resolve to the same value. "
+              + "See https://bazel.build/reference/be/functions#select.");
     } else if (matchingConditions.size() > 0) {
       return Iterables.getFirst(matchingConditions.values(), null);
     }
