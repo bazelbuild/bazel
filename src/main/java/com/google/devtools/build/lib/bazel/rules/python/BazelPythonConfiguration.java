@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -36,7 +37,7 @@ import net.starlark.java.annot.StarlarkMethod;
 
 /** Bazel-specific Python configuration. */
 @Immutable
-@StarlarkBuiltin(name = "bazel_py")
+@StarlarkBuiltin(name = "bazel_py", category = DocCategory.CONFIGURATION_FRAGMENT)
 @RequiresOptions(options = {BazelPythonConfiguration.Options.class, PythonOptions.class})
 public class BazelPythonConfiguration extends Fragment {
 

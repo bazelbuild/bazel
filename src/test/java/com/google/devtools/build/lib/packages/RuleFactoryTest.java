@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -40,9 +42,8 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private final ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
@@ -50,11 +51,10 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> DUMMY_STACK =
       ImmutableList.of(
-          new StarlarkThread.CallStackEntry(
-              "<toplevel>", Location.fromFileLineColumn("BUILD", 42, 1)),
-          new StarlarkThread.CallStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
-          new StarlarkThread.CallStackEntry(
-              "myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
+          StarlarkThread.callStackEntry(
+              StarlarkThread.TOP_LEVEL, Location.fromFileLineColumn("BUILD", 42, 1)),
+          StarlarkThread.callStackEntry("foo", Location.fromFileLineColumn("foo.bzl", 10, 1)),
+          StarlarkThread.callStackEntry("myrule", Location.fromFileLineColumn("bar.bzl", 30, 6)));
 
   private Package.Builder newBuilder(PackageIdentifier id, Path filename) {
     return packageFactory
@@ -70,13 +70,19 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testCreateRule() throws Exception {
+  public void testCreateRule(@TestParameter boolean explicitlySetGeneratorAttrs) throws Exception {
     Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();
     attributeValues.put("name", "foo");
     attributeValues.put("alwayslink", true);
+
+    // TODO(b/274802222): Should this be prohibited?
+    if (explicitlySetGeneratorAttrs) {
+      attributeValues.put("generator_name", "fake_generator_name");
+      attributeValues.put("generator_function", "fake_generator_function");
+    }
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
     Rule rule =
@@ -249,7 +255,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
               Label.create(pkg.getPackageIdentifier(), "myrule"),
               ruleClass,
               Location.fromFile(myPkgPath.toString()),
-              CallStack.EMPTY);
+              /* interiorCallStack= */ null);
       if (TargetUtils.isTestRule(rule)) {
         assertAttr(ruleClass, "tags", Type.STRING_LIST);
         assertAttr(ruleClass, "size", Type.STRING);

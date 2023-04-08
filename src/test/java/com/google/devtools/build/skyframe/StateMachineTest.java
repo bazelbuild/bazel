@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -66,7 +65,7 @@ public final class StateMachineTest {
             Version.minimal(),
             tester.getSkyFunctionMap(),
             reportedEvents,
-            new NestedSetVisitor.VisitedState(),
+            new EmittedEventState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             keepGoing,
@@ -170,10 +169,9 @@ public final class StateMachineTest {
       return this::step2;
     }
 
-    @Nullable
     public StateMachine step2(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(KEY_A2, sink2);
-      return null;
+      return DONE;
     }
   }
 
@@ -215,7 +213,7 @@ public final class StateMachineTest {
       // Starts submachines in parallel.
       tasks.enqueue(this::stepA1);
       tasks.enqueue(this::stepB1);
-      return null;
+      return DONE;
     }
 
     private StateMachine stepA1(Tasks tasks, ExtendedEventHandler listener) {
@@ -228,10 +226,9 @@ public final class StateMachineTest {
       return this::stepA3;
     }
 
-    @Nullable
     private StateMachine stepA3(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(KEY_A3, sinkA3);
-      return null;
+      return DONE;
     }
 
     private StateMachine stepB1(Tasks tasks, ExtendedEventHandler listener) {
@@ -244,10 +241,9 @@ public final class StateMachineTest {
       return this::stepB3;
     }
 
-    @Nullable
     private StateMachine stepB3(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(KEY_B3, sinkB3);
-      return null;
+      return DONE;
     }
   }
 
@@ -362,7 +358,7 @@ public final class StateMachineTest {
                         }
                         errorSink.set(e);
                       });
-                  return null;
+                  return StateMachine.DONE;
                 });
     var result = eval(ROOT_KEY, keepGoing);
     if (keepGoing) {
@@ -384,7 +380,6 @@ public final class StateMachineTest {
       extends ValueOrExceptionProducer<StringValue, SomeErrorException>
       implements SkyKeyComputeState {
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(
           KEY_A1,
@@ -396,7 +391,7 @@ public final class StateMachineTest {
             }
             setException(e);
           });
-      return null;
+      return DONE;
     }
   }
 
@@ -467,7 +462,6 @@ public final class StateMachineTest {
       extends ValueOrExceptionProducer<StringValue, SomeErrorException>
       implements SkyKeyComputeState {
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(KEY_A1, unusedValue -> fail("should not be reachable"));
       tasks.lookUp(
@@ -480,7 +474,7 @@ public final class StateMachineTest {
             }
             setException(e);
           });
-      return null;
+      return DONE;
     }
   }
 
@@ -542,7 +536,7 @@ public final class StateMachineTest {
         if (getException1() == null && getException2() == null) {
           setValue(SUCCESS_VALUE);
         }
-        return null;
+        return DONE;
       };
     }
   }
@@ -724,11 +718,10 @@ public final class StateMachineTest {
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.enqueue(other);
       tasks.lookUp(KEY_B1, v -> assertThat(v).isEqualTo(VALUE_B1));
-      return null;
+      return DONE;
     }
   }
 
@@ -742,10 +735,9 @@ public final class StateMachineTest {
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(key, sink);
-      return null;
+      return DONE;
     }
   }
 
@@ -759,10 +751,9 @@ public final class StateMachineTest {
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(key, Exception1.class, sink);
-      return null;
+      return DONE;
     }
   }
 
@@ -776,10 +767,9 @@ public final class StateMachineTest {
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(key, Exception1.class, Exception2.class, sink);
-      return null;
+      return DONE;
     }
   }
 
@@ -793,10 +783,9 @@ public final class StateMachineTest {
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       tasks.lookUp(key, Exception1.class, Exception2.class, Exception3.class, sink);
-      return null;
+      return DONE;
     }
   }
 

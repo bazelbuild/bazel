@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics.WorkerStats;
 import java.time.Instant;
-import javax.annotation.Nullable;
 
 /**
  * Contains data about worker statistics during execution. This class contains data for {@link
@@ -29,13 +28,12 @@ public abstract class WorkerMetric {
 
   public abstract WorkerProperties getWorkerProperties();
 
-  @Nullable
   public abstract WorkerStat getWorkerStat();
 
   public abstract boolean isMeasurable();
 
   public static WorkerMetric create(
-      WorkerProperties workerProperties, @Nullable WorkerStat workerStat, boolean isMeasurable) {
+      WorkerProperties workerProperties, WorkerStat workerStat, boolean isMeasurable) {
     return new AutoValue_WorkerMetric(workerProperties, workerStat, isMeasurable);
   }
 

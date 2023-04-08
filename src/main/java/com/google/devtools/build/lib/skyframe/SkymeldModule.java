@@ -31,13 +31,13 @@ public class SkymeldModule extends BlazeModule {
     PathPackageLocator packageLocator = env.getPackageLocator();
     BuildRequestOptions buildRequestOptions =
         env.getOptions().getOptions(BuildRequestOptions.class);
+    boolean plainValueFromFlag = getPlainValueFromFlag(buildRequestOptions);
     // --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
     // analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
     // should be ignored.
     // Aquery and Cquery implicitly set --nobuild, so there's no need to have a warning here: it
     // makes no different from the users' perspective.
-    if (buildRequestOptions != null
-        && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
+    if (plainValueFromFlag
         && !buildRequestOptions.performExecutionPhase
         && !(commandName.equals("aquery") || commandName.equals("cquery"))) {
       env.getReporter()
@@ -46,7 +46,15 @@ public class SkymeldModule extends BlazeModule {
                   "--experimental_merged_skyframe_analysis_execution is incompatible with --nobuild"
                       + " and will be ignored."));
     }
-    boolean plainValueFromFlag = getPlainValueFromFlag(buildRequestOptions);
+    // TODO(b/245922903): Make --explain compatible with Skymeld.
+    if (plainValueFromFlag && buildRequestOptions.explanationPath != null) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "--experimental_merged_skyframe_analysis_execution is incompatible with --explain"
+                      + " and will be ignored."));
+    }
+
     boolean havingMultiPackagePath =
         packageLocator != null && packageLocator.getPathEntries().size() > 1;
     // TODO(b/246324830): Skymeld and multi-package_path are incompatible.
@@ -61,6 +69,7 @@ public class SkymeldModule extends BlazeModule {
     }
     return plainValueFromFlag
         && buildRequestOptions.performExecutionPhase
+        && buildRequestOptions.explanationPath == null
         && !havingMultiPackagePath;
   }
 

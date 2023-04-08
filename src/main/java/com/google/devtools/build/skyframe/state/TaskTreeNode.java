@@ -91,7 +91,7 @@ final class TaskTreeNode implements StateMachine.Tasks {
   /** Runs the state machine bound to this node. */
   void run(ExtendedEventHandler listener) throws InterruptedException {
     checkState(pendingChildCount == 0);
-    while (state != null) {
+    while (state != StateMachine.DONE) {
       state = state.step(this, listener);
       if (pendingChildCount > 0) {
         return;

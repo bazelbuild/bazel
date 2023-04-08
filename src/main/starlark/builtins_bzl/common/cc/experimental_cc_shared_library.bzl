@@ -270,14 +270,17 @@ def _find_top_level_linker_input_labels(
     top_level_linker_input_labels_set = {}
     nodes_to_check = list(nodes)
 
+    seen_nodes_set = {}
     for i in range(2147483647):
         if i == len(nodes_to_check):
             break
 
         node = nodes_to_check[i]
         must_add_children = False
+        node_str_owners = []
         for owner in node.owners:
             owner_str = str(owner)
+            node_str_owners.append(owner_str)
             if owner_str in linker_inputs_to_be_linked_statically_map:
                 must_add_children = True
                 for linker_input in linker_inputs_to_be_linked_statically_map[owner_str]:
@@ -290,8 +293,10 @@ def _find_top_level_linker_input_labels(
                 # linker_inputs but didn't contribute any linker_input of its own.
                 must_add_children = True
 
-        if must_add_children:
+        node_key = "".join(node_str_owners)
+        if must_add_children and node_key not in seen_nodes_set:
             nodes_to_check.extend(node.children)
+            seen_nodes_set[node_key] = True
 
     return top_level_linker_input_labels_set
 

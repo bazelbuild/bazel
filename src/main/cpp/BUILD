@@ -92,9 +92,9 @@ cc_binary(
     srcs = [
         "blaze.cc",
         "blaze.h",
+        "main.cc",
         "server_process_info.cc",
         "server_process_info.h",
-        "main.cc",
     ] + select({
         "//src/conditions:windows": ["resources.o"],
         "//conditions:default": [],

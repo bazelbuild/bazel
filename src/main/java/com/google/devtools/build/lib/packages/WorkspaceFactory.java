@@ -213,14 +213,14 @@ public class WorkspaceFactory {
     builder.addRepositoryMappings(aPackage);
     for (Rule rule : aPackage.getTargets(Rule.class)) {
       try {
-        // The old rule references another Package instance and we wan't to keep the invariant that
-        // every Rule references the Package it is contained within
+        // The old rule references another Package instance, and we want to keep the invariant that
+        // every Rule references the Package it is contained within.
         Rule newRule =
             builder.createRule(
                 rule.getLabel(),
                 rule.getRuleClassObject(),
                 rule.getLocation(),
-                rule.getCallStack().toList());
+                rule.getInteriorCallStack());
         newRule.copyAttributesFrom(rule);
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
         if (rule.containsErrors()) {

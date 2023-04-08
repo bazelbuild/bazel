@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -83,6 +82,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -141,7 +141,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final int nonSkyframeGlobbingThreads;
   @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
-  private final boolean usePooledSkyKeyInterning;
+  private final boolean usePooledInterning;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -158,7 +158,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
-    boolean usePooledSkyKeyInterning = true;
+    boolean usePooledInterning = true;
 
     protected Builder(
         Root workspaceDir,
@@ -246,7 +246,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
     @CanIgnoreReturnValue
     public Builder disablePooledSkyKeyInterning() {
-      this.usePooledSkyKeyInterning = false;
+      this.usePooledInterning = false;
       return this;
     }
 
@@ -281,7 +281,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         NamedForkJoinPool.newNamedPool(
             "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
-    this.usePooledSkyKeyInterning = builder.usePooledSkyKeyInterning;
+    this.usePooledInterning = builder.usePooledInterning;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
@@ -416,9 +416,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         EvaluationProgressReceiver.NULL,
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
-        new NestedSetVisitor.VisitedState(),
+        new EmittedEventState(),
         /* keepEdges= */ false,
-        usePooledSkyKeyInterning);
+        usePooledInterning);
   }
 
   protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();

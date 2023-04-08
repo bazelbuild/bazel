@@ -45,7 +45,7 @@ public class LabelConstants {
       PathFragment.create("WORKSPACE.bazel");
   public static final PathFragment MODULE_DOT_BAZEL_FILE_NAME = PathFragment.create("MODULE.bazel");
 
-  public static final PathFragment MODULE_LOCKFILE_NAME = PathFragment.create("MODULE.lock.bazel");
+  public static final PathFragment MODULE_LOCKFILE_NAME = PathFragment.create("MODULE.bazel.lock");
 
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 

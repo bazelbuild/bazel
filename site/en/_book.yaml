@@ -161,13 +161,13 @@ upper_tabs:
         path: /configure/windows
       - heading: Build performance
       - title: Extracting build performance metrics
-        path: /configure/build-performance-metrics
+        path: /advanced/performance/build-performance-metrics
       - title: Breaking down build performance
-        path: /configure/build-performance-breakdown
+        path: /advanced/performance/build-performance-breakdown
       - title: JSON trace profile
-        path: /configure/json-trace-profile
+        path: /advanced/performance/json-trace-profile
       - title: Optimize memory
-        path: /configure/memory
+        path: /advanced/performance/memory
     - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)

@@ -79,7 +79,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.spelling.SpellChecker;
-import net.starlark.java.syntax.Location;
 
 /**
  * Instances of RuleClass encapsulate the set of attributes of a given "class" of rule, such as
@@ -227,12 +226,15 @@ public class RuleClass {
     /** The rule should not use toolchain resolution. */
     DISABLED,
     /**
-     * The rule instance uses toolchain resolution if it has a select().
+     * The rule instance uses toolchain resolution if it has a select() or has a
+     * target_compatible_with attribute.
      *
      * <p>This is for rules that don't intrinsically use toolchains but have select()s on {@link
-     * com.google.devtools.build.lib.rules.platform.ConstraintValue}, which are part of the build's
-     * platform. Such instances need to know what platform the build is targeting, which Bazel won't
-     * provide unless toolchain resolution is enabled.
+     * com.google.devtools.build.lib.rules.platform.ConstraintValue} or have a
+     * target_compatible_with attribute with {@link
+     * com.google.devtools.build.lib.rules.platform.ConstraintValue} targets, which are part of the
+     * build's platform. Such instances need to know what platform the build is targeting, which
+     * Bazel won't provide unless toolchain resolution is enabled.
      *
      * <p>This is set statically in rule definitions on an opt-in basis. Bazel doesn't automatically
      * infer this for any target with a select().
@@ -241,7 +243,7 @@ public class RuleClass {
      * href="https://github.com/bazelbuild/bazel/issues/12899#issuecomment-767759147}#12899</a>is
      * addressed, so platforms are unconditionally provided for all rules.
      */
-    HAS_SELECT,
+    ENABLED_ONLY_FOR_COMMON_LOGIC,
     /** The rule should inherit the value from its parent rules. */
     INHERIT;
 
@@ -266,7 +268,7 @@ public class RuleClass {
         case ENABLED:
           return true;
         case DISABLED:
-        case HAS_SELECT: // Not true for RuleClass, but Rule may enable it.
+        case ENABLED_ONLY_FOR_COMMON_LOGIC: // Not true for RuleClass, but Rule may enable it.
           return false;
         default:
       }
@@ -1991,10 +1993,9 @@ public class RuleClass {
       Label ruleLabel,
       AttributeValues<T> attributeValues,
       EventHandler eventHandler,
-      Location location,
       List<StarlarkThread.CallStackEntry> callstack)
       throws LabelSyntaxException, InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack);
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     checkAspectAllowedValues(rule, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
@@ -2014,11 +2015,10 @@ public class RuleClass {
       Package.Builder pkgBuilder,
       Label ruleLabel,
       AttributeValues<T> attributeValues,
-      Location location,
-      List<StarlarkThread.CallStackEntry> callstack,
+      CallStack.Node callstack,
       ImplicitOutputsFunction implicitOutputsFunction)
       throws InterruptedException, CannotPrecomputeDefaultsException {
-    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, callstack);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, callstack.toLocation(), callstack.next());
     populateRuleAttributeValues(rule, pkgBuilder, attributeValues, NullEventHandler.INSTANCE);
     rule.populateOutputFilesUnchecked(pkgBuilder, implicitOutputsFunction);
     return rule;

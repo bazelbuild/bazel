@@ -20,6 +20,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/python:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

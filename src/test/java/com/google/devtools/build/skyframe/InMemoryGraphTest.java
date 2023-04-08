@@ -53,7 +53,7 @@ public class InMemoryGraphTest extends GraphTest {
 
     @Override
     protected ProcessableGraph getGraph(Version version) {
-      return new EdgelessInMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
+      return new EdgelessInMemoryGraphImpl(/* usePooledInterning= */ true);
     }
 
     @Override

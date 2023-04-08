@@ -34,6 +34,7 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
 import net.starlark.java.syntax.Location;
 
@@ -71,7 +72,7 @@ public final class BzlmodRepoRuleCreator {
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
     ImmutableList<CallStackEntry> callStack =
-        ImmutableList.of(new CallStackEntry(callStackEntry, Location.BUILTIN));
+        ImmutableList.of(StarlarkThread.callStackEntry(callStackEntry, Location.BUILTIN));
     Rule rule;
     try {
       rule =

@@ -109,17 +109,6 @@ public class WorkerOptions extends OptionsBase {
   public List<Map.Entry<String, Integer>> workerMaxMultiplexInstances;
 
   @Option(
-      name = "high_priority_workers",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Mnemonics of workers to run with high priority. When high priority workers are running "
-              + "all other workers are throttled.",
-      allowMultiple = true)
-  public List<String> highPriorityWorkers;
-
-  @Option(
       name = "worker_quit_after_build",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -221,4 +210,14 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
   public boolean sandboxHardening;
+
+  @Option(
+      name = "experimental_shrink_worker_pool",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If enabled, could shrink worker pool if worker memory pressure is high. This flag works"
+              + " only when flag experimental_total_worker_memory_limit_mb is enabled.")
+  public boolean shrinkWorkerPool;
 }

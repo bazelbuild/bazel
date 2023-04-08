@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -33,6 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Helper functions for Starlark to access coverage-related infrastructure */
 @StarlarkBuiltin(
     name = "coverage_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,

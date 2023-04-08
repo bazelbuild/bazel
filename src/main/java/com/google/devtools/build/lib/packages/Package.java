@@ -444,16 +444,6 @@ public class Package {
    * and be shared publicly.
    */
   private void finishInit(Builder builder) {
-    // If any error occurred during evaluation of this package, consider all
-    // rules in the package to be "in error" also (even if they were evaluated
-    // prior to the error).  This behaviour is arguably stricter than need be,
-    // but stopping a build only for some errors but not others creates user
-    // confusion.
-    if (builder.containsErrors) {
-      for (Rule rule : builder.getRules()) {
-        rule.setContainsErrors();
-      }
-    }
     this.filename = builder.getFilename();
     this.packageDirectory = filename.asPath().getParentDirectory();
     String baseName = filename.getRootRelativePath().getBaseName();
@@ -487,7 +477,7 @@ public class Package {
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
     this.buildFile = builder.buildFile;
-    this.containsErrors = builder.containsErrors;
+    this.containsErrors |= builder.containsErrors;
     this.failureDetail = builder.getFailureDetail();
     this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
@@ -591,6 +581,10 @@ public class Package {
    */
   public boolean containsErrors() {
     return containsErrors;
+  }
+
+  void setContainsErrors() {
+    containsErrors = true;
   }
 
   /**
@@ -983,7 +977,6 @@ public class Package {
     private final Package pkg;
 
     private final boolean noImplicitFileExport;
-    private static final CallStack.Factory callStackFactory = new CallStack.Factory();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
@@ -1529,11 +1522,20 @@ public class Package {
      * state.
      */
     Rule createRule(
+        Label label, RuleClass ruleClass, List<StarlarkThread.CallStackEntry> callstack) {
+      return createRule(
+          label,
+          ruleClass,
+          callstack.isEmpty() ? Location.BUILTIN : callstack.get(0).location,
+          CallStack.compactInterior(callstack));
+    }
+
+    Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
-        List<StarlarkThread.CallStackEntry> callstack) {
-      return new Rule(pkg, label, ruleClass, location, callStackFactory.createFrom(callstack));
+        @Nullable CallStack.Node interiorCallStack) {
+      return new Rule(pkg, label, ruleClass, location, interiorCallStack);
     }
 
     @Nullable

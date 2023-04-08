@@ -38,7 +38,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "attr",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
         "This is a top-level module for defining the attribute schemas of a rule or aspect. Each"
             + " function returns an object representing the schema of a single attribute. These"

@@ -462,7 +462,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   /**
    * Do not use directly. Instead use {@link
-   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecution()}.
+   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecutionSourceOfTruth()}.
    */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",

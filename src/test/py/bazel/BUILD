@@ -267,8 +267,60 @@ py_library(
 py_test(
     name = "bazel_module_test",
     size = "large",
+    timeout = "eternal",
     srcs = ["bzlmod/bazel_module_test.py"],
-    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_lockfile_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_lockfile_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_overrides_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_overrides_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_repo_mapping_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_repo_mapping_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_yanked_versions_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_yanked_versions_test.py"],
     tags = [
         "requires-network",
     ],

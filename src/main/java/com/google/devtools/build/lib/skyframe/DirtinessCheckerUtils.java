@@ -76,9 +76,8 @@ public class DirtinessCheckerUtils {
     }
   }
 
-  // Visible for testing, referenced only from tests and
-  // SequencedSkyframeExecutor#invalidateFilesUnderPathForTestingImpl.
-  static class BasicFilesystemDirtinessChecker extends SkyValueDirtinessChecker {
+  /** Checks dirtiness of filesystem keys in the graph. */
+  public static class BasicFilesystemDirtinessChecker extends SkyValueDirtinessChecker {
     private final FileDirtinessChecker fdc = new FileDirtinessChecker();
     private final DirectoryDirtinessChecker ddc = new DirectoryDirtinessChecker();
     private final UnionDirtinessChecker checker =

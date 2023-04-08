@@ -145,7 +145,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
       // Display the instantiation stack, if any.
       appendStack(
           String.format("# Rule %s instantiated at (most recent call last):", rule.getName()),
-          rule.getCallStack().toList());
+          rule.reconstructCallStack());
 
       // Display the stack of the rule class definition, if any.
       appendStack(

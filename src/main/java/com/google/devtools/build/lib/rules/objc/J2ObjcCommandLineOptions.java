@@ -38,15 +38,18 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to the J2ObjC tool.")
   public List<String> translationFlags;
 
+  /*
+   *@deprecated Use J2ObjC tree shaker instead.
+   */
+  @Deprecated
   @Option(
-    name = "j2objc_dead_code_removal",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
-            + "bundle."
-  )
+      name = "j2objc_dead_code_removal",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
+              + "bundle.")
   public boolean removeDeadCode;
 
   @Option(

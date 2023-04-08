@@ -10,6 +10,9 @@ tasks:
       - "--config=bzlmod"
     build_targets:
       - "//src:bazel_nojdk"
+    include_json_profile:
+      - build
+      - test
   centos7_java11_devtoolset10:
     shards: 4
     shell_commands:
@@ -54,6 +57,9 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+    include_json_profile:
+      - build
+      - test
   ubuntu1804:
     shards: 4
     shell_commands:
@@ -92,6 +98,9 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+      - build
+      - test
   ubuntu1804_clang:
     platform: ubuntu1804
     environment:
@@ -119,6 +128,9 @@ tasks:
       - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
       - "//src/test/shell/bazel:cc_integration_test"
+    include_json_profile:
+      - build
+      - test
   ubuntu2004:
     shards: 4
     shell_commands:
@@ -157,6 +169,9 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
+    include_json_profile:
+      - build
+      - test
   macos:
     shards: 5
     shell_commands:
@@ -220,6 +235,9 @@ tasks:
       - "-//src/test/shell/bazel:bazel_determinism_test"
       # https://github.com/bazelbuild/bazel/issues/17457
       - "-//src/test/shell/bazel:jdeps_test"
+    include_json_profile:
+      - build
+      - test
   macos_arm64:
     shards: 2
     shell_commands:
@@ -280,6 +298,9 @@ tasks:
       - "-//scripts/docs:rewriter_test"
       # https://github.com/bazelbuild/bazel/issues/17007
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
+    include_json_profile:
+      - build
+      - test
   windows:
     shards: 4
     batch_commands:
@@ -339,6 +360,9 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
+    include_json_profile:
+      - build
+      - test
   rbe_ubuntu1804:
     platform: ubuntu1804
     name: "RBE"
@@ -388,7 +412,14 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
+      - "-//src/test/py/bazel:bazel_lockfile_test"
+      - "-//src/test/py/bazel:bazel_overrides_test"
+      - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/shell/bazel:verify_workspace"
+    include_json_profile:
+      - build
+      - test
   kythe_ubuntu2004:
     shell_commands:
     - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/'

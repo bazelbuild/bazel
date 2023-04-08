@@ -58,7 +58,7 @@ java_library(
     name = "memory-use-recorder",
     srcs = ["PostGCMemoryUseRecorder.java"],
     deps = [
-        ":garage-collection-metrics-util",
+        ":garbage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -73,6 +73,6 @@ java_library(
 )
 
 java_library(
-    name = "garage-collection-metrics-util",
+    name = "garbage-collection-metrics-util",
     srcs = ["GarbageCollectionMetricsUtils.java"],
 )

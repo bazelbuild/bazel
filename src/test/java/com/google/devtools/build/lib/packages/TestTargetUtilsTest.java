@@ -111,7 +111,7 @@ public final class TestTargetUtilsTest extends PackageLoadingTestCase {
             Label.parseCanonicalUnchecked("//pkg:a"),
             ruleClass,
             Location.fromFile(""),
-            CallStack.EMPTY);
+            /* interiorCallStack= */ null);
     when(ruleClass.getName()).thenReturn("positive_test");
     assertThat(filter.apply(mockRule)).isTrue();
     when(ruleClass.getName()).thenReturn("negative_test");

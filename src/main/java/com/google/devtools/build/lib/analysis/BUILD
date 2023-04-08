@@ -331,6 +331,7 @@ java_library(
         ":make_variable_supplier",
         ":options_diff_predicate",
         ":package_specification_provider",
+        ":platform_configuration",
         ":platform_options",
         ":provider_collection",
         ":repo_mapping_manifest_action",
@@ -688,7 +689,7 @@ java_library(
         ":provider_collection",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 

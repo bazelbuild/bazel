@@ -30,7 +30,7 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
-@StarlarkBuiltin(name = "CcFdoContext", category = DocCategory.TOP_LEVEL_TYPE, documented = false)
+@StarlarkBuiltin(name = "CcFdoContext", category = DocCategory.TOP_LEVEL_MODULE, documented = false)
 public interface FdoContextApi<BranchFdoProfileT extends BranchFdoProfileApi>
     extends StarlarkValue {
 

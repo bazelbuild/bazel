@@ -38,12 +38,14 @@ team-Android:
 - src/tools/android/java/com/google/devtools/build/android/**/*
 - src/test/java/com/google/devtools/build/android/**/*
 
-# team-Configurability:
-# - src/main/java/com/google/devtools/build/lib/analysis/**/*
-# - src/test/java/com/google/devtools/build/lib/analysis/**/*
-# - src/main/java/com/google/devtools/build/lib/rules/platform/**/*
-# - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
-# - tools/platforms/**/*
+team-Configurability:
+- src/main/java/com/google/devtools/build/lib/analysis/**/*
+- src/test/java/com/google/devtools/build/lib/analysis/**/*
+- src/main/java/com/google/devtools/build/lib/query2/cquery/**/*
+- src/test/java/com/google/devtools/build/lib/query2/cquery/**/*
+- src/main/java/com/google/devtools/build/lib/rules/platform/**/*
+- src/test/java/com/google/devtools/build/lib/rules/platform/**/*
+- tools/platforms/**/*
 
 # team-Rules-CPP:
 # - tools/cpp/**/*
