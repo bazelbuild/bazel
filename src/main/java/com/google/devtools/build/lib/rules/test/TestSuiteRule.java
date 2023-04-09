@@ -135,7 +135,7 @@ call this "test_suite expansion"), then Blaze builds and tests those targets.
 
 <p>A test suite to run all of the small tests in the current package.</p>
 <pre class="code">
-test_suite(
+native.test_suite(
     name = "small_tests",
     tags = ["small"],
 )
@@ -144,7 +144,7 @@ test_suite(
 <p>A test suite that runs a specified set of tests:</p>
 
 <pre class="code">
-test_suite(
+native.test_suite(
     name = "smoke_tests",
     tests = [
         "system_unittest",
@@ -155,7 +155,7 @@ test_suite(
 
 <p>A test suite to run all tests in the current package which are not flaky.</p>
 <pre class="code">
-test_suite(
+native.test_suite(
     name = "non_flaky_test",
     tags = ["-flaky"],
 )
