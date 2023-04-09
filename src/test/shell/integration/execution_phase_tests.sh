@@ -425,4 +425,46 @@ EOF
   assert_equals "foo : delta" "$(cat bazel-bin/pkg/expanded1)"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/14723
+function test_fixed_mtime_source_file() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("rules.bzl", "my_expand")
+
+my_expand(
+    name = "expand1",
+    input = "template1",
+    output = "expanded1",
+    to_sub = {"test":"foo"}
+)
+EOF
+  cat > pkg/rules.bzl <<'EOF'
+def _my_expand_impl(ctx):
+    ctx.actions.expand_template(
+        template = ctx.file.input,
+        output = ctx.outputs.output,
+        substitutions = ctx.attr.to_sub
+    )
+
+my_expand = rule(
+    implementation = _my_expand_impl,
+    attrs = {
+        "input": attr.label(allow_single_file=True),
+        "output": attr.output(),
+        "to_sub" : attr.string_dict(),
+    }
+)
+EOF
+
+  echo "test : alpha" > pkg/template1
+  touch -t 197001010000 pkg/template1
+  bazel build //pkg:expand1 || fail "Expected success"
+  assert_equals "foo : alpha" "$(cat bazel-bin/pkg/expanded1)"
+
+  echo "test : delta" > pkg/template1
+  touch -t 197001010000 pkg/template1
+  bazel build //pkg:expand1 || fail "Expected success"
+  assert_equals "foo : delta" "$(cat bazel-bin/pkg/expanded1)"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."
