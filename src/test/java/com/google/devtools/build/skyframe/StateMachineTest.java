@@ -954,7 +954,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public void accept(@Nullable SkyValue value, @Nullable Exception1 exception1) {
+    public void acceptValueOrException(@Nullable SkyValue value, @Nullable Exception1 exception1) {
       checkState(this.value == null && exception == null);
       if (value != null) {
         this.value = value;
@@ -967,7 +967,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public void accept(
+    public void acceptValueOrException2(
         @Nullable SkyValue value,
         @Nullable Exception1 exception1,
         @Nullable Exception2 exception2) {
@@ -989,7 +989,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public void accept(
+    public void acceptValueOrException3(
         @Nullable SkyValue value,
         @Nullable Exception1 exception1,
         @Nullable Exception2 exception2,
