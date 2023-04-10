@@ -505,13 +505,15 @@ public final class RuleContext extends TargetContext
       return null;
     }
     try {
-      return getFragment(
-          fragmentClass,
+      Preconditions.checkArgument(
+          isLegalFragment(fragmentClass),
+          "%s has to declare '%s' as a required fragment in order to access it."
+              + " Please update the 'fragments' argument of the rule definition "
+              + "(for example: fragments = [\"%s\"])",
+          ruleClassNameForLogging,
           name,
-          String.format(
-              " Please update the 'fragments' argument of the rule definition "
-                  + "(for example: fragments = [\"%1$s\"])",
-              name));
+          name);
+      return getConfiguration().getFragment(fragmentClass);
     } catch (IllegalArgumentException ex) { // fishy
       throw new EvalException(ex.getMessage());
     }
