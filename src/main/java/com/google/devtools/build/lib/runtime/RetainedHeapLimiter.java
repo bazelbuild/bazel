@@ -97,10 +97,10 @@ final class RetainedHeapLimiter implements MemoryPressureStatCollector {
       }
     } else if (event.wasGcLockerInitiatedGc() && heapLimiterTriggeredGc.getAndSet(false)) {
       // If System.gc() is called was while there are JNI thread(s) in the critical region, GCLocker
-      // defers the GC until those threads exit the ciritical region. However, all GCLocker
-      // initiated GCs are minor evacuation pauses, so we won't get the full GC we requested. Cancel
-      // the timeout so we can attempt System.gc() again if we're still over the threshold. See
-      // full explanation in b/263405096#comment14.
+      // defers the GC until those threads exit the critical region. However, all GCLocker initiated
+      // GCs are minor evacuation pauses, so we won't get the full GC we requested. Cancel the
+      // timeout so we can attempt System.gc() again if we're still over the threshold. See full
+      // explanation in b/263405096#comment14.
       logger.atWarning().log(
           "Observed a GCLocker initiated GC without observing a manual GC since the last call to"
               + " System.gc(), cancelling timeout to permit a retry");
