@@ -141,9 +141,6 @@ public final class PrerequisiteProducer {
     @Nullable
     private Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependenciesResult;
 
-    /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
-    @Nullable
-    private OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependenciesResult;
 
     /**
      * Non-null if all the work in {@link #computeDependencies} is already done. This field contains
@@ -412,7 +409,6 @@ public final class PrerequisiteProducer {
               transitiveRootCauses,
               env,
               resolver,
-              targetAndConfiguration,
               ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
@@ -886,7 +882,6 @@ public final class PrerequisiteProducer {
    * @param state the compute state
    * @param env the Skyframe environment
    * @param resolver the dependency resolver
-   * @param ctgValue the label and the configuration of the node
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
@@ -902,7 +897,6 @@ public final class PrerequisiteProducer {
       NestedSetBuilder<Cause> transitiveRootCauses,
       Environment env,
       SkyframeDependencyResolver resolver,
-      TargetAndConfiguration ctgValue,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -912,12 +906,12 @@ public final class PrerequisiteProducer {
           ConfiguredValueCreationException,
           AspectCreationException,
           InterruptedException {
+    if (state.computeDependenciesResult != null) {
+      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
+      return state.computeDependenciesResult;
+    }
     try {
-      if (state.computeDependenciesResult != null) {
-        state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
-        return state.computeDependenciesResult;
-      }
-
+      TargetAndConfiguration ctgValue = state.targetAndConfiguration;
       OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
       if (state.resolveConfigurationsResult != null) {
         depValueNames = state.resolveConfigurationsResult;
@@ -1004,17 +998,11 @@ public final class PrerequisiteProducer {
       }
 
       // Resolve required aspects.
-      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects;
-      if (state.resolveAspectDependenciesResult != null) {
-        depAspects = state.resolveAspectDependenciesResult;
-      } else {
-        depAspects =
-            AspectResolver.resolveAspectDependencies(
-                env, depValues, depValueNames.values(), transitivePackages);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        state.resolveAspectDependenciesResult = depAspects;
+      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
+          AspectResolver.resolveAspectDependencies(
+              env, depValues, depValueNames.values(), transitivePackages);
+      if (env.valuesMissing()) {
+        return null;
       }
 
       // Merge the dependent configured targets and aspects into a single map.
@@ -1032,7 +1020,6 @@ public final class PrerequisiteProducer {
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
       state.resolveConfiguredTargetDependenciesResult = null;
-      state.resolveAspectDependenciesResult = null;
 
       return mergeAspectsResult;
     } catch (InterruptedException e) {
@@ -1050,7 +1037,7 @@ public final class PrerequisiteProducer {
   /**
    * Returns the targets that key the configurable attributes used by this rule.
    *
-   * <p>>If the configured targets supplying those providers aren't yet resolved by the dependency
+   * <p>If the configured targets supplying those providers aren't yet resolved by the dependency
    * resolver, returns null.
    */
   @Nullable
