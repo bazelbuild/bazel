@@ -32,6 +32,7 @@ load(
     "filter_to_py_srcs",
     "union_attrs",
 )
+load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
 
 _py_builtins = _builtins.internal.py_builtins
 
@@ -76,7 +77,7 @@ def py_library_impl(ctx, *, semantics):
         DefaultInfo(files = output_sources, runfiles = runfiles),
         py_info,
         create_instrumented_files_info(ctx),
-        _py_builtins.new_py_cc_link_params_provider(cc_info = cc_info),
+        PyCcLinkParamsProvider(cc_info = cc_info),
         create_output_group_info(py_info.transitive_sources, extra_groups = {}),
     ]
 

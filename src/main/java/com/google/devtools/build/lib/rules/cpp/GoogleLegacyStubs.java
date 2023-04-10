@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcHelperApi;
@@ -204,18 +203,6 @@ public final class GoogleLegacyStubs {
    * unreachable without (discouraged) use of --experimental_google_legacy_api.
    */
   public static class PyWrapCcInfoProvider implements PyWrapCcInfoApi.Provider {
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append("<unknown object>");
-    }
-  }
-
-  /**
-   * Fake no-op implementation of {@link PyCcLinkParamsProviderApi.Provider}. This implementation
-   * should be unreachable without (discouraged) use of --experimental_google_legacy_api.
-   */
-  public static class PyCcLinkParamsProvider implements PyCcLinkParamsProviderApi.Provider {
 
     @Override
     public void repr(Printer printer) {

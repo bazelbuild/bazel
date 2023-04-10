@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
@@ -40,19 +39,16 @@ public class PyBootstrap implements Bootstrap {
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
   private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
-  private final PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider;
 
   public PyBootstrap(
       PyInfoProviderApi pyInfoProviderApi,
       PyStarlarkTransitionsApi pyStarlarkTransitionsApi,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
-      PyWrapCcInfoApi.Provider pyWrapCcInfoProvider,
-      PyCcLinkParamsProviderApi.Provider pyCcLinkInfoParamsInfoProvider) {
+      PyWrapCcInfoApi.Provider pyWrapCcInfoProvider) {
     this.pyInfoProviderApi = pyInfoProviderApi;
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
     this.pyWrapCcHelper = pyWrapCcHelper;
     this.pyWrapCcInfoProvider = pyWrapCcInfoProvider;
-    this.pyCcLinkInfoParamsInfoProvider = pyCcLinkInfoParamsInfoProvider;
   }
 
   @Override
@@ -88,7 +84,7 @@ public class PyBootstrap implements Bootstrap {
         "PyCcLinkParamsProvider",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            pyCcLinkInfoParamsInfoProvider,
+            Starlark.NONE,
             allowedRepositories));
   }
 }

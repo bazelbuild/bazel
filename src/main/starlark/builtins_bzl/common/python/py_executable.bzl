@@ -38,6 +38,7 @@ load(
 )
 load(
     ":common/python/providers.bzl",
+    "PyCcLinkParamsProvider",
     "PyRuntimeInfo",
 )
 load(
@@ -758,7 +759,7 @@ def _create_providers(
     # are cleaned up.
     if cc_info:
         providers.append(
-            _py_builtins.new_py_cc_link_params_provider(cc_info = cc_info),
+            PyCcLinkParamsProvider(cc_info = cc_info),
         )
 
     py_info, deps_transitive_sources = create_py_info(

@@ -199,7 +199,7 @@ def _PyCcLinkParamsProvider_init(cc_info):
     }
 
 # buildifier: disable=name-conventions
-StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
+PyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
     doc = ("Python-wrapper to forward CcInfo.linking_context. This is to " +
            "allow Python targets to propagate C++ linking information, but " +
            "without the Python target appearing to be a valid C++ rule dependency"),
@@ -208,6 +208,3 @@ StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = pr
         "cc_info": "A CcInfo instance; it has only linking_context set",
     },
 )
-
-# TODO(b/203567235): Re-implement in Starlark
-PyCcLinkParamsProvider = _builtins.toplevel.PyCcLinkParamsProvider  # buildifier: disable=name-conventions
