@@ -125,7 +125,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * Variation of {@link #get} that throws an informative exception if the attribute can't be
    * resolved due to intrinsic contradictions in the configuration.
    */
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
+  public <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
@@ -292,8 +292,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       return getAndValidate(attributeName, type);
     } catch (ValidationException e) {
       // Callers that reach this branch should explicitly validate the attribute through an
-      // appropriate call and handle the exception directly. This method assumes
-      // pre-validated attributes.
+      // appropriate call (either {@link #validateAttributes} or {@link #getAndValidate}) and handle
+      // the exception directly. This method assumes pre-validated attributes.
       throw new IllegalStateException(
           "lookup failed on attribute " + attributeName + ": " + e.getMessage());
     }

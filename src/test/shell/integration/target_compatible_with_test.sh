@@ -892,6 +892,33 @@ EOF
   expect_log 'ERROR: Build did NOT complete successfully'
 }
 
+# Regression test for b/277371822.
+function test_missing_default() {
+  cat >> target_skipping/BUILD <<'EOF'
+sh_test(
+    name = "pass_on_foo1_or_foo2_but_not_on_foo3",
+    srcs = [":pass.sh"],
+    target_compatible_with = select({
+        ":foo1": [],
+        # No default branch.
+    }),
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping:pass_on_foo1_or_foo2_but_not_on_foo3 &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+
+  expect_log 'ERROR:.*configurable attribute "target_compatible_with" in //target_skipping:pass_on_foo1_or_foo2_but_not_on_foo3'
+  expect_log 'ERROR: Build did NOT complete successfully'
+  expect_not_log 'FATAL: bazel crashed'
+}
+
 # Validates that we can express targets being compatible with everything _but_
 # A and B.
 function test_inverse_logic() {

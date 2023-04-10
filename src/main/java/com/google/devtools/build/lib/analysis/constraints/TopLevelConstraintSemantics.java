@@ -303,7 +303,7 @@ public class TopLevelConstraintSemantics {
     String message = "\nDependency chain:";
     IncompatiblePlatformProvider provider = null;
 
-    // TODO(austinschuh): While the first eror is helpful, reporting all the errors at once would
+    // TODO(austinschuh): While the first error is helpful, reporting all the errors at once would
     // save the user bazel round trips.
     while (target != null) {
       message +=

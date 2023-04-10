@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -92,6 +93,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper logic for {@link ConfiguredTargetFunction}: performs the analysis phase through
@@ -124,12 +126,15 @@ public final class PrerequisiteProducer {
      * <p>Non-null only while the computation is in-flight.
      */
     @Nullable private Driver incompatibleTargetProducer;
+
     /**
      * If a value is present, it means the target was directly incompatible.
      *
      * <p>Non-null after the {@link #incompatibleTargetProducer} completes.
      */
     private Optional<RuleConfiguredTargetValue> incompatibleTarget;
+
+    private ValidationException validationException;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
     @Nullable private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMapResult;
@@ -170,6 +175,11 @@ public final class PrerequisiteProducer {
     @Override
     public void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget) {
       this.incompatibleTarget = incompatibleTarget;
+    }
+
+    @Override
+    public void acceptValidationException(ValidationException e) {
+      this.validationException = e;
     }
   }
 
@@ -475,14 +485,15 @@ public final class PrerequisiteProducer {
       @Nullable ConfigConditions configConditions,
       @Nullable PlatformInfo targetPlatformInfo,
       @Nullable NestedSetBuilder<Package> transitivePackages)
-      throws InterruptedException, IncompatibleTargetException {
+      throws InterruptedException, IncompatibleTargetException, DependencyEvaluationException {
     if (state.incompatibleTarget == null) {
+      BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
       if (state.incompatibleTargetProducer == null) {
         state.incompatibleTargetProducer =
             new Driver(
                 new IncompatibleTargetProducer(
                     targetAndConfiguration.getTarget(),
-                    targetAndConfiguration.getConfiguration(),
+                    configuration,
                     configConditions,
                     targetPlatformInfo,
                     transitivePackages,
@@ -492,7 +503,26 @@ public final class PrerequisiteProducer {
         return false;
       }
       state.incompatibleTargetProducer = null;
-      if (state.incompatibleTarget.isPresent()) {
+      if (state.validationException != null) {
+        Label label = targetAndConfiguration.getLabel();
+        Location location = targetAndConfiguration.getTarget().getLocation();
+        env.getListener()
+            .post(
+                new AnalysisRootCauseEvent(
+                    configuration, label, state.validationException.getMessage()));
+        throw new DependencyEvaluationException(
+            new ConfiguredValueCreationException(
+                location,
+                state.validationException.getMessage(),
+                label,
+                configuration.getEventId(),
+                null,
+                null),
+            // These errors occur within DependencyResolver, which is attached to the current
+            // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
+            // error.
+            /* depReportedOwnError= */ false);
+      } else if (state.incompatibleTarget.isPresent()) {
         throw new IncompatibleTargetException(state.incompatibleTarget.get());
       }
     }
