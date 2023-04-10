@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,8 +77,7 @@ public final class LtoBackendAction extends SpawnAction {
       NestedSet<Artifact> inputs,
       @Nullable BitcodeFiles allBitcodeFiles,
       @Nullable Artifact importsFile,
-      Collection<Artifact> outputs,
-      Artifact primaryOutput,
+      ImmutableSet<Artifact> outputs,
       ActionOwner owner,
       CommandLines argv,
       CommandLineLimits commandLineLimits,
@@ -93,7 +92,6 @@ public final class LtoBackendAction extends SpawnAction {
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         outputs,
-        primaryOutput,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         commandLineLimits,
@@ -261,8 +259,7 @@ public final class LtoBackendAction extends SpawnAction {
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
-        ImmutableList<Artifact> outputs,
-        Artifact primaryOutput,
+        ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
@@ -278,7 +275,6 @@ public final class LtoBackendAction extends SpawnAction {
           bitcodeFiles,
           imports,
           outputs,
-          primaryOutput,
           owner,
           commandLines,
           commandLineLimits,

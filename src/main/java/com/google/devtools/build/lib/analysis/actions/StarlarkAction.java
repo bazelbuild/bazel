@@ -18,6 +18,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -81,7 +83,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    * @param inputs the set of all files potentially read by this action; must not be subsequently
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
-   * @param primaryOutput the primary output of this action
    * @param resourceSetOrBuilder the resources consumed by executing this Action
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
@@ -103,7 +104,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
-      Artifact primaryOutput,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
@@ -123,7 +123,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
             ? createInputs(shadowedAction.get().getInputs(), inputs)
             : inputs,
         outputs,
-        primaryOutput,
         resourceSetOrBuilder,
         commandLines,
         commandLineLimits,
@@ -376,8 +375,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
-        ImmutableList<Artifact> outputs,
-        Artifact primaryOutput,
+        ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
@@ -403,7 +401,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           tools,
           inputsAndTools,
           outputs,
-          primaryOutput,
           resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
@@ -415,7 +412,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           mnemonic,
           unusedInputsList,
           shadowedAction,
-          stripOutputPaths(mnemonic, inputsAndTools, primaryOutput, configuration));
+          stripOutputPaths(mnemonic, inputsAndTools, outputs, configuration));
     }
 
     /**
@@ -435,7 +432,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
     private static boolean stripOutputPaths(
         String mnemonic,
         NestedSet<Artifact> inputs,
-        Artifact primaryOutput,
+        ImmutableSet<Artifact> outputs,
         BuildConfigurationValue configuration) {
       ImmutableList<String> qualifyingMnemonics =
           ImmutableList.of(
@@ -456,7 +453,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
       return coreOptions.outputPathsMode == OutputPathsMode.STRIP
           && qualifyingMnemonics.contains(mnemonic)
-          && PathStripper.isPathStrippable(inputs, primaryOutput.getExecPath().subFragment(0, 1));
+          && PathStripper.isPathStrippable(
+              inputs, Iterables.get(outputs, 0).getExecPath().subFragment(0, 1));
     }
   }
 }

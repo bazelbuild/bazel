@@ -676,7 +676,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("TEST_RANDOM_SEED", Integer.toString(getRunNumber() + 1));
     }
     // TODO(b/184206260): Actually set TEST_RANDOM_SEED with random seed.
-    // The above TEST_RANDOM_SEED has histroically been set with the run number, but we should
+    // The above TEST_RANDOM_SEED has historically been set with the run number, but we should
     // explicitly set TEST_RUN_NUMBER to indicate the run number and actually set TEST_RANDOM_SEED
     // with a random seed. However, much code has come to depend on it being set to the run number
     // and this is an externally documented behavior. Modifying TEST_RANDOM_SEED should be done
@@ -921,11 +921,6 @@ public class TestRunnerAction extends AbstractAction
   /** Returns the workspace name. */
   public String getRunfilesPrefix() {
     return workspaceName;
-  }
-
-  @Override
-  public Artifact getPrimaryOutput() {
-    return testLog;
   }
 
   public PackageSpecificationProvider getNetworkAllowlist() {

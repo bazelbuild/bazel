@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.extra;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -56,9 +54,6 @@ public final class ExtraAction extends SpawnAction {
   private final boolean createDummyOutput;
   private final NestedSet<Artifact> extraActionInputs;
 
-  public static final Function<ExtraAction, Action> GET_SHADOWED_ACTION =
-      e -> e != null ? e.getShadowedAction() : null;
-
   ExtraAction(
       NestedSet<Artifact> extraActionInputs,
       RunfilesSupplier runfilesSupplier,
@@ -78,7 +73,6 @@ public final class ExtraAction extends SpawnAction {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             extraActionInputs),
         outputs,
-        Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
         CommandLines.of(argv),
         CommandLineLimits.UNLIMITED,
@@ -128,7 +122,7 @@ public final class ExtraAction extends SpawnAction {
     updateInputs(
         createInputs(shadowedAction.getInputs(), inputFilesForExtraAction, extraActionInputs));
     return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, Sets.<Artifact>difference(getInputs().toSet(), oldInputs.toSet()));
+        Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
   }
 
   private static NestedSet<Artifact> createInputs(

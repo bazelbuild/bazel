@@ -55,7 +55,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private final NestedSet<Artifact> allInputs;
 
   /**
-   * Creates an CppCompileActionTemplate.
+   * Creates a CppCompileActionTemplate.
    *
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
@@ -170,7 +170,6 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             cppCompileActionBuilder.getCoptsFilter(),
             CppActionNames.CPP_COMPILE,
             dotdTreeArtifact,
-            diagnosticsTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
     CppCompileAction.computeKey(

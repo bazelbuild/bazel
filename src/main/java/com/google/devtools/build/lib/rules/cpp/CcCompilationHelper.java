@@ -1732,7 +1732,7 @@ public final class CcCompilationHelper {
         configuration, featureConfiguration, builder, ruleErrorConsumer);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(compileAction);
-    Artifact objectFile = compileAction.getOutputFile();
+    Artifact objectFile = compileAction.getPrimaryOutput();
     if (pic) {
       result.addPicObjectFile(objectFile);
     } else {
@@ -1775,7 +1775,7 @@ public final class CcCompilationHelper {
         configuration, featureConfiguration, builder, ruleErrorConsumer);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(compileAction);
-    Artifact tokenFile = compileAction.getOutputFile();
+    Artifact tokenFile = compileAction.getPrimaryOutput();
     result.addHeaderTokenFile(tokenFile);
   }
 
@@ -1868,13 +1868,13 @@ public final class CcCompilationHelper {
           configuration, featureConfiguration, picBuilder, ruleErrorConsumer);
       CppCompileAction picAction = picBuilder.buildOrThrowRuleError(ruleErrorConsumer);
       actionRegistry.registerAction(picAction);
-      directOutputs.add(picAction.getOutputFile());
+      directOutputs.add(picAction.getPrimaryOutput());
       if (addObject) {
-        result.addPicObjectFile(picAction.getOutputFile());
+        result.addPicObjectFile(picAction.getPrimaryOutput());
 
         if (bitcodeOutput) {
           result.addLtoBitcodeFile(
-              picAction.getOutputFile(), ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
+              picAction.getPrimaryOutput(), ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
         }
       }
       if (dwoFile != null) {
@@ -1939,7 +1939,7 @@ public final class CcCompilationHelper {
           configuration, featureConfiguration, builder, ruleErrorConsumer);
       CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
       actionRegistry.registerAction(compileAction);
-      Artifact objectFile = compileAction.getOutputFile();
+      Artifact objectFile = compileAction.getPrimaryOutput();
       directOutputs.add(objectFile);
       if (addObject) {
         result.addObjectFile(objectFile);
@@ -2118,7 +2118,7 @@ public final class CcCompilationHelper {
     CppCompileAction sdAction = sdBuilder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(sdAction);
 
-    return ImmutableList.of(dAction.getOutputFile(), sdAction.getOutputFile());
+    return ImmutableList.of(dAction.getPrimaryOutput(), sdAction.getPrimaryOutput());
   }
 
   /**
