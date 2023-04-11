@@ -254,7 +254,6 @@ tasks:
       - "-//src/test/shell/bazel:jdeps_test"
       - "-//src/test/shell/bazel:python_version_test"
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
-      - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel:git_repository_test"
       - "-//src/test/shell/bazel:starlark_git_repository_test"  
     include_json_profile:
