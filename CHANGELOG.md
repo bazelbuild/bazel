@@ -1,3 +1,40 @@
+## Release  (2023-04-11)
+
+```
+Baseline: c062ba698f1e2fc14fd15798445054b2b20f678e
+```
+
+Incompatible changes:
+
+  - Remove high priority workers functionality from blaze.
+
+Important changes:
+
+  - cc_test can now be configured by using a native.toolchain().
+  - `@foo` labels can now be used on the command line as the
+    top-level target (that is, `bazel build @foo` now works).
+    Double-dot syntax is now forbidden (`bazel build ../foo` will no
+    longer work).
+  - The location of rules that explicitly specify `generator_name`
+    and/or `generator_function` attributes (typically because they
+    are incidentally copied from `native.existing_rule()`) is now the
+    top-level call in the `BUILD` file, which is consistent with
+    rules that do not explicitly specify these attributes.
+  - Warnings (most notably those associated with the `deprecation`
+    rule attribute) are no longer replayed on subsequent invocations
+    unless the target in question is re-analyzed. Warnings are purely
+    informational, so this change has no bearing on the correctness
+    of the build. Downstream tests that break due to this change
+    should update their expectations.
+  - `--experimental_remote_build_event_upload` has been renamed to
+    `--remote_build_event_upload`
+  - [Breaking change] platform, constraint_setting, and
+    constraint_value can no longer take an applicable_licenses value.
+    Remediation is to remove the attribute and rely on the package
+    level default.
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, Jack Dai, Konstantin Erman, Philipp Schrader, ryan yang, Ulf Adams, Yannic Bonenberger.
+
 ## Release 7.0.0-pre.20230330.3 (2023-04-06)
 
 ```
