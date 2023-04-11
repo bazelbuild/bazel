@@ -307,8 +307,6 @@ public final class PrerequisiteProducer {
       throw new InconsistentNullConfigException();
     }
 
-    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-
     // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
     //  with #processors threads, but ideally we would call #tryAcquire here, and if we failed,
@@ -408,7 +406,6 @@ public final class PrerequisiteProducer {
               transitivePackages,
               transitiveRootCauses,
               env,
-              resolver,
               ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
@@ -881,7 +878,6 @@ public final class PrerequisiteProducer {
    *
    * @param state the compute state
    * @param env the Skyframe environment
-   * @param resolver the dependency resolver
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
@@ -896,7 +892,6 @@ public final class PrerequisiteProducer {
       @Nullable NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Cause> transitiveRootCauses,
       Environment env,
-      SkyframeDependencyResolver resolver,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -925,14 +920,15 @@ public final class PrerequisiteProducer {
           Label label = ctgValue.getLabel();
           try {
             initialDependencies =
-                resolver.dependentNodeMap(
-                    ctgValue,
-                    aspects,
-                    configConditions,
-                    toolchainContexts,
-                    transitiveRootCauses,
-                    ((ConfiguredRuleClassProvider) ruleClassProvider)
-                        .getTrimmingTransitionFactory());
+                new SkyframeDependencyResolver(env)
+                    .dependentNodeMap(
+                        ctgValue,
+                        aspects,
+                        configConditions,
+                        toolchainContexts,
+                        transitiveRootCauses,
+                        ((ConfiguredRuleClassProvider) ruleClassProvider)
+                            .getTrimmingTransitionFactory());
           } catch (DependencyResolver.Failure e) {
             env.getListener()
                 .post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));

@@ -153,7 +153,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 /* transitivePackages= */ null,
                 /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
                 env,
-                new SkyframeDependencyResolver(env),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 toolchainContexts,

@@ -285,7 +285,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ReportedException(cvce);
     } finally {
       maybeReleaseSemaphore();
-      ;
     }
   }
 

@@ -275,8 +275,6 @@ final class AspectFunction implements SkyFunction {
       }
     }
 
-    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-
     TargetAndConfiguration originalTargetAndConfiguration =
         new TargetAndConfiguration(target, configuration);
     try {
@@ -316,7 +314,6 @@ final class AspectFunction implements SkyFunction {
                 state.transitivePackages,
                 state.transitiveRootCauses,
                 env,
-                resolver,
                 topologicalAspectPath,
                 configConditions.asProviders(),
                 unloadedToolchainContexts == null
