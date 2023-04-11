@@ -182,12 +182,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           }
 
           @Override
-          public long getSize() throws IOException {
+          public long getSize() {
             return attributes.size();
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
+          public long getLastModifiedTime() {
             return attributes.lastModifiedTime().toMillis();
           }
 
