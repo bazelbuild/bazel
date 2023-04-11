@@ -274,7 +274,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
   @Option(
       name = "remote_build_event_upload",
       oldName = "experimental_remote_build_event_upload",
-      defaultValue = "all",
+      defaultValue = "minimal",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = RemoteBuildEventUploadModeConverter.class,
@@ -284,7 +284,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " remote cache, except for files that are important to the consumers of BEP (e.g."
               + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
               + " files even if they are missing from remote cache.\n"
-              + "Default to 'all'.")
+              + "Default to 'minimal'.")
   public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
   /** Build event upload mode flag parser */
