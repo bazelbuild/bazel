@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
 import org.junit.Test;
@@ -79,5 +80,18 @@ public class RepositoryNameTest {
   public void testGetDefaultCanonicalForm() throws Exception {
     assertThat(RepositoryName.create("").getCanonicalForm()).isEqualTo("");
     assertThat(RepositoryName.create("foo").getCanonicalForm()).isEqualTo("@foo");
+  }
+
+  @Test
+  public void testGetDisplayForm() throws Exception {
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("local", RepositoryName.create("canonical")), RepositoryName.MAIN);
+
+    assertThat(RepositoryName.create("").getDisplayForm(repositoryMapping)).isEmpty();
+    assertThat(RepositoryName.create("canonical").getDisplayForm(repositoryMapping))
+        .isEqualTo("@local");
+    assertThat(RepositoryName.create("other").getDisplayForm(repositoryMapping))
+        .isEqualTo("@@other");
   }
 }

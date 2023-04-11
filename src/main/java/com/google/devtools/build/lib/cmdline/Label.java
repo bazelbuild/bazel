@@ -390,7 +390,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /**
-   * Returns a label string that is suitable for display, i.e., it resolves to this label when
+   * Returns a full label string that is suitable for display, i.e., it resolves to this label when
    * parsed in the context of the main repository and has a repository part that is as simple as
    * possible.
    *
@@ -399,6 +399,34 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    */
   public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
     return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
+  }
+
+  /**
+   * Returns a shorthand label string that is suitable for display, i.e. in addition to simplifying
+   * the repository part, labels of the form {@code [@repo]//foo/bar:bar} are simplified to the
+   * shorthand form {@code [@repo]//foo/bar}, and labels of the form {@code @repo//:repo} and
+   * {@code @@repo//:repo} are simplified to {@code @repo}. The returned shorthand string resolves
+   * back to this label only when parsed in the context of the main repository whose repository
+   * mapping is provided.
+   *
+   * <p>Unlike {@link #getDisplayForm}, this method elides the name part of the label if possible.
+   *
+   * <p>Unlike {@link #toShorthandString}, this method respects {@link RepositoryMapping}.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   */
+  public String getShorthandDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    if (getPackageFragment().getBaseName().equals(name)) {
+      return packageIdentifier.getDisplayForm(mainRepositoryMapping);
+    } else if (getPackageFragment().getBaseName().isEmpty()) {
+      String repositoryDisplayForm =
+          getPackageIdentifier().getRepository().getDisplayForm(mainRepositoryMapping);
+      // Simplify @foo//:foo or @@foo//:foo to @foo; note that `name` cannot start with '@'
+      if (repositoryDisplayForm.equals("@" + name) || repositoryDisplayForm.equals("@@" + name)) {
+        return repositoryDisplayForm;
+      }
+    }
+    return getDisplayForm(mainRepositoryMapping);
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */
@@ -419,6 +447,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *
    * <p>Labels with canonical form {@code //foo/bar:bar} have the shorthand form {@code //foo/bar}.
    * All other labels have identical shorthand and canonical forms.
+   *
+   * <p>Unlike {@link #getShorthandDisplayForm}, this method does not respect repository mapping.
    */
   public String toShorthandString() {
     if (!getPackageFragment().getBaseName().equals(name)) {

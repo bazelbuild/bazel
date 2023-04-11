@@ -396,6 +396,77 @@ public class LabelTest {
         .isEqualTo("@@[unknown repo 'foo' requested from @bar]//baz:quux");
   }
 
+  private static String displayFormFor(String rawLabel, RepositoryMapping repositoryMapping)
+      throws Exception {
+    return Label.parseCanonical(rawLabel).getDisplayForm(repositoryMapping);
+  }
+
+  @Test
+  public void testDisplayForm() throws Exception {
+    RepositoryName canonicalName = RepositoryName.create("canonical");
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
+
+    assertThat(displayFormFor("//foo/bar:bar", repositoryMapping)).isEqualTo("//foo/bar:bar");
+    assertThat(displayFormFor("//foo/bar:baz", repositoryMapping)).isEqualTo("//foo/bar:baz");
+
+    assertThat(displayFormFor("@canonical//bar:bar", repositoryMapping))
+        .isEqualTo("@local//bar:bar");
+    assertThat(displayFormFor("@canonical//bar:baz", repositoryMapping))
+        .isEqualTo("@local//bar:baz");
+    assertThat(displayFormFor("@canonical//:canonical", repositoryMapping))
+        .isEqualTo("@local//:canonical");
+    assertThat(displayFormFor("@canonical//:local", repositoryMapping)).isEqualTo("@local//:local");
+
+    assertThat(displayFormFor("@other//bar:bar", repositoryMapping)).isEqualTo("@@other//bar:bar");
+    assertThat(displayFormFor("@other//bar:baz", repositoryMapping)).isEqualTo("@@other//bar:baz");
+    assertThat(displayFormFor("@other//:other", repositoryMapping)).isEqualTo("@@other//:other");
+    assertThat(displayFormFor("@@other", repositoryMapping)).isEqualTo("@@other//:other");
+
+    assertThat(displayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
+        .isEqualTo("@unremapped//:unremapped");
+    assertThat(displayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
+        .isEqualTo("@unremapped//:unremapped");
+  }
+
+  private static String shorthandDisplayFormFor(
+      String rawLabel, RepositoryMapping repositoryMapping) throws Exception {
+    return Label.parseCanonical(rawLabel).getShorthandDisplayForm(repositoryMapping);
+  }
+
+  @Test
+  public void testShorthandDisplayForm() throws Exception {
+    RepositoryName canonicalName = RepositoryName.create("canonical");
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
+
+    assertThat(shorthandDisplayFormFor("//foo/bar:bar", repositoryMapping)).isEqualTo("//foo/bar");
+    assertThat(shorthandDisplayFormFor("//foo/bar:baz", repositoryMapping))
+        .isEqualTo("//foo/bar:baz");
+
+    assertThat(shorthandDisplayFormFor("@canonical//bar:bar", repositoryMapping))
+        .isEqualTo("@local//bar");
+    assertThat(shorthandDisplayFormFor("@canonical//bar:baz", repositoryMapping))
+        .isEqualTo("@local//bar:baz");
+    assertThat(shorthandDisplayFormFor("@canonical//:canonical", repositoryMapping))
+        .isEqualTo("@local//:canonical");
+    assertThat(shorthandDisplayFormFor("@canonical//:local", repositoryMapping))
+        .isEqualTo("@local");
+
+    assertThat(shorthandDisplayFormFor("@other//bar:bar", repositoryMapping))
+        .isEqualTo("@@other//bar");
+    assertThat(shorthandDisplayFormFor("@other//bar:baz", repositoryMapping))
+        .isEqualTo("@@other//bar:baz");
+    assertThat(shorthandDisplayFormFor("@other//:other", repositoryMapping)).isEqualTo("@@other");
+    assertThat(shorthandDisplayFormFor("@@other", repositoryMapping)).isEqualTo("@@other");
+
+    assertThat(
+            shorthandDisplayFormFor("@unremapped//:unremapped", RepositoryMapping.ALWAYS_FALLBACK))
+        .isEqualTo("@unremapped");
+    assertThat(shorthandDisplayFormFor("@unremapped", RepositoryMapping.ALWAYS_FALLBACK))
+        .isEqualTo("@unremapped");
+  }
+
   @Test
   public void starlarkStrAndRepr() throws Exception {
     Label label = Label.parseCanonical("//x");

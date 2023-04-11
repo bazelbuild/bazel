@@ -18,7 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AspectInfo;
@@ -33,6 +36,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Prov
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
+import java.util.function.Predicate;
 import net.starlark.java.eval.Module;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.ParserInput;
@@ -57,18 +61,26 @@ public final class ModuleInfoExtractorTest {
     return ev.getModule();
   }
 
+  private static ModuleInfoExtractor getExtractor() {
+    return new ModuleInfoExtractor(name -> true, RepositoryMapping.ALWAYS_FALLBACK);
+  }
+
+  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedName) {
+    return new ModuleInfoExtractor(isWantedName, RepositoryMapping.ALWAYS_FALLBACK);
+  }
+
+  private static ModuleInfoExtractor getExtractor(RepositoryMapping repositoryMapping) {
+    return new ModuleInfoExtractor(name -> true, repositoryMapping);
+  }
+
   @Test
   public void moduleDocstring() throws Exception {
     Module moduleWithDocstring = exec("'''This is my docstring'''", "foo = 1");
-    assertThat(
-            ModuleInfoExtractor.extractFrom(moduleWithDocstring, name -> true).getModuleDocstring())
+    assertThat(getExtractor().extractFrom(moduleWithDocstring).getModuleDocstring())
         .isEqualTo("This is my docstring");
 
     Module moduleWithoutDocstring = exec("foo = 1");
-    assertThat(
-            ModuleInfoExtractor.extractFrom(moduleWithoutDocstring, name -> true)
-                .getModuleDocstring())
-        .isEmpty();
+    assertThat(getExtractor().extractFrom(moduleWithoutDocstring).getModuleDocstring()).isEmpty();
   }
 
   @Test
@@ -84,8 +96,7 @@ public final class ModuleInfoExtractorTest {
             "def _nonexported_matches_wanted_predicate():",
             "    pass");
 
-    ModuleInfo moduleInfo =
-        ModuleInfoExtractor.extractFrom(module, name -> name.contains("_wanted"));
+    ModuleInfo moduleInfo = getExtractor(name -> name.contains("_wanted")).extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("exported_wanted");
   }
@@ -107,7 +118,7 @@ public final class ModuleInfoExtractorTest {
             "        MyInfo = _MyInfo,",
             "    ),",
             ")");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("name.spaced.my_func");
     assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getRuleName))
@@ -127,7 +138,7 @@ public final class ModuleInfoExtractorTest {
             "    pass",
             "def without_docstring():",
             "    pass");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
         // TODO(arostovtsev): remove `ignoringFieldAbsence` below once we stop outputting empty
         // returns/deprecated blocks as empty strings.
@@ -154,7 +165,7 @@ public final class ModuleInfoExtractorTest {
             "      documented: Documented param",
             "    '''",
             "    pass");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().get(0).getParameterList())
         .containsExactly(
             FunctionParamInfo.newBuilder()
@@ -185,7 +196,7 @@ public final class ModuleInfoExtractorTest {
             "def without_return():",
             "    '''My doc'''",
             "    pass");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
         .ignoringFieldAbsence() // TODO(arostovtsev): do not output empty returns/deprecated blocks
         .containsExactly(
@@ -214,7 +225,7 @@ public final class ModuleInfoExtractorTest {
             "def without_deprecated():",
             "    '''My doc'''",
             "    pass");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
         .ignoringFieldAbsence() // TODO(arostovtsev): do not output empty returns/deprecated blocks
         .containsExactly(
@@ -236,7 +247,7 @@ public final class ModuleInfoExtractorTest {
         exec(
             "DocumentedInfo = provider(doc = 'My doc')", //
             "UndocumentedInfo = provider()");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
         .containsExactly(
             ProviderInfo.newBuilder()
@@ -252,7 +263,7 @@ public final class ModuleInfoExtractorTest {
         exec(
             "DocumentedInfo = provider(fields = {'a': 'A', 'b': 'B', '_hidden': 'Hidden'})",
             "UndocumentedInfo = provider(fields = ['a', 'b', '_hidden'])");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
         .containsExactly(
             ProviderInfo.newBuilder()
@@ -275,7 +286,7 @@ public final class ModuleInfoExtractorTest {
             "    pass",
             "documented_lib = rule(doc = 'My doc', implementation = _my_impl)",
             "undocumented_lib = rule(implementation = _my_impl)");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList())
         .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
         .containsExactly(
@@ -302,7 +313,7 @@ public final class ModuleInfoExtractorTest {
             "        '_e': attr.string(doc = 'Hidden attribute'),",
             "    }",
             ")");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
         .containsExactly(
             ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
@@ -352,7 +363,7 @@ public final class ModuleInfoExtractorTest {
             "        'baz': attr.int(),",
             "    }",
             ")");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
                 .map(AttributeInfo::getName))
@@ -383,7 +394,7 @@ public final class ModuleInfoExtractorTest {
             "        'l': attr.output_list(),",
             "    }",
             ")");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
         .containsExactly(
             ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
@@ -450,6 +461,38 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void labelStringification() throws Exception {
+    Module module =
+        exec(
+            "def _my_impl(ctx):",
+            "    pass",
+            "my_lib = rule(",
+            "    implementation = _my_impl,",
+            "    attrs = {",
+            "        'label': attr.label(default = '//test:foo'),",
+            "        'label_list': attr.label_list(",
+            "            default = ['//x', '@canonical//y', '@canonical//y:z'],",
+            "        ),",
+            "        'label_keyed_string_dict': attr.label_keyed_string_dict(",
+            "           default = {'//x': 'label_in_main', '@canonical//y': 'label_in_dep'}",
+            "         ),",
+            "    }",
+            ")");
+    RepositoryName canonicalName = RepositoryName.create("canonical");
+    RepositoryMapping repositoryMapping =
+        RepositoryMapping.create(ImmutableMap.of("local", canonicalName), RepositoryName.MAIN);
+    ModuleInfo moduleInfo = getExtractor(repositoryMapping).extractFrom(module);
+    assertThat(
+            moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
+                .filter(attr -> !attr.equals(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO))
+                .map(AttributeInfo::getDefaultValue))
+        .containsExactly(
+            "\"//test:foo\"",
+            "[\"//x\", \"@local//y\", \"@local//y:z\"]",
+            "{\"//x\": \"label_in_main\", \"@local//y\": \"label_in_dep\"}");
+  }
+
+  @Test
   public void aspectDocstring() throws Exception {
     Module module =
         exec(
@@ -457,7 +500,7 @@ public final class ModuleInfoExtractorTest {
             "    pass",
             "documented_aspect = aspect(doc = 'My doc', implementation = _my_impl)",
             "undocumented_aspect = aspect(implementation = _my_impl)");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getAspectInfoList())
         .ignoringFields(AspectInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
         .containsExactly(
@@ -483,7 +526,7 @@ public final class ModuleInfoExtractorTest {
             "        '_c': attr.string(doc = 'Hidden attribute'),",
             "    }",
             ")");
-    ModuleInfo moduleInfo = ModuleInfoExtractor.extractFrom(module, name -> true);
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getAspectInfoList())
         .containsExactly(
             AspectInfo.newBuilder()
