@@ -1304,7 +1304,8 @@ public final class SkyframeActionExecutor {
           action.getOutputs(), artifactPathResolver);
     } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
-          String.format("failed to create output directory '%s'", e.directoryPath),
+          String.format(
+              "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
           e,
           action,
           null,
@@ -1346,7 +1347,7 @@ public final class SkyframeActionExecutor {
     } catch (IOException e) {
       String message =
           String.format(
-              "failed to create output directory for output streams'%s': %s",
+              "failed to create output directory for output streams '%s': %s",
               fileOutErr.getErrorPath(), e.getMessage());
       DetailedExitCode code =
           createDetailedExitCode(message, Code.ACTION_FS_OUT_ERR_DIRECTORY_CREATION_FAILURE);
