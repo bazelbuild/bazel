@@ -553,7 +553,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       // Assume that if the file did not exist, we would not have gotten here.
       try {
         if (input.isSourceArtifact()
-            && metadataProvider.getMetadata(input).getType().isDirectory()) {
+            && metadataProvider.getInputMetadata(input).getType().isDirectory()) {
           // TODO(ulfjack): What about dependency checking of special files?
           eventHandler.handle(
               Event.warn(
@@ -583,7 +583,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         continue;
       }
       try {
-        metadata = metadataHandler.getMetadata(output);
+        metadata = metadataHandler.getOutputMetadata(output);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
         metadata = null;

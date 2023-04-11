@@ -19,27 +19,35 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
-import javax.annotation.Nullable;
 
 /** Handles metadata of inputs and outputs during the execution phase. */
 public interface MetadataHandler extends MetadataProvider, MetadataInjector {
 
   /**
-   * {@inheritDoc}
+   * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
+   *
+   * <p>If the metadata of the given {@link ActionInput} is not known, it's computed. This may
+   * result in a significant amount of I/O.
+   *
+   * <p>The returned {@link FileArtifactValue} instance corresponds to the final target of a symlink
+   * and therefore must not have a type of {@link FileStateType#SYMLINK}.
    *
    * <p>Freshly created output files (i.e. from an action that just executed) that require a stat to
    * obtain the metadata will first be set read-only and executable during this call. This ensures
    * that the returned metadata has an appropriate ctime, which is affected by chmod. Note that this
    * does not apply to outputs injected via {@link #injectFile} or {@link #injectTree} since a stat
    * is not required for them.
+   *
+   * @param output the output to retrieve the digest for
+   * @return the artifact's digest or null the artifact is not a known output of the action
+   * @throws IOException if the action input cannot be digested
    */
-  @Override
-  @Nullable
-  FileArtifactValue getMetadata(ActionInput input) throws IOException;
+  FileArtifactValue getOutputMetadata(ActionInput output) throws IOException;
 
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);

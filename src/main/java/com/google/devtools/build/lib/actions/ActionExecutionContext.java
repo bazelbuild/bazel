@@ -407,6 +407,44 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
+   * Creates a new {@link ActionExecutionContext} whose {@link MetadataProvider} has the given
+   * {@link ActionInput}s as inputs.
+   *
+   * <p>Each {@link ActionInput} must be an output of the current {@link ActionExecutionContext} and
+   * it must already have been built.
+   */
+  public ActionExecutionContext withOutputsAsInputs(
+      Iterable<? extends ActionInput> additionalInputs) throws IOException {
+    ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
+        ImmutableMap.builder();
+
+    for (ActionInput input : additionalInputs) {
+      additionalInputMap.put(input, getMetadataHandler().getOutputMetadata(input));
+    }
+    StaticMetadataProvider additionalInputMetadata =
+        new StaticMetadataProvider(additionalInputMap.buildOrThrow());
+
+    return new ActionExecutionContext(
+        executor,
+        new DelegatingPairMetadataProvider(actionInputFileCache, additionalInputMetadata),
+        actionInputPrefetcher,
+        actionKeyContext,
+        metadataHandler,
+        rewindingEnabled,
+        lostInputsCheck,
+        fileOutErr,
+        eventHandler,
+        clientEnv,
+        topLevelFilesets,
+        artifactExpander,
+        env,
+        actionFileSystem,
+        skyframeDepsResult,
+        discoveredModulesPruner,
+        syscallCache,
+        threadStateReceiverForMetrics);
+  }
+  /**
    * Allows us to create a new context that overrides the FileOutErr with another one. This is
    * useful for muting the output for example.
    */

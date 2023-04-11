@@ -569,21 +569,30 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
     return null;
   }
 
+  public FileArtifactValue getOutputMetadataForTopLevelArtifactDownloader(ActionInput input)
+      throws IOException {
+    RemoteFileInfo remoteFile =
+        remoteOutputTree.getRemoteFileInfo(
+            execRoot.getRelative(input.getExecPath()), /* followSymlinks= */ true);
+    if (remoteFile != null) {
+      return createRemoteMetadata(remoteFile);
+    }
+
+    // TODO(tjgq): This should not work.
+    // The astute reader will notice that when this method is called, the artifact to be downloaded
+    // is an *output* artifact from the point of view of this RemoteActionFileSystem. The way this
+    // apparently works is that this is a SingleBuildFileCache, which then stat()s the actual file
+    // system, where the output file is materialized in mysterious ways.
+    //
+    // For further bafflement, see the comment at ToplevelArtifactsDownloader.downloadTestOutput().
+    return fileCache.getInputMetadata(input);
+  }
+
   @Nullable
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     PathFragment execPath = input.getExecPath();
-    FileArtifactValue m = getMetadataByExecPath(execPath);
-    if (m != null) {
-      return m;
-    }
-    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
-    // The output fallback is needed when an undeclared output of a spawn is consumed by another
-    // spawn within the same action; specifically, when the first spawn is local but the second is
-    // remote, or, in the context of a failed test attempt, when both spawns are remote but the
-    // first one fails. In both cases, we don't currently inject the output metadata for the first
-    // spawn; if we did so, then we could stop falling back here.
-    return fileCache.getMetadata(input);
+    return inputArtifactData.getMetadata(execPath);
   }
 
   @Nullable
@@ -641,7 +650,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
         // path. Therefore, we synthesize one here just so we're able to call prefetchFiles.
         input = ActionInputHelper.fromPath(execPath);
       }
-      getFromFuture(inputFetcher.prefetchFiles(ImmutableList.of(input), this, Priority.CRITICAL));
+      getFromFuture(
+          inputFetcher.prefetchFiles(
+              ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);

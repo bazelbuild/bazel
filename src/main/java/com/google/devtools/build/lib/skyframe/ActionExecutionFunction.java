@@ -741,7 +741,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     ActionMetadataHandler metadataHandler =
         ActionMetadataHandler.create(
             state.inputArtifactData,
-            action.discoversInputs(),
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
             action.getOutputs(),
@@ -907,7 +906,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     // reduce iteration cost.
     List<Artifact> unknownDiscoveredInputs = new ArrayList<>();
     for (Artifact input : state.discoveredInputs.toList()) {
-      if (inputData.getMetadata(input) == null) {
+      if (inputData.getInputMetadata(input) == null) {
         unknownDiscoveredInputs.add(input);
       }
     }

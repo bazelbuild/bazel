@@ -714,9 +714,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         closeSuppressed(e, fileOutErr);
         throw e;
       }
-      actionExecutionContext
-          .getMetadataHandler()
-          .getMetadata(testAction.getCoverageDirectoryTreeArtifact());
+      var unused =
+          actionExecutionContext
+              .getMetadataHandler()
+              .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
+
       ImmutableSet<? extends ActionInput> expandedCoverageDir =
           actionExecutionContext
               .getMetadataHandler()
@@ -738,14 +740,15 @@ public class StandaloneTestStrategy extends TestStrategy {
       Path out = testRoot.getChild("coverage.log");
       Path err = testRoot.getChild("coverage.err");
       FileOutErr coverageOutErr = new FileOutErr(out, err);
-      ActionExecutionContext actionExecutionContextWithCoverageFileOutErr =
-          actionExecutionContext.withFileOutErr(coverageOutErr);
+      ActionExecutionContext coverageActionExecutionContext =
+          actionExecutionContext
+              .withFileOutErr(coverageOutErr)
+              .withOutputsAsInputs(expandedCoverageDir);
 
       writeOutFile(coverageOutErr.getErrorPath(), coverageOutErr.getOutputPath());
       appendCoverageLog(coverageOutErr, fileOutErr);
       try {
-        spawnStrategyResolver.exec(
-            coveragePostProcessingSpawn, actionExecutionContextWithCoverageFileOutErr);
+        spawnStrategyResolver.exec(coveragePostProcessingSpawn, coverageActionExecutionContext);
       } catch (SpawnExecException e) {
         if (e.isCatastrophic()) {
           closeSuppressed(e, streamed);
@@ -809,11 +812,15 @@ public class StandaloneTestStrategy extends TestStrategy {
       // We treat all failures to generate the test.xml here as catastrophic, and won't rerun
       // the test if this fails. We redirect the output to a temporary file.
       FileOutErr xmlSpawnOutErr = actionExecutionContext.getFileOutErr().childOutErr();
+
+      ActionExecutionContext xmlActionExecutionContext =
+          actionExecutionContext
+              .withFileOutErr(xmlSpawnOutErr)
+              .withOutputsAsInputs(ImmutableList.of(testAction.getTestLog()));
       try {
 
         ImmutableList<SpawnResult> xmlSpawnResults =
-            spawnStrategyResolver.exec(
-                xmlGeneratingSpawn, actionExecutionContext.withFileOutErr(xmlSpawnOutErr));
+            spawnStrategyResolver.exec(xmlGeneratingSpawn, xmlActionExecutionContext);
         spawnResults =
             ImmutableList.<SpawnResult>builder()
                 .addAll(spawnResults)

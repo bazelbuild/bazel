@@ -156,13 +156,15 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             MetadataProvider metadataProvider = actionExecutionContext.getMetadataProvider();
             assertThat(
                     metadataProvider
-                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
+                        .getInputMetadata(
+                            TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
                         .getType()
                         .isFile())
                 .isTrue();
             assertThat(
                     metadataProvider
-                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
+                        .getInputMetadata(
+                            TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
                         .getType()
                         .isFile())
                 .isTrue();

@@ -195,7 +195,7 @@ final class RemoteSpawnCache implements SpawnCache {
             if (input instanceof VirtualActionInput) {
               continue;
             }
-            FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+            FileArtifactValue metadata = context.getMetadataProvider().getInputMetadata(input);
             Path path = execRoot.getRelative(input.getExecPath());
             if (metadata.wasModifiedSinceDigest(path)) {
               throw new IOException(path + " was modified during execution");

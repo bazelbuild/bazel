@@ -198,14 +198,14 @@ public class ActionCacheChecker {
       for (Artifact artifact : action.getOutputs()) {
         FileArtifactValue metadata = getCachedMetadata(cachedOutputMetadata, artifact);
         if (metadata == null) {
-          metadata = getMetadataMaybe(metadataHandler, artifact);
+          metadata = getOutputMetadataMaybe(metadataHandler, artifact);
         }
 
         mdMap.put(artifact.getExecPathString(), metadata);
       }
     }
     for (Artifact artifact : actionInputs.toList()) {
-      mdMap.put(artifact.getExecPathString(), getMetadataMaybe(metadataHandler, artifact));
+      mdMap.put(artifact.getExecPathString(), getInputMetadataMaybe(metadataHandler, artifact));
     }
     return !Arrays.equals(MetadataDigestUtils.fromMetadata(mdMap), entry.getFileDigest());
   }
@@ -396,7 +396,7 @@ public class ActionCacheChecker {
 
         FileArtifactValue localMetadata;
         try {
-          localMetadata = getMetadataOrConstant(metadataHandler, artifact);
+          localMetadata = getOutputMetadataOrConstant(metadataHandler, artifact);
         } catch (FileNotFoundException ignored) {
           localMetadata = null;
         } catch (IOException e) {
@@ -571,9 +571,17 @@ public class ActionCacheChecker {
     return false;
   }
 
-  private static FileArtifactValue getMetadataOrConstant(
+  private static FileArtifactValue getInputMetadataOrConstant(
       MetadataHandler metadataHandler, Artifact artifact) throws IOException {
-    FileArtifactValue metadata = metadataHandler.getMetadata(artifact);
+    FileArtifactValue metadata = metadataHandler.getInputMetadata(artifact);
+    return (metadata != null && artifact.isConstantMetadata())
+        ? ConstantMetadataValue.INSTANCE
+        : metadata;
+  }
+
+  private static FileArtifactValue getOutputMetadataOrConstant(
+      MetadataHandler metadataHandler, Artifact artifact) throws IOException {
+    FileArtifactValue metadata = metadataHandler.getOutputMetadata(artifact);
     return (metadata != null && artifact.isConstantMetadata())
         ? ConstantMetadataValue.INSTANCE
         : metadata;
@@ -583,10 +591,23 @@ public class ActionCacheChecker {
   // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
-  private static FileArtifactValue getMetadataMaybe(
+  private static FileArtifactValue getInputMetadataMaybe(
       MetadataHandler metadataHandler, Artifact artifact) {
     try {
-      return getMetadataOrConstant(metadataHandler, artifact);
+      return getInputMetadataOrConstant(metadataHandler, artifact);
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
+  // TODO(ulfjack): It's unclear to me why we're ignoring all IOExceptions. In some cases, we want
+  // to trigger a re-execution, so we should catch the IOException explicitly there. In others, we
+  // should propagate the exception, because it is unexpected (e.g., bad file system state).
+  @Nullable
+  private static FileArtifactValue getOutputMetadataMaybe(
+      MetadataHandler metadataHandler, Artifact artifact) {
+    try {
+      return getOutputMetadataOrConstant(metadataHandler, artifact);
     } catch (IOException e) {
       return null;
     }
@@ -632,7 +653,7 @@ public class ActionCacheChecker {
           // the 'constant' metadata for the volatile workspace status output. The volatile output
           // contains information such as timestamps, and even when --stamp is enabled, we don't
           // want to rebuild everything if only that file changes.
-          FileArtifactValue metadata = getMetadataOrConstant(metadataHandler, output);
+          FileArtifactValue metadata = getOutputMetadataOrConstant(metadataHandler, output);
           checkState(metadata != null);
           entry.addOutputFile(output, metadata, cacheConfig.storeOutputMetadata());
         }
@@ -650,7 +671,7 @@ public class ActionCacheChecker {
     for (Artifact input : action.getInputs().toList()) {
       entry.addInputFile(
           input.getExecPath(),
-          getMetadataMaybe(metadataHandler, input),
+          getInputMetadataMaybe(metadataHandler, input),
           /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
     }
     entry.getFileDigest();
@@ -769,7 +790,9 @@ public class ActionCacheChecker {
       entry = new ActionCache.Entry("", ImmutableMap.of(), false, OutputPermissions.READONLY);
       for (Artifact input : action.getInputs().toList()) {
         entry.addInputFile(
-            input.getExecPath(), getMetadataMaybe(metadataHandler, input), /*saveExecPath=*/ true);
+            input.getExecPath(),
+            getInputMetadataMaybe(metadataHandler, input),
+            /* saveExecPath= */ true);
       }
     }
 

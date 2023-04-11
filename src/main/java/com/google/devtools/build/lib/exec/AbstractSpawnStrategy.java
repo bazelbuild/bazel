@@ -255,7 +255,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 .prefetchFiles(
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
-                    getMetadataProvider(),
+                    getMetadataProvider()::getInputMetadata,
                     Priority.MEDIUM),
             BulkTransferException.class,
             (BulkTransferException e) -> {

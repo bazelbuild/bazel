@@ -1057,7 +1057,12 @@ public final class ActionsTestUtil {
    */
   public static class FakeMetadataHandlerBase implements MetadataHandler {
     @Override
-    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileArtifactValue getOutputMetadata(ActionInput input) throws IOException {
       throw new UnsupportedOperationException();
     }
 

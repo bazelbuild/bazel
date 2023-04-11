@@ -177,7 +177,7 @@ public class SpawnInputExpander {
 
   private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
       throws IOException, ForbiddenActionInputException {
-    FileArtifactValue metadata = actionFileCache.getMetadata(input);
+    FileArtifactValue metadata = actionFileCache.getInputMetadata(input);
     if (metadata != null && !metadata.getType().isFile()) {
       throw new ForbiddenNonFileException(input);
     }

@@ -55,7 +55,10 @@ public class SingleBuildFileCache implements MetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+    // TODO(lberki): It would be nice to assert that only source files are passed here.
+    // Unfortunately, that's not quite true at the moment and an unknown amount of work would be
+    // needed to make that true.
     return pathToMetadata
         .get(
             input.getExecPathString(),

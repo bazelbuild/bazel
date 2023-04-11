@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Event;
@@ -290,7 +289,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      MetadataSupplier metadataSupplier,
       Priority priority) {
     List<ActionInput> files = new ArrayList<>();
 
@@ -313,7 +312,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
             .flatMapSingle(
-                input -> toTransferResult(prefetchFile(dirCtx, metadataProvider, input, priority)));
+                input -> toTransferResult(prefetchFile(dirCtx, metadataSupplier, input, priority)));
 
     Completable prefetch =
         Completable.using(
@@ -324,7 +323,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
   private Completable prefetchFile(
       DirectoryContext dirCtx,
-      MetadataProvider metadataProvider,
+      MetadataSupplier metadataSupplier,
       ActionInput input,
       Priority priority)
       throws IOException {
@@ -335,12 +334,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     PathFragment execPath = input.getExecPath();
 
-    FileArtifactValue metadata = metadataProvider.getMetadata(input);
+    FileArtifactValue metadata = metadataSupplier.getMetadata(input);
     if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
       return Completable.complete();
     }
 
-    @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataProvider);
+    @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
 
     if (symlink != null) {
       checkState(execPath.startsWith(symlink.getLinkExecPath()));
@@ -348,7 +347,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
           symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
     }
 
-    @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataProvider);
+    @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataSupplier);
 
     Completable result =
         downloadFileNoCheckRx(
@@ -375,7 +374,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * FileArtifactValue#getMaterializationExecPath()} field in their metadata.
    */
   @Nullable
-  private PathFragment maybeGetTreeRoot(ActionInput input, MetadataProvider metadataProvider)
+  private PathFragment maybeGetTreeRoot(ActionInput input, MetadataSupplier metadataSupplier)
       throws IOException {
     if (!(input instanceof TreeFileArtifact)) {
       return null;
@@ -383,7 +382,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();
     FileArtifactValue treeMetadata =
         checkNotNull(
-            metadataProvider.getMetadata(treeArtifact),
+            metadataSupplier.getMetadata(treeArtifact),
             "input %s belongs to a tree artifact whose metadata is missing",
             input);
     return treeMetadata.getMaterializationExecPath().orElse(treeArtifact.getExecPath());
@@ -400,17 +399,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input, FileArtifactValue metadata, MetadataProvider metadataProvider)
+      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
       throws IOException {
     if (input instanceof TreeFileArtifact) {
       // Check whether the entire tree artifact should be prefetched into a separate location.
       SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();
       FileArtifactValue treeMetadata =
           checkNotNull(
-              metadataProvider.getMetadata(treeArtifact),
+              metadataSupplier.getMetadata(treeArtifact),
               "input %s belongs to a tree artifact whose metadata is missing",
               input);
-      return maybeGetSymlink(treeArtifact, treeMetadata, metadataProvider);
+      return maybeGetSymlink(treeArtifact, treeMetadata, metadataSupplier);
     }
     PathFragment execPath = input.getExecPath();
     PathFragment materializationExecPath = metadata.getMaterializationExecPath().orElse(execPath);
@@ -611,7 +610,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!inputsToDownload.isEmpty()) {
-      var future = prefetchFiles(inputsToDownload, metadataHandler, Priority.HIGH);
+      // "input" here means "input to another action" (but an output of this one), so
+      // getOutputMetadata() is the right method to pass to prefetchFiles()
+      var future =
+          prefetchFiles(inputsToDownload, metadataHandler::getOutputMetadata, Priority.HIGH);
       addCallback(
           future,
           new FutureCallback<Void>() {
@@ -632,7 +634,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!outputsToDownload.isEmpty()) {
-      var future = prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
+      var future =
+          prefetchFiles(outputsToDownload, metadataHandler::getOutputMetadata, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {

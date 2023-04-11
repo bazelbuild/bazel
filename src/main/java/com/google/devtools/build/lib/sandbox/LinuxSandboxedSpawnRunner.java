@@ -493,7 +493,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         continue;
       }
 
-      FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+      FileArtifactValue metadata = context.getMetadataProvider().getInputMetadata(input);
+      if (metadata == null) {
+        // This can happen if we are executing a spawn in an action that has multiple spawns and
+        // the output of one is the input of another. In this case, we assume that no one modifies
+        // an output of the first spawn before the action is completed (which requires the
+        // the completion of the second spawn, which happens after this point is reached in the
+        // code)
+        continue;
+      }
       if (!metadata.getType().isFile()) {
         // The hermetic sandbox creates hardlinks from files inside sandbox to files outside
         // sandbox. The content of the files outside the sandbox could have been tampered with via

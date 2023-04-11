@@ -11,12 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.util;
+package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -50,7 +47,7 @@ public final class StaticMetadataProvider implements MetadataProvider {
 
   @Nullable
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) {
+  public FileArtifactValue getInputMetadata(ActionInput input) {
     return inputToMetadata.get(input);
   }
 

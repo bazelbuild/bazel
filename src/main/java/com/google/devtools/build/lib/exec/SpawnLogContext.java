@@ -305,7 +305,7 @@ public class SpawnLogContext implements ActionContext {
       }
       // Try to access the cached metadata, otherwise fall back to local computation.
       try {
-        FileArtifactValue metadata = metadataProvider.getMetadata(input);
+        FileArtifactValue metadata = metadataProvider.getInputMetadata(input);
         if (metadata != null) {
           byte[] hash = metadata.getDigest();
           if (hash != null) {
