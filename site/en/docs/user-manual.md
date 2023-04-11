@@ -2216,8 +2216,8 @@ Example:
 ### `analyze-profile` {:#analyze-profile}
 
 The `analyze-profile` command analyzes a
-[JSON trace profile](/config/json-trace-profile) previously gathered during a
-Bazel invocation.
+[JSON trace profile](/advanced/performance/json-trace-profile) previously
+gathered during a Bazel invocation.
 
 ### `canonicalize-flags` {:#canonicalize-flags}
 

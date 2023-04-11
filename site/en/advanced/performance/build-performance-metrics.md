@@ -45,8 +45,9 @@ query modes, that allows you to customize your queries according to your needs.
 ## JSON Trace Profiles {:#json-trace-profiles}
 
 For every build-like Bazel invocation, Bazel writes a trace profile in JSON
-format. The [JSON trace profile](/configure/json-trace-profile) can be very
-useful to quickly understand what Bazel spent time on during the invocation.
+format. The [JSON trace profile](/advanced/performance/json-trace-profile) can
+be very useful to quickly understand what Bazel spent time on during the
+invocation.
 
 ## Execution Log {:#execution-log}
 
