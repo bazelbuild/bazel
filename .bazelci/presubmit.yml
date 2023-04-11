@@ -79,7 +79,7 @@ tasks:
       - "//tools/python/..."
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
-      - "-//src/java_tools/import_deps_checker/..."      
+      - "-//src/java_tools/import_deps_checker/..."
   ubuntu1804:
     environment:
       USE_BAZEL_VERSION: 4.2.2
