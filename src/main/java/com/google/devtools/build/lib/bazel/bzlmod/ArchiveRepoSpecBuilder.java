@@ -98,7 +98,7 @@ public class ArchiveRepoSpecBuilder {
     return RepoSpec.builder()
         .setBzlFile("@bazel_tools//tools/build_defs/repo:http.bzl")
         .setRuleClassName("http_archive")
-        .setAttributes(attrBuilder.buildOrThrow())
+        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();
   }
 }

@@ -54,11 +54,9 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class BazelDepGraphFunction implements SkyFunction {
 
   private final Path rootDirectory;
-  private final RegistryFactory registryFactory;
 
-  public BazelDepGraphFunction(Path rootDirectory, RegistryFactory registryFactory) {
+  public BazelDepGraphFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
-    this.registryFactory = registryFactory;
   }
 
   @Override
@@ -105,7 +103,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       depGraph = selectionResult.getResolvedDepGraph();
       if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_LOCKFILE)) {
         BazelLockFileFunction.updateLockedModule(
-            root.getModuleFileHash(), depGraph, rootDirectory, registryFactory, flags);
+            root.getModuleFileHash(), depGraph, rootDirectory, flags);
       }
     }
 

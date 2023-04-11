@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorFunction;
@@ -233,7 +234,8 @@ public class BazelRepositoryModule extends BlazeModule {
               public RepoSpec getRepoSpec(RepositoryName repoName) {
                 return RepoSpec.builder()
                     .setRuleClassName("local_config_platform")
-                    .setAttributes(ImmutableMap.of("name", repoName.getName()))
+                    .setAttributes(
+                        AttributeValues.create(ImmutableMap.of("name", repoName.getName())))
                     .build();
               }
 
@@ -251,11 +253,9 @@ public class BazelRepositoryModule extends BlazeModule {
             SkyFunctions.MODULE_FILE,
             new ModuleFileFunction(registryFactory, directories.getWorkspace(), builtinModules))
         .addSkyFunction(
-            SkyFunctions.BAZEL_DEP_GRAPH,
-            new BazelDepGraphFunction(directories.getWorkspace(), registryFactory))
+            SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(directories.getWorkspace()))
         .addSkyFunction(
-            SkyFunctions.BAZEL_LOCK_FILE,
-            new BazelLockFileFunction(directories.getWorkspace(), registryFactory))
+            SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_INSPECTION, new BazelModuleInspectorFunction())
         .addSkyFunction(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)

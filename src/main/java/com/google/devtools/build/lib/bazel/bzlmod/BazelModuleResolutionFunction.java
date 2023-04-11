@@ -109,7 +109,35 @@ public class BazelModuleResolutionFunction implements SkyFunction {
             Objects.requireNonNull(ALLOWED_YANKED_VERSIONS.get(env))),
         env.getListener());
 
-    return selectionResultValue;
+    // Add repo spec to each module and remove registry
+    try {
+      ImmutableMap.Builder<ModuleKey, Module> mapBuilder = ImmutableMap.builder();
+      for (Map.Entry<ModuleKey, Module> entry : resolvedDepGraph.entrySet()) {
+        Module module = entry.getValue();
+        // Only change modules with registry (not overridden)
+        if (module.getRegistry() != null) {
+          RepoSpec moduleRepoSpec =
+              module
+                  .getRegistry()
+                  .getRepoSpec(module.getKey(), module.getCanonicalRepoName(), env.getListener());
+          ModuleOverride override = root.getOverrides().get(entry.getKey().getName());
+          moduleRepoSpec = maybeAppendAdditionalPatches(moduleRepoSpec, override);
+          module = module.toBuilder().setRepoSpec(moduleRepoSpec).setRegistry(null).build();
+        }
+        mapBuilder.put(entry.getKey(), module);
+      }
+      resolvedDepGraph = mapBuilder.buildOrThrow();
+    } catch (IOException e) {
+      throw new BazelModuleResolutionFunctionException(
+          ExternalDepsException.withMessage(
+              Code.ERROR_ACCESSING_REGISTRY,
+              "Unable to get module repo spec from registry: %s",
+              e.getMessage()),
+          Transience.PERSISTENT);
+    }
+
+    return BazelModuleResolutionValue.create(
+        resolvedDepGraph, selectionResultValue.getUnprunedDepGraph());
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(
@@ -319,6 +347,26 @@ public class BazelModuleResolutionFunction implements SkyFunction {
             Transience.PERSISTENT);
       }
     }
+  }
+
+  private RepoSpec maybeAppendAdditionalPatches(RepoSpec repoSpec, ModuleOverride override) {
+    if (!(override instanceof SingleVersionOverride)) {
+      return repoSpec;
+    }
+    SingleVersionOverride singleVersion = (SingleVersionOverride) override;
+    if (singleVersion.getPatches().isEmpty()) {
+      return repoSpec;
+    }
+    ImmutableMap.Builder<String, Object> attrBuilder = ImmutableMap.builder();
+    attrBuilder.putAll(repoSpec.attributes().attributes());
+    attrBuilder.put("patches", singleVersion.getPatches());
+    attrBuilder.put("patch_cmds", singleVersion.getPatchCmds());
+    attrBuilder.put("patch_args", ImmutableList.of("-p" + singleVersion.getPatchStrip()));
+    return RepoSpec.builder()
+        .setBzlFile(repoSpec.bzlFile())
+        .setRuleClassName(repoSpec.ruleClassName())
+        .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
+        .build();
   }
 
   static class BazelModuleResolutionFunctionException extends SkyFunctionException {

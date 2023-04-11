@@ -79,6 +79,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:auto_value",
         "//third_party:caffeine",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
