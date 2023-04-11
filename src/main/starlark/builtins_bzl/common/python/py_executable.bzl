@@ -214,19 +214,13 @@ def _get_runtime_details(ctx, semantics):
         A struct; see inline-field comments of the return value for details.
     """
 
-    # NOTE: Both Bazel and Google have similar legacy "path to a python
-    # interpreter" flags with similar functions, but with subtle differences.
-    #
     # Bazel has --python_path. This flag has a computed default of "python" when
     # its actual default is null (see
     # BazelPythonConfiguration.java#getPythonPath). This flag is only used if
-    # toolchains are not enabled and `--python_top` isn't set.
+    # toolchains are not enabled and `--python_top` isn't set. Note that Google
+    # used to have a variant of this named --python_binary, but it has since
+    # been removed.
     #
-    # Google has --python_binary. This flag defaults to null; no special
-    # computed behavior. If set, it is used instead of any runtime or toolchain.
-    # This is a legacy behavior, but not fully cleaned up yet.
-    #
-    # TODO(b/230428071): Remove this once Google's --python_binary flag is removed.
     # TOOD(bazelbuild/bazel#7901): Remove this once --python_path flag is removed.
 
     if IS_BAZEL:
