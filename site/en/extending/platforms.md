@@ -41,6 +41,9 @@ Bazel supports the following build scenarios regarding platforms:
 *  **Multi-platform builds** - host, execution, and target platforms are all
    different.
 
+Tip: for detailed instructions on migrating your project to platforms, see
+[Migrating to Platforms](/concepts/platforms).
+
 ## Defining constraints and platforms {:#constraints-platforms}
 
 The space of possible choices for platforms is defined by using the
