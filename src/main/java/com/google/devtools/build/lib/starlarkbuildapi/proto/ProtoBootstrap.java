@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import net.starlark.java.eval.FlagGuardedValue;
-import net.starlark.java.eval.Starlark;
 
 /** A {@link Bootstrap} for Starlark objects related to protocol buffers. */
 public class ProtoBootstrap implements Bootstrap {
@@ -60,7 +60,7 @@ public class ProtoBootstrap implements Bootstrap {
         PROTO_INFO_STARLARK_NAME,
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            Starlark.NONE,
+            new ProviderStub(),
             allowedRepositories));
     builder.put(
         PROTO_COMMON_NAME,
