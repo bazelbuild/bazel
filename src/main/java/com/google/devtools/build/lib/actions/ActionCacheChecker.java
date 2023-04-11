@@ -190,6 +190,7 @@ public class ActionCacheChecker {
       ActionCache.Entry entry,
       Action action,
       NestedSet<Artifact> actionInputs,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       boolean checkOutput,
       @Nullable CachedOutputMetadata cachedOutputMetadata)
@@ -206,7 +207,7 @@ public class ActionCacheChecker {
       }
     }
     for (Artifact artifact : actionInputs.toList()) {
-      mdMap.put(artifact.getExecPathString(), getInputMetadataMaybe(metadataHandler, artifact));
+      mdMap.put(artifact.getExecPathString(), getInputMetadataMaybe(metadataProvider, artifact));
     }
     return !Arrays.equals(MetadataDigestUtils.fromMetadata(mdMap), entry.getFileDigest());
   }
@@ -438,6 +439,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
@@ -454,7 +456,7 @@ public class ActionCacheChecker {
       // Some types of middlemen are not checked because they should not
       // propagate invalidation of their inputs.
       if (middlemanType != MiddlemanType.SCHEDULING_DEPENDENCY_MIDDLEMAN) {
-        checkMiddlemanAction(action, handler, metadataHandler);
+        checkMiddlemanAction(action, handler, metadataProvider, metadataHandler);
       }
       return null;
     }
@@ -495,6 +497,7 @@ public class ActionCacheChecker {
         action,
         entry,
         handler,
+        metadataProvider,
         metadataHandler,
         artifactExpander,
         actionInputs,
@@ -525,6 +528,7 @@ public class ActionCacheChecker {
       Action action,
       @Nullable ActionCache.Entry entry,
       EventHandler handler,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
@@ -551,7 +555,13 @@ public class ActionCacheChecker {
       actionCache.accountMiss(MissReason.CORRUPTED_CACHE_ENTRY);
       return true;
     } else if (validateArtifacts(
-        entry, action, actionInputs, metadataHandler, true, cachedOutputMetadata)) {
+        entry,
+        action,
+        actionInputs,
+        metadataProvider,
+        metadataHandler,
+        true,
+        cachedOutputMetadata)) {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
@@ -574,8 +584,8 @@ public class ActionCacheChecker {
   }
 
   private static FileArtifactValue getInputMetadataOrConstant(
-      MetadataHandler metadataHandler, Artifact artifact) throws IOException {
-    FileArtifactValue metadata = metadataHandler.getInputMetadata(artifact);
+      MetadataProvider metadataProvider, Artifact artifact) throws IOException {
+    FileArtifactValue metadata = metadataProvider.getInputMetadata(artifact);
     return (metadata != null && artifact.isConstantMetadata())
         ? ConstantMetadataValue.INSTANCE
         : metadata;
@@ -594,9 +604,9 @@ public class ActionCacheChecker {
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
   private static FileArtifactValue getInputMetadataMaybe(
-      MetadataHandler metadataHandler, Artifact artifact) {
+      MetadataProvider metadataProvider, Artifact artifact) {
     try {
-      return getInputMetadataOrConstant(metadataHandler, artifact);
+      return getInputMetadataOrConstant(metadataProvider, artifact);
     } catch (IOException e) {
       return null;
     }
@@ -618,6 +628,7 @@ public class ActionCacheChecker {
   public void updateActionCache(
       Action action,
       Token token,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> clientEnv,
@@ -673,7 +684,7 @@ public class ActionCacheChecker {
     for (Artifact input : action.getInputs().toList()) {
       entry.addInputFile(
           input.getExecPath(),
-          getInputMetadataMaybe(metadataHandler, input),
+          getInputMetadataMaybe(metadataProvider, input),
           /* saveExecPath= */ !excludePathsFromActionCache.contains(input));
     }
     entry.getFileDigest();
@@ -755,7 +766,10 @@ public class ActionCacheChecker {
    * actions, it consults with the aggregated middleman digest computed here.
    */
   private void checkMiddlemanAction(
-      Action action, EventHandler handler, MetadataHandler metadataHandler)
+      Action action,
+      EventHandler handler,
+      MetadataProvider metadataProvider,
+      MetadataHandler metadataHandler)
       throws InterruptedException {
     if (!cacheConfig.enabled()) {
       // Action cache is disabled, don't generate digests.
@@ -774,9 +788,10 @@ public class ActionCacheChecker {
           entry,
           action,
           action.getInputs(),
+          metadataProvider,
           metadataHandler,
           false,
-          /*cachedOutputMetadata=*/ null)) {
+          /* cachedOutputMetadata= */ null)) {
         reportChanged(handler, action);
         actionCache.accountMiss(MissReason.DIFFERENT_FILES);
         changed = true;
@@ -794,7 +809,7 @@ public class ActionCacheChecker {
       for (Artifact input : action.getInputs().toList()) {
         entry.addInputFile(
             input.getExecPath(),
-            getInputMetadataMaybe(metadataHandler, input),
+            getInputMetadataMaybe(metadataProvider, input),
             /* saveExecPath= */ true);
       }
     }
@@ -816,6 +831,7 @@ public class ActionCacheChecker {
       Map<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
@@ -830,6 +846,7 @@ public class ActionCacheChecker {
         clientEnv,
         outputPermissions,
         handler,
+        metadataProvider,
         metadataHandler,
         artifactExpander,
         remoteDefaultPlatformProperties,

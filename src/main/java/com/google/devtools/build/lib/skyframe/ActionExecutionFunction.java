@@ -758,6 +758,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               env.getListener(),
               action,
               metadataHandler,
+              metadataHandler,
               artifactExpander,
               actionStartTime,
               state.allInputs.actionCacheInputs,
@@ -787,7 +788,12 @@ public final class ActionExecutionFunction implements SkyFunction {
         try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "discoverInputs")) {
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
-                  action, actionLookupData, metadataHandler, env, state.actionFileSystem);
+                  action,
+                  actionLookupData,
+                  metadataHandler,
+                  metadataHandler,
+                  env,
+                  state.actionFileSystem);
         }
         discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
         if (env.valuesMissing()) {
@@ -876,6 +882,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       checkState(!env.valuesMissing(), action);
       skyframeActionExecutor.updateActionCache(
           action,
+          metadataHandler,
           metadataHandler,
           new Artifact.ArtifactExpanderImpl(
               // Skipping the filesets in runfiles since those cannot participate in command line

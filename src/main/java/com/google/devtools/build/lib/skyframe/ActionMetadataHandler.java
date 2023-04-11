@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -79,7 +80,7 @@ import javax.annotation.Nullable;
  * (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared outputs
  * were in fact created and are valid.
  */
-final class ActionMetadataHandler implements MetadataHandler {
+final class ActionMetadataHandler implements MetadataProvider, MetadataHandler {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**

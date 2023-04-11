@@ -20,14 +20,12 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
-/** Handles metadata of inputs and outputs during the execution phase. */
-public interface MetadataHandler extends MetadataProvider, MetadataInjector {
-
+/** Handles the metadata of the outputs of the action during its execution. */
+public interface MetadataHandler extends MetadataInjector {
   /**
    * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
    *

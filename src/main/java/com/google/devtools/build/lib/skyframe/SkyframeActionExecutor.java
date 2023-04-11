@@ -479,6 +479,7 @@ public final class SkyframeActionExecutor {
             env,
             action,
             metadataHandler,
+            metadataHandler,
             artifactExpander,
             topLevelFilesets,
             actionFileSystem,
@@ -541,6 +542,7 @@ public final class SkyframeActionExecutor {
   private ActionExecutionContext getContext(
       Environment env,
       Action action,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -553,7 +555,7 @@ public final class SkyframeActionExecutor {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(metadataHandler, actionFileSystem),
+        createFileCache(metadataProvider, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -596,6 +598,7 @@ public final class SkyframeActionExecutor {
   Token checkActionCache(
       ExtendedEventHandler eventHandler,
       Action action,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       long actionStartTime,
@@ -631,6 +634,7 @@ public final class SkyframeActionExecutor {
               clientEnv,
               getOutputPermissions(),
               handler,
+              metadataProvider,
               metadataHandler,
               artifactExpander,
               remoteDefaultProperties,
@@ -673,6 +677,7 @@ public final class SkyframeActionExecutor {
                     clientEnv,
                     getOutputPermissions(),
                     handler,
+                    metadataProvider,
                     metadataHandler,
                     artifactExpander,
                     remoteDefaultProperties,
@@ -703,6 +708,7 @@ public final class SkyframeActionExecutor {
 
   void updateActionCache(
       Action action,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Token token,
@@ -726,6 +732,7 @@ public final class SkyframeActionExecutor {
       actionCacheChecker.updateActionCache(
           action,
           token,
+          metadataProvider,
           metadataHandler,
           artifactExpander,
           clientEnv,
@@ -771,6 +778,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -783,7 +791,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(metadataHandler, actionFileSystem),
+            createFileCache(metadataProvider, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
