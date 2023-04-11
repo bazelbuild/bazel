@@ -18,6 +18,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
+import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @StarlarkBuiltin(
@@ -68,6 +69,7 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   boolean apkSigningMethodV2();
 
   @StarlarkMethod(name = "apk_signing_method_v4", structField = true, doc = "", documented = false, allowReturnNones = true)
+  @Nullable
   Boolean apkSigningMethodV4();
 
   @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
