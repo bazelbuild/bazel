@@ -292,6 +292,14 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
 
     @Option(
+        name = "experimental_worker_as_resource",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op, will be removed soon.")
+    public boolean workerAsResource;
+
+    @Option(
         name = "high_priority_workers",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

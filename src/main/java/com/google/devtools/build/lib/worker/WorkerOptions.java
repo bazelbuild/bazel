@@ -163,14 +163,6 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerCancellation;
 
   @Option(
-      name = "experimental_worker_as_resource",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "No-op, will be removed soon.")
-  public boolean workerAsResource;
-
-  @Option(
       name = "experimental_worker_multiplex_sandboxing",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
