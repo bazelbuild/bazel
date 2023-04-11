@@ -1,3 +1,11 @@
+## Release 6.0.99 (2023-04-11)
+
+```
+Baseline: 0ee04fe4f733ddad2a83b47f5c1c635676de3e47
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release  (2023-04-11)
 
 ```

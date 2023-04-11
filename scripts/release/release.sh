@@ -22,10 +22,10 @@ set -eu
 : ${EDITOR=vi}
 
 # Repositories to push the release branch and the release tag.
-RELEASE_REPOSITORY="git@github.com:bazelbuild/bazel"
+RELEASE_REPOSITORY="git@github.com:Ryang20718/bazel"
 
 # Repositories to push the master branch.
-MASTER_REPOSITORY="https://bazel.googlesource.com/bazel"
+MASTER_REPOSITORY="https://github.com/Ryang20718/bazel"
 
 # Author of the release commits.
 RELEASE_AUTHOR="Bazel Release System <noreply@google.com>"
