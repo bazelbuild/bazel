@@ -61,7 +61,8 @@ public class StarlarkBazelModuleTest {
     return ModuleExtension.builder()
         .setDoc("")
         .setLocation(Location.BUILTIN)
-        .setImplementation(() -> "maven");
+        .setImplementation(() -> "maven")
+        .setEnvVariables(ImmutableList.of());
   }
 
   @Test
