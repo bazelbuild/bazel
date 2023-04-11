@@ -73,8 +73,9 @@ public class FakeRegistry implements Registry {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
         .setAttributes(
-            ImmutableMap.of(
-                "name", repoName.getName(), "path", rootPath + "/" + repoName.getName()))
+            AttributeValues.create(
+                ImmutableMap.of(
+                    "name", repoName.getName(), "path", rootPath + "/" + repoName.getName())))
         .build();
   }
 

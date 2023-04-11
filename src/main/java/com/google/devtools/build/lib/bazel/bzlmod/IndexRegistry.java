@@ -194,8 +194,9 @@ public class IndexRegistry implements Registry {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
         .setAttributes(
-            ImmutableMap.of(
-                "name", repoName.getName(), "path", PathFragment.create(path).toString()))
+            AttributeValues.create(
+                ImmutableMap.of(
+                    "name", repoName.getName(), "path", PathFragment.create(path).toString())))
         .build();
   }
 

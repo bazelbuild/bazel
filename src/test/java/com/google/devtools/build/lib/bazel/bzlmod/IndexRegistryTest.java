@@ -201,7 +201,9 @@ public class IndexRegistryTest extends FoundationTestCase {
         .isEqualTo(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
-                .setAttributes(ImmutableMap.of("name", "foorepo", "path", "/hello/bar/project_x"))
+                .setAttributes(
+                    AttributeValues.create(
+                        ImmutableMap.of("name", "foorepo", "path", "/hello/bar/project_x")))
                 .build());
   }
 

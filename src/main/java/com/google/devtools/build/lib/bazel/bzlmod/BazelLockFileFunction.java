@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil.LOCKFILE_GSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -32,7 +33,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.gson.Gson;
 import com.google.gson.JsonIOException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -42,7 +42,6 @@ import javax.annotation.Nullable;
 public class BazelLockFileFunction implements SkyFunction {
 
   private final Path rootDirectory;
-  private final RegistryFactory registryFactory;
 
   private static final BzlmodFlagsAndEnvVars EMPTY_FLAGS =
       BzlmodFlagsAndEnvVars.create(
@@ -52,9 +51,8 @@ public class BazelLockFileFunction implements SkyFunction {
       BazelLockFileValue.create(
           BazelLockFileValue.LOCK_FILE_VERSION, "", EMPTY_FLAGS, ImmutableMap.of());
 
-  public BazelLockFileFunction(Path rootDirectory, RegistryFactory registryFactory) {
+  public BazelLockFileFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
-    this.registryFactory = registryFactory;
   }
 
   @Override
@@ -70,10 +68,9 @@ public class BazelLockFileFunction implements SkyFunction {
     }
 
     BazelLockFileValue bazelLockFileValue;
-    Gson gson = GsonTypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryFactory);
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      bazelLockFileValue = gson.fromJson(json, BazelLockFileValue.class);
+      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
     } catch (FileNotFoundException e) {
       bazelLockFileValue = EMPTY_LOCKFILE;
     } catch (IOException ex) {
@@ -92,7 +89,6 @@ public class BazelLockFileFunction implements SkyFunction {
       String hashedModule,
       ImmutableMap<ModuleKey, Module> resolvedDepGraph,
       Path rootDirectory,
-      RegistryFactory registryFactory,
       BzlmodFlagsAndEnvVars flags)
       throws BazelModuleResolutionFunctionException {
     RootedPath lockfilePath =
@@ -101,9 +97,8 @@ public class BazelLockFileFunction implements SkyFunction {
     BazelLockFileValue value =
         BazelLockFileValue.create(
             BazelLockFileValue.LOCK_FILE_VERSION, hashedModule, flags, resolvedDepGraph);
-    Gson gson = GsonTypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryFactory);
     try {
-      FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, gson.toJson(value));
+      FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(value));
     } catch (IOException e) {
       throw new BazelModuleResolutionFunctionException(
           ExternalDepsException.withCauseAndMessage(

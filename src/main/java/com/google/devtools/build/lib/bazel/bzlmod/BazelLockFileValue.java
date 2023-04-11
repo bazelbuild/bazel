@@ -55,4 +55,5 @@ public abstract class BazelLockFileValue implements SkyValue {
 
   /** The post-selection dep graph retrieved from the lock file. */
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
+
 }
