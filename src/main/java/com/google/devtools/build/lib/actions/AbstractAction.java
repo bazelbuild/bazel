@@ -575,7 +575,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   /** If the action might create directories as outputs this method must be called. */
-  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext) {
+  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext)
+      throws InterruptedException {
     FileArtifactValue metadata;
     for (Artifact output : getOutputs()) {
       MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();

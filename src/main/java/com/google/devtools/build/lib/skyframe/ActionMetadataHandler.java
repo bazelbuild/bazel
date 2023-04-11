@@ -254,7 +254,8 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   @Nullable
   @Override
-  public FileArtifactValue getOutputMetadata(ActionInput actionInput) throws IOException {
+  public FileArtifactValue getOutputMetadata(ActionInput actionInput)
+      throws IOException, InterruptedException {
     Artifact artifact = (Artifact) actionInput;
     FileArtifactValue value;
 
@@ -318,7 +319,8 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
+  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact)
+      throws IOException, InterruptedException {
     checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
 
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
@@ -332,7 +334,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
-      throws IOException {
+      throws IOException, InterruptedException {
     Path treeDir = artifactPathResolver.toPath(parent);
     boolean chmod = executionMode.get();
 

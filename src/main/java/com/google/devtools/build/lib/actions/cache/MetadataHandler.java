@@ -47,7 +47,7 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * @return the artifact's digest or null the artifact is not a known output of the action
    * @throws IOException if the action input cannot be digested
    */
-  FileArtifactValue getOutputMetadata(ActionInput output) throws IOException;
+  FileArtifactValue getOutputMetadata(ActionInput output) throws IOException, InterruptedException;
 
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);
@@ -70,7 +70,8 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact);
 
   /** Retrieves the metadata for this tree artifact. Data should already be available. */
-  TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException;
+  TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
+      throws IOException, InterruptedException;
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.

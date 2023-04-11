@@ -1473,7 +1473,8 @@ public final class SkyframeActionExecutor {
       Action action,
       MetadataHandler metadataHandler,
       @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinksForMetrics,
-      boolean isActionCacheHitForMetrics) {
+      boolean isActionCacheHitForMetrics)
+      throws InterruptedException {
     boolean success = true;
     try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
@@ -1520,7 +1521,7 @@ public final class SkyframeActionExecutor {
       @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks,
       boolean isActionCacheHit,
       Action actionForDebugging)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (metadata == null) {
       BugReport.sendBugReport(
           new IllegalStateException(

@@ -414,7 +414,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
    * it must already have been built.
    */
   public ActionExecutionContext withOutputsAsInputs(
-      Iterable<? extends ActionInput> additionalInputs) throws IOException {
+      Iterable<? extends ActionInput> additionalInputs) throws IOException, InterruptedException {
     ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
         ImmutableMap.builder();
 

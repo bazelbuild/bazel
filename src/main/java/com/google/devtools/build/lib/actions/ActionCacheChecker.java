@@ -192,7 +192,8 @@ public class ActionCacheChecker {
       NestedSet<Artifact> actionInputs,
       MetadataHandler metadataHandler,
       boolean checkOutput,
-      @Nullable CachedOutputMetadata cachedOutputMetadata) {
+      @Nullable CachedOutputMetadata cachedOutputMetadata)
+      throws InterruptedException {
     Map<String, FileArtifactValue> mdMap = new HashMap<>();
     if (checkOutput) {
       for (Artifact artifact : action.getOutputs()) {
@@ -317,7 +318,8 @@ public class ActionCacheChecker {
   }
 
   private static CachedOutputMetadata loadCachedOutputMetadata(
-      Action action, ActionCache.Entry entry, MetadataHandler metadataHandler) {
+      Action action, ActionCache.Entry entry, MetadataHandler metadataHandler)
+      throws InterruptedException {
     Instant now = Instant.now();
     ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata =
         ImmutableMap.builder();
@@ -580,7 +582,7 @@ public class ActionCacheChecker {
   }
 
   private static FileArtifactValue getOutputMetadataOrConstant(
-      MetadataHandler metadataHandler, Artifact artifact) throws IOException {
+      MetadataHandler metadataHandler, Artifact artifact) throws IOException, InterruptedException {
     FileArtifactValue metadata = metadataHandler.getOutputMetadata(artifact);
     return (metadata != null && artifact.isConstantMetadata())
         ? ConstantMetadataValue.INSTANCE
@@ -605,7 +607,7 @@ public class ActionCacheChecker {
   // should propagate the exception, because it is unexpected (e.g., bad file system state).
   @Nullable
   private static FileArtifactValue getOutputMetadataMaybe(
-      MetadataHandler metadataHandler, Artifact artifact) {
+      MetadataHandler metadataHandler, Artifact artifact) throws InterruptedException {
     try {
       return getOutputMetadataOrConstant(metadataHandler, artifact);
     } catch (IOException e) {
@@ -753,7 +755,8 @@ public class ActionCacheChecker {
    * actions, it consults with the aggregated middleman digest computed here.
    */
   private void checkMiddlemanAction(
-      Action action, EventHandler handler, MetadataHandler metadataHandler) {
+      Action action, EventHandler handler, MetadataHandler metadataHandler)
+      throws InterruptedException {
     if (!cacheConfig.enabled()) {
       // Action cache is disabled, don't generate digests.
       return;

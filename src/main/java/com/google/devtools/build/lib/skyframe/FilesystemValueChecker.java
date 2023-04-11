@@ -344,6 +344,7 @@ public class FilesystemValueChecker {
         return;
       } catch (InterruptedException e) {
         logger.atInfo().log("Interrupted doing batch stat");
+        Thread.currentThread().interrupt();
         // We handle interrupt in the main thread.
         return;
       }
@@ -383,13 +384,20 @@ public class FilesystemValueChecker {
       for (Map.Entry<Artifact, Pair<SkyKey, ActionExecutionValue>> entry :
           treeArtifactsToKeyAndValue.entrySet()) {
         Artifact artifact = entry.getKey();
-        if (treeArtifactIsDirty(
-            entry.getKey(), entry.getValue().getSecond().getTreeArtifactValue(artifact))) {
-          // Count the changed directory as one "file".
-          // TODO(bazel-team): There are no tests for this codepath.
-          modifiedOutputsReceiver.reportModifiedOutputFile(
-              getBestEffortModifiedTime(artifact.getPath()), artifact);
-          dirtyKeys.add(entry.getValue().getFirst());
+        try {
+          if (treeArtifactIsDirty(
+              entry.getKey(), entry.getValue().getSecond().getTreeArtifactValue(artifact))) {
+            // Count the changed directory as one "file".
+            // TODO(bazel-team): There are no tests for this codepath.
+            modifiedOutputsReceiver.reportModifiedOutputFile(
+                getBestEffortModifiedTime(artifact.getPath()), artifact);
+            dirtyKeys.add(entry.getValue().getFirst());
+          }
+        } catch (InterruptedException e) {
+          logger.atInfo().log("Interrupted doing batch stat");
+          Thread.currentThread().interrupt();
+          // We handle interrupt in the main thread.
+          return;
         }
       }
     };
@@ -406,24 +414,33 @@ public class FilesystemValueChecker {
     return new Runnable() {
       @Override
       public void run() {
-        for (Pair<SkyKey, ActionExecutionValue> keyAndValue : shard) {
-          ActionExecutionValue value = keyAndValue.getSecond();
-          if (value == null
-              || actionValueIsDirtyWithDirectSystemCalls(
-                  value,
-                  knownModifiedOutputFiles,
-                  sortedKnownModifiedOutputFiles,
-                  trustRemoteArtifacts,
-                  modifiedOutputsReceiver,
-                  now)) {
-            dirtyKeys.add(keyAndValue.getFirst());
+        try {
+          for (Pair<SkyKey, ActionExecutionValue> keyAndValue : shard) {
+            ActionExecutionValue value = keyAndValue.getSecond();
+            if (value == null
+                || actionValueIsDirtyWithDirectSystemCalls(
+                    value,
+                    knownModifiedOutputFiles,
+                    sortedKnownModifiedOutputFiles,
+                    trustRemoteArtifacts,
+                    modifiedOutputsReceiver,
+                    now)) {
+              dirtyKeys.add(keyAndValue.getFirst());
+            }
           }
+        } catch (InterruptedException e) {
+          // This code is called from getDirtyActionValues() and is running under an Executor. This
+          // means that getDirtyActionValues() will take care of house-keeping in case of an
+          // interrupt; all that matters is that we exit as quickly as possible.
+          logger.atInfo().log("Interrupted doing non-batch stat");
+          Thread.currentThread().interrupt();
         }
       }
     };
   }
 
-  private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value) {
+  private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value)
+      throws InterruptedException {
     Path path = artifact.getPath();
     if (path.isSymbolicLink()) {
       return true; // TreeArtifacts may not be symbolic links.
@@ -488,7 +505,8 @@ public class FilesystemValueChecker {
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
       boolean trustRemoteArtifacts,
       ModifiedOutputsReceiver modifiedOutputsReceiver,
-      Instant now) {
+      Instant now)
+      throws InterruptedException {
     boolean isDirty = false;
     for (Map.Entry<Artifact, FileArtifactValue> entry : actionValue.getAllFileValues().entrySet()) {
       if (artifactIsDirtyWithDirectSystemCalls(

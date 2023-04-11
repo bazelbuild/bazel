@@ -28,20 +28,29 @@ public class RxUtils {
 
   /** Result of an I/O operation to remote cache. */
   public static class TransferResult {
-    private static final TransferResult OK = new TransferResult(null);
+    private static final TransferResult OK = new TransferResult(null, false);
+
+    private static final TransferResult INTERRUPTED = new TransferResult(null, true);
 
     public static TransferResult ok() {
       return OK;
     }
 
+    public static TransferResult interrupted() {
+      return INTERRUPTED;
+    }
+
     public static TransferResult error(IOException error) {
-      return new TransferResult(error);
+      return new TransferResult(error, false);
     }
 
     @Nullable private final IOException error;
 
-    TransferResult(@Nullable IOException error) {
+    private final boolean interrupted;
+
+    TransferResult(@Nullable IOException error, boolean interrupted) {
       this.error = error;
+      this.interrupted = interrupted;
     }
 
     /** Returns {@code true} if the operation succeed. */
@@ -52,6 +61,10 @@ public class RxUtils {
     /** Returns {@code true} if the operation failed. */
     public boolean isError() {
       return error != null;
+    }
+
+    public boolean isInterrupted() {
+      return interrupted;
     }
 
     /** Returns the IO error if the operation failed. */
@@ -72,17 +85,25 @@ public class RxUtils {
             error -> {
               if (error instanceof IOException) {
                 return Single.just(TransferResult.error((IOException) error));
+              } else if (error instanceof InterruptedException) {
+                return Single.just(TransferResult.interrupted());
+              } else {
+                return Single.error(error);
               }
-
-              return Single.error(error);
             });
   }
 
   private static class BulkTransferExceptionCollector {
     private BulkTransferException bulkTransferException;
+    private boolean interrupted = false;
 
     void onResult(TransferResult result) {
       if (result.isOk()) {
+        return;
+      }
+
+      if (result.isInterrupted()) {
+        interrupted = true;
         return;
       }
 
@@ -97,6 +118,10 @@ public class RxUtils {
     Completable toCompletable() {
       if (bulkTransferException == null) {
         return Completable.complete();
+      }
+
+      if (interrupted) {
+        return Completable.error(new InterruptedException());
       }
 
       return Completable.error(bulkTransferException);

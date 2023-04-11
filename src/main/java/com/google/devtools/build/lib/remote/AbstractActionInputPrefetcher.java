@@ -326,7 +326,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       MetadataSupplier metadataSupplier,
       ActionInput input,
       Priority priority)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (input instanceof VirtualActionInput) {
       prefetchVirtualActionInput((VirtualActionInput) input);
       return Completable.complete();
@@ -375,7 +375,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private PathFragment maybeGetTreeRoot(ActionInput input, MetadataSupplier metadataSupplier)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (!(input instanceof TreeFileArtifact)) {
       return null;
     }
@@ -400,7 +400,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Nullable
   private Symlink maybeGetSymlink(
       ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact) {
       // Check whether the entire tree artifact should be prefetched into a separate location.
       SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();

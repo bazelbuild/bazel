@@ -79,7 +79,8 @@ public final class GenRuleAction extends SpawnAction {
 
   @Override
   protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults) {
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws InterruptedException {
     checkOutputsForDirectories(actionExecutionContext);
   }
 }

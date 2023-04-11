@@ -27,7 +27,7 @@ public interface ActionInputPrefetcher {
    * either an input or an output artifact.
    */
   public interface MetadataSupplier {
-    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException;
+    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
   }
 
   public static final ActionInputPrefetcher NONE =
