@@ -9,7 +9,9 @@ tasks:
     build_flags:
       - "--config=bzlmod"
     build_targets:
-      - "//src:bazel_nojdk"
+      - "//src:bazel"
+    test_targets:
+      - "//src/test/cpp/..."
     include_json_profile:
       - build
       - test
