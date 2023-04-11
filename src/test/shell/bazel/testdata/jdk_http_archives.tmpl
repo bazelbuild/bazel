@@ -111,18 +111,9 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
 )
 
-#################################### JDK 19 ####################################
+#################################### JDK 20 ####################################
 http_archive(
-    {openjdk19_linux_archive}
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-http_archive(
-    {openjdk19_linux_s390x_archive}
+    {openjdk20_linux_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -130,7 +121,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 )
 
 http_archive(
-    {openjdk19_darwin_archive}
+    {openjdk20_darwin_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -138,7 +129,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 )
 
 http_archive(
-    {openjdk19_darwin_aarch64_archive}
+    {openjdk20_darwin_aarch64_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
@@ -146,7 +137,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 )
 
 http_archive(
-    {openjdk19_windows_archive}
+    {openjdk20_windows_archive}
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
