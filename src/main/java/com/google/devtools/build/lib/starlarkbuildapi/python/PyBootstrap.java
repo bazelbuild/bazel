@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuarded
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import net.starlark.java.eval.FlagGuardedValue;
-import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to the Python rules. */
 public class PyBootstrap implements Bootstrap {
@@ -63,7 +63,8 @@ public class PyBootstrap implements Bootstrap {
         "PyRuntimeInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            Starlark.NONE,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
             allowedRepositories));
 
     builder.put(
@@ -84,7 +85,8 @@ public class PyBootstrap implements Bootstrap {
         "PyCcLinkParamsProvider",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            Starlark.NONE,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
             allowedRepositories));
   }
 }
