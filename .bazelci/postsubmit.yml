@@ -256,7 +256,8 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test"
       - "-//src/test/shell/bazel:git_repository_test"
       - "-//src/test/shell/bazel:starlark_git_repository_test"
-      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:BazelEmbeddedStarlarkBlackBoxTest"  
+      - "-//src/test/java/com/google/devtools/build/lib/blackbox/tests/workspace:BazelEmbeddedStarlarkBlackBoxTest"
+      - "-//src/test/shell/bazel:bazel_embedded_starlark_test"  
     include_json_profile:
       - build
       - test
