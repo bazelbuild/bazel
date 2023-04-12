@@ -114,7 +114,7 @@ Note: With [Bzlmod](/external/overview#bzlmod), remember to use canonical repo
 names here. Alternatively, use the
 [`--override_module`](/reference/command-line-reference#flag--override_module)
 flag to override a module to a local directory, similar to the
-[`local_path_override`](/rules/lib/globals#local_path_override) directive in
+[`local_path_override`](/rules/lib/globals/module#local_path_override) directive in
 `MODULE.bazel`.
 
 ## Using proxies
@@ -165,8 +165,8 @@ the build, use the option `--nofetch`.
 For true offline builds, where a different entity supplies all needed files,
 Bazel supports the option `--distdir`. This flag tells Bazel to look first into
 the directories specified by that option when a repository rule asks Bazel to
-fetch a file with [`ctx.download`](/rules/lib/repository_ctx#download) or
-[`ctx.download_and_extract`](/rules/lib/repository_ctx#download_and_extract). By
+fetch a file with [`ctx.download`](/rules/lib/builtins/repository_ctx#download) or
+[`ctx.download_and_extract`](/rules/lib/builtins/repository_ctx#download_and_extract). By
 providing a hash sum of the file needed, Bazel looks for a file matching the
 basename of the first URL, and uses the local copy if the hash matches.
 

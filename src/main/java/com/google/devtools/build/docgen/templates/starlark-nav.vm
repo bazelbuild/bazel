@@ -1,5 +1,0 @@
-<li><a href="/rules/lib/globals">Globals</a></li>
-<li><a href="/rules/lib/starlark-builtin">Builtin Types and Modules</a></li>
-<li><a href="/rules/lib/starlark-configuration-fragment">Configuration fragments</a></li>
-<li><a href="/rules/lib/starlark-provider">Providers</a></li>
-<li><a href="/rules/lib/starlark-overview">One-Page Overview</a></li>

@@ -1325,7 +1325,7 @@ The label of a platform rule that describes the host system.
 The platforms that are available as execution platforms to run actions.
 Platforms can be specified by exact target, or as a target pattern. These
 platforms will be considered before those declared in the WORKSPACE file by
-[register_execution_platforms()](/rules/lib/globals#register_execution_platforms).
+[register_execution_platforms()](/rules/lib/globals/workspace#register_execution_platforms).
 This option accepts a comma-separated list of platforms in order of priority.
 If the flag is passed multiple times, the most recent overrides.
 
@@ -1334,7 +1334,7 @@ If the flag is passed multiple times, the most recent overrides.
 The toolchain rules to be considered during toolchain resolution. Toolchains
 can be specified by exact target, or as a target pattern. These toolchains will
 be considered before those declared in the WORKSPACE file by
-[register_toolchains()](/rules/lib/globals#register_toolchains).
+[register_toolchains()](/rules/lib/globals/workspace#register_toolchains).
 
 #### `--toolchain_resolution_debug={{ "<var>" }}regex{{ "</var>" }}` {:#toolchain-resolution-debug}
 

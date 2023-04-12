@@ -28,9 +28,8 @@ import net.starlark.java.annot.StarlarkMethod;
         "Contains information about source files and instrumentation metadata files for rule"
             + " targets matched by <a"
             + " href=\"https://bazel.build/reference/command-line-reference#flag--instrumentation_filter\"><code>--instrumentation_filter</code></a>"
-            + " for purposes of <a"
-            + " href=\"https://bazel.build/extending/rules#code_coverage\">code coverage"
-            + " data collection</a>. When coverage data collection is enabled, a manifest"
+            + " for purposes of <a href=\"https://bazel.build/extending/rules#code_coverage\">code"
+            + " coverage data collection</a>. When coverage data collection is enabled, a manifest"
             + " containing the combined paths in <a"
             + " href=\"#instrumented_files\"><code>instrumented_files</code></a> and <a"
             + " href=\"#metadata_files\"><code>metadata_files</code></a> are passed to the test"
@@ -45,21 +44,21 @@ public interface InstrumentedFilesInfoApi extends StructApi {
   @StarlarkMethod(
       name = "instrumented_files",
       doc =
-          "<a href=\"depset.html\"><code>depset</code></a> of <a href=\"File.html\"><code>File"
-              + "</code></a> objects representing instrumented source files for this target and "
-              + "its dependencies.",
+          "<a href=\"../builtins/depset.html\"><code>depset</code></a> of <a"
+              + " href=\"../builtins/File.html\"><code>File</code></a> objects representing"
+              + " instrumented source files for this target and its dependencies.",
       structField = true)
   Depset getInstrumentedFilesForStarlark();
 
   @StarlarkMethod(
       name = "metadata_files",
       doc =
-          "<a href=\"depset.html\"><code>depset</code></a> of <a href=\"File.html\"><code>File"
-              + "</code></a> objects representing coverage metadata files for this target and its "
-              + "dependencies. These files contain additional information required to generate "
-              + "LCOV-format coverage output after the code is executed, e.g. the "
-              + "<code>.gcno</code> files generated when <code>gcc</code> is run with "
-              + "<code>-ftest-coverage</code>.",
+          "<a href=\"../builtins/depset.html\"><code>depset</code></a> of <a"
+              + " href=\"../builtins/File.html\"><code>File</code></a> objects representing"
+              + " coverage metadata files for this target and its dependencies. These files contain"
+              + " additional information required to generate LCOV-format coverage output after the"
+              + " code is executed, e.g. the <code>.gcno</code> files generated when"
+              + " <code>gcc</code> is run with <code>-ftest-coverage</code>.",
       structField = true)
   Depset getInstrumentationMetadataFilesForStarlark();
 }

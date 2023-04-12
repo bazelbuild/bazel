@@ -37,7 +37,7 @@ import net.starlark.java.eval.StarlarkValue;
             + "information."
             + "" // curse google-java-format b/145078219
             + "<p>When a <code>File</code> is passed to an <a"
-            + " href='Args.html'><code>Args</code></a> object without using a"
+            + " href='../builtins/Args.html'><code>Args</code></a> object without using a"
             + " <code>map_each</code> function, it is converted to a string by taking the value of"
             + " its <code>path</code> field.")
 public interface FileApi extends StarlarkValue {
@@ -103,25 +103,26 @@ public interface FileApi extends StarlarkValue {
       name = "path",
       structField = true,
       doc =
-          "The execution path of this file, relative to the workspace's execution directory. It "
-              + "consists of two parts, an optional first part called the <i>root</i> (see also "
-              + "the <a href=\"root.html\">root</a> module), and the second part which is the "
-              + "<code>short_path</code>. The root may be empty, which it usually is for "
-              + "non-generated files. For generated files it usually contains a "
-              + "configuration-specific path fragment that encodes things like the target CPU "
-              + "architecture that was used while building said file. Use the "
-              + "<code>short_path</code> for the path under which the file is mapped if it's in "
-              + "the runfiles of a binary.")
+          "The execution path of this file, relative to the workspace's execution directory. It"
+              + " consists of two parts, an optional first part called the <i>root</i> (see also"
+              + " the <a href=\"../builtins/root.html\">root</a> module), and the second part which"
+              + " is the <code>short_path</code>. The root may be empty, which it usually is for"
+              + " non-generated files. For generated files it usually contains a"
+              + " configuration-specific path fragment that encodes things like the target CPU"
+              + " architecture that was used while building said file. Use the"
+              + " <code>short_path</code> for the path under which the file is mapped if it's in"
+              + " the runfiles of a binary.")
   String getExecPathString();
 
   @StarlarkMethod(
       name = "tree_relative_path",
       structField = true,
       doc =
-          "The path of this file relative to the root of the ancestor's tree, if the ancestor's "
-              + "<a href=\"#is_directory\">is_directory</a> field is true. <code>tree_relative_path"
-              + "</code> is only available for expanded files of a directory in an action command, "
-              + "i.e. <a href=\"Args.html#add_all\">Args.add_all()</a>. For other types of files, "
-              + "it is an error to access this field.")
+          "The path of this file relative to the root of the ancestor's tree, if the ancestor's <a"
+              + " href=\"#is_directory\">is_directory</a> field is true."
+              + " <code>tree_relative_path</code> is only available for expanded files of a"
+              + " directory in an action command, i.e. <a"
+              + " href=\"../builtins/Args.html#add_all\">Args.add_all()</a>. For other types of"
+              + " files, it is an error to access this field.")
   String getTreeRelativePathString() throws EvalException;
 }

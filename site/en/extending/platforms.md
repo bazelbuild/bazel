@@ -233,7 +233,7 @@ cc_library(
 ### Detecting incompatible targets using `bazel cquery` {:#cquery-incompatible-target-detection}
 
 You can use the
-[`IncompatiblePlatformProvider`](/rules/lib/IncompatiblePlatformProvider)
+[`IncompatiblePlatformProvider`](/rules/lib/providers/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
 format](/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.

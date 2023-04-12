@@ -418,7 +418,7 @@ contact [bazel-dev]{: .external}.
 [Platforms examples]: https://github.com/hlopko/bazel_platforms_examples
 [platform mappings design]: https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls/edit
 [platform Rule]: /reference/be/platform#platform
-[register_toolchains Function]: /rules/lib/globals#register_toolchains
+[register_toolchains Function]: /rules/lib/globals/workspace#register_toolchains
 [Rust rules]: https://github.com/bazelbuild/rules_rust
 [select()]: /docs/configurable-attributes
 [select() Platforms]: /docs/configurable-attributes#platforms

@@ -15,8 +15,9 @@ package com.google.devtools.build.docgen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
+import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
+import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi;
@@ -33,7 +34,7 @@ import net.starlark.java.eval.Starlark;
  */
 public class SymbolFamilies {
   private final ImmutableList<RuleDocumentation> nativeRules;
-  private final ImmutableMap<String, StarlarkBuiltinDoc> types;
+  private final ImmutableMap<Category, ImmutableList<StarlarkDocPage>> allDocPages;
 
   // Mappings between Starlark names and Starlark entities generated from the fakebuildapi.
   private final ImmutableMap<String, Object> globals;
@@ -51,7 +52,7 @@ public class SymbolFamilies {
                 expander.ruleExpander, configuredRuleClassProvider, inputDirs, denyList));
     this.globals = Starlark.UNIVERSE;
     this.bzlGlobals = collectBzlGlobals(configuredRuleClassProvider);
-    this.types = StarlarkDocumentationCollector.getAllModules(expander);
+    this.allDocPages = StarlarkDocumentationCollector.getAllDocPages(expander);
   }
 
   /*
@@ -78,8 +79,8 @@ public class SymbolFamilies {
   }
 
   // Returns a mapping between type names and module/type documentation.
-  public Map<String, StarlarkBuiltinDoc> getTypes() {
-    return types;
+  public ImmutableMap<Category, ImmutableList<StarlarkDocPage>> getAllDocPages() {
+    return allDocPages;
   }
 
   /*

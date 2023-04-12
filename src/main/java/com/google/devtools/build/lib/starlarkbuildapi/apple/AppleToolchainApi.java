@@ -23,7 +23,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a utility module involving the Apple toolchain. */
 @StarlarkBuiltin(
     name = "apple_toolchain",
-    category = DocCategory.TOP_LEVEL_MODULE,
+    category = DocCategory.BUILTIN,
     doc = "Utilities for resolving items from the Apple toolchain.")
 public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>>
     extends StarlarkValue {
