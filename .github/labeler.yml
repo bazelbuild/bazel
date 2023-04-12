@@ -47,17 +47,31 @@ team-Configurability:
 - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
 - tools/platforms/**/*
 
+team-Performance:
+- src/main/java/com/google/devtools/build/lib/profiler/**/*
+- src/main/java/com/google/devtools/build/lib/query2/aquery/**/*
+- src/main/java/com/google/devtools/build/lib/query2/query/**/*
+- src/main/java/com/google/devtools/build/lib/metrics/**/*
+- src/main/java/com/google/devtools/build/lib/actions/**/*
+- src/main/protobuf/analysis_v2.proto
+
+team-CLI:
+- src/main/java/com/google/devtools/build/lib/runtime/UiStateTracker.java
+- src/main/java/com/google/devtools/build/lib/runtime/UiEventHandler.java
+- src/main/java/com/google/devtools/build/lib/runtime/SkymeldUiStateTracker.java
+
+team-Local-Exec:
+- src/main/java/com/google/devtools/build/lib/sandbox/**/*
+- src/main/java/com/google/devtools/build/lib/worker/**/*
+- src/main/java/com/google/devtools/build/lib/dynamic/**/*
+
 # team-Rules-CPP:
 # - tools/cpp/**/*
 # - test/shell/bazel/cpp/**/*
 # - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
 # - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
 
-# team-Performance
-
 # team-Bazel
-
-# team-Local-Exec
 
 # team-OSS
 
@@ -72,7 +86,5 @@ team-Configurability:
 # team-Loading-API
 
 # team-Rules-ObjC
-
-# team-CLI
 
 # team-Core
