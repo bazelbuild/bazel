@@ -21,7 +21,7 @@ import javax.annotation.Nullable;
 
 /** Provides {@link ActionInput} metadata. */
 @ThreadSafe
-public interface MetadataProvider {
+public interface InputMetadataProvider {
   /**
    * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
    *

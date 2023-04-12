@@ -16,13 +16,14 @@ package com.google.devtools.build.lib.actions;
 
 import java.io.IOException;
 
-/** A {@link MetadataProvider} implementation that consults two others in a given order. */
-public final class DelegatingPairMetadataProvider implements MetadataProvider {
+/** A {@link InputMetadataProvider} implementation that consults two others in a given order. */
+public final class DelegatingPairInputMetadataProvider implements InputMetadataProvider {
 
-  private final MetadataProvider primary;
-  private final MetadataProvider secondary;
+  private final InputMetadataProvider primary;
+  private final InputMetadataProvider secondary;
 
-  public DelegatingPairMetadataProvider(MetadataProvider primary, MetadataProvider secondary) {
+  public DelegatingPairInputMetadataProvider(
+      InputMetadataProvider primary, InputMetadataProvider secondary) {
     this.primary = primary;
     this.secondary = secondary;
   }

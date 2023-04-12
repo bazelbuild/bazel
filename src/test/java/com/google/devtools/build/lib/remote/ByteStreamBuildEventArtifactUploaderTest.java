@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.StaticMetadataProvider;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
@@ -366,7 +366,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             outputRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
             outputs,
             ImmutableList.of(artifact),
-            StaticMetadataProvider.empty(),
+            StaticInputMetadataProvider.empty(),
             actionInputFetcher);
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);

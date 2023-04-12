@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -138,13 +138,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     FakeActionExecutionContext(
         FileOutErr fileOutErr,
         ActionContext.ActionContextRegistry actionContextRegistry,
-        MetadataHandler metadataHandler) {
+        OutputMetadataStore outputMetadataStore) {
       super(
           /* executor= */ null,
-          /* actionInputFileCache= */ null,
+          /* inputMetadataProvider= */ null,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
-          /* metadataHandler= */ metadataHandler,
+          /* outputMetadataStore= */ outputMetadataStore,
           /* rewindingEnabled= */ false,
           LostInputsCheck.NONE,
           fileOutErr,
@@ -189,7 +189,7 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     @Override
     public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
       return new FakeActionExecutionContext(
-          fileOutErr, actionContextRegistry, getMetadataHandler());
+          fileOutErr, actionContextRegistry, getOutputMetadataStore());
     }
   }
 

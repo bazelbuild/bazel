@@ -71,8 +71,8 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -776,7 +776,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public void configureActionExecutor(
-      MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+      InputMetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
     skyframeActionExecutor.configure(
         fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT);
   }

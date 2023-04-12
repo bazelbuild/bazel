@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -59,7 +59,7 @@ public class WorkerFilesHash {
    * @throws MissingInputException if metadata is missing for any of the worker files.
    */
   public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
-      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
+      Spawn spawn, ArtifactExpander artifactExpander, InputMetadataProvider actionInputFileCache)
       throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 

@@ -23,7 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -548,14 +548,14 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * checking, this method must be called.
    */
   protected void checkInputsForDirectories(
-      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
+      EventHandler eventHandler, InputMetadataProvider inputMetadataProvider) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs().toList()) {
       // Assume that if the file did not exist, we would not have gotten here.
       try {
         if (input.isSourceArtifact()
-            && metadataProvider.getInputMetadata(input).getType().isDirectory()) {
+            && inputMetadataProvider.getInputMetadata(input).getType().isDirectory()) {
           // TODO(ulfjack): What about dependency checking of special files?
           eventHandler.handle(
               Event.warn(
@@ -581,12 +581,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       throws InterruptedException {
     FileArtifactValue metadata;
     for (Artifact output : getOutputs()) {
-      MetadataHandler metadataHandler = actionExecutionContext.getMetadataHandler();
-      if (metadataHandler.artifactOmitted(output)) {
+      OutputMetadataStore outputMetadataStore = actionExecutionContext.getOutputMetadataStore();
+      if (outputMetadataStore.artifactOmitted(output)) {
         continue;
       }
       try {
-        metadata = metadataHandler.getOutputMetadata(output);
+        metadata = outputMetadataStore.getOutputMetadata(output);
       } catch (IOException e) {
         logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
         metadata = null;

@@ -460,7 +460,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throw wrapIOException(e, "Failed to delete reduced action outputs");
     }
 
-    actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
+    actionExecutionContext.getOutputMetadataStore().resetOutputs(getOutputs());
 
     try {
       actionExecutionContext.getFileOutErr().clearOut();
@@ -793,7 +793,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     Path fsPath = actionExecutionContext.getInputPath(outputDepsProto);
     if (fsPath.exists()) {
       // Make sure to clear the output store cache if it has an entry from before the rewrite.
-      actionExecutionContext.getMetadataHandler().resetOutputs(ImmutableList.of(outputDepsProto));
+      actionExecutionContext
+          .getOutputMetadataStore()
+          .resetOutputs(ImmutableList.of(outputDepsProto));
       fsPath.setWritable(true);
       try (var outputStream = fsPath.getOutputStream()) {
         fullOutputDeps.writeTo(outputStream);
