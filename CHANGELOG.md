@@ -1,3 +1,67 @@
+## Release 7.0.0-pre.20230405.2 (2023-04-12)
+
+```
+Baseline: 177f0d49913d74e7b1a4aae52f835702d7e85401
+
+Cherry picks:
+
+   + 81ee0fc29fb538d0849c6e7ccfff925f99b87453:
+     Remove globDeps containing some Glob skyKey check
+```
+
+Important changes:
+
+  - cc_test can now be configured by using a native.toolchain().
+  - `@foo` labels can now be used on the command line as the
+    top-level target (that is, `bazel build @foo` now works).
+    Double-dot syntax is now forbidden (`bazel build ../foo` will no
+    longer work).
+  - The location of rules that explicitly specify `generator_name`
+    and/or `generator_function` attributes (typically because they
+    are incidentally copied from `native.existing_rule()`) is now the
+    top-level call in the `BUILD` file, which is consistent with
+    rules that do not explicitly specify these attributes.
+  - Warnings (most notably those associated with the `deprecation`
+    rule attribute) are no longer replayed on subsequent invocations
+    unless the target in question is re-analyzed. Warnings are purely
+    informational, so this change has no bearing on the correctness
+    of the build. Downstream tests that break due to this change
+    should update their expectations.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jack Dai, Konstantin Erman.
+
+## Release 7.0.0-pre.20230330.3 (2023-04-06)
+
+```
+Baseline: f7829f855bc31aaf0c0fcef55ef56adec84daa9e
+
+Cherry picks:
+
+   + eee0d9dfe3513042112a0f0ec519e2b232e5d203:
+     Add an option retention option to proto_library.
+```
+
+Incompatible changes:
+
+  - `--experimental_execution_graph_log` no longer exists. Current
+    users that want local logs need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_execution_graph_log_path=/some/local/path`.
+    Current users that want logs uploaded to BEP need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_stream_log_file_uploads`.
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+
+Important changes:
+
+  - Added `native.module_name()` and `native.module_version()` to
+    allow BUILD macro authors to acquire information about which
+    Bazel module the current repo is associated with.
+  - Add `--skip_incompatible_explicit_targets` option
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Benjamin Sigonneau, Ed Schouten, Fabian Meumertzheim, hvd, Keith Smiley, Malte Poll, Marc Zych.
+
 ## Release 7.0.0-pre.20230322.4 (2023-04-03)
 
 ```
