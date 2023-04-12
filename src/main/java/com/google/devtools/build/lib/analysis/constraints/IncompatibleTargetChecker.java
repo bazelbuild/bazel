@@ -157,7 +157,6 @@ public class IncompatibleTargetChecker {
       try {
         targetCompatibleWith = attrs.getAndValidate("target_compatible_with", BuildType.LABEL_LIST);
       } catch (ValidationException e) {
-        sink.accept(Optional.empty());
         sink.acceptValidationException(e);
         return DONE;
       }

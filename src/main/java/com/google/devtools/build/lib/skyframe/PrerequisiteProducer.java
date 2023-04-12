@@ -130,10 +130,18 @@ public final class PrerequisiteProducer {
     /**
      * If a value is present, it means the target was directly incompatible.
      *
-     * <p>Non-null after the {@link #incompatibleTargetProducer} completes.
+     * <p>Either this or {@link #validationException} will be non-null after the {@link
+     * #incompatibleTargetProducer} completes.
      */
     private Optional<RuleConfiguredTargetValue> incompatibleTarget;
 
+    /**
+     * If this is set, an exception occurred during validation of the {@code target_compatible_with}
+     * attribute.
+     *
+     * <p>Either this or {@link #incompatibleTarget} will be non-null after the {@link
+     * #incompatibleTargetProducer} completes.
+     */
     private ValidationException validationException;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
@@ -522,7 +530,8 @@ public final class PrerequisiteProducer {
             // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
             // error.
             /* depReportedOwnError= */ false);
-      } else if (state.incompatibleTarget.isPresent()) {
+      }
+      if (state.incompatibleTarget.isPresent()) {
         throw new IncompatibleTargetException(state.incompatibleTarget.get());
       }
     }
