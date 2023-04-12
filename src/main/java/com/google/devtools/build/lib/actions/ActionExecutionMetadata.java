@@ -48,9 +48,9 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   }
 
   /**
-   * Returns a human-readable description of the inputs to {@link #getKey}. Used in the output from
-   * '--explain', and in error messages for '--check_up_to_date' and '--check_tests_up_to_date'. May
-   * return null, meaning no extra information is available.
+   * Returns a human-readable description of the inputs to {@link #getKey(ActionKeyContext)}. Used
+   * in the output from '--explain', and in error messages for '--check_up_to_date' and
+   * '--check_tests_up_to_date'. May return null, meaning no extra information is available.
    *
    * <p>If the return value is non-null, for consistency it should be a multiline message of the
    * form:

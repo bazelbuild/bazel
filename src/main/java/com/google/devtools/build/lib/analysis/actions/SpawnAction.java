@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
@@ -104,7 +103,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
-  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+  public static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
       BlazeInterners.newWeakInterner();
 
   private final CommandLines commandLines;
@@ -119,6 +118,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier extraActionInfoSupplier;
+  private final Artifact primaryOutput;
   private final Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer;
   private final boolean stripOutputPaths;
 
@@ -132,6 +132,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param inputs the set of all files potentially read by this action; must not be subsequently
    *     modified.
    * @param outputs the set of all files written by this action; must not be subsequently modified.
+   * @param primaryOutput the primary output of this action
    * @param resourceSetOrBuilder the resources consumed by executing this Action.
    * @param env the action environment
    * @param commandLines the command lines to execute. This includes the main argv vector and any
@@ -147,6 +148,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
+      Artifact primaryOutput,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
@@ -159,6 +161,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         tools,
         inputs,
         outputs,
+        primaryOutput,
         resourceSetOrBuilder,
         commandLines,
         commandLineLimits,
@@ -185,6 +188,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param inputs the set of all files potentially read by this action; must not be subsequently
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
+   * @param primaryOutput the primary output of this action
    * @param resourceSetOrBuilder the resources consumed by executing this Action.
    * @param env the action's environment
    * @param executionInfo out-of-band information for scheduling the spawn
@@ -202,6 +206,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Iterable<? extends Artifact> outputs,
+      Artifact primaryOutput,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
@@ -216,6 +221,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer,
       boolean stripOutputPaths) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
+    this.primaryOutput = primaryOutput;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo =
         executionInfo.isEmpty()
@@ -230,6 +236,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.resultConsumer = resultConsumer;
     this.stripOutputPaths = stripOutputPaths;
+  }
+
+  @Override
+  public Artifact getPrimaryOutput() {
+    return primaryOutput;
   }
 
   @VisibleForTesting
@@ -250,10 +261,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public Sequence<CommandLineArgsApi> getStarlarkArgs() {
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
     ImmutableSet<Artifact> directoryInputs =
-        getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
+        getInputs().toList().stream()
+            .filter(artifact -> artifact.isDirectory())
+            .collect(ImmutableSet.toImmutableSet());
 
     for (CommandLineAndParamFileInfo commandLine : commandLines.getCommandLines()) {
       result.add(Args.forRegisteredAction(commandLine, directoryInputs));
@@ -523,7 +536,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * <p>Subclasses of SpawnAction may override this in order to provide action-specific behaviour.
    * This can be necessary, for example, when the action discovers inputs.
    */
-  private SpawnInfo getExtraActionSpawnInfo()
+  protected SpawnInfo getExtraActionSpawnInfo()
       throws CommandLineExpansionException, InterruptedException {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
     Spawn spawn = getSpawnForExtraAction();
@@ -588,7 +601,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         throws CommandLineExpansionException {
       super(
           arguments,
-          ImmutableMap.of(),
+          ImmutableMap.<String, String>of(),
           parent.getExecutionInfo(),
           parent.getRunfilesSupplier(),
           parent,
@@ -792,7 +805,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           owner,
           tools,
           inputsAndTools,
-          ImmutableSet.copyOf(outputs),
+          ImmutableList.copyOf(outputs),
+          outputs.get(0),
           resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
@@ -812,7 +826,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
-        ImmutableSet<Artifact> outputs,
+        ImmutableList<Artifact> outputs,
+        Artifact primaryOutput,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
@@ -828,6 +843,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           tools,
           inputsAndTools,
           outputs,
+          primaryOutput,
           resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
@@ -931,6 +947,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder addOutputs(Iterable<Artifact> artifacts) {
       Iterables.addAll(outputs, artifacts);
       return this;
+    }
+
+    /**
+     * Checks whether the action produces any outputs
+     */
+    public boolean hasOutputs() {
+      return !outputs.isEmpty();
     }
 
     /**

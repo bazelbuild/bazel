@@ -40,7 +40,7 @@ public class BazelPrerequisiteValidator extends CommonPrerequisiteValidator {
 
   @Override
   protected boolean checkVisibilityForToolchains(RuleContext.Builder context) {
-    return true;
+    return false;
   }
 
   @Override
