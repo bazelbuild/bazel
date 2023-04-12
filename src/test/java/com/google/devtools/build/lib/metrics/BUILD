@@ -10,7 +10,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
+        "//src/test/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
