@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.events.Reporter;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
-import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -82,7 +80,6 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   @Test
   public void testStagingVirtualActionInput() throws Exception {
     // arrange
-    MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(
@@ -97,7 +94,9 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
-    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider, Priority.MEDIUM));
+    wait(
+        actionInputFetcher.prefetchFiles(
+            ImmutableList.of(a), (ActionInput unused) -> null, Priority.MEDIUM));
 
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
@@ -110,7 +109,6 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   @Test
   public void testStagingEmptyVirtualActionInput() throws Exception {
     // arrange
-    MetadataProvider metadataProvider = new StaticMetadataProvider(new HashMap<>());
     RemoteCache remoteCache = newCache(options, digestUtil, new HashMap<>());
     RemoteActionInputFetcher actionInputFetcher =
         new RemoteActionInputFetcher(
@@ -126,7 +124,9 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     // act
     wait(
         actionInputFetcher.prefetchFiles(
-            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider, Priority.MEDIUM));
+            ImmutableList.of(VirtualActionInput.EMPTY_MARKER),
+            (ActionInput unused) -> null,
+            Priority.MEDIUM));
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -137,7 +137,6 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
   public void prefetchFiles_missingFiles_failsWithSpecificMessage() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Artifact a = createRemoteArtifact("file1", "hello world", metadata, /* cas= */ new HashMap<>());
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
 
     var error =
@@ -145,12 +144,11 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
             BulkTransferException.class,
             () ->
                 wait(
-                    prefetcher.prefetchFiles(
-                        ImmutableList.of(a), metadataProvider, Priority.MEDIUM)));
+                    prefetcher.prefetchFiles(ImmutableList.of(a), metadata::get, Priority.MEDIUM)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
-    var m = metadataProvider.getMetadata(a);
+    var m = metadata.get(a);
     var digest = DigestUtil.buildDigest(m.getDigest(), m.getSize());
     assertThat(error)
         .hasMessageThat()

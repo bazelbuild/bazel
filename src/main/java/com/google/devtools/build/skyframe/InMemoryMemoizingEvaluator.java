@@ -16,7 +16,6 @@ package com.google.devtools.build.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -44,7 +43,6 @@ public final class InMemoryMemoizingEvaluator
     extends AbstractIncrementalInMemoryMemoizingEvaluator {
   // Not final only for testing.
   private InMemoryGraph graph;
-  private IntVersion lastGraphVersion = null;
 
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
@@ -63,9 +61,9 @@ public final class InMemoryMemoizingEvaluator
         progressReceiver,
         GraphInconsistencyReceiver.THROWING,
         EventFilter.FULL_STORAGE,
-        new NestedSetVisitor.VisitedState(),
+        new EmittedEventState(),
         /* keepEdges= */ true,
-        /* usePooledSkyKeyInterning= */ true);
+        /* usePooledInterning= */ true);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -74,9 +72,9 @@ public final class InMemoryMemoizingEvaluator
       @Nullable EvaluationProgressReceiver progressReceiver,
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       EventFilter eventFilter,
-      NestedSetVisitor.VisitedState emittedEventState,
+      EmittedEventState emittedEventState,
       boolean keepEdges,
-      boolean usePooledSkyKeyInterning) {
+      boolean usePooledInterning) {
     super(
         ImmutableMap.copyOf(skyFunctions),
         differencer,
@@ -87,8 +85,8 @@ public final class InMemoryMemoizingEvaluator
         keepEdges);
     this.graph =
         keepEdges
-            ? InMemoryGraph.create(usePooledSkyKeyInterning)
-            : InMemoryGraph.createEdgeless(usePooledSkyKeyInterning);
+            ? InMemoryGraph.create(usePooledInterning)
+            : InMemoryGraph.createEdgeless(usePooledInterning);
   }
 
   private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);

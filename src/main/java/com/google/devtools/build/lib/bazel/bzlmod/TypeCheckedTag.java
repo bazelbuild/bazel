@@ -46,7 +46,7 @@ public class TypeCheckedTag implements Structure {
   public static TypeCheckedTag create(TagClass tagClass, Tag tag, LabelConverter labelConverter)
       throws ExternalDepsException {
     Object[] attrValues = new Object[tagClass.getAttributes().size()];
-    for (Map.Entry<String, Object> attrValue : tag.getAttributeValues().entrySet()) {
+    for (Map.Entry<String, Object> attrValue : tag.getAttributeValues().attributes().entrySet()) {
       Integer attrIndex = tagClass.getAttributeIndices().get(attrValue.getKey());
       if (attrIndex == null) {
         throw ExternalDepsException.withMessage(

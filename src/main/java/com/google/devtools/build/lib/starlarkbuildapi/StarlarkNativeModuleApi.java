@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a module with native rule and package helper functions. */
 @StarlarkBuiltin(
     name = "native",
-    category = DocCategory.BUILTIN,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
         "A built-in module to support native rules and other package helper functions. "
             + "All native rules appear as functions in this module, e.g. "

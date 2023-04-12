@@ -32,7 +32,7 @@ public final class FakeActionInputFileCache implements MetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
   }
 

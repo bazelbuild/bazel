@@ -328,7 +328,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    */
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws ExecException {}
+      throws ExecException, InterruptedException {}
 
   @Override
   public final ActionResult execute(ActionExecutionContext actionExecutionContext)

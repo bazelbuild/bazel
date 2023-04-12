@@ -28,6 +28,7 @@ import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -178,6 +179,11 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     @Override
     public Path getExecRoot() {
       return StandaloneTestStrategyTest.this.getExecRoot();
+    }
+
+    @Override
+    public ActionExecutionContext withOutputsAsInputs(Iterable<? extends ActionInput> inputs) {
+      return this;
     }
 
     @Override

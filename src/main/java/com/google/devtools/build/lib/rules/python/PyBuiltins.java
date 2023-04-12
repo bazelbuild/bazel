@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -91,22 +90,6 @@ public abstract class PyBuiltins implements StarlarkValue {
       })
   public boolean regexMatch(String subject, String pattern) {
     return subject.matches(pattern);
-  }
-
-  @StarlarkMethod(
-      name = "new_py_cc_link_params_provider",
-      doc = "Creates a <code>PyCcLinkParamsProvder</code>.",
-      parameters = {
-        @Param(
-            name = "cc_info",
-            positional = false,
-            named = true,
-            defaultValue = "unbound",
-            doc = "The CcInfo whose linking context to propagate; other information is discarded"),
-      },
-      useStarlarkThread = false)
-  public PyCcLinkParamsProvider newPyCcLinkParamsProvider(CcInfo ccInfo) {
-    return new PyCcLinkParamsProvider(ccInfo);
   }
 
   @StarlarkMethod(

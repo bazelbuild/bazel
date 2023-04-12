@@ -130,7 +130,6 @@ test_broken_BUILD_files_ignored_subdir() {
     # Test patterns with exclude.
     bazel build -- //ignoreme/deep/... -//ignoreme/... >& "$TEST_log" \
         || fail "Expected success"
-    expect_log "WARNING: Pattern '//ignoreme/deep/...' was filtered out by ignored directory 'ignoreme'"
     expect_not_log "circular symlinks detected"
     expect_not_log "ignoreme/deep/deeper"
 

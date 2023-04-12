@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.runtime;
+package com.google.devtools.build.lib.metrics.criticalpath;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Comparators;
@@ -221,7 +221,7 @@ public class CriticalPathComputer {
   public void discoverInputs(DiscoveredInputsEvent event) throws InterruptedException {
     CriticalPathComponent stats =
         tryAddComponent(createComponent(event.getAction(), event.getStartTimeNanos()));
-    stats.addSpawnResult(event.getMetrics(), null, "", /* wasRemote=*/ false);
+    stats.addSpawnResult(event.getMetrics(), null, "", /* wasRemote= */ false);
     stats.changePhase();
   }
 

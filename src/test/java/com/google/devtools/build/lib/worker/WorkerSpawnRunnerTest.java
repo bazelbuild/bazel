@@ -123,7 +123,6 @@ public class WorkerSpawnRunnerTest {
               }
             },
             ImmutableList.of(),
-            ImmutableList.of(),
             ImmutableList.of()));
   }
 
@@ -225,7 +224,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
-    verify(inputFileCache, never()).getMetadata(virtualActionInput);
+    verify(inputFileCache, never()).getInputMetadata(virtualActionInput);
     verify(resourceHandle).close();
     verify(resourceHandle, times(0)).invalidateAndClose();
     verify(context).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());

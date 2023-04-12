@@ -67,11 +67,12 @@ public class WorkerFilesHash {
         ActionInputHelper.expandArtifacts(
             spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
     for (ActionInput tool : tools) {
-      @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(tool);
+      @Nullable FileArtifactValue metadata = actionInputFileCache.getInputMetadata(tool);
       if (metadata == null) {
         throw new MissingInputException(tool);
       }
-      workerFilesMap.put(tool.getExecPath(), actionInputFileCache.getMetadata(tool).getDigest());
+      workerFilesMap.put(
+          tool.getExecPath(), actionInputFileCache.getInputMetadata(tool).getDigest());
     }
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
@@ -81,7 +82,8 @@ public class WorkerFilesHash {
       for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
+          @Nullable
+          FileArtifactValue metadata = actionInputFileCache.getInputMetadata(localArtifact);
           if (metadata == null) {
             throw new MissingInputException(localArtifact);
           }

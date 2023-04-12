@@ -28,10 +28,10 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsIn
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.CoverageReport;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
-import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -72,7 +71,7 @@ public class ToplevelArtifactsDownloader {
   private final MemoizingEvaluator memoizingEvaluator;
   private final AbstractActionInputPrefetcher actionInputPrefetcher;
   private final PathFragment execRoot;
-  private final PathToMetadataProvider pathToMetadataProvider;
+  private final PathToMetadataSupplier pathToMetadataSupplier;
 
   public ToplevelArtifactsDownloader(
       String commandName,
@@ -80,7 +79,7 @@ public class ToplevelArtifactsDownloader {
       MemoizingEvaluator memoizingEvaluator,
       AbstractActionInputPrefetcher actionInputPrefetcher,
       PathFragment execRoot,
-      PathToMetadataProvider pathToMetadataProvider) {
+      PathToMetadataSupplier pathToMetadataSupplier) {
     switch (commandName) {
       case "build":
         this.commandMode = CommandMode.BUILD;
@@ -101,19 +100,19 @@ public class ToplevelArtifactsDownloader {
     this.memoizingEvaluator = memoizingEvaluator;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.execRoot = execRoot;
-    this.pathToMetadataProvider = pathToMetadataProvider;
+    this.pathToMetadataSupplier = pathToMetadataSupplier;
   }
 
   /**
-   * Interface that converts a {@link Path} into a {@link MetadataProvider} suitable for retrieving
+   * Interface that converts a {@link Path} into a {@link MetadataSupplier} suitable for retrieving
    * metadata for that path.
    *
    * <p>{@link ToplevelArtifactsDownloader} may only used in conjunction with filesystems that
-   * implement {@link MetadataProvider}.
+   * implement {@link MetadataSupplier}.
    */
-  public interface PathToMetadataProvider {
+  public interface PathToMetadataSupplier {
     @Nullable
-    MetadataProvider getMetadataProvider(Path path);
+    MetadataSupplier getMetadataSupplier(Path path);
   }
 
   private void downloadTestOutput(Path path) {
@@ -125,13 +124,13 @@ public class ToplevelArtifactsDownloader {
     // action didn't get the chance to execute. In this case the MetadataProvider is null, which
     // is fine because test outputs are already downloaded (otherwise the action cache wouldn't
     // have been hit).
-    MetadataProvider metadataProvider = pathToMetadataProvider.getMetadataProvider(path);
-    if (metadataProvider != null) {
+    MetadataSupplier metadataSupplier = pathToMetadataSupplier.getMetadataSupplier(path);
+    if (metadataSupplier != null) {
       // RemoteActionFileSystem#getInput returns null for undeclared test outputs.
       ActionInput input = ActionInputHelper.fromPath(path.asFragment().relativeTo(execRoot));
       ListenableFuture<Void> future =
           actionInputPrefetcher.prefetchFiles(
-              ImmutableList.of(input), metadataProvider, Priority.LOW);
+              ImmutableList.of(input), metadataSupplier, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {
@@ -251,7 +250,7 @@ public class ToplevelArtifactsDownloader {
             outputsAndMetadata.keySet().stream()
                 .filter(ToplevelArtifactsDownloader::isNonTreeArtifact)
                 .collect(toImmutableSet()),
-            new StaticMetadataProvider(outputsAndMetadata),
+            outputsAndMetadata::get,
             Priority.LOW);
 
     addCallback(

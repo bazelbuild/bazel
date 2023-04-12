@@ -2084,7 +2084,6 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns the default value of this attribute, even if it is a computed default, or a late-bound
    * default.
    */
-  @VisibleForTesting
   public Object getDefaultValueUnchecked() {
     return defaultValue;
   }

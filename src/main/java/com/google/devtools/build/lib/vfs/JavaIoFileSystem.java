@@ -176,7 +176,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setReadable(readable);
+    if (!file.setReadable(readable) && readable) {
+      throw new IOException(String.format("Failed to make %s readable", path));
+    }
   }
 
   @Override
@@ -185,7 +187,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setWritable(writable);
+    if (!file.setWritable(writable) && writable) {
+      throw new IOException(String.format("Failed to make %s writable", path));
+    }
   }
 
   @Override
@@ -194,7 +198,9 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     if (!file.exists()) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    file.setExecutable(executable);
+    if (!file.setExecutable(executable) && executable) {
+      throw new IOException(String.format("Failed to make %s executable", path));
+    }
   }
 
   @Override
@@ -442,49 +448,50 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } catch (java.nio.file.FileSystemException e) {
       throw new FileNotFoundException(path + ERR_NO_SUCH_FILE_OR_DIR);
     }
-    FileStatus status =  new FileStatus() {
-      @Override
-      public boolean isFile() {
-        return attributes.isRegularFile() || isSpecialFile();
-      }
+    FileStatus status =
+        new FileStatus() {
+          @Override
+          public boolean isFile() {
+            return attributes.isRegularFile() || isSpecialFile();
+          }
 
-      @Override
-      public boolean isSpecialFile() {
-        return attributes.isOther();
-      }
+          @Override
+          public boolean isSpecialFile() {
+            return attributes.isOther();
+          }
 
-      @Override
-      public boolean isDirectory() {
-        return attributes.isDirectory();
-      }
+          @Override
+          public boolean isDirectory() {
+            return attributes.isDirectory();
+          }
 
-      @Override
-      public boolean isSymbolicLink() {
-        return attributes.isSymbolicLink();
-      }
+          @Override
+          public boolean isSymbolicLink() {
+            return attributes.isSymbolicLink();
+          }
 
-      @Override
-      public long getSize() throws IOException {
-        return attributes.size();
-      }
+          @Override
+          public long getSize() {
+            return attributes.size();
+          }
 
-      @Override
-      public long getLastModifiedTime() throws IOException {
-        return attributes.lastModifiedTime().toMillis();
-      }
+          @Override
+          public long getLastModifiedTime() {
+            return attributes.lastModifiedTime().toMillis();
+          }
 
-      @Override
-      public long getLastChangeTime() {
-        // This is the best we can do with Java NIO...
-        return attributes.lastModifiedTime().toMillis();
-      }
+          @Override
+          public long getLastChangeTime() {
+            // This is the best we can do with Java NIO...
+            return attributes.lastModifiedTime().toMillis();
+          }
 
-      @Override
-      public long getNodeId() {
-        // TODO(bazel-team): Consider making use of attributes.fileKey().
-        return -1;
-      }
-    };
+          @Override
+          public long getNodeId() {
+            // TODO(bazel-team): Consider making use of attributes.fileKey().
+            return -1;
+          }
+        };
 
     return status;
   }

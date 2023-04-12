@@ -174,7 +174,7 @@ public final class ActionInputMap implements MetadataProvider, ActionInputMapSin
 
   @Nullable
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) {
+  public FileArtifactValue getInputMetadata(ActionInput input) {
     if (input instanceof TreeFileArtifact) {
       TreeFileArtifact treeFileArtifact = (TreeFileArtifact) input;
       int treeIndex = getIndex(treeFileArtifact.getParent().getExecPathString());

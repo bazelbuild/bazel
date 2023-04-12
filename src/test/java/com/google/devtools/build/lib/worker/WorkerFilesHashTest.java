@@ -148,9 +148,10 @@ public final class WorkerFilesHashTest {
   private static MetadataProvider createMetadataProvider(
       ImmutableMap<String, Object> inputMetadataOrExceptions) {
     return new MetadataProvider() {
+
       @Nullable
       @Override
-      public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+      public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
         @Nullable
         Object metadataOrException = inputMetadataOrExceptions.get(input.getExecPathString());
         if (metadataOrException == null) {

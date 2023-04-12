@@ -504,7 +504,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * @throws IOException if there is any problem reading or validating outputs under the given tree
    *     artifact directory, or if {@link TreeArtifactVisitor#visit} throws {@link IOException}
    */
-  public static void visitTree(Path parentDir, TreeArtifactVisitor visitor) throws IOException {
+  public static void visitTree(Path parentDir, TreeArtifactVisitor visitor)
+      throws IOException, InterruptedException {
     visitTree(parentDir, PathFragment.EMPTY_FRAGMENT, checkNotNull(visitor));
   }
 

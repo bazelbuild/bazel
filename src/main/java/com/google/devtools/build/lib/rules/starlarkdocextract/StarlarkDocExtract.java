@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
@@ -44,6 +45,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Option;
@@ -162,10 +165,34 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   }
 
   private static ModuleInfo getModuleInfo(RuleContext ruleContext, Module module)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
+    RepositoryMappingValue repositoryMappingValue;
+    try {
+      // We get the starlark_doc_extract target's repository's repo mapping to ensure label
+      // stringification does not change regardless of whether we are the main repo or a dependency.
+      // However, this does mean that label stringifactions we produce could be invalid in the main
+      // repo.
+      repositoryMappingValue =
+          (RepositoryMappingValue)
+              ruleContext
+                  .getAnalysisEnvironment()
+                  .getSkyframeEnv()
+                  .getValueOrThrow(
+                      RepositoryMappingValue.key(ruleContext.getRepository()),
+                      RepositoryMappingResolutionException.class);
+    } catch (RepositoryMappingResolutionException e) {
+      ruleContext.ruleError(e.getMessage());
+      throw new RuleErrorException(e);
+    }
+    verifyNotNull(repositoryMappingValue);
+
     ModuleInfo moduleInfo;
     try {
-      moduleInfo = ModuleInfoExtractor.extractFrom(module, getWantedSymbolPredicate(ruleContext));
+      moduleInfo =
+          new ModuleInfoExtractor(
+                  getWantedSymbolPredicate(ruleContext),
+                  repositoryMappingValue.getRepositoryMapping())
+              .extractFrom(module);
     } catch (ModuleInfoExtractor.ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
       throw new RuleErrorException(e);

@@ -424,6 +424,9 @@ public final class GenRuleConfiguredTargetTest extends BuildViewTestCase {
           assertThat(getConfiguration(prereq)).isNull();
           foundSetup = true;
           break;
+        case "host":
+          // Ignore the dependency on the target platform.
+          break;
         default:
           fail("unexpected prerequisite " + prereq + " (name: " + name + ")");
       }

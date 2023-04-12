@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor.VisitedState;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +38,7 @@ public final class NestedSetVisitorTest {
             .build();
 
     List<Integer> visited = new ArrayList<>();
-    new NestedSetVisitor<Integer>(visited::add, new VisitedState()).visit(set);
+    new NestedSetVisitor<Integer>(visited::add, new HashSet<>()::add).visit(set);
 
     assertThat(visited).isEqualTo(set.toList());
   }
@@ -55,7 +55,7 @@ public final class NestedSetVisitorTest {
             .build();
 
     List<Integer> visited = new ArrayList<>();
-    new NestedSetVisitor<Integer>(visited::add, new VisitedState()).visit(set);
+    new NestedSetVisitor<Integer>(visited::add, new HashSet<>()::add).visit(set);
 
     assertThat(visited).isEqualTo(set.toList());
   }
@@ -72,7 +72,7 @@ public final class NestedSetVisitorTest {
             .build();
 
     List<Integer> visited = new ArrayList<>();
-    new NestedSetVisitor<Integer>(visited::add, new VisitedState()).visit(set);
+    new NestedSetVisitor<Integer>(visited::add, new HashSet<>()::add).visit(set);
 
     // #toList() for LINK_ORDER reverses the result list.
     assertThat(visited).isEqualTo(set.toList().reverse());
@@ -90,7 +90,7 @@ public final class NestedSetVisitorTest {
             .build();
 
     List<Integer> visited = new ArrayList<>();
-    new NestedSetVisitor<Integer>(visited::add, new VisitedState()).visit(set);
+    new NestedSetVisitor<Integer>(visited::add, new HashSet<>()::add).visit(set);
 
     assertThat(visited).isEqualTo(set.toList());
   }
@@ -118,7 +118,7 @@ public final class NestedSetVisitorTest {
             .build();
 
     List<Integer> visited = new ArrayList<>();
-    new NestedSetVisitor<Integer>(visited::add, new VisitedState()).visit(set);
+    new NestedSetVisitor<Integer>(visited::add, new HashSet<>()::add).visit(set);
 
     assertThat(visited).isEqualTo(set.toList());
   }
@@ -144,7 +144,7 @@ public final class NestedSetVisitorTest {
             .build();
 
     List<Integer> visited = new ArrayList<>();
-    new NestedSetVisitor<Integer>(visited::add, new VisitedState()).visit(set);
+    new NestedSetVisitor<Integer>(visited::add, new HashSet<>()::add).visit(set);
 
     assertThat(visited).isEqualTo(set.toList());
     assertThat(visited).hasSize(9);

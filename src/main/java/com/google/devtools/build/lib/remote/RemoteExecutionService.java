@@ -143,6 +143,8 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
@@ -168,7 +170,7 @@ public class RemoteExecutionService {
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
-  private final Cache<Object, MerkleTree> merkleTreeCache;
+  private final Cache<Object, CompletableFuture<MerkleTree>> merkleTreeCache;
   private final Set<String> reportedErrors = new HashSet<>();
   private final Phaser backgroundTaskPhaser = new Phaser(1);
 
@@ -343,6 +345,11 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  @VisibleForTesting
+  Cache<Object, CompletableFuture<MerkleTree>> getMerkleTreeCache() {
+    return merkleTreeCache;
+  }
+
   private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
     TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
     for (ActionInput output : spawn.getOutputFiles()) {
@@ -413,12 +420,34 @@ public class RemoteExecutionService {
       MetadataProvider metadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
-    MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
-    if (result == null) {
-      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver);
-      merkleTreeCache.put(nodeKey, result);
+    // Deduplicate concurrent computations for the same node. It's not possible to use
+    // MerkleTreeCache#get(key, loader) because the loading computation may cause other nodes to be
+    // recursively looked up, which is not allowed. Instead, use a future as described at
+    // https://github.com/ben-manes/caffeine/wiki/Faq#recursive-computations.
+    var freshFuture = new CompletableFuture<MerkleTree>();
+    var priorFuture = merkleTreeCache.asMap().putIfAbsent(nodeKey, freshFuture);
+    if (priorFuture == null) {
+      // No preexisting cache entry, so we must do the computation ourselves.
+      try {
+        freshFuture.complete(
+            uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver));
+      } catch (Exception e) {
+        freshFuture.completeExceptionally(e);
+      }
     }
-    return result;
+    try {
+      return (priorFuture != null ? priorFuture : freshFuture).join();
+    } catch (CompletionException e) {
+      Throwable cause = checkNotNull(e.getCause());
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
+      } else if (cause instanceof ForbiddenActionInputException) {
+        throw (ForbiddenActionInputException) cause;
+      } else {
+        checkState(cause instanceof RuntimeException);
+        throw (RuntimeException) cause;
+      }
+    }
   }
 
   @VisibleForTesting

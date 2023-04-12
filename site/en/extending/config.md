@@ -566,11 +566,6 @@ for how to read these keys.
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/transition_on_native_flag){: .external}
 
-Warning: Long term, the plan is to reimplement all native options as build
-settings. When that happens, this syntax will be deprecated. Currently other
-issues are blocking that migration but be aware you may have to migrate your
-transitions at some point in the future.
-
 Starlark transitions can also declare reads and writes on native build
 configuration options via a special prefix to the option name.
 

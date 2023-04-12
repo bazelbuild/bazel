@@ -193,7 +193,7 @@ public final class StarlarkThread {
           }
         }
       }
-      return env.build();
+      return env.buildOrThrow();
     }
 
     @Override
@@ -430,7 +430,7 @@ public final class StarlarkThread {
   }
 
   /** Reports whether this thread is allowed to make recursive calls. */
-  public boolean isRecursionAllowed() {
+  boolean isRecursionAllowed() {
     return allowRecursion;
   }
 
@@ -455,14 +455,20 @@ public final class StarlarkThread {
     return null;
   }
 
-  @Nullable
-  StarlarkFunction getInnermostEnclosingStarlarkFunction() {
-    return getInnermostEnclosingStarlarkFunction(0);
-  }
-
   /** Returns the size of the callstack. This is needed for the debugger. */
   int getCallStackSize() {
     return callstack.size();
+  }
+
+  /**
+   * The value of {@link CallStackEntry#name} for the implicit function that executes the top-level
+   * statements of a file.
+   */
+  public static final String TOP_LEVEL = "<toplevel>";
+
+  /** Creates a new {@link CallStackEntry}. */
+  public static CallStackEntry callStackEntry(String name, Location location) {
+    return new CallStackEntry(name, location);
   }
 
   /**
@@ -474,14 +480,31 @@ public final class StarlarkThread {
     public final String name;
     public final Location location;
 
-    public CallStackEntry(String name, Location location) {
-      this.location = location;
-      this.name = name;
+    private CallStackEntry(String name, Location location) {
+      this.name = Preconditions.checkNotNull(name);
+      this.location = Preconditions.checkNotNull(location);
     }
 
     @Override
     public String toString() {
       return name + "@" + location;
+    }
+
+    @Override
+    public int hashCode() {
+      return 31 * name.hashCode() + location.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CallStackEntry)) {
+        return false;
+      }
+      CallStackEntry that = (CallStackEntry) o;
+      return name.equals(that.name) && location.equals(that.location);
     }
   }
 
@@ -495,7 +518,7 @@ public final class StarlarkThread {
     ImmutableList.Builder<CallStackEntry> stack =
         ImmutableList.builderWithExpectedSize(callstack.size());
     for (Frame fr : callstack) {
-      stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
+      stack.add(callStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();
   }

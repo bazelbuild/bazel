@@ -14,7 +14,7 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library")
+load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
 load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_semantics.bzl", "semantics")
@@ -131,7 +131,16 @@ def basic_java_binary(
         add_opens = ctx.attr.add_opens,
     )
     java_info = target["JavaInfo"]
-    runtime_classpath = java_info.compilation_info.runtime_classpath
+    runtime_classpath = depset(
+        order = "preorder",
+        transitive = [
+            java_info.transitive_runtime_jars
+            for java_info in (
+                collect_deps(ctx.attr.runtime_deps + deps) +
+                ([coverage_config.runner] if coverage_config and coverage_config.runner else [])
+            )
+        ],
+    )
     if extension_registry_provider:
         runtime_classpath = depset(order = "preorder", direct = [extension_registry_provider.class_jar], transitive = [runtime_classpath])
         java_info = java_common.merge(
@@ -193,7 +202,7 @@ def basic_java_binary(
             transitive = [output_groups["_source_jars"]],
         )
 
-    one_version_output = _create_one_version_check(ctx, java_info.transitive_runtime_jars) if (
+    one_version_output = _create_one_version_check(ctx, java_attrs.runtime_classpath) if (
         ctx.fragments.java.one_version_enforcement_on_java_tests or not is_test_rule_class
     ) else None
     validation_outputs = [one_version_output] if one_version_output else []

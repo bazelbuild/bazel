@@ -141,9 +141,6 @@ public final class PrerequisiteProducer {
     @Nullable
     private Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependenciesResult;
 
-    /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
-    @Nullable
-    private OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependenciesResult;
 
     /**
      * Non-null if all the work in {@link #computeDependencies} is already done. This field contains
@@ -310,14 +307,47 @@ public final class PrerequisiteProducer {
       throw new InconsistentNullConfigException();
     }
 
-    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-
     // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
     //  with #processors threads, but ideally we would call #tryAcquire here, and if we failed,
     //  would exit this SkyFunction and restart it when permits were available.
     semaphoreLocker.acquireSemaphore();
     try {
+      // Check target compatibility before requesting toolchains - known missing toolchains are a
+      // valid reason for declaring a target incompatible and should not result in the target
+      // failing to build rather than being skipped as incompatible.
+      // Non-rule targets and those that are part of the toolchain resolution system do not support
+      // target compatibility checking anyway.
+      if (targetAndConfiguration.getTarget() instanceof Rule
+          && ((Rule) targetAndConfiguration.getTarget()).useToolchainResolution()) {
+        platformInfo = loadTargetPlatformInfo(env);
+        // loadTargetPlatformInfo may return null even when no deps are missing.
+        if (env.valuesMissing()) {
+          return false;
+        }
+
+        configConditions =
+            computeConfigConditions(
+                env,
+                targetAndConfiguration,
+                transitivePackages,
+                platformInfo,
+                transitiveRootCauses);
+        if (configConditions == null) {
+          return false;
+        }
+
+        if (!checkForIncompatibleTarget(
+            env,
+            state,
+            targetAndConfiguration,
+            configConditions,
+            platformInfo,
+            transitivePackages)) {
+          return false;
+        }
+      }
+
       // Determine what toolchains are needed by this target.
       ComputedToolchainContexts result =
           computeUnloadedToolchainContexts(
@@ -335,9 +365,17 @@ public final class PrerequisiteProducer {
           unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
-      configConditions =
-          computeConfigConditions(
-              env, targetAndConfiguration, transitivePackages, platformInfo, transitiveRootCauses);
+      // Has been computed as part of checking for incompatible targets at the beginning of this
+      // function unless the current target is not a rule participating in toolchain resolution.
+      if (configConditions == null) {
+        configConditions =
+            computeConfigConditions(
+                env,
+                targetAndConfiguration,
+                transitivePackages,
+                platformInfo,
+                transitiveRootCauses);
+      }
       if (configConditions == null) {
         return false;
       }
@@ -361,10 +399,6 @@ public final class PrerequisiteProducer {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
-        return false;
-      }
-
       // Calculate the dependencies of this target.
       depValueMap =
           computeDependencies(
@@ -372,8 +406,6 @@ public final class PrerequisiteProducer {
               transitivePackages,
               transitiveRootCauses,
               env,
-              resolver,
-              targetAndConfiguration,
               ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
@@ -405,13 +437,44 @@ public final class PrerequisiteProducer {
     return true;
   }
 
+  // May return null even when no deps are missing, use env.valuesMissing() to check.
+  @Nullable
+  private PlatformInfo loadTargetPlatformInfo(Environment env)
+      throws InterruptedException, ToolchainException {
+    PlatformConfiguration platformConfiguration =
+        targetAndConfiguration.getConfiguration().getFragment(PlatformConfiguration.class);
+    if (platformConfiguration == null) {
+      // No restart required in this case.
+      return null;
+    }
+    Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
+    ConfiguredTargetKey targetPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(targetAndConfiguration.getConfiguration())
+            .build();
+
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
+        PlatformLookupUtil.getPlatformInfo(ImmutableList.of(targetPlatformKey), env);
+    if (platformInfoMap == null) {
+      return null;
+    }
+
+    return platformInfoMap.get(targetPlatformKey);
+  }
+
   /**
    * Checks if a target is incompatible because of its "target_compatible_with" attribute.
    *
    * @return false if a {@code Skyframe} restart is needed.
    */
-  private boolean checkForIncompatibleTarget(
-      Environment env, State state, @Nullable NestedSetBuilder<Package> transitivePackages)
+  private static boolean checkForIncompatibleTarget(
+      Environment env,
+      State state,
+      TargetAndConfiguration targetAndConfiguration,
+      @Nullable ConfigConditions configConditions,
+      @Nullable PlatformInfo targetPlatformInfo,
+      @Nullable NestedSetBuilder<Package> transitivePackages)
       throws InterruptedException, IncompatibleTargetException {
     if (state.incompatibleTarget == null) {
       if (state.incompatibleTargetProducer == null) {
@@ -421,7 +484,7 @@ public final class PrerequisiteProducer {
                     targetAndConfiguration.getTarget(),
                     targetAndConfiguration.getConfiguration(),
                     configConditions,
-                    platformInfo,
+                    targetPlatformInfo,
                     transitivePackages,
                     state));
       }
@@ -815,8 +878,6 @@ public final class PrerequisiteProducer {
    *
    * @param state the compute state
    * @param env the Skyframe environment
-   * @param resolver the dependency resolver
-   * @param ctgValue the label and the configuration of the node
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
@@ -831,8 +892,6 @@ public final class PrerequisiteProducer {
       @Nullable NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Cause> transitiveRootCauses,
       Environment env,
-      SkyframeDependencyResolver resolver,
-      TargetAndConfiguration ctgValue,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -842,12 +901,12 @@ public final class PrerequisiteProducer {
           ConfiguredValueCreationException,
           AspectCreationException,
           InterruptedException {
+    if (state.computeDependenciesResult != null) {
+      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
+      return state.computeDependenciesResult;
+    }
     try {
-      if (state.computeDependenciesResult != null) {
-        state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
-        return state.computeDependenciesResult;
-      }
-
+      TargetAndConfiguration ctgValue = state.targetAndConfiguration;
       OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
       if (state.resolveConfigurationsResult != null) {
         depValueNames = state.resolveConfigurationsResult;
@@ -861,14 +920,15 @@ public final class PrerequisiteProducer {
           Label label = ctgValue.getLabel();
           try {
             initialDependencies =
-                resolver.dependentNodeMap(
-                    ctgValue,
-                    aspects,
-                    configConditions,
-                    toolchainContexts,
-                    transitiveRootCauses,
-                    ((ConfiguredRuleClassProvider) ruleClassProvider)
-                        .getTrimmingTransitionFactory());
+                new SkyframeDependencyResolver(env)
+                    .dependentNodeMap(
+                        ctgValue,
+                        aspects,
+                        configConditions,
+                        toolchainContexts,
+                        transitiveRootCauses,
+                        ((ConfiguredRuleClassProvider) ruleClassProvider)
+                            .getTrimmingTransitionFactory());
           } catch (DependencyResolver.Failure e) {
             env.getListener()
                 .post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
@@ -934,17 +994,11 @@ public final class PrerequisiteProducer {
       }
 
       // Resolve required aspects.
-      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects;
-      if (state.resolveAspectDependenciesResult != null) {
-        depAspects = state.resolveAspectDependenciesResult;
-      } else {
-        depAspects =
-            AspectResolver.resolveAspectDependencies(
-                env, depValues, depValueNames.values(), transitivePackages);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        state.resolveAspectDependenciesResult = depAspects;
+      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
+          AspectResolver.resolveAspectDependencies(
+              env, depValues, depValueNames.values(), transitivePackages);
+      if (env.valuesMissing()) {
+        return null;
       }
 
       // Merge the dependent configured targets and aspects into a single map.
@@ -962,7 +1016,6 @@ public final class PrerequisiteProducer {
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
       state.resolveConfiguredTargetDependenciesResult = null;
-      state.resolveAspectDependenciesResult = null;
 
       return mergeAspectsResult;
     } catch (InterruptedException e) {
@@ -980,7 +1033,7 @@ public final class PrerequisiteProducer {
   /**
    * Returns the targets that key the configurable attributes used by this rule.
    *
-   * <p>>If the configured targets supplying those providers aren't yet resolved by the dependency
+   * <p>If the configured targets supplying those providers aren't yet resolved by the dependency
    * resolver, returns null.
    */
   @Nullable

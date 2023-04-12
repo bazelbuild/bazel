@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -113,6 +114,23 @@ public class WorkerFactoryTest {
     assertThrows(IOException.class, () -> workerFactory.create(sandboxedWorkerKey));
   }
 
+  @Test
+  public void testDoomedWorkerValidation() throws Exception {
+    Path workerBaseDir = fs.getPath("/outputbase/bazel-workers");
+    WorkerFactory workerFactory = new WorkerFactory(workerBaseDir);
+
+    WorkerKey workerKey =
+        createWorkerKey(/* mustBeSandboxed= */ false, /* multiplex= */ false, "arg1");
+    Worker worker = workerFactory.create(workerKey);
+
+    assertThat(workerFactory.validateObject(workerKey, new DefaultPooledObject<>(worker))).isTrue();
+
+    worker.setDoomed(true);
+
+    assertThat(workerFactory.validateObject(workerKey, new DefaultPooledObject<>(worker)))
+        .isFalse();
+  }
+
   protected WorkerKey createWorkerKey(boolean mustBeSandboxed, boolean multiplex, String... args) {
     return new WorkerKey(
         /* args= */ ImmutableList.copyOf(args),
@@ -120,7 +138,7 @@ public class WorkerFactoryTest {
         /* execRoot= */ fs.getPath("/outputbase/execroot/workspace"),
         /* mnemonic= */ "dummy",
         /* workerFilesCombinedHash= */ HashCode.fromInt(0),
-        /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
+        /* workerFilesWithDigests= */ ImmutableSortedMap.of(),
         /* sandboxed= */ mustBeSandboxed,
         /* multiplex= */ multiplex,
         /* cancellable= */ false,

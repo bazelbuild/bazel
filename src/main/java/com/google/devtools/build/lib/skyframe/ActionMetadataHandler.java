@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -79,7 +80,7 @@ import javax.annotation.Nullable;
  * (except those that were {@linkplain #artifactOmitted omitted}) to ensure that declared outputs
  * were in fact created and are valid.
  */
-final class ActionMetadataHandler implements MetadataHandler {
+final class ActionMetadataHandler implements MetadataProvider, MetadataHandler {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
@@ -92,7 +93,6 @@ final class ActionMetadataHandler implements MetadataHandler {
    */
   static ActionMetadataHandler create(
       ActionInputMap inputArtifactData,
-      boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
@@ -104,7 +104,6 @@ final class ActionMetadataHandler implements MetadataHandler {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
     return new ActionMetadataHandler(
         inputArtifactData,
-        forInputDiscovery,
         archivedTreeArtifactsEnabled,
         outputPermissions,
         outputs,
@@ -118,7 +117,6 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private final ActionInputMap inputArtifactData;
-  private final boolean forInputDiscovery;
   private final boolean archivedTreeArtifactsEnabled;
   private final OutputPermissions outputPermissions;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
@@ -137,7 +135,6 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   private ActionMetadataHandler(
       ActionInputMap inputArtifactData,
-      boolean forInputDiscovery,
       boolean archivedTreeArtifactsEnabled,
       OutputPermissions outputPermissions,
       ImmutableSet<Artifact> outputs,
@@ -149,7 +146,6 @@ final class ActionMetadataHandler implements MetadataHandler {
       ImmutableMap<PathFragment, FileArtifactValue> filesetMapping,
       OutputStore store) {
     this.inputArtifactData = checkNotNull(inputArtifactData);
-    this.forInputDiscovery = forInputDiscovery;
     this.archivedTreeArtifactsEnabled = archivedTreeArtifactsEnabled;
     this.outputPermissions = outputPermissions;
     this.outputs = checkNotNull(outputs);
@@ -176,7 +172,6 @@ final class ActionMetadataHandler implements MetadataHandler {
   ActionMetadataHandler transformAfterInputDiscovery(OutputStore store) {
     return new ActionMetadataHandler(
         inputArtifactData,
-        /* forInputDiscovery= */ false,
         archivedTreeArtifactsEnabled,
         outputPermissions,
         outputs,
@@ -237,9 +232,9 @@ final class ActionMetadataHandler implements MetadataHandler {
         || (artifact.hasParent() && outputs.contains(artifact.getParent()));
   }
 
-  @Override
   @Nullable
-  public FileArtifactValue getMetadata(ActionInput actionInput) throws IOException {
+  @Override
+  public FileArtifactValue getInputMetadata(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact)) {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
@@ -250,12 +245,22 @@ final class ActionMetadataHandler implements MetadataHandler {
     Artifact artifact = (Artifact) actionInput;
     FileArtifactValue value;
 
+    value = inputArtifactData.getInputMetadata(artifact);
+    if (value != null) {
+      return checkExists(value, artifact);
+    }
+
+    return null;
+  }
+
+  @Nullable
+  @Override
+  public FileArtifactValue getOutputMetadata(ActionInput actionInput)
+      throws IOException, InterruptedException {
+    Artifact artifact = (Artifact) actionInput;
+    FileArtifactValue value;
+
     if (!isKnownOutput(artifact)) {
-      value = inputArtifactData.getMetadata(artifact);
-      if (value != null) {
-        return checkExists(value, artifact);
-      }
-      checkState(forInputDiscovery, "%s is not present in declared outputs: %s", artifact, outputs);
       return null;
     }
 
@@ -315,7 +320,8 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
+  public TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact)
+      throws IOException, InterruptedException {
     checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
 
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
@@ -329,7 +335,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
-      throws IOException {
+      throws IOException, InterruptedException {
     Path treeDir = artifactPathResolver.toPath(parent);
     boolean chmod = executionMode.get();
 

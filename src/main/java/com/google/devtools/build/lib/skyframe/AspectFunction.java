@@ -152,21 +152,15 @@ final class AspectFunction implements SkyFunction {
   private static class InitialValues {
     @Nullable private final Aspect aspect;
     @Nullable private final ConfiguredAspectFactory aspectFactory;
-    @Nullable private final BuildConfigurationValue configuration;
     private final ConfiguredTarget associatedTarget;
-    private final Target target;
 
     private InitialValues(
         @Nullable Aspect aspect,
         @Nullable ConfiguredAspectFactory aspectFactory,
-        @Nullable BuildConfigurationValue configuration,
-        ConfiguredTarget associatedTarget,
-        Target target) {
+        ConfiguredTarget associatedTarget) {
       this.aspect = aspect;
       this.aspectFactory = aspectFactory;
-      this.configuration = configuration;
       this.associatedTarget = associatedTarget;
-      this.target = target;
     }
   }
 
@@ -177,8 +171,9 @@ final class AspectFunction implements SkyFunction {
     AspectKey key = (AspectKey) skyKey.argument();
     State state = env.getState(() -> new State(storeTransitivePackages));
 
+    PrerequisiteProducer.State computeDependenciesState = state.computeDependenciesState;
     if (state.initialValues == null) {
-      InitialValues initialValues = getInitialValues(key, env);
+      InitialValues initialValues = getInitialValues(computeDependenciesState, key, env);
       if (initialValues == null) {
         return null;
       }
@@ -186,9 +181,10 @@ final class AspectFunction implements SkyFunction {
     }
     Aspect aspect = state.initialValues.aspect;
     ConfiguredAspectFactory aspectFactory = state.initialValues.aspectFactory;
-    BuildConfigurationValue configuration = state.initialValues.configuration;
     ConfiguredTarget associatedTarget = state.initialValues.associatedTarget;
-    Target target = state.initialValues.target;
+    TargetAndConfiguration targetAndConfiguration = computeDependenciesState.targetAndConfiguration;
+    Target target = targetAndConfiguration.getTarget();
+    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
 
     // If the target is incompatible, then there's not much to do. The intent here is to create an
     // AspectValue that doesn't trigger any of the associated target's dependencies to be evaluated
@@ -208,13 +204,7 @@ final class AspectFunction implements SkyFunction {
     }
 
     if (AliasProvider.isAlias(associatedTarget)) {
-      return createAliasAspect(
-          env,
-          new TargetAndConfiguration(target, configuration),
-          aspect,
-          key,
-          configuration,
-          associatedTarget);
+      return createAliasAspect(env, targetAndConfiguration, aspect, key, associatedTarget);
     }
     // If we get here, label should match original label, and therefore the target we looked up
     // above indeed corresponds to associatedTarget.getLabel().
@@ -285,8 +275,6 @@ final class AspectFunction implements SkyFunction {
       }
     }
 
-    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-
     TargetAndConfiguration originalTargetAndConfiguration =
         new TargetAndConfiguration(target, configuration);
     try {
@@ -322,12 +310,10 @@ final class AspectFunction implements SkyFunction {
       try {
         depValueMap =
             PrerequisiteProducer.computeDependencies(
-                state.computeDependenciesState,
+                computeDependenciesState,
                 state.transitivePackages,
                 state.transitiveRootCauses,
                 env,
-                resolver,
-                originalTargetAndConfiguration,
                 topologicalAspectPath,
                 configConditions.asProviders(),
                 unloadedToolchainContexts == null
@@ -355,8 +341,7 @@ final class AspectFunction implements SkyFunction {
       ToolchainCollection<ResolvedToolchainContext> toolchainContexts = null;
       if (unloadedToolchainContexts != null) {
         String targetDescription =
-            String.format(
-                "aspect %s applied to %s", aspect.getDescriptor().getDescription(), target);
+            "aspect " + aspect.getDescriptor().getDescription() + " applied to " + target;
         ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
@@ -434,7 +419,8 @@ final class AspectFunction implements SkyFunction {
   }
 
   @Nullable
-  private static InitialValues getInitialValues(AspectKey key, Environment env)
+  private static InitialValues getInitialValues(
+      PrerequisiteProducer.State state, AspectKey key, Environment env)
       throws AspectFunctionException, InterruptedException {
     StarlarkAspectClass starlarkAspectClass;
     ConfiguredAspectFactory aspectFactory = null;
@@ -545,7 +531,9 @@ final class AspectFunction implements SkyFunction {
       throw new IllegalStateException("Name already verified", e);
     }
 
-    return new InitialValues(aspect, aspectFactory, configuration, associatedTarget, target);
+    state.targetAndConfiguration = new TargetAndConfiguration(target, configuration);
+
+    return new InitialValues(aspect, aspectFactory, associatedTarget);
   }
 
   /**
@@ -640,7 +628,6 @@ final class AspectFunction implements SkyFunction {
       TargetAndConfiguration originalTarget,
       Aspect aspect,
       AspectKey originalKey,
-      BuildConfigurationValue aspectConfiguration,
       ConfiguredTarget configuredTarget)
       throws AspectFunctionException, InterruptedException {
     ImmutableList<Label> aliasChain =
@@ -653,7 +640,7 @@ final class AspectFunction implements SkyFunction {
         storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
-    // Compute the Dependency from originalTarget to aliasedLabel
+    // Compute the Dependency from the original target to aliasedLabel.
     Dependency dep;
     try {
       ComputedToolchainContexts computedToolchainContexts =
@@ -665,15 +652,11 @@ final class AspectFunction implements SkyFunction {
       ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts =
           computedToolchainContexts.toolchainCollection;
 
-      // See comment in compute() above for why we pair target with aspectConfiguration here
-      TargetAndConfiguration originalTargetAndAspectConfiguration =
-          new TargetAndConfiguration(originalTarget.getTarget(), aspectConfiguration);
-
       // Get the configuration targets that trigger this rule's configurable attributes.
       ConfigConditions configConditions =
           PrerequisiteProducer.computeConfigConditions(
               env,
-              originalTargetAndAspectConfiguration,
+              originalTarget,
               transitivePackages,
               unloadedToolchainContexts == null
                   ? null
@@ -690,7 +673,7 @@ final class AspectFunction implements SkyFunction {
       }
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
-              aspectConfiguration,
+              originalTarget.getConfiguration(),
               NoTransition.INSTANCE,
               aliasedTarget,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
@@ -706,7 +689,7 @@ final class AspectFunction implements SkyFunction {
       ConfigurationResolver resolver =
           new ConfigurationResolver(
               env,
-              originalTargetAndAspectConfiguration,
+              originalTarget,
               configConditions.asProviders(),
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache());
       ImmutableList<Dependency> deps =

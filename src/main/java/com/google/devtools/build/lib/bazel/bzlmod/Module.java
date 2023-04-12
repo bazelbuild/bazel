@@ -138,12 +138,21 @@ public abstract class Module {
     return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }
 
+  // TODO(salmasamy) create two modules (One with registry, one with repospec and only necessary
+  // things for lockfile)
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
-   * NonRegistryOverride}.
+   * NonRegistryOverride}. Set to null after running selection and verifying yanked versions.
    */
   @Nullable
   public abstract Registry getRegistry();
+
+  /**
+   * The repo spec for this module (information about the attributes of its repository rule) Filled
+   * after running selection to avoid extra calls to the registry.
+   */
+  @Nullable
+  public abstract RepoSpec getRepoSpec();
 
   /** The module extensions used in this module. */
   public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
@@ -239,6 +248,8 @@ public abstract class Module {
     }
 
     public abstract Builder setRegistry(Registry value);
+
+    public abstract Builder setRepoSpec(RepoSpec value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
 

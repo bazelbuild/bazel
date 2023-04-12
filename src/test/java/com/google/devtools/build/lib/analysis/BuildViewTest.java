@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Pair;
@@ -502,7 +503,9 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<Label> labels = Iterables.transform(targets, TransitiveInfoCollection::getLabel);
     assertThat(labels)
         .containsExactly(
-            Label.parseCanonical("//package:inner"), Label.parseCanonical("//package:file"));
+            Label.parseCanonical("//package:inner"),
+            Label.parseCanonical("//package:file"),
+            Label.parseCanonical(TestConstants.PLATFORM_LABEL));
   }
 
   @Test

@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -1055,9 +1056,15 @@ public final class ActionsTestUtil {
    * of the hooks required by the scenario under test. Tests that need an instance but do not need
    * any functionality can use {@link #THROWING_METADATA_HANDLER}.
    */
-  public static class FakeMetadataHandlerBase implements MetadataHandler {
+  public static class FakeMetadataHandlerBase implements MetadataProvider, MetadataHandler {
     @Override
-    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+    public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileArtifactValue getOutputMetadata(ActionInput input)
+        throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 
@@ -1077,7 +1084,8 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact) throws IOException {
+    public TreeArtifactValue getTreeArtifactValue(SpecialArtifact treeArtifact)
+        throws IOException, InterruptedException {
       throw new UnsupportedOperationException();
     }
 

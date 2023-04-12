@@ -22,15 +22,8 @@ import javax.annotation.Nullable;
 /** Provides {@link ActionInput} metadata. */
 @ThreadSafe
 public interface MetadataProvider {
-
   /**
    * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
-   *
-   * <p>If the given input is an output {@link Artifact} of an action, then the returned value is
-   * current as of the action's most recent execution time (which may be from a prior build, in
-   * which case the value may or may not be up to date for the current build). The returned value
-   * can vary across calls, for example if the action executes between calls and produces different
-   * outputs than its previous execution.
    *
    * <p>The returned {@link FileArtifactValue} instance corresponds to the final target of a symlink
    * and therefore must not have a type of {@link FileStateType#SYMLINK}.
@@ -43,10 +36,10 @@ public interface MetadataProvider {
    * @param input the input to retrieve the digest for
    * @return the artifact's digest or null if digest cannot be obtained (due to artifact
    *     non-existence, lookup errors, or any other reason)
-   * @throws IOException if the input cannot be digested
+   * @throws IOException if the action input cannot be digested
    */
   @Nullable
-  FileArtifactValue getMetadata(ActionInput input) throws IOException;
+  FileArtifactValue getInputMetadata(ActionInput input) throws IOException;
 
   /** Looks up an input from its exec path. */
   @Nullable
@@ -67,8 +60,8 @@ public interface MetadataProvider {
   }
 
   /**
-   * Indicates whether calls to {@link #getMetadata} with a {@link Artifact.DerivedArtifact} may
-   * require a skyframe lookup.
+   * Indicates whether calls to {@link #getInputMetadata} with a {@link Artifact.DerivedArtifact}
+   * may require a skyframe lookup.
    */
   default boolean mayGetGeneratingActionsFromSkyframe() {
     return false;

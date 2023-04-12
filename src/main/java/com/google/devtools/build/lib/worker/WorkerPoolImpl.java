@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.pool2.impl.EvictionPolicy;
@@ -37,26 +36,17 @@ public class WorkerPoolImpl implements WorkerPool {
   /** Unless otherwise specified, the max number of multiplex workers per WorkerKey. */
   private static final int DEFAULT_MAX_MULTIPLEX_WORKERS = 8;
 
-  private static final int MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS = 1;
-  /**
-   * How many high-priority workers are currently borrowed. If greater than one, low-priority
-   * workers cannot be borrowed until the high-priority ones are done.
-   */
-  private final AtomicInteger highPriorityWorkersInUse = new AtomicInteger(0);
-  /** Which mnemonics create high-priority workers. */
-  private final ImmutableSet<String> highPriorityWorkerMnemonics;
-
   private final WorkerPoolConfig workerPoolConfig;
   /** Map of singleplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> workerPools;
   /** Map of multiplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
 
+  /** Set of worker ids which are going to be destroyed after they are returned to the pool */
+  private ImmutableSet<Integer> doomedWorkers = ImmutableSet.of();
+
   public WorkerPoolImpl(WorkerPoolConfig workerPoolConfig) {
     this.workerPoolConfig = workerPoolConfig;
-
-    highPriorityWorkerMnemonics =
-        ImmutableSet.copyOf((Iterable<String>) workerPoolConfig.getHighPriorityWorkers());
 
     ImmutableMap<String, Integer> config =
         createConfigFromOptions(workerPoolConfig.getWorkerMaxInstances(), DEFAULT_MAX_WORKERS);
@@ -113,7 +103,7 @@ public class WorkerPoolImpl implements WorkerPool {
 
   @Override
   public int getMaxTotalPerKey(WorkerKey key) {
-    return getPool(key).getMaxTotalPerKey();
+    return getPool(key).getMaxTotalPerKey(key);
   }
 
   public int getNumIdlePerKey(WorkerKey key) {
@@ -140,8 +130,7 @@ public class WorkerPoolImpl implements WorkerPool {
   }
 
   /**
-   * Gets a worker. May block indefinitely if too many high-priority workers are in use and the
-   * requested worker is not high priority.
+   * Gets a worker from worker pool. Could wait if no idle workers are available.
    *
    * @param key worker key
    * @return a worker
@@ -155,51 +144,21 @@ public class WorkerPoolImpl implements WorkerPool {
       Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
       throw new RuntimeException("unexpected", t);
     }
-
-    // TODO(b/244297036): move highPriorityWorkerMnemonics logic to the ResourceManager.
-    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
-      highPriorityWorkersInUse.incrementAndGet();
-    } else {
-      try {
-        waitForHighPriorityWorkersToFinish();
-      } catch (InterruptedException e) {
-        returnObject(key, result);
-        throw e;
-      }
-    }
-
     return result;
-  }
-
-  /**
-   * Checks if there is no blockers from high priority workers to take new worker with this worker
-   * key. Doesn't check occupancy of worker pool for this mnemonic.
-   */
-  @Override
-  public boolean couldBeBorrowed(WorkerKey key) {
-    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
-      return true;
-    }
-
-    if (highPriorityWorkersInUse.get() <= MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS) {
-      return true;
-    }
-
-    return false;
   }
 
   @Override
   public void returnObject(WorkerKey key, Worker obj) {
-    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
-      decrementHighPriorityWorkerCount();
+    if (doomedWorkers.contains(obj.getWorkerId())) {
+      obj.setDoomed(true);
     }
     getPool(key).returnObject(key, obj);
   }
 
   @Override
   public void invalidateObject(WorkerKey key, Worker obj) throws InterruptedException {
-    if (highPriorityWorkerMnemonics.contains(key.getMnemonic())) {
-      decrementHighPriorityWorkerCount();
+    if (doomedWorkers.contains(obj.getWorkerId())) {
+      obj.setDoomed(true);
     }
     try {
       getPool(key).invalidateObject(key, obj);
@@ -209,27 +168,25 @@ public class WorkerPoolImpl implements WorkerPool {
     }
   }
 
-  // Decrements the high-priority workers counts and pings waiting threads if appropriate.
-  private void decrementHighPriorityWorkerCount() {
-    if (highPriorityWorkersInUse.decrementAndGet() <= MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS) {
-      synchronized (highPriorityWorkersInUse) {
-        highPriorityWorkersInUse.notifyAll();
-      }
+  @Override
+  public synchronized void setDoomedWorkers(ImmutableSet<Integer> workerIds) {
+    this.doomedWorkers = workerIds;
+  }
+
+  /** Clear set of doomed workers. Also reset all shrunk subtrahend of all worker pools. */
+  @Override
+  public synchronized void clearDoomedWorkers() {
+    this.doomedWorkers = ImmutableSet.of();
+    for (SimpleWorkerPool pool : workerPools.values()) {
+      pool.clearShrunkBy();
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      pool.clearShrunkBy();
     }
   }
 
-  // Returns once less than two high-priority workers are running.
-  private void waitForHighPriorityWorkersToFinish() throws InterruptedException {
-    // Fast path for the case where the high-priority workers feature is not in use.
-    if (highPriorityWorkerMnemonics.isEmpty()) {
-      return;
-    }
-
-    while (highPriorityWorkersInUse.get() > MAX_NON_BLOCKING_HIGH_PRIORITY_WORKERS) {
-      synchronized (highPriorityWorkersInUse) {
-        highPriorityWorkersInUse.wait();
-      }
-    }
+  ImmutableSet<Integer> getDoomedWorkers() {
+    return doomedWorkers;
   }
 
   /**
@@ -250,17 +207,14 @@ public class WorkerPoolImpl implements WorkerPool {
     private final WorkerFactory workerFactory;
     private final List<Entry<String, Integer>> workerMaxInstances;
     private final List<Entry<String, Integer>> workerMaxMultiplexInstances;
-    private final List<String> highPriorityWorkers;
 
     public WorkerPoolConfig(
         WorkerFactory workerFactory,
         List<Entry<String, Integer>> workerMaxInstances,
-        List<Entry<String, Integer>> workerMaxMultiplexInstances,
-        List<String> highPriorityWorkers) {
+        List<Entry<String, Integer>> workerMaxMultiplexInstances) {
       this.workerFactory = workerFactory;
       this.workerMaxInstances = workerMaxInstances;
       this.workerMaxMultiplexInstances = workerMaxMultiplexInstances;
-      this.highPriorityWorkers = highPriorityWorkers;
     }
 
     public WorkerFactory getWorkerFactory() {
@@ -275,10 +229,6 @@ public class WorkerPoolImpl implements WorkerPool {
       return workerMaxMultiplexInstances;
     }
 
-    public List<String> getHighPriorityWorkers() {
-      return highPriorityWorkers;
-    }
-
     @Override
     public boolean equals(Object o) {
       if (this == o) {
@@ -290,14 +240,12 @@ public class WorkerPoolImpl implements WorkerPool {
       WorkerPoolConfig that = (WorkerPoolConfig) o;
       return workerFactory.equals(that.workerFactory)
           && workerMaxInstances.equals(that.workerMaxInstances)
-          && workerMaxMultiplexInstances.equals(that.workerMaxMultiplexInstances)
-          && highPriorityWorkers.equals(that.highPriorityWorkers);
+          && workerMaxMultiplexInstances.equals(that.workerMaxMultiplexInstances);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          workerFactory, workerMaxInstances, workerMaxMultiplexInstances, highPriorityWorkers);
+      return Objects.hash(workerFactory, workerMaxInstances, workerMaxMultiplexInstances);
     }
   }
 }

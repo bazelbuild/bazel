@@ -481,9 +481,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("key", "val")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("key", "val")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 4, 11))
@@ -499,9 +500,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag1")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("key1", "val1")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("key1", "val1")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 7, 12))
@@ -510,9 +512,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag2")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("key2", "val2")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("key2", "val2")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 8, 12))
@@ -529,9 +532,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("dep")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("coord", "junit")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("coord", "junit")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 12, 10))
@@ -540,9 +544,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("dep")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("coord", "guava")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("coord", "guava")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 14, 10))
@@ -593,9 +598,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("name", "tag1")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "tag1")
+                                            .buildImmutable()))
                                 .setDevDependency(true)
                                 .setLocation(
                                     Location.fromFileLineColumn("<root>/MODULE.bazel", 2, 11))
@@ -604,9 +610,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("name", "tag2")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "tag2")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("<root>/MODULE.bazel", 5, 11))
@@ -615,9 +622,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("name", "tag3")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "tag3")
+                                            .buildImmutable()))
                                 .setDevDependency(true)
                                 .setLocation(
                                     Location.fromFileLineColumn("<root>/MODULE.bazel", 8, 11))
@@ -626,9 +634,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("name", "tag4")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "tag4")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("<root>/MODULE.bazel", 11, 11))
@@ -680,9 +689,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("name", "tag2")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "tag2")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 6, 11))
@@ -691,9 +701,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                             Tag.builder()
                                 .setTagName("tag")
                                 .setAttributeValues(
-                                    Dict.<String, Object>builder()
-                                        .put("name", "tag4")
-                                        .buildImmutable())
+                                    AttributeValues.create(
+                                        Dict.<String, Object>builder()
+                                            .put("name", "tag4")
+                                            .buildImmutable()))
                                 .setDevDependency(false)
                                 .setLocation(
                                     Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 12, 11))

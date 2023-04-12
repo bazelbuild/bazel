@@ -40,6 +40,9 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.dynamic.DynamicExecutionModule.IgnoreFailureCheck;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
 import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
@@ -609,18 +612,29 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
                           cancellingBranch.isCancelled() ? "cancelled" : "not cancelled")));
         }
 
-        if (!otherBranch.cancel()) {
-          // This can happen if the other branch is local under local_lockfree and has returned
-          // its result but not yet cancelled this branch, or if the other branch was already
-          // cancelled for other reasons. In the latter case, we are good to continue.
-          if (!otherBranch.isCancelled()) {
-            throw new DynamicInterruptedException(
-                String.format(
-                    "Execution of %s strategy stopped because %s strategy could not be cancelled",
-                    cancellingStrategy, cancellingStrategy.other()));
+        try (SilentCloseable c =
+            Profiler.instance()
+                .profile(
+                    ProfilerTask.DYNAMIC_LOCK,
+                    () ->
+                        String.format(
+                            "Cancelling %s branch of %s",
+                            cancellingStrategy.other(),
+                            getSpawnReadableId(cancellingBranch.getSpawn())))) {
+
+          if (!otherBranch.cancel()) {
+            // This can happen if the other branch is local under local_lockfree and has returned
+            // its result but not yet cancelled this branch, or if the other branch was already
+            // cancelled for other reasons. In the latter case, we are good to continue.
+            if (!otherBranch.isCancelled()) {
+              throw new DynamicInterruptedException(
+                  String.format(
+                      "Execution of %s strategy stopped because %s strategy could not be cancelled",
+                      cancellingStrategy, cancellingStrategy.other()));
+            }
           }
+          otherBranch.getDoneSemaphore().acquire();
         }
-        otherBranch.getDoneSemaphore().acquire();
       } else {
         throw new DynamicInterruptedException(
             String.format(

@@ -24,6 +24,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.UsePooledLabelInterningFlag;
 import java.util.Arrays;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -80,7 +83,17 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static final SkyFunctionName TRANSITIVE_TRAVERSAL =
       SkyFunctionName.createHermetic("TRANSITIVE_TRAVERSAL");
 
-  private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
+  @Nullable
+  private static final LabelInterner pooledInterner =
+      UsePooledLabelInterningFlag.usePooledLabelInterningFlag() ? new LabelInterner() : null;
+
+  private static final Interner<Label> interner =
+      pooledInterner != null ? pooledInterner : BlazeInterners.newWeakInterner();
+
+  @Nullable
+  public static LabelInterner getLabelInterner() {
+    return pooledInterner;
+  }
 
   /** The context of a current repo, necessary to parse a repo-relative label ("//foo:bar"). */
   public interface RepoContext {
@@ -120,11 +133,12 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    */
   public static Label parseCanonical(String raw) throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
+    parts.checkPkgDoesNotEndWithTripleDots();
     parts.checkPkgIsAbsolute();
     RepositoryName repoName =
-        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
+        parts.repo() == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo());
     return createUnvalidated(
-        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
+        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg())), parts.target());
   }
 
   /** Like {@link #parseCanonical}, but throws an unchecked exception instead. */
@@ -139,18 +153,18 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   /** Computes the repo name for the label, within the context of a current repo. */
   private static RepositoryName computeRepoNameWithRepoContext(
       Parts parts, RepoContext repoContext) {
-    if (parts.repo == null) {
+    if (parts.repo() == null) {
       // Certain package names when used without a "@" part are always absolutely in the main repo,
       // disregarding the current repo and repo mappings.
-      return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg)
+      return ABSOLUTE_PACKAGE_NAMES.contains(parts.pkg())
           ? RepositoryName.MAIN
           : repoContext.currentRepo();
     }
-    if (parts.repoIsCanonical) {
+    if (parts.repoIsCanonical()) {
       // This label uses the canonical label literal syntax starting with two @'s ("@@foo//bar").
-      return RepositoryName.createUnvalidated(parts.repo);
+      return RepositoryName.createUnvalidated(parts.repo());
     }
-    return repoContext.repoMapping().get(parts.repo);
+    return repoContext.repoMapping().get(parts.repo());
   }
 
   /**
@@ -162,10 +176,11 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static Label parseWithRepoContext(String raw, RepoContext repoContext)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
+    parts.checkPkgDoesNotEndWithTripleDots();
     parts.checkPkgIsAbsolute();
     RepositoryName repoName = computeRepoNameWithRepoContext(parts, repoContext);
     return createUnvalidated(
-        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg)), parts.target);
+        PackageIdentifier.create(repoName, PathFragment.create(parts.pkg())), parts.target());
   }
 
   /**
@@ -178,14 +193,15 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static Label parseWithPackageContext(String raw, PackageContext packageContext)
       throws LabelSyntaxException {
     Parts parts = Parts.parse(raw);
+    parts.checkPkgDoesNotEndWithTripleDots();
     // pkg is either absolute or empty
-    if (!parts.pkg.isEmpty()) {
+    if (!parts.pkg().isEmpty()) {
       parts.checkPkgIsAbsolute();
     }
     RepositoryName repoName = computeRepoNameWithRepoContext(parts, packageContext);
     PathFragment pkgFragment =
-        parts.pkgIsAbsolute ? PathFragment.create(parts.pkg) : packageContext.packageFragment();
-    return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target);
+        parts.pkgIsAbsolute() ? PathFragment.create(parts.pkg()) : packageContext.packageFragment();
+    return createUnvalidated(PackageIdentifier.create(repoName, pkgFragment), parts.target());
   }
 
   /**
@@ -200,7 +216,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
     return createUnvalidated(
         PackageIdentifier.parse(packageName),
-        validateAndProcessTargetName(packageName, targetName));
+        validateAndProcessTargetName(packageName, targetName, /* pkgEndsWithTripleDots= */ false));
   }
 
   /**
@@ -211,7 +227,10 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       throws LabelSyntaxException {
     return createUnvalidated(
         packageId,
-        validateAndProcessTargetName(packageId.getPackageFragment().getPathString(), targetName));
+        validateAndProcessTargetName(
+            packageId.getPackageFragment().getPathString(),
+            targetName,
+            /* pkgEndsWithTripleDots= */ false));
   }
 
   /**
@@ -228,7 +247,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
     } else if (internedName.equals(SUBPACKAGES_VISIBILITY_NAME)) {
       internedName = SUBPACKAGES_VISIBILITY_NAME;
     }
-    return LABEL_INTERNER.intern(new Label(packageIdentifier, internedName));
+    return interner.intern(new Label(packageIdentifier, internedName));
   }
 
   /** The name and repository of the package. */
@@ -371,7 +390,7 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   }
 
   /**
-   * Returns a label string that is suitable for display, i.e., it resolves to this label when
+   * Returns a full label string that is suitable for display, i.e., it resolves to this label when
    * parsed in the context of the main repository and has a repository part that is as simple as
    * possible.
    *
@@ -380,6 +399,34 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    */
   public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
     return packageIdentifier.getDisplayForm(mainRepositoryMapping) + ":" + name;
+  }
+
+  /**
+   * Returns a shorthand label string that is suitable for display, i.e. in addition to simplifying
+   * the repository part, labels of the form {@code [@repo]//foo/bar:bar} are simplified to the
+   * shorthand form {@code [@repo]//foo/bar}, and labels of the form {@code @repo//:repo} and
+   * {@code @@repo//:repo} are simplified to {@code @repo}. The returned shorthand string resolves
+   * back to this label only when parsed in the context of the main repository whose repository
+   * mapping is provided.
+   *
+   * <p>Unlike {@link #getDisplayForm}, this method elides the name part of the label if possible.
+   *
+   * <p>Unlike {@link #toShorthandString}, this method respects {@link RepositoryMapping}.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   */
+  public String getShorthandDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    if (getPackageFragment().getBaseName().equals(name)) {
+      return packageIdentifier.getDisplayForm(mainRepositoryMapping);
+    } else if (getPackageFragment().getBaseName().isEmpty()) {
+      String repositoryDisplayForm =
+          getPackageIdentifier().getRepository().getDisplayForm(mainRepositoryMapping);
+      // Simplify @foo//:foo or @@foo//:foo to @foo; note that `name` cannot start with '@'
+      if (repositoryDisplayForm.equals("@" + name) || repositoryDisplayForm.equals("@@" + name)) {
+        return repositoryDisplayForm;
+      }
+    }
+    return getDisplayForm(mainRepositoryMapping);
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */
@@ -400,6 +447,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
    *
    * <p>Labels with canonical form {@code //foo/bar:bar} have the shorthand form {@code //foo/bar}.
    * All other labels have identical shorthand and canonical forms.
+   *
+   * <p>Unlike {@link #getShorthandDisplayForm}, this method does not respect repository mapping.
    */
   public String toShorthandString() {
     if (!getPackageFragment().getBaseName().equals(name)) {
@@ -598,6 +647,29 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   private void checkRepoVisibilityForStarlark(String method) throws EvalException {
     if (!getRepository().isVisible()) {
       throw Starlark.errorf("'%s' is not allowed on invalid Label %s", method, this);
+    }
+  }
+
+  /** {@link PooledInterner} for {@link Label}s. */
+  public static final class LabelInterner extends PooledInterner<Label> {
+    @Nullable static Pool<Label> globalPool = null;
+
+    /**
+     * Sets the {@link Pool} to be used for interning.
+     *
+     * <p>The pool is strongly retained until another pool is set. {@code null} can be passed to
+     * clear the global pool.
+     */
+    @ThreadSafety.ThreadCompatible
+    public static void setGlobalPool(Pool<Label> pool) {
+      // No synchronization is needed. Setting global pool is guaranteed to happen sequentially
+      // since only one build can happen at the same time.
+      globalPool = pool;
+    }
+
+    @Override
+    protected Pool<Label> getPool() {
+      return globalPool;
     }
   }
 }

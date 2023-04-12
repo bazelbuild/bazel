@@ -1,8 +1,9 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
-load("//:distdir.bzl", "dist_http_archive", "dist_http_file", "distdir_tar")
+load("//:distdir.bzl", "dist_http_archive", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
+load("//:repositories.bzl", "embedded_jdk_repositories")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
 # of http_archive, in order to export the WORKSPACE file from the BUILD or
@@ -134,46 +135,7 @@ distdir_tar(
     },
 )
 
-# OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
-dist_http_file(
-    name = "openjdk_linux_vanilla",
-    downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_linux_aarch64_vanilla",
-    downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_linux_ppc64le_vanilla",
-    downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_linux_s390x_vanilla",
-    downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_macos_x86_64_vanilla",
-    downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_macos_aarch64_vanilla",
-    downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_win_vanilla",
-    downloaded_file_path = "zulu-win-vanilla.zip",
-)
-
-dist_http_file(
-    name = "openjdk_win_arm64_vanilla",
-    downloaded_file_path = "zulu-win-arm64.zip",
-)
+embedded_jdk_repositories()
 
 dist_http_archive(
     name = "bazelci_rules",

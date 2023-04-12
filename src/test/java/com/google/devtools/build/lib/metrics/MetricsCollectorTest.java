@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -48,6 +49,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   static class BuildMetricsEventListener extends BlazeModule {
 
     private BuildMetricsEvent event;
+    private EventBus eventBus;
 
     @Override
     public void beforeCommand(CommandEnvironment env) {
@@ -601,7 +603,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void skymeldNullIncrementalBuild_buildGraphMetricsCollected() throws Exception {
+  public void skymeldNullIncrementalBuild_buildGraphMetricsNotCollected() throws Exception {
     write(
         "foo/BUILD",
         "genrule(",
@@ -619,8 +621,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     addOptions("--experimental_merged_skyframe_analysis_execution");
     BuildGraphMetrics expected =
         BuildGraphMetrics.newBuilder()
-            .setActionLookupValueCount(3)
-            .setActionLookupValueCountNotIncludingAspects(3)
+            .setActionLookupValueCount(8)
+            .setActionLookupValueCountNotIncludingAspects(8)
             .setActionCount(2)
             .setActionCountNotIncludingAspects(2)
             .setInputFileConfiguredTargetCount(1)
@@ -635,11 +637,17 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // Null build.
     buildTarget("//foo:foo", "//foo:bar");
 
-    // For Skymeld, we expect BuildGraphMetrics to include all the entities that were touched in the
-    // build. This is not true for regular blaze: the metric is only collected if there's conflict
-    // checking.
+    BuildGraphMetrics expectedNullBuild =
+        BuildGraphMetrics.newBuilder()
+            .setActionLookupValueCount(0)
+            .setActionLookupValueCountNotIncludingAspects(0)
+            .setActionCount(0)
+            .setActionCountNotIncludingAspects(0)
+            .setInputFileConfiguredTargetCount(0)
+            .setOutputArtifactCount(0)
+            .build();
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .comparingExpectedFieldsOnly()
-        .isEqualTo(expected);
+        .isEqualTo(expectedNullBuild);
   }
 }

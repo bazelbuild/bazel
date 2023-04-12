@@ -163,7 +163,7 @@ class DirectoryTreeBuilder {
 
           FileArtifactValue metadata =
               Preconditions.checkNotNull(
-                  metadataProvider.getMetadata(input),
+                  metadataProvider.getInputMetadata(input),
                   "missing metadata for '%s'",
                   input.getExecPathString());
           switch (metadata.getType()) {

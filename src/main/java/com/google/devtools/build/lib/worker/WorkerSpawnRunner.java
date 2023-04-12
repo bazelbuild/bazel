@@ -262,7 +262,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             checkNotNull(virtualInputDigests.get(input), "missing metadata for virtual input");
       } else {
         FileArtifactValue metadata =
-            checkNotNull(inputFileCache.getMetadata(input), "missing metadata for input");
+            checkNotNull(inputFileCache.getInputMetadata(input), "missing metadata for input");
         digestBytes = metadata.getDigest();
       }
       ByteString digest;

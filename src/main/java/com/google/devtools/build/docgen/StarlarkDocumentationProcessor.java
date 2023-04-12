@@ -36,7 +36,7 @@ import net.starlark.java.annot.StarlarkBuiltin;
 public final class StarlarkDocumentationProcessor {
 
   private static final ImmutableList<Category> GLOBAL_CATEGORIES =
-      ImmutableList.<Category>of(Category.NONE, Category.TOP_LEVEL_TYPE);
+      ImmutableList.of(Category.TOP_LEVEL_MODULE);
 
   private StarlarkDocumentationProcessor() {}
 
@@ -90,7 +90,7 @@ public final class StarlarkDocumentationProcessor {
     writeCategoryPage(Category.CONFIGURATION_FRAGMENT, outputDir, modulesByCategory, expander);
     writeCategoryPage(Category.BUILTIN, outputDir, modulesByCategory, expander);
     writeCategoryPage(Category.PROVIDER, outputDir, modulesByCategory, expander);
-    writeNavPage(outputDir, modulesByCategory.get(Category.TOP_LEVEL_TYPE));
+    writeNavPage(outputDir, modulesByCategory.get(Category.TOP_LEVEL_MODULE));
 
     // In the code, there are two StarlarkModuleCategory instances that have no heading:
     // TOP_LEVEL_TYPE and NONE.
@@ -137,7 +137,7 @@ public final class StarlarkDocumentationProcessor {
 
   private static StarlarkBuiltinDoc findGlobalModule(
       Map<Category, List<StarlarkBuiltinDoc>> modulesByCategory) {
-    List<StarlarkBuiltinDoc> topLevelModules = modulesByCategory.get(Category.TOP_LEVEL_TYPE);
+    List<StarlarkBuiltinDoc> topLevelModules = modulesByCategory.get(Category.TOP_LEVEL_MODULE);
     String globalModuleName = StarlarkDocumentationCollector.getTopLevelModule().name();
     for (StarlarkBuiltinDoc module : topLevelModules) {
       if (module.getName().equals(globalModuleName)) {
@@ -253,16 +253,13 @@ public final class StarlarkDocumentationProcessor {
     // be usable solely by accessing their members, via modulename.funcname() or
     // modulename.constantname.
     // Examples: attr, cc_common, config, java_common
-    TOP_LEVEL_TYPE(null, null),
+    TOP_LEVEL_MODULE(null, null),
 
     CORE(
         "Core Starlark data types",
         "This section lists the data types of the <a"
             + " href='https://github.com/bazelbuild/starlark/blob/master/spec.md#built-in-constants-and-functions'>Starlark"
-            + " core language</a>."),
-
-    // Legacy uncategorized type; these are treated like TOP_LEVEL_TYPE in documentation.
-    NONE(null, null);
+            + " core language</a>.");
 
     // Maps (essentially free-form) strings in annotations to permitted categories.
     static Category of(StarlarkBuiltin annot) {
@@ -273,15 +270,11 @@ public final class StarlarkDocumentationProcessor {
           return PROVIDER;
         case DocCategory.BUILTIN:
           return BUILTIN;
-        case DocCategory.TOP_LEVEL_TYPE:
-          return TOP_LEVEL_TYPE;
-        case DocCategory.NONE:
-          return NONE;
+        case DocCategory.TOP_LEVEL_MODULE:
+          return TOP_LEVEL_MODULE;
         case "core": // interpreter built-ins (e.g. int)
         case "core.lib": // Starlark standard modules (e.g. json)
           return CORE;
-        case "": // no annotation
-          return TOP_LEVEL_TYPE;
         default:
           throw new IllegalStateException(
               String.format(

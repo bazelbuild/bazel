@@ -1,3 +1,35 @@
+## Release 7.0.0-pre.20230330.3 (2023-04-06)
+
+```
+Baseline: f7829f855bc31aaf0c0fcef55ef56adec84daa9e
+
+Cherry picks:
+
+   + eee0d9dfe3513042112a0f0ec519e2b232e5d203:
+     Add an option retention option to proto_library.
+```
+
+Incompatible changes:
+
+  - `--experimental_execution_graph_log` no longer exists. Current
+    users that want local logs need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_execution_graph_log_path=/some/local/path`.
+    Current users that want logs uploaded to BEP need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_stream_log_file_uploads`.
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+
+Important changes:
+
+  - Added `native.module_name()` and `native.module_version()` to
+    allow BUILD macro authors to acquire information about which
+    Bazel module the current repo is associated with.
+  - Add `--skip_incompatible_explicit_targets` option
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Benjamin Sigonneau, Ed Schouten, Fabian Meumertzheim, hvd, Keith Smiley, Malte Poll, Marc Zych.
+
 ## Release 7.0.0-pre.20230322.4 (2023-04-03)
 
 ```

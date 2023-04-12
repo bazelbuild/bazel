@@ -741,7 +741,6 @@ public final class ActionExecutionFunction implements SkyFunction {
     ActionMetadataHandler metadataHandler =
         ActionMetadataHandler.create(
             state.inputArtifactData,
-            action.discoversInputs(),
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
             action.getOutputs(),
@@ -758,6 +757,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           skyframeActionExecutor.checkActionCache(
               env.getListener(),
               action,
+              metadataHandler,
               metadataHandler,
               artifactExpander,
               actionStartTime,
@@ -788,7 +788,12 @@ public final class ActionExecutionFunction implements SkyFunction {
         try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "discoverInputs")) {
           state.discoveredInputs =
               skyframeActionExecutor.discoverInputs(
-                  action, actionLookupData, metadataHandler, env, state.actionFileSystem);
+                  action,
+                  actionLookupData,
+                  metadataHandler,
+                  metadataHandler,
+                  env,
+                  state.actionFileSystem);
         }
         discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
         if (env.valuesMissing()) {
@@ -878,6 +883,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       skyframeActionExecutor.updateActionCache(
           action,
           metadataHandler,
+          metadataHandler,
           new Artifact.ArtifactExpanderImpl(
               // Skipping the filesets in runfiles since those cannot participate in command line
               // creation.
@@ -907,7 +913,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     // reduce iteration cost.
     List<Artifact> unknownDiscoveredInputs = new ArrayList<>();
     for (Artifact input : state.discoveredInputs.toList()) {
-      if (inputData.getMetadata(input) == null) {
+      if (inputData.getInputMetadata(input) == null) {
         unknownDiscoveredInputs.add(input);
       }
     }

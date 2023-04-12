@@ -22,7 +22,6 @@ import static com.google.devtools.build.skyframe.NotifyingHelper.makeNotifyingTr
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.TieredPriorityExecutor;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -63,7 +62,7 @@ public final class PriorityTest {
             Version.minimal(),
             tester.getSkyFunctionMap(),
             reportedEvents,
-            new NestedSetVisitor.VisitedState(),
+            new EmittedEventState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             /* keepGoing= */ false,

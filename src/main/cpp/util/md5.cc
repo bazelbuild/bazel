@@ -159,7 +159,8 @@ void Md5Digest::Finish(unsigned char digest[16]) {
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
   unsigned int size = (ctx_buffer_len < 56 ? 64 : 128);
-  uint32_t words[2] = { count[0] << 3, (count[1] << 3) | (count[0] >> 29) };
+  uint32_t words[2] = { htole32(count[0] << 3),
+                        htole32((count[1] << 3) | (count[0] >> 29)) };
   memcpy(ctx_buffer + size - 8, words, 8);
 
   memcpy(ctx_buffer + ctx_buffer_len, kPadding, size - 8 - ctx_buffer_len);
@@ -208,11 +209,14 @@ void Md5Digest::Transform(
 
   // FF, GG, HH, and II transformations for rounds 1, 2, 3, and 4.
   // Rotation is separate from addition to prevent recomputation.
+  // Note: The behavior we want is really LE to host, but host to le is the
+  // same thing.
 #define FF(a, b, c, d, s, ac) { \
-      (a) += F((b), (c), (d)) + ((*x_pos++ = *cur_word++)) + \
+      (a) += F((b), (c), (d)) + ((*x_pos++ = htole32(*cur_word))) + \
           static_cast<uint32_t>(ac); \
       (a) = ROTATE_LEFT((a), (s)); \
       (a) += (b); \
+      cur_word++; \
     }
 
 #define GG(a, b, c, d, x, s, ac) { \
@@ -338,7 +342,12 @@ void Md5Digest::Transform(
 
 string Md5Digest::String() const {
   string result;
-  b2a_hex(reinterpret_cast<const uint8_t*>(state), &result, 16);
+  unsigned int state_le[4];
+  // Make sure state_le[4] is in little-endian format.
+  for (int i = 0; i < 4; i++) {
+    state_le[i] = htole32(state[i]);
+  }
+  b2a_hex(reinterpret_cast<const uint8_t*>(state_le), &result, 16);
   return result;
 }
 

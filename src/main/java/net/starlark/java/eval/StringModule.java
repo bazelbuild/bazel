@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
 /**
  * Starlark String module.
  *
- * <p>This module has special treatment in Starlark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods present for
  * any 'string' objects in the language.
  *
  * <p>Methods of this class annotated with {@link StarlarkMethod} must have a positional-only

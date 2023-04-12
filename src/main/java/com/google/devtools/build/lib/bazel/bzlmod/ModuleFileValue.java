@@ -72,11 +72,11 @@ public abstract class ModuleFileValue implements SkyValue {
 
     public static RootModuleFileValue create(
         Module module,
-        String moduleHash,
+        String moduleFileHash,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(
-          module, moduleHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+          module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
     }
   }
 

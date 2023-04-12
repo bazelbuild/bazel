@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -56,6 +55,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
+import com.google.devtools.build.lib.actions.DelegatingPairMetadataProvider;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -479,6 +479,7 @@ public final class SkyframeActionExecutor {
             env,
             action,
             metadataHandler,
+            metadataHandler,
             artifactExpander,
             topLevelFilesets,
             actionFileSystem,
@@ -541,6 +542,7 @@ public final class SkyframeActionExecutor {
   private ActionExecutionContext getContext(
       Environment env,
       Action action,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
@@ -553,7 +555,7 @@ public final class SkyframeActionExecutor {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate(artifactPathResolver);
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(metadataHandler, actionFileSystem),
+        createFileCache(metadataProvider, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -596,6 +598,7 @@ public final class SkyframeActionExecutor {
   Token checkActionCache(
       ExtendedEventHandler eventHandler,
       Action action,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       long actionStartTime,
@@ -631,6 +634,7 @@ public final class SkyframeActionExecutor {
               clientEnv,
               getOutputPermissions(),
               handler,
+              metadataProvider,
               metadataHandler,
               artifactExpander,
               remoteDefaultProperties,
@@ -673,6 +677,7 @@ public final class SkyframeActionExecutor {
                     clientEnv,
                     getOutputPermissions(),
                     handler,
+                    metadataProvider,
                     metadataHandler,
                     artifactExpander,
                     remoteDefaultProperties,
@@ -703,6 +708,7 @@ public final class SkyframeActionExecutor {
 
   void updateActionCache(
       Action action,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ArtifactExpander artifactExpander,
       Token token,
@@ -726,6 +732,7 @@ public final class SkyframeActionExecutor {
       actionCacheChecker.updateActionCache(
           action,
           token,
+          metadataProvider,
           metadataHandler,
           artifactExpander,
           clientEnv,
@@ -771,6 +778,7 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
+      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       Environment env,
       @Nullable FileSystem actionFileSystem)
@@ -783,7 +791,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(metadataHandler, actionFileSystem),
+            createFileCache(metadataProvider, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
@@ -863,7 +871,7 @@ public final class SkyframeActionExecutor {
     if (actionFileSystem instanceof MetadataProvider) {
       return (MetadataProvider) actionFileSystem;
     }
-    return new DelegatingPairFileCache(graphFileCache, perBuildFileCache);
+    return new DelegatingPairMetadataProvider(graphFileCache, perBuildFileCache);
   }
 
   /**
@@ -1223,7 +1231,7 @@ public final class SkyframeActionExecutor {
         primaryOutputMetadata = FileArtifactValue.OMITTED_FILE_MARKER;
       } else {
         try {
-          primaryOutputMetadata = metadataHandler.getMetadata(primaryOutput);
+          primaryOutputMetadata = metadataHandler.getOutputMetadata(primaryOutput);
         } catch (IOException e) {
           throw new IllegalStateException("Metadata already obtained for " + primaryOutput, e);
         }
@@ -1296,7 +1304,8 @@ public final class SkyframeActionExecutor {
           action.getOutputs(), artifactPathResolver);
     } catch (CreateOutputDirectoryException e) {
       throw toActionExecutionException(
-          String.format("failed to create output directory '%s'", e.directoryPath),
+          String.format(
+              "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
           e,
           action,
           null,
@@ -1338,7 +1347,7 @@ public final class SkyframeActionExecutor {
     } catch (IOException e) {
       String message =
           String.format(
-              "failed to create output directory for output streams'%s': %s",
+              "failed to create output directory for output streams '%s': %s",
               fileOutErr.getErrorPath(), e.getMessage());
       DetailedExitCode code =
           createDetailedExitCode(message, Code.ACTION_FS_OUT_ERR_DIRECTORY_CREATION_FAILURE);
@@ -1473,7 +1482,8 @@ public final class SkyframeActionExecutor {
       Action action,
       MetadataHandler metadataHandler,
       @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinksForMetrics,
-      boolean isActionCacheHitForMetrics) {
+      boolean isActionCacheHitForMetrics)
+      throws InterruptedException {
     boolean success = true;
     try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "checkOutputs")) {
       for (Artifact output : action.getOutputs()) {
@@ -1482,7 +1492,7 @@ public final class SkyframeActionExecutor {
         // call it if we know the artifact is not omitted.
         if (!metadataHandler.artifactOmitted(output)) {
           try {
-            FileArtifactValue metadata = metadataHandler.getMetadata(output);
+            FileArtifactValue metadata = metadataHandler.getOutputMetadata(output);
 
             addOutputToMetrics(
                 output,
@@ -1520,7 +1530,7 @@ public final class SkyframeActionExecutor {
       @Nullable ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks,
       boolean isActionCacheHit,
       Action actionForDebugging)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (metadata == null) {
       BugReport.sendBugReport(
           new IllegalStateException(
@@ -1715,31 +1725,6 @@ public final class SkyframeActionExecutor {
       @Nullable ActionCompletedReceiver completionReceiver) {
     this.progressSupplier = progressSupplier;
     this.completionReceiver = completionReceiver;
-  }
-
-  private static final class DelegatingPairFileCache implements MetadataProvider {
-    private final MetadataProvider perActionCache;
-    private final MetadataProvider perBuildFileCache;
-
-    private DelegatingPairFileCache(
-        MetadataProvider mainCache, MetadataProvider perBuildFileCache) {
-      this.perActionCache = mainCache;
-      this.perBuildFileCache = perBuildFileCache;
-    }
-
-    @Override
-    public FileArtifactValue getMetadata(ActionInput input) throws IOException {
-      FileArtifactValue metadata = perActionCache.getMetadata(input);
-      return (metadata != null) && (metadata != FileArtifactValue.MISSING_FILE_MARKER)
-          ? metadata
-          : perBuildFileCache.getMetadata(input);
-    }
-
-    @Override
-    public ActionInput getInput(String execPath) {
-      ActionInput input = perActionCache.getInput(execPath);
-      return input != null ? input : perBuildFileCache.getInput(execPath);
-    }
   }
 
   /** Adapts a {@link FileOutErr} to an {@link Event.ProcessOutput}. */

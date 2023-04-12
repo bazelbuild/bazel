@@ -410,7 +410,8 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-      name = "experimental_action_cache_store_output_metadata",
+      name = "action_cache_store_output_metadata",
+      oldName = "experimental_action_cache_store_output_metadata",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -462,7 +463,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   /**
    * Do not use directly. Instead use {@link
-   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecution()}.
+   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecutionSourceOfTruth()}.
    */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",

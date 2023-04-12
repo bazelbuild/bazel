@@ -15,6 +15,7 @@ java_library(
     name = "common",
     srcs = [
         "ArchiveRepoSpecBuilder.java",
+        "AttributeValues.java",
         "ModuleKey.java",
         "RepoSpec.java",
         "Version.java",
@@ -51,10 +52,10 @@ java_library(
         "TagClass.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/docgen/annot",
+        ":common",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
@@ -130,6 +131,7 @@ java_library(
 java_library(
     name = "resolution_impl",
     srcs = [
+        "AttributeValuesAdapter.java",
         "BazelDepGraphFunction.java",
         "BazelLockFileFunction.java",
         "BazelModuleResolutionFunction.java",

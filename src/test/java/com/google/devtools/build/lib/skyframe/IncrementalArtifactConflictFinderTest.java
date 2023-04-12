@@ -34,11 +34,11 @@ import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ActionConflictsAndStats;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -59,14 +59,14 @@ public class IncrementalArtifactConflictFinderTest {
             createTestSourceArtifactWithPath(PathFragment.create("in/a")),
             createTestDerivedArtifactWithPath(PathFragment.create("out/conflicting")));
     ActionLookupValue alv1 = createMockActionLookupValueThatContains(action1);
-    Sharder<ActionLookupValue> actionLookupValues1 = createALVSharderOf(alv1);
+    ImmutableList<SkyValue> actionLookupValues1 = ImmutableList.of(alv1);
 
     ActionAnalysisMetadata action2 =
         new DummyAction(
             createTestSourceArtifactWithPath(PathFragment.create("in/b")),
             createTestDerivedArtifactWithPath(PathFragment.create("out/conflicting")));
     ActionLookupValue alv2 = createMockActionLookupValueThatContains(action2);
-    Sharder<ActionLookupValue> actionLookupValues2 = createALVSharderOf(alv2);
+    ImmutableList<SkyValue> actionLookupValues2 = ImmutableList.of(alv2);
 
     MutableActionGraph actionGraph = new MapBasedActionGraph(new ActionKeyContext());
     IncrementalArtifactConflictFinder conflictFinder =
@@ -91,14 +91,14 @@ public class IncrementalArtifactConflictFinderTest {
             createTestSourceArtifactWithPath(PathFragment.create("in/a")),
             createTestDerivedArtifactWithPath(PathFragment.create("out/conflicting")));
     ActionLookupValue alv1 = createMockActionLookupValueThatContains(action1);
-    Sharder<ActionLookupValue> actionLookupValues1 = createALVSharderOf(alv1);
+    ImmutableList<SkyValue> actionLookupValues1 = ImmutableList.of(alv1);
 
     ActionAnalysisMetadata action2 =
         new DummyAction(
             createTestSourceArtifactWithPath(PathFragment.create("in/b")),
             createTestDerivedArtifactWithPath(PathFragment.create("out/conflicting")));
     ActionLookupValue alv2 = createMockActionLookupValueThatContains(action2);
-    Sharder<ActionLookupValue> actionLookupValues2 = createALVSharderOf(alv2);
+    ImmutableList<SkyValue> actionLookupValues2 = ImmutableList.of(alv2);
 
     MutableActionGraph actionGraph = new MapBasedActionGraph(new ActionKeyContext());
     IncrementalArtifactConflictFinder conflictFinder =
@@ -147,7 +147,7 @@ public class IncrementalArtifactConflictFinderTest {
             createTestDerivedArtifactWithPath(PathFragment.create("out/foo/bar")));
     ActionLookupValue alv2 = createMockActionLookupValueThatContains(action2);
 
-    Sharder<ActionLookupValue> actionLookupValues = createALVSharderOf(alv1, alv2);
+    ImmutableList<SkyValue> actionLookupValues = ImmutableList.of(alv1, alv2);
     MutableActionGraph actionGraph = new MapBasedActionGraph(new ActionKeyContext());
     IncrementalArtifactConflictFinder conflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(actionGraph);
@@ -176,7 +176,7 @@ public class IncrementalArtifactConflictFinderTest {
             createTestDerivedArtifactWithPath(PathFragment.create("out/foo/bar")));
     ActionLookupValue alv2 = createMockActionLookupValueThatContains(action2);
 
-    Sharder<ActionLookupValue> actionLookupValues = createALVSharderOf(alv1, alv2);
+    ImmutableList<SkyValue> actionLookupValues = ImmutableList.of(alv1, alv2);
     MutableActionGraph actionGraph = new MapBasedActionGraph(new ActionKeyContext());
     IncrementalArtifactConflictFinder conflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(actionGraph);
@@ -194,14 +194,14 @@ public class IncrementalArtifactConflictFinderTest {
             createTestSourceArtifactWithPath(PathFragment.create("in/a")),
             createTestDerivedArtifactWithPath(PathFragment.create("out/foo")));
     ActionLookupValue alv1 = createMockActionLookupValueThatContains(action1);
-    Sharder<ActionLookupValue> actionLookupValues1 = createALVSharderOf(alv1);
+    ImmutableList<SkyValue> actionLookupValues1 = ImmutableList.of(alv1);
 
     ActionAnalysisMetadata action2 =
         new DummyAction(
             createTestSourceArtifactWithPath(PathFragment.create("in/b")),
             createTestDerivedArtifactWithPath(PathFragment.create("out/foo/bar")));
     ActionLookupValue alv2 = createMockActionLookupValueThatContains(action2);
-    Sharder<ActionLookupValue> actionLookupValues2 = createALVSharderOf(alv2);
+    ImmutableList<SkyValue> actionLookupValues2 = ImmutableList.of(alv2);
 
     MutableActionGraph actionGraph = new MapBasedActionGraph(new ActionKeyContext());
     IncrementalArtifactConflictFinder conflictFinder =
@@ -228,16 +228,6 @@ public class IncrementalArtifactConflictFinderTest {
     assertThrows(
         ArtifactPrefixConflictException.class,
         () -> withConflict.getConflicts().get(action1).rethrowTyped());
-  }
-
-  private Sharder<ActionLookupValue> createALVSharderOf(ActionLookupValue... actionLookupValues) {
-    // These sizes are arbitrary.
-    Sharder<ActionLookupValue> sharder =
-        new Sharder<>(/*maxNumShards=*/ 8, /*expectedTotalSize*/ 10);
-    for (ActionLookupValue actionLookupValue : actionLookupValues) {
-      sharder.add(actionLookupValue);
-    }
-    return sharder;
   }
 
   private DerivedArtifact createTestDerivedArtifactWithPath(PathFragment path) {

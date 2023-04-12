@@ -111,7 +111,7 @@ public class CompletionContext {
 
   @Nullable
   public FileArtifactValue getFileArtifactValue(Artifact artifact) {
-    return importantInputMap.getMetadata(artifact);
+    return importantInputMap.getInputMetadata(artifact);
   }
 
   /** Returns true if the given artifact is guaranteed to be a file (and not a directory). */
@@ -136,7 +136,7 @@ public class CompletionContext {
                   : RelativeSymlinkBehaviorWithoutError.RESOLVE);
         }
       } else if (artifact.isTreeArtifact()) {
-        FileArtifactValue treeArtifactMetadata = importantInputMap.getMetadata(artifact);
+        FileArtifactValue treeArtifactMetadata = importantInputMap.getInputMetadata(artifact);
         if (treeArtifactMetadata == null) {
           BugReport.sendBugReport(
               new IllegalStateException(

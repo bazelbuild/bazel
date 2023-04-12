@@ -115,9 +115,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
-                .put(
-                    SkyFunctions.BAZEL_LOCK_FILE,
-                    new BazelLockFileFunction(rootDirectory, registryFactory))
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
                     new ClientEnvironmentFunction(
@@ -136,11 +134,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                           return null;
                         }
                         BazelLockFileFunction.updateLockedModule(
-                            key.moduleHash(),
-                            key.depGraph(),
-                            rootDirectory,
-                            registryFactory,
-                            flags);
+                            key.moduleHash(), key.depGraph(), rootDirectory, flags);
                         return new SkyValue() {};
                       }
                     })

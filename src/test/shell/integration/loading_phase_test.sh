@@ -597,18 +597,6 @@ EOF
   assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
 }
 
-function test_path_from_subdir() {
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg/subdir" || fail "could not create \"$pkg/subdir\""
-  touch "$pkg/subdir/BUILD" || fail "Could not touch"
-  echo 'filegroup(name = "foo", srcs = [])' > "$pkg/BUILD" || fail "echo"
-  cd "$pkg/subdir"
-  bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
-      || fail "Expected success"
-  assert_contains "^//$pkg:BUILD" output
-  assert_contains "^//$pkg:foo" output
-}
-
 function test_target_with_BUILD() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
