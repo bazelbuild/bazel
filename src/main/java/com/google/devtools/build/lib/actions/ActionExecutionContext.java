@@ -426,7 +426,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
     return new ActionExecutionContext(
         executor,
-        new DelegatingPairMetadataProvider(actionInputFileCache, additionalInputMetadata),
+        new DelegatingPairMetadataProvider(additionalInputMetadata, actionInputFileCache),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,

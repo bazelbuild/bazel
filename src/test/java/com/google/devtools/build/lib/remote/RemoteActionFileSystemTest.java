@@ -244,7 +244,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   public void getInput_fromInputArtifactData_forLocalArtifact() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createLocalArtifact("local-file", "local contents", inputs);
-    MetadataProvider actionFs = (MetadataProvider) createActionFileSystem(inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isEqualTo(artifact);
   }
@@ -253,7 +253,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   public void getInput_fromInputArtifactData_forRemoteArtifact() throws Exception {
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createRemoteArtifact("remote-file", "remote contents", inputs);
-    MetadataProvider actionFs = (MetadataProvider) createActionFileSystem(inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isEqualTo(artifact);
   }
@@ -261,8 +261,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void getInput_fromOutputMapping() throws Exception {
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    MetadataProvider actionFs =
-        (MetadataProvider)
+    RemoteActionFileSystem actionFs =
+        (RemoteActionFileSystem)
             createActionFileSystem(new ActionInputMap(0), ImmutableList.of(artifact));
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isEqualTo(artifact);
@@ -273,12 +273,11 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     Artifact artifact = ActionsTestUtil.createArtifact(sourceRoot, "src");
     FileArtifactValue metadata =
         FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 42);
-    MetadataProvider actionFs =
-        (MetadataProvider)
-            createActionFileSystem(
-                new ActionInputMap(0),
-                ImmutableList.of(),
-                new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
+    RemoteActionFileSystem actionFs =
+        createActionFileSystem(
+            new ActionInputMap(0),
+            ImmutableList.of(),
+            new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isEqualTo(artifact);
   }
@@ -288,19 +287,18 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     FileArtifactValue metadata =
         FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 42);
-    MetadataProvider actionFs =
-        (MetadataProvider)
-            createActionFileSystem(
-                new ActionInputMap(0),
-                ImmutableList.of(),
-                new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
+    RemoteActionFileSystem actionFs =
+        createActionFileSystem(
+            new ActionInputMap(0),
+            ImmutableList.of(),
+            new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isNull();
   }
 
   @Test
   public void getInput_notFound() throws Exception {
-    MetadataProvider actionFs = (MetadataProvider) createActionFileSystem();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
 
     assertThat(actionFs.getInput("some-path")).isNull();
   }
@@ -310,7 +308,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createLocalArtifact("local-file", "local contents", inputs);
     FileArtifactValue metadata = checkNotNull(inputs.getInputMetadata(artifact));
-    MetadataProvider actionFs = (MetadataProvider) createActionFileSystem(inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertThat(actionFs.getInputMetadata(artifact)).isEqualTo(metadata);
   }
@@ -320,7 +318,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     ActionInputMap inputs = new ActionInputMap(1);
     Artifact artifact = createRemoteArtifact("remote-file", "remote contents", inputs);
     FileArtifactValue metadata = checkNotNull(inputs.getInputMetadata(artifact));
-    MetadataProvider actionFs = (MetadataProvider) createActionFileSystem(inputs);
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertThat(actionFs.getInputMetadata(artifact)).isEqualTo(metadata);
   }
@@ -369,7 +367,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   @Test
   public void getMetadata_notFound() throws Exception {
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    MetadataProvider actionFs = (MetadataProvider) createActionFileSystem();
+    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
 
     assertThat(actionFs.getInputMetadata(artifact)).isNull();
   }

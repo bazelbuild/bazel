@@ -72,7 +72,7 @@ import javax.annotation.Nullable;
  *
  * <p>This implementation only supports creating local action outputs.
  */
-public class RemoteActionFileSystem extends DelegateFileSystem implements MetadataProvider {
+public class RemoteActionFileSystem extends DelegateFileSystem {
 
   private final PathFragment execRoot;
   private final PathFragment outputBase;
@@ -552,9 +552,9 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
     };
   }
 
-  @Override
   @Nullable
-  public ActionInput getInput(String execPath) {
+  @VisibleForTesting
+  ActionInput getInput(String execPath) {
     ActionInput input = inputArtifactData.getInput(execPath);
     if (input != null) {
       return input;
@@ -589,8 +589,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem implements Metada
   }
 
   @Nullable
-  @Override
-  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+  @VisibleForTesting
+  FileArtifactValue getInputMetadata(ActionInput input) {
     PathFragment execPath = input.getExecPath();
     return inputArtifactData.getMetadata(execPath);
   }
