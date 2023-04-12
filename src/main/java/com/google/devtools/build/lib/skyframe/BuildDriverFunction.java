@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PAR
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -77,6 +76,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -87,6 +87,8 @@ public class BuildDriverFunction implements SkyFunction {
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
+
+  @Nullable private Supplier<Boolean> shouldCheckForConflict;
 
   // A set of BuildDriverKeys that have been checked for conflicts.
   // This gets cleared after each build.
@@ -127,6 +129,11 @@ public class BuildDriverFunction implements SkyFunction {
     private boolean checkedForCompatibility = false;
     private boolean checkedForPlatformCompatibility = false;
   }
+
+  public void setShouldCheckForConflict(Supplier<Boolean> shouldCheckForConflict) {
+    this.shouldCheckForConflict = shouldCheckForConflict;
+  }
+
   /**
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
    * with the appropriate CompletionFunctions. This is the bridge between the conceptual analysis &
@@ -156,12 +163,11 @@ public class BuildDriverFunction implements SkyFunction {
       return null;
     }
 
-    // Unconditionally check for action conflicts.
-    // TODO(b/214371092): Only check when necessary.
-    try (SilentCloseable c =
-        Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-      // We only check for action conflict once per BuildDriverKey.
-      if (checkedForConflicts.add(buildDriverKey)) {
+    // We only check for action conflict once per BuildDriverKey.
+    if (Preconditions.checkNotNull(shouldCheckForConflict).get()
+        && checkedForConflicts.add(buildDriverKey)) {
+      try (SilentCloseable c =
+          Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
             checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
         if (!actionConflicts.isEmpty()) {
@@ -171,7 +177,6 @@ public class BuildDriverFunction implements SkyFunction {
                       + actionLookupKey.getLabel(),
                   actionConflicts));
         }
-
       }
     }
 

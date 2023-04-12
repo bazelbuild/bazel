@@ -2344,10 +2344,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
       int executionParallelism,
-      QuiescingExecutor executor)
+      QuiescingExecutor executor,
+      Supplier<Boolean> shouldCheckForConflicts)
       throws InterruptedException {
     checkActive();
     try {
+      buildDriverFunction.setShouldCheckForConflict(shouldCheckForConflicts);
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
