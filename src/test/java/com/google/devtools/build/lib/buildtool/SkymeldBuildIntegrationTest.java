@@ -391,7 +391,6 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
   public void targetAnalysisFailure_skymeld_correctAnalysisEvents(@TestParameter boolean keepGoing)
       throws Exception {
     addOptions("--keep_going=" + keepGoing);
-    addOptions("--experimental_merged_skyframe_analysis_execution");
     writeMyRuleBzl();
     write(
         "foo/BUILD",
@@ -582,6 +581,41 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
 
     assertThat(eventsSubscriber.getTopLevelEntityAnalysisConcludedEvents()).hasSize(2);
     assertSingleAnalysisPhaseCompleteEventWithLabels("//foo:foo", "//foo:bar");
+  }
+
+  // Regression test for b/277783687.
+  @Test
+  public void targetAnalysisFailureNullBuild_correctErrorsPropagated(
+      @TestParameter boolean keepGoing) throws Exception {
+    addOptions("--keep_going=" + keepGoing);
+    writeMyRuleBzl();
+    write(
+        "foo/BUILD",
+        "load('//foo:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'analysis_failure', srcs = ['foo.in'], deps = [':missing'])");
+    write("foo/foo.in");
+
+    if (keepGoing) {
+      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:analysis_failure"));
+
+    } else {
+      assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:analysis_failure"));
+    }
+    events.assertContainsError(
+        "in deps attribute of my_rule rule //foo:analysis_failure: rule '//foo:missing' does not"
+            + " exist");
+    events.clear();
+
+    // Null build
+    if (keepGoing) {
+      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:analysis_failure"));
+
+    } else {
+      assertThrows(ViewCreationFailedException.class, () -> buildTarget("//foo:analysis_failure"));
+    }
+    events.assertContainsError(
+        "in deps attribute of my_rule rule //foo:analysis_failure: rule '//foo:missing' does not"
+            + " exist");
   }
 
   private void assertSingleAnalysisPhaseCompleteEventWithLabels(String... labels) {

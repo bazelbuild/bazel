@@ -877,6 +877,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * more generally action lookup nodes) to action execution nodes. We take advantage of the fact
    * that if a node depends on an action lookup node and is not itself an action lookup node, then
    * it is an execution-phase node: the action lookup nodes are terminal in the analysis phase.
+   *
+   * <p>Skymeld: propagate events to BuildDriverKey nodes, since they cover both analysis &
+   * execution.
    */
   protected static final EventFilter DEFAULT_EVENT_FILTER_WITH_ACTIONS =
       new EventFilter() {
@@ -888,7 +891,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Override
         public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
           // Do not propagate events from analysis phase nodes to execution phase nodes.
-          return isAnalysisPhaseKey(primaryKey) || !isAnalysisPhaseKey(depKey);
+          return isAnalysisPhaseKey(primaryKey)
+              || !isAnalysisPhaseKey(depKey)
+              // Skymeld only.
+              || primaryKey instanceof BuildDriverKey;
         }
       };
 
