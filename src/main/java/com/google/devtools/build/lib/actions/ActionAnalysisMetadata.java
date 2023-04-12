@@ -186,8 +186,7 @@ public interface ActionAnalysisMetadata {
   Artifact getPrimaryInput();
 
   /**
-   * Returns the "primary" output of this action, which is the same as the first artifact in {@link
-   * #getOutputs}.
+   * Returns the "primary" output of this action.
    *
    * <p>For example, the linked library would be the primary output of a LinkAction.
    *
