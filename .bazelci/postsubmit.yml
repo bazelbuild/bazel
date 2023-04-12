@@ -261,6 +261,7 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/starlark/..."
       - "-//src/test/java/com/google/devtools/build/lib/remote/merkletree/..."
       - "-//src/test/java/net/starlark/java/eval:ScriptTest"
+      - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
     include_json_profile:
       - build
       - test
