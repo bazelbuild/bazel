@@ -83,7 +83,7 @@ they will not be executed.
 The two links below will be very useful when writing your own extensions. Keep
 them within reach:
 
-* The [API reference](/rules/lib/starlark-overview)
+* The [API reference](/rules/lib)
 
 * [Examples](https://github.com/bazelbuild/examples/tree/master/rules)
 

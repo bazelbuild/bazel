@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
@@ -585,20 +585,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   @SuppressWarnings({"CheckReturnValue", "FutureReturnValueIgnored"})
-  public void finalizeAction(Action action, MetadataHandler metadataHandler) {
+  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore) {
     List<Artifact> inputsToDownload = new ArrayList<>();
     List<Artifact> outputsToDownload = new ArrayList<>();
 
     for (Artifact output : action.getOutputs()) {
       if (outputsAreInputs.remove(output)) {
         if (output.isTreeArtifact()) {
-          var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
+          var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
           inputsToDownload.addAll(children);
         } else {
           inputsToDownload.add(output);
         }
       } else if (output.isTreeArtifact()) {
-        var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
+        var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
         for (var file : children) {
           if (outputMatchesPattern(file)) {
             outputsToDownload.add(file);
@@ -613,7 +613,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       // "input" here means "input to another action" (but an output of this one), so
       // getOutputMetadata() is the right method to pass to prefetchFiles()
       var future =
-          prefetchFiles(inputsToDownload, metadataHandler::getOutputMetadata, Priority.HIGH);
+          prefetchFiles(inputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH);
       addCallback(
           future,
           new FutureCallback<Void>() {
@@ -635,7 +635,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     if (!outputsToDownload.isEmpty()) {
       var future =
-          prefetchFiles(outputsToDownload, metadataHandler::getOutputMetadata, Priority.LOW);
+          prefetchFiles(outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {

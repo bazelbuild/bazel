@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -376,7 +376,7 @@ public class RemoteExecutionService {
       useMerkleTreeCache = false;
     }
     if (useMerkleTreeCache) {
-      MetadataProvider metadataProvider = context.getMetadataProvider();
+      InputMetadataProvider inputMetadataProvider = context.getInputMetadataProvider();
       ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
       remotePathResolver.walkInputs(
           spawn,
@@ -384,12 +384,16 @@ public class RemoteExecutionService {
           (Object nodeKey, InputWalker walker) -> {
             subMerkleTrees.add(
                 buildMerkleTreeVisitor(
-                    nodeKey, walker, metadataProvider, context.getPathResolver()));
+                    nodeKey, walker, inputMetadataProvider, context.getPathResolver()));
           });
       if (!outputDirMap.isEmpty()) {
         subMerkleTrees.add(
             MerkleTree.build(
-                outputDirMap, metadataProvider, execRoot, context.getPathResolver(), digestUtil));
+                outputDirMap,
+                inputMetadataProvider,
+                execRoot,
+                context.getPathResolver(),
+                digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
@@ -407,7 +411,7 @@ public class RemoteExecutionService {
       return MerkleTree.build(
           inputMap,
           toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
-          context.getMetadataProvider(),
+          context.getInputMetadataProvider(),
           execRoot,
           context.getPathResolver(),
           digestUtil);
@@ -417,7 +421,7 @@ public class RemoteExecutionService {
   private MerkleTree buildMerkleTreeVisitor(
       Object nodeKey,
       InputWalker walker,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     // Deduplicate concurrent computations for the same node. It's not possible to use
@@ -430,7 +434,7 @@ public class RemoteExecutionService {
       // No preexisting cache entry, so we must do the computation ourselves.
       try {
         freshFuture.complete(
-            uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver));
+            uncachedBuildMerkleTreeVisitor(walker, inputMetadataProvider, artifactPathResolver));
       } catch (Exception e) {
         freshFuture.completeExceptionally(e);
       }
@@ -453,14 +457,14 @@ public class RemoteExecutionService {
   @VisibleForTesting
   public MerkleTree uncachedBuildMerkleTreeVisitor(
       InputWalker walker,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
         MerkleTree.build(
             walker.getLeavesInputMapping(),
-            metadataProvider,
+            inputMetadataProvider,
             execRoot,
             artifactPathResolver,
             digestUtil));
@@ -468,7 +472,7 @@ public class RemoteExecutionService {
         (Object subNodeKey, InputWalker subWalker) -> {
           subMerkleTrees.add(
               buildMerkleTreeVisitor(
-                  subNodeKey, subWalker, metadataProvider, artifactPathResolver));
+                  subNodeKey, subWalker, inputMetadataProvider, artifactPathResolver));
         });
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }

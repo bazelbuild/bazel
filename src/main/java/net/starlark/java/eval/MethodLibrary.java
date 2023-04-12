@@ -479,7 +479,7 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "dict",
       doc =
-          "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
+          "Creates a <a href=\"../core/dict.html\">dictionary</a> from an optional positional "
               + "argument and an optional set of keyword arguments. In the case where the same key "
               + "is given multiple times, the last value will be used. Entries supplied via "
               + "keyword arguments are considered to come after entries supplied via the "

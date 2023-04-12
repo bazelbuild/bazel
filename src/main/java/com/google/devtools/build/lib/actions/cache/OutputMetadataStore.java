@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
 /** Handles the metadata of the outputs of the action during its execution. */
-public interface MetadataHandler extends MetadataInjector {
+public interface OutputMetadataStore extends MetadataInjector {
   /**
    * Returns a {@link FileArtifactValue} for the given {@link ActionInput}.
    *

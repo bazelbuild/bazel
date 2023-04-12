@@ -95,9 +95,10 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       structField = true,
       doc =
           "A list of all the Bazel modules in the external dependency graph, each of which is a <a"
-              + " href=\"bazel_module.html\">bazel_module</a> object that exposes all the tags it"
-              + " specified for this module extension. The iteration order of this dictionary is"
-              + " guaranteed to be the same as breadth-first search starting from the root module.")
+              + " href=\"../builtins/bazel_module.html\">bazel_module</a> object that exposes all"
+              + " the tags it specified for this module extension. The iteration order of this"
+              + " dictionary is guaranteed to be the same as breadth-first search starting from the"
+              + " root module.")
   public StarlarkList<StarlarkBazelModule> getModules() {
     return modules;
   }
@@ -106,12 +107,14 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       name = "is_dev_dependency",
       doc =
           "Returns whether the given tag was specified on the result of a <a "
-              + "href=\"globals.html#use_extension\">use_extension</a> call with "
+              + "href=\"../globals/module.html#use_extension\">use_extension</a> call with "
               + "<code>devDependency = True</code>.",
       parameters = {
         @Param(
             name = "tag",
-            doc = "A tag obtained from <a href=\"bazel_module.html#tags\">bazel_module.tags</a>.",
+            doc =
+                "A tag obtained from <a"
+                    + " href=\"../builtins/bazel_module.html#tags\">bazel_module.tags</a>.",
             allowedTypes = {@ParamType(type = TypeCheckedTag.class)})
       })
   public boolean isDevDependency(TypeCheckedTag tag) {

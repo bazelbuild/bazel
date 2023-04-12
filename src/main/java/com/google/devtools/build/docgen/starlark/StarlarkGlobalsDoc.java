@@ -14,44 +14,34 @@
 
 package com.google.devtools.build.docgen.starlark;
 
-import net.starlark.java.annot.StarlarkBuiltin;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 
-/** A documentation page for a Starlark builtin type. */
-public final class StarlarkBuiltinDoc extends StarlarkDocPage {
-  private static final String SOURCE_ROOT = "src/main/java";
+/** A documentation page for a list of Starlark global methods in the same environment. */
+public final class StarlarkGlobalsDoc extends StarlarkDocPage {
+  private final Environment environment;
 
-  private final StarlarkBuiltin starlarkBuiltin;
-  private final Class<?> classObject;
-
-  public StarlarkBuiltinDoc(
-      StarlarkBuiltin starlarkBuiltin, Class<?> classObject, StarlarkDocExpander expander) {
+  public StarlarkGlobalsDoc(Environment environment, StarlarkDocExpander expander) {
     super(expander);
-    this.starlarkBuiltin = starlarkBuiltin;
-    this.classObject = classObject;
+    this.environment = environment;
   }
 
   @Override
   public String getName() {
-    return starlarkBuiltin.name();
+    return environment.getPath();
   }
 
   @Override
   public String getRawDocumentation() {
-    return starlarkBuiltin.doc();
+    return environment.getDescription();
   }
 
   @Override
   public String getTitle() {
-    return starlarkBuiltin.name();
-  }
-
-  public Class<?> getClassObject() {
-    return classObject;
+    return environment.getTitle();
   }
 
   @Override
   public String getSourceFile() {
-    String[] parts = classObject.getName().split("\\$", -1);
-    return String.format("%s/%s.java", SOURCE_ROOT, parts[0].replace('.', '/'));
+    return "NONE";
   }
 }

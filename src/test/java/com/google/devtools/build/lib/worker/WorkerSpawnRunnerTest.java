@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -90,7 +90,7 @@ public class WorkerSpawnRunnerTest {
   @Mock SpawnMetrics.Builder spawnMetrics;
   @Mock Spawn spawn;
   @Mock SpawnExecutionContext context;
-  @Mock MetadataProvider inputFileCache;
+  @Mock InputMetadataProvider inputFileCache;
   @Mock Worker worker;
   @Mock WorkerOptions options;
   @Mock WorkerMetricsCollector metricsCollector;

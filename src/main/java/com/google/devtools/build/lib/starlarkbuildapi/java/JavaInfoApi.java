@@ -71,16 +71,16 @@ public interface JavaInfoApi<
           "Returns the regular, full compile time Jars required by this target directly. They can"
               + " be <ul><li> the corresponding regular Jars of the interface Jars returned by"
               + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li><li>"
+              + " href=\"#compile_jars\">JavaInfo.compile_jars</a></code></li><li>"
               + " the regular (full) Jars returned by <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li></ul>"
+              + " href=\"#compile_jars\">JavaInfo.compile_jars</a></code></li></ul>"
               + "<p>Note: <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code> can return"
+              + " href=\"#compile_jars\">JavaInfo.compile_jars</a></code> can return"
               + " a mix of interface Jars and regular Jars.<p>Only use this method if interface"
               + " Jars don't work with your rule set(s) (e.g. some Scala targets) If you're"
               + " working with Java-only targets it's preferable to use interface Jars via"
               + " <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#compile_jars\">JavaInfo.compile_jars</a></code></li>",
+              + " href=\"#compile_jars\">JavaInfo.compile_jars</a></code></li>",
       structField = true)
   Depset getFullCompileTimeJars();
 
@@ -133,7 +133,7 @@ public interface JavaInfoApi<
       name = "transitive_deps",
       doc =
           "Deprecated: Please use <code><a class=\"anchor\" "
-              + "href=\"JavaInfo.html#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
+              + "href=\"#transitive_compile_time_jars\">JavaInfo.transitive_compile_time_jars</a></code>"
               + " instead. It returns the same value.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveDeps();
@@ -142,7 +142,7 @@ public interface JavaInfoApi<
       name = "transitive_runtime_deps",
       doc =
           "Deprecated: please use <code><a class=\"anchor\""
-              + " href=\"JavaInfo.html#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
+              + " href=\"#transitive_runtime_jars\">JavaInfo.transitive_runtime_jars"
               + "</a></code> instead. It returns the same value",
       structField = true)
   Depset /*<FileT>*/ getTransitiveRuntimeDeps();
@@ -198,10 +198,10 @@ public interface JavaInfoApi<
               doc =
                   "A jar that is added as the compile-time dependency in lieu of "
                       + "<code>output_jar</code>. Typically this is the ijar produced by "
-                      + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">"
+                      + "<code><a class=\"anchor\" href=\"../toplevel/java_common.html#run_ijar\">"
                       + "run_ijar</a></code>. "
                       + "If you cannot use ijar, consider instead using the output of "
-                      + "<code><a class=\"anchor\" href=\"java_common.html#stamp_jar\">"
+                      + "<code><a class=\"anchor\" href=\"../toplevel/java_common.html#stamp_jar\">"
                       + "stamp_ijar</a></code>. If you do not wish to use either, "
                       + "you can simply pass <code>output_jar</code>. "
                       + "There are a couple of special cases when this parameter may be set to "
@@ -216,9 +216,10 @@ public interface JavaInfoApi<
               named = true,
               defaultValue = "None",
               doc =
-                  "The source jar that was used to create the output jar. "
-                      + "Use <code><a class=\"anchor\" href=\"java_common.html#pack_sources\">"
-                      + "pack_sources</a></code> to produce this source jar."),
+                  "The source jar that was used to create the output jar. Use <code><a"
+                      + " class=\"anchor\""
+                      + " href=\"../toplevel/java_common.html#pack_sources\">pack_sources</a>"
+                      + "</code> to produce this source jar."),
           @Param(
               name = "compile_jdeps",
               allowedTypes = {

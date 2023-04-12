@@ -75,7 +75,8 @@ public final class GenRuleAction extends SpawnAction {
   protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
     if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       checkInputsForDirectories(
-          actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());
+          actionExecutionContext.getEventHandler(),
+          actionExecutionContext.getInputMetadataProvider());
     }
   }
 

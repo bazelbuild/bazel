@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.exec.SpawnCache.CacheHandle;
@@ -189,7 +189,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       try {
         spawnLogContext.logSpawn(
             spawn,
-            actionExecutionContext.getMetadataProvider(),
+            actionExecutionContext.getInputMetadataProvider(),
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ false),
             context.getTimeout(),
             spawnResult);
@@ -255,7 +255,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 .prefetchFiles(
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
-                    getMetadataProvider()::getInputMetadata,
+                    getInputMetadataProvider()::getInputMetadata,
                     Priority.MEDIUM),
             BulkTransferException.class,
             (BulkTransferException e) -> {
@@ -282,13 +282,13 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public MetadataProvider getMetadataProvider() {
-      return actionExecutionContext.getMetadataProvider();
+    public InputMetadataProvider getInputMetadataProvider() {
+      return actionExecutionContext.getInputMetadataProvider();
     }
 
     @Override
-    public MetadataHandler getMetadataInjector() {
-      return actionExecutionContext.getMetadataHandler();
+    public OutputMetadataStore getMetadataInjector() {
+      return actionExecutionContext.getOutputMetadataStore();
     }
 
     @Override
@@ -351,7 +351,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                 spawn,
                 actionExecutionContext.getArtifactExpander(),
                 baseDirectory,
-                actionExecutionContext.getMetadataProvider());
+                actionExecutionContext.getInputMetadataProvider());
       }
 
       // Don't cache the input mapping if it is unlikely that it is used again.

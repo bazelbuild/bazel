@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.StaticMetadataProvider;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
@@ -52,7 +52,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     return DirectoryTreeBuilder.fromActionInputs(
         inputFiles,
-        new StaticMetadataProvider(metadata),
+        new StaticInputMetadataProvider(metadata),
         execRoot,
         ArtifactPathResolver.forExecRoot(execRoot),
         digestUtil);
@@ -69,7 +69,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
             sortedInputs,
-            new StaticMetadataProvider(metadata),
+            new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
             digestUtil);
@@ -118,7 +118,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
             sortedInputs,
-            new StaticMetadataProvider(metadata),
+            new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
             digestUtil);
@@ -166,7 +166,7 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
             sortedInputs,
-            new StaticMetadataProvider(metadata),
+            new StaticInputMetadataProvider(metadata),
             execRoot,
             ArtifactPathResolver.forExecRoot(execRoot),
             digestUtil);

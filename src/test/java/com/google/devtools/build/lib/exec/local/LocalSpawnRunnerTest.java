@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -258,7 +258,7 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public MetadataProvider getMetadataProvider() {
+    public InputMetadataProvider getInputMetadataProvider() {
       return mockFileCache;
     }
 
@@ -318,7 +318,7 @@ public class LocalSpawnRunnerTest {
     }
   }
 
-  private final MetadataProvider mockFileCache = mock(MetadataProvider.class);
+  private final InputMetadataProvider mockFileCache = mock(InputMetadataProvider.class);
   private final ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
 
   private Logger logger;

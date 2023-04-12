@@ -493,7 +493,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         continue;
       }
 
-      FileArtifactValue metadata = context.getMetadataProvider().getInputMetadata(input);
+      FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
       if (metadata == null) {
         // This can happen if we are executing a spawn in an action that has multiple spawns and
         // the output of one is the input of another. In this case, we assume that no one modifies

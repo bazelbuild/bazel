@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -62,7 +62,7 @@ public class SkyframeBuilder implements Builder {
   private final ResourceManager resourceManager;
   private final SkyframeExecutor skyframeExecutor;
   private final ModifiedFileSet modifiedOutputFiles;
-  private final MetadataProvider fileCache;
+  private final InputMetadataProvider fileCache;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionCacheChecker actionCacheChecker;
   private final BugReporter bugReporter;
@@ -73,7 +73,7 @@ public class SkyframeBuilder implements Builder {
       ResourceManager resourceManager,
       ActionCacheChecker actionCacheChecker,
       ModifiedFileSet modifiedOutputFiles,
-      MetadataProvider fileCache,
+      InputMetadataProvider fileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       BugReporter bugReporter) {
     this.resourceManager = resourceManager;
@@ -220,7 +220,7 @@ public class SkyframeBuilder implements Builder {
     return actionCacheChecker;
   }
 
-  MetadataProvider getFileCache() {
+  InputMetadataProvider getFileCache() {
     return fileCache;
   }
 

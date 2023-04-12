@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -129,7 +129,7 @@ public class CommandEnvironment {
   private final Object fileCacheLock = new Object();
 
   @GuardedBy("fileCacheLock")
-  private MetadataProvider fileCache;
+  private InputMetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -815,7 +815,7 @@ public class CommandEnvironment {
   }
 
   /** Returns the file cache to use during this build. */
-  public MetadataProvider getFileCache() {
+  public InputMetadataProvider getFileCache() {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =

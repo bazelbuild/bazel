@@ -389,7 +389,7 @@ This output format calls a [Starlark](/rules/language)
 function for each configured target in the query result, and prints the value
 returned by the call. The `--starlark:file` flag specifies the location of a
 Starlark file that defines a function named `format` with a single parameter,
-`target`. This function is called for each [Target](/rules/lib/Target)
+`target`. This function is called for each [Target](/rules/lib/builtins/Target)
 in the query result. Alternatively, for convenience, you may specify just the
 body of a function declared as `def format(target): return expr` by using the
 `--starlark:expr` flag.

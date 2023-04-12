@@ -26,10 +26,10 @@ import net.starlark.java.eval.StarlarkValue;
     name = "DirectoryExpander",
     category = DocCategory.BUILTIN,
     doc =
-        "Expands directories created by <a href='actions.html#declare_directory'>"
+        "Expands directories created by <a href='../builtins/actions.html#declare_directory'>"
             + "<code>ctx.actions.declare_directory</code></a>"
             + " during the execution phase. This is useful to expand directories in "
-            + "<a href='Args.html#add_all.map_each'><code>map_each</code></a>.")
+            + "<a href='../builtins/Args.html#add_all.map_each'><code>map_each</code></a>.")
 public interface DirectoryExpander extends StarlarkValue {
   @StarlarkMethod(
       name = "expand",

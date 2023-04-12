@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
@@ -73,10 +73,9 @@ import javax.annotation.Nullable;
  * <p>This implementation only supports creating local action outputs.
  */
 public class RemoteActionFileSystem extends DelegateFileSystem {
-
   private final PathFragment execRoot;
   private final PathFragment outputBase;
-  private final MetadataProvider fileCache;
+  private final InputMetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
@@ -90,7 +89,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      MetadataProvider fileCache,
+      InputMetadataProvider fileCache,
       RemoteActionInputFetcher inputFetcher) {
     super(localDelegate);
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");

@@ -18,19 +18,20 @@ import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** A {@link MetadataProvider} backed by static data */
-public final class StaticMetadataProvider implements MetadataProvider {
+/** A {@link InputMetadataProvider} backed by static data */
+public final class StaticInputMetadataProvider implements InputMetadataProvider {
 
-  private static final StaticMetadataProvider EMPTY = new StaticMetadataProvider(ImmutableMap.of());
+  private static final StaticInputMetadataProvider EMPTY =
+      new StaticInputMetadataProvider(ImmutableMap.of());
 
-  public static StaticMetadataProvider empty() {
+  public static StaticInputMetadataProvider empty() {
     return EMPTY;
   }
 
   private final ImmutableMap<ActionInput, FileArtifactValue> inputToMetadata;
   private final ImmutableMap<String, ActionInput> execPathToInput;
 
-  public StaticMetadataProvider(Map<ActionInput, FileArtifactValue> inputToMetadata) {
+  public StaticInputMetadataProvider(Map<ActionInput, FileArtifactValue> inputToMetadata) {
     this.inputToMetadata = ImmutableMap.copyOf(inputToMetadata);
     this.execPathToInput = constructExecPathToInputMap(inputToMetadata.keySet());
   }
