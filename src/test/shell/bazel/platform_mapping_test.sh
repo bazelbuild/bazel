@@ -220,7 +220,6 @@ report_flags(name = "report")
 EOF
 
   bazel build --cpu=arm64 package:report \
-      --noincompatible_auto_configure_host_platform \
       --target_platform_fallback=//plat:platform2 &> "${TEST_log}" \
       || fail "Build failed unexpectedly"
   expect_log "platform: @//plat:platform2"
@@ -291,7 +290,6 @@ report_flags(name = "report")
 EOF
 
   bazel build --host_platform=//plat:platform1 package:custom \
-      --noincompatible_auto_configure_host_platform \
       --target_platform_fallback=//plat:platform2 &> "${TEST_log}" \
       || fail "Build failed unexpectedly"
   expect_log "platform: @//plat:platform2"

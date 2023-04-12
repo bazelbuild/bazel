@@ -33,10 +33,6 @@ public class PlatformRule implements RuleDefinition {
   public static final String PARENTS_PLATFORM_ATTR = "parents";
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   public static final String EXEC_PROPS_ATTR = "exec_properties";
-  static final String HOST_PLATFORM_ATTR = "host_platform";
-  static final String TARGET_PLATFORM_ATTR = "target_platform";
-  static final String CPU_CONSTRAINTS_ATTR = "cpu_constraints";
-  static final String OS_CONSTRAINTS_ATTR = "os_constraints";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -97,32 +93,6 @@ public class PlatformRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
 
-        // Undocumented. Indicates that this platform should auto-configure the platform constraints
-        // based on the current host OS and CPU settings.
-        .add(
-            attr(HOST_PLATFORM_ATTR, Type.BOOLEAN)
-                .value(false)
-                .undocumented("Should only be used by internal packages."))
-        // Undocumented. Indicates that this platform should auto-configure the platform constraints
-        // based on the current OS and CPU settings.
-        .add(
-            attr(TARGET_PLATFORM_ATTR, Type.BOOLEAN)
-                .value(false)
-                .undocumented("Should only be used by internal packages."))
-        // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
-        // mapping.
-        .add(
-            attr(CPU_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .undocumented("Should only be used by internal packages."))
-        // Undocumented. Indicates to the rule which constraint_values to use for automatic CPU
-        // mapping.
-        .add(
-            attr(OS_CONSTRAINTS_ATTR, BuildType.LABEL_LIST)
-                .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryProviders(ConstraintValueInfo.PROVIDER.id())
-                .undocumented("Should only be used by internal packages."))
         .build();
   }
 

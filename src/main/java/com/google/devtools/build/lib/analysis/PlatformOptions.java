@@ -37,10 +37,6 @@ import java.util.Map;
 /** Command-line options for platform-related configuration. */
 public class PlatformOptions extends FragmentOptions {
 
-  // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
-  // directly.
-  public static final Label LEGACY_DEFAULT_HOST_PLATFORM =
-      Label.parseCanonicalUnchecked("@local_config_platform//:host");
   public static final Label DEFAULT_HOST_PLATFORM =
       Label.parseCanonicalUnchecked("@local_config_platform//:host");
   public static final String DEFAULT_TARGET_PLATFORM_FALLBACK = "@local_config_platform//:host";
@@ -172,17 +168,6 @@ public class PlatformOptions extends FragmentOptions {
   public RegexFilter toolchainResolutionDebug;
 
   @Option(
-      name = "incompatible_auto_configure_host_platform",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, the host platform will be inherited from @local_config_platform//:host, "
-              + "instead of being based on the --cpu (and --host_cpu) flags.")
-  public boolean autoConfigureHostPlatform;
-
-  @Option(
       name = "incompatible_use_toolchain_resolution_for_java_rules",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -236,7 +221,6 @@ public class PlatformOptions extends FragmentOptions {
     exec.extraToolchains = this.extraToolchains;
     exec.toolchainResolutionDebug = this.toolchainResolutionDebug;
     exec.toolchainResolutionOverrides = this.toolchainResolutionOverrides;
-    exec.autoConfigureHostPlatform = this.autoConfigureHostPlatform;
     exec.useToolchainResolutionForJavaRules = this.useToolchainResolutionForJavaRules;
     exec.targetPlatformFallback = this.targetPlatformFallback;
     return exec;
@@ -262,12 +246,9 @@ public class PlatformOptions extends FragmentOptions {
 
     if (!platforms.isEmpty()) {
       return Iterables.getFirst(platforms, null);
-    } else if (autoConfigureHostPlatform) {
+    } else {
       // Default to the host platform, whatever it is.
       return computeHostPlatform();
-    } else {
-      // Use the legacy target platform
-      return targetPlatformFallback;
     }
   }
 
@@ -279,12 +260,9 @@ public class PlatformOptions extends FragmentOptions {
 
     if (this.hostPlatform != null) {
       return this.hostPlatform;
-    } else if (autoConfigureHostPlatform) {
+    } else {
       // Use the auto-configured host platform.
       return DEFAULT_HOST_PLATFORM;
-    } else {
-      // Use the legacy host platform.
-      return LEGACY_DEFAULT_HOST_PLATFORM;
     }
   }
 
