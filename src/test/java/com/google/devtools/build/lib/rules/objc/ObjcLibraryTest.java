@@ -172,6 +172,33 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testIndexstoreFilesFeature() throws Exception {
+    useConfiguration("--features=indexstore_files");
+
+    createLibraryTargetWriter("//objc/lib1")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .write();
+
+    createLibraryTargetWriter("//objc/lib2")
+        .setAndCreateFiles("srcs", "a.m")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib1")
+        .write();
+
+    createLibraryTargetWriter("//objc:x")
+        .setAndCreateFiles("srcs", "a.m", "private.h")
+        .setAndCreateFiles("hdrs", "hdr.h")
+        .setList("deps", "//objc/lib2:lib2")
+        .write();
+
+    CppCompileAction compileA = (CppCompileAction) compileAction("//objc:x", "a.o");
+
+    assertThat(Artifact.toRootRelativePaths(compileA.getOutputs()))
+        .containsExactly("objc/_objs/x/arc/a.o", "objc/_objs/x/arc/a.d", "objc/_objs/x/arc/a.indexstore");
+  }
+
+  @Test
   public void testCompilesSourcesWithSameBaseName() throws Exception {
     createLibraryTargetWriter("//foo:lib")
         .setAndCreateFiles("srcs", "a.m", "pkg1/a.m", "b.m")

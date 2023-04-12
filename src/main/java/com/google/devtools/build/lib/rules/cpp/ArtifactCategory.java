@@ -25,6 +25,7 @@ public enum ArtifactCategory {
   DYNAMIC_LIBRARY("lib", ".so", ".dylib", ".dll", ".wasm"),
   EXECUTABLE("", "", ".exe", ".wasm"),
   INTERFACE_LIBRARY("lib", ".ifso", ".tbd", ".if.lib", ".lib"),
+  INDEXSTORE_FILE("", ".indexstore"),
   PIC_FILE("", ".pic"),
   INCLUDED_FILE_LIST("", ".d"),
   SERIALIZED_DIAGNOSTICS_FILE("", ".dia"),

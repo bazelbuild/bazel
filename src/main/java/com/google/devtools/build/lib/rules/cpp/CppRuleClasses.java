@@ -152,6 +152,12 @@ public class CppRuleClasses {
    */
   public static final String SERIALIZED_DIAGNOSTICS_FILE = "serialized_diagnostics_file";
 
+  /**
+   * A string constant for the indexstore_files feature. This feature generates the .indexstore
+   * files.
+   */
+  public static final String INDEXSTORE_FILES = "indexstore_files";
+
   /** A string constant for the module_map_home_cwd feature. */
   public static final String MODULE_MAP_HOME_CWD = "module_map_home_cwd";
 
