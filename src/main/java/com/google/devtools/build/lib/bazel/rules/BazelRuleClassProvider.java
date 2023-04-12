@@ -474,8 +474,7 @@ public class BazelRuleClassProvider {
               new PyBootstrap(
                   PyInfo.PROVIDER,
                   PyStarlarkTransitions.INSTANCE,
-                  new GoogleLegacyStubs.PyWrapCcHelper(),
-                  new GoogleLegacyStubs.PyWrapCcInfoProvider()));
+                  new GoogleLegacyStubs.PyWrapCcHelper()));
 
           builder.addSymlinkDefinition(PySymlink.PY2);
           builder.addSymlinkDefinition(PySymlink.PY3);
