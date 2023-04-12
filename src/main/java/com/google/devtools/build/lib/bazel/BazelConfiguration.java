@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 
 /** Bazel-specific settings. */
 @Immutable
@@ -35,8 +36,17 @@ public class BazelConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
         effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "If enabled, visibility checking also applies to toolchain implementations.")
     public boolean checkVisibilityForToolchains;
+
+    @Override
+    public FragmentOptions getExec() {
+      Options exec = (Options) getDefault();
+      exec.checkVisibilityForToolchains = checkVisibilityForToolchains;
+
+      return exec;
+    }
   }
 
   private final Options options;
