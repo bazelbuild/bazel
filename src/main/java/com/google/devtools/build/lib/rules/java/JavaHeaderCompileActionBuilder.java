@@ -433,7 +433,6 @@ public class JavaHeaderCompileActionBuilder {
               /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
               /* inputs= */ allInputs,
               /* outputs= */ outputs.build(),
-              /* primaryOutput= */ outputJar,
               /* resourceSetOrBuilder= */ AbstractAction.DEFAULT_RESOURCE_SET,
               /* commandLines= */ CommandLines.builder()
                   .addCommandLine(executableLine)

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -55,7 +54,6 @@ public final class GenRuleAction extends SpawnAction {
         tools,
         inputs,
         outputs,
-        Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
         CommandLineLimits.UNLIMITED,
