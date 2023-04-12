@@ -309,8 +309,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public final Artifact getPrimaryOutput() {
-    return Iterables.get(outputs, 0);
+  public Artifact getPrimaryOutput() {
+    // Default behavior is to return the first output artifact.
+    // Use the method rather than field in case of overriding in subclasses.
+    return Iterables.getFirst(getOutputs(), null);
   }
 
   @Override
