@@ -28,6 +28,7 @@ load(
 
 def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains):
     """Compute the list of default C++ include paths on Xcode-enabled darwin.
+
     Args:
       repository_ctx: The repository context.
       cc: The default C++ compiler on the local system.
@@ -84,6 +85,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
 
 def configure_osx_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on macOS.
+
     Args:
       repository_ctx: The repository context.
       overriden_tools: dictionary of overriden tools.
