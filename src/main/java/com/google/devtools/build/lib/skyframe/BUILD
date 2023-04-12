@@ -290,7 +290,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:exception",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:registry",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_creator",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -636,6 +635,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],
 )
@@ -923,7 +923,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:extra_action_artifacts_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util",

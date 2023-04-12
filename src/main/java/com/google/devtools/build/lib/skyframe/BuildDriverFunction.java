@@ -22,6 +22,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -29,7 +30,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.PlatformCompatibility;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -571,12 +570,12 @@ public class BuildDriverFunction implements SkyFunction {
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
-    abstract Sharder<ActionLookupValue> collectedValues();
+    abstract ImmutableCollection<SkyValue> collectedValues();
 
     abstract ImmutableSet<SkyKey> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        Sharder<ActionLookupValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
+        ImmutableCollection<SkyValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }

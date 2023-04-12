@@ -254,7 +254,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -3368,24 +3367,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ActionLookupKey key) {
     try (SilentCloseable c =
         Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValuesOfKey")) {
-      ActionLookupValuesTraversal result = new ActionLookupValuesTraversal();
       if (tracksStateForIncrementality()) {
-        Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
+        ImmutableMap<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
             incrementalTransitiveActionLookupKeysCollector.collect(key);
-        foundTransitiveActionLookupEntities.forEach(result::accumulate);
         return ActionLookupValuesCollectionResult.create(
-            result.getActionLookupValueShards(),
+            foundTransitiveActionLookupEntities.values(),
             ImmutableSet.copyOf(foundTransitiveActionLookupEntities.keySet()));
       }
       // No graph edges available when there's no incrementality. We get the ALVs collected
       // since the last time this method was called.
       ImmutableMap<SkyKey, SkyValue> batchOfActionLookupValues =
           progressReceiver.getBatchedActionLookupValuesForConflictChecking();
-      for (Entry<SkyKey, SkyValue> entry : batchOfActionLookupValues.entrySet()) {
-        result.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
-      }
       return ActionLookupValuesCollectionResult.create(
-          result.getActionLookupValueShards(), batchOfActionLookupValues.keySet());
+          batchOfActionLookupValues.values(), batchOfActionLookupValues.keySet());
     }
   }
 
@@ -3836,13 +3830,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      * <p>IMPORTANT: due to pruning, the set of returned ActionLookupKey is a SUBSET of the set of
      * elements in the transitive closure of the visitationRoot.
      */
-    Map<ActionLookupKey, SkyValue> collect(ActionLookupKey visitationRoot) {
+    ImmutableMap<ActionLookupKey, SkyValue> collect(ActionLookupKey visitationRoot) {
       Map<ActionLookupKey, SkyValue> collected = Maps.newConcurrentMap();
       if (seen(visitationRoot, collected)) {
-        return collected;
+        return ImmutableMap.copyOf(collected);
       }
       executorService.invoke(new VisitActionLookupKey(visitationRoot, collected));
-      return collected;
+      return ImmutableMap.copyOf(collected);
     }
 
     @Override
