@@ -260,6 +260,7 @@ tasks:
       - "-//src/test/shell/bazel:bazel_embedded_starlark_test" 
       - "-//src/test/java/com/google/devtools/build/lib/starlark/..."
       - "-//src/test/java/com/google/devtools/build/lib/remote/merkletree/..."
+      - "-//src/test/java/net/starlark/java/eval:ScriptTest"
     include_json_profile:
       - build
       - test
