@@ -63,7 +63,7 @@ def _compile_cc_file(repository_ctx, src_name, out_name):
         "--sdk",
         "macosx",
         "clang",
-        "-mmacosx-version-min=10.9",
+        "-mmacosx-version-min=10.13",
         "-std=c++11",
         "-lc++",
         "-O3",
