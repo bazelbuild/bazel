@@ -419,7 +419,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
-      name = "experimental_remote_cache_compression",
+      name = "remote_cache_compression",
+      oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
