@@ -212,7 +212,6 @@ public class ExecutionTransitionFactoryTest {
             new StoredEventHandler());
 
     assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix)
-        .isEqualTo(options.get(CoreOptions.class).platformSuffix);
+    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
   }
 }
