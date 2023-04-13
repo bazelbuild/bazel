@@ -1142,7 +1142,10 @@ public class RemoteExecutionService {
             ||
             // In case the action failed, download all outputs. It might be helpful for debugging
             // and there is no point in injecting output metadata of a failed action.
-            result.getExitCode() != 0;
+            result.getExitCode() != 0
+            ||
+            // Symlinks in actions output are not yet supported with BwoB.
+            !metadata.symlinks().isEmpty();
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1162,12 +1165,8 @@ public class RemoteExecutionService {
       checkState(
           result.getExitCode() == 0,
           "injecting remote metadata is only supported for successful actions (exit code 0).");
-
-      if (!metadata.symlinks().isEmpty()) {
-        throw new IOException(
-            "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_download_outputs=minimal");
-      }
+      checkState(metadata.symlinks.isEmpty(), "Symlinks in action outputs are not yet supported by"
+          + " --experimental_remote_download_outputs=minimal");
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
