@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.actions.PathStripper;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -75,7 +75,7 @@ public class StarlarkCustomCommandLineTest {
 
     // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
     commandLine.addToFingerprint(
-        actionKeyContext, EMPTY_EXPANDER, fingerprint, PathStripper.PathMapper.NOOP);
+        actionKeyContext, EMPTY_EXPANDER, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -96,7 +96,7 @@ public class StarlarkCustomCommandLineTest {
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, fingerprint, PathStripper.PathMapper.NOOP);
+        actionKeyContext, artifactExpander, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -115,7 +115,7 @@ public class StarlarkCustomCommandLineTest {
             /*filesetExpansions*/ ImmutableMap.of());
 
     commandLine.addToFingerprint(
-        actionKeyContext, artifactExpander, fingerprint, PathStripper.PathMapper.NOOP);
+        actionKeyContext, artifactExpander, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -133,7 +133,7 @@ public class StarlarkCustomCommandLineTest {
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, EMPTY_EXPANDER, fingerprint, PathStripper.PathMapper.NOOP));
+                actionKeyContext, EMPTY_EXPANDER, fingerprint));
   }
 
   @Test
@@ -148,7 +148,7 @@ public class StarlarkCustomCommandLineTest {
             ImmutableMap.of(tree, ImmutableList.of(child1, child2)),
             /*filesetExpansions*/ ImmutableMap.of());
 
-    Iterable<String> arguments = commandLine.arguments(artifactExpander);
+    Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
 
     assertThat(arguments).containsExactly("bin/tree/child1", "bin/tree/child2");
   }
@@ -166,7 +166,7 @@ public class StarlarkCustomCommandLineTest {
             /*treeExpansions=*/ ImmutableMap.of(),
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
-    Iterable<String> arguments = commandLine.arguments(artifactExpander);
+    Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
 
     assertThat(arguments).containsExactly("bin/fileset/file1", "bin/fileset/file2");
   }
@@ -178,7 +178,7 @@ public class StarlarkCustomCommandLineTest {
         createCustomCommandLine(new VectorArg.Builder(Tuple.of(tree)).setExpandDirectories(true));
 
     // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
-    assertThat(customCommandLine.arguments(EMPTY_EXPANDER)).isEmpty();
+    assertThat(customCommandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP)).isEmpty();
   }
 
   @Test
@@ -188,7 +188,8 @@ public class StarlarkCustomCommandLineTest {
         createCustomCommandLine(
             new VectorArg.Builder(Tuple.of(fileset)).setExpandDirectories(true));
 
-    assertThrows(CommandLineExpansionException.class, () -> commandLine.arguments(EMPTY_EXPANDER));
+    assertThrows(CommandLineExpansionException.class,
+        () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
   }
 
   private SpecialArtifact createFileset(String relativePath) {

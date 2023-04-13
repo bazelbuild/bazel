@@ -34,13 +34,16 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,7 +53,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessag
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.util.OnDemandString;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -88,7 +90,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      boolean stripOutputPaths,
+      OutputPathsMode outputPathsMode,
       boolean insertDependencies) {
     super(
         owner,
@@ -102,18 +104,19 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        stripOutputPaths);
+        outputPathsMode);
     this.insertDependencies = insertDependencies;
   }
 
   @Override
-  protected void afterExecute(ActionExecutionContext context, List<SpawnResult> spawnResults) {
+  protected void afterExecute(
+      ActionExecutionContext context, List<SpawnResult> spawnResults, PathMapper pathMapper) {
     SpawnResult spawnResult = Iterables.getOnlyElement(spawnResults);
     Artifact outputDepsProto = Iterables.get(getOutputs(), 1);
     try {
       Deps.Dependencies fullOutputDeps =
           JavaCompileAction.createFullOutputDeps(
-              spawnResult, outputDepsProto, getInputs(), context, stripOutputPaths);
+              spawnResult, outputDepsProto, getInputs(), context, pathMapper);
       JavaCompileActionContext javaContext = context.getContext(JavaCompileActionContext.class);
       if (insertDependencies && javaContext != null) {
         javaContext.insertDependencies(outputDepsProto, fullOutputDeps);
@@ -470,17 +473,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         commandLine.add("--reduce_classpath_mode", "NONE");
 
         NestedSet<Artifact> allInputs = mandatoryInputsBuilder.build();
-        boolean stripOutputPaths =
-            JavaCompilationHelper.stripOutputPaths(allInputs, ruleContext.getConfiguration());
-        @Nullable
-        PathFragment strippedOutputBase =
-            stripOutputPaths ? JavaCompilationHelper.outputBase(outputJar) : null;
-        CustomCommandLine executableLine =
-            headerCompiler.getCommandLine(javaToolchain, strippedOutputBase);
-
-        if (strippedOutputBase != null) {
-          commandLine.stripOutputPaths(strippedOutputBase);
-        }
+        CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
@@ -500,7 +493,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 /* progressMessage= */ progressMessage,
                 /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
                 /* mnemonic= */ "Turbine",
-                /* stripOutputPaths= */ stripOutputPaths,
+                /* outputPathsMode= */ PathMappers.getOutputPathsMode(
+                    ruleContext.getConfiguration()),
                 // If classPathMode == BAZEL, also make sure to inject the dependencies to be
                 // available to downstream actions. Else just do enough work to locally create the
                 // full .jdeps from the .stripped .jdeps produced on the executor.
@@ -532,22 +526,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
       NestedSet<Artifact> mandatoryInputs = mandatoryInputsBuilder.build();
 
-      boolean pathStrippingEnabled =
-          JavaCompilationHelper.stripOutputPaths(
-              NestedSetBuilder.<Artifact>stableOrder()
-                  .addTransitive(mandatoryInputs)
-                  .addTransitive(classpathEntries)
-                  .addTransitive(compileTimeDependencyArtifacts)
-                  .build(),
-              ruleContext.getConfiguration());
-
-      PathFragment strippedOutputBase =
-          pathStrippingEnabled ? JavaCompilationHelper.outputBase(outputJar) : null;
-      if (strippedOutputBase != null) {
-        commandLine.stripOutputPaths(strippedOutputBase);
-      }
-      CustomCommandLine executableLine =
-          headerCompiler.getCommandLine(javaToolchain, strippedOutputBase);
+      CustomCommandLine executableLine = headerCompiler.getCommandLine(javaToolchain);
 
       ruleContext.registerAction(
           new JavaCompileAction(

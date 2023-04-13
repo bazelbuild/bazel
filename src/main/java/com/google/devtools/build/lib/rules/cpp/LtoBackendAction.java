@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -98,7 +99,7 @@ public final class LtoBackendAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        /*stripOutputPaths=*/ false);
+        OutputPathsMode.OFF);
     mandatoryInputs = inputs;
     Preconditions.checkState(
         (allBitcodeFiles == null) == (importsFile == null),

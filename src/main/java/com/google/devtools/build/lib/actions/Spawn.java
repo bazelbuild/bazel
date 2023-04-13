@@ -190,12 +190,10 @@ public interface Spawn extends DescribableExecutionUnit {
   }
 
   /**
-   * If true, this spawn strips output path config prefixes from its inputs, outputs, and command
-   * line (including .params files) before running on an executor.
-   *
-   * <p>See {@link PathStripper}.
+   * Returns the {@link PathMapper} that was used to create this spawn and that should be used to
+   * map the paths of the spawn's inputs and outputs.
    */
-  default boolean stripOutputPaths() {
-    return false;
+  default PathMapper getPathMapper() {
+    return PathMapper.NOOP;
   }
 }

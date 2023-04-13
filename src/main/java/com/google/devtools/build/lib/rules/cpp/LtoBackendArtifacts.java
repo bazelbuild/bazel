@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -355,12 +356,12 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
 
           @Override
           public Iterable<String> arguments() throws CommandLineExpansionException {
-            return arguments(/* artifactExpander= */ null);
+            return arguments(/* artifactExpander= */ null, PathMapper.NOOP);
           }
 
           @Override
-          public Iterable<String> arguments(ArtifactExpander artifactExpander)
-              throws CommandLineExpansionException {
+          public Iterable<String> arguments(ArtifactExpander artifactExpander,
+              PathMapper pathMapper) throws CommandLineExpansionException {
             ImmutableList.Builder<String> args = ImmutableList.builder();
             try {
               args.addAll(

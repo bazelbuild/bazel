@@ -54,8 +54,7 @@ import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.PathStripper;
-import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -66,6 +65,7 @@ import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -113,7 +113,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
   private final ImmutableMap<String, String> executionInfo;
-  protected final boolean stripOutputPaths;
+  private final OutputPathsMode outputPathsMode;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -147,7 +147,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      boolean stripOutputPaths) {
+      OutputPathsMode outputPathsMode) {
     super(owner, inputs, outputs);
     this.tools = tools;
     this.runfilesSupplier = runfilesSupplier;
@@ -160,7 +160,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.env = env;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.stripOutputPaths = stripOutputPaths;
+    this.outputPathsMode = outputPathsMode;
   }
 
   @Override
@@ -183,16 +183,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return commandLines;
   }
 
-  private PathMapper getPathStripper() {
-    return PathStripper.createForAction(
-        stripOutputPaths,
-        this instanceof StarlarkAction ? mnemonic : null,
-        getPrimaryOutput().getExecPath().subFragment(0, 1));
-  }
-
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return commandLines.allArguments(getPathStripper());
+    return commandLines.allArguments();
   }
 
   @Override
@@ -251,7 +244,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    */
   @ForOverride
   protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      ActionExecutionContext actionExecutionContext,
+      List<SpawnResult> spawnResults,
+      PathMapper pathMapper)
       throws ExecException, InterruptedException {}
 
   @Override
@@ -264,7 +259,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           actionExecutionContext
               .getContext(SpawnStrategyResolver.class)
               .exec(spawn, actionExecutionContext);
-      afterExecute(actionExecutionContext, result);
+      afterExecute(actionExecutionContext, result, spawn.getPathMapper());
       return ActionResult.create(result);
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
@@ -307,13 +302,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return new ActionSpawn(
         commandLines.allArguments(),
         this,
-        /*env=*/ ImmutableMap.of(),
-        /*envResolved=*/ false,
+        /* env= */ ImmutableMap.of(),
+        /* envResolved= */ false,
         inputs,
-        /*additionalInputs=*/ ImmutableList.of(),
-        /*filesetMappings=*/ ImmutableMap.of(),
-        /*reportOutputs=*/ true,
-        stripOutputPaths);
+        /* additionalInputs= */ ImmutableList.of(),
+        /* filesetMappings= */ ImmutableMap.of(),
+        /* reportOutputs= */ true,
+        PathMapper.NOOP);
   }
 
   /**
@@ -345,12 +340,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
+    PathMapper pathMapper = PathMappers.create(this, outputPathsMode);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
-            artifactExpander,
-            getPrimaryOutput().getExecPath(),
-            getPathStripper(),
-            getCommandLineLimits());
+            artifactExpander, getPrimaryOutput().getExecPath(), pathMapper, getCommandLineLimits());
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
         this,
@@ -360,7 +353,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         expandedCommandLines.getParamFiles(),
         filesetMappings,
         reportOutputs,
-        stripOutputPaths);
+        pathMapper);
   }
 
   @ForOverride
@@ -379,7 +372,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp, getPathStripper());
+    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
     fp.addString(mnemonic);
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
@@ -392,7 +385,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
-    fp.addBoolean(stripOutputPaths);
+    PathMappers.addToFingerprint(getMnemonic(), outputPathsMode, fp);
   }
 
   @Override
@@ -426,6 +419,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       message.append(e);
       message.append('\n');
     }
+    message.append("  Output paths mode: ");
+    message.append(outputPathsMode);
+    message.append('\n');
     return message.toString();
   }
 
@@ -499,7 +495,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
-    private final boolean stripOutputPaths;
+    private final PathMapper pathMapper;
 
     /**
      * Creates an ActionSpawn with the given environment variables.
@@ -516,7 +512,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         Iterable<? extends ActionInput> additionalInputs,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
         boolean reportOutputs,
-        boolean stripOutputPaths)
+        PathMapper pathMapper)
         throws CommandLineExpansionException {
       super(
           arguments,
@@ -535,7 +531,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       inputsBuilder.addAll(additionalInputs);
       this.inputs = inputsBuilder.build();
       this.filesetMappings = filesetMappings;
-      this.stripOutputPaths = stripOutputPaths;
+      this.pathMapper = pathMapper;
 
       // If the action environment is already resolved using the client environment, the given
       // environment variables are used as they are. Otherwise, they are used as clientEnv to
@@ -549,8 +545,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public boolean stripOutputPaths() {
-      return stripOutputPaths;
+    public PathMapper getPathMapper() {
+      return pathMapper;
     }
 
     @Override
@@ -595,7 +591,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private CharSequence progressMessage;
     private String mnemonic = "Unknown";
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
-    private boolean stripOutputPaths = false;
 
     /** Creates a SpawnAction builder. */
     public Builder() {}
@@ -615,7 +610,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.commandLines = new ArrayList<>(other.commandLines);
       this.progressMessage = other.progressMessage;
       this.mnemonic = other.mnemonic;
-      this.stripOutputPaths = other.stripOutputPaths;
     }
 
     /**
@@ -755,7 +749,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          stripOutputPaths);
+          PathMappers.getOutputPathsMode(configuration));
     }
 
     /**
@@ -1217,12 +1211,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
       this.mnemonic = mnemonic;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder stripOutputPaths(boolean stripPaths) {
-      this.stripOutputPaths = stripPaths;
       return this;
     }
 

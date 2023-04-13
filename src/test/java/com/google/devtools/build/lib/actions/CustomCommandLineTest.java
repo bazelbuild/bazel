@@ -666,8 +666,8 @@ public final class CustomCommandLineTest {
       commandLine.addToFingerprint(
           actionKeyContext,
           /* artifactExpander= */ null,
-          fingerprint,
-          PathStripper.PathMapper.NOOP);
+          fingerprint
+      );
       String digest = fingerprint.hexDigestAndReset();
       CustomCommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {

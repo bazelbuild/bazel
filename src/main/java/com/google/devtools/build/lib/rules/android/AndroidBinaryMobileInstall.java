@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -527,7 +528,7 @@ public final class AndroidBinaryMobileInstall {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          /* stripOutputPaths= */ false);
+          OutputPathsMode.OFF);
     }
 
     @Override

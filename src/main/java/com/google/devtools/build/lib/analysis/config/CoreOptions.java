@@ -742,7 +742,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
      * Strip the config prefix (i.e. {@code /x86-fastbuild/} from output paths for actions that are
      * registered to support this feature.
      *
-     * <p>See {@link com.google.devtools.build.lib.actions.PathStripper} for details.
+     * <p>See {@link PathStripper} for details.
      */
     STRIP,
   }

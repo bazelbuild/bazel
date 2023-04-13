@@ -56,17 +56,17 @@ public abstract class JavaToolchainTool {
    * Cache for the {@link CustomCommandLine} for a given tool.
    *
    * <p>Practically, every {@link JavaToolchainTool} is used with only 1 {@link
-   * JavaToolchainProvider} hence the initial capacity of 2 (path stripping on/off).
+   * JavaToolchainProvider}, hence the initial capacity of 1.
    *
    * <p>Using soft values since the main benefit is to share the command line between different
    * actions, in which case the {@link CustomCommandLine} object remains strongly reachable anyway.
    */
-  private final transient LoadingCache<Pair<JavaToolchainProvider, PathFragment>, CustomCommandLine>
+  private final transient LoadingCache<JavaToolchainProvider, CustomCommandLine>
       commandLineCache =
           Caffeine.newBuilder()
-              .initialCapacity(2)
+              .initialCapacity(1)
               .softValues()
-              .build(key -> extractCommandLine(key.first, key.second));
+              .build(this::extractCommandLine);
 
   @Nullable
   static JavaToolchainTool fromRuleContext(
@@ -116,15 +116,12 @@ public abstract class JavaToolchainTool {
    * well as any JVM flags.
    *
    * @param toolchain {@code java_toolchain} for the action being constructed
-   * @param stripOutputPath output tree root fragment to use for path stripping or null if disabled.
    */
-  CustomCommandLine getCommandLine(
-      JavaToolchainProvider toolchain, @Nullable PathFragment stripOutputPath) {
-    return commandLineCache.get(Pair.of(toolchain, stripOutputPath));
+  CustomCommandLine getCommandLine(JavaToolchainProvider toolchain) {
+    return commandLineCache.get(toolchain);
   }
 
-  private CustomCommandLine extractCommandLine(
-      JavaToolchainProvider toolchain, @Nullable PathFragment stripOutputPath) {
+  private CustomCommandLine extractCommandLine(JavaToolchainProvider toolchain) {
     CustomCommandLine.Builder command = CustomCommandLine.builder();
 
     Artifact executable = tool().getExecutable();
@@ -137,10 +134,6 @@ public abstract class JavaToolchainTool {
           .addAll(jvmOpts())
           .add("-jar")
           .addPath(executable.getExecPath());
-    }
-
-    if (stripOutputPath != null) {
-      command.stripOutputPaths(stripOutputPath);
     }
 
     return command.build();
