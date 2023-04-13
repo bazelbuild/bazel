@@ -19,10 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import net.starlark.java.syntax.Location;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,15 +30,36 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PyInfoTest extends BuildViewTestCase {
 
-  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
-
   private Artifact dummyArtifact;
 
   @Before
   public void setUp() throws Exception {
     dummyArtifact = getSourceArtifact("dummy");
-    ev.update("PyInfo", PyInfo.PROVIDER);
-    ev.update("dummy_file", dummyArtifact);
+  }
+
+  private void writeCreatePyInfo(String... lines) throws Exception {
+    var builder = new StringBuilder();
+    for (var line : lines) {
+      builder.append("    ").append(line).append(",\n");
+    }
+    scratch.overwriteFile(
+        "defs.bzl",
+        "def _impl(ctx):",
+        "    dummy_file = ctx.file.dummy_file",
+        "    info = PyInfo(",
+        builder.toString(),
+        "    )",
+        "    return [info]",
+        "create_py_info = rule(implementation=_impl, attrs={",
+        "  'dummy_file': attr.label(default='dummy', allow_single_file=True),",
+        "})",
+        "");
+    scratch.overwriteFile(
+        "BUILD", "load(':defs.bzl', 'create_py_info')", "create_py_info(name='subject')");
+  }
+
+  private PyInfo getPyInfo() throws Exception {
+    return getConfiguredTarget("//:subject").get(PyInfo.PROVIDER);
   }
 
   /** We need this because {@code NestedSet}s don't have value equality. */
@@ -50,123 +69,96 @@ public class PyInfoTest extends BuildViewTestCase {
     assertThat(set.toList()).containsExactly(values);
   }
 
-  /** Checks values set by the builder. */
-  @Test
-  public void builderExplicit() throws Exception {
-    NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
-    NestedSet<String> imports = NestedSetBuilder.create(Order.COMPILE_ORDER, "abc");
-    Location loc = Location.fromFileLineColumn("foo", 1, 2);
-    PyInfo info =
-        PyInfo.builder()
-            .setLocation(loc)
-            .setTransitiveSources(sources)
-            .setUsesSharedLibraries(true)
-            .setImports(imports)
-            .setHasPy2OnlySources(true)
-            .setHasPy3OnlySources(true)
-            .build();
-    assertThat(info.getCreationLocation()).isEqualTo(loc);
-    assertHasOrderAndContainsExactly(
-        info.getTransitiveSources().getSet(Artifact.class), Order.COMPILE_ORDER, dummyArtifact);
-    assertThat(info.getUsesSharedLibraries()).isTrue();
-    assertHasOrderAndContainsExactly(
-        info.getImports().getSet(String.class), Order.COMPILE_ORDER, "abc");
-    assertThat(info.getHasPy2OnlySources()).isTrue();
-    assertThat(info.getHasPy3OnlySources()).isTrue();
-  }
+  private void assertContainsError(String pattern) throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
 
-  /** Checks the defaults set by the builder. */
-  @Test
-  public void builderDefaults() throws Exception {
-    // transitive_sources is mandatory, so create a dummy value but no need to assert on it.
-    NestedSet<Artifact> sources = NestedSetBuilder.create(Order.COMPILE_ORDER, dummyArtifact);
-    PyInfo info = PyInfo.builder().setTransitiveSources(sources).build();
-    assertThat(info.getCreationLocation()).isEqualTo(Location.BUILTIN);
-    assertThat(info.getUsesSharedLibraries()).isFalse();
-    assertHasOrderAndContainsExactly(info.getImports().getSet(String.class), Order.COMPILE_ORDER);
-    assertThat(info.getHasPy2OnlySources()).isFalse();
-    assertThat(info.getHasPy3OnlySources()).isFalse();
+    getConfiguredTarget("//:subject");
+
+    // The Starlark messages are within a long multi-line traceback string, so
+    // add the implicit .* for convenience.
+    // NOTE: failures and events are accumulated between getConfiguredTarget() calls.
+    assertContainsEvent(Pattern.compile(".*" + pattern));
   }
 
   @Test
   public void starlarkConstructor() throws Exception {
-    ev.exec(
-        "info = PyInfo(",
-        "    transitive_sources = depset(direct=[dummy_file]),",
-        "    uses_shared_libraries = True,",
-        "    imports = depset(direct=['abc']),",
-        "    has_py2_only_sources = True,",
-        "    has_py3_only_sources = True,",
-        ")");
-    PyInfo info = (PyInfo) ev.lookup("info");
-    assertThat(info.getCreationLocation().toString()).isEqualTo(":1:14");
+    writeCreatePyInfo(
+        "    transitive_sources = depset(direct=[dummy_file])",
+        "    uses_shared_libraries = True",
+        "    imports = depset(direct=['abc'])",
+        "    has_py2_only_sources = True",
+        "    has_py3_only_sources = True");
+
+    PyInfo info = getPyInfo();
+
     assertHasOrderAndContainsExactly(
-        info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
+        info.getTransitiveSourcesSet(), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isTrue();
-    assertHasOrderAndContainsExactly(
-        info.getImports().getSet(String.class), Order.STABLE_ORDER, "abc");
+    assertHasOrderAndContainsExactly(info.getImportsSet(), Order.STABLE_ORDER, "abc");
     assertThat(info.getHasPy2OnlySources()).isTrue();
     assertThat(info.getHasPy3OnlySources()).isTrue();
   }
 
   @Test
   public void starlarkConstructorDefaults() throws Exception {
-    ev.exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
-    PyInfo info = (PyInfo) ev.lookup("info");
-    assertThat(info.getCreationLocation().toString()).isEqualTo(":1:14");
+    writeCreatePyInfo("transitive_sources = depset(direct=[dummy_file])");
+
+    PyInfo info = getPyInfo();
+
     assertHasOrderAndContainsExactly(
-        info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
+        info.getTransitiveSourcesSet(), Order.STABLE_ORDER, dummyArtifact);
     assertThat(info.getUsesSharedLibraries()).isFalse();
-    assertHasOrderAndContainsExactly(info.getImports().getSet(String.class), Order.COMPILE_ORDER);
+    assertHasOrderAndContainsExactly(info.getImportsSet(), Order.STABLE_ORDER);
     assertThat(info.getHasPy2OnlySources()).isFalse();
     assertThat(info.getHasPy3OnlySources()).isFalse();
   }
 
   @Test
-  public void starlarkConstructorErrors_TransitiveSources() throws Exception {
-    ev.checkEvalErrorContains(
-        "missing 1 required named argument: transitive_sources", //
-        "PyInfo()");
-    ev.checkEvalErrorContains(
-        "got value of type 'string', want 'depset'", //
-        "PyInfo(transitive_sources = 'abc')");
-    ev.checkEvalErrorContains(
-        "should be a postorder-compatible depset of Files (got a 'default-ordered depset of"
-            + " strings')", //
-        "PyInfo(transitive_sources = depset(direct=['abc']))");
-    ev.checkEvalErrorContains(
-        "'transitive_sources' field should be a postorder-compatible depset of Files",
-        "PyInfo(transitive_sources = depset(direct=[dummy_file], order='preorder'))");
+  public void starlarkConstructorErrors_transitiveSources_missing() throws Exception {
+    writeCreatePyInfo();
+
+    assertContainsError("missing.*argument.*transitive_sources");
+  }
+
+  @Test
+  public void starlarkConstructorErrors_transitiveSources_badType() throws Exception {
+    writeCreatePyInfo("transitive_sources = 'abc'");
+
+    assertContainsError("transitive_sources.*got.*string.*want.*depset");
+  }
+
+  @Test
+  public void starlarkConstructorErrors_transitiveSources_rejectsPreOrder() throws Exception {
+    writeCreatePyInfo("transitive_sources = depset(direct=[dummy_file], order='preorder')");
+
+    assertContainsError("Order.*postorder.*incompatible.*preorder");
   }
 
   @Test
   public void starlarkConstructorErrors_UsesSharedLibraries() throws Exception {
-    ev.checkEvalErrorContains(
-        "got value of type 'string', want 'bool'",
-        "PyInfo(transitive_sources = depset([]), uses_shared_libraries = 'abc')");
+    writeCreatePyInfo("transitive_sources = depset()", "uses_shared_libraries = 'abc'");
+
+    assertContainsError("uses_shared_libraries.*got.*string.*want.*bool");
   }
 
   @Test
-  public void starlarkConstructorErrors_Imports() throws Exception {
-    ev.checkEvalErrorContains(
-        "got value of type 'string', want 'depset'",
-        "PyInfo(transitive_sources = depset([]), imports = 'abc')");
-    ev.checkEvalErrorContains(
-        "should be a depset of strings (got a 'default-ordered depset of ints')",
-        "PyInfo(transitive_sources = depset([]), imports = depset(direct=[123]))");
+  public void starlarkConstructorErrors_imports_badType() throws Exception {
+    writeCreatePyInfo("transitive_sources = depset()", "imports = 'abc'");
+
+    assertContainsError("imports.*got.*string.*want.*depset");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy2OnlySources() throws Exception {
-    ev.checkEvalErrorContains(
-        "got value of type 'string', want 'bool'",
-        "PyInfo(transitive_sources = depset([]), has_py2_only_sources = 'abc')");
+    writeCreatePyInfo("transitive_sources = depset()", "has_py2_only_sources = 'abc'");
+
+    assertContainsError("has_py2_only_sources.*got.*string.*want.*bool");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy3OnlySources() throws Exception {
-    ev.checkEvalErrorContains(
-        "got value of type 'string', want 'bool'",
-        "PyInfo(transitive_sources = depset([]), has_py3_only_sources = 'abc')");
+    writeCreatePyInfo("transitive_sources = depset()", "has_py3_only_sources = 'abc'");
+
+    assertContainsError("has_py3_only_sources.*got.*string.*want.*bool");
   }
 }

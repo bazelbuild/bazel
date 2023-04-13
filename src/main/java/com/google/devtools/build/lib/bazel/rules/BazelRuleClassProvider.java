@@ -113,7 +113,6 @@ import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
-import com.google.devtools.build.lib.rules.python.PyInfo;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses.PySymlink;
 import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PyStarlarkTransitions;
@@ -471,12 +470,9 @@ public class BazelRuleClassProvider {
               ContextGuardedValue.onlyInAllowedRepos(
                   Starlark.NONE, PyBootstrap.allowedRepositories));
           builder.addStarlarkBuiltinsInternal(BazelPyBuiltins.NAME, new BazelPyBuiltins());
-
           builder.addStarlarkBootstrap(
               new PyBootstrap(
-                  PyInfo.PROVIDER,
-                  PyStarlarkTransitions.INSTANCE,
-                  new GoogleLegacyStubs.PyWrapCcHelper()));
+                  PyStarlarkTransitions.INSTANCE, new GoogleLegacyStubs.PyWrapCcHelper()));
 
           builder.addSymlinkDefinition(PySymlink.PY2);
           builder.addSymlinkDefinition(PySymlink.PY3);
