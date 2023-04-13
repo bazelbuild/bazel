@@ -1061,7 +1061,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testInstrumentedFilesInfo_coverageSupportFiles_depset() throws Exception {
     // Only builtins can pass coverage_support_files to coverage_common.instrumented_files_info.
     // Override extra_action since builtins can only be injected over preexisting native symbols.
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins");
+    setBuildLanguageOptions("--builtins_bzl_path=tools/builtins");
     scratch.file(
         "tools/builtins/exports.bzl",
         "",
@@ -1098,7 +1098,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testInstrumentedFilesInfo_coverageSupportFiles_sequence() throws Exception {
     // Only builtins can pass coverage_support_files to coverage_common.instrumented_files_info.
     // Override extra_action since builtins can only be injected over preexisting native symbols.
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins");
+    setBuildLanguageOptions("--builtins_bzl_path=tools/builtins");
     scratch.file(
         "tools/builtins/exports.bzl",
         "",

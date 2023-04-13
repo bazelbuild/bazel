@@ -94,13 +94,12 @@ public final class BuildLanguageOptions extends OptionsBase {
       help = "No-op.")
   public boolean incompatibleDisallowSymlinkFileToDir;
 
-  // TODO(#11437): Delete the special empty string value so that it's on unconditionally.
   @Option(
-      name = "experimental_builtins_bzl_path",
+      name = "builtins_bzl_path",
+      oldName = "experimental_builtins_bzl_path",
       defaultValue = "%bundled%",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "This flag tells Bazel how to find the \"@_builtins\" .bzl files that govern how "
               + "predeclared symbols for BUILD and .bzl files are defined. This flag is only "
@@ -111,9 +110,8 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "builtins_bzl/ directory, such as one in a Bazel source tree workspace. A literal "
               + "value of \"%workspace%\" is equivalent to the relative package path of "
               + "builtins_bzl/ within a Bazel source tree; this should only be used when running "
-              + "Bazel within its own source tree. Finally, a value of the empty string disables "
-              + "the builtins injection mechanism entirely.")
-  public String experimentalBuiltinsBzlPath;
+              + "Bazel within its own source tree.")
+  public String builtinsBzlPath;
 
   @Option(
       name = "experimental_builtins_dummy",
@@ -710,7 +708,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                 incompatibleStopExportingLanguageModules)
             .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
-            .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
+            .set(BUILTINS_BZL_PATH, builtinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
@@ -888,8 +886,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_non_executable_java_binary";
 
   // non-booleans
-  public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
-      new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
+  public static final StarlarkSemantics.Key<String> BUILTINS_BZL_PATH =
+      new StarlarkSemantics.Key<>("builtins_bzl_path", "%bundled%");
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =

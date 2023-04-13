@@ -34,19 +34,18 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /**
    * Where the bundled builtins bzl files are located. These are the builtins files used if {@code
-   * --experimental_builtins_bzl_path} is set to {@code %bundled%}. Note that this root lives in a
-   * separate {@link InMemoryFileSystem}.
+   * --builtins_bzl_path} is set to {@code %bundled%}. Note that this root lives in a separate
+   * {@link InMemoryFileSystem}.
    *
-   * <p>May be null in tests, in which case {@code --experimental_builtins_bzl_path} must point to
-   * the builtins root to be used.
+   * <p>May be null in tests, in which case {@code --builtins_bzl_path} must point to the builtins
+   * root to be used.
    */
   Root getBundledBuiltinsRoot();
 
   /**
    * The relative location of the builtins_bzl directory within a Bazel source tree.
    *
-   * <p>May be null in tests, in which case --experimental_builtins_bzl_path may not be
-   * "%workspace%".
+   * <p>May be null in tests, in which case --builtins_bzl_path may not be "%workspace%".
    */
   String getBuiltinsBzlPackagePathInSource();
 

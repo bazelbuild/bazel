@@ -32,7 +32,7 @@ public class BuiltinsIntegrationTest extends BuildViewTestCase {
 
   // The _builtins_dummy symbol is used within BuiltinsIntegrationTest to confirm that
   // BuildViewTestCase sets up the builtins root properly, and by builtins_injection_test.sh to
-  // confirm that --experimental_builtins_bzl_path is working. The dummy symbol should not be
+  // confirm that --builtins_bzl_path is working. The dummy symbol should not be
   // exposed to user programs.
   @Test
   public void builtinsDummyIsNotAPublicApi() throws Exception {
@@ -49,8 +49,7 @@ public class BuiltinsIntegrationTest extends BuildViewTestCase {
   public void builtinsInjectionWorksInBuildViewTestCase() throws Exception {
     scratch.file("pkg/BUILD", "load(':foo.bzl', 'foo')");
     scratch.file("pkg/foo.bzl", "foo = 1; print(\"dummy :: \" + str(_builtins_dummy))");
-    setBuildLanguageOptions(
-        "--experimental_builtins_bzl_path=%bundled%", "--experimental_builtins_dummy=true");
+    setBuildLanguageOptions("--builtins_bzl_path=%bundled%", "--experimental_builtins_dummy=true");
 
     getConfiguredTarget("//pkg:BUILD");
     // The production builtins bzl code overwrites the dummy from "original value" to "overridden

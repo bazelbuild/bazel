@@ -183,7 +183,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     // Set up a bare-bones ConfiguredRuleClassProvider. Aside from being minimalistic, this heads
     // off the possibility that we somehow grow an implicit dependency on production builtins code,
-    // which would break since we're overwriting --experimental_builtins_bzl_path.
+    // which would break since we're overwriting --builtins_bzl_path.
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addMinimalRules(builder);
     // Add some mock symbols to override.
@@ -210,7 +210,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   private void setBuildLanguageOptionsWithBuiltinsStaging(String... options) throws Exception {
     ArrayList<String> newOptions = new ArrayList<>();
-    newOptions.add("--experimental_builtins_bzl_path=tools/builtins_staging");
+    newOptions.add("--builtins_bzl_path=tools/builtins_staging");
     Collections.addAll(newOptions, options);
     setBuildLanguageOptions(newOptions.toArray(new String[] {}));
   }
@@ -447,42 +447,6 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         .contains(
             "Failed to apply declared builtins: "
                 + "got NoneType for 'exported_toplevels dict', want dict");
-  }
-
-  // TODO(#11437): Remove once disabling is not allowed.
-  @Test
-  public void injectionDisabledByFlag() throws Exception {
-    writeExportsBzl(
-        "exported_toplevels = {'overridable_symbol': 'new_value'}",
-        "exported_rules = {'overridable_rule': 'new_rule'}",
-        "exported_to_java = {}");
-    writePkgBuild("print('In BUILD: overridable_rule :: %s' % overridable_rule)");
-    writePkgBzl(
-        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
-        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=");
-
-    buildAndAssertSuccess();
-    assertContainsEvent("In bzl: overridable_symbol :: original_value");
-    assertContainsEvent("In bzl: overridable_rule :: <built-in rule overridable_rule>");
-    assertContainsEvent("In BUILD: overridable_rule :: <built-in rule overridable_rule>");
-  }
-
-  // TODO(#11437): Remove once disabling is not allowed.
-  @Test
-  public void exportsBzlMayBeInErrorWhenInjectionIsDisabled() throws Exception {
-    writeExportsBzl( //
-        "PARSE ERROR");
-    writePkgBuild("print('In BUILD: overridable_rule :: %s' % overridable_rule)");
-    writePkgBzl(
-        "print('In bzl: overridable_symbol :: %s' % overridable_symbol)",
-        "print('In bzl: overridable_rule :: %s' % native.overridable_rule)");
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=");
-
-    buildAndAssertSuccess();
-    assertContainsEvent("In bzl: overridable_symbol :: original_value");
-    assertContainsEvent("In bzl: overridable_rule :: <built-in rule overridable_rule>");
-    assertContainsEvent("In BUILD: overridable_rule :: <built-in rule overridable_rule>");
   }
 
   @Test

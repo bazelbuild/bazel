@@ -1,5 +1,5 @@
 # This directory serves as the root of the builtins_bzl tree for Bazel, both in
-# source form and at runtime when --experimental_builtins_bzl_path is set to
+# source form and at runtime when --builtins_bzl_path is set to
 # %workspace%.
 #
 # Because we use globs to gather builtins sources, there should be no

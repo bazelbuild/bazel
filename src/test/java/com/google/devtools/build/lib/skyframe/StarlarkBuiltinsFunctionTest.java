@@ -57,7 +57,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   /** Sets up exports.bzl with the given contents and evaluates the {@code @_builtins}. */
   private EvaluationResult<StarlarkBuiltinsValue> evalBuiltins(String... lines) throws Exception {
     scratch.file("tools/builtins_staging/exports.bzl", lines);
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
+    setBuildLanguageOptions("--builtins_bzl_path=tools/builtins_staging");
 
     SkyKey key = StarlarkBuiltinsValue.key();
     return SkyframeExecutorTestUtils.evaluate(

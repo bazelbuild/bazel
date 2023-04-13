@@ -137,10 +137,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
-    // Return the empty value if builtins injection is disabled.
-    if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
-      return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
-    }
 
     // Load exports.bzl. If we were requested using inlining, make sure to inline the call back into
     // BzlLoadFunction.

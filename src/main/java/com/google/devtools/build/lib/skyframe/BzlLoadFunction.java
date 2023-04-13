@@ -543,9 +543,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     BzlCompileValue.Key compileKey =
         validatePackageAndGetCompileKey(
-            key,
-            env,
-            builtins.starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH));
+            key, env, builtins.starlarkSemantics.get(BuildLanguageOptions.BUILTINS_BZL_PATH));
     if (compileKey == null) {
       return null;
     }
@@ -648,7 +646,7 @@ public class BzlLoadFunction implements SkyFunction {
    *
    * <p>In the case of builtins .bzl files, all labels are written as if the pseudo-repo constitutes
    * one big package, e.g. {@code @builtins//:some/path/foo.bzl}, but no BUILD file need exist. The
-   * compile key's root is determined by {@code --experimental_builtins_bzl_path} (passed as {@code
+   * compile key's root is determined by {@code --builtins_bzl_path} (passed as {@code
    * builtinsBzlPath}) instead of by package lookup.
    */
   @Nullable
@@ -707,11 +705,6 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   private Root getBuiltinsRoot(String builtinsBzlPath) {
-    // TODO(#11437): Remove once injection can't be disabled.
-    if (builtinsBzlPath.isEmpty()) {
-      throw new IllegalStateException("Requested builtins root, but injection is disabled");
-    }
-
     // TODO(#11437): For the non-bundled case, should we consider interning the Root rather than
     // constructing a new one each time?
     Root root;
@@ -721,7 +714,7 @@ public class BzlLoadFunction implements SkyFunction {
           Preconditions.checkNotNull(
               ruleClassProvider.getBundledBuiltinsRoot(),
               "rule class provider does not specify a builtins root; either call"
-                  + " setBuiltinsBzlZipResource() or else set --experimental_builtins_bzl_path to"
+                  + " setBuiltinsBzlZipResource() or else set --builtins_bzl_path to"
                   + " a root");
     } else if (builtinsBzlPath.equals("%workspace%")) {
       String packagePath =
@@ -729,7 +722,7 @@ public class BzlLoadFunction implements SkyFunction {
               ruleClassProvider.getBuiltinsBzlPackagePathInSource(),
               "rule class provider does not specify a canonical package path to a builtins root;"
                   + " either call setBuiltinsBzlPackagePathInSource() or else do not set"
-                  + "--experimental_builtins_bzl_path to %workspace%");
+                  + "--builtins_bzl_path to %workspace%");
       // TODO(brandjon): Here we return a root that is underneath a package root. Since the root is
       // itself not a package root, we don't get the benefit of any special DiffAwareness handling.
       // This case probably isn't important since it doesn't occur in production Bazel, but
@@ -1305,16 +1298,7 @@ public class BzlLoadFunction implements SkyFunction {
       // .scl doesn't use injection and doesn't care what kind of key it is.
       return starlarkEnv.getStarlarkGlobals().getSclToplevels();
     } else {
-      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-      boolean injectionDisabled =
-          builtins
-              .starlarkSemantics
-              .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
-              .isEmpty();
       if (key instanceof BzlLoadValue.KeyForBuild) {
-        if (injectionDisabled) {
-          return starlarkEnv.getUninjectedBuildBzlEnv();
-        }
         fp.addBytes(builtins.transitiveDigest);
         return builtins.predeclaredForBuildBzl;
       } else if (key instanceof BzlLoadValue.KeyForWorkspace
@@ -1322,7 +1306,7 @@ public class BzlLoadFunction implements SkyFunction {
         // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded
         //  by BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl
         //  files are already converged, so we use the same environment for both.
-        if (injectionDisabled || isFileSafeForUninjectedEvaluation(key)) {
+        if (isFileSafeForUninjectedEvaluation(key)) {
           return starlarkEnv.getUninjectedWorkspaceBzlEnv();
         }
         // Note that we don't actually fingerprint the injected builtins here. The actual builtins

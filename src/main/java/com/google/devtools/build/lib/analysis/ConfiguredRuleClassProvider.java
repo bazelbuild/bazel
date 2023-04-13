@@ -232,10 +232,9 @@ public /*final*/ class ConfiguredRuleClassProvider
      * Sets the resource path to the builtins_bzl.zip resource.
      *
      * <p>This value is required for production uses. For uses in tests, this may be left null, but
-     * the resulting rule class provider will not work with {@code
-     * --experimental_builtins_bzl_path=%bundled%}. Alternatively, tests may call {@link
-     * #useDummyBuiltinsBzl} if they do not rely on any native rules that may be migratable to
-     * Starlark.
+     * the resulting rule class provider will not work with {@code --builtins_bzl_path=%bundled%}.
+     * Alternatively, tests may call {@link #useDummyBuiltinsBzl} if they do not rely on any native
+     * rules that may be migratable to Starlark.
      */
     @CanIgnoreReturnValue
     public Builder setBuiltinsBzlZipResource(String name) {
@@ -264,7 +263,7 @@ public /*final*/ class ConfiguredRuleClassProvider
      * Sets the relative location of the builtins_bzl directory within a Bazel source tree.
      *
      * <p>This is required if the rule class provider will be used with {@code
-     * --experimental_builtins_bzl_path=%workspace%}, but can be skipped in unit tests.
+     * --builtins_bzl_path=%workspace%}, but can be skipped in unit tests.
      */
     @CanIgnoreReturnValue
     public Builder setBuiltinsBzlPackagePathInSource(String path) {
@@ -562,7 +561,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       // Determine the bundled builtins root, if it exists.
       Root builtinsRoot;
       if (builtinsBzlZipResource == null && !useDummyBuiltinsBzlInsteadOfResource) {
-        // Use of --experimental_builtins_bzl_path=%bundled% is disallowed.
+        // Use of --builtins_bzl_path=%bundled% is disallowed.
         builtinsRoot = null;
       } else {
         BundledFileSystem fs = new BundledFileSystem();
@@ -650,19 +649,17 @@ public /*final*/ class ConfiguredRuleClassProvider
   private final RepositoryName toolsRepository;
 
   /**
-   * Where the builtins bzl files are located (if not overridden by
-   * --experimental_builtins_bzl_path). Note that this lives in a separate InMemoryFileSystem.
+   * Where the builtins bzl files are located (if not overridden by --builtins_bzl_path). Note that
+   * this lives in a separate InMemoryFileSystem.
    *
-   * <p>May be null in tests, in which case --experimental_builtins_bzl_path must point to a
-   * builtins root.
+   * <p>May be null in tests, in which case --builtins_bzl_path must point to a builtins root.
    */
   @Nullable private final Root bundledBuiltinsRoot;
 
   /**
    * The relative location of the builtins_bzl directory within a Bazel source tree.
    *
-   * <p>May be null in tests, in which case --experimental_builtins_bzl_path may not be
-   * "%workspace%".
+   * <p>May be null in tests, in which case --builtins_bzl_path may not be "%workspace%".
    */
   @Nullable private final String builtinsBzlPackagePathInSource;
 

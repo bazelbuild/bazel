@@ -1130,7 +1130,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBuiltinsInjectionFailure() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_bzl_path=tools/builtins_staging");
+    setBuildLanguageOptions("--builtins_bzl_path=tools/builtins_staging");
     scratch.file(
         "tools/builtins_staging/exports.bzl",
         "1 // 0  # <-- dynamic error",

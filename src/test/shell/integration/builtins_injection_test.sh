@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # End-to-end test for builtins injection and the various values of
-# --experimental_builtins_bzl_path.
+# --builtins_bzl_path.
 
 # --- begin runfiles.bash initialization ---
 # Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
@@ -96,22 +96,9 @@ exported_to_java = {}
 EOF
 
 
-  # With injection disabled.
-  #
-  # TODO(#11437): Remove this case once builtins injection can no longer be
-  # disabled. Note that eventually, rule migration to Starlark will cause
-  # implicit dependencies/tools to rely on injection, so even a trivial build
-  # without injection may break. (That may also mean we have to update this test
-  # at some point, so that the other builtins roots are based on the one in the
-  # install base, instead of being virtually empty.)
-  bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
-      --experimental_builtins_bzl_path= \
-      &>"$TEST_log" || fail "bazel build failed"
-  expect_log "dummy :: original value"
-
   # Using the builtins root that's bundled with bazel.
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
-      --experimental_builtins_bzl_path=%bundled% \
+      --builtins_bzl_path=%bundled% \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
   expect_log "dummy :: overridden value"
@@ -119,14 +106,14 @@ EOF
   # Using the builtins root located within the client workspace, as if we're
   # running Bazel in its own source tree.
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
-      --experimental_builtins_bzl_path=%workspace% \
+      --builtins_bzl_path=%workspace% \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
   # Using the builtins root at the path given to the flag. (Need not be within
   # workspace, though this one is.)
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
-      --experimental_builtins_bzl_path=alternate \
+      --builtins_bzl_path=alternate \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
 
@@ -137,14 +124,14 @@ exported_rules = {}
 exported_to_java = {}
 EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
-      --experimental_builtins_bzl_path=alternate \
+      --builtins_bzl_path=alternate \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
 
   # Ensure builtins .bzl files aren't visible to bazel query the way normal .bzl
   # files are.
   bazel query 'buildfiles(//pkg:BUILD)' --experimental_builtins_dummy=true \
-      --experimental_builtins_bzl_path=alternate \
+      --builtins_bzl_path=alternate \
       &>"$TEST_log" || fail "bazel query failed"
   expect_not_log "exports.bzl"
 }

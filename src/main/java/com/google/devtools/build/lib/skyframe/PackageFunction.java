@@ -1558,22 +1558,17 @@ public class PackageFunction implements SkyFunction {
       preludeBindings = prelude.getGlobals();
     }
 
-    // Construct static environment for resolution/compilation.
-    // The Resolver.Module defines the set of accessible names
-    // (plus special errors for flag-disabled ones), but it is
-    // materialized as an ephemeral eval.Module such as will be
-    // used later during execution; the two environments must match.
-    // TODO(#11437): Remove conditional once disabling injection is no longer allowed.
-    Map<String, Object> predeclared =
-        semantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()
-            ? packageFactory
-                .getRuleClassProvider()
-                .getBazelStarlarkEnvironment()
-                .getUninjectedBuildEnv()
-            : starlarkBuiltinsValue.predeclaredForBuild;
+    // Construct static environment for resolution/compilation.  The Resolver.Module defines the set
+    // of accessible names (plus special errors for flag-disabled ones), but it is materialized as
+    // an ephemeral eval.Module such as will be used later during execution; the two environments
+    // must match.
+    Map<String, Object> predeclared = starlarkBuiltinsValue.predeclaredForBuild;
     if (preludeBindings != null) {
-      predeclared = new HashMap<>(predeclared);
-      predeclared.putAll(preludeBindings);
+      predeclared =
+          ImmutableMap.<String, Object>builder()
+              .putAll(predeclared)
+              .putAll(preludeBindings)
+              .buildKeepingLast();
     }
     Module module = Module.withPredeclared(semantics, predeclared);
 
