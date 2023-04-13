@@ -37,8 +37,7 @@ import java.util.Map;
 /** Command-line options for platform-related configuration. */
 public class PlatformOptions extends FragmentOptions {
 
-  public static final Label DEFAULT_HOST_PLATFORM =
-      Label.parseCanonicalUnchecked("@local_config_platform//:host");
+  public static final String DEFAULT_HOST_PLATFORM = "@local_config_platform//:host";
 
   /**
    * Main workspace-relative location to use when the user does not explicitly set {@code
@@ -58,7 +57,7 @@ public class PlatformOptions extends FragmentOptions {
       name = "host_platform",
       oldName = "experimental_host_platform",
       converter = EmptyToNullLabelConverter.class,
-      defaultValue = "",
+      defaultValue = DEFAULT_HOST_PLATFORM,
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {
         OptionEffectTag.AFFECTS_OUTPUTS,
@@ -223,29 +222,11 @@ public class PlatformOptions extends FragmentOptions {
 
   /** Returns the intended target platform value based on options defined in this fragment. */
   public Label computeTargetPlatform() {
-    // Handle default values for the host and target platform.
-    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
-    // directly.
-
     if (!platforms.isEmpty()) {
       return Iterables.getFirst(platforms, null);
     } else {
       // Default to the host platform, whatever it is.
-      return computeHostPlatform();
-    }
-  }
-
-  /** Returns the intended host platform value based on options defined in this fragment. */
-  public Label computeHostPlatform() {
-    // Handle default values for the host and target platform.
-    // TODO(https://github.com/bazelbuild/bazel/issues/6849): After migration, set the defaults
-    // directly.
-
-    if (this.hostPlatform != null) {
-      return this.hostPlatform;
-    } else {
-      // Use the auto-configured host platform.
-      return DEFAULT_HOST_PLATFORM;
+      return hostPlatform;
     }
   }
 
