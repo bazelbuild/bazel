@@ -229,6 +229,17 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
+  public Depset getStarlarkExternalIncludeDirs() {
+    return Depset.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            getExternalIncludeDirs().stream()
+                .map(PathFragment::getSafePathString)
+                .collect(ImmutableList.toImmutableList())));
+  }
+
+  @Override
   public Depset getStarlarkQuoteIncludeDirs() {
     return Depset.of(
         String.class,
