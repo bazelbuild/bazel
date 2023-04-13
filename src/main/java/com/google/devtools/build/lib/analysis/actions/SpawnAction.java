@@ -52,7 +52,8 @@ import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
+import com.google.devtools.build.lib.actions.PathStripper;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -238,8 +239,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return commandLines;
   }
 
-  private CommandAdjuster getPathStripper() {
-    return CommandAdjuster.create(
+  private PathMapper getPathStripper() {
+    return PathStripper.createForAction(
         stripOutputPaths,
         this instanceof StarlarkAction ? getMnemonic() : null,
         getPrimaryOutput().getExecPath().subFragment(0, 1));
