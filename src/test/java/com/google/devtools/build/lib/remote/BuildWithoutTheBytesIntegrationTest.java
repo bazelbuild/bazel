@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
@@ -421,6 +422,37 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "my_rule(name = 'two_remote', local = False, chain_length = 2)");
 
     buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void replaceOutputDirectoryWithFile() throws Exception {
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir],",
+        "    command = 'touch $1/hello',",
+        "    arguments = [dir.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([dir]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "", "my_rule(name = 'hello')");
+
+    setDownloadToplevel();
+    buildTarget("//a:hello");
+
+    // Replace the existing output directory of the package with a file.
+    // A subsequent build should remove this file and replace it with a
+    // directory.
+    Path outputPath = getOutputPath("a");
+    outputPath.deleteTree();
+    FileSystemUtils.writeContent(outputPath, new byte[] {1, 2, 3, 4, 5});
+
+    buildTarget("//a:hello");
   }
 
   @Test
