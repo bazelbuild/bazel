@@ -441,7 +441,9 @@ static void MakeFilesystemMostlyReadOnly() {
 static void MountProc() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
-  if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
+  // Some Docker runtimes, such as nvidia, mounted proc already for gpu use 
+  // Without Recursive Bind, attempting to mount nvidia drivers would fail.
+  if (mount("/proc", "/proc", "proc", MS_REC | MS_BIND | MS_NODEV | MS_NOEXEC | MS_NOSUID,
             nullptr) < 0) {
     DIE("mount");
   }
