@@ -687,7 +687,6 @@ EOF
 
   bazel build \
     --toolchain_resolution_debug=toolchain:test_toolchain \
-    --incompatible_auto_configure_host_platform \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "ToolchainResolution:   Type //${pkg}/toolchain:test_toolchain: target platform ${default_host_platform}: execution ${default_host_platform}: Selected toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
@@ -714,7 +713,6 @@ EOF
 
   bazel build \
     --toolchain_resolution_debug=demo:use \
-    --incompatible_auto_configure_host_platform \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log "ToolchainResolution:   Type //${pkg}/toolchain:test_toolchain: target platform ${default_host_platform}: execution ${default_host_platform}: Selected toolchain //register/${pkg}:test_toolchain_impl_1"
   expect_log "ToolchainResolution: Target platform ${default_host_platform}: Selected execution platform ${default_host_platform}, type //${pkg}/toolchain:test_toolchain -> toolchain //register/${pkg}:test_toolchain_impl_1"
