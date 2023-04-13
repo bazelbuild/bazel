@@ -18,10 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import java.io.InputStream;
 import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
@@ -38,9 +39,12 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
   @Before
   public void javaInfoToDict() throws Exception {
     mockToolsConfig.create("tools/build_defs/inspect/BUILD");
-    mockToolsConfig.copyTool(
-        TestConstants.BAZEL_REPO_SCRATCH + "tools/build_defs/inspect/struct_to_dict.bzl",
-        "tools/build_defs/inspect/struct_to_dict.bzl");
+    try (InputStream toolStream = JavaInfoRoundtripTest.class.getResourceAsStream(
+        "/tools/build_defs/inspect/struct_to_dict.bzl")) {
+      char[] tool = FileSystemUtils.readContentAsLatin1(toolStream);
+      FileSystemUtils.writeContentAsLatin1(
+          mockToolsConfig.getPath("tools/build_defs/inspect/struct_to_dict.bzl"), new String(tool));
+    }
 
     scratch.file(
         "javainfo/javainfo_to_dict.bzl",
