@@ -12,7 +12,7 @@ py_library(
     name = "abseil",
     srcs = glob(["**/*.py"]),
     imports = ["."],
-    srcs_version = "PY2AND3",
+    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = ["//third_party/py/six"],
 )
