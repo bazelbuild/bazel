@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -196,23 +195,6 @@ public final class PrerequisiteProducer {
    * non-null-configured dep of a null-configured target.
    */
   static class InconsistentNullConfigException extends Exception {}
-
-  /**
-   * Thrown if this target is platform-incompatible with the current build.
-   *
-   * <p>See {@link IncompatibleTargetChecker}.
-   */
-  static class IncompatibleTargetException extends Exception {
-    private final RuleConfiguredTargetValue target;
-
-    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
-      this.target = target;
-    }
-
-    public RuleConfiguredTargetValue target() {
-      return target;
-    }
-  }
 
   /** Lets calling logic provide a semaphore to restrict the number of concurrent analysis calls. */
   public interface SemaphoreAcquirer {
@@ -888,7 +870,7 @@ public final class PrerequisiteProducer {
    * any constraints added by the target, including those added for the target on the command line.
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(
-      Rule rule, PlatformConfiguration platformConfiguration) {
+      Rule rule, @Nullable PlatformConfiguration platformConfiguration) {
     if (platformConfiguration == null) {
       return ImmutableSet.of(); // See NoConfigTransition.
     }
@@ -1307,16 +1289,5 @@ public final class PrerequisiteProducer {
               prioritizedDetailedExitCode, c.getDetailedExitCode());
     }
     return prioritizedDetailedExitCode;
-  }
-
-  private static class NoMatchingPlatformException extends ToolchainException {
-    NoMatchingPlatformException(NoMatchingPlatformData error) {
-      super(error.formatError());
-    }
-
-    @Override
-    protected FailureDetails.Toolchain.Code getDetailedCode() {
-      return FailureDetails.Toolchain.Code.NO_MATCHING_EXECUTION_PLATFORM;
-    }
   }
 }

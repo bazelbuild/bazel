@@ -153,8 +153,8 @@ java_library(
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",
         ":no_matching_platform_data",
+        ":no_matching_platform_exception",
         ":node_dropping_inconsistency_receiver",
-        ":output_store",
         ":package_error_function",
         ":package_error_message_function",
         ":package_identifier_batching_callback",
@@ -1657,6 +1657,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:auto_value",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "no_matching_platform_exception",
+    srcs = ["NoMatchingPlatformException.java"],
+    deps = [
+        ":no_matching_platform_data",
+        ":toolchain_exception",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 

@@ -250,6 +250,19 @@ public class IncompatibleTargetChecker {
             transitivePackages));
   }
 
+  /** Thrown if this target is platform-incompatible with the current build. */
+  public static class IncompatibleTargetException extends Exception {
+    private final RuleConfiguredTargetValue target;
+
+    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
+      this.target = target;
+    }
+
+    public RuleConfiguredTargetValue target() {
+      return target;
+    }
+  }
+
   /** Creates an incompatible target. */
   private static RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
       Target target,
