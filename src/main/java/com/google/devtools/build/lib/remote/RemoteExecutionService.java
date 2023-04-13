@@ -1136,16 +1136,7 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
-    RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    boolean downloadOutputs =
-        remoteOutputsMode.downloadAllOutputs()
-            ||
-            // In case the action failed, download all outputs. It might be helpful for debugging
-            // and there is no point in injecting output metadata of a failed action.
-            result.getExitCode() != 0
-            ||
-            // Symlinks in actions output are not yet supported with BwoB.
-            !metadata.symlinks().isEmpty();
+    boolean downloadOutputs = downloadOutputsFor(result, metadata);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1166,7 +1157,7 @@ public class RemoteExecutionService {
           result.getExitCode() == 0,
           "injecting remote metadata is only supported for successful actions (exit code 0).");
       checkState(metadata.symlinks.isEmpty(), "Symlinks in action outputs are not yet supported by"
-          + " --experimental_remote_download_outputs=minimal");
+          + " --remote_download_outputs=minimal");
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
@@ -1297,6 +1288,25 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private boolean downloadOutputsFor(RemoteActionResult result, ActionResultMetadata metadata) {
+    if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+      return true;
+    }
+    // In case the action failed, download all outputs. It might be helpful for debugging and there
+    // is no point in injecting output metadata of a failed action.
+    if (result.getExitCode() != 0) {
+      return true;
+    }
+    // Symlinks in actions output are not yet supported with BwoB.
+    if (!metadata.symlinks().isEmpty()) {
+      report(Event.warn(String.format("Symlinks in action outputs are not yet supported by "
+          + "--remote_download_minimal, falling back to downloading all action outputs due "
+          + "to output symlink %s", Iterables.getOnlyElement(metadata.symlinks()).path())));
+      return true;
+    }
+    return false;
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
