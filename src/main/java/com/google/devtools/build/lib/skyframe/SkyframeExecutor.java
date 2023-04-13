@@ -71,8 +71,8 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
@@ -254,7 +254,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -777,7 +776,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   public void configureActionExecutor(
-      MetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
+      InputMetadataProvider fileCache, ActionInputPrefetcher actionInputPrefetcher) {
     skyframeActionExecutor.configure(
         fileCache, actionInputPrefetcher, DiscoveredModulesPruner.DEFAULT);
   }
@@ -878,6 +877,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * more generally action lookup nodes) to action execution nodes. We take advantage of the fact
    * that if a node depends on an action lookup node and is not itself an action lookup node, then
    * it is an execution-phase node: the action lookup nodes are terminal in the analysis phase.
+   *
+   * <p>Skymeld: propagate events to BuildDriverKey nodes, since they cover both analysis &
+   * execution.
    */
   protected static final EventFilter DEFAULT_EVENT_FILTER_WITH_ACTIONS =
       new EventFilter() {
@@ -889,7 +891,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         @Override
         public boolean shouldPropagate(SkyKey depKey, SkyKey primaryKey) {
           // Do not propagate events from analysis phase nodes to execution phase nodes.
-          return isAnalysisPhaseKey(primaryKey) || !isAnalysisPhaseKey(depKey);
+          return isAnalysisPhaseKey(primaryKey)
+              || !isAnalysisPhaseKey(depKey)
+              // Skymeld only.
+              || primaryKey instanceof BuildDriverKey;
         }
       };
 
@@ -2345,10 +2350,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Set<BuildDriverKey> buildDriverAspectKeys,
       boolean keepGoing,
       int executionParallelism,
-      QuiescingExecutor executor)
+      QuiescingExecutor executor,
+      Supplier<Boolean> shouldCheckForConflicts)
       throws InterruptedException {
     checkActive();
     try {
+      buildDriverFunction.setShouldCheckForConflict(shouldCheckForConflicts);
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
@@ -3368,24 +3375,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ActionLookupKey key) {
     try (SilentCloseable c =
         Profiler.instance().profile("SkyframeExecutor.collectTransitiveActionLookupValuesOfKey")) {
-      ActionLookupValuesTraversal result = new ActionLookupValuesTraversal();
       if (tracksStateForIncrementality()) {
-        Map<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
+        ImmutableMap<ActionLookupKey, SkyValue> foundTransitiveActionLookupEntities =
             incrementalTransitiveActionLookupKeysCollector.collect(key);
-        foundTransitiveActionLookupEntities.forEach(result::accumulate);
         return ActionLookupValuesCollectionResult.create(
-            result.getActionLookupValueShards(),
+            foundTransitiveActionLookupEntities.values(),
             ImmutableSet.copyOf(foundTransitiveActionLookupEntities.keySet()));
       }
       // No graph edges available when there's no incrementality. We get the ALVs collected
       // since the last time this method was called.
       ImmutableMap<SkyKey, SkyValue> batchOfActionLookupValues =
           progressReceiver.getBatchedActionLookupValuesForConflictChecking();
-      for (Entry<SkyKey, SkyValue> entry : batchOfActionLookupValues.entrySet()) {
-        result.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
-      }
       return ActionLookupValuesCollectionResult.create(
-          result.getActionLookupValueShards(), batchOfActionLookupValues.keySet());
+          batchOfActionLookupValues.values(), batchOfActionLookupValues.keySet());
     }
   }
 
@@ -3836,13 +3838,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      * <p>IMPORTANT: due to pruning, the set of returned ActionLookupKey is a SUBSET of the set of
      * elements in the transitive closure of the visitationRoot.
      */
-    Map<ActionLookupKey, SkyValue> collect(ActionLookupKey visitationRoot) {
+    ImmutableMap<ActionLookupKey, SkyValue> collect(ActionLookupKey visitationRoot) {
       Map<ActionLookupKey, SkyValue> collected = Maps.newConcurrentMap();
       if (seen(visitationRoot, collected)) {
-        return collected;
+        return ImmutableMap.copyOf(collected);
       }
       executorService.invoke(new VisitActionLookupKey(visitationRoot, collected));
-      return collected;
+      return ImmutableMap.copyOf(collected);
     }
 
     @Override

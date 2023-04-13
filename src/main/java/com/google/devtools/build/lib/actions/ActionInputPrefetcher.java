@@ -23,8 +23,8 @@ public interface ActionInputPrefetcher {
   /**
    * Returns the metadata for an {@link ActionInput}.
    *
-   * <p>This will generally call through to a {@link MetadataProvider} and ask for the metadata of
-   * either an input or an output artifact.
+   * <p>This will generally call through to a {@link InputMetadataProvider} and ask for the metadata
+   * of either an input or an output artifact.
    */
   public interface MetadataSupplier {
     FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;

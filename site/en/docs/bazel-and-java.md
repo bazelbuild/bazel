@@ -131,17 +131,17 @@ The following modules, configuration fragments, and providers will help you
 [extend Bazel's capabilities](/extending/concepts) when building your Java
 projects:
 
-*   Main Java provider: [`java_common`](/rules/lib/java_common)
-*   Main Java module: [`JavaInfo`](/rules/lib/JavaInfo)
-*   Configuration fragment: [`java`](/rules/lib/java)
+*   Main Java module: [`java_common`](/rules/lib/toplevel/java_common)
+*   Main Java provider: [`JavaInfo`](/rules/lib/providers/JavaInfo)
+*   Configuration fragment: [`java`](/rules/lib/fragments/java)
 *   Other modules:
 
-    *   [`java_annotation_processing`](/rules/lib/java_annotation_processing)
-    *   [`java_compilation_info`](/rules/lib/java_compilation_info)
-    *   [`java_output`](/rules/lib/java_output)
-    *   [`java_output_jars`](/rules/lib/java_output_jars)
-    *   [`JavaRuntimeInfo`](/rules/lib/JavaRuntimeInfo)
-    *   [`JavaToolchainInfo`](/rules/lib/JavaToolchainInfo)
+    *   [`java_annotation_processing`](/rules/lib/builtins/java_annotation_processing)
+    *   [`java_compilation_info`](/rules/lib/providers/java_compilation_info)
+    *   [`java_output`](/rules/lib/builtins/java_output)
+    *   [`java_output_jars`](/rules/lib/providers/java_output_jars)
+    *   [`JavaRuntimeInfo`](/rules/lib/providers/JavaRuntimeInfo)
+    *   [`JavaToolchainInfo`](/rules/lib/providers/JavaToolchainInfo)
 
 ## Configuring the Java toolchains {:#config-java-toolchains}
 

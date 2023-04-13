@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -34,7 +34,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * <p>Simply maintains a cached mapping from filename to metadata that may be populated only once.
  */
 @ThreadSafe
-public class SingleBuildFileCache implements MetadataProvider {
+public class SingleBuildFileCache implements InputMetadataProvider {
 
   private final Path execRoot;
 

@@ -32,7 +32,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Helper for {@link MetadataProvider} implementations.
+ * Helper for {@link InputMetadataProvider} implementations.
  *
  * <p>Allows {@link FileArtifactValue} lookups by exec path or {@link ActionInput}. <i>Also</i>
  * allows {@link ActionInput} to be looked up by exec path.
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  *
  * <p>This class is thread-compatible.
  */
-public final class ActionInputMap implements MetadataProvider, ActionInputMapSink {
+public final class ActionInputMap implements InputMetadataProvider, ActionInputMapSink {
 
   private static final Object PLACEHOLDER = new Object();
 

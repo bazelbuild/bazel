@@ -76,8 +76,8 @@ public final class StarlarkLibrary {
 
   /** Proto defines the "proto" Starlark module of utilities for protocol message processing. */
   @StarlarkBuiltin(
-      name = "ProtoModule", // not "proto", to avoid conflict with ctx.fragments.proto data type
-      category = DocCategory.BUILTIN,
+      name = "proto",
+      category = DocCategory.TOP_LEVEL_MODULE,
       doc = "A module for protocol message processing.")
   static final class Proto implements StarlarkValue {
 
@@ -266,11 +266,12 @@ public final class StarlarkLibrary {
     @StarlarkMethod(
         name = "depset",
         doc =
-            "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a"
-                + " list of direct elements of the depset, and <code>transitive</code> parameter is"
-                + " a list of depsets whose elements become indirect elements of the created"
-                + " depset. The order in which elements are returned when the depset is converted"
-                + " to a list is specified by the <code>order</code> parameter. See the <a"
+            "Creates a <a href=\"../builtins/depset.html\">depset</a>. The <code>direct</code>"
+                + " parameter is a list of direct elements of the depset, and"
+                + " <code>transitive</code> parameter is a list of depsets whose elements become"
+                + " indirect elements of the created depset. The order in which elements are"
+                + " returned when the depset is converted to a list is specified by the"
+                + " <code>order</code> parameter. See the <a"
                 + " href=\"https://bazel.build/extending/depsets\">Depsets overview</a> for more"
                 + " information.\n" //
                 + "<p>All"
@@ -312,7 +313,7 @@ public final class StarlarkLibrary {
               defaultValue = "\"default\"",
               doc =
                   "The traversal strategy for the new depset. See "
-                      + "<a href=\"depset.html\">here</a> for the possible values.",
+                      + "<a href=\"../builtins/depset.html\">here</a> for the possible values.",
               named = true),
           @Param(
               name = "transitive",
@@ -349,7 +350,7 @@ public final class StarlarkLibrary {
               positional = true,
               doc =
                   "A dict that maps configuration conditions to values. Each key is a "
-                      + "<a href=\"Label.html\">Label</a> or a label string"
+                      + "<a href=\"../builtins/Label.html\">Label</a> or a label string"
                       + " that identifies a config_setting or constraint_value instance. See the"
                       + " <a href=\"https://bazel.build/rules/macros#label-resolution\">"
                       + "documentation on macros</a> for when to use a Label instead of a string."),

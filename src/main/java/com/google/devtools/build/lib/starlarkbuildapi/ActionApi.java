@@ -33,14 +33,14 @@ import net.starlark.java.eval.StarlarkValue;
     category = DocCategory.BUILTIN,
     doc =
         "An action created during rule analysis.<p>This object is visible for the purpose of"
-            + " testing, and may be obtained from an <a href=\"globals.html#Actions\">Actions</a>"
-            + " provider. It is normally not necessary to access <code>Action</code> objects or"
-            + " their fields within a rule's implementation function. You may instead want to see"
-            + " the <a href='https://bazel.build/extending/rules#actions'>Rules page</a> for a"
-            + " general discussion of how to use actions when defining custom rules, or the <a"
-            + " href='actions.html'>API reference</a> for creating actions.<p>Some fields of this"
-            + " object are only applicable for certain kinds of actions. Fields that are"
-            + " inapplicable are set to <code>None</code>.")
+            + " testing, and may be obtained from an <code>Actions</code> provider. It is normally"
+            + " not necessary to access <code>Action</code> objects or their fields within a rule's"
+            + " implementation function. You may instead want to see the <a"
+            + " href='https://bazel.build/extending/rules#actions'>Rules page</a> for a general"
+            + " discussion of how to use actions when defining custom rules, or the <a"
+            + " href='../builtins/actions.html'>API reference</a> for creating actions.<p>Some"
+            + " fields of this object are only applicable for certain kinds of actions. Fields that"
+            + " are inapplicable are set to <code>None</code>.")
 public interface ActionApi extends StarlarkValue {
 
   @StarlarkMethod(name = "mnemonic", structField = true, doc = "The mnemonic for this action.")
@@ -61,11 +61,11 @@ public interface ActionApi extends StarlarkValue {
   @StarlarkMethod(
       name = "argv",
       doc =
-          "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
-              + "or <a href=\"actions.html#run_shell\">ctx.actions.run_shell()</a>  an immutable "
-              + "list of the arguments for the command line to be executed. Note that "
-              + "for shell actions the first two arguments will be the shell path "
-              + "and <code>\"-c\"</code>.",
+          "For actions created by <a href=\"../builtins/actions.html#run\">ctx.actions.run()</a> or"
+              + " <a href=\"../builtins/actions.html#run_shell\">ctx.actions.run_shell()</a>  an"
+              + " immutable list of the arguments for the command line to be executed. Note that"
+              + " for shell actions the first two arguments will be the shell path and"
+              + " <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -74,14 +74,14 @@ public interface ActionApi extends StarlarkValue {
   @StarlarkMethod(
       name = "args",
       doc =
-          "A list of frozen <a href=\"Args.html\">Args</a> objects containing information about"
-              + " the action arguments. These objects contain accurate argument information,"
-              + " including arguments involving expanded action output directories. However, <a"
-              + " href=\"Args.html\">Args</a> objects are not readable in the analysis phase. For"
-              + " a less accurate account of arguments which is available in the analysis phase,"
-              + " see <a href=\"#argv\">argv</a>."
-              + " <p>Note that some types of actions do not yet support exposure of this field."
-              + " For such action types, this is <code>None</code>.",
+          "A list of frozen <a href=\"../builtins/Args.html\">Args</a> objects containing"
+              + " information about the action arguments. These objects contain accurate argument"
+              + " information, including arguments involving expanded action output directories."
+              + " However, <a href=\"../builtins/Args.html\">Args</a> objects are not readable in"
+              + " the analysis phase. For a less accurate account of arguments which is available"
+              + " in the analysis phase, see <a href=\"#argv\">argv</a>. <p>Note that some types of"
+              + " actions do not yet support exposure of this field. For such action types, this is"
+              + " <code>None</code>.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -101,12 +101,13 @@ public interface ActionApi extends StarlarkValue {
   @StarlarkMethod(
       name = "content",
       doc =
-          "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
-              + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+          "For actions created by <a"
+              + " href=\"../builtins/actions.html#write\">ctx.actions.write()</a> or <a"
+              + " href=\"../builtins/actions.html#expand_template\">ctx.actions.expand_template()</a>,"
               + " the contents of the file to be written, if those contents can be computed during "
-              + " the analysis phase. The value is <code>None</code> if the contents cannot be "
-              + "determined until the execution phase, such as when a directory in an "
-              + "<a href=\"Args.html\">Args</a> object needs to be expanded.",
+              + " the analysis phase. The value is <code>None</code> if the contents cannot be"
+              + " determined until the execution phase, such as when a directory in an <a"
+              + " href=\"../builtins/Args.html\">Args</a> object needs to be expanded.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -115,8 +116,8 @@ public interface ActionApi extends StarlarkValue {
   @StarlarkMethod(
       name = "substitutions",
       doc =
-          "For actions created by "
-              + "<a href=\"actions.html#expand_template\">ctx.actions.expand_template()</a>,"
+          "For actions created by <a"
+              + " href=\"../builtins/actions.html#expand_template\">ctx.actions.expand_template()</a>,"
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
-import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
@@ -52,9 +51,9 @@ import net.starlark.java.syntax.Location;
  * Fake implementation of {@link StarlarkRuleFunctionsApi}.
  *
  * <p>This fake hooks into the global {@code rule()} function, adding descriptors of calls of that
- * function to a {@link List} given in the class constructor.</p>
+ * function to a {@link List} given in the class constructor.
  */
-public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<FileApi> {
+public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
 
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(

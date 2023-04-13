@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
@@ -182,7 +182,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           context.getFileOutErr(),
           xattrProvider);
 
-      MetadataProvider inputFileCache = context.getMetadataProvider();
+      InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
 
       SandboxInputs inputFiles;
       try (SilentCloseable c1 =
@@ -241,7 +241,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SpawnExecutionContext context,
       List<String> flagfiles,
       Map<VirtualActionInput, byte[]> virtualInputDigests,
-      MetadataProvider inputFileCache,
+      InputMetadataProvider inputFileCache,
       WorkerKey key)
       throws IOException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
@@ -359,7 +359,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SandboxInputs inputFiles,
       SandboxOutputs outputs,
       List<String> flagFiles,
-      MetadataProvider inputFileCache,
+      InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
       throws InterruptedException, ExecException {
     WorkerOwner workerOwner = new WorkerOwner();

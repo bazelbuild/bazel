@@ -108,38 +108,35 @@ public interface JavaSemantics {
 
   public String getJavaToolchainType();
 
-  /**
-   * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
-   * default, so it returns null for the configuration-independent default value.
-   */
-  @SerializationConstant
-  LabelLateBoundDefault<JavaConfiguration> JAVA_LAUNCHER =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          null,
-          (rule, attributes, javaConfig) -> {
-            // This nullness check is purely for the sake of a test that doesn't bother to include
-            // an
-            // attribute map when calling this method.
-            if (attributes != null) {
-              // Don't depend on the launcher if we don't create an executable anyway
-              if (attributes.has("create_executable")
-                  && !attributes.get("create_executable", Type.BOOLEAN)) {
-                return null;
-              }
-
-              // use_launcher=False disables the launcher
-              if (attributes.has("use_launcher") && !attributes.get("use_launcher", Type.BOOLEAN)) {
-                return null;
-              }
-
-              // don't read --java_launcher if this target overrides via a launcher attribute
-              if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
-                return attributes.get("launcher", LABEL);
-              }
+  /** Implementation for the :java_launcher attribute. */
+  static LabelLateBoundDefault<JavaConfiguration> javaLauncherAttribute(Label defaultLabel) {
+    return LabelLateBoundDefault.fromTargetConfiguration(
+        JavaConfiguration.class,
+        defaultLabel,
+        (rule, attributes, javaConfig) -> {
+          // This nullness check is purely for the sake of a test that doesn't bother to include
+          // an
+          // attribute map when calling this method.
+          if (attributes != null) {
+            // Don't depend on the launcher if we don't create an executable anyway
+            if (attributes.has("create_executable")
+                && !attributes.get("create_executable", Type.BOOLEAN)) {
+              return null;
             }
-            return javaConfig.getJavaLauncherLabel();
-          });
+
+            // use_launcher=False disables the launcher
+            if (attributes.has("use_launcher") && !attributes.get("use_launcher", Type.BOOLEAN)) {
+              return null;
+            }
+
+            // don't read --java_launcher if this target overrides via a launcher attribute
+            if (attributes.isAttributeValueExplicitlySpecified("launcher")) {
+              return attributes.get("launcher", LABEL);
+            }
+          }
+          return javaConfig.getJavaLauncherLabel();
+        });
+  }
 
   @SerializationConstant
   LabelListLateBoundDefault<JavaConfiguration> JAVA_PLUGINS =

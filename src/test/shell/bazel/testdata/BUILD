@@ -59,8 +59,8 @@ gen_workspace_stanza(
         "openjdk11_windows_arm64_archive",
     ] + [
         "openjdk%s_%s_archive" % (version, os)
-        for version in ("17", "19")
-        for os in ("linux", "linux_s390x", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
+        for version in ("17", "20")
+        for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
     ],
     template = "jdk_http_archives.tmpl",
     visibility = ["//:__pkg__"],

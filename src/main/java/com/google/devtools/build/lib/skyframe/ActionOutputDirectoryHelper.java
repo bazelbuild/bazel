@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +64,7 @@ public final class ActionOutputDirectoryHelper {
    * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}).
    */
   void createActionFsOutputDirectories(
-      ImmutableSet<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
+      Collection<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
@@ -100,7 +100,7 @@ public final class ActionOutputDirectoryHelper {
    * <p>Note that this does not need to be called if using an in-memory action file system ({@link
    * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}).
    */
-  void invalidateTreeArtifactDirectoryCreation(ImmutableSet<Artifact> actionOutputs) {
+  void invalidateTreeArtifactDirectoryCreation(Collection<Artifact> actionOutputs) {
     for (Artifact output : actionOutputs) {
       if (output.isTreeArtifact()) {
         knownDirectories.remove(output.getPath().asFragment());
@@ -120,7 +120,7 @@ public final class ActionOutputDirectoryHelper {
    * directories to be created in action file system for only one of the actions as opposed to all
    * of them.
    */
-  void createOutputDirectories(ImmutableSet<Artifact> actionOutputs)
+  void createOutputDirectories(Collection<Artifact> actionOutputs)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
@@ -147,7 +147,7 @@ public final class ActionOutputDirectoryHelper {
     }
   }
 
-  void forceCreateDirectoryAndParents(Path outputDir, Path rootPath)
+  private void forceCreateDirectoryAndParents(Path outputDir, Path rootPath)
       throws CreateOutputDirectoryException {
     // Possibly some direct ancestors are not directories.  In that case, we traverse the
     // ancestors downward, deleting any non-directories. This handles the case where a file

@@ -43,7 +43,7 @@
   <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
   <li><a href="$expander.expandRef("glob")">glob</a></li>
   <li><a href="$expander.expandRef("select")">select</a></li>
-  <li><a href="/rules/lib/globals#workspace">workspace</a></li>
+  <li><a href="/rules/lib/globals/workspace#workspace">workspace</a></li>
 </ul>
 
 <h2>Rules</h2>

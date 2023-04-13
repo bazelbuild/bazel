@@ -29,21 +29,24 @@ public interface PlatformCommonApi extends StarlarkValue {
   @StarlarkMethod(
       name = "TemplateVariableInfo",
       doc =
-          "The constructor/key for the <a href='TemplateVariableInfo.html'>"
+          "The constructor/key for the <a href='../providers/TemplateVariableInfo.html'>"
               + "TemplateVariableInfo</a> provider.",
       structField = true)
   ProviderApi getMakeVariableProvider();
 
   @StarlarkMethod(
       name = "ToolchainInfo",
-      doc = "The constructor/key for the <a href='ToolchainInfo.html'>ToolchainInfo</a> provider.",
+      doc =
+          "The constructor/key for the <a href='../providers/ToolchainInfo.html'>ToolchainInfo</a>"
+              + " provider.",
       structField = true)
   ProviderApi getToolchainInfoConstructor();
 
   @StarlarkMethod(
       name = "PlatformInfo",
       doc =
-          "The constructor/key for the <a href='PlatformInfo.html'>PlatformInfo</a> provider."
+          "The constructor/key for the <a href='../providers/PlatformInfo.html'>PlatformInfo</a>"
+              + " provider."
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
       structField = true)
   ProviderApi getPlatformInfoConstructor();
@@ -51,7 +54,7 @@ public interface PlatformCommonApi extends StarlarkValue {
   @StarlarkMethod(
       name = "ConstraintSettingInfo",
       doc =
-          "The constructor/key for the <a href='ConstraintSettingInfo.html'>"
+          "The constructor/key for the <a href='../providers/ConstraintSettingInfo.html'>"
               + "ConstraintSettingInfo</a> provider."
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
       structField = true)
@@ -60,7 +63,7 @@ public interface PlatformCommonApi extends StarlarkValue {
   @StarlarkMethod(
       name = "ConstraintValueInfo",
       doc =
-          "The constructor/key for the <a href='ConstraintValueInfo.html'>"
+          "The constructor/key for the <a href='../providers/ConstraintValueInfo.html'>"
               + "ConstraintValueInfo</a> provider."
               + PlatformInfoApi.EXPERIMENTAL_WARNING,
       structField = true)

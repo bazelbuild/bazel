@@ -47,8 +47,8 @@ public interface RepositoryModuleApi {
             name = "implementation",
             named = true,
             doc =
-                "the function that implements this rule. Must have a single parameter,"
-                    + " <code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The"
+                "the function that implements this rule. Must have a single parameter, <code><a"
+                    + " href=\"../builtins/repository_ctx.html\">repository_ctx</a></code>. The"
                     + " function is called during the loading phase for each instance of the"
                     + " rule."),
         @Param(
@@ -60,7 +60,7 @@ public interface RepositoryModuleApi {
             defaultValue = "None",
             doc =
                 "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                    + "name to an attribute object (see <a href=\"attr.html\">attr</a> "
+                    + "name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a> "
                     + "module). Attributes starting with <code>_</code> are private, and can be "
                     + "used to add an implicit dependency on a label to a file (a repository "
                     + "rule cannot depend on a generated artifact). The attribute "
@@ -133,16 +133,16 @@ public interface RepositoryModuleApi {
             named = true,
             doc =
                 "The function that implements this module extension. Must take a single parameter,"
-                    + " <code><a href=\"module_ctx.html\">module_ctx</a></code>. The function is"
-                    + " called once at the beginning of a build to determine the set of available"
-                    + " repos."),
+                    + " <code><a href=\"../builtins/module_ctx.html\">module_ctx</a></code>. The"
+                    + " function is called once at the beginning of a build to determine the set of"
+                    + " available repos."),
         @Param(
             name = "tag_classes",
             defaultValue = "{}",
             doc =
                 "A dictionary to declare all the tag classes used by the extension. It maps from"
                     + " the name of the tag class to a <code><a"
-                    + " href=\"tag_class.html\">tag_class</a></code> object.",
+                    + " href=\"../builtins/tag_class.html\">tag_class</a></code> object.",
             named = true,
             positional = false),
         @Param(
@@ -174,8 +174,8 @@ public interface RepositoryModuleApi {
             named = true,
             doc =
                 "A dictionary to declare all the attributes of this tag class. It maps from an"
-                    + " attribute name to an attribute object (see <a href=\"attr.html\">attr</a>"
-                    + " module)."),
+                    + " attribute name to an attribute object (see <a"
+                    + " href=\"../toplevel/attr.html\">attr</a> module)."),
         @Param(
             name = "doc",
             defaultValue = "''",

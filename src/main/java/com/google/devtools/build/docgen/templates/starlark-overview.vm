@@ -8,84 +8,21 @@
 
 {% dynamic setvar source_file "src/main/java/com/google/devtools/build/docgen/templates/starlark-overview.vm" %}
 {% include "_buttons.html" %}
-A list of all modules and globals that are available:
-
+#foreach ($entry in $allPages.entrySet())
 <h2>
 
 
-  <a href="/rules/lib/${global_name}">Global Functions</a>
+  <a href="/rules/lib/${entry.key.path}">${entry.key.title}</a>
 
 
 </h2>
 <ul>
-
-#foreach ($name in $global_functions)
-
-  <li>
-
-
-    <a href="/rules/lib/${global_name}#${name}">${name}</a>
-
-
-  </li>
-
-#end
-
-</ul>
-<h2>
-
-
-  <a href="/rules/lib/${global_name}">Global Constants</a>
-
-
-</h2>
-<ul>
-
-#foreach ($name in $global_constants)
+#foreach ($page in $entry.value)
 
   <li>
 
 
-    <a href="/rules/lib/${global_name}#${name}">${name}</a>
-
-
-  </li>
-
-#end
-
-</ul>
-<h2>
-  Global Modules
-</h2>
-<ul>
-
-#foreach ($module in $global_modules)
-
-  <li>
-
-
-    <a href="/rules/lib/${module.name}">${module.name}</a>
-
-  </li>
-
-#end
-
-</ul>
-#foreach ($entry in $modules.entrySet())
-<h2>
-
-
-  <a href="/rules/lib/starlark-${entry.key.templateIdentifier}">${entry.key.title}</a>
-
-
-</h2>
-<ul>
-#foreach ($module in $entry.value)
-
-  <li>
-
-
-    <a href="/rules/lib/${module.name}">${module.title}</a>
+    <a href="/rules/lib/${entry.key.path}/${page.name}">${page.title}</a>
 
   </li>
 

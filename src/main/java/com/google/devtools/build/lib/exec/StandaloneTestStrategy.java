@@ -716,12 +716,12 @@ public class StandaloneTestStrategy extends TestStrategy {
       }
       var unused =
           actionExecutionContext
-              .getMetadataHandler()
+              .getOutputMetadataStore()
               .getOutputMetadata(testAction.getCoverageDirectoryTreeArtifact());
 
       ImmutableSet<? extends ActionInput> expandedCoverageDir =
           actionExecutionContext
-              .getMetadataHandler()
+              .getOutputMetadataStore()
               .getTreeArtifactChildren(
                   (SpecialArtifact) testAction.getCoverageDirectoryTreeArtifact());
       Spawn coveragePostProcessingSpawn =

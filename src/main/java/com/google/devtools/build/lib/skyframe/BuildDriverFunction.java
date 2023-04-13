@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType.PAR
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -29,7 +29,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -44,7 +43,6 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.PlatformCompatibility;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -78,6 +76,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -88,6 +87,8 @@ public class BuildDriverFunction implements SkyFunction {
   private final Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder;
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
+
+  @Nullable private Supplier<Boolean> shouldCheckForConflict;
 
   // A set of BuildDriverKeys that have been checked for conflicts.
   // This gets cleared after each build.
@@ -128,6 +129,11 @@ public class BuildDriverFunction implements SkyFunction {
     private boolean checkedForCompatibility = false;
     private boolean checkedForPlatformCompatibility = false;
   }
+
+  public void setShouldCheckForConflict(Supplier<Boolean> shouldCheckForConflict) {
+    this.shouldCheckForConflict = shouldCheckForConflict;
+  }
+
   /**
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
    * with the appropriate CompletionFunctions. This is the bridge between the conceptual analysis &
@@ -157,12 +163,11 @@ public class BuildDriverFunction implements SkyFunction {
       return null;
     }
 
-    // Unconditionally check for action conflicts.
-    // TODO(b/214371092): Only check when necessary.
-    try (SilentCloseable c =
-        Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
-      // We only check for action conflict once per BuildDriverKey.
-      if (checkedForConflicts.add(buildDriverKey)) {
+    // We only check for action conflict once per BuildDriverKey.
+    if (Preconditions.checkNotNull(shouldCheckForConflict).get()
+        && checkedForConflicts.add(buildDriverKey)) {
+      try (SilentCloseable c =
+          Profiler.instance().profile("BuildDriverFunction.checkActionConflicts")) {
         ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
             checkActionConflicts(actionLookupKey, buildDriverKey.strictActionConflictCheck());
         if (!actionConflicts.isEmpty()) {
@@ -172,7 +177,6 @@ public class BuildDriverFunction implements SkyFunction {
                       + actionLookupKey.getLabel(),
                   actionConflicts));
         }
-
       }
     }
 
@@ -571,12 +575,12 @@ public class BuildDriverFunction implements SkyFunction {
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
-    abstract Sharder<ActionLookupValue> collectedValues();
+    abstract ImmutableCollection<SkyValue> collectedValues();
 
     abstract ImmutableSet<SkyKey> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        Sharder<ActionLookupValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
+        ImmutableCollection<SkyValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }

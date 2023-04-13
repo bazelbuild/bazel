@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import net.starlark.java.eval.FlagGuardedValue;
@@ -38,17 +37,14 @@ public class PyBootstrap implements Bootstrap {
   private final PyInfoProviderApi pyInfoProviderApi;
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
-  private final PyWrapCcInfoApi.Provider pyWrapCcInfoProvider;
 
   public PyBootstrap(
       PyInfoProviderApi pyInfoProviderApi,
       PyStarlarkTransitionsApi pyStarlarkTransitionsApi,
-      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
-      PyWrapCcInfoApi.Provider pyWrapCcInfoProvider) {
+      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper) {
     this.pyInfoProviderApi = pyInfoProviderApi;
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
     this.pyWrapCcHelper = pyWrapCcHelper;
-    this.pyWrapCcInfoProvider = pyWrapCcInfoProvider;
   }
 
   @Override
@@ -79,7 +75,8 @@ public class PyBootstrap implements Bootstrap {
         "PyWrapCcInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            pyWrapCcInfoProvider,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
             allowedRepositories));
     builder.put(
         "PyCcLinkParamsProvider",

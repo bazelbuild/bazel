@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -110,7 +110,7 @@ public class CommandLines {
    *
    * @param artifactExpander The artifact expander to use.
    * @param paramFileBasePath Used to derive param file names. Often the first output of an action
-   * @param pathStripper function to strip configuration prefixes from output paths, in accordance
+   * @param pathMapper function to strip configuration prefixes from output paths, in accordance
    *     with the logic in {@link PathStripper}
    * @param limits The command line limits the host OS can support.
    * @return The expanded command line and its param files (if any).
@@ -118,11 +118,11 @@ public class CommandLines {
   public ExpandedCommandLines expand(
       ArtifactExpander artifactExpander,
       PathFragment paramFileBasePath,
-      PathStripper.CommandAdjuster pathStripper,
+      PathMapper pathMapper,
       CommandLineLimits limits)
       throws CommandLineExpansionException, InterruptedException {
     return expand(
-        artifactExpander, paramFileBasePath, limits, pathStripper, PARAM_FILE_ARG_LENGTH_ESTIMATE);
+        artifactExpander, paramFileBasePath, limits, pathMapper, PARAM_FILE_ARG_LENGTH_ESTIMATE);
   }
 
   @VisibleForTesting
@@ -130,7 +130,7 @@ public class CommandLines {
       ArtifactExpander artifactExpander,
       PathFragment paramFileBasePath,
       CommandLineLimits limits,
-      PathStripper.CommandAdjuster pathStripper,
+      PathMapper pathMapper,
       int paramFileArgLengthEstimate)
       throws CommandLineExpansionException, InterruptedException {
     // Optimize for simple case of single command line
@@ -150,12 +150,12 @@ public class CommandLines {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
       if (paramFileInfo == null) {
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathStripper);
+        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         arguments.add(args);
         cmdLineLength += totalArgLen(args);
       } else {
         Preconditions.checkNotNull(paramFileInfo); // If null, we would have just had a CommandLine
-        Iterable<String> args = commandLine.arguments(artifactExpander, pathStripper);
+        Iterable<String> args = commandLine.arguments(artifactExpander, pathMapper);
         boolean useParamFile = true;
         if (!paramFileInfo.always()) {
           int tentativeCmdLineLength = cmdLineLength + totalArgLen(args);
@@ -173,7 +173,7 @@ public class CommandLines {
           String paramArg =
               SingleStringArgFormatter.format(
                   paramFileInfo.getFlagFormatString(),
-                  pathStripper.map(paramFileExecPath).getPathString());
+                  pathMapper.map(paramFileExecPath).getPathString());
           arguments.addElement(paramArg);
           cmdLineLength += paramArg.length() + 1;
 
@@ -212,11 +212,11 @@ public class CommandLines {
    */
   public ImmutableList<String> allArguments()
       throws CommandLineExpansionException, InterruptedException {
-    return allArguments(CommandAdjuster.NOOP);
+    return allArguments(PathMapper.NOOP);
   }
 
   /** Variation of {@link #allArguments()} that supports output path stripping. */
-  public ImmutableList<String> allArguments(CommandAdjuster stripPaths)
+  public ImmutableList<String> allArguments(PathMapper stripPaths)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     for (CommandLineAndParamFileInfo pair : getCommandLines()) {
@@ -486,15 +486,15 @@ public class CommandLines {
 
     @Override
     public Iterable<String> arguments() throws CommandLineExpansionException, InterruptedException {
-      return arguments(null, PathStripper.CommandAdjuster.NOOP);
+      return arguments(null, PathMapper.NOOP);
     }
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, CommandAdjuster pathStripper)
+        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       if (arg instanceof PathStrippable) {
-        return ImmutableList.of(((PathStrippable) arg).expand(pathStripper::map));
+        return ImmutableList.of(((PathStrippable) arg).expand(pathMapper::map));
       }
       return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
     }

@@ -116,9 +116,10 @@ increase the statistical significance of your measurement.
 
 - **Wall time** is the real world time elapsed.
    - If _only_ wall time regresses, we suggest collecting a
-     [JSON trace profile](/configure/json-trace-profile) and looking for
-     differences. Otherwise, it would likely be more efficient to investigate
-     other regressed metrics as they could have affected the wall time.
+     [JSON trace profile](/advanced/performance/json-trace-profile) and looking
+     for differences. Otherwise, it would likely be more efficient to
+     investigate other regressed metrics as they could have affected the wall
+     time.
 
 - **CPU time** is the time spent by the CPU executing user code.
    - If the CPU time regresses across two project commits, we suggest collecting
@@ -134,7 +135,8 @@ increase the statistical significance of your measurement.
 
 Using the
 [`--experimental_collect_load_average_in_profiler`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L306-L312)
-flag introduced in Bazel 6.0, the [JSON trace profiler](/configure/json-trace-profile) collects the
+flag introduced in Bazel 6.0, the
+[JSON trace profiler](/advanced/performance/json-trace-profile) collects the
 system load average during the invocation.
 
 ![Profile that includes system load average](/docs/images/json-trace-profile-system-load-average.png "Profile that includes system load average")
@@ -187,8 +189,8 @@ be problematic. Bazel collects metrics on its workers, in particular, the
 `WorkerMetrics.WorkerStats.worker_memory_in_kb` field tells how much memory
 workers use (by mnemonic).
 
-The [JSON trace profiler](/configure/json-trace-profile) also collects
-persistent worker memory usage during the invocation by passing in the
+The [JSON trace profiler](/advanced/performance/json-trace-profile) also
+collects persistent worker memory usage during the invocation by passing in the
 [`--experimental_collect_system_network_usage`](https://github.com/bazelbuild/bazel/blob/6.0.0/src/main/java/com/google/devtools/build/lib/runtime/CommonCommandOptions.java#L314-L320)
 flag (new in Bazel 6.0).
 
@@ -214,9 +216,10 @@ monitoring the network traffic during the invocation using the
 `NetworkMetrics.SystemNetworkStats` proto from the [BEP](/remote/bep)
 (requires passing `--experimental_collect_system_network_usage`).
 
-Furthermore, [JSON trace profiles](/configure/json-trace-profile) allow you
-to view system-wide network usage throughout the course of the build by passing
-the `--experimental_collect_system_network_usage` flag (new in Bazel 6.0).
+Furthermore, [JSON trace profiles](/advanced/performance/json-trace-profile)
+allow you to view system-wide network usage throughout the course of the build
+by passing the `--experimental_collect_system_network_usage` flag (new in Bazel
+6.0).
 
 ![Profile that includes system-wide network usage](/docs/images/json-trace-profile-network-usage.png "Profile that includes system-wide network usage")
 

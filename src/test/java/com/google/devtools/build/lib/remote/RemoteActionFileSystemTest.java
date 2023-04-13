@@ -41,8 +41,8 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.StaticMetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -88,7 +88,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
 
   @Override
   protected RemoteActionFileSystem createActionFileSystem(
-      ActionInputMap inputs, Iterable<Artifact> outputs, MetadataProvider fileCache)
+      ActionInputMap inputs, Iterable<Artifact> outputs, InputMetadataProvider fileCache)
       throws IOException {
     RemoteActionFileSystem remoteActionFileSystem =
         new RemoteActionFileSystem(
@@ -277,7 +277,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         createActionFileSystem(
             new ActionInputMap(0),
             ImmutableList.of(),
-            new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
+            new StaticInputMetadataProvider(ImmutableMap.of(artifact, metadata)));
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isEqualTo(artifact);
   }
@@ -291,7 +291,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         createActionFileSystem(
             new ActionInputMap(0),
             ImmutableList.of(),
-            new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
+            new StaticInputMetadataProvider(ImmutableMap.of(artifact, metadata)));
 
     assertThat(actionFs.getInput(artifact.getExecPathString())).isNull();
   }
@@ -358,7 +358,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
         createActionFileSystem(
             new ActionInputMap(0),
             ImmutableList.of(),
-            new StaticMetadataProvider(ImmutableMap.of(artifact, metadata)));
+            new StaticInputMetadataProvider(ImmutableMap.of(artifact, metadata)));
 
     assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
         .isEqualTo(metadata);

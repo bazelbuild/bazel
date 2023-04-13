@@ -551,7 +551,10 @@ genrule(
           " $(@D)/skylark-lib" +
           " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
           " --create_toc=true" +
-          " && zip -qj $@ $(@D)/skylark-lib/*",
+          " && OUTPUT=$$PWD/$@" +
+          " && pushd $(@D)/skylark-lib" +
+          " && zip -qr $$OUTPUT ." +
+          " && popd",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
 )

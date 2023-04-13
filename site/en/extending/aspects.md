@@ -6,7 +6,7 @@ Book: /_book.yaml
 {% include "_buttons.html" %}
 
 This page explains the basics and benefits of using
-[aspects](/rules/lib/globals#aspect) and provides simple and advanced
+[aspects](/rules/lib/globals/bzl#aspect) and provides simple and advanced
 examples.
 
 Aspects allow augmenting build dependency graphs with additional information
@@ -111,7 +111,7 @@ print_aspect = aspect(
 )
 ```
 Aspect definitions are similar to rule definitions, and defined using
-the [`aspect`](/rules/lib/globals#aspect) function.
+the [`aspect`](/rules/lib/globals/bzl#aspect) function.
 
 Just like a rule, an aspect has an implementation function which in this case is
 ``_print_aspect_impl``.
@@ -141,12 +141,12 @@ Aspect implementation functions are similar to the rule implementation
 functions. They return [providers](/extending/rules#providers), can generate
 [actions](/extending/rules#actions), and take two arguments:
 
-*  `target`: the [target](/rules/lib/Target) the aspect is being applied to.
-*   `ctx`: [`ctx`](/rules/lib/ctx) object that can be used to access attributes
+*  `target`: the [target](/rules/lib/builtins/Target) the aspect is being applied to.
+*   `ctx`: [`ctx`](/rules/lib/builtins/ctx) object that can be used to access attributes
     and generate outputs and actions.
 
 The implementation function can access the attributes of the target rule via
-[`ctx.rule.attr`](/rules/lib/ctx#rule). It can examine providers that are
+[`ctx.rule.attr`](/rules/lib/builtins/ctx#rule). It can examine providers that are
 provided by the target to which it is applied (via the `target` argument).
 
 Aspects are required to return a list of providers. In this example, the aspect
@@ -329,12 +329,12 @@ implementation of aspect A. The providers that a rule implementation propagates
 are created and frozen before aspects are applied and cannot be modified from an
 aspect. It is an error if a target and an aspect that is applied to it each
 provide a provider with the same type, with the exceptions of
-[`OutputGroupInfo`](/rules/lib/OutputGroupInfo)
+[`OutputGroupInfo`](/rules/lib/providers/OutputGroupInfo)
 (which is merged, so long as the
 rule and aspect specify different output groups) and
-[`InstrumentedFilesInfo`](/rules/lib/InstrumentedFilesInfo)
+[`InstrumentedFilesInfo`](/rules/lib/providers/InstrumentedFilesInfo)
 (which is taken from the aspect). This means that aspect implementations may
-never return [`DefaultInfo`](/rules/lib/DefaultInfo).
+never return [`DefaultInfo`](/rules/lib/providers/DefaultInfo).
 
 The parameters and private attributes are passed in the attributes of the
 ``ctx``. This example references the ``extension`` parameter and determines
@@ -401,4 +401,4 @@ itself, and all of the targets accessible recursively via ``deps``.
 
 ## References
 
-* [`aspect` API reference](/rules/lib/globals#aspect)
+* [`aspect` API reference](/rules/lib/globals/bzl#aspect)

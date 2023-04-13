@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -146,7 +146,7 @@ public class RemoteSpawnCacheTest {
         }
 
         @Override
-        public MetadataProvider getMetadataProvider() {
+        public InputMetadataProvider getInputMetadataProvider() {
           return fakeFileCache;
         }
 

@@ -24,9 +24,9 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -48,7 +48,7 @@ public class RemoteOutputService implements OutputService {
 
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
-  @Nullable private Supplier<MetadataProvider> fileCacheSupplier;
+  @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
 
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
     this.actionInputFetcher = Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
@@ -58,7 +58,7 @@ public class RemoteOutputService implements OutputService {
     this.leaseService = leaseService;
   }
 
-  void setFileCacheSupplier(Supplier<MetadataProvider> fileCacheSupplier) {
+  void setFileCacheSupplier(Supplier<InputMetadataProvider> fileCacheSupplier) {
     this.fileCacheSupplier = fileCacheSupplier;
   }
 
@@ -135,9 +135,9 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public void finalizeAction(Action action, MetadataHandler metadataHandler) {
+  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore) {
     if (actionInputFetcher != null) {
-      actionInputFetcher.finalizeAction(action, metadataHandler);
+      actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }
   }
 

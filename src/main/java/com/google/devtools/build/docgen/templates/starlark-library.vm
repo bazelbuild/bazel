@@ -5,18 +5,18 @@
 </head>
 <body>
 
-<h1 class="page-title" id="modules.${module.name}">${module.title}</h1>
+<h1 class="page-title" id="modules.${page.name}">${page.title}</h1>
 
-{% dynamic setvar source_file "${module.sourceFile}" %}
+{% dynamic setvar source_file "${page.sourceFile}" %}
 {% include "_buttons.html" %}
 <!-- {% raw %} -->
 
-${module.documentation}
+${page.documentation}
 
-#if (!$module.methods.isEmpty())
+#if (!$page.methods.isEmpty())
 <h2>Members</h2>
 <ul>
-#foreach ($method in $module.methods)
+#foreach ($method in $page.methods)
   #if ($method.documented())
   <li>
     <a href="#${method.name}">${method.name}</a>
@@ -26,7 +26,7 @@ ${module.documentation}
 </ul>
 #end
 
-#foreach ($method in $module.methods)
+#foreach ($method in $page.methods)
   #if ($method.documented())
     <h2 id="${method.name}">${method.name}</h2>
     #if (!$method.signature.isEmpty())
