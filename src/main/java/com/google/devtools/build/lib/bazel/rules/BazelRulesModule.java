@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
@@ -307,6 +309,21 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op, will be removed soon.",
         allowMultiple = true)
     public List<String> highPriorityWorkers;
+
+    @Option(
+        name = "target_platform_fallback",
+        converter = EmptyToNullLabelConverter.class,
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+            OptionEffectTag.AFFECTS_OUTPUTS,
+            OptionEffectTag.CHANGES_INPUTS,
+            OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help = "No-op, will be removed soon.",
+        deprecationWarning = "This flag is currently unused. Set --platforms instead.")
+    @Deprecated
+    public Label targetPlatformFallback;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
