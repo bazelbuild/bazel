@@ -56,6 +56,7 @@ class WorkerProxy extends Worker {
     workerMultiplexer.setReporter(reporter);
   }
 
+  @Override
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
@@ -79,7 +80,7 @@ class WorkerProxy extends Worker {
 
   /** Wait for WorkResponse from multiplexer. */
   @Override
-  WorkResponse getResponse(int requestId) throws InterruptedException {
+  WorkResponse getResponse(int requestId) throws InterruptedException, IOException {
     return workerMultiplexer.getResponse(requestId);
   }
 
