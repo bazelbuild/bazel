@@ -721,7 +721,7 @@ public class TestRunnerAction extends AbstractAction
     }
     env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
 
-    if (!isEnableRunfiles()) {
+    if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
@@ -986,10 +986,10 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
-    return getOutputs();
+    return ImmutableSet.copyOf(getOutputs());
   }
 
-  public Artifact getTestSetupScript() {
+  Artifact getTestSetupScript() {
     return testSetupScript;
   }
 
@@ -1003,16 +1003,8 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Nullable
-  public PathFragment getShExecutableMaybe() {
+  PathFragment getShExecutableMaybe() {
     return shExecutable;
-  }
-
-  public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return configuration.getLocalShellEnvironment();
-  }
-
-  public boolean isEnableRunfiles() {
-    return configuration.runfilesEnabled();
   }
 
   @Override

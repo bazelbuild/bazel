@@ -85,6 +85,7 @@ import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -637,7 +638,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public ImmutableSet<Artifact> getOutputFiles() {
+    public Collection<Artifact> getOutputFiles() {
       return reportOutputs ? super.getOutputFiles() : ImmutableSet.of();
     }
   }
@@ -1004,11 +1005,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      *
      * <p>The {@code --action_env} has priority over configuration-fragment-dictated envvar values,
      * i.e. if the configuration fragment tries to add FOO=bar to the environment, and there's also
-     * {@link --action_env=FOO=baz} or {@link --action_env=FOO}, then FOO will be available to the
+     * {@code --action_env=FOO=baz} or {@code --action_env=FOO}, then FOO will be available to the
      * action and its value will be "baz", or whatever the corresponding {@code --client_env} flag
      * specified, respectively.
      *
-     * @see {@link BuildConfigurationValue#getLocalShellEnvironment}
+     * @see BuildConfigurationValue#getLocalShellEnvironment
      */
     @CanIgnoreReturnValue
     public Builder useDefaultShellEnvironment() {

@@ -181,7 +181,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     // Look up the parts of the environment that influence the action.
     Collection<String> clientEnvironmentVariables = action.getClientEnvironmentVariables();
-    Map<String, String> clientEnv;
+    ImmutableMap<String, String> clientEnv;
     if (!clientEnvironmentVariables.isEmpty()) {
       ImmutableSet<String> clientEnvironmentVariablesSet =
           ImmutableSet.copyOf(clientEnvironmentVariables);
@@ -366,7 +366,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     // - It's uncommon that 2 actions share the exact same set of inputs
     //   => the top layer offers little in terms of reusability.
     // More details: b/143205147.
-    Iterable<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
+    List<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
     if (state.requestedArtifactNestedSetKeys == null) {
       state.requestedArtifactNestedSetKeys =
           CompactHashSet.create(
@@ -743,7 +743,7 @@ public final class ActionExecutionFunction implements SkyFunction {
             state.inputArtifactData,
             skyframeActionExecutor.useArchivedTreeArtifacts(action),
             skyframeActionExecutor.getOutputPermissions(),
-            action.getOutputs(),
+            ImmutableSet.copyOf(action.getOutputs()),
             skyframeActionExecutor.getXattrProvider(),
             tsgm.get(),
             pathResolver,
@@ -1198,6 +1198,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       if (value == null) {
         if (isMandatoryInput.test(input)) {
           StringBuilder errorMessage = new StringBuilder();
+          ImmutableSet<Artifact> outputs = ImmutableSet.copyOf(action.getOutputs());
           NestedSet<Artifact> nestedInputs = action.getInputs();
           ImmutableSet<Artifact> inputs = nestedInputs.toSet();
           if (action.discoversInputs()) {
@@ -1205,7 +1206,7 @@ public final class ActionExecutionFunction implements SkyFunction {
           } else {
             errorMessage.append("\nAction does not discover inputs");
           }
-          if (action.getOutputs().contains(input)) {
+          if (outputs.contains(input)) {
             errorMessage.append("\nInput is an *output* of action");
           }
           if (inputs.contains(input)) {
@@ -1440,8 +1441,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     private final Action action;
     private final Predicate<Artifact> isMandatoryInput;
     private final Iterable<SkyKey> requestedSkyKeys;
-    List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
-    List<NestedSet<Cause>> transitiveCauses = Lists.newArrayListWithCapacity(0);
+    private final List<LabelCause> missingArtifactCauses = Lists.newArrayListWithCapacity(0);
+    private final List<NestedSet<Cause>> transitiveCauses = Lists.newArrayListWithCapacity(0);
     private ActionExecutionException firstActionExecutionException;
 
     ActionExecutionFunctionExceptionHandler(

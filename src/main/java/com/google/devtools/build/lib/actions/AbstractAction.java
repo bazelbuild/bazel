@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
@@ -49,8 +53,11 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
+import java.util.AbstractSet;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.Dict;
@@ -110,7 +117,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private final NestedSet<Artifact> tools;
 
   @GuardedBy("this")
-  private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
+  private boolean inputsDiscovered = false; // Only used when discoversInputs() returns true
 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   @GuardedBy("this")
@@ -119,14 +126,19 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   protected final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
-  @VisibleForSerialization protected final ImmutableSet<Artifact> outputs;
+
+  /**
+   * To save memory, this is either an {@link Artifact} for actions with a single output, or a
+   * duplicate-free {@code Artifact[]} for actions with multiple outputs.
+   */
+  private final Object outputs;
 
   /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
     this(
         owner,
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -140,7 +152,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       ActionEnvironment env) {
     this(
         owner,
-        /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         EmptyRunfilesSupplier.INSTANCE,
         outputs,
@@ -154,14 +166,18 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       RunfilesSupplier runfilesSupplier,
       Iterable<? extends Artifact> outputs,
       ActionEnvironment env) {
-    Preconditions.checkNotNull(owner);
-    this.owner = owner;
-    this.tools = tools;
-    this.inputs = inputs;
-    this.env = Preconditions.checkNotNull(env);
-    this.outputs = ImmutableSet.copyOf(outputs);
-    this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier);
-    Preconditions.checkArgument(!this.outputs.isEmpty(), "action outputs may not be empty");
+    this.owner = checkNotNull(owner);
+    this.tools = checkNotNull(tools);
+    this.inputs = checkNotNull(inputs);
+    this.env = checkNotNull(env);
+    this.runfilesSupplier = checkNotNull(runfilesSupplier);
+    this.outputs = singletonOrArray(outputs);
+  }
+
+  private static Object singletonOrArray(Iterable<? extends Artifact> outputs) {
+    ImmutableSet<Artifact> set = ImmutableSet.copyOf(outputs);
+    checkArgument(!set.isEmpty(), "Action outputs may not be empty");
+    return set.size() == 1 ? Iterables.getOnlyElement(set) : set.toArray(Artifact[]::new);
   }
 
   @Override
@@ -213,7 +229,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public final void resetDiscoveredInputs() {
-    Preconditions.checkState(discoversInputs(), "Not an input-discovering action: %s", this);
+    checkState(discoversInputs(), "Not an input-discovering action: %s", this);
     if (!inputsDiscovered()) {
       return;
     }
@@ -257,8 +273,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    */
   @Override
   public synchronized void updateInputs(NestedSet<Artifact> inputs) {
-    Preconditions.checkState(
-        discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
+    checkState(discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
     this.inputs = inputs;
     inputsDiscovered = true;
   }
@@ -297,8 +312,36 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public ImmutableSet<Artifact> getOutputs() {
-    return outputs;
+  public Collection<Artifact> getOutputs() {
+    return outputs instanceof Artifact
+        ? ImmutableSet.of((Artifact) outputs)
+        : new OutputSet((Artifact[]) outputs);
+  }
+
+  /**
+   * Simple {@link Set} wrapper around an array for actions with multiple outputs.
+   *
+   * <p>Implements {@link Set} so that passing an instance to {@link ImmutableSet#copyOf} results in
+   * precise pre-sizing (since it is known to be duplicate-free). Note that the return type of
+   * {@link ActionAnalysisMetadata#getOutputs} is {@link Collection}, so callers are unlikely to
+   * expect a fast {@link #contains} implementation.
+   */
+  private static final class OutputSet extends AbstractSet<Artifact> {
+    private final Artifact[] array;
+
+    OutputSet(Artifact[] array) {
+      this.array = array;
+    }
+
+    @Override
+    public Iterator<Artifact> iterator() {
+      return Iterators.forArray(array);
+    }
+
+    @Override
+    public int size() {
+      return array.length;
+    }
   }
 
   @Override
@@ -310,7 +353,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public final Artifact getPrimaryOutput() {
-    return Iterables.get(outputs, 0);
+    return outputs instanceof Artifact ? (Artifact) outputs : ((Artifact[]) outputs)[0];
   }
 
   @Override
@@ -368,28 +411,29 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Nullable
   @Override
   public final String getProgressMessage(RepositoryMapping mainRepositoryMapping) {
-    Preconditions.checkNotNull(mainRepositoryMapping);
+    checkNotNull(mainRepositoryMapping);
     return getProgressMessageChecked(mainRepositoryMapping);
   }
 
+  @Nullable
   private String getProgressMessageChecked(@Nullable RepositoryMapping mainRepositoryMapping) {
     String message = getRawProgressMessage();
     if (message == null) {
       return null;
     }
     message = replaceProgressMessagePlaceholders(message, mainRepositoryMapping);
-    String additionalInfo = getOwner().getAdditionalProgressInfo();
+    String additionalInfo = owner.getAdditionalProgressInfo();
     return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
   }
 
   private String replaceProgressMessagePlaceholders(
       String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
-    if (progressMessage.contains("%{label}") && getOwner().getLabel() != null) {
+    if (progressMessage.contains("%{label}") && owner.getLabel() != null) {
       String labelString;
       if (mainRepositoryMapping != null) {
-        labelString = getOwner().getLabel().getDisplayForm(mainRepositoryMapping);
+        labelString = owner.getLabel().getDisplayForm(mainRepositoryMapping);
       } else {
-        labelString = getOwner().getLabel().toString();
+        labelString = owner.getLabel().toString();
       }
       progressMessage = progressMessage.replace("%{label}", labelString);
     }
@@ -444,9 +488,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       @Nullable BulkDeleter bulkDeleter,
       boolean cleanupArchivedArtifacts)
       throws IOException, InterruptedException {
+    Collection<Artifact> outputs = getOutputs();
     Iterable<Artifact> artifactsToDelete =
         cleanupArchivedArtifacts
-            ? Iterables.concat(outputs, archivedTreeArtifactOutputs())
+            ? Iterables.concat(outputs, archivedTreeArtifactOutputs(outputs))
             : outputs;
     Iterable<PathFragment> additionalPathOutputsToDelete = getAdditionalPathOutputsToDelete();
     Iterable<PathFragment> directoryOutputsToDelete = getDirectoryOutputsToDelete();
@@ -485,7 +530,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return ImmutableList.of();
   }
 
-  private Iterable<Artifact> archivedTreeArtifactOutputs() {
+  private static Iterable<Artifact> archivedTreeArtifactOutputs(Collection<Artifact> outputs) {
     return Iterables.transform(
         Iterables.filter(outputs, Artifact::isTreeArtifact),
         tree -> ArchivedTreeArtifact.createForTree((SpecialArtifact) tree));
@@ -557,11 +602,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
           // TODO(ulfjack): What about dependency checking of special files?
           eventHandler.handle(
               Event.warn(
-                  getOwner().getLocation(),
+                  owner.getLocation(),
                   String.format(
                       "input '%s' to %s is a directory; "
                           + "dependency checking of directories is unsound",
-                      input.prettyPrint(), getOwner().getLabel())));
+                      input.prettyPrint(), owner.getLabel())));
         }
       } catch (IOException e) {
         throw new EnvironmentalExecException(e, Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION);
@@ -596,12 +641,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
         continue;
       }
-      String ownerString = Label.print(getOwner().getLabel());
+      String ownerString = Label.print(owner.getLabel());
       actionExecutionContext
           .getEventHandler()
           .handle(
               Event.warn(
-                      getOwner().getLocation(),
+                      owner.getLocation(),
                       "output '"
                           + output.prettyPrint()
                           + "' of "
@@ -635,11 +680,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
-    ActionOwner owner = getOwner();
     ExtraActionInfo.Builder result =
         ExtraActionInfo.newBuilder()
             .setOwner(owner.getLabel().toString())
-            .setId(getKey(actionKeyContext, /*artifactExpander=*/ null))
+            .setId(getKey(actionKeyContext, /* artifactExpander= */ null))
             .setMnemonic(getMnemonic());
     ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
     AspectDescriptor lastAspect =
@@ -692,22 +736,26 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
+  @Nullable
   public Sequence<String> getStarlarkArgv() throws EvalException, InterruptedException {
     return null;
   }
 
   @Override
+  @Nullable
   public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
     // Not all action types support returning Args.
     return null;
   }
 
   @Override
+  @Nullable
   public String getStarlarkContent() throws IOException, EvalException, InterruptedException {
     return null;
   }
 
   @Override
+  @Nullable
   public Dict<String, String> getStarlarkSubstitutions() throws EvalException {
     return null;
   }
@@ -733,12 +781,12 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public ImmutableMap<String, String> getExecProperties() {
-    return getOwner().getExecProperties();
+    return owner.getExecProperties();
   }
 
   @Override
   @Nullable
   public PlatformInfo getExecutionPlatform() {
-    return getOwner().getExecutionPlatform();
+    return owner.getExecutionPlatform();
   }
 }

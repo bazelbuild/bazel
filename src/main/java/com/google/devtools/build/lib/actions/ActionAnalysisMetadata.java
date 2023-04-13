@@ -145,10 +145,11 @@ public interface ActionAnalysisMetadata {
   Collection<String> getClientEnvironmentVariables();
 
   /**
-   * Returns the (unordered, immutable) set of output Artifacts that this action generates. (It
-   * would not make sense for this to be empty.)
+   * Returns the output artifacts that this action generates.
+   *
+   * <p>The returned {@link Collection} is immutable, non-empty, and duplicate-free.
    */
-  ImmutableSet<Artifact> getOutputs();
+  Collection<Artifact> getOutputs();
 
   /**
    * Returns input files that need to be present to allow extra_action rules to shadow this action
