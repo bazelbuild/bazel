@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -553,6 +555,25 @@ public abstract class ActionInputPrefetcherTestBase {
     // assert
     assertThat(successful.get()).isTrue();
     assertThat(FileSystemUtils.readContent(artifact.getPath(), UTF_8)).isEqualTo("hello world");
+  }
+
+  @Test
+  public void prefetchFile_interruptingMetadataSupplier_interruptsDownload() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    MetadataSupplier interruptedMetadataSupplier =
+        unused -> {
+          throw new InterruptedException();
+        };
+
+    ListenableFuture<Void> future =
+        prefetcher.prefetchFiles(
+            ImmutableList.of(a1), interruptedMetadataSupplier, Priority.MEDIUM);
+
+    assertThrows(CancellationException.class, future::get);
   }
 
   @Test

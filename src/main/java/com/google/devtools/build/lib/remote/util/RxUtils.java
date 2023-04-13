@@ -55,7 +55,7 @@ public class RxUtils {
 
     /** Returns {@code true} if the operation succeed. */
     public boolean isOk() {
-      return error == null;
+      return error == null && !interrupted;
     }
 
     /** Returns {@code true} if the operation failed. */
@@ -116,15 +116,15 @@ public class RxUtils {
     }
 
     Completable toCompletable() {
-      if (bulkTransferException == null) {
-        return Completable.complete();
-      }
-
       if (interrupted) {
         return Completable.error(new InterruptedException());
       }
 
-      return Completable.error(bulkTransferException);
+      if (bulkTransferException != null) {
+        return Completable.error(bulkTransferException);
+      }
+
+      return Completable.complete();
     }
   }
 
