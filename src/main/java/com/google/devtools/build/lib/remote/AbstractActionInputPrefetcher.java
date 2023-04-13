@@ -21,7 +21,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
-import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -311,8 +312,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
-            .flatMapSingle(
-                input -> toTransferResult(prefetchFile(dirCtx, metadataSupplier, input, priority)));
+            .flatMapSingle(input -> prefetchFile(dirCtx, metadataSupplier, input, priority));
 
     Completable prefetch =
         Completable.using(
@@ -321,48 +321,53 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return toListenableFuture(prefetch);
   }
 
-  private Completable prefetchFile(
+  private Single<TransferResult> prefetchFile(
       DirectoryContext dirCtx,
       MetadataSupplier metadataSupplier,
       ActionInput input,
-      Priority priority)
-      throws IOException, InterruptedException {
-    if (input instanceof VirtualActionInput) {
-      prefetchVirtualActionInput((VirtualActionInput) input);
-      return Completable.complete();
+      Priority priority) {
+    try {
+      if (input instanceof VirtualActionInput) {
+        prefetchVirtualActionInput((VirtualActionInput) input);
+        return Single.just(TransferResult.ok());
+      }
+
+      PathFragment execPath = input.getExecPath();
+
+      FileArtifactValue metadata = metadataSupplier.getMetadata(input);
+      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+        return Single.just(TransferResult.ok());
+      }
+
+      @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
+
+      if (symlink != null) {
+        checkState(execPath.startsWith(symlink.getLinkExecPath()));
+        execPath =
+            symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
+      }
+
+      @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataSupplier);
+
+      Completable result =
+          downloadFileNoCheckRx(
+              dirCtx,
+              execRoot.getRelative(execPath),
+              treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+              input,
+              metadata,
+              priority);
+
+      if (symlink != null) {
+        result = result.andThen(plantSymlink(symlink));
+      }
+
+      return RxUtils.toTransferResult(result);
+    } catch (IOException e) {
+      return Single.just(TransferResult.error(e));
+    } catch (InterruptedException e) {
+      return Single.just(TransferResult.interrupted());
     }
-
-    PathFragment execPath = input.getExecPath();
-
-    FileArtifactValue metadata = metadataSupplier.getMetadata(input);
-    if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
-      return Completable.complete();
-    }
-
-    @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
-
-    if (symlink != null) {
-      checkState(execPath.startsWith(symlink.getLinkExecPath()));
-      execPath =
-          symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
-    }
-
-    @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataSupplier);
-
-    Completable result =
-        downloadFileNoCheckRx(
-            dirCtx,
-            execRoot.getRelative(execPath),
-            treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
-            input,
-            metadata,
-            priority);
-
-    if (symlink != null) {
-      result = result.andThen(plantSymlink(symlink));
-    }
-
-    return result;
   }
 
   /**
