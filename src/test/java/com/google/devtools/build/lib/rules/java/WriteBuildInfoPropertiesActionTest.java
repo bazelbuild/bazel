@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.NewLineNormalizingBufferedWriter;
 import com.google.devtools.build.lib.rules.java.WriteBuildInfoPropertiesAction.StripFirstLineWriter;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import java.io.BufferedWriter;
@@ -37,13 +36,12 @@ public class WriteBuildInfoPropertiesActionTest extends FoundationTestCase {
 
   private void assertStripFirstLine(String expected, String... testCases) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (StripFirstLineWriter writer =
-        new StripFirstLineWriter(out)) {
+    try (StripFirstLineWriter writer = new StripFirstLineWriter(out)) {
       for (String testCase : testCases) {
         writer.write(testCase);
       }
     }
-    assertThat(new String(out.toByteArray(), UTF_8)).isEqualTo(expected);
+    assertThat(out.toString(UTF_8)).isEqualTo(expected);
   }
 
   @Test
@@ -68,10 +66,7 @@ public class WriteBuildInfoPropertiesActionTest extends FoundationTestCase {
     Properties underTest = new WriteBuildInfoPropertiesAction.DeterministicProperties();
     underTest.put("second", "keyb");
     underTest.put("first", "keya");
-    try (BufferedWriter writer = new NewLineNormalizingBufferedWriter(
-        new StripFirstLineWriter(bytes))) {
-      underTest.store(writer, null);
-    }
+    WriteBuildInfoPropertiesAction.storeNormalized(underTest, bytes);
     assertThat(bytes.toString(UTF_8)).isEqualTo("first=keya\nsecond=keyb\n");
   }
 }

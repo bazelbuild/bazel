@@ -114,8 +114,7 @@ public final class WriteBuildInfoPropertiesAction extends AbstractFileWriteActio
    * regardless of the value of the {@code line.separator} system property. This can be used to get
    * consistent output from {@link Properties#store(Writer, String)} across host OSes.
    */
-  @VisibleForTesting
-  static class NewLineNormalizingBufferedWriter extends BufferedWriter {
+  private static class NewLineNormalizingBufferedWriter extends BufferedWriter {
     public NewLineNormalizingBufferedWriter(Writer out) {
       super(out);
     }
@@ -194,9 +193,14 @@ public final class WriteBuildInfoPropertiesAction extends AbstractFileWriteActio
         addValues(keys, values, context.getStableKeys());
         Properties properties = new DeterministicProperties();
         keyTranslations.translate(keys, properties);
-        properties.store(new NewLineNormalizingBufferedWriter(new StripFirstLineWriter(out)), null);
+        storeNormalized(properties, out);
       }
     };
+  }
+
+  @VisibleForTesting
+  static void storeNormalized(Properties properties, OutputStream out) throws IOException {
+    properties.store(new NewLineNormalizingBufferedWriter(new StripFirstLineWriter(out)), null);
   }
 
   private void addValues(
