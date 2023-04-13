@@ -85,11 +85,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
 
   /**
    * Creates a new metadata handler.
-   *
-   * <p>If the handler is for use during input discovery, calling {@link #getMetadata} with an
-   * artifact which is neither in {@code inputArtifactData} nor {@code outputs} is tolerated and
-   * will return {@code null}. To subsequently transform the handler for regular action execution
-   * (where such a call is not permitted), use {@link #transformAfterInputDiscovery}.
    */
   static ActionMetadataHandler create(
       ActionInputMap inputArtifactData,
@@ -100,7 +95,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
-      PathFragment derivedPathPrefix,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
     return new ActionMetadataHandler(
         inputArtifactData,
@@ -111,7 +105,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
         tsgm,
         artifactPathResolver,
         execRoot,
-        derivedPathPrefix,
         createFilesetMapping(expandedFilesets, execRoot),
         new OutputStore());
   }
@@ -128,7 +121,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
   private final PathFragment execRoot;
-  private final PathFragment derivedPathPrefix;
 
   private final AtomicBoolean executionMode = new AtomicBoolean(false);
   private final OutputStore store;
@@ -142,7 +134,6 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       PathFragment execRoot,
-      PathFragment derivedPathPrefix,
       ImmutableMap<PathFragment, FileArtifactValue> filesetMapping,
       OutputStore store) {
     this.inputArtifactData = checkNotNull(inputArtifactData);
@@ -153,35 +144,8 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
     this.tsgm = checkNotNull(tsgm);
     this.artifactPathResolver = checkNotNull(artifactPathResolver);
     this.execRoot = checkNotNull(execRoot);
-    this.derivedPathPrefix = checkNotNull(derivedPathPrefix);
     this.filesetMapping = checkNotNull(filesetMapping);
     this.store = checkNotNull(store);
-  }
-
-  /**
-   * Returns a new handler mostly identical to this one, except uses the given {@code store} and
-   * does not permit {@link #getMetadata} to be called with an artifact which is neither in inputs
-   * nor outputs.
-   *
-   * <p>The returned handler will be in the mode for action cache checking. To prepare it for action
-   * execution, call {@link #prepareForActionExecution}.
-   *
-   * <p>This method is designed to be called after input discovery when a fresh handler is needed
-   * but all of the parameters in {@link #create} would be the same as the original handler.
-   */
-  ActionMetadataHandler transformAfterInputDiscovery(OutputStore store) {
-    return new ActionMetadataHandler(
-        inputArtifactData,
-        archivedTreeArtifactsEnabled,
-        outputPermissions,
-        outputs,
-        xattrProvider,
-        tsgm,
-        artifactPathResolver,
-        execRoot,
-        derivedPathPrefix,
-        filesetMapping,
-        store);
   }
 
   /**

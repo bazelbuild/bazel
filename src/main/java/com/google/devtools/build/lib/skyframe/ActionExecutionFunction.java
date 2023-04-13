@@ -748,7 +748,6 @@ public final class ActionExecutionFunction implements SkyFunction {
             tsgm.get(),
             pathResolver,
             skyframeActionExecutor.getExecRoot().asFragment(),
-            PathFragment.create(directories.getRelativeOutputPath()),
             expandedFilesets);
 
     // We only need to check the action cache if we haven't done it on a previous run.
@@ -808,15 +807,12 @@ public final class ActionExecutionFunction implements SkyFunction {
             "Input discovery returned null but no more deps were requested by %s",
             action);
       }
-      switch (addDiscoveredInputs(state, env, action)) {
-        case VALUES_MISSING:
-          return null;
-        case NO_DISCOVERED_DATA:
-          break;
-        case DISCOVERED_DATA:
-          metadataHandler = metadataHandler.transformAfterInputDiscovery(new OutputStore());
-          metadataHandler.prepareForActionExecution();
+
+      addDiscoveredInputs(state, env, action);
+      if (env.valuesMissing()) {
+        return null;
       }
+
       // When discover inputs completes, post an event with the duration values.
       env.getListener()
           .post(
@@ -866,17 +862,9 @@ public final class ActionExecutionFunction implements SkyFunction {
           state.getExpandedFilesets();
       if (action.discoversInputs()) {
         state.discoveredInputs = action.getInputs();
-        switch (addDiscoveredInputs(state, env, action)) {
-          case VALUES_MISSING:
-            return;
-          case NO_DISCOVERED_DATA:
-            break;
-          case DISCOVERED_DATA:
-            // We are in the interesting case of an action that discovered its inputs during
-            // execution, and found some new ones, but the new ones were already present in the
-            // graph. We must therefore cache the metadata for those new ones.
-            metadataHandler =
-                metadataHandler.transformAfterInputDiscovery(metadataHandler.getOutputStore());
+        addDiscoveredInputs(state, env, action);
+        if (env.valuesMissing()) {
+          return;
         }
       }
       checkState(!env.valuesMissing(), action);
@@ -895,13 +883,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
   }
 
-  private enum DiscoveredState {
-    VALUES_MISSING,
-    NO_DISCOVERED_DATA,
-    DISCOVERED_DATA
-  }
-
-  private DiscoveredState addDiscoveredInputs(
+  private void addDiscoveredInputs(
       InputDiscoveryState state, Environment env, Action actionForError)
       throws InterruptedException, ActionExecutionException {
     // TODO(janakr): This code's assumptions are wrong in the face of Starlark actions with unused
@@ -919,7 +901,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (unknownDiscoveredInputs.isEmpty()) {
-      return DiscoveredState.NO_DISCOVERED_DATA;
+      return;
     }
 
     SkyframeLookupResult nonMandatoryDiscovered =
@@ -980,7 +962,6 @@ public final class ActionExecutionFunction implements SkyFunction {
             "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
       }
     }
-    return env.valuesMissing() ? DiscoveredState.VALUES_MISSING : DiscoveredState.DISCOVERED_DATA;
   }
 
   @Nullable
