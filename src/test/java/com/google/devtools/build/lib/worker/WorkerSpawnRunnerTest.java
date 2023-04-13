@@ -511,7 +511,8 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExpandArgument_expandsArgumentsRecursively() throws IOException {
+  public void testExpandArgument_expandsArgumentsRecursively()
+      throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@file2\nmulti arg\n");
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file2"), "arg2\narg3");
@@ -521,7 +522,8 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExpandArgument_expandsOnlyProperArguments() throws IOException {
+  public void testExpandArgument_expandsOnlyProperArguments()
+      throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
     WorkerSpawnRunner.expandArgument(fs.getPath("/"), "@file", requestBuilder);
