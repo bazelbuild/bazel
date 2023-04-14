@@ -692,7 +692,10 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
   }
 
   private void setPathPermissionsIfFile(Path path) throws IOException {
-    if (path.isFile(Symlinks.NOFOLLOW)) {
+    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+    if (stat != null
+        && stat.isFile()
+        && stat.getPermissions() != outputPermissions.getPermissionsMode()) {
       setPathPermissions(path);
     }
   }

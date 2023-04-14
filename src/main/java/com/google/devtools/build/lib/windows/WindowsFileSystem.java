@@ -156,6 +156,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     }
 
     final boolean isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+    final long lastChangeTime =
+        WindowsFileOperations.getLastChangeTime(getNioPath(path).toString(), followSymlinks);
     FileStatus status =
         new FileStatus() {
           @Override
@@ -193,14 +195,19 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
+            return lastChangeTime;
           }
 
           @Override
           public long getNodeId() {
             // TODO(bazel-team): Consider making use of attributes.fileKey().
             return -1;
+          }
+
+          @Override
+          public int getPermissions() {
+            // Files on Windows are implicitly readable and executable.
+            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
           }
         };
 
