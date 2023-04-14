@@ -150,7 +150,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
 
   @Override
   public boolean isShareable() {
-    return !unusedInputsList.isPresent();
+    return unusedInputsList.isEmpty();
   }
 
   @Override
@@ -190,7 +190,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           createInputs(
               shadowedActionObj.getInputs(), inputFilesForExtraAction, allStarlarkActionInputs));
       return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER, Sets.<Artifact>difference(getInputs().toSet(), oldInputs.toSet()));
+          Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
     }
     // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
     // removed might now be needed.
@@ -229,7 +229,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
       throws ExecException {
-    if (!unusedInputsList.isPresent()) {
+    if (unusedInputsList.isEmpty()) {
       return;
     }
 
@@ -297,6 +297,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         .build();
   }
 
+  @SafeVarargs
   private static NestedSet<Artifact> createInputs(NestedSet<Artifact>... inputsLists) {
     NestedSetBuilder<Artifact> nestedSetBuilder = new NestedSetBuilder<>(Order.STABLE_ORDER);
     for (NestedSet<Artifact> inputs : inputsLists) {
@@ -339,6 +340,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
+    ActionEnvironment env = getEnvironment();
     Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
 
     if (shadowedAction.isPresent()) {

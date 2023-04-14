@@ -189,7 +189,7 @@ public class CcCommonTest extends BuildViewTestCase {
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    return linkAction.getLinkCommandLine().getLinkerInputArtifacts().toList();
+    return linkAction.getLinkCommandLineForTesting().getLinkerInputArtifacts().toList();
   }
 
   @Test
@@ -203,7 +203,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     Artifact executable = getExecutable(archiveInSrcsTest);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    assertThat(linkAction.getLinkCommandLine().toString()).contains(" -larchive.34 ");
+    assertThat(linkAction.getLinkCommandLineForTesting().toString()).contains(" -larchive.34 ");
   }
 
   @Test
@@ -818,7 +818,7 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
-    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting()))
         .containsExactly(
             String.format(
                 "-Wl,@%s/a/a.lds",

@@ -166,14 +166,14 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         commandLineLimits,
         isShellCommand,
         env,
-        ImmutableMap.<String, String>of(),
+        ImmutableMap.of(),
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
         false,
         null,
         null,
-        /*stripOutputPaths=*/ false);
+        /* stripOutputPaths= */ false);
   }
 
   /**
@@ -242,7 +242,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private PathMapper getPathStripper() {
     return PathStripper.createForAction(
         stripOutputPaths,
-        this instanceof StarlarkAction ? getMnemonic() : null,
+        this instanceof StarlarkAction ? mnemonic : null,
         getPrimaryOutput().getExecPath().subFragment(0, 1));
   }
 
@@ -443,7 +443,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
-    fp.addString(getMnemonic());
+    fp.addString(mnemonic);
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
@@ -453,7 +453,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());
     }
-    env.addTo(fp);
+    getEnvironment().addTo(fp);
     fp.addStringMap(getExecutionInfo());
     fp.addBoolean(stripOutputPaths);
   }
@@ -463,7 +463,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    for (Map.Entry<String, String> entry : env.getFixedEnv().entrySet()) {
+    for (Map.Entry<String, String> entry : getEnvironment().getFixedEnv().entrySet()) {
       message.append("  Environment variable: ");
       message.append(ShellEscaper.escapeString(entry.getKey()));
       message.append('=');
@@ -554,7 +554,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
     // requires first updating all subclasses and callers to actually handle environments correctly,
     // so it's not a small change.
-    return env.getFixedEnv();
+    return getEnvironment().getFixedEnv();
   }
 
   /** Returns the out-of-band execution data for this action. */
@@ -667,7 +667,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     private CharSequence progressMessage;
     private String mnemonic = "Unknown";
-    protected ExtraActionInfoSupplier extraActionInfoSupplier = null;
+    ExtraActionInfoSupplier extraActionInfoSupplier = null;
     private boolean disableSandboxing = false;
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
 
@@ -878,7 +878,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     /** Adds tools to this action. */
     @CanIgnoreReturnValue
-    public Builder addTools(Iterable<Artifact> artifacts) {
+    Builder addTools(Iterable<Artifact> artifacts) {
       toolsBuilder.addAll(artifacts);
       return this;
     }
@@ -1149,13 +1149,13 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * {@link #setJavaExecutable}, or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
-    public Builder setJavaExecutable(
+    Builder setJavaExecutable(
         PathFragment javaExecutable,
         Artifact deployJar,
         String javaMainClass,
         NestedSet<String> jvmArgs) {
-      return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-cp",
-          deployJar.getExecPathString(), javaMainClass);
+      return setJavaExecutable(
+          javaExecutable, deployJar, jvmArgs, "-cp", deployJar.getExecPathString(), javaMainClass);
     }
 
     /**
@@ -1207,7 +1207,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     /** Returns a {@link CustomCommandLine.Builder} for executable arguments. */
-    public CustomCommandLine.Builder executableArguments() {
+    CustomCommandLine.Builder executableArguments() {
       if (executableArgs == null) {
         if (executableArg != null) {
           executableArgs = CustomCommandLine.builder().addObject(executableArg);
@@ -1389,7 +1389,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @CanIgnoreReturnValue
-    public <T> Builder setExtraActionInfo(ExtraActionInfoSupplier extraActionInfoSupplier) {
+    public Builder setExtraActionInfo(ExtraActionInfoSupplier extraActionInfoSupplier) {
       this.extraActionInfoSupplier = extraActionInfoSupplier;
       return this;
     }
@@ -1422,7 +1422,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
   private static final class CallablePathFragment implements CommandLines.PathStrippable {
 
-    public final PathFragment fragment;
+    final PathFragment fragment;
     private final boolean isDerived;
 
     CallablePathFragment(PathFragment fragment, boolean isDerived) {
