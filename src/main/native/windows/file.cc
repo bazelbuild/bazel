@@ -21,6 +21,7 @@
 #include <WinIoCtl.h>
 #include <stdint.h>  // uint8_t
 #include <versionhelpers.h>
+#include <winbase.h>
 #include <windows.h>
 
 #include <memory>
@@ -117,6 +118,54 @@ int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error) {
     *result = (attrs & FILE_ATTRIBUTE_REPARSE_POINT);
     return IsSymlinkOrJunctionResult::kSuccess;
   }
+}
+
+int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
+                  int64_t* result, wstring* error) {
+  if (!IsAbsoluteNormalizedWindowsPath(path)) {
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__, L"GetChangeTime",
+                                path, L"expected an absolute Windows path");
+    }
+    return GetChangeTimeResult::kError;
+  }
+
+  AutoHandle handle;
+  DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
+  if (!follow_reparse_points) {
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  }
+  handle = CreateFileW(path, 0,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       nullptr, OPEN_EXISTING, flags, nullptr);
+
+  if (!handle.IsValid()) {
+    DWORD err = GetLastError();
+    if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+      return GetChangeTimeResult::kDoesNotExist;
+    } else if (err == ERROR_ACCESS_DENIED) {
+      return GetChangeTimeResult::kAccessDenied;
+    }
+    if (error) {
+      *error =
+          MakeErrorMessage(WSTR(__FILE__), __LINE__, L"CreateFileW", path, err);
+    }
+    return GetChangeTimeResult::kError;
+  }
+
+  FILE_BASIC_INFO info;
+  if (!GetFileInformationByHandleEx(handle, FileBasicInfo, (LPVOID)&info,
+                                    sizeof(FILE_BASIC_INFO))) {
+    DWORD err = GetLastError();
+    if (error) {
+      *error = MakeErrorMessage(WSTR(__FILE__), __LINE__,
+                                L"GetFileInformationByHandleEx", path, err);
+    }
+    return GetChangeTimeResult::kError;
+  }
+
+  *result = info.ChangeTime.QuadPart;
+  return GetChangeTimeResult::kSuccess;
 }
 
 wstring GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
