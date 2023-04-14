@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -95,15 +96,18 @@ public class IndexRegistry implements Registry {
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
   private static class BazelRegistryJson {
     String[] mirrors;
+    String moduleBasePath;
   }
 
   /** Represents fields available in {@code source.json} for each version of a module. */
   private static class SourceJson {
+    String type = "archive";
     URL url;
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
     int patchStrip;
+    String path;
   }
 
   /**

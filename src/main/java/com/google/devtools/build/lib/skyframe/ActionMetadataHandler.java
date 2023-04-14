@@ -669,7 +669,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     if (stat != null
         && stat.isFile()
         && stat.getPermissions() != outputPermissions.getPermissionsMode()) {
-      setPathPermissions(path);
+      setPathReadOnlyAndExecutable(path);
     }
   }
 
