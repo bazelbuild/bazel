@@ -273,14 +273,15 @@ public final class SkyframeBuildView {
       EventHandler eventHandler, BuildConfigurationValue configuration, int maxDifferencesToShow) {
     if (skyframeAnalysisWasDiscarded) {
       eventHandler.handle(
-          Event.info(
+          Event.warn(
               "--discard_analysis_cache was used in the previous build, "
                   + "discarding analysis cache."));
       skyframeExecutor.handleAnalysisInvalidatingChange();
     } else {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
       if (diff != null) {
-        eventHandler.handle(Event.info(diff + ", discarding analysis cache."));
+        eventHandler.handle(
+            Event.warn(diff + ", discarding analysis cache (this can be expensive)."));
         // Note that clearing the analysis cache is currently required for correctness. It is also
         // helpful to save memory.
         //
