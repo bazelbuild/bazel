@@ -98,7 +98,10 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       return status.getInodeNumber();
     }
 
-    int getPermissions() { return status.getPermissions(); }
+    @Override
+    public int getPermissions() {
+      return status.getPermissions();
+    }
 
     @Override
     public String toString() { return status.toString(); }

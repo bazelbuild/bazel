@@ -300,9 +300,10 @@ public final class ActionMetadataHandlerTest {
 
     // Reset this output, which will make the handler stat the file again.
     handler.resetOutputs(ImmutableList.of(artifact));
-    chmodCalls.clear(); // Permit a second chmod call for the artifact.
+    chmodCalls.clear();
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
-    assertThat(chmodCalls).containsExactly(outputPath);
+    // The handler should not have chmodded the file as it already has the correct permission.
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test

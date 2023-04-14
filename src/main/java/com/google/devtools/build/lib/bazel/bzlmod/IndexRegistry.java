@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.OS;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -142,6 +143,60 @@ public class IndexRegistry implements Registry {
       throw new FileNotFoundException(
           String.format("Module %s's source information not found in registry %s", key, getUrl()));
     }
+
+    String type = sourceJson.get().type;
+    switch (type) {
+      case "archive":
+        return createArchiveRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      case "local_path":
+        return createLocalPathRepoSpec(sourceJson, bazelRegistryJson, key, repoName);
+      default:
+        throw new IOException(String.format("Invalid source type for module %s", key));
+    }
+  }
+
+  private RepoSpec createLocalPathRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
+    String path = sourceJson.get().path;
+    if (!PathFragment.isAbsolute(path)) {
+      String moduleBase = bazelRegistryJson.get().moduleBasePath;
+      path = moduleBase + "/" + path;
+      if (!PathFragment.isAbsolute(moduleBase)) {
+        if (uri.getScheme().equals("file")) {
+          if (uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
+            throw new IOException(
+                String.format(
+                    "Provided non absolute local registry path for module %s: %s",
+                    key, uri.getPath()));
+          }
+          // Unix:    file:///tmp --> /tmp
+          // Windows: file:///C:/tmp --> C:/tmp
+          path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0) + "/" + path;
+        } else {
+          throw new IOException(String.format("Provided non local registry for module %s", key));
+        }
+      }
+    }
+
+    return RepoSpec.builder()
+        .setRuleClassName("local_repository")
+        .setAttributes(
+            AttributeValues.create(
+                ImmutableMap.of(
+                    "name", repoName.getName(), "path", PathFragment.create(path).toString())))
+        .build();
+  }
+
+  private RepoSpec createArchiveRepoSpec(
+      Optional<SourceJson> sourceJson,
+      Optional<BazelRegistryJson> bazelRegistryJson,
+      ModuleKey key,
+      RepositoryName repoName)
+      throws IOException {
     URL sourceUrl = sourceJson.get().url;
     if (sourceUrl == null) {
       throw new IOException(String.format("Missing source URL for module %s", key));

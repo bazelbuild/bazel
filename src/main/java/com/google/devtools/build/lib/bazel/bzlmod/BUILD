@@ -74,6 +74,7 @@ java_library(
         ":common",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:gson",
         "//third_party:guava",
     ],
