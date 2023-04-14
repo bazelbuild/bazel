@@ -85,4 +85,16 @@ public interface FileStatus {
    * ought to cause the node ID of b to change, but appending / modifying b should not.
    */
   long getNodeId() throws IOException;
+
+  /**
+   * Returns the file's permissions in POSIX format (e.g. 0755) if possible without performing
+   * additional IO, otherwise (or if unsupported by the file system) returns -1.
+   *
+   * <p>If accurate group and other permissions aren't available, the returned value should attempt
+   * to mimic a umask of 022 (i.e. read and execute permissions extend to group and other, write
+   * does not).
+   */
+  default int getPermissions() {
+    return -1;
+  }
 }

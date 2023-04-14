@@ -83,6 +83,16 @@ struct IsSymlinkOrJunctionResult {
 };
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
+struct GetChangeTimeResult {
+  enum {
+    kSuccess = 0,
+    kError = 1,
+    kDoesNotExist = 2,
+    kAccessDenied = 3,
+  };
+};
+
+// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 struct DeletePathResult {
   enum {
     kSuccess = 0,
@@ -135,6 +145,13 @@ struct ReadSymlinkOrJunctionResult {
 // To read about differences between junctions and directory symlinks,
 // see http://superuser.com/a/343079. In Bazel we only ever create junctions.
 int IsSymlinkOrJunction(const WCHAR* path, bool* result, wstring* error);
+
+// Retrieves the FILETIME at which `path` was last changed, including metadata.
+//
+// `path` should be an absolute, normalized, Windows-style path, with "\\?\"
+// prefix if it's longer than MAX_PATH.
+int GetChangeTime(const WCHAR* path, bool follow_reparse_points,
+                  int64_t* result, wstring* error);
 
 // Computes the long version of `path` if it has any 8dot3 style components.
 // Returns the empty string upon success, or a human-readable error message upon

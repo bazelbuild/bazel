@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.windows;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 
 /** File operations on Windows. */
 public class WindowsFileOperations {
@@ -82,6 +84,12 @@ public class WindowsFileOperations {
   // IS_SYMLINK_OR_JUNCTION_ERROR = 1;
   private static final int IS_SYMLINK_OR_JUNCTION_DOES_NOT_EXIST = 2;
 
+  // Keep GET_CHANGE_TIME_* values in sync with src/main/native/windows/file.cc.
+  private static final int GET_CHANGE_TIME_SUCCESS = 0;
+  //  private static final int GET_CHANGE_TIME_ERROR = 1;
+  private static final int GET_CHANGE_TIME_DOES_NOT_EXIST = 2;
+  private static final int GET_CHANGE_TIME_ACCESS_DENIED = 3;
+
   // Keep CREATE_JUNCTION_* values in sync with src/main/native/windows/file.h.
   private static final int CREATE_JUNCTION_SUCCESS = 0;
   // CREATE_JUNCTION_ERROR = 1;
@@ -114,6 +122,9 @@ public class WindowsFileOperations {
   private static native int nativeIsSymlinkOrJunction(
       String path, boolean[] result, String[] error);
 
+  private static native int nativeGetChangeTime(
+      String path, boolean followReparsePoints, long[] result, String[] error);
+
   private static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
   private static native int nativeCreateJunction(String name, String target, String[] error);
@@ -141,6 +152,25 @@ public class WindowsFileOperations {
         break;
     }
     throw new IOException(String.format("Cannot tell if '%s' is link: %s", path, error[0]));
+  }
+
+  /** Returns the time at which the file was last changed, including metadata changes. */
+  public static long getLastChangeTime(String path, boolean followReparsePoints)
+      throws IOException {
+    long[] result = new long[] {0};
+    String[] error = new String[] {null};
+    switch (nativeGetChangeTime(asLongPath(path), followReparsePoints, result, error)) {
+      case GET_CHANGE_TIME_SUCCESS:
+        return result[0];
+      case GET_CHANGE_TIME_DOES_NOT_EXIST:
+        throw new FileNotFoundException(path);
+      case GET_CHANGE_TIME_ACCESS_DENIED:
+        throw new AccessDeniedException(path);
+      default:
+        // This is GET_CHANGE_TIME_ERROR (1). The JNI code puts a custom message in 'error[0]'.
+        break;
+    }
+    throw new IOException(String.format("Cannot get last change time of '%s': %s", path, error[0]));
   }
 
   /**
