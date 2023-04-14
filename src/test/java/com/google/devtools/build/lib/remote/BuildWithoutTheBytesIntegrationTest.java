@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
@@ -431,6 +433,34 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
         "my_rule(name = 'two_remote', local = False, chain_length = 2)");
 
     buildTarget("//a:one_local", "//a:two_local", "//a:one_remote", "//a:two_remote");
+  }
+
+  @Test
+  public void outputSymlinkHandledGracefully() throws Exception {
+    // Symlinks may not be supported on Windows
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  out = ctx.actions.declare_symlink(ctx.label.name)",
+        "  ctx.actions.run_shell(",
+        "    inputs = [],",
+        "    outputs = [out],",
+        "    command = 'ln -s hello $1',",
+        "    arguments = [out.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "", "my_rule(name = 'hello')");
+
+    buildTarget("//a:hello");
+
+    Path outputPath = getOutputPath("a/hello");
+    assertThat(outputPath.stat(Symlinks.NOFOLLOW).isSymbolicLink()).isTrue();
   }
 
   @Test
