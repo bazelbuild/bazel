@@ -346,7 +346,7 @@ downloads JDK 11 from a remote repository and run the Java application using it.
 
 Default value is `local_jdk`.
 Possible values are: `local_jdk`, `local_jdk_{{ "<var>" }}version{{ "</var>" }}`,
-`remotejdk_11`, and `remote_jdk17`.
+`remotejdk_11`, and `remotejdk_17`.
 You can extend the values by registering custom JVM using either
 `local_java_repository` or `remote_java_repostory` repository rules.
 
