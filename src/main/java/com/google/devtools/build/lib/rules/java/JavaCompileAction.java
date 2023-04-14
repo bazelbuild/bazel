@@ -741,16 +741,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       return executorJdeps;
     }
 
-    // For each of the action's generated inputs, map its stripped path to its full path.
-    PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
-    Map<PathFragment, PathFragment> strippedToFullPaths = new HashMap<>();
+    // For each of the action's generated inputs, revert its mapped path back to its original path.
+    Map<String, PathFragment> mappedToOriginalPath = new HashMap<>();
     for (Artifact actionInput : actionInputs.toList()) {
       if (actionInput.isSourceArtifact()) {
         continue;
       }
-      // Turns "bazel-out/x86-fastbuild/bin/foo" to "bazel-out/bin/foo".
-      PathFragment strippedPath = outputRoot.getRelative(actionInput.getExecPath().subFragment(2));
-      if (strippedToFullPaths.put(strippedPath, actionInput.getExecPath()) != null) {
+      String mappedPath = pathMapper.getMappedExecPathString(actionInput);
+      if (mappedToOriginalPath.put(mappedPath, actionInput.getExecPath()) != null) {
         // If an entry already exists, that means different inputs reduce to the same stripped path.
         // That also means PathStripper would exempt this action from path stripping, so the
         // executor-produced .jdeps already includes full paths. No need to update it.
@@ -764,16 +762,17 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
 
     // Rewrite the .jdeps proto with full paths.
+    PathFragment outputRoot = outputDepsProto.getExecPath().subFragment(0, 1);
     Deps.Dependencies.Builder fullDepsBuilder = Deps.Dependencies.newBuilder(executorJdeps);
     for (Deps.Dependency.Builder dep : fullDepsBuilder.getDependencyBuilderList()) {
       PathFragment pathOnExecutor = PathFragment.create(dep.getPath());
-      PathFragment fullPath = strippedToFullPaths.get(pathOnExecutor);
-      if (fullPath == null && pathOnExecutor.subFragment(0, 1).equals(outputRoot)) {
-        // The stripped path -> full path map failed, which means the paths weren't stripped. Fast-
+      PathFragment originalPath = mappedToOriginalPath.get(pathOnExecutor.getPathString());
+      if (originalPath == null && pathOnExecutor.subFragment(0, 1).equals(outputRoot)) {
+        // The mapped path -> full path map failed, which means the paths weren't mapped. Fast-
         // return the original jdeps to save unnecessary CPU time.
         return executorJdeps;
       }
-      dep.setPath(fullPath == null ? pathOnExecutor.getPathString() : fullPath.getPathString());
+      dep.setPath(originalPath == null ? pathOnExecutor.getPathString() : originalPath.getPathString());
     }
     Deps.Dependencies fullOutputDeps = fullDepsBuilder.build();
 
