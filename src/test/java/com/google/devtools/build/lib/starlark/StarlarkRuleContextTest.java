@@ -4062,4 +4062,37 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     checkError("//test:testing", "must be declared by a top-level def statement");
   }
+
+  @Test
+  public void testTargetAliasLabel() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        "def _my_rule_impl(ctx):",
+        "  direct_dep = ctx.attr.deps[0]",
+        "  direct_dep.label == Label('//test:target') or fail()",
+        "  direct_dep.alias_label == None or fail()",
+        "  alias_dep = ctx.attr.deps[1]",
+        "  alias_dep.label == Label('//test:target') or fail()",
+        "  alias_dep.alias_label == Label('//test:alias') or fail()",
+        "my_rule = rule(",
+        "  implementation = _my_rule_impl,",
+        "  attrs = {'deps': attr.label_list()},",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':rules.bzl', 'my_rule')",
+        "my_rule(",
+        "    name = 'my_rule',",
+        "    deps = [",
+        "        ':target',",
+        "        ':alias',",
+        "    ],",
+        ")",
+        "",
+        "cc_binary(name = 'target')",
+        "alias(name = 'alias', actual = ':further_alias')",
+        "alias(name = 'further_alias', actual = ':target')");
+
+    getConfiguredTarget("//test:my_rule");
+  }
 }

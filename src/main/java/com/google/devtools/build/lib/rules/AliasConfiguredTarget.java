@@ -163,15 +163,19 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
 
   @Override
   public Object getValue(String name) {
-    if (name.equals(LABEL_FIELD)) {
-      return getLabel();
-    } else if (name.equals(FILES_FIELD)) {
-      // A shortcut for files to build in Starlark. FileConfiguredTarget and RuleConfiguredTarget
-      // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
-      // accessible in Starlark.
-      return Depset.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
+    switch (name) {
+      case LABEL_FIELD:
+        return getLabel();
+      case ALIAS_LABEL_FIELD:
+        return getOriginalLabel();
+      case FILES_FIELD:
+        // A shortcut for files to build in Starlark. FileConfiguredTarget and RuleConfiguredTarget
+        // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
+        // accessible in Starlark.
+        return Depset.of(Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
+      default:
+        return actual.getValue(name);
     }
-    return actual.getValue(name);
   }
 
   @Override

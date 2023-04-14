@@ -33,7 +33,14 @@ import net.starlark.java.eval.StarlarkValue;
             + "<ul>\n" //
             + "<li><h3 id='modules.Target.label'>label</h3>\n" //
             + "<code><a href='../builtins/Label.html'>Label</a> Target.label</code><br/>\n" //
-            + "The identifier of the target.</li>\n" //
+            + "The label of the target after following all <code><a " //
+            + "href='general.html#alias>alias</a></code>es.</li>\n" //
+            //
+            + "<ul>\n" //
+            + "<li><h3 id='modules.Target.alias_label'>alias_label</h3>\n" //
+            + "<code><a href='../builtins/Label.html'>Label</a> Target.alias_label</code><br/>\n" //
+            + "The label of the target if it is an <code><a" //
+            + "href='general.html#alias>alias</a></code>, otherwise <code>None</code>.</li>\n" //
             //
             + "<li><h3 id='modules.Target.files'>files</h3>\n" //
             + "<code><a href='../builtins/depset.html'>depset</a> Target.files </code><br/>\n" //

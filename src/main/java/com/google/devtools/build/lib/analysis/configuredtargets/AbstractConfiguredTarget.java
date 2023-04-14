@@ -66,6 +66,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   // attributed to normal user-specified providers).
   private static final ImmutableSet<String> SPECIAL_FIELD_NAMES =
       ImmutableSet.of(
+          ALIAS_LABEL_FIELD,
           LABEL_FIELD,
           FILES_FIELD,
           DEFAULT_RUNFILES_FIELD,
@@ -141,6 +142,9 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     switch (name) {
       case LABEL_FIELD:
         return getLabel();
+      case ALIAS_LABEL_FIELD:
+        // Overridden in AliasConfiguredTarget.
+        return Starlark.NONE;
       case ACTIONS_FIELD_NAME:
         // Depending on subclass, the 'actions' field will either be unsupported or of type
         // java.util.List, which needs to be converted to Sequence before being returned.
