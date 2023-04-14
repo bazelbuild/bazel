@@ -119,13 +119,39 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
   }
 
   @Test
+  public void labelInterner_dirtyPackageStillPoolInternLabel() throws Exception {
+    write("hello/BUILD", "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    write("hello/foo.cc", "int main() {", "  return 0;", "}");
+    buildTarget("//hello:foo");
+
+    InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
+    PackageValue.Key packageKey =
+        PackageValue.key(PackageIdentifier.createInMainRepo(/* name= */ "hello"));
+    NodeEntry nodeEntry = graph.get(/* requestor= */ null, Reason.OTHER, packageKey);
+    assertThat(nodeEntry).isNotNull();
+
+    ImmutableSet<Label> targetLabels =
+        ((PackageValue) nodeEntry.toValue())
+            .getPackage().getTargets().values().stream()
+                .map(TargetApi::getLabel)
+                .collect(toImmutableSet());
+
+    nodeEntry.markDirty(DirtyType.DIRTY);
+
+    // Expect `intern` a duplicate instance to return the canonical one stored in the pool.
+    targetLabels.forEach(
+        l ->
+            assertThat(Label.createUnvalidated(l.getPackageIdentifier(), l.getName()))
+                .isSameInstanceAs(l));
+  }
+
+  @Test
   public void labelInterner_removeDirtyPackageStillWeakInternItsLabels() throws Exception {
     write("hello/BUILD", "cc_binary(name = 'foo', srcs = ['foo.cc'])");
     write("hello/foo.cc", "int main() {", "  return 0;", "}");
     buildTarget("//hello:foo");
 
     InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
-
     PackageValue.Key packageKey =
         PackageValue.key(PackageIdentifier.createInMainRepo(/* name= */ "hello"));
     NodeEntry nodeEntry = graph.get(/* requestor= */ null, Reason.OTHER, packageKey);
