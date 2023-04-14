@@ -90,7 +90,11 @@ def _impl(ctx):
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
       mnemonic="Work",
-      execution_requirements={"supports-multiplex-workers": "1", "supports-multiplex-sandboxing": "1"},
+      execution_requirements={
+        "supports-multiplex-workers": "1",
+        "supports-multiplex-sandboxing": "1",
+        "requires-worker-protocol": "proto",
+      },
       arguments=ctx.attr.worker_args + argfile_arguments,
   )
 
@@ -303,8 +307,7 @@ EOF
 
 # When a worker does not conform to the protocol and returns a response that is not a parseable
 # protobuf, it must be killed and a helpful error message should be printed.
-# TODO(philwo) causes Bazel to crash with NullPointerException.
-function DISABLED_test_build_fails_when_worker_returns_junk() {
+function test_build_fails_when_worker_returns_junk() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -325,7 +328,7 @@ EOF
   # Check that a helpful error message was printed.
   expect_log "Worker process returned an unparseable WorkResponse!"
   expect_log "Did you try to print something to stdout"
-  expect_log "I'm a poisoned worker and this is not a protobuf."
+  expect_log "I'm a  poisone"  # Hexdump
 }
 
 function test_input_digests() {
@@ -419,7 +422,8 @@ work(
 )
 EOF
 
-  sed -i.bak '/execution_requirements/d' work.bzl
+  # Delete entire execution_requirements block
+  sed -i.bak '/execution_requirements/,+4d' work.bzl
   rm -f work.bzl.bak
 
   bazel build --worker_quit_after_build :hello_world &> $TEST_log \
@@ -492,7 +496,7 @@ EOF
   bazel build :${func_name}_2 &> $TEST_log \
     && fail "expected build to fail" || true
 
-  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "Worker process returned an unparseable WorkResponse!"
   expect_log "^---8<---8<--- Start of log, file at /"
   expect_log "I'm a very poisoned worker and will just crash."
   expect_log "^---8<---8<--- End of log ---8<---8<---"

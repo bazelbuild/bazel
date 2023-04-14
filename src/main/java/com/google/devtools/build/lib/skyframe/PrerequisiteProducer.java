@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -69,7 +70,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -92,6 +92,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper logic for {@link ConfiguredTargetFunction}: performs the analysis phase through
@@ -124,12 +125,23 @@ public final class PrerequisiteProducer {
      * <p>Non-null only while the computation is in-flight.
      */
     @Nullable private Driver incompatibleTargetProducer;
+
     /**
      * If a value is present, it means the target was directly incompatible.
      *
-     * <p>Non-null after the {@link #incompatibleTargetProducer} completes.
+     * <p>Either this or {@link #validationException} will be non-null after the {@link
+     * #incompatibleTargetProducer} completes.
      */
-    private Optional<RuleConfiguredTargetValue> incompatibleTarget;
+    @Nullable private Optional<RuleConfiguredTargetValue> incompatibleTarget;
+
+    /**
+     * If this is set, an exception occurred during validation of the {@code target_compatible_with}
+     * attribute.
+     *
+     * <p>Either this or {@link #incompatibleTarget} will be non-null after the {@link
+     * #incompatibleTargetProducer} completes.
+     */
+    @Nullable private ValidationException validationException;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
     @Nullable private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMapResult;
@@ -171,6 +183,11 @@ public final class PrerequisiteProducer {
     public void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget) {
       this.incompatibleTarget = incompatibleTarget;
     }
+
+    @Override
+    public void acceptValidationException(ValidationException e) {
+      this.validationException = e;
+    }
   }
 
   /**
@@ -178,23 +195,6 @@ public final class PrerequisiteProducer {
    * non-null-configured dep of a null-configured target.
    */
   static class InconsistentNullConfigException extends Exception {}
-
-  /**
-   * Thrown if this target is platform-incompatible with the current build.
-   *
-   * <p>See {@link IncompatibleTargetChecker}.
-   */
-  static class IncompatibleTargetException extends Exception {
-    private final RuleConfiguredTargetValue target;
-
-    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
-      this.target = target;
-    }
-
-    public RuleConfiguredTargetValue target() {
-      return target;
-    }
-  }
 
   /** Lets calling logic provide a semaphore to restrict the number of concurrent analysis calls. */
   public interface SemaphoreAcquirer {
@@ -475,14 +475,15 @@ public final class PrerequisiteProducer {
       @Nullable ConfigConditions configConditions,
       @Nullable PlatformInfo targetPlatformInfo,
       @Nullable NestedSetBuilder<Package> transitivePackages)
-      throws InterruptedException, IncompatibleTargetException {
+      throws InterruptedException, IncompatibleTargetException, DependencyEvaluationException {
     if (state.incompatibleTarget == null) {
+      BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
       if (state.incompatibleTargetProducer == null) {
         state.incompatibleTargetProducer =
             new Driver(
                 new IncompatibleTargetProducer(
                     targetAndConfiguration.getTarget(),
-                    targetAndConfiguration.getConfiguration(),
+                    configuration,
                     configConditions,
                     targetPlatformInfo,
                     transitivePackages,
@@ -492,6 +493,26 @@ public final class PrerequisiteProducer {
         return false;
       }
       state.incompatibleTargetProducer = null;
+      if (state.validationException != null) {
+        Label label = targetAndConfiguration.getLabel();
+        Location location = targetAndConfiguration.getTarget().getLocation();
+        env.getListener()
+            .post(
+                new AnalysisRootCauseEvent(
+                    configuration, label, state.validationException.getMessage()));
+        throw new DependencyEvaluationException(
+            new ConfiguredValueCreationException(
+                location,
+                state.validationException.getMessage(),
+                label,
+                configuration.getEventId(),
+                null,
+                null),
+            // These errors occur within DependencyResolver, which is attached to the current
+            // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
+            // error.
+            /* depReportedOwnError= */ false);
+      }
       if (state.incompatibleTarget.isPresent()) {
         throw new IncompatibleTargetException(state.incompatibleTarget.get());
       }
@@ -849,7 +870,7 @@ public final class PrerequisiteProducer {
    * any constraints added by the target, including those added for the target on the command line.
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(
-      Rule rule, PlatformConfiguration platformConfiguration) {
+      Rule rule, @Nullable PlatformConfiguration platformConfiguration) {
     if (platformConfiguration == null) {
       return ImmutableSet.of(); // See NoConfigTransition.
     }
@@ -1268,16 +1289,5 @@ public final class PrerequisiteProducer {
               prioritizedDetailedExitCode, c.getDetailedExitCode());
     }
     return prioritizedDetailedExitCode;
-  }
-
-  private static class NoMatchingPlatformException extends ToolchainException {
-    NoMatchingPlatformException(NoMatchingPlatformData error) {
-      super(error.formatError());
-    }
-
-    @Override
-    protected FailureDetails.Toolchain.Code getDetailedCode() {
-      return FailureDetails.Toolchain.Code.NO_MATCHING_EXECUTION_PLATFORM;
-    }
   }
 }

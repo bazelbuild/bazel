@@ -88,10 +88,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
   @Override
   public void remove(SkyKey skyKey) {
     weakInternSkyKey(skyKey);
-    if (skyKey instanceof PackageValue.Key) {
-      weakInternPackageTargetsLabels((PackageValue.Key) skyKey);
+    InMemoryNodeEntry nodeEntry = nodeMap.remove(skyKey);
+    if (skyKey instanceof PackageValue.Key && nodeEntry != null) {
+      weakInternPackageTargetsLabels(
+          (PackageValue) nodeEntry.toValue()); // Dirty or changed value are needed.
     }
-    nodeMap.remove(skyKey);
   }
 
   @Override
@@ -102,7 +103,7 @@ public class InMemoryGraphImpl implements InMemoryGraph {
           if (e.isDone()) {
             weakInternSkyKey(k);
             if (k instanceof PackageValue.Key) {
-              weakInternPackageTargetsLabels((PackageValue.Key) k);
+              weakInternPackageTargetsLabels((PackageValue) e.toValue());
             }
             return null;
           }
@@ -120,18 +121,16 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     }
   }
 
-  private void weakInternPackageTargetsLabels(PackageValue.Key packageKey) {
-    if (!usePooledInterning) {
+  private void weakInternPackageTargetsLabels(@Nullable PackageValue packageValue) {
+    if (!usePooledInterning || packageValue == null) {
       return;
     }
     LabelInterner interner = Label.getLabelInterner();
     if (interner == null) {
       return;
     }
-    SkyValue packageValue = nodeMap.get(packageKey).getValue();
-    checkState(packageValue instanceof PackageValue);
-    ImmutableSortedMap<String, Target> targets =
-        ((PackageValue) packageValue).getPackage().getTargets();
+
+    ImmutableSortedMap<String, Target> targets = packageValue.getPackage().getTargets();
     targets.values().forEach(t -> interner.weakIntern(t.getLabel()));
   }
 
@@ -262,7 +261,8 @@ public class InMemoryGraphImpl implements InMemoryGraph {
                 || !e.getKey().functionName().equals(SkyFunctions.PACKAGE)) {
               return;
             }
-            weakInternPackageTargetsLabels((PackageValue.Key) e.getKey());
+
+            weakInternPackageTargetsLabels((PackageValue) e.toValue());
           });
     }
 
@@ -318,14 +318,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
         return interner.weakIntern(sample);
       }
 
-      SkyValue value = inMemoryNodeEntry.getValue();
+      SkyValue value = inMemoryNodeEntry.toValue();
       checkState(value instanceof PackageValue, value);
       ImmutableSortedMap<String, Target> targets = ((PackageValue) value).getPackage().getTargets();
-      String labelName = sample.getName();
-
-      return targets.containsKey(labelName)
-          ? targets.get(labelName).getLabel()
-          : interner.weakIntern(sample);
+      Target target = targets.get(sample.getName());
+      return target != null ? target.getLabel() : interner.weakIntern(sample);
     }
   }
 }

@@ -243,7 +243,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Map<VirtualActionInput, byte[]> virtualInputDigests,
       InputMetadataProvider inputFileCache,
       WorkerKey key)
-      throws IOException {
+      throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
       expandArgument(execRoot, flagfile, requestBuilder);
@@ -298,8 +298,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       String argValue = arg.substring(1);
       Path path = execRoot.getRelative(argValue);
       try {

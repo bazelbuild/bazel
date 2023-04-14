@@ -154,10 +154,14 @@ def _PyInfo_init(
         has_py2_only_sources = False,
         has_py3_only_sources = False):
     _check_arg_type("transitive_sources", "depset", transitive_sources)
+
+    # Verify it's postorder compatible, but retain is original ordering.
+    depset(transitive = [transitive_sources], order = "postorder")
+
     _check_arg_type("uses_shared_libraries", "bool", uses_shared_libraries)
     _check_arg_type("imports", "depset", imports)
     _check_arg_type("has_py2_only_sources", "bool", has_py2_only_sources)
-    _check_arg_type("has_py2_only_sources", "bool", has_py3_only_sources)
+    _check_arg_type("has_py3_only_sources", "bool", has_py3_only_sources)
     return {
         "transitive_sources": transitive_sources,
         "imports": imports,
@@ -166,7 +170,7 @@ def _PyInfo_init(
         "has_py3_only_sources": has_py2_only_sources,
     }
 
-StarlarkPyInfo, _unused_raw_py_info_ctor = provider(
+PyInfo, _unused_raw_py_info_ctor = provider(
     "Encapsulates information provided by the Python rules.",
     init = _PyInfo_init,
     fields = {
@@ -190,8 +194,6 @@ is recommended to use `default` order (the default).
         "has_py3_only_sources": "Whether any of this target's transitive sources requires a Python 3 runtime.",
     },
 )
-
-PyInfo = _builtins.toplevel.PyInfo
 
 def _PyCcLinkParamsProvider_init(cc_info):
     return {

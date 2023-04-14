@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
-import com.google.devtools.build.lib.starlarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import net.starlark.java.eval.FlagGuardedValue;
 
@@ -34,15 +33,12 @@ public class PyBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("rules_python", ""),
           PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
-  private final PyInfoProviderApi pyInfoProviderApi;
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
 
   public PyBootstrap(
-      PyInfoProviderApi pyInfoProviderApi,
       PyStarlarkTransitionsApi pyStarlarkTransitionsApi,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper) {
-    this.pyInfoProviderApi = pyInfoProviderApi;
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
     this.pyWrapCcHelper = pyWrapCcHelper;
   }
@@ -53,7 +49,8 @@ public class PyBootstrap implements Bootstrap {
         "PyInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            pyInfoProviderApi,
+            // Workaround for https://github.com/bazelbuild/bazel/issues/17713
+            new ProviderStub(),
             allowedRepositories));
     builder.put(
         "PyRuntimeInfo",

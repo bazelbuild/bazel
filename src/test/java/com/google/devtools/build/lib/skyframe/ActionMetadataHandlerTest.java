@@ -103,7 +103,6 @@ public final class ActionMetadataHandlerTest {
         tsgm,
         ArtifactPathResolver.IDENTITY,
         execRoot.asFragment(),
-        derivedPathPrefix,
         /* expandedFilesets= */ ImmutableMap.of());
   }
 
@@ -420,7 +419,6 @@ public final class ActionMetadataHandlerTest {
             tsgm,
             ArtifactPathResolver.IDENTITY,
             execRoot.asFragment(),
-            derivedPathPrefix,
             expandedFilesets);
 
     // Only the regular FileArtifactValue should have its metadata stored.
@@ -530,7 +528,6 @@ public final class ActionMetadataHandlerTest {
             tsgm,
             ArtifactPathResolver.IDENTITY,
             execRoot.asFragment(),
-            derivedPathPrefix,
             /* expandedFilesets= */ ImmutableMap.of());
     handler.prepareForActionExecution();
 
@@ -579,37 +576,6 @@ public final class ActionMetadataHandlerTest {
             0555,
             child2Path.getParentDirectory(),
             0555);
-  }
-
-  @Test
-  public void transformAfterInputDiscovery() throws Exception {
-    Artifact known =
-        ActionsTestUtil.createArtifactWithRootRelativePath(
-            outputRoot, PathFragment.create("known"));
-    Artifact unknown =
-        ActionsTestUtil.createArtifactWithRootRelativePath(
-            outputRoot, PathFragment.create("unknown"));
-    ActionMetadataHandler handler =
-        createHandler(
-            new ActionInputMap(0), /* forInputDiscovery= *//* outputs= */ ImmutableSet.of(known));
-
-    // Unknown artifact returns null during input discovery.
-    assertThat(handler.getInputMetadata(unknown)).isNull();
-
-    OutputStore newStore = new OutputStore();
-    FileArtifactValue knownMetadata =
-        RemoteFileArtifactValue.create(new byte[] {1, 2, 3}, 5, 1, /* expireAtEpochMilli= */ -1);
-    newStore.putArtifactData(known, knownMetadata);
-    ActionMetadataHandler newHandler = handler.transformAfterInputDiscovery(newStore);
-    assertThat(newHandler.getOutputStore()).isNotEqualTo(handler.getOutputStore());
-    assertThat(newHandler.getOutputStore()).isEqualTo(newStore);
-
-    assertThat(newHandler.getOutputMetadata(known)).isEqualTo(knownMetadata);
-    // Unknown artifact throws outside of input discovery.
-    // assertThrows(IllegalStateException.class, () -> newHandler.getInputMetadata(unknown));
-    // We can transform it again.
-    assertThat(newHandler.transformAfterInputDiscovery(new OutputStore())).isNotNull();
-    assertThat(chmodCalls).isEmpty();
   }
 
   @Test

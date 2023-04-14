@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -115,6 +117,8 @@ public class IncompatibleTargetChecker {
     /** Sink for the output of this state machine. */
     public interface ResultSink {
       void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget);
+
+      void acceptValidationException(ValidationException e);
     }
 
     public IncompatibleTargetProducer(
@@ -148,8 +152,15 @@ public class IncompatibleTargetChecker {
         return DONE;
       }
 
-      // Resolves the constraint labels.
-      for (Label label : attrs.get("target_compatible_with", BuildType.LABEL_LIST)) {
+      // Resolves the constraint labels, checking for invalid configured attributes.
+      List<Label> targetCompatibleWith;
+      try {
+        targetCompatibleWith = attrs.getAndValidate("target_compatible_with", BuildType.LABEL_LIST);
+      } catch (ValidationException e) {
+        sink.acceptValidationException(e);
+        return DONE;
+      }
+      for (Label label : targetCompatibleWith) {
         tasks.lookUp(
             ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build(),
             this);
@@ -237,6 +248,19 @@ public class IncompatibleTargetChecker {
             IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
             rule.getRuleClass(),
             transitivePackages));
+  }
+
+  /** Thrown if this target is platform-incompatible with the current build. */
+  public static class IncompatibleTargetException extends Exception {
+    private final RuleConfiguredTargetValue target;
+
+    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
+      this.target = target;
+    }
+
+    public RuleConfiguredTargetValue target() {
+      return target;
+    }
   }
 
   /** Creates an incompatible target. */

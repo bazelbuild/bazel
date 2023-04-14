@@ -1200,15 +1200,24 @@ EOF
 function test_starlark_output_providers_function() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
-  cat > $pkg/BUILD <<'EOF'
-py_library(
-    name = "pylib",
-    srcs = ["pylib.py"],
-    srcs_version = "PY3",
+  cat > $pkg/defs.bzl <<'EOF'
+def foo_impl(ctx):
+    return [DefaultInfo()]
+
+foo_library = rule(
+    implementation = foo_impl,
 )
 EOF
-  cat > $pkg/pylib.py <<'EOF'
-pylib=1
+  cat > $pkg/BUILD <<'EOF'
+load(":defs.bzl", "foo_library")
+
+foo_library(
+    name = "lib",
+)
+exports_files(["srcfile.txt"])
+EOF
+  cat > $pkg/srcfile.txt <<'EOF'
+hello, world
 EOF
   cat > $pkg/outfunc.bzl <<'EOF'
 def format(target):
@@ -1218,24 +1227,24 @@ def format(target):
     ret = str(target.label) + ':providers=' + str(sorted(p.keys()))
     vis_info = p.get('VisibilityProvider')
     if vis_info:
-        ret += '\n\tVisbilityProvider.label:' + str(vis_info.label)
-    py_info = p.get('PyInfo')
-    if py_info:
-        ret += '\n\tPyInfo found'
+        ret += '\n\tVisibilityProvider.label:' + str(vis_info.label)
+    output_group_info = p.get('OutputGroupInfo')
+    if output_group_info:
+        ret += '\n\tOutputGroupInfo found'
     return ret
 EOF
-  bazel cquery "//$pkg:pylib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+  bazel cquery "//$pkg:lib" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
 
-  assert_contains "//$pkg:pylib:providers=.*PyInfo" output
-  assert_contains "PyInfo found" output
+  assert_contains "//$pkg:lib:providers=.*OutputGroupInfo" output
+  assert_contains "OutputGroupInfo found" output
 
   # A file
-  bazel cquery "//$pkg:pylib.py" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
+  bazel cquery "//$pkg:srcfile.txt" --output=starlark --starlark:file="$pkg/outfunc.bzl" >output \
     2>"$TEST_log" || fail "Expected success"
-  assert_contains "//$pkg:pylib.py:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
+  assert_contains "//$pkg:srcfile.txt:providers=.*FileProvider.*FilesToRunProvider.*LicensesProvider.*VisibilityProvider" \
     output
-  assert_contains "VisbilityProvider.label:@//$pkg:pylib.py" output
+  assert_contains "VisibilityProvider.label:@//$pkg:srcfile.txt" output
 }
 
 function test_starlark_output_providers_starlark_provider() {

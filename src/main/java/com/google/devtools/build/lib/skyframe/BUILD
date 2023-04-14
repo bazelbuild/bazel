@@ -153,8 +153,8 @@ java_library(
         ":map_as_package_roots",
         ":metadata_consumer_for_metrics",
         ":no_matching_platform_data",
+        ":no_matching_platform_exception",
         ":node_dropping_inconsistency_receiver",
-        ":output_store",
         ":package_error_function",
         ":package_error_message_function",
         ":package_identifier_batching_callback",
@@ -312,6 +312,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/io:inconsistent_filesystem_exception",
         "//src/main/java/com/google/devtools/build/lib/io:process_package_directory_exception",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:configured_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/packages:exec_group",
         "//src/main/java/com/google/devtools/build/lib/packages:globber",
         "//src/main/java/com/google/devtools/build/lib/packages:globber_utils",
@@ -1656,6 +1657,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:auto_value",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "no_matching_platform_exception",
+    srcs = ["NoMatchingPlatformException.java"],
+    deps = [
+        ":no_matching_platform_data",
+        ":toolchain_exception",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 
