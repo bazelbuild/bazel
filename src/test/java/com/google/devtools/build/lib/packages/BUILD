@@ -182,5 +182,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "@bazel_tools//tools/java/runfiles",
     ],
 )

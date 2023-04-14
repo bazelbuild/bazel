@@ -59,7 +59,7 @@ java_test(
 java_test(
     name = "JavaInfoRoundtripTest",
     srcs = ["JavaInfoRoundtripTest.java"],
-    resources = ["//tools/build_defs/inspect:defs"],
+    data = ["//tools/build_defs/inspect:defs"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/vfs",
