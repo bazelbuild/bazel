@@ -293,7 +293,7 @@ def _expand_bootstrap_template(
         template = runtime.bootstrap_template
     else:
         shebang = DEFAULT_STUB_SHEBANG
-        tempalate = ctx.file._bootstrap_template
+        template = ctx.file._bootstrap_template
 
     ctx.actions.expand_template(
         template = template,
