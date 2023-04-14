@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import java.time.Duration;
+import java.util.Locale;
 
 /**
  * Aggregates all the critical path components in one object. This allows us to easily access the
@@ -63,8 +64,11 @@ public class AggregatedCriticalPath {
         aggregatedSpawnMetrics.getTotalDuration(SpawnMetrics::totalTimeInMs)
             - executionWallTimeInMs;
     return String.format(
+        Locale.US,
         "Execution critical path %.2fs (setup %.2fs, action wall time %.2fs)",
-        totalTimeInMs / 1000.0, overheadTimeInMs / 1000.0, executionWallTimeInMs / 1000.0);
+        totalTimeInMs / 1000.0,
+        overheadTimeInMs / 1000.0,
+        executionWallTimeInMs / 1000.0);
   }
 
   @Override
@@ -74,7 +78,7 @@ public class AggregatedCriticalPath {
 
   private String toString(boolean summary, boolean remote) {
     StringBuilder sb = new StringBuilder("Critical Path: ");
-    sb.append(String.format("%.2f", totalTimeInMs / 1000.0));
+    sb.append(String.format(Locale.US, "%.2f", totalTimeInMs / 1000.0));
     sb.append("s");
     if (remote) {
       sb.append(", ");
