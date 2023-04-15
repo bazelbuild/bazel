@@ -134,7 +134,7 @@ public final class SymlinkTreeAction extends AbstractAction {
       Runfiles runfiles,
       Artifact inputManifest,
       @Nullable Artifact repoMappingManifest) {
-    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.<Artifact>stableOrder();
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     if (!skipRunfilesManifests || !enableRunfiles || runfiles == null) {
       inputs.add(inputManifest);
     }
@@ -205,7 +205,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     fp.addBoolean(enableRunfiles);
     fp.addBoolean(inprocessSymlinkCreation);
     fp.addBoolean(skipRunfilesManifests);
-    env.addTo(fp);
+    getEnvironment().addTo(fp);
     // We need to ensure that the fingerprints for two different instances of this action are
     // different. Consider the hypothetical scenario where we add a second runfiles object to this
     // class, which could also be null: the sequence

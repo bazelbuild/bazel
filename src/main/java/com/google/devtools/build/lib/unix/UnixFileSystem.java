@@ -120,7 +120,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       return status.getInodeNumber();
     }
 
-    int getPermissions() {
+    @Override
+    public int getPermissions() {
       return status.getPermissions();
     }
 

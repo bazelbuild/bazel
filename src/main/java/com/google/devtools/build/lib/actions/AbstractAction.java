@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -91,12 +90,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   // TODO(ulfjack): Collect actual data to confirm that this is an acceptable approximation.
   public static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
 
-  /**
-   * The owner/inputs/outputs attributes below should never be directly accessed even within
-   * AbstractAction itself. The appropriate getter methods should be used instead. This has to be
-   * done due to the fact that the getter methods can be overridden in subclasses.
-   */
-  @VisibleForSerialization protected final ActionOwner owner;
+  private final ActionOwner owner;
 
   /**
    * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
@@ -120,11 +114,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private boolean inputsDiscovered = false; // Only used when discoversInputs() returns true
 
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
+  // Access through getInputs() in case it's overridden.
   @GuardedBy("this")
-  @VisibleForSerialization
-  protected NestedSet<Artifact> inputs;
+  private NestedSet<Artifact> inputs;
 
-  protected final ActionEnvironment env;
+  private final ActionEnvironment env;
   private final RunfilesSupplier runfilesSupplier;
 
   /**
@@ -283,7 +277,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return tools;
   }
 
-  /** Should not be overridden (it's non-final only for tests) */
   @Override
   public synchronized NestedSet<Artifact> getInputs() {
     return inputs;

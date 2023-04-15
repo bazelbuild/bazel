@@ -7463,9 +7463,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".a"));
 
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLine().getBuildVariables().getStringVariable("string_variable");
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_depset_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_sequence_variable");
+    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_depset_variable");
   }
 
   @Test
@@ -7478,9 +7484,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         (CppLinkAction)
             getGeneratingAction((Artifact) getMyInfoFromTarget(target).getValue("executable"));
 
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_sequence_variable");
-    action.getLinkCommandLine().getBuildVariables().getStringVariable("string_variable");
-    action.getLinkCommandLine().getBuildVariables().getSequenceVariable("string_depset_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_sequence_variable");
+    action.getLinkCommandLineForTesting().getBuildVariables().getStringVariable("string_variable");
+    action
+        .getLinkCommandLineForTesting()
+        .getBuildVariables()
+        .getSequenceVariable("string_depset_variable");
   }
 
   @Test

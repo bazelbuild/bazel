@@ -312,13 +312,16 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       PackageValue.Key packageKey = PackageValue.key(packageIdentifier);
 
       InMemoryNodeEntry inMemoryNodeEntry = nodeMap.get(packageKey);
-      if (inMemoryNodeEntry == null || !inMemoryNodeEntry.isDone()) {
-        // If we cannot get the InMemoryNodeEntry, or it is not done, values are not available. So
-        // we can only weak intern sample.
+      if (inMemoryNodeEntry == null) {
+        // If we cannot get the InMemoryNodeEntry, just weak intern the sample.
         return interner.weakIntern(sample);
       }
 
       SkyValue value = inMemoryNodeEntry.toValue();
+      if (value == null) {
+        return interner.weakIntern(sample);
+      }
+
       checkState(value instanceof PackageValue, value);
       ImmutableSortedMap<String, Target> targets = ((PackageValue) value).getPackage().getTargets();
       Target target = targets.get(sample.getName());

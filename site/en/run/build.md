@@ -268,10 +268,11 @@ part of building the former.
 
 Targets with `tags = ["manual"]` are not included in wildcard target patterns
 (`...`, `:*`, `:all`, etc.) when specified in commands like
-`bazel build` and `bazel test`; you should specify such
-test targets with explicit target patterns on the command line if you want Bazel
-to build/test them. In contrast, `bazel query` doesn't perform any
-such filtering automatically (that would defeat the purpose of
+`bazel build` and `bazel test` (but they are included in
+negative wildcard target patterns, that is they will be subtracted). You should
+specify such test targets with explicit target patterns on the command line if
+you want Bazel to build/test them. In contrast, `bazel query` doesn't perform
+any such filtering automatically (that would defeat the purpose of
 `bazel query`).
 
 ### Fetching external dependencies {:#fetching-external-dependencies}

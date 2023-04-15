@@ -256,9 +256,15 @@ class MetricsCollector {
     spawnSummary
         .entrySet()
         .forEach(
-            e ->
-                actionSummary.addRunnerCount(
-                    RunnerCount.newBuilder().setName(e.getKey()).setCount(e.getValue()).build()));
+            e -> {
+              RunnerCount.Builder builder = RunnerCount.newBuilder();
+              builder.setName(e.getKey()).setCount(e.getValue());
+              String execKind = spawnStats.getExecKindFor(e.getKey());
+              if (execKind != null) {
+                builder.setExecKind(execKind);
+              }
+              actionSummary.addRunnerCount(builder.build());
+            });
     return actionSummary.build();
   }
 

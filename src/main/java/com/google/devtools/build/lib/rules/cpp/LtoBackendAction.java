@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -60,7 +59,7 @@ import javax.annotation.Nullable;
  * <p>See {@link LtoBackendArtifacts} for a high level description of the ThinLTO build process. The
  * LTO indexing step takes all bitcode .o files and decides which other .o file symbols can be
  * imported/inlined. The additional input files for each backend action are then written to an
- * imports file. Therefore these new inputs must be discovered here by subsetting the imports paths
+ * imports file. Therefore, these new inputs must be discovered here by subsetting the imports paths
  * from the set of all bitcode artifacts, before executing the backend action.
  *
  * <p>For more information on ThinLTO see
@@ -132,7 +131,7 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    List<String> lines;
+    ImmutableList<String> lines;
     try {
       lines = FileSystemUtils.readLinesAsLatin1(actionExecutionContext.getInputPath(imports));
     } catch (IOException e) {
@@ -238,7 +237,7 @@ public final class LtoBackendAction extends SpawnAction {
       bitcodeFiles.addToFingerprint(fp);
       fp.addPath(imports.getExecPath());
     }
-    env.addTo(fp);
+    getEnvironment().addTo(fp);
     fp.addStringMap(getExecutionInfo());
   }
 

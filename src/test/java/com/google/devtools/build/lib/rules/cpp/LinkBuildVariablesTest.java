@@ -319,7 +319,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         (CppLinkAction)
             getPredecessorByInputName(
                 backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
-    CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
+    CcToolchainVariables variables = indexAction.getLinkCommandLineForTesting().getBuildVariables();
 
     String interfaceLibraryBuilder =
         getVariableValue(
@@ -445,7 +445,7 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
         (CppLinkAction)
             getPredecessorByInputName(
                 backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
-    CcToolchainVariables variables = indexAction.getLinkCommandLine().getBuildVariables();
+    CcToolchainVariables variables = indexAction.getLinkCommandLineForTesting().getBuildVariables();
 
     assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))
         .isFalse();

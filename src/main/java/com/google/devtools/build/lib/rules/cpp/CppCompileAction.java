@@ -849,6 +849,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override()
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
+    ActionEnvironment env = getEnvironment();
     Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(environment, clientEnv);
 
@@ -1351,7 +1352,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         actionKeyContext,
         fp,
         actionClassId,
-        env,
+        getEnvironment(),
         compileCommandLine.getEnvironment(),
         executionInfo,
         getCommandLineKey(),
