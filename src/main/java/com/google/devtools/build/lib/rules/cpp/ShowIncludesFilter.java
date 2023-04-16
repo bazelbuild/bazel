@@ -21,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -162,7 +163,7 @@ public class ShowIncludesFilter {
     public void write(int b) throws IOException {
       buffer.write(b);
       if (b == NEWLINE) {
-        String line = buffer.toString(StandardCharsets.UTF_8.name());
+        String line = buffer.toString(Charset.forName("GBK"));
         boolean prefixMatched = false;
         for (String prefix : SHOW_INCLUDES_PREFIXES) {
           if (line.startsWith(prefix)) {

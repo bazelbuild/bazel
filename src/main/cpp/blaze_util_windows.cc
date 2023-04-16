@@ -25,6 +25,8 @@
 #include <shlobj.h>        // SHGetKnownFolderPath
 #include <stdarg.h>        // va_start, va_end, va_list
 
+#include <iostream>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -699,6 +701,13 @@ int ExecuteDaemon(const blaze_util::Path& exe,
 
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, wesc_args_vector);
+
+  std::wstringstream newcmdline;
+  newcmdline 
+    << L"C:\\Program Files (x86)\\IncrediBuild\\IbConsole.exe "
+    << "/Title=\"Bazel Build\" /AllowRemote=\"cl,link\" /SILENT /AVOIDLOCAL=ON /Command=\""
+    << cmdline.cmdline << "\"";
+  wcsncpy(cmdline.cmdline, newcmdline.str().c_str(), MAX_CMDLINE_LENGTH - 1);
 
   BOOL ok;
   {
