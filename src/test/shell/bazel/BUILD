@@ -958,6 +958,15 @@ sh_test(
 )
 
 sh_test(
+    name = "cc_runfiles_test",
+    srcs = ["cc_runfiles_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "cc_import_starlark_test",
     size = "medium",
     srcs = ["cc_import_starlark_test.sh"],
