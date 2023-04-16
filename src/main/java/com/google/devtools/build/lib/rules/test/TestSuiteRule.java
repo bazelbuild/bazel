@@ -112,6 +112,12 @@ public final class TestSuiteRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
+    try {
+    // Try to load the test_suite rule.
+    Skylark.load("//tools/build_defs/native/utils:test.bzl", "test_suite");
+  } catch (EvalException e) {
+    throw new RuntimeException("Did you mean "native.test_suite?"", e);
+  }
     return RuleDefinition.Metadata.builder()
         .name("test_suite")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
@@ -135,7 +141,7 @@ call this "test_suite expansion"), then Blaze builds and tests those targets.
 
 <p>A test suite to run all of the small tests in the current package.</p>
 <pre class="code">
-native.test_suite(
+test_suite(
     name = "small_tests",
     tags = ["small"],
 )
@@ -144,7 +150,7 @@ native.test_suite(
 <p>A test suite that runs a specified set of tests:</p>
 
 <pre class="code">
-native.test_suite(
+test_suite(
     name = "smoke_tests",
     tests = [
         "system_unittest",
@@ -155,7 +161,7 @@ native.test_suite(
 
 <p>A test suite to run all tests in the current package which are not flaky.</p>
 <pre class="code">
-native.test_suite(
+test_suite(
     name = "non_flaky_test",
     tags = ["-flaky"],
 )
