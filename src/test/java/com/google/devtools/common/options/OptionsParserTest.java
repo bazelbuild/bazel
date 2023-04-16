@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
+import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -209,20 +210,74 @@ public final class OptionsParserTest {
     public boolean privateBoolean;
 
     @Option(
-      name = "internal_string",
-      metadataTags = {OptionMetadataTag.INTERNAL},
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "super secret"
+        name = "internal_string",
+        metadataTags = {OptionMetadataTag.INTERNAL},
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "super secret"
     )
     public String privateString;
   }
 
+  public static class ExampleEquivalentWithFoo extends OptionsBase {
+
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault"
+    )
+    public String foo;
+
+    @Option(
+        name = "bar",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault"
+    )
+    public String bar;
+
+    @Option(
+        name = "not_foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault"
+    )
+    public String notFoo;
+
+    @Option(
+        name = "not_bar",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "differentDefault"
+    )
+    public String notBar;
+  }
+
+  public static class ExampleIncompatibleWithFoo extends OptionsBase {
+
+    @Option(
+        name = "foo",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "true"
+    )
+    public boolean foo;
+  }
+
+
   public static class StringConverter extends Converter.Contextless<String> {
+
     @Override
     public String convert(String input) {
       return input;
     }
+
     @Override
     public String getTypeDescription() {
       return "a string";
@@ -275,7 +330,8 @@ public final class OptionsParserTest {
                 parser.parseWithSourceFunction(
                     PriorityCategory.COMMAND_LINE,
                     sourceFunction,
-                    ImmutableList.of("residue", "not", "allowed", "in", "parseWithSource")));
+                    ImmutableList.of("residue", "not", "allowed", "in", "parseWithSource"),
+                    null));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo("Unrecognized arguments: residue not allowed in parseWithSource");
@@ -295,7 +351,8 @@ public final class OptionsParserTest {
     parser.parseWithSourceFunction(
         PriorityCategory.COMMAND_LINE,
         sourceFunction,
-        ImmutableList.of("residue", "is", "allowed", "in", "parseWithSource"));
+        ImmutableList.of("residue", "is", "allowed", "in", "parseWithSource"),
+        null);
     assertThat(parser.getResidue())
         .containsExactly("residue", "is", "allowed", "in", "parseWithSource");
   }
@@ -320,7 +377,8 @@ public final class OptionsParserTest {
                 parser.parseArgsAsExpansionOfOption(
                     optionToExpand,
                     "source",
-                    ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion")));
+                    ImmutableList.of("--underlying=direct_value", "residue", "in", "expansion"),
+                    null));
     assertThat(parser.getResidue()).isNotEmpty();
     assertThat(e).hasMessageThat().isEqualTo("Unrecognized arguments: residue in expansion");
   }
@@ -2396,6 +2454,31 @@ public final class OptionsParserTest {
     assertThat(e)
         .hasMessageThat()
         .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
+  @Test
+  public void fallbackOptions_optionsParsingEquivalently()
+      throws OptionsParsingException {
+    OpaqueOptionsData fallbackData = OptionsParser.getFallbackOptionsData(
+        ImmutableList.of(ExampleFoo.class, ExampleEquivalentWithFoo.class));
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    parser.parseWithSourceFunction(PriorityCategory.RC_FILE, o -> ".bazelrc",
+        ImmutableList.of("--foo=bar", "--not_foo=baz", "--bar", "1", "--not_bar", "baz"),
+        fallbackData);
+
+    assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();
+    assertThat(parser.getOptions(ExampleFoo.class).foo).isEqualTo("bar");
+    assertThat(parser.getOptions(ExampleFoo.class).bar).isEqualTo(1);
+
+    assertThat(parser.getOptions(ExampleEquivalentWithFoo.class)).isNull();
+  }
+
+  @Test
+  public void fallbackOptions_optionsParsingDifferently() {
+    Exception e = assertThrows(ConstructionException.class,
+        () -> OptionsParser.getFallbackOptionsData(
+            ImmutableList.of(ExampleFoo.class, ExampleIncompatibleWithFoo.class)));
+    assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {

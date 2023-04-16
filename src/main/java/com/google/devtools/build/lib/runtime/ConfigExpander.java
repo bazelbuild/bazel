@@ -19,6 +19,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -88,7 +89,8 @@ final class ConfigExpander {
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
       List<String> commandsToParse,
       Consumer<String> rcFileNotesConsumer,
-      OptionsParser optionsParser)
+      OptionsParser optionsParser,
+      OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
 
     OptionValueDescription configValueDescription =
@@ -113,7 +115,8 @@ final class ConfigExpander {
         optionsParser.parseArgsAsExpansionOfOption(
             configInstance,
             String.format("expanded from --config=%s", configValueToExpand),
-            expansion);
+            expansion,
+            fallbackData);
       }
     }
 
@@ -131,7 +134,8 @@ final class ConfigExpander {
       optionsParser.parseArgsAsExpansionOfOption(
           Iterables.getOnlyElement(enablePlatformSpecificConfigDescription.getCanonicalInstances()),
           String.format("enabled by --enable_platform_specific_config"),
-          expansion);
+          expansion,
+          fallbackData);
     }
 
     // At this point, we've expanded everything, identify duplicates, if any, to warn about
