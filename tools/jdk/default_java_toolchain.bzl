@@ -41,6 +41,11 @@ BASE_JDK9_JVM_OPTS = [
 
     # Compact strings make JavaBuilder slightly slower.
     "-XX:-CompactStrings",
+
+    # Since https://bugs.openjdk.org/browse/JDK-8153723, JVM logging goes to stdout. This
+    # makes it go to stderr instead.
+    "-Xlog:disable",
+    "-Xlog:all=warning:stderr:uptime,level,tags",
 ]
 
 JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS
