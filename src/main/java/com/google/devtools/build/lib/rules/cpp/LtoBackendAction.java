@@ -101,7 +101,6 @@ public final class LtoBackendAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        false,
         null,
         null,
         /*stripOutputPaths=*/ false);

@@ -112,7 +112,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final CommandLines commandLines;
   private final CommandLineLimits commandLineLimits;
 
-  private final boolean executeUnconditionally;
   private final CharSequence progressMessage;
   private final String mnemonic;
 
@@ -165,7 +164,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
-        false,
         null,
         null,
         /* stripOutputPaths= */ false);
@@ -205,7 +203,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      boolean executeUnconditionally,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer,
       boolean stripOutputPaths) {
@@ -219,7 +216,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.commandLineLimits = commandLineLimits;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.resultConsumer = resultConsumer;
     this.stripOutputPaths = stripOutputPaths;
@@ -283,13 +279,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public boolean isVolatile() {
-    return executeUnconditionally;
-  }
-
-  @Override
-  public boolean executeUnconditionally() {
-    return executeUnconditionally;
+  public final boolean isVolatile() {
+    return executeUnconditionally();
   }
 
   /** Hook for subclasses to perform work before the spawn is executed. */
@@ -820,7 +811,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          executeUnconditionally,
           extraActionInfoSupplier,
           resultConsumer,
           stripOutputPaths);
@@ -998,22 +988,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.environment = null;
       this.inheritedEnvironment = null;
       this.useDefaultShellEnvironment = true;
-      return this;
-    }
-
-    /**
-     * Makes the action always execute, even if none of its inputs have changed.
-     *
-     * <p>Only use this when absolutely necessary, since this is a performance hit and we'd like to
-     * get rid of this mechanism eventually. You'll eventually be able to declare a Skyframe
-     * dependency on the build ID, which would accomplish the same thing.
-     */
-    @CanIgnoreReturnValue
-    public Builder executeUnconditionally() {
-      // This should really be implemented by declaring a Skyframe dependency on the build ID
-      // instead, however, we can't just do that yet from within actions, so we need to go through
-      // Action.executeUnconditionally() which in turn is called by ActionCacheChecker.
-      this.executeUnconditionally = true;
       return this;
     }
 

@@ -20,15 +20,23 @@ import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -44,12 +52,11 @@ import javax.annotation.Nullable;
 public final class AndroidBinaryMobileInstall {
 
   /** Data class for the resource apks created for mobile-install. */
-  public static final class MobileInstallResourceApks {
+  static final class MobileInstallResourceApks {
     final ResourceApk incrementalResourceApk;
     final ResourceApk splitResourceApk;
 
-    public MobileInstallResourceApks(
-        ResourceApk incrementalResourceApk, ResourceApk splitResourceApk) {
+    MobileInstallResourceApks(ResourceApk incrementalResourceApk, ResourceApk splitResourceApk) {
       this.incrementalResourceApk = incrementalResourceApk;
       this.splitResourceApk = splitResourceApk;
     }
@@ -58,13 +65,9 @@ public final class AndroidBinaryMobileInstall {
   static MobileInstallResourceApks createMobileInstallResourceApks(
       RuleContext ruleContext, AndroidDataContext dataContext, StampedAndroidManifest manifest)
       throws RuleErrorException, InterruptedException {
-
-    final ResourceApk incrementalResourceApk;
-    final ResourceApk splitResourceApk;
-
     Map<String, String> manifestValues = StampedAndroidManifest.getManifestValues(ruleContext);
 
-    incrementalResourceApk =
+    ResourceApk incrementalResourceApk =
         ProcessedAndroidData.processIncrementalBinaryDataFrom(
                 ruleContext,
                 dataContext,
@@ -78,7 +81,7 @@ public final class AndroidBinaryMobileInstall {
             // separately.
             .withValidatedResources(null);
 
-    splitResourceApk =
+    ResourceApk splitResourceApk =
         ProcessedAndroidData.processIncrementalBinaryDataFrom(
                 ruleContext,
                 dataContext,
@@ -286,7 +289,7 @@ public final class AndroidBinaryMobileInstall {
         incrementalDeployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of());
+        ImmutableList.of());
 
     Artifact splitDeployInfo =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.DEPLOY_INFO_SPLIT);
@@ -295,7 +298,7 @@ public final class AndroidBinaryMobileInstall {
         splitDeployInfo,
         resourceApk.getManifest(),
         additionalMergedManifests,
-        ImmutableList.<Artifact>of());
+        ImmutableList.of());
 
     NestedSet<Artifact> fullInstallOutputGroup =
         NestedSetBuilder.<Artifact>stableOrder()
@@ -369,8 +372,7 @@ public final class AndroidBinaryMobileInstall {
         getMobileInstallArtifact(
             ruleContext,
             split ? "split_stub_application/classes.dex.zip" : "stub_application/classes.dex.zip");
-    AndroidCommon.createDexAction(
-        ruleContext, stubDeployJar, stubDex, ImmutableList.<String>of(), 0, null);
+    AndroidCommon.createDexAction(ruleContext, stubDeployJar, stubDex, ImmutableList.of(), 0, null);
 
     return stubDex;
   }
@@ -388,13 +390,9 @@ public final class AndroidBinaryMobileInstall {
 
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
     SpawnAction.Builder builder =
-        new SpawnAction.Builder()
+        new InstallActionBuilder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install"))
-            // We cannot know if the user connected a new device, uninstalled the app from the
-            // device
-            // or did anything strange to it, so we always run this action.
-            .executeUnconditionally()
             .setMnemonic("AndroidInstall")
             .setProgressMessage(
                 "Installing %s%s", ruleContext.getLabel(), (incremental ? " incrementally" : ""))
@@ -440,11 +438,10 @@ public final class AndroidBinaryMobileInstall {
       Artifact stubDataFile) {
     FilesToRunProvider adb = AndroidSdkProvider.fromRuleContext(ruleContext).getAdb();
     SpawnAction.Builder builder =
-        new SpawnAction.Builder()
+        new InstallActionBuilder()
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install"))
             .addTool(adb)
-            .executeUnconditionally()
             .setMnemonic("AndroidInstall")
             .setProgressMessage("Installing %s using split apks", ruleContext.getLabel())
             .setExecutionInfo(ImmutableMap.of("local", ""))
@@ -502,4 +499,78 @@ public final class AndroidBinaryMobileInstall {
     return ruleContext.getUniqueDirectoryArtifact(
         "_mobile_install", baseName, ruleContext.getBinOrGenfilesDirectory());
   }
+
+  private static final class InstallAction extends SpawnAction {
+    InstallAction(
+        ActionOwner owner,
+        NestedSet<Artifact> tools,
+        NestedSet<Artifact> inputs,
+        Iterable<? extends Artifact> outputs,
+        ResourceSetOrBuilder resourceSetOrBuilder,
+        CommandLines commandLines,
+        CommandLineLimits commandLineLimits,
+        ActionEnvironment env,
+        ImmutableMap<String, String> executionInfo,
+        CharSequence progressMessage,
+        RunfilesSupplier runfilesSupplier,
+        String mnemonic) {
+      super(
+          owner,
+          tools,
+          inputs,
+          outputs,
+          resourceSetOrBuilder,
+          commandLines,
+          commandLineLimits,
+          env,
+          executionInfo,
+          progressMessage,
+          runfilesSupplier,
+          mnemonic,
+          /* extraActionInfoSupplier= */ null,
+          /* resultConsumer= */ null,
+          /* stripOutputPaths= */ false);
+    }
+
+    @Override
+    public boolean executeUnconditionally() {
+      // We cannot know if the user connected a new device, uninstalled the app from the device or
+      // did anything strange to it, so we always run this action.
+      return true;
+    }
+  }
+
+  private static final class InstallActionBuilder extends SpawnAction.Builder {
+    @Override
+    protected SpawnAction createSpawnAction(
+        ActionOwner owner,
+        NestedSet<Artifact> tools,
+        NestedSet<Artifact> inputsAndTools,
+        ImmutableSet<Artifact> outputs,
+        ResourceSetOrBuilder resourceSetOrBuilder,
+        CommandLines commandLines,
+        CommandLineLimits commandLineLimits,
+        ActionEnvironment env,
+        @Nullable BuildConfigurationValue configuration,
+        ImmutableMap<String, String> executionInfo,
+        CharSequence progressMessage,
+        RunfilesSupplier runfilesSupplier,
+        String mnemonic) {
+      return new InstallAction(
+          owner,
+          tools,
+          inputsAndTools,
+          outputs,
+          resourceSetOrBuilder,
+          commandLines,
+          commandLineLimits,
+          env,
+          executionInfo,
+          progressMessage,
+          runfilesSupplier,
+          mnemonic);
+    }
+  }
+
+  private AndroidBinaryMobileInstall() {}
 }

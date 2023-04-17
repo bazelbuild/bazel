@@ -62,7 +62,6 @@ public final class GenRuleAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         MNEMONIC,
-        false,
         null,
         null,
         /*stripOutputPaths=*/ false);

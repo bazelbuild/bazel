@@ -82,7 +82,6 @@ public final class ExtraAction extends SpawnAction {
         progressMessage,
         CompositeRunfilesSupplier.of(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
-        false,
         null,
         null,
         /*stripOutputPaths=*/ false);
