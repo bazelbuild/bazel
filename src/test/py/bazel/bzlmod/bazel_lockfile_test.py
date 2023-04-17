@@ -52,7 +52,7 @@ class BazelLockfileTest(test_base.TestBase):
             # Set an explicit Java language version
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
-            'common --experimental_enable_bzlmod_lockfile',
+            'common --lockfile_mode=update',
         ],
     )
     self.ScratchFile('WORKSPACE')
@@ -70,17 +70,16 @@ class BazelLockfileTest(test_base.TestBase):
             'bazel_dep(name = "sss", version = "1.3")',
         ],
     )
-    self.ScratchFile(
-        'BUILD',
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(
         [
-            'cc_binary(',
-            '  name = "main",',
-            '  srcs = ["main.cc"],',
-            '  deps = ["@sss//:lib_sss"],',
-            ')',
+            'build',
+            '--nobuild',
+            '--lockfile_mode=off',
+            '//:all',
         ],
+        allow_failure=False,
     )
-    self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
 
     # Change registry -> update 'sss' module file (corrupt it)
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
@@ -93,8 +92,8 @@ class BazelLockfileTest(test_base.TestBase):
         [
             'build',
             '--nobuild',
-            '--experimental_enable_bzlmod_lockfile=false',
-            '//:main',
+            '--lockfile_mode=off',
+            '//:all',
         ],
         allow_failure=True,
     )
@@ -117,21 +116,12 @@ class BazelLockfileTest(test_base.TestBase):
             'bazel_dep(name = "sss", version = "1.3")',
         ],
     )
-    self.ScratchFile(
-        'BUILD',
-        [
-            'cc_binary(',
-            '  name = "main",',
-            '  srcs = ["main.cc"],',
-            '  deps = ["@sss//:lib_sss"],',
-            ')',
-        ],
-    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
     self.RunBazel(
         [
             'build',
             '--nobuild',
-            '//:main',
+            '//:all',
         ],
         allow_failure=False,
     )
@@ -144,14 +134,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['clean', '--expunge'])
     # Running with the lockfile, should not recognize the registry changes
     # hence find no errors
-    self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '//:main',
-        ],
-        allow_failure=False,
-    )
+    self.RunBazel(['build', '--nobuild', '//:all'], allow_failure=False)
 
   def testChangeFlagWithLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
@@ -163,22 +146,9 @@ class BazelLockfileTest(test_base.TestBase):
             'bazel_dep(name = "sss", version = "1.3")',
         ],
     )
-    self.ScratchFile(
-        'BUILD',
-        [
-            'cc_binary(',
-            '  name = "main",',
-            '  srcs = ["main.cc"],',
-            '  deps = ["@sss//:lib_sss"],',
-            ')',
-        ],
-    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
     self.RunBazel(
-        [
-            'build',
-            '--nobuild',
-            '//:main',
-        ],
+        ['build', '--nobuild', '//:all'],
         allow_failure=False,
     )
 
@@ -194,13 +164,49 @@ class BazelLockfileTest(test_base.TestBase):
             'build',
             '--nobuild',
             '--check_direct_dependencies=error',
-            '//:main',
+            '//:all',
         ],
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
         "ERROR: sss@1.3/MODULE.bazel:1:9: invalid character: '!'", stderr
+    )
+
+  def testLockfileErrorMode(self):
+    self.ScratchFile('MODULE.bazel', [])
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--check_direct_dependencies=warning',
+            '//:all',
+        ],
+        allow_failure=False,
+    )
+
+    # Run with updated module and a different flag
+    self.ScratchFile('MODULE.bazel', ['module(name="lala")'])
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--check_direct_dependencies=error',
+            '--lockfile_mode=error',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: Lock file is'
+            ' no longer up-to-date because: the root MODULE.bazel has been'
+            ' modified, the value of --check_direct_dependencies flag has'
+            ' been modified'
+        ),
+        stderr,
     )
 
 

@@ -21,9 +21,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BazelModuleResolutionFunctionException;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction.BazelDepGraphFunctionException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -40,6 +42,8 @@ import javax.annotation.Nullable;
 
 /** Reads the contents of the lock file into its value. */
 public class BazelLockFileFunction implements SkyFunction {
+
+  public static final Precomputed<LockfileMode> LOCKFILE_MODE = new Precomputed<>("lockfile_mode");
 
   private final Path rootDirectory;
 
@@ -90,7 +94,7 @@ public class BazelLockFileFunction implements SkyFunction {
       ImmutableMap<ModuleKey, Module> resolvedDepGraph,
       Path rootDirectory,
       BzlmodFlagsAndEnvVars flags)
-      throws BazelModuleResolutionFunctionException {
+      throws BazelDepGraphFunctionException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
 
@@ -100,7 +104,7 @@ public class BazelLockFileFunction implements SkyFunction {
     try {
       FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(value));
     } catch (IOException e) {
-      throw new BazelModuleResolutionFunctionException(
+      throw new BazelDepGraphFunctionException(
           ExternalDepsException.withCauseAndMessage(
               Code.BAD_MODULE, e, "Unable to update module-lock file"),
           Transience.PERSISTENT);
