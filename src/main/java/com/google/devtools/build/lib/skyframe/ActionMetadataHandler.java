@@ -665,7 +665,8 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {
-    if (path.isFile(Symlinks.NOFOLLOW)) {
+    FileStatus stat = path.statIfFound(Symlinks.NOFOLLOW);
+    if (stat != null && stat.isFile() && stat.getPermissions() != 0555) {
       setPathReadOnlyAndExecutable(path);
     }
   }
