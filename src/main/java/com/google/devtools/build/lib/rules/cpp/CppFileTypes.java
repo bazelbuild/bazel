@@ -30,9 +30,43 @@ public final class CppFileTypes {
   // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
   // supported with clang. Bazel is not officially supporting these targets, and the extensions are
   // listed only as long as they work with the existing C++ actions.
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType CPP_SOURCE =
-      FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
-  public static final FileType C_SOURCE = FileType.of(".c");
+      new FileType() {
+        final ImmutableList<String> extensions = ImmutableList.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
+
+        @Override
+        public boolean apply(String path) {
+          for (String ext : extensions) {
+            if (path.endsWith(ext)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return extensions;
+        }
+      };
+
+  // FileType is extended to use case-sensitive comparison also on Windows
+  public static final FileType C_SOURCE =
+      new FileType() {
+        final String ext = ".c";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext);
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
+
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
