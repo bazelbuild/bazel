@@ -705,7 +705,7 @@ int ExecuteDaemon(const blaze_util::Path& exe,
   std::wstringstream newcmdline;
   newcmdline 
     << L"C:\\Program Files (x86)\\IncrediBuild\\IbConsole.exe "
-    << "/Title=\"Bazel Build\" /AllowRemote=\"cl,link\" /SILENT /AVOIDLOCAL=ON /Command=\""
+    << "/Title=\"Bazel Build\" /AllowRemote=\"cl,link\" /SILENT /Command=\""
     << cmdline.cmdline << "\"";
   wcsncpy(cmdline.cmdline, newcmdline.str().c_str(), MAX_CMDLINE_LENGTH - 1);
 

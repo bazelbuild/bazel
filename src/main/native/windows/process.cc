@@ -289,12 +289,12 @@ int WaitableProcess::WaitFor(int64_t timeout_msec,
     DWORD CompletionCode;
     ULONG_PTR CompletionKey;
     LPOVERLAPPED Overlapped;
-    while (GetQueuedCompletionStatus(ioport_, &CompletionCode,
-                                     &CompletionKey, &Overlapped, 200) &&
-           !((HANDLE)CompletionKey == (HANDLE)job_ &&
-             CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
-      // Still waiting...
-    }
+    // while (GetQueuedCompletionStatus(ioport_, &CompletionCode,
+    //                                  &CompletionKey, &Overlapped, 200) &&
+    //        !((HANDLE)CompletionKey == (HANDLE)job_ &&
+    //          CompletionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)) {
+    //   // Still waiting...
+    // }
 
     job_ = INVALID_HANDLE_VALUE;
     ioport_ = INVALID_HANDLE_VALUE;
