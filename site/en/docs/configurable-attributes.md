@@ -71,11 +71,13 @@ command line. Specifically, `deps` becomes:
 targets. By using `select()` in a configurable attribute, the attribute
 effectively adopts different values when different conditions hold.
 
-Matches must be unambiguous: either exactly one condition must match or, if
-multiple conditions match, one's `values` must be a strict superset of all
-others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}` is an
-unambiguous specialization of `values = {"cpu": "x86"}`. The built-in condition
-[`//conditions:default`](#default-condition) automatically matches when
+Matches must be unambiguous: if multiple conditions match then either
+*  They all resolve to the same value. For example, when running on linux x86, this is unambiguous
+   `{"@platforms//os:linux": "Hello", "@platforms//cpu:x86_64": "Hello"}` because both branches resolve to "hello".
+*  One's `values` is a strict superset of all others'. For example, `values = {"cpu": "x86", "compilation_mode": "dbg"}`
+   is an unambiguous specialization of `values = {"cpu": "x86"}`.
+
+The built-in condition [`//conditions:default`](#default-condition) automatically matches when
 nothing else does.
 
 While this example uses `deps`, `select()` works just as well on `srcs`,
@@ -516,7 +518,7 @@ Unlike `selects.with_or`, different targets can share `:config1_or_2` across
 different attributes.
 
 It's an error for multiple conditions to match unless one is an unambiguous
-"specialization" of the others. See [here](#configurable-build-example) for details.
+"specialization" of the others or they all resolve to the same value. See [here](#configurable-build-example) for details.
 
 ## AND chaining {:#and-chaining}
 
