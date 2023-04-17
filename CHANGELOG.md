@@ -1,3 +1,56 @@
+## Release 7.0.0-pre.20230410.1 (2023-04-17)
+
+```
+Baseline: 237fb69ede58a7cb672363451c2cb455637fccfe
+```
+
+Incompatible changes:
+
+  - Remove high priority workers functionality from blaze.
+
+Important changes:
+
+  - `--experimental_remote_build_event_upload` has been renamed to
+    `--remote_build_event_upload`
+  - [Breaking change] platform, constraint_setting, and
+    constraint_value can no longer take an applicable_licenses value.
+    Remediation is to remove the attribute and rely on the package
+    level default.
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, Philipp Schrader, Ulf Adams, Yannic Bonenberger.
+
+## Release 7.0.0-pre.20230405.2 (2023-04-12)
+
+```
+Baseline: 177f0d49913d74e7b1a4aae52f835702d7e85401
+
+Cherry picks:
+
+   + 81ee0fc29fb538d0849c6e7ccfff925f99b87453:
+     Remove globDeps containing some Glob skyKey check
+```
+
+Important changes:
+
+  - cc_test can now be configured by using a native.toolchain().
+  - `@foo` labels can now be used on the command line as the
+    top-level target (that is, `bazel build @foo` now works).
+    Double-dot syntax is now forbidden (`bazel build ../foo` will no
+    longer work).
+  - The location of rules that explicitly specify `generator_name`
+    and/or `generator_function` attributes (typically because they
+    are incidentally copied from `native.existing_rule()`) is now the
+    top-level call in the `BUILD` file, which is consistent with
+    rules that do not explicitly specify these attributes.
+  - Warnings (most notably those associated with the `deprecation`
+    rule attribute) are no longer replayed on subsequent invocations
+    unless the target in question is re-analyzed. Warnings are purely
+    informational, so this change has no bearing on the correctness
+    of the build. Downstream tests that break due to this change
+    should update their expectations.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jack Dai, Konstantin Erman.
+
 ## Release 7.0.0-pre.20230330.3 (2023-04-06)
 
 ```
