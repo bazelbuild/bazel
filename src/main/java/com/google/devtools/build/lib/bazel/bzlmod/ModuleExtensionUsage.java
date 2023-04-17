@@ -36,6 +36,9 @@ public abstract class ModuleExtensionUsage {
   /** The name of the extension. */
   public abstract String getExtensionName();
 
+  /** The module that contains this particular extension usage. */
+  public abstract ModuleKey getUsingModule();
+
   /**
    * The location where this proxy object was created (by the {@code use_extension} call). Note that
    * if there were multiple {@code use_extension} calls on same extension, then this only stores the
@@ -61,16 +64,6 @@ public abstract class ModuleExtensionUsage {
    */
   public abstract ImmutableList<Tag> getTags();
 
-  public ModuleKey getModuleKey() {
-    String file = getLocation().file();
-    Preconditions.checkState(file.endsWith("/MODULE.bazel"));
-    try {
-      return ModuleKey.fromString(file.substring(0, file.length() - "/MODULE.bazel".length()));
-    } catch (Version.ParseException e) {
-      throw new IllegalStateException("Unexpected location for module extension usage: " + file, e);
-    }
-  }
-
   public static Builder builder() {
     return new AutoValue_ModuleExtensionUsage.Builder();
   }
@@ -84,6 +77,8 @@ public abstract class ModuleExtensionUsage {
     public abstract Builder setExtensionBzlFile(String value);
 
     public abstract Builder setExtensionName(String value);
+
+    public abstract Builder setUsingModule(ModuleKey value);
 
     public abstract Builder setLocation(Location value);
 

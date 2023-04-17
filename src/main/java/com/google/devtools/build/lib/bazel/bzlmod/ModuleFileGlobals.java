@@ -452,6 +452,7 @@ public class ModuleFileGlobals {
       return ModuleExtensionUsage.builder()
           .setExtensionBzlFile(extensionBzlFile)
           .setExtensionName(extensionName)
+          .setUsingModule(module.getKey())
           .setLocation(location)
           .setImports(ImmutableBiMap.copyOf(imports))
           .setDevImports(devImports.build())

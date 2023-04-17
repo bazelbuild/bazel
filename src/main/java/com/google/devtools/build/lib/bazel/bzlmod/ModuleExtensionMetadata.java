@@ -1,6 +1,9 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -129,8 +132,8 @@ public class ModuleExtensionMetadata implements StarlarkValue {
   Optional<Event> generateFixupMessage(Collection<ModuleExtensionUsage> usages,
       Set<String> allRepos) throws EvalException {
     var rootUsages = usages.stream()
-        .filter(usage -> usage.getModuleKey().equals(ModuleKey.ROOT))
-        .collect(ImmutableList.toImmutableList());
+        .filter(usage -> usage.getUsingModule().equals(ModuleKey.ROOT))
+        .collect(toImmutableList());
     if (rootUsages.isEmpty()) {
       // The root module doesn't use the current extension. Do not suggest fixes as the user isn't
       // expected to modify any other module's MODULE.bazel file.
@@ -153,11 +156,11 @@ public class ModuleExtensionMetadata implements StarlarkValue {
       Set<String> allRepos, Set<String> expectedImports, Set<String> expectedDevImports) {
     var actualDevImports = rootUsages.stream()
         .flatMap(usage -> usage.getDevImports().stream())
-        .collect(ImmutableSet.toImmutableSet());
+        .collect(toImmutableSet());
     var actualImports = rootUsages.stream()
         .flatMap(usage -> usage.getImports().keySet().stream())
         .filter(repo -> !actualDevImports.contains(repo))
-        .collect(ImmutableSet.toImmutableSet());
+        .collect(toImmutableSet());
 
     // All label strings that map to the same Label are equivalent for buildozer as it implements
     // the same normalization of label strings with no or empty repo name.
@@ -197,7 +200,7 @@ public class ModuleExtensionMetadata implements StarlarkValue {
         Sets.difference(allExpectedImports, allActualImports));
     if (!missingImports.isEmpty()) {
       message += String.format(
-          "Not imported, but declared as direct dependencies (may cause the build to fail):\n    %s\n\n",
+          "Not imported, but reported as direct dependencies by the extension (may cause the build to fail):\n    %s\n\n",
           String.join(", ", missingImports));
     }
 
@@ -205,7 +208,7 @@ public class ModuleExtensionMetadata implements StarlarkValue {
         Sets.difference(Sets.intersection(allActualImports, allRepos), allExpectedImports));
     if (!indirectDepImports.isEmpty()) {
       message += String.format(
-          "Imported, but not declared as direct dependencies:\n    %s\n\n",
+          "Imported, but reported as indirect dependencies by the extension:\n    %s\n\n",
           String.join(", ", indirectDepImports));
     }
 

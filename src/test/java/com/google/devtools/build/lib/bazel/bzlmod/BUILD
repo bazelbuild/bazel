@@ -78,6 +78,7 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:gson",
