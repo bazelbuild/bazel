@@ -57,7 +57,6 @@ public final class GenRuleAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
         CommandLineLimits.UNLIMITED,
-        false,
         env,
         executionInfo,
         progressMessage,

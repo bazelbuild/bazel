@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +51,6 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -81,7 +83,6 @@ public final class LtoBackendAction extends SpawnAction {
       ActionOwner owner,
       CommandLines argv,
       CommandLineLimits commandLineLimits,
-      boolean isShellCommand,
       ActionEnvironment env,
       Map<String, String> executionInfo,
       CharSequence progressMessage,
@@ -95,7 +96,6 @@ public final class LtoBackendAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         commandLineLimits,
-        isShellCommand,
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
@@ -181,7 +181,7 @@ public final class LtoBackendAction extends SpawnAction {
               importSet,
               bitcodeInputSet.toList().stream()
                   .map(Artifact::getExecPath)
-                  .collect(Collectors.toSet()));
+                  .collect(toImmutableSet()));
       String message =
           String.format(
               "error computing inputs from imports file: %s, missing bitcode files (first 10): %s",
@@ -191,7 +191,7 @@ public final class LtoBackendAction extends SpawnAction {
                   .map(Object::toString)
                   .sorted()
                   .limit(10)
-                  .collect(Collectors.joining(", ")));
+                  .collect(joining(", ")));
       DetailedExitCode code = createDetailedExitCode(message, Code.MISSING_BITCODE_FILES);
       throw new ActionExecutionException(message, this, false, code);
     }
@@ -233,7 +233,7 @@ public final class LtoBackendAction extends SpawnAction {
     try {
       fp.addStrings(getArguments());
     } catch (CommandLineExpansionException e) {
-      throw new AssertionError("LtoBackendAction command line expansion cannot fail");
+      throw new AssertionError("LtoBackendAction command line expansion cannot fail", e);
     }
     fp.addString(getMnemonic());
     fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
@@ -273,7 +273,6 @@ public final class LtoBackendAction extends SpawnAction {
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
-        boolean isShellCommand,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -288,7 +287,6 @@ public final class LtoBackendAction extends SpawnAction {
           owner,
           commandLines,
           commandLineLimits,
-          isShellCommand,
           env,
           executionInfo,
           progressMessage,

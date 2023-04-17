@@ -77,7 +77,6 @@ public final class ExtraAction extends SpawnAction {
         AbstractAction.DEFAULT_RESOURCE_SET,
         CommandLines.of(argv),
         CommandLineLimits.UNLIMITED,
-        false,
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
