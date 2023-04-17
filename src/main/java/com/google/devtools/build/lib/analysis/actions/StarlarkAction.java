@@ -72,6 +72,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
 
   private final Optional<Artifact> unusedInputsList;
   private final Optional<Action> shadowedAction;
+  private boolean inputsDiscovered = false;
 
   /**
    * Constructs a StarlarkAction using direct initialization arguments.
@@ -157,6 +158,16 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   public boolean discoversInputs() {
     return unusedInputsList.isPresent()
         || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   @Override

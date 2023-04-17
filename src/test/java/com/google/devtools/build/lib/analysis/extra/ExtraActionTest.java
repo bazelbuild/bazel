@@ -159,19 +159,19 @@ public class ExtraActionTest extends FoundationTestCase {
         extraAction.execute(
             new ActionExecutionContext(
                 testExecutor,
-                /*actionInputFileCache=*/ null,
+                /* inputMetadataProvider= */ null,
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
-                /*metadataHandler=*/ null,
-                /*rewindingEnabled=*/ false,
+                /* outputMetadataStore= */ null,
+                /* rewindingEnabled= */ false,
                 LostInputsCheck.NONE,
-                /*fileOutErr=*/ null,
-                /*eventHandler=*/ null,
-                /*clientEnv=*/ ImmutableMap.of(),
-                /*topLevelFilesets=*/ ImmutableMap.of(),
-                /*artifactExpander=*/ null,
-                /*actionFileSystem=*/ null,
-                /*skyframeDepsResult=*/ null,
+                /* fileOutErr= */ null,
+                /* eventHandler= */ null,
+                /* clientEnv= */ ImmutableMap.of(),
+                /* topLevelFilesets= */ ImmutableMap.of(),
+                /* artifactExpander= */ null,
+                /* actionFileSystem= */ null,
+                /* skyframeDepsResult= */ null,
                 DiscoveredModulesPruner.DEFAULT,
                 SyscallCache.NO_CACHE,
                 ThreadStateReceiver.NULL_INSTANCE));
@@ -190,7 +190,7 @@ public class ExtraActionTest extends FoundationTestCase {
     Action shadowedAction = mock(Action.class);
     when(shadowedAction.discoversInputs()).thenReturn(true);
     when(shadowedAction.getInputs()).thenReturn(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-    when(shadowedAction.inputsDiscovered()).thenReturn(true);
+    when(shadowedAction.inputsKnown()).thenReturn(true);
     when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
     when(shadowedAction.getRunfilesSupplier()).thenReturn(EmptyRunfilesSupplier.INSTANCE);
     ExtraAction extraAction =

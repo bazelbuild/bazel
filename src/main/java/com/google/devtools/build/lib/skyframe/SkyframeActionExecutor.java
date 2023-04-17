@@ -1154,7 +1154,7 @@ public final class SkyframeActionExecutor {
       Path primaryOutputPath = actionExecutionContext.getInputPath(primaryOutput);
       try {
         checkState(
-            action.inputsDiscovered(),
+            action.inputsKnown(),
             "Action %s successfully executed, but inputs still not known",
             action);
 

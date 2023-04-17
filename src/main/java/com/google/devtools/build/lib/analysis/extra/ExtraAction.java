@@ -53,6 +53,7 @@ public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
   private final NestedSet<Artifact> extraActionInputs;
+  private boolean inputsDiscovered = false;
 
   ExtraAction(
       NestedSet<Artifact> extraActionInputs,
@@ -99,6 +100,16 @@ public final class ExtraAction extends SpawnAction {
   @Override
   public boolean discoversInputs() {
     return shadowedAction.discoversInputs();
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   /**

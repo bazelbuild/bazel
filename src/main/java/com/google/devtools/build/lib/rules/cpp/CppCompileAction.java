@@ -188,6 +188,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   private Set<DerivedArtifact> usedModules;
 
+  private boolean inputsDiscovered = false;
+
   /**
    * This field is set only for C++ module compiles (compiling .cppmap files into .pcm files). It
    * stores the modules necessary for building this module as they will later also be required for
@@ -436,6 +438,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public boolean discoversInputs() {
     return shouldScanIncludes || getDotdFile() != null || shouldParseShowIncludes();
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   @Override
@@ -915,7 +927,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     info.setOutputFile(getPrimaryOutput().getExecPathString());
     info.setSourceFile(getSourceFile().getExecPathString());
-    if (inputsDiscovered()) {
+    if (inputsKnown()) {
       info.addAllSourcesAndHeaders(Artifact.toExecPaths(getInputs().toList()));
     } else {
       info.addSourcesAndHeaders(getSourceFile().getExecPathString());
@@ -1257,7 +1269,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Called by {@link com.google.devtools.build.lib.actions.ActionCacheChecker}
+   * {@inheritDoc}
    *
    * <p>If this is compiling a module, restores the value of {@link #discoveredModules}, which is
    * used to create the {@link com.google.devtools.build.lib.skyframe.ActionExecutionValue} after an

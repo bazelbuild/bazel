@@ -110,9 +110,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    */
   private final NestedSet<Artifact> tools;
 
-  @GuardedBy("this")
-  private boolean inputsDiscovered = false; // Only used when discoversInputs() returns true
-
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   // Access through getInputs() in case it's overridden.
   @GuardedBy("this")
@@ -180,39 +177,26 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public final synchronized boolean inputsDiscovered() {
-    return !discoversInputs() || inputsDiscovered;
+  public final boolean inputsKnown() {
+    if (!discoversInputs()) {
+      return true;
+    }
+    synchronized (this) {
+      return inputsDiscovered();
+    }
   }
 
   /**
-   * Should be overridden by actions that do input discovery.
+   * {@inheritDoc}
    *
-   * <p>The value returned by each instance should be constant over the lifetime of that instance.
-   *
-   * <p>If this returns true, {@link #discoverInputs(ActionExecutionContext)} must also be
-   * implemented.
+   * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, and
+   * {@link #setInputsDiscovered} by actions that do input discovery.
    */
   @Override
   public boolean discoversInputs() {
     return false;
   }
 
-  /**
-   * Runs input discovery on the action.
-   *
-   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of input
-   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
-   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
-   * during action execution, probably by keeping state in the action instance and using a custom
-   * action execution context and for {@link #updateInputs} to be called during the execution of the
-   * action.
-   *
-   * <p>Since keeping state within an action is bad, don't do that unless there is a very good
-   * reason to do so.
-   *
-   * <p>May return {@code null} if more dependencies were requested from skyframe but were
-   * unavailable, meaning a restart is necessary.
-   */
   @Override
   @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -224,16 +208,41 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @Override
   public final void resetDiscoveredInputs() {
     checkState(discoversInputs(), "Not an input-discovering action: %s", this);
-    if (!inputsDiscovered()) {
+    if (!inputsKnown()) {
       return;
     }
     NestedSet<Artifact> originalInputs = getOriginalInputs();
     if (originalInputs != null) {
       synchronized (this) {
         inputs = originalInputs;
-        inputsDiscovered = false;
+        setInputsDiscovered(false);
       }
     }
+  }
+
+  /**
+   * Returns true if inputs have been discovered.
+   *
+   * <p>The value returned reflects the most recent call to {@link #setInputsDiscovered}. If {@link
+   * #setInputsDiscovered} has never been called, returns false.
+   *
+   * <p>This method is used instead of a {@code boolean} field in this class in order to save memory
+   * for actions which do not discover inputs.
+   */
+  @ForOverride
+  @GuardedBy("this")
+  protected boolean inputsDiscovered() {
+    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
+  }
+
+  /**
+   * Informs input-discovering actions about their discovery state so that they can correctly
+   * implement {@link #inputsDiscovered}.
+   */
+  @ForOverride
+  @GuardedBy("this")
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
   }
 
   /**
@@ -269,7 +278,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public synchronized void updateInputs(NestedSet<Artifact> inputs) {
     checkState(discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
     this.inputs = inputs;
-    inputsDiscovered = true;
+    setInputsDiscovered(true);
   }
 
   @Override
@@ -361,7 +370,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         + getMnemonic()
         + "["
         + getInputs().toList()
-        + (inputsDiscovered() ? " -> " : ", unknown inputs -> ")
+        + (inputsKnown() ? " -> " : ", unknown inputs -> ")
         + getOutputs()
         + "]"
         + ")";
@@ -736,7 +745,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   @Nullable
-  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() {
     // Not all action types support returning Args.
     return null;
   }

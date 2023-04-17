@@ -71,6 +71,7 @@ public final class LtoBackendAction extends SpawnAction {
   private final NestedSet<Artifact> mandatoryInputs;
   private final BitcodeFiles bitcodeFiles;
   private final Artifact imports;
+  private boolean inputsDiscovered = false;
 
   public LtoBackendAction(
       NestedSet<Artifact> inputs,
@@ -115,6 +116,16 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   public boolean discoversInputs() {
     return imports != null;
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   private NestedSet<Artifact> computeBitcodeInputs(HashSet<PathFragment> inputPaths) {

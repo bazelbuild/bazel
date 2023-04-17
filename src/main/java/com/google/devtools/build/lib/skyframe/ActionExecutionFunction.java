@@ -557,7 +557,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private AllInputs collectInputs(Action action, Environment env)
       throws InterruptedException, AlreadyReportedActionExecutionException {
     NestedSet<Artifact> allKnownInputs = action.getInputs();
-    if (action.inputsDiscovered()) {
+    if (action.inputsKnown()) {
       return new AllInputs(allKnownInputs);
     }
 
