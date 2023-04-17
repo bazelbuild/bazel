@@ -202,6 +202,8 @@ tasks:
       - "-//src/test/shell/bazel/android:android_instrumentation_test_integration_test_with_platforms"
       - "-//src/test/shell/bazel:git_repository_test"
       - "-//src/test/shell/bazel:starlark_git_repository_test"
+      - "-//src/test/shell/bazel:starlark_repository_test
+      - "-//src/test/shell/bazel:bazel_determinism_test"      
   windows:
     shards: 4
     batch_commands:
