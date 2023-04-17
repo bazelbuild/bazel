@@ -960,6 +960,7 @@ sh_test(
     size = "medium",
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
+    shard_count = 5,
     tags = ["no_windows"],
 )
 
