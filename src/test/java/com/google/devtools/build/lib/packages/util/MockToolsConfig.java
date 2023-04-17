@@ -18,7 +18,9 @@ import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -157,8 +159,13 @@ public final class MockToolsConfig {
   }
 
   public void copyTool(String relativePath, String dest) throws IOException {
-    Path runfiles = FileSystems.getNativeFileSystem().getPath(BlazeTestUtils.runfilesDir());
-    Path source = runfiles.getRelative(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    // Tests are assumed to be run from the main repository only.
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    PathFragment rlocationPath =
+        PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    Path source =
+        FileSystems.getNativeFileSystem()
+            .getPath(runfiles.rlocation(rlocationPath.getPathString()));
     create(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
   }
 
