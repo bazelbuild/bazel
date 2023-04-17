@@ -977,7 +977,9 @@ excluded test sizes. For example,
 <pre>
   % bazel test --test_size_filters=small,medium //foo:all
 </pre>
-  and
+
+and
+
 <pre>
   % bazel test --test_size_filters=-large,-enormous //foo:all
 </pre>
