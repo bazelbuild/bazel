@@ -29,6 +29,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -269,7 +270,7 @@ public class Package {
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
 
-  private ImmutableSet<String> features;
+  private FeatureSet features;
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
@@ -483,7 +484,7 @@ public class Package {
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
-    this.features = ImmutableSortedSet.copyOf(builder.features);
+    this.features = builder.features;
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -669,10 +670,8 @@ public class Package {
     return workspaceName;
   }
 
-  /**
-   * Returns the features specified in the <code>package()</code> declaration.
-   */
-  public ImmutableSet<String> getFeatures() {
+  /** Returns the features specified in the <code>package()</code> declaration. */
+  public FeatureSet getFeatures() {
     return features;
   }
 
@@ -1005,7 +1004,7 @@ public class Package {
     private RuleVisibility defaultVisibility = RuleVisibility.PRIVATE;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
     private boolean defaultVisibilitySet;
-    private final List<String> features = new ArrayList<>();
+    private FeatureSet features = FeatureSet.EMPTY;
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
     @Nullable private String ioExceptionMessage = null;
@@ -1358,7 +1357,7 @@ public class Package {
 
     @CanIgnoreReturnValue
     public Builder addFeatures(Iterable<String> features) {
-      Iterables.addAll(this.features, features);
+      this.features = FeatureSet.merge(this.features, FeatureSet.parse(features));
       return this;
     }
 
