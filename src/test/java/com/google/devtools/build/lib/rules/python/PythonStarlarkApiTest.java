@@ -121,7 +121,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "        interpreter = ctx.file.interpreter,",
         "        files = depset(direct = ctx.files.files, transitive=[info.files]),",
         "        python_version = info.python_version,",
-        "        bootstrap_template =ctx.file.bootstrap_template)]",
+        "        bootstrap_template = ctx.file.bootstrap_template)]",
         "",
         "userruntime = rule(",
         "    implementation = _userruntime_impl,",
