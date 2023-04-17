@@ -208,14 +208,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean enableBzlmod;
 
   @Option(
-      name = "experimental_enable_bzlmod_lockfile",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
-      help = "If true, enables the Bzlmod lockfile caching the module contents.")
-  public boolean enableLockfile;
-
-  @Option(
       name = "experimental_java_proto_library_default_has_services",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -686,7 +678,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
-            .setBool(ENABLE_LOCKFILE, enableLockfile)
             .setBool(
                 EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
                 experimentalJavaProtoLibraryDefaultHasServices)
@@ -780,7 +771,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
   public static final String ENABLE_BZLMOD = "-enable_bzlmod";
-  public static final String ENABLE_LOCKFILE = "-experimental_enable_bzlmod_lockfile";
   public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
       "+experimental_java_proto_library_default_has_services";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =

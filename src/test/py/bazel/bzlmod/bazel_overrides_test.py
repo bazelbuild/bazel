@@ -51,7 +51,7 @@ class BazelOverridesTest(test_base.TestBase):
             # Set an explicit Java language version
             'common --java_language_version=8',
             'common --tool_java_language_version=8',
-            'common --experimental_enable_bzlmod_lockfile',
+            'common --lockfile_mode=update',
         ],
     )
     self.ScratchFile('WORKSPACE')
