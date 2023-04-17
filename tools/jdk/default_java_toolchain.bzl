@@ -38,6 +38,11 @@ BASE_JDK9_JVM_OPTS = [
     # TODO(b/64485048): Disable this option in persistent worker mode only.
     # Disable symlinks resolution cache since symlinks in exec root change
     "-Dsun.io.useCanonCaches=false",
+
+    # Since https://bugs.openjdk.org/browse/JDK-8153723, JVM logging goes to stdout. This
+    # makes it go to stderr instead.
+    "-Xlog:disable",
+    "-Xlog:all=warning:stderr:uptime,level,tags",
 ]
 
 JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS
