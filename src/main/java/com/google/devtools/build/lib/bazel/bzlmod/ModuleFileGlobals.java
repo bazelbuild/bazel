@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocumentMethods;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionUsageBuilder.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
@@ -402,6 +403,7 @@ public class ModuleFileGlobals {
     private final String extensionName;
     private final Location location;
     private final HashBiMap<String, String> imports;
+    private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(String extensionBzlFile, String extensionName, Location location) {
@@ -409,6 +411,7 @@ public class ModuleFileGlobals {
       this.extensionName = extensionName;
       this.location = location;
       this.imports = HashBiMap.create();
+      this.devImports = ImmutableSet.builder();
       this.tags = ImmutableList.builder();
     }
 
@@ -416,8 +419,10 @@ public class ModuleFileGlobals {
       return ModuleExtensionUsage.builder()
           .setExtensionBzlFile(extensionBzlFile)
           .setExtensionName(extensionName)
+          .setUsingModule(module.getKey())
           .setLocation(location)
           .setImports(ImmutableBiMap.copyOf(imports))
+          .setDevImports(devImports.build())
           .setTags(tags.build())
           .build();
     }
@@ -451,6 +456,9 @@ public class ModuleFileGlobals {
               exportedName, extensionName, repoNameUsages.get(collisionRepoName).getWhere());
         }
         imports.put(localRepoName, exportedName);
+        if (devDependency) {
+          devImports.add(exportedName);
+        }
       }
 
       @Nullable
