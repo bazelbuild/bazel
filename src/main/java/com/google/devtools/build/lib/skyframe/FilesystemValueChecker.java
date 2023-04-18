@@ -448,7 +448,8 @@ public class FilesystemValueChecker {
 
     // This could be improved by short-circuiting as soon as we see a child that is not present in
     // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
-    Set<PathFragment> currentChildren = new HashSet<>();
+    // visitTree() is called from multiple threads in parallel so this need to be a hash set
+    Set<PathFragment> currentChildren = Sets.newConcurrentHashSet();
     try {
       TreeArtifactValue.visitTree(
           path,
