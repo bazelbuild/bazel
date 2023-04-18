@@ -99,11 +99,6 @@ import net.starlark.java.eval.StarlarkList;
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
 public class SpawnAction extends AbstractAction implements CommandAction {
 
-  /** Sets extensions on {@link ExtraActionInfo}. */
-  public interface ExtraActionInfoSupplier {
-    void extend(ExtraActionInfo.Builder builder);
-  }
-
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
   private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
@@ -117,8 +112,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
   private final ImmutableMap<String, String> executionInfo;
-
-  private final ExtraActionInfoSupplier extraActionInfoSupplier;
   private final Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer;
   private final boolean stripOutputPaths;
 
@@ -165,7 +158,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
         null,
-        null,
         /* stripOutputPaths= */ false);
   }
 
@@ -203,7 +195,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      ExtraActionInfoSupplier extraActionInfoSupplier,
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer,
       boolean stripOutputPaths) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
@@ -216,7 +207,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.commandLineLimits = commandLineLimits;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.resultConsumer = resultConsumer;
     this.stripOutputPaths = stripOutputPaths;
   }
@@ -485,15 +475,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo(ActionKeyContext actionKeyContext)
       throws CommandLineExpansionException, InterruptedException {
-    ExtraActionInfo.Builder builder = super.getExtraActionInfo(actionKeyContext);
-    if (extraActionInfoSupplier == null) {
-      SpawnInfo spawnInfo = getExtraActionSpawnInfo();
-      return builder
-          .setExtension(SpawnInfo.spawnInfo, spawnInfo);
-    } else {
-      extraActionInfoSupplier.extend(builder);
-      return builder;
-    }
+    return super.getExtraActionInfo(actionKeyContext)
+        .setExtension(SpawnInfo.spawnInfo, getExtraActionSpawnInfo());
   }
 
   /**
@@ -643,7 +626,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     private CharSequence progressMessage;
     private String mnemonic = "Unknown";
-    ExtraActionInfoSupplier extraActionInfoSupplier = null;
     private boolean disableSandboxing = false;
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
 
@@ -811,7 +793,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          extraActionInfoSupplier,
           resultConsumer,
           stripOutputPaths);
     }
@@ -1330,12 +1311,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder stripOutputPaths(boolean stripPaths) {
       this.stripOutputPaths = stripPaths;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setExtraActionInfo(ExtraActionInfoSupplier extraActionInfoSupplier) {
-      this.extraActionInfoSupplier = extraActionInfoSupplier;
       return this;
     }
 

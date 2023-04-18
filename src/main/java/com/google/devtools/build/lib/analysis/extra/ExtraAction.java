@@ -83,7 +83,6 @@ public final class ExtraAction extends SpawnAction {
         CompositeRunfilesSupplier.of(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
         null,
-        null,
         /*stripOutputPaths=*/ false);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;

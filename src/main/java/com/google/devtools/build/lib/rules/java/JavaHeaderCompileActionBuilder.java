@@ -447,7 +447,6 @@ public class JavaHeaderCompileActionBuilder {
               /* progressMessage= */ progressMessage,
               /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
               /* mnemonic= */ "Turbine",
-              /* extraActionInfoSupplier= */ null,
               /* resultConsumer= */ resultConsumer,
               /* stripOutputPaths= */ stripOutputPaths));
       return;
