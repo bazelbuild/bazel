@@ -39,6 +39,7 @@ import java.io.OutputStreamWriter;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -1086,13 +1087,15 @@ public final class Profiler {
                 // The buffer size of 262144 is chosen at random.
                 new OutputStreamWriter(
                     new BufferedOutputStream(outStream, 262144), StandardCharsets.UTF_8))) {
+          var finishDate = Instant.now();
           writer.beginObject();
           writer.name("otherData");
           writer.beginObject();
           writer.name("bazel_version").value(BlazeVersionInfo.instance().getReleaseName());
           writer.name("build_id").value(buildID.toString());
           writer.name("output_base").value(outputBase);
-          writer.name("date").value(new Date().toString());
+          writer.name("date").value(finishDate.toString());
+          writer.name("profile_finish_ts").value(finishDate.getEpochSecond() * 1000);
           writer.endObject();
           writer.name("traceEvents");
           writer.beginArray();
