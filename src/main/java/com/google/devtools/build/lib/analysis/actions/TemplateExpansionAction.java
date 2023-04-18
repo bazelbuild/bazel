@@ -131,24 +131,13 @@ public final class TemplateExpansionAction extends AbstractAction {
   static ActionResult execute(
       ActionExecutionContext actionExecutionContext,
       AbstractAction action,
-      Template template,
-      Artifact primaryOutput,
-      List<Substitution> substitutions,
-      boolean makeExecutable)
+      TemplateExpansionContext.TemplateMetadata templateMetadata)
       throws ActionExecutionException, InterruptedException {
     try {
       ImmutableList<SpawnResult> result =
           actionExecutionContext
               .getContext(TemplateExpansionContext.class)
-              .expandTemplate(
-                  action,
-                  actionExecutionContext,
-                  TemplateExpansionContext.TemplateMetadata.builder()
-                      .setTemplate(template)
-                      .setPrimaryOutput(primaryOutput)
-                      .setSubstitutions(ImmutableList.copyOf(substitutions))
-                      .setMakeExecutable(makeExecutable)
-                      .build());
+              .expandTemplate(action, actionExecutionContext, templateMetadata);
 
       return ActionResult.create(result);
     } catch (EvalException e) {
@@ -169,7 +158,14 @@ public final class TemplateExpansionAction extends AbstractAction {
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     return TemplateExpansionAction.execute(
-        actionExecutionContext, this, template, getPrimaryOutput(), substitutions, makeExecutable);
+        actionExecutionContext,
+        this,
+        TemplateExpansionContext.TemplateMetadata.builder()
+            .setTemplate(template)
+            .setPrimaryOutput(getPrimaryOutput())
+            .setSubstitutions(substitutions)
+            .setMakeExecutable(makeExecutable)
+            .build());
   }
 
   @VisibleForTesting

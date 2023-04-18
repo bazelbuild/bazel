@@ -172,10 +172,12 @@ public final class BuildInfoFileWriteAction extends AbstractAction {
       return TemplateExpansionAction.execute(
           /* actionExecutionContext= */ ctx,
           /* action= */ this,
-          Template.forArtifact(template),
-          getPrimaryOutput(),
-          substitutionList,
-          /* makeExecutable= */ false);
+          TemplateExpansionContext.TemplateMetadata.builder()
+              .setTemplate(Template.forArtifact(template))
+              .setPrimaryOutput(getPrimaryOutput())
+              .setSubstitutions(substitutionList)
+              .setMakeExecutable(false)
+              .build());
     }
   }
 
