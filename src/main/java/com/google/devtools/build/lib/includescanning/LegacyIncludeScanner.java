@@ -659,8 +659,8 @@ public class LegacyIncludeScanner implements IncludeScanner {
         IncludeScanningHeaderData headerData) {
       super(
           includePool,
-          /*shutdownOnCompletion=*/ false,
-          /*failFastOnException=*/ true,
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
           ErrorClassifier.DEFAULT);
       this.actionExecutionMetadata = actionExecutionMetadata;
       this.actionExecutionContext = actionExecutionContext;

@@ -510,8 +510,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     Visitor(Path parentDir, TreeArtifactVisitor visitor) {
       super(
           VISITOR_POOL,
-          /* shutdownOnCompletion= */ false,
-          /* failFastOnException= */ true,
+          ExecutorOwnership.SHARED,
+          ExceptionHandlingMode.FAIL_FAST,
           ErrorClassifier.DEFAULT);
       this.parentDir = checkNotNull(parentDir);
       this.visitor = checkNotNull(visitor);
