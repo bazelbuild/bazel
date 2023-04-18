@@ -122,10 +122,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private final CountDownLatch exceptionLatch = new CountDownLatch(1);
 
   /** If {@code true}, don't run new actions after an uncaught exception. */
-  private final boolean failFastOnException;
+  private final ExceptionHandlingMode exceptionHandlingMode;
 
   /** If {@code true}, shut down the {@link ExecutorService} on completion. */
-  private final boolean ownExecutorService;
+  private final ExecutorOwnership executorOwnership;
 
   private final ErrorClassifier errorClassifier;
 
@@ -165,7 +165,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   public static AbstractQueueVisitor createWithExecutorService(
       ExecutorService executorService,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     if (executorService instanceof ForkJoinPool) {
       return ForkJoinQuiescingExecutor.newBuilder()
@@ -173,14 +173,15 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
           .setErrorClassifier(errorClassifier)
           .build();
     }
-    return new AbstractQueueVisitor(executorService, true, failFastOnException, errorClassifier);
+    return new AbstractQueueVisitor(
+        executorService, ExecutorOwnership.PRIVATE, exceptionHandlingMode, errorClassifier);
   }
 
   public static AbstractQueueVisitor create(
       String name, int parallelism, ErrorClassifier errorClassifier) {
     return createWithExecutorService(
         newNamedPool(name, parallelism),
-        /* failFastOnException= */ false, // Not actually used.
+        ExceptionHandlingMode.KEEP_GOING, // Not actually used.
         errorClassifier);
   }
 
@@ -192,7 +193,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    *     {@code maximumPoolSize} in {@link ThreadPoolExecutor}.
    * @param keepAliveTime the keep-alive time for the {@link ExecutorService}, if applicable.
    * @param units the time units of keepAliveTime.
-   * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
+   * @param exceptionHandlingMode what to do when a task throws an uncaught exception.
    * @param poolName sets the name of threads spawned by the {@link ExecutorService}. If {@code
    *     null}, default thread naming will be used.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
@@ -201,33 +202,56 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       int parallelism,
       long keepAliveTime,
       TimeUnit units,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       String poolName,
       ErrorClassifier errorClassifier) {
     this(
         createExecutorService(parallelism, keepAliveTime, units, new BlockingStack<>(), poolName),
-        true,
-        failFastOnException,
+        ExecutorOwnership.PRIVATE,
+        exceptionHandlingMode,
         errorClassifier);
   }
 
   /**
+   * Whether this {@link AbstractQueueVisitor} will own the {@link ExecutorService} it is running
+   * tasks on.
+   */
+  protected enum ExecutorOwnership {
+    /**
+     * Shut down the executor once the visitation is done (after {@link #awaitQuiescence}.
+     *
+     * <p>Callers must not shut down the {@link ExecutorService} while queue visitors use it.
+     */
+    PRIVATE,
+
+    /** Keep the executor running after the visitation is done. */
+    SHARED
+  }
+
+  /** What to do if a task throws an uncaught exception. */
+  public enum ExceptionHandlingMode {
+    /** Don't run new tasks after one throws an uncaught exception. */
+    FAIL_FAST,
+
+    /** Keep running new tasks when one throws an uncaught exception. */
+    KEEP_GOING,
+  }
+  /**
    * Create the AbstractQueueVisitor.
    *
-   * @param executorService The {@link ExecutorService} to use.
-   * @param shutdownOnCompletion If {@code true}, pass ownership of the {@link ExecutorService} to
-   *     this class. The service will be shut down after a call to {@link #awaitQuiescence}. Callers
-   *     must not shut down the {@link ExecutorService} while queue visitors use it.
-   * @param failFastOnException if {@code true}, don't run new actions after an uncaught exception.
+   * @param executorService the {@link ExecutorService} to use.
+   * @param executorOwnership whether the {@link AbstractQueueVisitor} being created owns the {@link
+   *     ExecutorService} it uses.
+   * @param exceptionHandlingMode what to do when a task throws an uncaught exception.
    * @param errorClassifier an error classifier used to determine whether to log and/or stop jobs.
    */
   protected AbstractQueueVisitor(
       ExecutorService executorService,
-      boolean shutdownOnCompletion,
-      boolean failFastOnException,
+      ExecutorOwnership executorOwnership,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
-    this.failFastOnException = failFastOnException;
-    this.ownExecutorService = shutdownOnCompletion;
+    this.exceptionHandlingMode = exceptionHandlingMode;
+    this.executorOwnership = executorOwnership;
     this.executorService = Preconditions.checkNotNull(executorService);
     this.errorClassifier = Preconditions.checkNotNull(errorClassifier);
   }
@@ -424,7 +448,8 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   /** If this returns true, don't enqueue new actions. */
   protected boolean blockNewActions() {
-    return isInterrupted() || (unhandled != null && failFastOnException);
+    return isInterrupted()
+        || (unhandled != null && exceptionHandlingMode == ExceptionHandlingMode.FAIL_FAST);
   }
 
   @VisibleForTesting
@@ -555,7 +580,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       }
     }
 
-    if (ownExecutorService) {
+    if (executorOwnership == ExecutorOwnership.PRIVATE) {
       shutdownExecutorService(catastrophe);
     }
   }
