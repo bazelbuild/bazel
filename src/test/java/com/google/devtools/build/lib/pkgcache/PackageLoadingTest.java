@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -552,7 +553,8 @@ public class PackageLoadingTest extends FoundationTestCase {
         "peach/BUILD",
         "package(features = ['crosstool_default_false'])",
         "cc_library(name = 'cc', srcs = ['cc.cc'])");
-    assertThat(getPackage("peach").getFeatures()).hasSize(1);
+    assertThat(getPackage("peach").getFeatures())
+        .isEqualTo(FeatureSet.parse(ImmutableList.of("crosstool_default_false")));
   }
 
   @Test
