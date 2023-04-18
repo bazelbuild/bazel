@@ -288,6 +288,7 @@ java_library(
         ":config/config_matching_provider",
         ":config/core_options",
         ":config/execution_transition_factory",
+        ":config/feature_set",
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_options",
@@ -1620,6 +1621,7 @@ java_library(
         ":config/build_options",
         ":config/compilation_mode",
         ":config/core_options",
+        ":config/feature_set",
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_factory",
@@ -1785,6 +1787,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/feature_set",
+    srcs = ["config/FeatureSet.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 

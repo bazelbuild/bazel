@@ -1,3 +1,24 @@
+## Release 7.0.0-pre.20230410.1 (2023-04-17)
+
+```
+Baseline: 237fb69ede58a7cb672363451c2cb455637fccfe
+```
+
+Incompatible changes:
+
+  - Remove high priority workers functionality from blaze.
+
+Important changes:
+
+  - `--experimental_remote_build_event_upload` has been renamed to
+    `--remote_build_event_upload`
+  - [Breaking change] platform, constraint_setting, and
+    constraint_value can no longer take an applicable_licenses value.
+    Remediation is to remove the attribute and rely on the package
+    level default.
+
+This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim, Philipp Schrader, Ulf Adams, Yannic Bonenberger.
+
 ## Release 7.0.0-pre.20230405.2 (2023-04-12)
 
 ```

@@ -268,7 +268,7 @@ public class ActionCacheChecker {
     }
   }
 
-  protected boolean unconditionalExecution(Action action) {
+  private boolean unconditionalExecution(Action action) {
     return !isActionExecutionProhibited(action) && action.executeUnconditionally();
   }
 
@@ -370,7 +370,7 @@ public class ActionCacheChecker {
                     childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
         // Or add local one.
         if (localTreeMetadataExists) {
-          localTreeMetadata.getChildValues().forEach(childValues::put);
+          childValues.putAll(localTreeMetadata.getChildValues());
         }
 
         Optional<ArchivedRepresentation> archivedRepresentation;
@@ -466,8 +466,8 @@ public class ActionCacheChecker {
     }
     NestedSet<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
-    boolean inputsDiscovered = action.inputsDiscovered();
-    if (!inputsDiscovered && resolvedCacheArtifacts != null) {
+    boolean inputsKnown = action.inputsKnown();
+    if (!inputsKnown && resolvedCacheArtifacts != null) {
       // The action doesn't know its inputs, but the caller has a good idea of what they are.
       checkState(
           action.discoversInputs(),
@@ -512,7 +512,7 @@ public class ActionCacheChecker {
       return new Token(getKeyString(action));
     }
 
-    if (!inputsDiscovered) {
+    if (!inputsKnown) {
       action.updateInputs(actionInputs);
     }
 
@@ -876,9 +876,7 @@ public class ActionCacheChecker {
     }
   }
 
-  // Called by IncrementalDependencyChecker.
-  protected static void reportUnconditionalExecution(
-      @Nullable EventHandler handler, Action action) {
+  private static void reportUnconditionalExecution(@Nullable EventHandler handler, Action action) {
     reportRebuild(handler, action, "unconditional execution is requested");
   }
 

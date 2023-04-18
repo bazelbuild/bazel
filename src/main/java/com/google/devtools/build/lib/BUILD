@@ -525,7 +525,7 @@ genrule(
     outs = ["command-line-reference.html"],
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
-        "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
+        "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +

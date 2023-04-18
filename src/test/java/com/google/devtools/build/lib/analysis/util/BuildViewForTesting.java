@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
@@ -104,7 +103,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -125,6 +123,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -638,16 +637,17 @@ public class BuildViewForTesting {
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
 
-    ComputedToolchainContexts result =
-        PrerequisiteProducer.computeUnloadedToolchainContexts(
-            skyfunctionEnvironment,
-            ruleClassProvider,
+    var unloadedToolchainContextsInputs =
+        PrerequisiteProducer.getUnloadedToolchainContextsInputs(
             new TargetAndConfiguration(target.getAssociatedRule(), targetConfig),
-            null);
+            /* parentExecutionPlatformLabel= */ null,
+            ruleClassProvider,
+            eventHandler);
+    Optional<ToolchainCollection<UnloadedToolchainContext>> result =
+        PrerequisiteProducer.computeUnloadedToolchainContexts(
+            skyfunctionEnvironment, unloadedToolchainContextsInputs);
 
-    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
-        result.toolchainCollection;
-    ExecGroupCollection.Builder execGroupCollectionBuilder = result.execGroupCollectionBuilder;
+    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection = result.orElse(null);
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
@@ -668,7 +668,7 @@ public class BuildViewForTesting {
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 
-    return new RuleContext.Builder(env, target, /*aspects=*/ ImmutableList.of(), targetConfig)
+    return new RuleContext.Builder(env, target, /* aspects= */ ImmutableList.of(), targetConfig)
         .setRuleClassProvider(ruleClassProvider)
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
@@ -681,7 +681,7 @@ public class BuildViewForTesting {
         .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
-        .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
+        .setExecGroupCollectionBuilder(unloadedToolchainContextsInputs)
         .unsafeBuild();
   }
 

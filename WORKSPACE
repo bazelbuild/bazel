@@ -688,19 +688,60 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
+        "tools.profiler:async-profiler:2.9",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
         # and hamcrest is a dependency of junit.
         "junit:junit:4.13.2",
         "org.hamcrest:hamcrest-core:1.3",
-        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
-        maven.artifact("com.google.jimfs", "jimfs", "1.2", testonly = True),
-        maven.artifact("com.google.testing.compile", "compile-testing", "0.18", testonly = True),
-        maven.artifact("com.google.truth", "truth", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-java8-extension", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-liteproto-extension", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-proto-extension", "1.1.3", testonly = True),
-        maven.artifact("org.mockito", "mockito-core", "3.12.4", testonly = True),
+        maven.artifact(
+            "com.google.guava",
+            "guava-testlib",
+            "31.1-jre",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.jimfs",
+            "jimfs",
+            "1.2",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.testing.compile",
+            "compile-testing",
+            "0.18",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth",
+            "truth",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-java8-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-liteproto-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-proto-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "org.mockito",
+            "mockito-core",
+            "3.12.4",
+            testonly = True,
+        ),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit

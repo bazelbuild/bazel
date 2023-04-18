@@ -55,6 +55,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -338,7 +339,7 @@ public class JavaHeaderCompileActionBuilder {
             .add(outputDepsProto)
             .addAll(additionalOutputs);
     Stream.of(gensrcOutputJar, resourceOutputJar, manifestOutput)
-        .filter(x -> x != null)
+        .filter(Objects::nonNull)
         .forEachOrdered(outputs::add);
 
     NestedSetBuilder<Artifact> mandatoryInputsBuilder =
@@ -439,7 +440,6 @@ public class JavaHeaderCompileActionBuilder {
                   .addCommandLine(commandLine.build(), PARAM_FILE_INFO)
                   .build(),
               /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
-              /* isShellCommand= */ false,
               /* env= */ actionEnvironment,
               /* executionInfo= */ ruleContext
                   .getConfiguration()
@@ -447,7 +447,6 @@ public class JavaHeaderCompileActionBuilder {
               /* progressMessage= */ progressMessage,
               /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
               /* mnemonic= */ "Turbine",
-              /* executeUnconditionally= */ false,
               /* extraActionInfoSupplier= */ null,
               /* resultConsumer= */ resultConsumer,
               /* stripOutputPaths= */ stripOutputPaths));

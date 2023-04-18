@@ -111,7 +111,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public boolean inputsDiscovered() {
+  public boolean inputsKnown() {
     throw new UnsupportedOperationException();
   }
 

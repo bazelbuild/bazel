@@ -65,6 +65,7 @@ public class TestAction extends AbstractAction {
   protected final Callable<Void> effect;
   private final NestedSet<Artifact> mandatoryInputs;
   private final ImmutableList<Artifact> optionalInputs;
+  private boolean inputsDiscovered = false;
 
   /** Use this constructor if the effect can't throw exceptions. */
   public TestAction(Runnable effect, NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
@@ -91,6 +92,16 @@ public class TestAction extends AbstractAction {
   @Override
   public boolean discoversInputs() {
     return !optionalInputs.isEmpty();
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   @Override

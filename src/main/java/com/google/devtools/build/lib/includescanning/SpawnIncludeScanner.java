@@ -182,7 +182,7 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public boolean inputsDiscovered() {
+    public boolean inputsKnown() {
       throw new UnsupportedOperationException();
     }
 

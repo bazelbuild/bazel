@@ -10,8 +10,7 @@ assignees:
 
 # Status of Bazel X.Y.Z
 
-<!-- The first item is only needed for major releases (X.0.0) -->
--   Target baseline: [date]
+-   Expected first release candidate date: [date]
 -   Expected release date: [date]
 -   [List of release blockers](link-to-milestone)
 
@@ -21,7 +20,7 @@ To cherry-pick a mainline commit into X.Y.Z, simply send a PR against the `relea
 
 **Task list:**
 
-<!-- The first three items are only needed for major releases (X.0.0) -->
+<!-- The first item is only needed for major releases (X.0.0) -->
 
 -   [ ] Pick release baseline: [link to base commit]
 -   [ ] Create release candidate: X.Y.Zrc1

@@ -112,8 +112,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final CommandLines commandLines;
   private final CommandLineLimits commandLineLimits;
 
-  private final boolean executeUnconditionally;
-  private final boolean isShellCommand;
   private final CharSequence progressMessage;
   private final String mnemonic;
 
@@ -139,8 +137,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param commandLineLimits the command line limits, from the build configuration
-   * @param isShellCommand Whether the command line represents a shell command with the given shell
-   *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build.
    * @param mnemonic the mnemonic that is reported in the master log.
    */
@@ -152,7 +148,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
-      boolean isShellCommand,
       ActionEnvironment env,
       CharSequence progressMessage,
       String mnemonic) {
@@ -164,13 +159,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         resourceSetOrBuilder,
         commandLines,
         commandLineLimits,
-        isShellCommand,
         env,
         ImmutableMap.of(),
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
-        false,
         null,
         null,
         /* stripOutputPaths= */ false);
@@ -193,8 +186,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param commandLineLimits the command line limits, from the build configuration
-   * @param isShellCommand Whether the command line represents a shell command with the given shell
-   *     executable. This is used to give better error messages.
    * @param progressMessage the message printed during the progression of the build
    * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log
@@ -207,13 +198,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
-      boolean isShellCommand,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      boolean executeUnconditionally,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer,
       boolean stripOutputPaths) {
@@ -225,10 +214,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
     this.commandLines = commandLines;
     this.commandLineLimits = commandLineLimits;
-    this.isShellCommand = isShellCommand;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
     this.resultConsumer = resultConsumer;
     this.stripOutputPaths = stripOutputPaths;
@@ -291,19 +278,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return ImmutableList.copyOf(Iterables.skip(getArguments(), 1));
   }
 
-  @VisibleForTesting
-  public boolean isShellCommand() {
-    return isShellCommand;
-  }
-
   @Override
-  public boolean isVolatile() {
-    return executeUnconditionally;
-  }
-
-  @Override
-  public boolean executeUnconditionally() {
-    return executeUnconditionally;
+  public final boolean isVolatile() {
+    return executeUnconditionally();
   }
 
   /** Hook for subclasses to perform work before the spawn is executed. */
@@ -658,7 +635,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private ImmutableMap<String, String> environment = ImmutableMap.of();
     private ImmutableSet<String> inheritedEnvironment = ImmutableSet.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
-    private boolean isShellCommand = false;
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
     private Object executableArg;
@@ -691,7 +667,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.actionEnvironment = other.actionEnvironment;
       this.environment = other.environment;
       this.executionInfo = other.executionInfo;
-      this.isShellCommand = other.isShellCommand;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
       this.executableArg = other.executableArg;
       this.executableArgs = other.executableArgs;
@@ -798,7 +773,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
-          isShellCommand,
           env,
           configuration,
           configuration == null
@@ -818,7 +792,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
-        boolean isShellCommand,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -833,13 +806,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
-          isShellCommand,
           env,
           executionInfo,
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          executeUnconditionally,
           extraActionInfoSupplier,
           resultConsumer,
           stripOutputPaths);
@@ -1021,22 +992,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     /**
-     * Makes the action always execute, even if none of its inputs have changed.
-     *
-     * <p>Only use this when absolutely necessary, since this is a performance hit and we'd like to
-     * get rid of this mechanism eventually. You'll eventually be able to declare a Skyframe
-     * dependency on the build ID, which would accomplish the same thing.
-     */
-    @CanIgnoreReturnValue
-    public Builder executeUnconditionally() {
-      // This should really be implemented by declaring a Skyframe dependency on the build ID
-      // instead, however, we can't just do that yet from within actions, so we need to go through
-      // Action.executeUnconditionally() which in turn is called by ActionCacheChecker.
-      this.executeUnconditionally = true;
-      return this;
-    }
-
-    /**
      * Sets the executable path; the path is interpreted relative to the execution root, unless it's
      * a bare file name.
      *
@@ -1051,7 +1006,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setExecutable(PathFragment executable) {
       this.executableArg = executable;
       this.executableArgs = null;
-      this.isShellCommand = false;
       return this;
     }
 
@@ -1067,7 +1021,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArg =
           new CallablePathFragment(executable.getExecPath(), executable.hasKnownGeneratingAction());
       this.executableArgs = null;
-      this.isShellCommand = false;
       return this;
     }
 
@@ -1101,7 +1054,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               executableProvider.getExecutable().getExecPath(),
               executableProvider.getExecutable().hasKnownGeneratingAction());
       this.executableArgs = null;
-      this.isShellCommand = false;
       return addTool(executableProvider);
     }
 
@@ -1120,7 +1072,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setExecutableAsString(String executable) {
       this.executableArg = executable;
       this.executableArgs = null;
-      this.isShellCommand = false;
       return this;
     }
 
@@ -1137,7 +1088,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .addAll(ImmutableList.copyOf(launchArgs));
       this.executableArg = null;
       toolsBuilder.add(deployJar);
-      this.isShellCommand = false;
       return this;
     }
 
@@ -1190,7 +1140,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArgs =
           CustomCommandLine.builder().addPath(shExecutable).add("-c").addDynamicString(command);
       this.executableArg = null;
-      this.isShellCommand = true;
       return this;
     }
 
@@ -1202,7 +1151,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     public Builder setShellCommand(Iterable<String> command) {
       this.executableArgs = CustomCommandLine.builder().addAll(ImmutableList.copyOf(command));
       this.executableArg = null;
-      this.isShellCommand = true;
       return this;
     }
 
@@ -1369,9 +1317,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
-    /**
-     * @throws IllegalArgumentException if the mnemonic is invalid.
-     */
     @CanIgnoreReturnValue
     public Builder setMnemonic(String mnemonic) {
       Preconditions.checkArgument(

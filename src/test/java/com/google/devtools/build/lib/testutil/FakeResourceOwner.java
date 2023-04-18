@@ -64,7 +64,7 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public boolean inputsDiscovered() {
+  public boolean inputsKnown() {
     return false;
   }
 

@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.ArrayList;
 
 /**
  * The result of reading the lockfile. Contains the lockfile version, module hash, definitions of
@@ -56,4 +58,34 @@ public abstract class BazelLockFileValue implements SkyValue {
   /** The post-selection dep graph retrieved from the lock file. */
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
 
+  /** Returns the difference between the lockfile and the current module & flags */
+  public ArrayList<String> getDiffLockfile(String moduleFileHash, BzlmodFlagsAndEnvVars flags) {
+    ArrayList<String> diffLockfile = new ArrayList<>();
+    if (!moduleFileHash.equals(getModuleFileHash())) {
+      diffLockfile.add("the root MODULE.bazel has been modified");
+    }
+    if (!flags.cmdRegistries().equals(getFlags().cmdRegistries())) {
+      diffLockfile.add("the value of --registry flag has been modified");
+    }
+    if (!flags.cmdModuleOverrides().equals(getFlags().cmdModuleOverrides())) {
+      diffLockfile.add("the value of --override_module flag has been modified");
+    }
+    if (!flags.allowedYankedVersions().equals(getFlags().allowedYankedVersions())) {
+      diffLockfile.add("the value of --allow_yanked_versions flag has been modified");
+    }
+    if (!flags.envVarAllowedYankedVersions().equals(getFlags().envVarAllowedYankedVersions())) {
+      diffLockfile.add(
+          "the value of BZLMOD_ALLOW_YANKED_VERSIONS environment variable has been modified");
+    }
+    if (flags.ignoreDevDependency() != getFlags().ignoreDevDependency()) {
+      diffLockfile.add("the value of --ignore_dev_dependency flag has been modified");
+    }
+    if (!flags.directDependenciesMode().equals(getFlags().directDependenciesMode())) {
+      diffLockfile.add("the value of --check_direct_dependencies flag has been modified");
+    }
+    if (!flags.compatibilityMode().equals(getFlags().compatibilityMode())) {
+      diffLockfile.add("the value of --check_bazel_compatibility flag has been modified");
+    }
+    return diffLockfile;
+  }
 }
