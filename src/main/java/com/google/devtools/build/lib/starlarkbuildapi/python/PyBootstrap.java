@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
 import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
 import net.starlark.java.eval.FlagGuardedValue;
 
@@ -34,13 +33,9 @@ public class PyBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("", "tools/build_defs/python"));
 
   private final PyStarlarkTransitionsApi pyStarlarkTransitionsApi;
-  private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
 
-  public PyBootstrap(
-      PyStarlarkTransitionsApi pyStarlarkTransitionsApi,
-      PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper) {
+  public PyBootstrap(PyStarlarkTransitionsApi pyStarlarkTransitionsApi) {
     this.pyStarlarkTransitionsApi = pyStarlarkTransitionsApi;
-    this.pyWrapCcHelper = pyWrapCcHelper;
   }
 
   @Override
@@ -64,10 +59,6 @@ public class PyBootstrap implements Bootstrap {
         "py_transitions",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyStarlarkTransitionsApi));
-    builder.put(
-        "py_wrap_cc_helper_do_not_use",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, pyWrapCcHelper));
     builder.put(
         "PyWrapCcInfo",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
