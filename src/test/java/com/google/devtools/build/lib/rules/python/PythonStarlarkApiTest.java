@@ -120,7 +120,8 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    return [PyRuntimeInfo(",
         "        interpreter = ctx.file.interpreter,",
         "        files = depset(direct = ctx.files.files, transitive=[info.files]),",
-        "        python_version = info.python_version)]",
+        "        python_version = info.python_version,",
+        "        bootstrap_template = ctx.file.bootstrap_template)]",
         "",
         "userruntime = rule(",
         "    implementation = _userruntime_impl,",
@@ -128,6 +129,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "        'runtime': attr.label(),",
         "        'interpreter': attr.label(allow_single_file=True),",
         "        'files': attr.label_list(allow_files=True),",
+        "        'bootstrap_template': attr.label(allow_single_file=True),",
         "    },",
         ")");
     scratch.file(
@@ -148,6 +150,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    runtime = ':pyruntime',",
         "    interpreter = ':userintr',",
         "    files = ['userdata.txt'],",
+        "    bootstrap_template = 'bootstrap.txt',",
         ")",
         "py_runtime_pair(",
         "    name = 'userruntime_pair',",

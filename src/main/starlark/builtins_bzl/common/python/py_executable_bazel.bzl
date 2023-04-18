@@ -290,11 +290,13 @@ def _expand_bootstrap_template(
 
     if runtime:
         shebang = runtime.stub_shebang
+        template = runtime.bootstrap_template
     else:
         shebang = DEFAULT_STUB_SHEBANG
+        template = ctx.file._bootstrap_template
 
     ctx.actions.expand_template(
-        template = ctx.file._bootstrap_template,
+        template = template,
         output = output,
         substitutions = {
             "%shebang%": shebang,
