@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -930,7 +929,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "package(features=['b', 'c'])",
         "sh_library(name='after')");
     Package pkg = loadPackage("a");
-    assertThat(pkg.getFeatures()).isEqualTo(FeatureSet.parse(ImmutableList.of("b", "c")));
+    assertThat(pkg.getFeatures()).containsExactly("b", "c");
   }
 
   @Test

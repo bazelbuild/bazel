@@ -29,11 +29,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -49,7 +51,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -98,6 +99,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -158,7 +160,8 @@ public final class RuleContext extends TargetContext
   private final ListMultimap<String, ConfiguredTargetAndData> targetMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AspectAwareAttributeMapper attributes;
-  private final FeatureSet features;
+  private final ImmutableSet<String> enabledFeatures;
+  private final ImmutableSet<String> disabledFeatures;
   private final String ruleClassNameForLogging;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -212,7 +215,11 @@ public final class RuleContext extends TargetContext
     this.targetMap = targetMap;
     this.configConditions = builder.configConditions.asProviders();
     this.attributes = new AspectAwareAttributeMapper(attributes, builder.aspectAttributes);
-    this.features = computeFeatures();
+    Set<String> allEnabledFeatures = new HashSet<>();
+    Set<String> allDisabledFeatures = new HashSet<>();
+    getAllFeatures(allEnabledFeatures, allDisabledFeatures);
+    this.enabledFeatures = ImmutableSortedSet.copyOf(allEnabledFeatures);
+    this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
     this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
     this.reporter = builder.reporter;
@@ -224,14 +231,43 @@ public final class RuleContext extends TargetContext
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
   }
 
-  private FeatureSet computeFeatures() {
-    FeatureSet pkg = rule.getPackage().getFeatures();
-    FeatureSet rule =
-        attributes().has("features", Type.STRING_LIST)
-            ? FeatureSet.parse(attributes().get("features", Type.STRING_LIST))
-            : FeatureSet.EMPTY;
-    return FeatureSet.mergeWithGlobalFeatures(
-        FeatureSet.merge(pkg, rule), getConfiguration().getDefaultFeatures());
+  private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
+    Set<String> globallyEnabled = new HashSet<>();
+    Set<String> globallyDisabled = new HashSet<>();
+    parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
+    Set<String> packageEnabled = new HashSet<>();
+    Set<String> packageDisabled = new HashSet<>();
+    parseFeatures(rule.getPackage().getFeatures(), packageEnabled, packageDisabled);
+    Set<String> ruleEnabled = new HashSet<>();
+    Set<String> ruleDisabled = new HashSet<>();
+    if (attributes().has("features", Type.STRING_LIST)) {
+      parseFeatures(attributes().get("features", Type.STRING_LIST), ruleEnabled, ruleDisabled);
+    }
+
+    Set<String> ruleDisabledFeatures =
+        Sets.union(ruleDisabled, Sets.difference(packageDisabled, ruleEnabled));
+    allDisabledFeatures.addAll(Sets.union(ruleDisabledFeatures, globallyDisabled));
+
+    Set<String> packageFeatures =
+        Sets.difference(Sets.union(globallyEnabled, packageEnabled), packageDisabled);
+    Set<String> ruleFeatures =
+        Sets.difference(Sets.union(packageFeatures, ruleEnabled), ruleDisabled);
+    allEnabledFeatures.addAll(Sets.difference(ruleFeatures, globallyDisabled));
+  }
+
+  private static void parseFeatures(
+      Iterable<String> features, Set<String> enabled, Set<String> disabled) {
+    for (String feature : features) {
+      if (feature.startsWith("-")) {
+        disabled.add(feature.substring(1));
+      } else if (feature.equals("no_layering_check")) {
+        // TODO(bazel-team): Remove once we do not have BUILD files left that contain
+        // 'no_layering_check'.
+        disabled.add("layering_check");
+      } else {
+        enabled.add(feature);
+      }
+    }
   }
 
   public boolean isAllowTagsPropagation() {
@@ -1624,14 +1660,14 @@ public final class RuleContext extends TargetContext
    * @return the set of features applicable for the current rule.
    */
   public ImmutableSet<String> getFeatures() {
-    return features.on();
+    return enabledFeatures;
   }
 
   /**
    * @return the set of features that are disabled for the current rule.
    */
   public ImmutableSet<String> getDisabledFeatures() {
-    return features.off();
+    return disabledFeatures;
   }
 
   @Override

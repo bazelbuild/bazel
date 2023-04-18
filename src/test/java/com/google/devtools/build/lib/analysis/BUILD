@@ -39,7 +39,6 @@ java_library(
             "RunfilesRepoMappingManifestTest.java",
             "SourceManifestActionTest.java",
             "AnalysisFailureInfoTest.java",
-            "config/FeatureSetTest.java",
         ],
     ),
     deps = [
@@ -434,16 +433,6 @@ java_test(
     deps = [
         ":AbstractRunfilesSupportTest",
         "//third_party:junit4",
-    ],
-)
-
-java_test(
-    name = "config/FeatureSetTest",
-    srcs = ["config/FeatureSetTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/feature_set",
-        "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 

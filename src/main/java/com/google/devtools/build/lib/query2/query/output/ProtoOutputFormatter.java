@@ -238,7 +238,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             .distinct()
             .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
       }
-      for (String feature : rule.getPackage().getFeatures().toStringList()) {
+      for (String feature : rule.getPackage().getFeatures()) {
         rulePb.addDefaultSetting(feature);
       }
 
@@ -297,7 +297,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           input.addSubinclude(starlarkLoadLabel.toString());
         }
 
-        for (String feature : inputFile.getPackage().getFeatures().toStringList()) {
+        for (String feature : inputFile.getPackage().getFeatures()) {
           input.addFeature(feature);
         }
 

@@ -130,8 +130,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
 
   private final boolean siblingRepositoryLayout;
 
-  private final FeatureSet defaultFeatures;
-
   /**
    * Validates the options for this BuildConfigurationValue. Issues warnings for the use of
    * deprecated options, and warnings or errors for any option settings that conflict.
@@ -263,7 +261,6 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
     this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
-    this.defaultFeatures = FeatureSet.parse(options.defaultFeatures);
   }
 
   @Override
@@ -859,9 +856,9 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     options.executionInfoModifier.apply(mnemonic, executionInfo);
   }
 
-  /** Returns the list of default features used for all packages. */
-  public FeatureSet getDefaultFeatures() {
-    return defaultFeatures;
+  /** @return the list of default features used for all packages. */
+  public List<String> getDefaultFeatures() {
+    return options.defaultFeatures;
   }
 
   /**
