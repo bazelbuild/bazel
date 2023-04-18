@@ -437,6 +437,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
+  protected Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
+
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -3429,7 +3431,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   @CanIgnoreReturnValue
   @Nullable
-  WorkspaceInfoFromDiff handleDiffs(ExtendedEventHandler eventHandler, OptionsProvider options)
+  protected WorkspaceInfoFromDiff handleDiffs(
+      ExtendedEventHandler eventHandler, OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles.set(0);
