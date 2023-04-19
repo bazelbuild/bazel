@@ -183,8 +183,26 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           createContext(env, usagesValue, starlarkSemantics, extensionId, extension);
       threadContext.storeInThread(thread);
       try {
-        Starlark.fastcall(
-            thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);
+        Object returnValue =
+            Starlark.fastcall(
+                thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);
+        if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "expected module extension %s in %s to return None or extension_metadata, got %s",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  Starlark.type(returnValue)),
+              Transience.PERSISTENT);
+        }
+        if (returnValue instanceof ModuleExtensionMetadata) {
+          ModuleExtensionMetadata metadata = (ModuleExtensionMetadata) returnValue;
+          metadata.evaluate(
+              usagesValue.getExtensionUsages().values(),
+              threadContext.getGeneratedRepos().keySet(),
+              env.getListener());
+        }
       } catch (NeedsSkyframeRestartException e) {
         // Clean up and restart by returning null.
         try {

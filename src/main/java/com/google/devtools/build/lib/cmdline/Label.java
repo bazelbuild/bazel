@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
+import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelParser.Parts;
@@ -35,6 +36,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.UsePooledLabelInterningFlag;
 import java.util.Arrays;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -654,6 +657,9 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
   public static final class LabelInterner extends PooledInterner<Label> {
     @Nullable static Pool<Label> globalPool = null;
 
+    private final Striped<ReadWriteLock> interningLocks =
+        Striped.readWriteLock(BlazeInterners.concurrencyLevel());
+
     /**
      * Sets the {@link Pool} to be used for interning.
      *
@@ -665,6 +671,25 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       // No synchronization is needed. Setting global pool is guaranteed to happen sequentially
       // since only one build can happen at the same time.
       globalPool = pool;
+    }
+
+    /**
+     * Returns the read lock for {@link LabelInterner} to guard looking up {@link Label} instance
+     * from either the pool or weak interner.
+     */
+    public Lock getLockForLabelLookup(Label label) {
+      return interningLocks.get(label.getPackageIdentifier()).readLock();
+    }
+
+    /**
+     * Returns the write lock to guard transfer {@link Label} from weak interner to the in-memory
+     * {@link com.google.devtools.build.lib.packages.Package} node when it is done evaluation in
+     * {@code SkyframeProgressReceiver}.
+     *
+     * @param packageIdentifier The {@link PackageIdentifier} of the done package node.
+     */
+    public Lock getLockForLabelTransferToPool(PackageIdentifier packageIdentifier) {
+      return interningLocks.get(packageIdentifier).writeLock();
     }
 
     @Override

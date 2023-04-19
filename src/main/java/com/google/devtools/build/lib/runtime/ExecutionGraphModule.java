@@ -837,7 +837,7 @@ public class ExecutionGraphModule extends BlazeModule {
     if (path.isBlank()) {
       path = ACTION_DUMP_NAME;
     }
-    Path actionGraphFile = env.getWorkingDirectory().getRelative(path);
+    Path actionGraphFile = env.getOutputBase().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),

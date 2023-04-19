@@ -459,7 +459,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "maven.dep(coord='guava')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
-    SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
+    ModuleKey myMod = createModuleKey("mymod", "1.0");
+    SkyKey skyKey = ModuleFileValue.key(myMod, null);
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -475,8 +476,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
+                        .setUsingModule(myMod)
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 2, 23))
                         .setImports(ImmutableBiMap.of("repo1", "repo1"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -494,8 +497,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
+                        .setUsingModule(myMod)
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("other_repo1", "repo1", "repo2", "repo2"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag1")
@@ -525,9 +530,11 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
+                        .setUsingModule(myMod)
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 10, 22))
                         .setImports(
                             ImmutableBiMap.of("mvn", "maven", "junit", "junit", "guava", "guava"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("dep")
@@ -589,11 +596,13 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
+                        .setUsingModule(ModuleKey.ROOT)
                         .setLocation(Location.fromFileLineColumn("<root>/MODULE.bazel", 1, 23))
                         .setImports(
                             ImmutableBiMap.of(
                                 "alpha", "alpha", "beta", "beta", "gamma", "gamma", "delta",
                                 "delta"))
+                        .setDevImports(ImmutableSet.of("alpha", "gamma"))
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")
@@ -668,7 +677,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                 "use_repo(myext4, 'delta')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
-    SkyKey skyKey = ModuleFileValue.key(createModuleKey("mymod", "1.0"), null);
+    ModuleKey myMod = createModuleKey("mymod", "1.0");
+    SkyKey skyKey = ModuleFileValue.key(myMod, null);
     EvaluationResult<ModuleFileValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -683,8 +693,10 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
+                        .setUsingModule(myMod)
                         .setLocation(Location.fromFileLineColumn("mymod@1.0/MODULE.bazel", 5, 23))
                         .setImports(ImmutableBiMap.of("beta", "beta", "delta", "delta"))
+                        .setDevImports(ImmutableSet.of())
                         .addTag(
                             Tag.builder()
                                 .setTagName("tag")

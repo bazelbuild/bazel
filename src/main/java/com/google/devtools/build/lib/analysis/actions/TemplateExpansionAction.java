@@ -128,25 +128,16 @@ public final class TemplateExpansionAction extends AbstractAction {
         makeExecutable);
   }
 
-  @VisibleForTesting
-  public String getFileContents() throws IOException, EvalException {
-    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(this,
-        ArtifactPathResolver.IDENTITY);
-  }
-
-  @Override
-  public String getStarlarkContent() throws IOException, EvalException {
-    return getFileContents();
-  }
-
-  @Override
-  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+  static ActionResult execute(
+      ActionExecutionContext actionExecutionContext,
+      AbstractAction action,
+      TemplateExpansionContext.TemplateMetadata templateMetadata)
       throws ActionExecutionException, InterruptedException {
     try {
       ImmutableList<SpawnResult> result =
           actionExecutionContext
               .getContext(TemplateExpansionContext.class)
-              .expandTemplate(this, actionExecutionContext);
+              .expandTemplate(action, actionExecutionContext, templateMetadata);
 
       return ActionResult.create(result);
     } catch (EvalException e) {
@@ -157,10 +148,35 @@ public final class TemplateExpansionAction extends AbstractAction {
                       Execution.newBuilder()
                           .setCode(Execution.Code.LOCAL_TEMPLATE_EXPANSION_FAILURE))
                   .build());
-      throw new ActionExecutionException(e, /* action= */ this, /* catastrophe= */ false, exitCode);
+      throw new ActionExecutionException(e, action, /* catastrophe= */ false, exitCode);
     } catch (ExecException e) {
-      throw ActionExecutionException.fromExecException(e, TemplateExpansionAction.this);
+      throw ActionExecutionException.fromExecException(e, action);
     }
+  }
+
+  @Override
+  public ActionResult execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    return TemplateExpansionAction.execute(
+        actionExecutionContext,
+        this,
+        TemplateExpansionContext.TemplateMetadata.builder()
+            .setTemplate(template)
+            .setPrimaryOutput(getPrimaryOutput())
+            .setSubstitutions(substitutions)
+            .setMakeExecutable(makeExecutable)
+            .build());
+  }
+
+  @VisibleForTesting
+  public String getFileContents() throws IOException, EvalException {
+    return LocalTemplateExpansionStrategy.INSTANCE.getExpandedTemplateUnsafe(
+        template, substitutions, ArtifactPathResolver.IDENTITY);
+  }
+
+  @Override
+  public String getStarlarkContent() throws IOException, EvalException {
+    return getFileContents();
   }
 
   @Override

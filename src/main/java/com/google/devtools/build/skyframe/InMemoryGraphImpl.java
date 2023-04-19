@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
@@ -311,21 +312,48 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       PackageIdentifier packageIdentifier = sample.getPackageIdentifier();
       PackageValue.Key packageKey = PackageValue.key(packageIdentifier);
 
+      // Return pooled instance if sample is present in the pool.
       InMemoryNodeEntry inMemoryNodeEntry = nodeMap.get(packageKey);
-      if (inMemoryNodeEntry == null) {
-        // If we cannot get the InMemoryNodeEntry, just weak intern the sample.
-        return interner.weakIntern(sample);
+      if (inMemoryNodeEntry != null) {
+        Label pooledInstance = getLabelFromInMemoryNodeEntry(inMemoryNodeEntry, sample);
+        if (pooledInstance != null) {
+          return pooledInstance;
+        }
       }
 
-      SkyValue value = inMemoryNodeEntry.toValue();
-      if (value == null) {
-        return interner.weakIntern(sample);
-      }
+      Lock readLock = interner.getLockForLabelLookup(sample);
+      readLock.lock();
 
-      checkState(value instanceof PackageValue, value);
-      ImmutableSortedMap<String, Target> targets = ((PackageValue) value).getPackage().getTargets();
-      Target target = targets.get(sample.getName());
-      return target != null ? target.getLabel() : interner.weakIntern(sample);
+      try {
+        // Check again whether sample is already present in the pool inside critical section.
+        if (inMemoryNodeEntry == null) {
+          inMemoryNodeEntry = nodeMap.get(packageKey);
+        }
+
+        if (inMemoryNodeEntry != null) {
+          Label pooledInstance = getLabelFromInMemoryNodeEntry(inMemoryNodeEntry, sample);
+          if (pooledInstance != null) {
+            return pooledInstance;
+          }
+        }
+        return interner.weakIntern(sample);
+      } finally {
+        readLock.unlock();
+      }
     }
+  }
+
+  @Nullable
+  private static Label getLabelFromInMemoryNodeEntry(
+      InMemoryNodeEntry inMemoryNodeEntry, Label sample) {
+    checkNotNull(inMemoryNodeEntry);
+    SkyValue value = inMemoryNodeEntry.toValue();
+    if (value == null) {
+      return null;
+    }
+    checkState(value instanceof PackageValue, value);
+    ImmutableSortedMap<String, Target> targets = ((PackageValue) value).getPackage().getTargets();
+    Target target = targets.get(sample.getName());
+    return target != null ? target.getLabel() : null;
   }
 }

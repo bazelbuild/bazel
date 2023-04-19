@@ -266,6 +266,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -436,6 +437,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
   private Set<String> previousClientEnvironment = ImmutableSet.of();
+
+  protected Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
@@ -3231,14 +3234,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           && skyKey.functionName().equals(SkyFunctions.PACKAGE)
           && newValue != null) {
         checkState(newValue instanceof PackageValue, newValue);
-        ((PackageValue) newValue)
-            .getPackage()
-            .getTargets()
-            .forEach(
-                (name, target) -> {
-                  Label label = target.getLabel();
-                  labelInterner.removeWeak(label);
-                });
+
+        Package pkg = ((PackageValue) newValue).getPackage();
+        Lock writeLock = labelInterner.getLockForLabelTransferToPool(pkg.getPackageIdentifier());
+        writeLock.lock();
+        try {
+          pkg.getTargets()
+              .forEach(
+                  (name, target) -> {
+                    Label label = target.getLabel();
+                    labelInterner.removeWeak(label);
+                  });
+        } finally {
+          writeLock.unlock();
+        }
       }
 
       if (!heuristicallyDropNodes || directDeps == null) {
@@ -3429,7 +3438,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   @CanIgnoreReturnValue
   @Nullable
-  WorkspaceInfoFromDiff handleDiffs(ExtendedEventHandler eventHandler, OptionsProvider options)
+  protected WorkspaceInfoFromDiff handleDiffs(
+      ExtendedEventHandler eventHandler, OptionsProvider options)
       throws InterruptedException, AbruptExitException {
     TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles.set(0);

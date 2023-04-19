@@ -1416,6 +1416,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.getArtifactFactory().getSourceArtifact(rootRelativePath, root);
   }
 
+  protected Artifact getSourceArtifact(String name, ArtifactOwner owner) {
+    return view.getArtifactFactory()
+        .getSourceArtifact(PathFragment.create(name), Root.fromPath(rootDirectory), owner);
+  }
+
   protected Artifact getSourceArtifact(String name) {
     return getSourceArtifact(PathFragment.create(name), Root.fromPath(rootDirectory));
   }

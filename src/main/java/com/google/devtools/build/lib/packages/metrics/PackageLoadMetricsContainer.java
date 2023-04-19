@@ -20,36 +20,37 @@ import java.util.Comparator;
 
 /** Container class holding a PackageIdentifier and PackageMetrics proto. */
 @AutoValue
-public abstract class PackageMetricsContainer {
+public abstract class PackageLoadMetricsContainer {
 
   /** Sorts by LoadTime Duration. */
-  public static final Comparator<PackageMetricsContainer> LOAD_TIMES_COMP =
+  public static final Comparator<PackageLoadMetricsContainer> LOAD_TIMES_COMP =
       Comparator.comparing(
-          c -> c.getPackageMetricsInternal().getLoadDuration(), Durations.comparator());
+          c -> c.getPackageLoadMetricsInternal().getLoadDuration(), Durations.comparator());
   /** Sorts by Num Target count . */
-  public static final Comparator<PackageMetricsContainer> NUM_TARGETS_COMP =
-      Comparator.comparingLong(c -> c.getPackageMetricsInternal().getNumTargets());
+  public static final Comparator<PackageLoadMetricsContainer> NUM_TARGETS_COMP =
+      Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getNumTargets());
   /** Sorts by Comutation Steps count. */
-  public static final Comparator<PackageMetricsContainer> COMPUTATION_STEPS_COMP =
-      Comparator.comparingLong(c -> c.getPackageMetricsInternal().getComputationSteps());
+  public static final Comparator<PackageLoadMetricsContainer> COMPUTATION_STEPS_COMP =
+      Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getComputationSteps());
   /** Sorts by Transitive Load Count. */
-  public static final Comparator<PackageMetricsContainer> TRANSITIVE_LOADS_COMP =
-      Comparator.comparingLong(c -> c.getPackageMetricsInternal().getNumTransitiveLoads());
+  public static final Comparator<PackageLoadMetricsContainer> TRANSITIVE_LOADS_COMP =
+      Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getNumTransitiveLoads());
   /** Sorts by Package Overhead. */
-  public static final Comparator<PackageMetricsContainer> OVERHEAD_COMP =
-      Comparator.comparingLong(c -> c.getPackageMetricsInternal().getPackageOverhead());
+  public static final Comparator<PackageLoadMetricsContainer> OVERHEAD_COMP =
+      Comparator.comparingLong(c -> c.getPackageLoadMetricsInternal().getPackageOverhead());
 
-  public static PackageMetricsContainer create(PackageIdentifier pkgId, PackageMetrics metrics) {
-    return new AutoValue_PackageMetricsContainer(pkgId, metrics);
+  public static PackageLoadMetricsContainer create(
+      PackageIdentifier pkgId, PackageLoadMetrics metrics) {
+    return new AutoValue_PackageLoadMetricsContainer(pkgId, metrics);
   }
 
   public abstract PackageIdentifier getPackageIdentifier();
 
-  abstract PackageMetrics getPackageMetricsInternal();
+  abstract PackageLoadMetrics getPackageLoadMetricsInternal();
 
   /** Construct a full PackageMetrics object with the name set lazily from the PackageIdentifier. */
-  public PackageMetrics getPackageMetrics() {
-    return getPackageMetricsInternal().toBuilder()
+  public PackageLoadMetrics getPackageLoadMetrics() {
+    return getPackageLoadMetricsInternal().toBuilder()
         .setName(getPackageIdentifier().toString())
         .build();
   }

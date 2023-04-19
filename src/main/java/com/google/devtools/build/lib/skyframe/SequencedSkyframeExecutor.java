@@ -119,7 +119,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       new ArrayBlockingQueue<>(MODIFIED_OUTPUT_PATHS_SAMPLE_SIZE);
   private final AtomicInteger modifiedFilesDuringPreviousBuild = new AtomicInteger();
 
-  private Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
   private Duration outputTreeDiffCheckingDuration = Duration.ofSeconds(-1L);
 
   private GraphInconsistencyReceiver inconsistencyReceiver = GraphInconsistencyReceiver.THROWING;
