@@ -65,11 +65,10 @@ team-Local-Exec:
 - src/main/java/com/google/devtools/build/lib/worker/**/*
 - src/main/java/com/google/devtools/build/lib/dynamic/**/*
 
-# team-Rules-CPP:
-# - tools/cpp/**/*
-# - test/shell/bazel/cpp/**/*
-# - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
-# - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
+team-Rules-CPP:
+- tools/cpp/**/*
+- src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
+- src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
 
 # team-Bazel
 
