@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -910,7 +911,7 @@ public final class CcCompilationHelper {
                 originalHeader,
                 virtualHeader,
                 "Symlinking virtual headers for " + label,
-                /*useExecRootForSource=*/ true));
+                /* useExecRootForSource= */ true));
         moduleHeadersBuilder.add(virtualHeader);
         if (configuration.isCodeCoverageEnabled()) {
           virtualToOriginalHeaders.add(
@@ -1497,6 +1498,12 @@ public final class CcCompilationHelper {
           CppHelper.getDiagnosticsOutputTreeArtifact(
               actionConstructionContext, label, sourceArtifact, outputName, usePic);
     }
+
+    ActionOwner actionOwner = null;
+    if (actionConstructionContext instanceof RuleContext
+        && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
+      actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
@@ -1506,7 +1513,7 @@ public final class CcCompilationHelper {
             builder,
             ccToolchain,
             outputCategories,
-            actionConstructionContext.getActionOwner());
+            actionOwner == null ? actionConstructionContext.getActionOwner() : actionOwner);
     actionRegistry.registerAction(actionTemplate);
 
     return outputFiles;
