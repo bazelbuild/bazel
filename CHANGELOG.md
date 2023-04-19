@@ -599,6 +599,186 @@ Important changes:
 
 This release contains contributions from many people at Google, as well as amberdixon, Andreas Fuchs, Benjamin Peterson, Brentley Jones, Chenchu Kolli, Dan Fleming, Danny Wolf, Emil Kattainen, Fabian Meumertzheim, Gowroji Sunil, hvadehra, Juh-Roch, Keith Smiley, Krzysztof Naglik, kshyanashree, Niyas Sait, Noa Resare, Oliver Eikemeier, oquenchil, Peter Mounce, Philipp Schrader, Ryan Beasley, Thi Doãn, Xùdōng Yáng, Yannic, Zhongpeng Lin.
 
+## Release 7.0.0-pre.20230412.2 (2023-04-18)
+
+```
+Baseline: 5ab5d80e08bd42b056403c12f2d1f7be4996e3d4
+
+Cherry picks:
+
+   + 0d98bf5197732fe7a467f52b4317da70cbb58542:
+     Automated rollback of commit
+     4a2e51b3d7b7a27d243e8cc233d60fbbaeeb6190.
+```
+
+Incompatible changes:
+
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+  - Bazel no longer increases the delay between progress updates when
+    there is no cursor control.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+    ```
+    FAILED: Build did NOT complete successfully (0 packages loaded)
+    ```
+    to
+    ```
+    ERROR: Build did NOT complete successfully
+    ```
+  - the --experimental_async_execution flag is now a no-op.
+  - --experimental_replay_action_out_err is not a no-op.
+  - `cquery --output=files` also outputs source files.
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - `--incompatible_always_include_files_in_data` is flipped to true.
+    See https://github.com/bazelbuild/bazel/issues/16654 for details.
+  - This changes the behavior of Python version in exec/host
+    configuration. Mitigation is to set Python version on the targets.
+  - When multiple --deleted_packages options are passed on the
+    command line, they will be concatenated instead of the latest one
+    taking effect.
+  - This has the side effect of changing the message on unsuccessful
+    builds from
+  - JSON profile: Use doubles instead of strings for counter series.
+  - query --output=proto --order_output=deps now returns targets in
+    topological order (previously there was no ordering).
+  - --experimental_build_transitive_python_runfiles is flipped to
+    false. See #16303 for details
+  - --incompatible_python_disable_py2 is flipped to true. See #17293
+    for details.
+  - When remote cache evicts blobs, Bazel will exit with code 39.
+  - `--features` only applies to targets built in the target
+    configuration, and `--host_features` is used for the host / exec
+    configuration (gated behind `--incompatible_use_host_features`)
+  - `--incompatible_strict_conflict_checks` is flipped to true. See
+    https://github.com/bazelbuild/bazel/issues/16729 for details.
+  - Bazel's local CPU resource on Linux is now container aware. Use
+    `--local_cpu_resources`, `--loading_phase_threads` or `--jobs` to
+    override.
+  - `copy_from_rule` is exec_groups is deprecated
+    (https://github.com/bazelbuild/bazel/issues/17668).
+  - --legacy_bazel_java_test is now a no-op
+  - --legacy_bazel_java_test is now a no-op
+  - --legacy_bazel_java_test is now a no-op
+  - `--experimental_execution_graph_log` no longer exists. Current
+    users that want local logs need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_execution_graph_log_path=/some/local/path`.
+    Current users that want logs uploaded to BEP need to pass
+    `--experimental_enable_execution_graph_log
+    --experimental_stream_log_file_uploads`.
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+  - Remove high priority workers functionality from blaze.
+
+New features:
+
+  - The `aquery` and `cquery` commands now respect the
+    `--query_file` flag just like the `query` command.
+
+Important changes:
+
+  - The new path variable `$(rlocationpath ...)` and its plural form
+    `$(rlocationpaths ...)` can be used to expand labels to the paths
+    accepted by the `Rlocation` function of runfiles libraries. This
+    is the preferred way to access data dependencies at runtime and
+    works on all platforms, even when runfiles are not enabled (e.g.,
+    on Windows by default).
+  - Starlark `print()` statements are now emitted iff the line of
+    code is executed. They are no longer replayed on subsequent
+    invocations unless the Starlark code is re-executed.
+    Additionally, multiple identical `print()` statements (same
+    string from the same line of code, e.g. from a loop) are all
+    emitted and no longer deduplicated.
+  - Fixes a bug where some compilation flags would not be applied to
+    a cc_test
+  - removed outdated ctx.host_fragments
+  - removed outdated ctx.host_configuration
+  - Now that the host configuration is finished, `genrule` should
+    prefer the use of `tools` and stop using `exec_tools`.
+  - Added a `native.package_relative_label()` function, which
+    converts a label string to a Label object in the context of the
+    calling package, in contrast to `Label()`, which does so in the
+    context of the current .bzl file. Both functions now also accept
+    relative labels such as `:foo`, and are idempotent.
+  - Update Android manifest merger to v30.1.3, and also drop support
+    for legacy (pre-D8) desugaring.
+  - Adds coverage metric support to android_local_test
+  - Correctly encode double value positive infinity as "inf" instead
+    of "+inf" for textprotos.
+  - Add --use_target_platform_for_tests which uses the target
+    platform for executing tests instead of the execution platform.
+  - Custom C++ rules on Windows calling
+    cc_common.create_linking_context_from_compilation_outputs should
+    review whether each target of the rule type should produce a
+    dynamic library since a condition which blocked their creation
+    has been moved to the rules from behind the API.
+  - Add flag `--experimental_remote_cache_ttl` and set the default
+    value to 3 hours.
+  - making --incompatible_use_platforms_repo_for_constraints do
+    nothing. Using constraints from @bazel_tools//platforms with or
+    without the flag will throw error with message "Constraints from
+    @bazel_tools//platforms have been removed. Please use constraints
+    from @platforms repository embedded in Bazel, or preferably
+    declare dependency on https://github.com/bazelbuild/platforms"
+  - Fixed an issue where WORKSPACE and WORKSPACE-loaded .bzl files
+    couldn't see the Bzlmod root module's mappings when Bzlmod is
+    enabled.
+  - Subsequent settings of --extra_execution_platforms now override
+    previous settings, instead of adding them to a list. If you
+    currently set --extra_execution_platforms more than once, please
+    migrate by passing a list of values to
+    --extra_execution_platforms instead so that earlier values aren't
+    overwritten.
+  - @bazel_tools//config:common_settings.bzl has been removed.
+    Use @bazel_skylib//rules:common_settings.bzl instead.
+  - cc_shared_library is no longer experimental, see
+    https://github.com/bazelbuild/bazel/issues/16709 for details
+  - The flag `--distinct_host_configuration` is removed. It has been
+    a no-op since Bazel 6.0.0.
+  - Added `native.module_name()` and `native.module_version()` to
+    allow BUILD macro authors to acquire information about which
+    Bazel module the current repo is associated with.
+  - Add `--skip_incompatible_explicit_targets` option
+  - Remove 'darwin' as a CPU value, use 'darwin_x86_64' instead
+  - cc_test can now be configured by using a native.toolchain().
+  - `@foo` labels can now be used on the command line as the
+    top-level target (that is, `bazel build @foo` now works).
+    Double-dot syntax is now forbidden (`bazel build ../foo` will no
+    longer work).
+  - The location of rules that explicitly specify `generator_name`
+    and/or `generator_function` attributes (typically because they
+    are incidentally copied from `native.existing_rule()`) is now the
+    top-level call in the `BUILD` file, which is consistent with
+    rules that do not explicitly specify these attributes.
+  - Warnings (most notably those associated with the `deprecation`
+    rule attribute) are no longer replayed on subsequent invocations
+    unless the target in question is re-analyzed. Warnings are purely
+    informational, so this change has no bearing on the correctness
+    of the build. Downstream tests that break due to this change
+    should update their expectations.
+  - `--experimental_remote_build_event_upload` has been renamed to
+    `--remote_build_event_upload`
+  - [Breaking change] platform, constraint_setting, and
+    constraint_value can no longer take an applicable_licenses value.
+    Remediation is to remove the attribute and rely on the package
+    level default.
+  - `--experimental_action_cache_store_output_metadata` has been
+    renamed to `--action_cache_store_output_metadata`
+  - Changed the default value for `--remote_build_event_upload` to
+    `minimal`.
+
+This release contains contributions from many people at Google, as well as Adam Lavin, Alessandro Patti, Alex Eagle, Amanda L Martin, Andreas Herrmann, Andy Hamon, Ankush Goyal, Anthony Ter-Saakov, Artem Zinnatullin, aryeh, Austin Schuh, Benjamin Lee, Benjamin Peterson, Benjamin Peterson, Benjamin Sigonneau, Ben Lee, Brentley Jones, Chirag Ramani, Christopher Peterson Sauer, Christopher Sauer, Daniel Grunwald, Daniel KT, Daniel Wagner-Hall, Ed Schouten, Emil Kattainen, Ezekiel Warren, Fabian Meumertzheim, Fabian Meumertzheim, Fahrzin Hemmati, Fahrzin Hemmati, Gaspare Vitta, Greg Magolan, Halil Sener, Hao Yuan, hvadehra, hvd, Jack Dai, James Ma, John Hinnegan, Jon Landis, Jon Parise, jonrose-dev, Julio Merino, keertk, Keith Smiley, Konstantin Erman, Krzysztof Naglik, kshyanashree, Kun-Lu, Lee Mracek, lripoche, Malte Poll, Marc Zych, Matt Mackay, Maxwell Elliott, mohamadk, nathyong, Nick Korostelev, Oliver Lee, Patrick Balestra, Patrick Balestra, Philipp Schrader, Red Daly, redwrasse, robincaloudis, Robin Tweedie, Roger Hu, Sagar Pathare, Saleem Abdulrasool, Sara Adams, Sascha Moecker, Severin Strobl, Siddhesh Bhupendra Kuakde, Simon Mavi Stewart, something_vague, Son Luong Ngoc, Stiopa Koltsov, tbaing, Ted Kaplan, Ted Kaplan, Thulio Ferraz Assis, Tom Cnops, Ulf Adams, Ulf Adams, Ulrik Falklof, Uri Baghin, Xavier Bonaventura, Xdng Yng, Xiangquan Xiao, Yannic Bonenberger, Yannic, Yi Cheng, yuzhy8701.
+
 ## Release 6.1.2 (2023-04-18)
 
 ```
