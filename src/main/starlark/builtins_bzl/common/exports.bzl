@@ -16,6 +16,7 @@
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
+load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
 load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryHintInfo", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
@@ -79,4 +80,5 @@ exported_to_java = {
     "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
+    "get_cc_toolchain_provider": get_cc_toolchain_provider,
 }

@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
@@ -29,6 +31,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import java.util.Map;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 
 /**
  * Implementation of the {@code cc_toolchain_suite} rule.
@@ -74,8 +78,20 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
               transformedCpu,
               compiler,
               selectedCcToolchain);
+      StarlarkFunction getCcToolchainProvider =
+          (StarlarkFunction) ruleContext.getStarlarkDefinedBuiltin("get_cc_toolchain_provider");
+      ruleContext.initStarlarkRuleContext();
+      Object starlarkCcToolchainProvider =
+          ruleContext.callStarlarkOrThrowRuleError(
+              getCcToolchainProvider,
+              ImmutableList.of(
+                  /* ctx */ ruleContext.getStarlarkRuleContext(), /* attributes */
+                  selectedAttributes),
+              ImmutableMap.of());
       ccToolchainProvider =
-          CcToolchainProviderHelper.getCcToolchainProvider(ruleContext, selectedAttributes);
+          starlarkCcToolchainProvider != Starlark.NONE
+              ? (CcToolchainProvider) starlarkCcToolchainProvider
+              : null;
 
       if (ccToolchainProvider == null) {
         // Skyframe restart
