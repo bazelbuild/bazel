@@ -24,24 +24,34 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BzlmodRepoRuleFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
+import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.Root;
@@ -57,6 +67,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -99,6 +111,16 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
             packageLocator,
             ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             directories);
+    RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
+    ImmutableMap<String, RepositoryFunction> repositoryHandlers =
+        ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
+
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder
+        .clearWorkspaceFileSuffixForTesting()
+        .addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
+    ConfiguredRuleClassProvider ruleClassProvider = builder.build();
 
     updateLockfileFunction = SkyFunctionName.createHermetic("LockfileWrite");
 
@@ -113,6 +135,19 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                             new TimestampGranularityMonitor(BlazeClock.instance())),
                         SyscallCache.NO_CACHE,
                         externalFilesHelper))
+                .put(
+                    SkyFunctions.REPOSITORY_DIRECTORY,
+                    new RepositoryDelegatorFunction(
+                        repositoryHandlers,
+                        null,
+                        new AtomicBoolean(true),
+                        ImmutableMap::of,
+                        directories,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
+                    new BzlmodRepoRuleFunction(ruleClassProvider, directories))
+                .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
                 .put(
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
@@ -134,8 +169,18 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (flags == null) {
                           return null;
                         }
+
+                        ImmutableMap<String, String> localOverrideHashes =
+                            BazelDepGraphFunction.getLocalOverridesHashes(key.overrides(), env);
+                        if (localOverrideHashes == null) {
+                          return null;
+                        }
                         BazelLockFileFunction.updateLockedModule(
-                            key.moduleHash(), key.depGraph(), rootDirectory, flags);
+                            rootDirectory,
+                            key.moduleHash(),
+                            flags,
+                            localOverrideHashes,
+                            key.depGraph());
                         return new SkyValue() {};
                       }
                     })
@@ -154,6 +199,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.ERROR);
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
+    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(
+        differencer, RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY);
   }
 
   @Test
@@ -170,13 +218,15 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     if (rootResult.hasError()) {
       fail(rootResult.getError().toString());
     }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getModule())
+            .put(ModuleKey.ROOT, rootValue.getModule())
             .buildOrThrow();
 
-    UpdateLockFileKey key = UpdateLockFileKey.create("moduleHash", depGraph);
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
     EvaluationResult<BazelLockFileValue> result =
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     if (result.hasError()) {
@@ -193,7 +243,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void simpleModuleWithFlags() throws Exception {
+  public void moduleWithFlags() throws Exception {
     // Test having --override_module, --ignore_dev_dependency, --check_bazel_compatibility
     // --check_direct_dependencies & --registry
     scratch.file(
@@ -206,10 +256,11 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     if (rootResult.hasError()) {
       fail(rootResult.getError().toString());
     }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getModule())
+            .put(ModuleKey.ROOT, rootValue.getModule())
             .buildOrThrow();
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
@@ -227,7 +278,8 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
         differencer, BazelCompatibilityMode.ERROR);
     BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
 
-    UpdateLockFileKey key = UpdateLockFileKey.create("moduleHash", depGraph);
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
     EvaluationResult<BazelLockFileValue> result =
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     if (result.hasError()) {
@@ -252,6 +304,48 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void moduleWithLocalOverrides() throws IOException, InterruptedException {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='root',version='0.1')",
+        "local_path_override(module_name='ss',path='code_for_ss')");
+    scratch.file(
+        rootDirectory.getRelative("code_for_ss/MODULE.bazel").getPathString(),
+        "module(name='ss',version='1.0')");
+    scratch.file(rootDirectory.getRelative("code_for_ss/WORKSPACE").getPathString());
+
+    EvaluationResult<RootModuleFileValue> rootResult =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (rootResult.hasError()) {
+      fail(rootResult.getError().toString());
+    }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+
+    ImmutableMap<ModuleKey, Module> depGraph =
+        ImmutableMap.<ModuleKey, Module>builder()
+            .put(ModuleKey.ROOT, rootValue.getModule())
+            .buildOrThrow();
+
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
+    EvaluationResult<BazelLockFileValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    result = evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    BazelLockFileValue value = result.get(BazelLockFileValue.KEY);
+    assertThat(value.getModuleDepGraph()).isEqualTo(depGraph);
+    assertThat(value.getLocalOverrideHashes()).isNotEmpty();
+  }
+
+  @Test
   public void fullModule() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
@@ -270,13 +364,15 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     if (rootResult.hasError()) {
       fail(rootResult.getError().toString());
     }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
         ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getModule())
+            .put(ModuleKey.ROOT, rootValue.getModule())
             .buildOrThrow();
 
-    UpdateLockFileKey key = UpdateLockFileKey.create("moduleHash", depGraph);
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
     EvaluationResult<BazelLockFileValue> result =
         evaluator.evaluate(ImmutableList.of(key), evaluationContext);
     if (result.hasError()) {
@@ -296,11 +392,16 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   abstract static class UpdateLockFileKey implements SkyKey {
 
     abstract String moduleHash();
-
     abstract ImmutableMap<ModuleKey, Module> depGraph();
 
-    static UpdateLockFileKey create(String moduleHash, ImmutableMap<ModuleKey, Module> depGraph) {
-      return new AutoValue_BazelLockFileFunctionTest_UpdateLockFileKey(moduleHash, depGraph);
+    abstract ImmutableMap<String, ModuleOverride> overrides();
+
+    static UpdateLockFileKey create(
+        String moduleHash,
+        ImmutableMap<ModuleKey, Module> depGraph,
+        ImmutableMap<String, ModuleOverride> overrides) {
+      return new AutoValue_BazelLockFileFunctionTest_UpdateLockFileKey(
+          moduleHash, depGraph, overrides);
     }
 
     @Override
