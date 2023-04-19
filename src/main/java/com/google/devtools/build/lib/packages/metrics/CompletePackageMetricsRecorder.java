@@ -27,40 +27,40 @@ import javax.annotation.concurrent.GuardedBy;
 final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
 
   @GuardedBy("this")
-  private final HashMap<PackageIdentifier, PackageMetrics> metrics = new HashMap<>();
+  private final HashMap<PackageIdentifier, PackageLoadMetrics> metrics = new HashMap<>();
 
   CompletePackageMetricsRecorder() {}
 
   @Override
-  public synchronized void recordMetrics(PackageIdentifier pkgId, PackageMetrics metrics) {
+  public synchronized void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics) {
     this.metrics.put(pkgId, metrics);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Duration> getLoadTimes() {
-    return Maps.transformValues(metrics, PackageMetrics::getLoadDuration);
+    return Maps.transformValues(metrics, PackageLoadMetrics::getLoadDuration);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getComputationSteps() {
-    return Maps.transformValues(metrics, PackageMetrics::getComputationSteps);
+    return Maps.transformValues(metrics, PackageLoadMetrics::getComputationSteps);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getNumTargets() {
-    return Maps.transformValues(metrics, PackageMetrics::getNumTargets);
+    return Maps.transformValues(metrics, PackageLoadMetrics::getNumTargets);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getNumTransitiveLoads() {
-    return Maps.transformValues(metrics, PackageMetrics::getNumTransitiveLoads);
+    return Maps.transformValues(metrics, PackageLoadMetrics::getNumTransitiveLoads);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getPackageOverhead() {
     return Maps.transformValues(
-        Maps.filterValues(metrics, PackageMetrics::hasPackageOverhead),
-        PackageMetrics::getPackageOverhead);
+        Maps.filterValues(metrics, PackageLoadMetrics::hasPackageOverhead),
+        PackageLoadMetrics::getPackageOverhead);
   }
 
   @Override
@@ -79,7 +79,7 @@ final class CompletePackageMetricsRecorder implements PackageMetricsRecorder {
   }
 
   @Override
-  public synchronized ImmutableCollection<PackageMetrics> getPackageMetrics() {
+  public synchronized ImmutableCollection<PackageLoadMetrics> getPackageLoadMetrics() {
     // lazily set the pkgName when requested.
     return metrics.entrySet().stream()
         .map(e -> e.getValue().toBuilder().setName(e.getKey().toString()).build())
