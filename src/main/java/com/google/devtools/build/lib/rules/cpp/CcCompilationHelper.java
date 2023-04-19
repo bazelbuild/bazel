@@ -1468,8 +1468,8 @@ public final class CcCompilationHelper {
     SpecialArtifact outputFiles =
         CppHelper.getCompileOutputTreeArtifact(
             actionConstructionContext, label, sourceArtifact, outputName, usePic);
-    // Dotd and dia file outputs are specified in the execution phase.
-    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null);
+    // Dotd, dia and indexstore file outputs are specified in the execution phase.
+    builder.setOutputs(outputFiles, /* dotdFile= */ null, /* diagnosticsFile= */ null, /* indexstoreFiles */ null);
     builder.setVariables(
         setupCompileBuildVariables(
             builder,
@@ -1497,12 +1497,19 @@ public final class CcCompilationHelper {
           CppHelper.getDiagnosticsOutputTreeArtifact(
               actionConstructionContext, label, sourceArtifact, outputName, usePic);
     }
+    SpecialArtifact indexstoreTreeArtifact = null;
+    if (builder.indexstoreFilesEnabled()) {
+      indexstoreTreeArtifact =
+          CppHelper.getIndexstoreOutputTreeArtifact(
+              actionConstructionContext, label, sourceArtifact, outputName);
+    }
     CppCompileActionTemplate actionTemplate =
         new CppCompileActionTemplate(
             sourceArtifact,
             outputFiles,
             dotdTreeArtifact,
             diagnosticsTreeArtifact,
+            indexstoreTreeArtifact,
             builder,
             ccToolchain,
             outputCategories,
@@ -1573,6 +1580,10 @@ public final class CcCompilationHelper {
     String diagnosticsFileExecPath = null;
     if (builder.getDiagnosticsFile() != null) {
       diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
+    }
+    String indexstoreFilesExecPath = null;
+    if (builder.getIndexstoreFiles() != null) {
+      indexstoreFilesExecPath = builder.getIndexstoreFiles().getExecPathString();
     }
     if (needsFdoBuildVariables && fdoContext.hasArtifacts(cppConfiguration)) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
@@ -1650,6 +1661,7 @@ public final class CcCompilationHelper {
         getCopts(builder.getSourceFile(), sourceLabel),
         dotdFileExecPath,
         diagnosticsFileExecPath,
+        indexstoreFilesExecPath,
         usePic,
         ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);

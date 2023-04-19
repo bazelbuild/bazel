@@ -60,6 +60,7 @@ public class CppCompileActionBuilder {
   private Artifact ltoIndexingFile;
   private Artifact dotdFile;
   private Artifact diagnosticsFile;
+  private Artifact indexstoreFiles;
   private Artifact gcnoFile;
   private CcCompilationContext ccCompilationContext = CcCompilationContext.EMPTY;
   private final List<String> pluginOpts = new ArrayList<>();
@@ -320,6 +321,7 @@ public class CppCompileActionBuilder {
             outputFile,
             dotdFile,
             diagnosticsFile,
+            indexstoreFiles,
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
@@ -493,12 +495,17 @@ public class CppCompileActionBuilder {
     return featureConfiguration.isEnabled(CppRuleClasses.SERIALIZED_DIAGNOSTICS_FILE);
   }
 
+  public boolean indexstoreFilesEnabled() {
+    return featureConfiguration.isEnabled(CppRuleClasses.INDEXSTORE_FILES);
+  }
+
   @CanIgnoreReturnValue
   public CppCompileActionBuilder setOutputs(
-      Artifact outputFile, Artifact dotdFile, Artifact diagnosticsFile) {
+      Artifact outputFile, Artifact dotdFile, Artifact diagnosticsFile, Artifact indexstoreFiles) {
     this.outputFile = outputFile;
     this.dotdFile = dotdFile;
     this.diagnosticsFile = diagnosticsFile;
+    this.indexstoreFiles = indexstoreFiles;
     return this;
   }
 
@@ -533,6 +540,15 @@ public class CppCompileActionBuilder {
     } else {
       diagnosticsFile = null;
     }
+    if (indexstoreFilesEnabled()) {
+      String indexstoreFilesName =
+          CppHelper.getIndexstoreFilesName(ccToolchain, outputCategory, outputName);
+      indexstoreFiles =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext, label, indexstoreFilesName, configuration);
+    } else {
+      indexstoreFiles = null;
+    }
     return this;
   }
 
@@ -562,6 +578,10 @@ public class CppCompileActionBuilder {
 
   public Artifact getDiagnosticsFile() {
     return this.diagnosticsFile;
+  }
+
+  public Artifact getIndexstoreFiles() {
+    return this.indexstoreFiles;
   }
 
   @CanIgnoreReturnValue

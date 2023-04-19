@@ -73,6 +73,7 @@ public class CppHelper {
   static final PathFragment PIC_DOTD_FILES = PathFragment.create("_pic_dotd");
   static final PathFragment DIA_FILES = PathFragment.create("_dia");
   static final PathFragment PIC_DIA_FILES = PathFragment.create("_pic_dia");
+  static final PathFragment INDEXSTORE_FILES = PathFragment.create("_indexstore");
 
   // TODO(bazel-team): should this use Link.SHARED_LIBRARY_FILETYPES?
   public static final FileTypeSet SHARED_LIBRARY_FILETYPES =
@@ -305,6 +306,13 @@ public class CppHelper {
       Label ruleLabel, boolean usePic, boolean siblingRepositoryLayout) {
     return AnalysisUtils.getUniqueDirectory(
         ruleLabel, usePic ? PIC_DIA_FILES : DIA_FILES, siblingRepositoryLayout);
+  }
+
+  /** Returns the directory where indexstore files are created. */
+  private static PathFragment getIndexstoreDirectory(
+      Label ruleLabel, boolean siblingRepositoryLayout) {
+    return AnalysisUtils.getUniqueDirectory(
+        ruleLabel, INDEXSTORE_FILES, siblingRepositoryLayout);
   }
 
   public static Artifact getLinkedArtifact(
@@ -583,6 +591,23 @@ public class CppHelper {
         sourceTreeArtifact.getRoot());
   }
 
+  /**
+   * Returns the corresponding indexstore files TreeArtifact given the source
+   * TreeArtifact.
+   */
+  public static SpecialArtifact getIndexstoreOutputTreeArtifact(
+      ActionConstructionContext actionConstructionContext,
+      Label label,
+      Artifact sourceTreeArtifact,
+      String outputName) {
+    return actionConstructionContext.getTreeArtifact(
+        getIndexstoreDirectory(
+                label,
+                actionConstructionContext.getConfiguration().isSiblingRepositoryLayout())
+            .getRelative(outputName),
+        sourceTreeArtifact.getRoot());
+  }
+
   public static String getArtifactNameForCategory(
       CcToolchainProvider toolchain,
       ArtifactCategory category,
@@ -616,6 +641,18 @@ public class CppHelper {
 
     return getArtifactNameForCategory(
         toolchain, ArtifactCategory.SERIALIZED_DIAGNOSTICS_FILE, baseName);
+  }
+
+  static String getIndexstoreFilesName(
+      CcToolchainProvider toolchain, ArtifactCategory outputCategory, String outputName)
+      throws RuleErrorException {
+    String baseName =
+        outputCategory == ArtifactCategory.OBJECT_FILE
+                || outputCategory == ArtifactCategory.PROCESSED_HEADER
+            ? outputName
+            : getArtifactNameForCategory(toolchain, outputCategory, outputName);
+    return getArtifactNameForCategory(
+        toolchain, ArtifactCategory.INDEXSTORE_FILE, baseName);
   }
 
   /**

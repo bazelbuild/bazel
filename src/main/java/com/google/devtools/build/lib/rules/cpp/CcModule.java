@@ -360,6 +360,7 @@ public abstract class CcModule
                     /* fdoStamp= */ null,
                     /* dotdFileExecPath= */ null,
                     /* diagnosticsFileExecPath= */ null,
+                    /* indexstoreFilesExecPath= */ null,
                     variablesExtensions,
                     /* additionalBuildVariables= */ ImmutableMap.of(),
                     /* directModuleMaps= */ ImmutableList.of(),

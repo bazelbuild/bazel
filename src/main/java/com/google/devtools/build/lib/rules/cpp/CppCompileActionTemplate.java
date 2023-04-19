@@ -48,6 +48,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private final SpecialArtifact outputTreeArtifact;
   private final SpecialArtifact dotdTreeArtifact;
   private final SpecialArtifact diagnosticsTreeArtifact;
+  private final SpecialArtifact indexstoreTreeArtifact;
   private final CcToolchainProvider toolchain;
   private final ImmutableList<ArtifactCategory> categories;
   private final ActionOwner actionOwner;
@@ -61,6 +62,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
    * @param dotdTreeArtifact the TreeArtifact that contains dotd files.
    * @param diagnosticsTreeArtifact the TreeArtifact that contains serialized diagnostics files.
+   * @param indexstoreTreeArtifact the TreeArtifact that contains indexstore files.
    * @param cppCompileActionBuilder An almost completely configured {@link CppCompileActionBuilder}
    *     without the input and output files set. It is used as a template to instantiate expanded
    *     {CppCompileAction}s.
@@ -74,6 +76,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       SpecialArtifact outputTreeArtifact,
       SpecialArtifact dotdTreeArtifact,
       SpecialArtifact diagnosticsTreeArtifact,
+      SpecialArtifact indexstoreTreeArtifact,
       CppCompileActionBuilder cppCompileActionBuilder,
       CcToolchainProvider toolchain,
       ImmutableList<ArtifactCategory> categories,
@@ -83,6 +86,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.outputTreeArtifact = outputTreeArtifact;
     this.dotdTreeArtifact = dotdTreeArtifact;
     this.diagnosticsTreeArtifact = diagnosticsTreeArtifact;
+    this.indexstoreTreeArtifact = indexstoreTreeArtifact;
     this.toolchain = toolchain;
     this.categories = categories;
     this.actionOwner = checkNotNull(actionOwner, outputTreeArtifact);
@@ -146,12 +150,19 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             TreeFileArtifact.createTemplateExpansionOutput(
                 diagnosticsTreeArtifact, outputName + ".dia", artifactOwner);
       }
+      TreeFileArtifact indexstoreFilesArtifact = null;
+      if (indexstoreTreeArtifact != null) {
+        indexstoreFilesArtifact =
+            TreeFileArtifact.createTemplateExpansionOutput(
+                indexstoreTreeArtifact, outputName + ".indexstore", artifactOwner);
+      }
       expandedActions.add(
           createAction(
               inputTreeFileArtifact,
               outputTreeFileArtifact,
               dotdFileArtifact,
               diagnosticsFileArtifact,
+              indexstoreFilesArtifact,
               privateHeaders));
     }
 
@@ -201,13 +212,14 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       TreeFileArtifact outputTreeFileArtifact,
       @Nullable Artifact dotdFileArtifact,
       @Nullable Artifact diagnosticsFileArtifact,
+      @Nullable Artifact indexstoreFilesArtifact,
       NestedSet<Artifact> privateHeaders)
       throws ActionExecutionException {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(cppCompileActionBuilder)
             .setAdditionalPrunableHeaders(privateHeaders)
             .setSourceFile(sourceTreeFileArtifact)
-            .setOutputs(outputTreeFileArtifact, dotdFileArtifact, diagnosticsFileArtifact);
+            .setOutputs(outputTreeFileArtifact, dotdFileArtifact, diagnosticsFileArtifact, indexstoreFilesArtifact);
 
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(cppCompileActionBuilder.getVariables());
@@ -226,6 +238,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
       buildVariables.overrideStringVariable(
           CompileBuildVariables.SERIALIZED_DIAGNOSTICS_FILE.getVariableName(),
           diagnosticsFileArtifact.getExecPathString());
+    }
+    if (indexstoreFilesArtifact != null) {
+      buildVariables.overrideStringVariable(
+          CompileBuildVariables.INDEXSTORE_FILES.getVariableName(),
+          indexstoreFilesArtifact.getExecPathString());
     }
 
     builder.setVariables(buildVariables.build());

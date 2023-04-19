@@ -225,6 +225,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * @param outputFile the object file that is written as result of the compilation
    * @param dotdFile the .d file that is generated as a side-effect of compilation
    * @param diagnosticsFile the .dia file that is generated as a side-effect of compilation
+   * @param indexstoreFiles the .indexstore files that are generated as a side-effect of compilation
    * @param gcnoFile the coverage notes that are written in coverage mode, can be null
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
@@ -254,6 +255,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Artifact outputFile,
       @Nullable Artifact dotdFile,
       @Nullable Artifact diagnosticsFile,
+      @Nullable Artifact indexstoreFiles,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -277,6 +279,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             Preconditions.checkNotNull(outputFile, "outputFile"),
             dotdFile,
             diagnosticsFile,
+            indexstoreFiles,
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
@@ -329,6 +332,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Artifact outputFile,
       @Nullable Artifact dotdFile,
       @Nullable Artifact diagnosticsFile,
+      @Nullable Artifact indexstoreFiles,
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
@@ -344,6 +348,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     if (diagnosticsFile != null) {
       outputs.add(diagnosticsFile);
+    }
+    if (indexstoreFiles != null) {
+      outputs.add(indexstoreFiles);
     }
     if (dwoFile != null) {
       outputs.add(dwoFile);

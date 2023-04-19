@@ -46,6 +46,8 @@ public enum CompileBuildVariables {
   DEPENDENCY_FILE("dependency_file"),
   /** Variable for the serialized diagnostics file path */
   SERIALIZED_DIAGNOSTICS_FILE("serialized_diagnostics_file"),
+  /** Variable for the indexstore file paths */
+  INDEXSTORE_FILES("indexstore_files"),
   /** Variable for the module file name. */
   MODULE_NAME("module_name"),
   /**
@@ -154,6 +156,7 @@ public enum CompileBuildVariables {
       String fdoStamp,
       String dotdFileExecPath,
       String diagnosticsFileExecPath,
+      String indexstoreFilesExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -188,6 +191,7 @@ public enum CompileBuildVariables {
           fdoStamp,
           dotdFileExecPath,
           diagnosticsFileExecPath,
+          indexstoreFilesExecPath,
           variablesExtensions,
           additionalBuildVariables,
           directModuleMaps,
@@ -224,6 +228,7 @@ public enum CompileBuildVariables {
       String fdoStamp,
       String dotdFileExecPath,
       String diagnosticsFileExecPath,
+      String indexstoreFilesExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -258,6 +263,7 @@ public enum CompileBuildVariables {
         fdoStamp,
         dotdFileExecPath,
         diagnosticsFileExecPath,
+        indexstoreFilesExecPath,
         variablesExtensions,
         additionalBuildVariables,
         directModuleMaps,
@@ -288,6 +294,7 @@ public enum CompileBuildVariables {
       String fdoStamp,
       String dotdFileExecPath,
       String diagnosticsFileExecPath,
+      String indexstoreFilesExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
       ImmutableMap<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
@@ -327,6 +334,7 @@ public enum CompileBuildVariables {
         userCompileFlags,
         dotdFileExecPath,
         diagnosticsFileExecPath,
+        indexstoreFilesExecPath,
         usePic,
         ImmutableList.of(),
         ImmutableMap.of());
@@ -347,6 +355,7 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       String dotdFileExecPath,
       String diagnosticsFileExecPath,
+      String indexstoreFilesExecPath,
       boolean usePic,
       ImmutableList<PathFragment> externalIncludeDirs,
       Map<String, String> additionalBuildVariables) {
@@ -370,6 +379,12 @@ public enum CompileBuildVariables {
     if (diagnosticsFileExecPath != null) {
       buildVariables.addStringVariable(
           SERIALIZED_DIAGNOSTICS_FILE.getVariableName(), diagnosticsFileExecPath);
+    }
+
+    // Set indexstore_files to enable <object>.indexstore files generation.
+    if (indexstoreFilesExecPath != null) {
+      buildVariables.addStringVariable(
+          INDEXSTORE_FILES.getVariableName(), indexstoreFilesExecPath);
     }
 
     if (gcnoFile != null) {
