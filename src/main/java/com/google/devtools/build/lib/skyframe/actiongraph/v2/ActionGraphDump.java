@@ -285,9 +285,18 @@ public class ActionGraphDump {
     aqueryOutputHandler.outputAction(actionBuilder.build());
   }
 
-  public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+  public void dumpAspect(
+      @Nullable AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
+    // It's possible for a value from a previous build on the same server to be missing
+    // e.g. after having cleared the analysis cache.
+    if (aspectValue == null) {
+      return;
+    }
+
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;

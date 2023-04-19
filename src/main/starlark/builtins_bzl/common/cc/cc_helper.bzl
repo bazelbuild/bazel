@@ -1267,4 +1267,5 @@ cc_helper = struct(
     local_defines = _local_defines,
     linker_scripts = _linker_scripts,
     copts_filter = _copts_filter,
+    package_exec_path = _package_exec_path,
 )

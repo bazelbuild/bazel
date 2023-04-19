@@ -209,6 +209,55 @@ class BazelLockfileTest(test_base.TestBase):
         stderr,
     )
 
+  def testLocalOverrideWithErrorMode(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'module(name="lala")',
+            'bazel_dep(name="bar")',
+            'local_path_override(module_name="bar",path="bar")',
+        ],
+    )
+    self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
+    self.ScratchFile('bar/MODULE.bazel', ['module(name="bar")'])
+    self.ScratchFile('bar/WORKSPACE', [])
+    self.ScratchFile('bar/BUILD', ['filegroup(name = "hello from bar")'])
+    self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '//:all',
+        ],
+        allow_failure=False,
+    )
+
+    # Run with updated module and a different flag
+    self.ScratchFile(
+        'bar/MODULE.bazel',
+        [
+            'module(name="bar")',
+            'bazel_dep(name="hmmm")',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'build',
+            '--nobuild',
+            '--lockfile_mode=error',
+            '//:all',
+        ],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        (
+            'ERROR: Error computing the main repository mapping: Lock file is'
+            ' no longer up-to-date because: The MODULE.bazel file has changed'
+            ' for the overriden module: bar'
+        ),
+        stderr,
+    )
+
 
 if __name__ == '__main__':
   unittest.main()

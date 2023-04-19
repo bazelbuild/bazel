@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -71,7 +70,7 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
+    assertThat(spawnResult.getWallTimeInMs()).isGreaterThan(0);
     assertThat(FileSystemUtils.readLines(stdout, UTF_8)).containsExactly("echolalia");
   }
 
@@ -153,18 +152,16 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isPresent();
-    assertThat(spawnResult.getUserTime().get()).isAtLeast(minimumUserTimeToSpend);
-    assertThat(spawnResult.getUserTime().get()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTime()).isPresent();
-    assertThat(spawnResult.getSystemTime().get()).isAtLeast(minimumSystemTimeToSpend);
-    assertThat(spawnResult.getSystemTime().get()).isAtMost(maximumSystemTimeToSpend);
-    assertThat(spawnResult.getNumBlockOutputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumBlockInputOperations().get()).isAtLeast(0L);
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches().get()).isAtLeast(0L);
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast((int) minimumWallTimeToSpend.toMillis());
+    assertThat(spawnResult.getWallTimeInMs()).isAtMost((int) maximumWallTimeToSpend.toMillis());
+    assertThat(spawnResult.getUserTimeInMs()).isAtLeast((int) minimumUserTimeToSpend.toMillis());
+    assertThat(spawnResult.getUserTimeInMs()).isAtMost((int) maximumUserTimeToSpend.toMillis());
+    assertThat(spawnResult.getSystemTimeInMs())
+        .isAtLeast((int) minimumSystemTimeToSpend.toMillis());
+    assertThat(spawnResult.getSystemTimeInMs()).isAtMost((int) maximumSystemTimeToSpend.toMillis());
+    assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumBlockInputOperations()).isAtLeast(0L);
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isAtLeast(0L);
   }
 
   @Test
@@ -192,14 +189,13 @@ public final class LinuxSandboxedSpawnRunnerTest extends SandboxedSpawnRunnerTes
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTime()).isPresent();
-    assertThat(spawnResult.getWallTime().get()).isAtLeast(minimumWallTimeToSpend);
-    assertThat(spawnResult.getWallTime().get()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTime()).isEmpty();
-    assertThat(spawnResult.getSystemTime()).isEmpty();
-    assertThat(spawnResult.getNumBlockOutputOperations()).isEmpty();
-    assertThat(spawnResult.getNumBlockInputOperations()).isEmpty();
-    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isEmpty();
+    assertThat(spawnResult.getWallTimeInMs()).isAtLeast((int) minimumWallTimeToSpend.toMillis());
+    assertThat(spawnResult.getWallTimeInMs()).isAtMost((int) maximumWallTimeToSpend.toMillis());
+    assertThat(spawnResult.getUserTimeInMs()).isEqualTo(0);
+    assertThat(spawnResult.getSystemTimeInMs()).isEqualTo(0);
+    assertThat(spawnResult.getNumBlockOutputOperations()).isNull();
+    assertThat(spawnResult.getNumBlockInputOperations()).isNull();
+    assertThat(spawnResult.getNumInvoluntaryContextSwitches()).isNull();
   }
 
   @Test

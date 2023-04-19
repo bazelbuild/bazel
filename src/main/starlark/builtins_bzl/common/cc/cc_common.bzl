@@ -419,11 +419,15 @@ def _create_compilation_context(
         direct_textual_headers = [],
         direct_public_headers = [],
         direct_private_headers = [],
-        purpose = _UNBOUND):
-    if purpose != _UNBOUND:
+        purpose = _UNBOUND,
+        module_map = _UNBOUND):
+    if purpose != _UNBOUND or \
+       module_map != _UNBOUND:
         cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     if purpose == _UNBOUND:
         purpose = None
+    if module_map == _UNBOUND:
+        module_map = None
     return cc_common_internal.create_compilation_context(
         headers = headers,
         system_includes = system_includes,
@@ -436,6 +440,7 @@ def _create_compilation_context(
         direct_public_headers = direct_public_headers,
         direct_private_headers = direct_private_headers,
         purpose = purpose,
+        module_map = module_map,
     )
 
 def _legacy_cc_flags_make_variable_do_not_use(*, cc_toolchain):

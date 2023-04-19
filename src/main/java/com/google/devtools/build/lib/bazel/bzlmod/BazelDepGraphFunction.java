@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
@@ -42,6 +43,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -68,6 +71,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     }
     LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
 
+    ImmutableMap<String, String> localOverrideHashes = null;
     ImmutableMap<ModuleKey, Module> depGraph = null;
     BzlmodFlagsAndEnvVars flags = null;
 
@@ -82,11 +86,18 @@ public class BazelDepGraphFunction implements SkyFunction {
       if (flags == null) { // unable to read environment variables
         return null;
       }
+      localOverrideHashes = getLocalOverridesHashes(root.getOverrides(), env);
+      if (localOverrideHashes == null) { // trying to read override module
+        return null;
+      }
+
       if (root.getModuleFileHash().equals(lockFile.getModuleFileHash())
-          && flags.equals(lockFile.getFlags())) {
+          && flags.equals(lockFile.getFlags())
+          && localOverrideHashes.equals(lockFile.getLocalOverrideHashes())) {
         depGraph = lockFile.getModuleDepGraph();
       } else if (lockfileMode.equals(LockfileMode.ERROR)) {
-        List<String> diffLockfile = lockFile.getDiffLockfile(root.getModuleFileHash(), flags);
+        List<String> diffLockfile =
+            lockFile.getDiffLockfile(root.getModuleFileHash(), localOverrideHashes, flags);
         throw new BazelDepGraphFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
@@ -105,7 +116,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       depGraph = selectionResult.getResolvedDepGraph();
       if (lockfileMode.equals(LockfileMode.UPDATE)) {
         BazelLockFileFunction.updateLockedModule(
-            root.getModuleFileHash(), depGraph, rootDirectory, flags);
+            rootDirectory, root.getModuleFileHash(), flags, localOverrideHashes, depGraph);
       }
     }
 
@@ -128,8 +139,29 @@ public class BazelDepGraphFunction implements SkyFunction {
   }
 
   @Nullable
-  public static BzlmodFlagsAndEnvVars getFlagsAndEnvVars(Environment env)
-      throws InterruptedException {
+  @VisibleForTesting
+  static ImmutableMap<String, String> getLocalOverridesHashes(
+      Map<String, ModuleOverride> overrides, Environment env) throws InterruptedException {
+    ImmutableMap.Builder<String, String> localOverrideHashes = new ImmutableMap.Builder<>();
+    for (Entry<String, ModuleOverride> entry : overrides.entrySet()) {
+      if (entry.getValue() instanceof LocalPathOverride) {
+        ModuleFileValue moduleValue =
+            (ModuleFileValue)
+                env.getValue(
+                    ModuleFileValue.key(
+                        ModuleKey.create(entry.getKey(), Version.EMPTY), entry.getValue()));
+        if (moduleValue == null) {
+          return null;
+        }
+        localOverrideHashes.put(entry.getKey(), moduleValue.getModuleFileHash());
+      }
+    }
+    return localOverrideHashes.buildOrThrow();
+  }
+
+  @VisibleForTesting
+  @Nullable
+  static BzlmodFlagsAndEnvVars getFlagsAndEnvVars(Environment env) throws InterruptedException {
     ClientEnvironmentValue allowedYankedVersionsFromEnv =
         (ClientEnvironmentValue)
             env.getValue(
