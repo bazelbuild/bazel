@@ -75,7 +75,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -463,24 +462,22 @@ public class ExecutionGraphModule extends BlazeModule {
 
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;
-      long totalMillis = metrics.totalTimeInMs();
+      int totalMillis = metrics.totalTimeInMs();
 
-      long discoverInputsMillis = 0;
       ActionInput firstOutput = getFirstOutput(spawn.getResourceOwner(), spawn.getOutputFiles());
-      Duration discoverInputsTime = outputToDiscoverInputsTime.get(firstOutput);
-      if (discoverInputsTime != null) {
+      Integer discoverInputsTimeInMs = outputToDiscoverInputsTimeMs.get(firstOutput);
+      if (discoverInputsTimeInMs != null) {
         // Remove this so we don't count it again later, if an action has multiple spawns.
-        outputToDiscoverInputsTime.remove(firstOutput);
-        discoverInputsMillis = discoverInputsTime.toMillis();
-        totalMillis += discoverInputsMillis;
+        outputToDiscoverInputsTimeMs.remove(firstOutput);
+        totalMillis += discoverInputsTimeInMs;
       }
 
       ExecutionGraph.Metrics.Builder metricsBuilder =
           ExecutionGraph.Metrics.newBuilder()
               .setStartTimestampMillis(startMillis)
-              .setDurationMillis((int) totalMillis)
+              .setDurationMillis(totalMillis)
               .setFetchMillis(metrics.fetchTimeInMs())
-              .setDiscoverInputsMillis((int) discoverInputsMillis)
+              .setDiscoverInputsMillis(discoverInputsTimeInMs != null ? discoverInputsTimeInMs : 0)
               .setParseMillis(metrics.parseTimeInMs())
               .setProcessMillis(metrics.executionWallTimeInMs())
               .setQueueMillis(metrics.queueTimeInMs())
@@ -630,7 +627,8 @@ public class ExecutionGraphModule extends BlazeModule {
     private final boolean localLockFreeOutputEnabled;
     private final boolean logFileWriteEdges;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
-    private final Map<ActionInput, Duration> outputToDiscoverInputsTime = new ConcurrentHashMap<>();
+    private final Map<ActionInput, Integer> outputToDiscoverInputsTimeMs =
+        new ConcurrentHashMap<>();
     private final DependencyInfo depType;
     private final AtomicInteger nextIndex = new AtomicInteger(0);
 
@@ -699,15 +697,11 @@ public class ExecutionGraphModule extends BlazeModule {
     void enqueue(DiscoveredInputsEvent event) {
       // The other times from SpawnMetrics are not needed. The only instance of
       // DiscoveredInputsEvent sets only total and parse time, and to the same value.
-      var totalTime = Duration.ofMillis(event.getMetrics().totalTimeInMs());
+      var totalTime = event.getMetrics().totalTimeInMs();
       var firstOutput = getFirstOutput(event.getAction(), event.getAction().getOutputs());
-      var sum = outputToDiscoverInputsTime.get(firstOutput);
-      if (sum != null) {
-        sum = sum.plus(totalTime);
-      } else {
-        sum = totalTime;
-      }
-      outputToDiscoverInputsTime.put(firstOutput, sum);
+      var sum = outputToDiscoverInputsTimeMs.getOrDefault(firstOutput, 0);
+      sum += totalTime;
+      outputToDiscoverInputsTimeMs.put(firstOutput, sum);
     }
 
     void enqueue(Action action, long startMillis) {
