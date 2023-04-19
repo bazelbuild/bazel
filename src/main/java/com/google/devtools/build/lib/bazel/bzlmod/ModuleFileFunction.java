@@ -109,6 +109,8 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
+    String moduleFileHash =
+        new Fingerprint().addBytes(getModuleFileResult.moduleFileContents).hexDigestAndReset();
 
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
@@ -140,7 +142,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "The MODULE.bazel file of %s declares overrides", moduleKey);
     }
 
-    return NonRootModuleFileValue.create(module);
+    return NonRootModuleFileValue.create(module, moduleFileHash);
   }
 
   @Nullable
