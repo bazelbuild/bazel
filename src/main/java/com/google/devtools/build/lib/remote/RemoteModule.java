@@ -756,16 +756,7 @@ public final class RemoteModule extends BlazeModule {
 
   // Separating the conditions for readability.
   private boolean shouldParseNoCacheOutputs() {
-    if (remoteOptions == null
-        || remoteOptions.remoteBuildEventUploadMode != RemoteBuildEventUploadMode.ALL) {
-      return false;
-    }
-
-    if (actionContextProvider == null || actionContextProvider.getRemoteCache() == null) {
-      return false;
-    }
-
-    return buildEventArtifactUploaderFactoryDelegate.get() != null;
+    return false;
   }
 
   private void parseNoCacheOutputs(AnalysisResult analysisResult) {
