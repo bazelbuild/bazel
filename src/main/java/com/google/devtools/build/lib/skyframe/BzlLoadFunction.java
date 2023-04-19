@@ -572,21 +572,20 @@ public class BzlLoadFunction implements SkyFunction {
   /**
    * Obtain a suitable StarlarkBuiltinsValue.
    *
-   * <p>For BUILD-loaded .bzl files, this is a real builtins value, obtained using either Skyframe
-   * or inlining of StarlarkBuiltinsFunction (depending on whether {@code inliningState} is
-   * non-null). The returned value includes the StarlarkSemantics.
+   * <p>For BUILD-loaded and WORKSPACE-loaded .bzl files, this is a real builtins value, obtained
+   * using either Skyframe or inlining of StarlarkBuiltinsFunction (depending on whether {@code
+   * inliningState} is non-null). The returned value includes the StarlarkSemantics.
    *
    * <p>For other .bzl files, the builtins computation is not needed and would create a Skyframe
    * cycle if requested, so we instead return an empty builtins value that just wraps the
-   * StarlarkSemantics. (NB: In the case of WORKSPACE-loaded .bzl files, the cycle goes through the
-   * repository remapping value. It's possible this could be avoided if we ever wanted to make this
-   * kind of .bzl file use builtins injection.)
+   * StarlarkSemantics.
    */
   @Nullable
   private StarlarkBuiltinsValue getBuiltins(
       BzlLoadValue.Key key, Environment env, @Nullable InliningState inliningState)
       throws BzlLoadFailedException, InterruptedException {
-    if (!(key instanceof BzlLoadValue.KeyForBuild)) {
+    if (!(key instanceof BzlLoadValue.KeyForBuild)
+        && !(key instanceof BzlLoadValue.KeyForWorkspace)) {
       StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
       if (starlarkSemantics == null) {
         return null;
@@ -1185,7 +1184,15 @@ public class BzlLoadFunction implements SkyFunction {
       fp.addBytes(builtins.transitiveDigest);
       return builtins.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
-      return starlarkEnv.getWorkspaceBzlEnv();
+      // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
+      if (builtins
+          .starlarkSemantics
+          .get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH)
+          .isEmpty()) {
+        return starlarkEnv.getUninjectedWorkspaceBzlEnv();
+      }
+      fp.addBytes(builtins.transitiveDigest);
+      return builtins.predeclaredForWorkspaceBzl;
     } else if (key instanceof BzlLoadValue.KeyForBzlmod) {
       return starlarkEnv.getBzlmodBzlEnv();
     } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
