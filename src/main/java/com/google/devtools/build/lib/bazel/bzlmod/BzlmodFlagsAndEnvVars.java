@@ -45,22 +45,22 @@ abstract class BzlmodFlagsAndEnvVars {
   }
 
   /** Registries provided via command line */
-  public abstract ImmutableList<String> getCmdRegistries();
+  public abstract ImmutableList<String> cmdRegistries();
 
   /** ModulesOverride provided via command line */
-  public abstract ImmutableMap<String, String> getCmdModuleOverrides();
+  public abstract ImmutableMap<String, String> cmdModuleOverrides();
 
   /** Allowed yanked version in the dependency graph */
-  public abstract ImmutableList<String> getAllowedYankedVersions();
+  public abstract ImmutableList<String> allowedYankedVersions();
 
   /** Allowed yanked version in the dependency graph from environment variables */
-  public abstract String getEnvVarAllowedYankedVersions();
+  public abstract String envVarAllowedYankedVersions();
 
   /** Whether to ignore things declared as dev dependencies or not */
   public abstract boolean ignoreDevDependency();
 
   /** Error level of direct dependencies check */
-  public abstract String getDirectDependenciesMode();
+  public abstract String directDependenciesMode();
 
   /** Error level of bazel compatability check */
   public abstract String compatibilityMode();
