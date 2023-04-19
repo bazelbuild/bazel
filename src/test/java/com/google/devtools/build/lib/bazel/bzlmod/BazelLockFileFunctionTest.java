@@ -92,7 +92,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     differencer = new SequencedRecordingDifferencer();
     registryFactory = new FakeRegistry.Factory();
     evaluationContext =
-        EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
 
     AtomicReference<PathPackageLocator> packageLocator =
         new AtomicReference<>(
@@ -292,10 +292,10 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     BazelLockFileValue value = result.get(BazelLockFileValue.KEY);
     assertThat(value.getModuleDepGraph()).isEqualTo(depGraph);
     assertThat(value.getFlags().ignoreDevDependency()).isTrue();
-    assertThat(value.getFlags().getAllowedYankedVersions()).isEqualTo(yankedVersions);
-    assertThat(value.getFlags().getDirectDependenciesMode())
+    assertThat(value.getFlags().allowedYankedVersions()).isEqualTo(yankedVersions);
+    assertThat(value.getFlags().directDependenciesMode())
         .isEqualTo(CheckDirectDepsMode.ERROR.toString());
-    assertThat(value.getFlags().getCompatibilityMode())
+    assertThat(value.getFlags().compatibilityMode())
         .isEqualTo(BazelCompatibilityMode.ERROR.toString());
   }
 
