@@ -124,8 +124,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
         dirsToCreate,
         Iterables.concat(
             ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        outputs.files(),
-        outputs.dirs());
+        outputs);
 
     // Allow subclasses to filter out inputs and dirs that don't need to be created.
     filterInputsAndDirsToCreate(inputsToCreate, dirsToCreate);

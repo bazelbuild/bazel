@@ -267,12 +267,8 @@ public class SandboxHelpersTest {
         dirsToCreate,
         Iterables.concat(
             ImmutableSet.of(), inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        SandboxOutputs.create(
-                ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of())
-            .files(),
-        SandboxOutputs.create(
-                ImmutableSet.of(PathFragment.create("out/dir/output.txt")), ImmutableSet.of())
-            .dirs());
+        SandboxOutputs.create(ImmutableSet.of(PathFragment.create("out/dir/output.txt")),
+            ImmutableSet.of()));
 
     PathFragment inputDir1 = input1.getParentDirectory();
     PathFragment inputDir2 = input2.getParentDirectory();

@@ -58,8 +58,7 @@ final class WorkerExecRoot {
         inputsToCreate,
         dirsToCreate,
         Iterables.concat(workerFiles, inputs.getFiles().keySet(), inputs.getSymlinks().keySet()),
-        outputs.files(),
-        outputs.dirs());
+        outputs);
 
     // Then do a full traversal of the parent directory of `workDir`. This will use what we computed
     // above, delete anything unnecessary and update `inputsToCreate`/`dirsToCreate` if something is
