@@ -2,7 +2,7 @@ name: Bug report
 description: File a bug report
 labels: ["type: bug", "untriaged"]
 assignees:
-  - kshyanashree
+  - pavank1992
   - sgowroji
 body:
   - type: markdown
