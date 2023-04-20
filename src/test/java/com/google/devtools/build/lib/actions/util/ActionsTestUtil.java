@@ -517,17 +517,17 @@ public final class ActionsTestUtil {
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
           NULL_LABEL,
-          ImmutableList.of(),
           new Location("dummy-file", 0, 0),
-          "dummy-configuration-mnemonic",
-          "dummy-kind",
-          "dummy-configuration",
+          /* targetKind= */ "dummy-kind",
+          /* mnemonic= */ "dummy-configuration-mnemonic",
+          /* configurationChecksum= */ "dummy-configuration",
           new BuildConfigurationEvent(
               BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
               BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-          null,
-          ImmutableMap.of(),
-          null);
+          /* additionalProgressInfo= */ null,
+          /* executionPlatform= */ null,
+          /* aspectDescriptors= */ ImmutableList.of(),
+          /* execProperties= */ ImmutableMap.of());
 
   @SerializationConstant
   public static final ActionLookupData NULL_ACTION_LOOKUP_DATA =
