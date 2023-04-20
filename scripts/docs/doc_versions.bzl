@@ -23,6 +23,10 @@
 
 DOC_VERSIONS = [
     {
+        "version": "5.4.1",
+        "sha256": "f09662056d0472773e1c3777845332935bb505be0efad368c971f53d31f6f17e",
+    },
+    {
         "version": "5.4.0",
         "sha256": "aa7aa236c4645966bdb4fb5c185aeeba233f67a0291e2fc1c233e500a811b2e0",
     },
@@ -49,6 +53,14 @@ DOC_VERSIONS = [
     {
         "version": "5.0.0",
         "sha256": "8987121070113ebad742d975345263d3cfa46c16a287797d78543935e852d39c",
+    },
+    {
+        "version": "4.2.4",
+        "sha256": "f6dc3f9d3141ce8b74bcef8624b25abc3a262069e9b640388fef2e4f9282f9f5",
+    },
+    {
+        "version": "4.2.3",
+        "sha256": "79116fb9a62733594391727cffcfb89e8d09d8df854f3cb422fc5a909a557d99",
     },
     {
         "version": "4.2.2",

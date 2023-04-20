@@ -21,6 +21,7 @@ version: "main"
 # This must be kept in sync with //scripts/docs:doc_versions.bzl
 doc_versions:
   - main
+  - 5.4.1
   - 5.4.0
   - 5.3.1
   - 5.3.0
@@ -28,6 +29,8 @@ doc_versions:
   - 5.1.1
   - 5.1.0
   - 5.0.0
+  - 4.2.4
+  - 4.2.3
   - 4.2.2
   - 4.2.1
   - 4.2.0
