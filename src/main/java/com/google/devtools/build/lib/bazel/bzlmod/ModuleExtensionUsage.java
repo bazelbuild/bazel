@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -25,6 +26,7 @@ import net.starlark.java.syntax.Location;
  * information pertinent to the proxy object returned from the {@code use_extension} call.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class ModuleExtensionUsage {
   /** An unresolved label pointing to the Starlark file where the module extension is defined. */
   public abstract String getExtensionBzlFile();

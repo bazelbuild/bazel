@@ -283,6 +283,58 @@ py_test(
 )
 
 py_test(
+    name = "bazel_lockfile_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_lockfile_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_overrides_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_overrides_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_repo_mapping_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_repo_mapping_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_yanked_versions_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_yanked_versions_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
     name = "starlark_options_test",
     srcs = ["starlark_options_test.py"],
     deps = [":test_base"],

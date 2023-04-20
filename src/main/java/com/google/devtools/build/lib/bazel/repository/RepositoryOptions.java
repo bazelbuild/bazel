@@ -275,6 +275,19 @@ public class RepositoryOptions extends OptionsBase {
               + " warning when mismatch detected.")
   public BazelCompatibilityMode bazelCompatibilityMode;
 
+  @Option(
+      name = "lockfile_mode",
+      defaultValue = "off", // TODO(salmasamy) later will be changed to 'update'
+      converter = LockfileMode.Converter.class,
+      documentationCategory = OptionDocumentationCategory.BZLMOD,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      help =
+          "Specifies how and whether or not to use the lockfile. Valid values are `update` to"
+              + " use the lockfile and update it if there are changes, `error` to use the lockfile"
+              + " but throw an error if it's not up-to-date, or `off` to neither read from or write"
+              + " to the lockfile.")
+  public LockfileMode lockfileMode;
+
   /** An enum for specifying different modes for checking direct dependency accuracy. */
   public enum CheckDirectDepsMode {
     OFF, // Don't check direct dependency accuracy.
@@ -288,6 +301,7 @@ public class RepositoryOptions extends OptionsBase {
       }
     }
   }
+
   /** An enum for specifying different modes for bazel compatibility check. */
   public enum BazelCompatibilityMode {
     ERROR, // Check and throw an error when mismatched.
@@ -298,6 +312,20 @@ public class RepositoryOptions extends OptionsBase {
     public static class Converter extends EnumConverter<BazelCompatibilityMode> {
       public Converter() {
         super(BazelCompatibilityMode.class, "Bazel compatibility check mode");
+      }
+    }
+  }
+
+  /** An enum for specifying how to use the lockfile. */
+  public enum LockfileMode {
+    OFF, // Don't use the lockfile at all.
+    UPDATE, // Update the lockfile when it mismatches the module.
+    ERROR; // Throw an error when it mismatches the module.
+
+    /** Converts to {@link BazelLockfileMode}. */
+    public static class Converter extends EnumConverter<LockfileMode> {
+      public Converter() {
+        super(LockfileMode.class, "Lockfile mode");
       }
     }
   }

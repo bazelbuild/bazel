@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -122,28 +123,37 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
-                    new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())))
+                    new ClientEnvironmentFunction(
+                        new AtomicReference<>(ImmutableMap.of("BZLMOD_ALLOW_YANKED_VERSIONS", ""))))
                 .buildOrThrow(),
             differencer);
 
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.OFF);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
     BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
   @Test
   public void createValue_basic() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
     // Root depends on dep@1.0 and dep@2.0 at the same time with a multiple-version override.
     // Root also depends on rules_cc as a normal dep.
     // dep@1.0 depends on rules_java, which is overridden by a non-registry override (see below).
@@ -190,7 +200,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     .build())
             .buildOrThrow();
 
-    // TODO we need to mock bazelModuleResolution function to return depGraph
     resolutionFunctionMock.setDepGraph(depGraph);
     EvaluationResult<BazelDepGraphValue> result =
         evaluator.evaluate(ImmutableList.of(BazelDepGraphValue.KEY), evaluationContext);
@@ -231,6 +240,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void createValue_moduleExtensions() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
     Module root =
         Module.builder()
             .setName("root")
@@ -331,6 +344,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
   @Test
   public void useExtensionBadLabelFails() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='module', version='1.0')");
+
     Module root =
         Module.builder()
             .addExtensionUsage(createModuleExtensionUsage("@foo//:defs.bzl", "bar"))
