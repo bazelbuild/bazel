@@ -574,7 +574,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -605,7 +604,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -623,7 +621,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -641,7 +638,6 @@ DIST_DEPS = {
             "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -657,7 +653,7 @@ DIST_DEPS = {
             "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
             "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
         ],
-        "used_in": ["additional_distfiles"],
+        "used_in": [],
     },
     "remotejdk17_macos": {
         "aliases": [
@@ -673,7 +669,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -691,7 +686,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -709,7 +703,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
