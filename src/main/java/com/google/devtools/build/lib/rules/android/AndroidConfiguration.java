@@ -534,14 +534,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public List<String> dexoptsSupportedInDexSharder;
 
     @Option(
-        name = "use_workers_with_dexbuilder",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.EXECUTION},
-        help = "Whether dexbuilder supports being run in local worker mode.")
-    public boolean useWorkersWithDexbuilder;
-
-    @Option(
         name = "experimental_android_rewrite_dexes_with_rex",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -905,10 +897,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         },
         help = "Enable persistent Android dex and desugar actions by using workers.",
         expansion = {
+          "--internal_persistent_android_dex_desugar",
           "--strategy=Desugar=worker",
           "--strategy=DexBuilder=worker",
         })
-    public Void persistentDexDesugar;
+    public Void persistentAndroidDexDesugar;
 
     @Option(
         name = "persistent_multiplex_android_dex_desugar",
@@ -921,10 +914,9 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         help = "Enable persistent multiplexed Android dex and desugar actions by using workers.",
         expansion = {
           "--persistent_android_dex_desugar",
-          "--modify_execution_info=Desugar=+supports-multiplex-workers",
-          "--modify_execution_info=DexBuilder=+supports-multiplex-workers",
+          "--internal_persistent_multiplex_android_dex_desugar",
         })
-    public Void persistentMultiplexDexDesugar;
+    public Void persistentMultiplexAndroidDexDesugar;
 
     @Option(
         name = "persistent_multiplex_android_tools",
@@ -973,6 +965,36 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         help = "Tracking flag for when multiplexed busybox workers are enabled.")
     public boolean persistentMultiplexBusyboxTools;
+
+    /**
+     * We use this option to decide when to enable workers for busybox tools. This flag is also a
+     * guard against enabling workers using nothing but --persistent_android_resource_processor.
+     *
+     * <p>Consequently, we use this option to decide between param files or regular command line
+     * parameters. If we're not using workers or on Windows, there's no need to always use param
+     * files for I/O performance reasons.
+     */
+    @Option(
+        name = "internal_persistent_android_dex_desugar",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when dexing and desugaring workers are enabled.")
+    public boolean persistentDexDesugar;
+
+    @Option(
+        name = "internal_persistent_multiplex_android_dex_desugar",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {
+          OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS,
+          OptionEffectTag.EXECUTION,
+        },
+        defaultValue = "false",
+        help = "Tracking flag for when multiplexed dexing and desugaring workers are enabled.")
+    public boolean persistentMultiplexDexDesugar;
 
     @Option(
         name = "experimental_remove_r_classes_from_instrumentation_test_jar",
@@ -1100,7 +1122,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
       host.dexoptsSupportedInDexSharder = dexoptsSupportedInDexSharder;
-      host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.manifestMergerOrder = manifestMergerOrder;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
@@ -1128,7 +1149,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final ImmutableList<String> dexoptsSupportedInDexSharder;
-  private final boolean useWorkersWithDexbuilder;
   private final boolean desugarJava8;
   private final boolean desugarJava8Libs;
   private final boolean checkDesugarDeps;
@@ -1155,6 +1175,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean dataBindingAndroidX;
   private final boolean persistentBusyboxTools;
   private final boolean persistentMultiplexBusyboxTools;
+  private final boolean persistentDexDesugar;
+  private final boolean persistentMultiplexDexDesugar;
   private final boolean filterRJarsFromAndroidTest;
   private final boolean removeRClassesFromInstrumentationTestJar;
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
@@ -1184,7 +1206,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.dexoptsSupportedInDexSharder = ImmutableList.copyOf(options.dexoptsSupportedInDexSharder);
-    this.useWorkersWithDexbuilder = options.useWorkersWithDexbuilder;
     this.desugarJava8 = options.desugarJava8;
     this.desugarJava8Libs = options.desugarJava8Libs;
     this.checkDesugarDeps = options.checkDesugarDeps;
@@ -1216,6 +1237,8 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.dataBindingAndroidX = options.dataBindingAndroidX;
     this.persistentBusyboxTools = options.persistentBusyboxTools;
     this.persistentMultiplexBusyboxTools = options.persistentMultiplexBusyboxTools;
+    this.persistentDexDesugar = options.persistentDexDesugar;
+    this.persistentMultiplexDexDesugar = options.persistentMultiplexDexDesugar;
     this.filterRJarsFromAndroidTest = options.filterRJarsFromAndroidTest;
     this.removeRClassesFromInstrumentationTestJar =
         options.removeRClassesFromInstrumentationTestJar;
@@ -1317,12 +1340,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing() {
     return targetDexoptsThatPreventIncrementalDexing;
-  }
-
-  /** Whether to assume the dexbuilder tool supports local worker mode. */
-  @Override
-  public boolean useWorkersWithDexbuilder() {
-    return useWorkersWithDexbuilder;
   }
 
   @Override
@@ -1471,6 +1488,16 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentMultiplexBusyboxTools() {
     return persistentMultiplexBusyboxTools;
+  }
+
+  @Override
+  public boolean persistentDexDesugar() {
+    return persistentDexDesugar;
+  }
+
+  @Override
+  public boolean persistentMultiplexDexDesugar() {
+    return persistentMultiplexDexDesugar;
   }
 
   @Override
