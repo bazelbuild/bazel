@@ -600,10 +600,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
     }
 
-    private int eval(List<Object> arguments, int argi, List<String> builder)
-        throws CommandLineExpansionException {
+    private int eval(List<Object> arguments, int argi, List<String> builder, PathMapper pathMapper) {
       Object object = arguments.get(argi++);
-      String stringValue = CommandLineItem.expandToCommandLine(object);
+      String stringValue = StarlarkCustomCommandLine.expandToCommandLine(object, pathMapper);
       if (hasFormat) {
         String formatStr = (String) arguments.get(argi++);
         stringValue = SingleStringArgFormatter.format(formatStr, stringValue);
@@ -739,22 +738,22 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
   @Override
   public Iterable<String> arguments(
-      @Nullable ArtifactExpander artifactExpander, PathMapper stripPaths)
+      @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     List<String> result = new ArrayList<>();
 
     for (int argi = 0; argi < arguments.size(); ) {
       Object arg = arguments.get(argi++);
       if (arg instanceof VectorArg) {
-        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, stripPaths);
+        argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, pathMapper);
 
       } else if (arg instanceof ScalarArg) {
-        argi = ((ScalarArg) arg).eval(arguments, argi, result);
+        argi = ((ScalarArg) arg).eval(arguments, argi, result, pathMapper);
       } else {
-        result.add(expandToCommandLine(arg, stripPaths));
+        result.add(expandToCommandLine(arg, pathMapper));
       }
     }
-    return ImmutableList.copyOf(stripPaths.mapCustomStarlarkArgs(result));
+    return ImmutableList.copyOf(pathMapper.mapCustomStarlarkArgs(result));
   }
 
   private static String expandToCommandLine(Object object, PathMapper pathMapper) {
@@ -789,7 +788,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, PathMapper stripPaths)
+        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
 
       List<String> result = new ArrayList<>();
@@ -811,11 +810,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
         Object arg = arguments.get(argi++);
         if (arg instanceof VectorArg) {
-          argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, stripPaths);
+          argi = ((VectorArg) arg).eval(arguments, argi, result, artifactExpander, pathMapper);
         } else if (arg instanceof ScalarArg) {
-          argi = ((ScalarArg) arg).eval(arguments, argi, result);
+          argi = ((ScalarArg) arg).eval(arguments, argi, result, pathMapper);
         } else {
-          result.add(CommandLineItem.expandToCommandLine(arg));
+          result.add(StarlarkCustomCommandLine.expandToCommandLine(arg, pathMapper));
         }
       }
 
