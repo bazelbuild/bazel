@@ -60,8 +60,10 @@ public final class ActionOutputDirectoryHelper {
   }
 
   /**
-   * Creates output directories for an in-memory action file system ({@link
-   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}).
+   * Creates output directories for an action file system. The action file system uses an in-memory
+   * filesystem and sometimes it mixes a local filesystem, e.g. Build without the Bytes, ({@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType}). In the latter case,
+   * creating output directories could fail for the same reason as {@link #createOutputDirectories}.
    */
   void createActionFsOutputDirectories(
       Collection<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)

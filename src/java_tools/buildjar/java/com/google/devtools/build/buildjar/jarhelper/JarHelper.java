@@ -39,7 +39,6 @@ public class JarHelper {
 
   public static final String MANIFEST_DIR = "META-INF/";
   public static final String MANIFEST_NAME = JarFile.MANIFEST_NAME;
-  public static final String SERVICES_DIR = "META-INF/services/";
 
   /**
    * Normalize timestamps to 2010-1-1.

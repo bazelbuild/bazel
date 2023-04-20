@@ -16,7 +16,6 @@ package com.google.devtools.build.buildjar.jarhelper;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,7 +26,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.jar.Attributes;
@@ -98,12 +96,6 @@ public class JarCreator extends JarHelper {
     addDirectory(Paths.get(directory));
   }
 
-  /** @deprecated prefer {@link #addDirectory(Path)} */
-  @Deprecated
-  public void addDirectory(File directory) {
-    addDirectory(directory.toPath());
-  }
-
   /**
    * Adds the contents of a directory to the Jar file. All files below this directory will be added
    * to the Jar file using the name relative to the directory as the name for the Jar entry.
@@ -156,21 +148,6 @@ public class JarCreator extends JarHelper {
           });
     } catch (IOException e) {
       throw new UncheckedIOException(e);
-    }
-  }
-
-  /**
-   * Adds a collection of entries to the jar, each with a given source path, and with the resulting
-   * file in the root of the jar.
-   *
-   * <pre>
-   * some/long/path.foo => (path.foo, some/long/path.foo)
-   * </pre>
-   */
-  public void addRootEntries(Collection<String> entries) {
-    for (String entry : entries) {
-      Path path = Paths.get(entry);
-      jarEntries.put(path.getFileName().toString(), path);
     }
   }
 
