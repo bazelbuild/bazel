@@ -366,7 +366,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
       throws InterruptedException, ExecException {
-    WorkerOwner workerOwner = new WorkerOwner();
+    WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
@@ -409,7 +409,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
               owner,
               resourceSet,
               context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
-      workerOwner.setWorker(handle.getWorker());
+      workerOwner = new WorkerOwner(handle.getWorker());
       workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
       request =
           createWorkRequest(spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
@@ -465,7 +465,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       String message = "IOException during worker execution:";
       throw createUserExecException(e, message, Code.BORROW_FAILURE);
     } catch (UserExecException | InterruptedException e) {
-      Worker worker = workerOwner.getWorker();
+      Worker worker = (workerOwner == null) ? null : workerOwner.getWorker();
       if (handle != null && worker != null) {
         try {
           handle.invalidateAndClose();
@@ -483,7 +483,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
       throw e;
     } finally {
-      if (handle != null && workerOwner.getWorker() != null) {
+      // if worker owner haven't initialized or we still haven't relased worker, than we need to
+      // return resources.
+      if (handle != null && (workerOwner == null || workerOwner.getWorker() != null)) {
         try {
           handle.close();
         } catch (IOException e) {
@@ -658,6 +660,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   private static class WorkerOwner {
     Worker worker;
+
+    public WorkerOwner(Worker worker) {
+      this.worker = worker;
+    }
 
     public void setWorker(Worker worker) {
       this.worker = worker;
