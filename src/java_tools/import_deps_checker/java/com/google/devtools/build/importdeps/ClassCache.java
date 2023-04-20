@@ -104,10 +104,6 @@ public final class ClassCache implements Closeable {
       this.isDirectDep = isDirectDep;
     }
 
-    ZipFile getZipFile() {
-      return zipFile;
-    }
-
     @Nullable
     public AbstractClassEntryState getState(LazyClasspath classpath) {
       resolveIfNot(classpath);
