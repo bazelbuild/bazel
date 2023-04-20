@@ -123,7 +123,8 @@ public interface AndroidSemantics {
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
       ProguardOutput proguardOutput,
-      Artifact proguardMapOutput)
+      Artifact proguardMapOutput,
+      Artifact mainDexList)
       throws InterruptedException;
 
   default AndroidDataContext makeContextForNative(RuleContext ruleContext) {
