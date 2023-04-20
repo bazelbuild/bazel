@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.BazelVersion;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
@@ -78,18 +80,18 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     if (root == null) {
       return null;
     }
-    ImmutableMap<ModuleKey, Module> initialDepGraph = Discovery.run(env, root);
+    ImmutableMap<ModuleKey, InterimModule> initialDepGraph = Discovery.run(env, root);
     if (initialDepGraph == null) {
       return null;
     }
 
-    BazelModuleResolutionValue selectionResultValue;
+    Selection.Result selectionResult;
     try {
-      selectionResultValue = Selection.run(initialDepGraph, root.getOverrides());
+      selectionResult = Selection.run(initialDepGraph, root.getOverrides());
     } catch (ExternalDepsException e) {
       throw new BazelModuleResolutionFunctionException(e, Transience.PERSISTENT);
     }
-    ImmutableMap<ModuleKey, Module> resolvedDepGraph = selectionResultValue.getResolvedDepGraph();
+    ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph = selectionResult.getResolvedDepGraph();
 
     verifyRootModuleDirectDepsAreAccurate(
         initialDepGraph.get(ModuleKey.ROOT),
@@ -109,40 +111,15 @@ public class BazelModuleResolutionFunction implements SkyFunction {
             Objects.requireNonNull(ALLOWED_YANKED_VERSIONS.get(env))),
         env.getListener());
 
-    // Add repo spec to each module and remove registry
-    try {
-      ImmutableMap.Builder<ModuleKey, Module> mapBuilder = ImmutableMap.builder();
-      for (Map.Entry<ModuleKey, Module> entry : resolvedDepGraph.entrySet()) {
-        Module module = entry.getValue();
-        // Only change modules with registry (not overridden)
-        if (module.getRegistry() != null) {
-          RepoSpec moduleRepoSpec =
-              module
-                  .getRegistry()
-                  .getRepoSpec(module.getKey(), module.getCanonicalRepoName(), env.getListener());
-          ModuleOverride override = root.getOverrides().get(entry.getKey().getName());
-          moduleRepoSpec = maybeAppendAdditionalPatches(moduleRepoSpec, override);
-          module = module.toBuilder().setRepoSpec(moduleRepoSpec).setRegistry(null).build();
-        }
-        mapBuilder.put(entry.getKey(), module);
-      }
-      resolvedDepGraph = mapBuilder.buildOrThrow();
-    } catch (IOException e) {
-      throw new BazelModuleResolutionFunctionException(
-          ExternalDepsException.withMessage(
-              Code.ERROR_ACCESSING_REGISTRY,
-              "Unable to get module repo spec from registry: %s",
-              e.getMessage()),
-          Transience.PERSISTENT);
-    }
+    ImmutableMap<ModuleKey, Module> finalDepGraph =
+        computeFinalDepGraph(resolvedDepGraph, root.getOverrides(), env.getListener());
 
-    return BazelModuleResolutionValue.create(
-        resolvedDepGraph, selectionResultValue.getUnprunedDepGraph());
+    return BazelModuleResolutionValue.create(finalDepGraph, selectionResult.getUnprunedDepGraph());
   }
 
   private static void verifyRootModuleDirectDepsAreAccurate(
-      Module discoveredRootModule,
-      Module resolvedRootModule,
+      InterimModule discoveredRootModule,
+      InterimModule resolvedRootModule,
       CheckDirectDepsMode mode,
       EventHandler eventHandler)
       throws BazelModuleResolutionFunctionException {
@@ -151,14 +128,14 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     boolean failure = false;
-    for (Map.Entry<String, ModuleKey> dep : discoveredRootModule.getDeps().entrySet()) {
-      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey());
-      if (!dep.getValue().equals(resolved)) {
+    for (Map.Entry<String, DepSpec> dep : discoveredRootModule.getDeps().entrySet()) {
+      ModuleKey resolved = resolvedRootModule.getDeps().get(dep.getKey()).toModuleKey();
+      if (!dep.getValue().toModuleKey().equals(resolved)) {
         String message =
             String.format(
                 "For repository '%s', the root module requires module version %s, but got %s in the"
                     + " resolved dependency graph.",
-                dep.getKey(), dep.getValue(), resolved);
+                dep.getKey(), dep.getValue().toModuleKey(), resolved);
         if (mode == CheckDirectDepsMode.WARNING) {
           eventHandler.handle(Event.warn(message));
         } else {
@@ -177,7 +154,9 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   }
 
   public static void checkBazelCompatibility(
-      ImmutableCollection<Module> modules, BazelCompatibilityMode mode, EventHandler eventHandler)
+      ImmutableCollection<InterimModule> modules,
+      BazelCompatibilityMode mode,
+      EventHandler eventHandler)
       throws BazelModuleResolutionFunctionException {
     if (mode == BazelCompatibilityMode.OFF) {
       return;
@@ -189,7 +168,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
 
     BazelVersion curVersion = BazelVersion.parse(currentBazelVersion);
-    for (Module module : modules) {
+    for (InterimModule module : modules) {
       for (String compatVersion : module.getBazelCompatibility()) {
         if (!curVersion.satisfiesCompatibility(compatVersion)) {
           String message =
@@ -306,14 +285,14 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     return false;
   }
 
-  private void verifyYankedVersions(
-      ImmutableMap<ModuleKey, Module> depGraph,
+  private static void verifyYankedVersions(
+      ImmutableMap<ModuleKey, InterimModule> depGraph,
       Optional<ImmutableSet<ModuleKey>> allowedYankedVersions,
       ExtendedEventHandler eventHandler)
       throws BazelModuleResolutionFunctionException, InterruptedException {
     // Check whether all resolved modules are either not yanked or allowed. Modules with a
     // NonRegistryOverride are ignored as their metadata is not available whatsoever.
-    for (Module m : depGraph.values()) {
+    for (InterimModule m : depGraph.values()) {
       if (m.getKey().equals(ModuleKey.ROOT) || m.getRegistry() == null) {
         continue;
       }
@@ -349,7 +328,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
     }
   }
 
-  private RepoSpec maybeAppendAdditionalPatches(RepoSpec repoSpec, ModuleOverride override) {
+  private static RepoSpec maybeAppendAdditionalPatches(RepoSpec repoSpec, ModuleOverride override) {
     if (!(override instanceof SingleVersionOverride)) {
       return repoSpec;
     }
@@ -367,6 +346,66 @@ public class BazelModuleResolutionFunction implements SkyFunction {
         .setRuleClassName(repoSpec.ruleClassName())
         .setAttributes(AttributeValues.create(attrBuilder.buildOrThrow()))
         .build();
+  }
+
+  @Nullable
+  private static RepoSpec computeRepoSpec(
+      InterimModule interimModule, ModuleOverride override, ExtendedEventHandler eventHandler)
+      throws BazelModuleResolutionFunctionException, InterruptedException {
+    if (interimModule.getRegistry() == null) {
+      // This module has a non-registry override. We don't need to store the repo spec in this case.
+      return null;
+    }
+    try {
+      RepoSpec moduleRepoSpec =
+          interimModule
+              .getRegistry()
+              .getRepoSpec(
+                  interimModule.getKey(), interimModule.getCanonicalRepoName(), eventHandler);
+      return maybeAppendAdditionalPatches(moduleRepoSpec, override);
+    } catch (IOException e) {
+      throw new BazelModuleResolutionFunctionException(
+          ExternalDepsException.withMessage(
+              Code.ERROR_ACCESSING_REGISTRY,
+              "Unable to get module repo spec from registry: %s",
+              e.getMessage()),
+          Transience.PERSISTENT);
+    }
+  }
+
+  /**
+   * Builds a {@link Module} from an {@link InterimModule}, discarding unnecessary fields and adding
+   * extra necessary ones (such as the repo spec).
+   */
+  static Module moduleFromInterimModule(
+      InterimModule interim, ModuleOverride override, ExtendedEventHandler eventHandler)
+      throws BazelModuleResolutionFunctionException, InterruptedException {
+    return Module.builder()
+        .setName(interim.getName())
+        .setVersion(interim.getVersion())
+        .setKey(interim.getKey())
+        .setRepoName(interim.getRepoName())
+        .setExecutionPlatformsToRegister(interim.getExecutionPlatformsToRegister())
+        .setToolchainsToRegister(interim.getToolchainsToRegister())
+        .setDeps(ImmutableMap.copyOf(Maps.transformValues(interim.getDeps(), DepSpec::toModuleKey)))
+        .setRepoSpec(computeRepoSpec(interim, override, eventHandler))
+        .setExtensionUsages(interim.getExtensionUsages())
+        .build();
+  }
+
+  private static ImmutableMap<ModuleKey, Module> computeFinalDepGraph(
+      ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph,
+      ImmutableMap<String, ModuleOverride> overrides,
+      ExtendedEventHandler eventHandler)
+      throws BazelModuleResolutionFunctionException, InterruptedException {
+    ImmutableMap.Builder<ModuleKey, Module> finalDepGraph = ImmutableMap.builder();
+    for (Map.Entry<ModuleKey, InterimModule> entry : resolvedDepGraph.entrySet()) {
+      finalDepGraph.put(
+          entry.getKey(),
+          moduleFromInterimModule(
+              entry.getValue(), overrides.get(entry.getKey().getName()), eventHandler));
+    }
+    return finalDepGraph.buildOrThrow();
   }
 
   static class BazelModuleResolutionFunctionException extends SkyFunctionException {

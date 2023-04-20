@@ -44,11 +44,11 @@ abstract class BazelModuleResolutionValue implements SkyValue {
    * overridden by {@code single_version_override} or {@link NonRegistryOverride}, only by {@code
    * multiple_version_override}.
    */
-  abstract ImmutableMap<ModuleKey, Module> getUnprunedDepGraph();
+  abstract ImmutableMap<ModuleKey, InterimModule> getUnprunedDepGraph();
 
   static BazelModuleResolutionValue create(
       ImmutableMap<ModuleKey, Module> resolvedDepGraph,
-      ImmutableMap<ModuleKey, Module> unprunedDepGraph) {
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph) {
     return new AutoValue_BazelModuleResolutionValue(resolvedDepGraph, unprunedDepGraph);
   }
 }
