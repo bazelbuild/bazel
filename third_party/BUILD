@@ -309,10 +309,9 @@ java_plugin(
     ],
 )
 
-distrib_java_import(
+java_import(
     name = "auto_value_gson",
     applicable_licenses = [":auto_license"],
-    enable_distributions = ["debian"],
     jars = [
         "auto/auto-value-gson-extension-1.3.1.jar",
         "auto/auto-value-gson-factory-1.3.1.jar",
