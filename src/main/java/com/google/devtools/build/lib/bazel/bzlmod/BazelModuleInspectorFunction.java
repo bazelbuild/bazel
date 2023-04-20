@@ -55,7 +55,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
       return null;
     }
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph = resolutionValue.getUnprunedDepGraph();
     ImmutableMap<ModuleKey, Module> resolvedDepGraph = resolutionValue.getResolvedDepGraph();
 
     ImmutableMap<ModuleKey, AugmentedModule> depGraph =
@@ -74,7 +74,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
   }
 
   public static ImmutableMap<ModuleKey, AugmentedModule> computeAugmentedGraph(
-      ImmutableMap<ModuleKey, Module> unprunedDepGraph,
+      ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph,
       ImmutableSet<ModuleKey> usedModules,
       ImmutableMap<String, ModuleOverride> overrides) {
     Map<ModuleKey, AugmentedModule.Builder> depGraphAugmentBuilder = new HashMap<>();
@@ -83,9 +83,9 @@ public class BazelModuleInspectorFunction implements SkyFunction {
     // to their children AugmentedModule as dependant. Also fill in their own AugmentedModule
     // with a map from their dependencies to the resolution reason that was applied to each.
     // The newly created graph will also contain ModuleAugments for non-loaded modules.
-    for (Entry<ModuleKey, Module> e : unprunedDepGraph.entrySet()) {
+    for (Entry<ModuleKey, InterimModule> e : unprunedDepGraph.entrySet()) {
       ModuleKey parentKey = e.getKey();
-      Module parentModule = e.getValue();
+      InterimModule parentModule = e.getValue();
 
       AugmentedModule.Builder parentBuilder =
           depGraphAugmentBuilder
@@ -95,10 +95,10 @@ public class BazelModuleInspectorFunction implements SkyFunction {
               .setLoaded(true);
 
       for (String childDep : parentModule.getDeps().keySet()) {
-        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep);
-        Module originalModule = unprunedDepGraph.get(originalKey);
-        ModuleKey key = parentModule.getDeps().get(childDep);
-        Module module = unprunedDepGraph.get(key);
+        ModuleKey originalKey = parentModule.getOriginalDeps().get(childDep).toModuleKey();
+        InterimModule originalModule = unprunedDepGraph.get(originalKey);
+        ModuleKey key = parentModule.getDeps().get(childDep).toModuleKey();
+        InterimModule module = unprunedDepGraph.get(key);
 
         AugmentedModule.Builder originalChildBuilder =
             depGraphAugmentBuilder.computeIfAbsent(originalKey, AugmentedModule::builder);
