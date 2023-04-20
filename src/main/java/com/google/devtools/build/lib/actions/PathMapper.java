@@ -80,6 +80,16 @@ public interface PathMapper {
     return this == NOOP;
   }
 
+  /**
+   * Returns an opaque object whose equality class encodes the behavior of this mapper for use in
+   * in-memory cache keys.
+   *
+   * <p>The default implementation returns the {@link Class} of the mapper.
+   */
+  default Object cacheKey() {
+    return this.getClass();
+  }
+
   /** A {@link PathMapper} that doesn't change paths. */
   PathMapper NOOP = execPath -> execPath;
 }
