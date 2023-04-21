@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -43,8 +44,10 @@ public class StarlarkBazelModuleTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
+        .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
-        .setImports(ImmutableBiMap.of());
+        .setImports(ImmutableBiMap.of())
+        .setDevImports(ImmutableSet.of());
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
