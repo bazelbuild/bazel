@@ -42,7 +42,7 @@ java_test(
 skydoc_test(
     name = "input_template_test",
     aspect_template = "testdata/input_template_test/aspect.vm",
-    format = "custom",
+    format = "markdown",
     func_template = "testdata/input_template_test/func.vm",
     golden_file = "testdata/input_template_test/golden.txt",
     header_template = "testdata/input_template_test/header.vm",
@@ -227,14 +227,14 @@ skydoc_test(
 
 skydoc_test(
     name = "pure_markdown_template_test",
-    format = "markdown_tables",
+    format = "markdown",
     golden_file = "testdata/pure_markdown_template_test/golden.txt",
     input_file = "testdata/pure_markdown_template_test/input.bzl",
 )
 
 skydoc_test(
     name = "attribute_defaults_test",
-    format = "markdown_tables",
+    format = "markdown",
     golden_file = "testdata/attribute_defaults_test/golden.txt",
     input_file = "testdata/attribute_defaults_test/input.bzl",
 )

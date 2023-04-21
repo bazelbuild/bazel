@@ -82,17 +82,17 @@ public class FakeOwner implements ActionExecutionMetadata {
   public ActionOwner getOwner() {
     return ActionOwner.create(
         Label.parseCanonicalUnchecked(ownerLabel),
-        /* aspectDescriptors= */ ImmutableList.of(),
         new Location("dummy-file", 0, 0),
+        /* targetKind= */ "dummy-target-kind",
         mnemonic,
-        "dummy-target-kind",
-        "configurationChecksum",
+        /* configurationChecksum= */ "configurationChecksum",
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        "additionalProgressInfo",
-        /* execProperties= */ ImmutableMap.of(),
-        null);
+        /* additionalProgressInfo= */ "additionalProgressInfo",
+        /* executionPlatform= */ null,
+        /* aspectDescriptors= */ ImmutableList.of(),
+        /* execProperties= */ ImmutableMap.of());
   }
 
   @Override

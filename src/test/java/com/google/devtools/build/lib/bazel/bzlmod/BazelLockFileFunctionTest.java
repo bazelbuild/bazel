@@ -67,7 +67,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -221,9 +220,10 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootValue.getModule())
-            .buildOrThrow();
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -259,9 +259,10 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootValue.getModule())
-            .buildOrThrow();
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
     LocalPathOverride override = LocalPathOverride.create("override_path");
@@ -304,7 +305,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void moduleWithLocalOverrides() throws IOException, InterruptedException {
+  public void moduleWithLocalOverrides() throws Exception {
     scratch.file(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),
         "module(name='root',version='0.1')",
@@ -323,9 +324,10 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootValue.getModule())
-            .buildOrThrow();
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
@@ -367,9 +369,10 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
 
     ImmutableMap<ModuleKey, Module> depGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
-            .put(ModuleKey.ROOT, rootValue.getModule())
-            .buildOrThrow();
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
 
     UpdateLockFileKey key =
         UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());

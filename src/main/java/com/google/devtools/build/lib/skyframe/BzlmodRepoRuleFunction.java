@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -163,9 +162,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     if (moduleKey == null) {
       return Optional.empty();
     }
-    com.google.devtools.build.lib.bazel.bzlmod.Module module =
-        bazelDepGraphValue.getDepGraph().get(moduleKey);
-    return Optional.of(checkNotNull(module.getRepoSpec()));
+    return Optional.of(bazelDepGraphValue.getDepGraph().get(moduleKey).getRepoSpec());
   }
 
   @Nullable

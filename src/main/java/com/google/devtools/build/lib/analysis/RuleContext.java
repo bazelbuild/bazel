@@ -512,15 +512,15 @@ public final class RuleContext extends TargetContext
       @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
         rule.getLabel(),
-        aspectDescriptors,
         rule.getLocation(),
-        configuration.getMnemonic(),
         rule.getTargetKind(),
+        configuration.getMnemonic(),
         configuration.checksum(),
         configuration.toBuildEvent(),
         configuration.isToolConfiguration() ? TOOL_CONFIGURATION_PROGRESS_TAG : null,
-        execProperties,
-        executionPlatform);
+        executionPlatform,
+        aspectDescriptors,
+        execProperties);
   }
 
   @Override

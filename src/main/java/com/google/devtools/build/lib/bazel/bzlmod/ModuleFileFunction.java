@@ -123,7 +123,7 @@ public class ModuleFileFunction implements SkyFunction {
             env);
 
     // Perform some sanity checks.
-    Module module = moduleFileGlobals.buildModule();
+    InterimModule module = moduleFileGlobals.buildModule();
     if (!module.getName().equals(moduleKey.getName())) {
       throw errorf(
           Code.BAD_MODULE,
@@ -159,12 +159,12 @@ public class ModuleFileFunction implements SkyFunction {
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
             moduleFile,
-            /*registry=*/ null,
+            /* registry= */ null,
             ModuleKey.ROOT,
             /* ignoreDevDeps= */ Objects.requireNonNull(IGNORE_DEV_DEPS.get(env)),
             starlarkSemantics,
             env);
-    Module module = moduleFileGlobals.buildModule();
+    InterimModule module = moduleFileGlobals.buildModule();
 
     ImmutableMap<String, ModuleOverride> moduleOverrides = moduleFileGlobals.buildOverrides();
     Map<String, ModuleOverride> commandOverrides = MODULE_OVERRIDES.get(env);
