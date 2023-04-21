@@ -233,7 +233,7 @@ def _bootclasspath_impl(ctx):
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED")
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.platform=ALL-UNNAMED")
     args.add("--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
-    args.add("-cp", class_dir.path)
+    args.add_all("-cp", [class_dir], expand_directories = False)
     args.add("DumpPlatformClassPath")
     args.add(bootclasspath)
 
