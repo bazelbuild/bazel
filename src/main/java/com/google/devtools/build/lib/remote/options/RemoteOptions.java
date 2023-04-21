@@ -367,7 +367,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "5s",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = RemoteDurationConverter.class,
+      converter = RemoteTimeoutConverter.class,
       help =
           "The maximum backoff delay between remote retry attempts. Following units can be used:"
               + " Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
