@@ -180,6 +180,5 @@ java_library = rule(
         "sourcejar": "lib%{name}-src.jar",
     },
     fragments = ["java", "cpp"],
-    compile_one_filetype = [".java"],
     toolchains = [semantics.JAVA_TOOLCHAIN],
 )

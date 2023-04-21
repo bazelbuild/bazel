@@ -148,7 +148,6 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException {

@@ -615,5 +615,4 @@ cc_library = rule(
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
-    compile_one_filetype = [".cc", ".h", ".c"],
 )
