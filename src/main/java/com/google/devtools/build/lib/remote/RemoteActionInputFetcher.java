@@ -158,10 +158,7 @@ class RemoteActionInputFetcher extends AbstractActionInputPrefetcher {
             new EnvironmentalExecException(
                 (BulkTransferException) error,
                 FailureDetail.newBuilder()
-                    .setMessage(
-                        "Failed to fetch blobs because they do not exist remotely."
-                            + " Build without the Bytes does not work if your remote"
-                            + " cache evicts blobs during builds")
+                    .setMessage("Failed to fetch blobs because they do not exist remotely.")
                     .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
                     .build());
       }
