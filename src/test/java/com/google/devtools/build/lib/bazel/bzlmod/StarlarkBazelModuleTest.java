@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildTag;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTagClass;
@@ -84,9 +85,7 @@ public class StarlarkBazelModuleTest {
                                 .build())))
             .build();
     Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
+        buildModule("foo", "1.0")
             .setKey(createModuleKey("foo", ""))
             .addDep("bar", createModuleKey("bar", "2.0"))
             .build();
@@ -128,12 +127,7 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
-            .setKey(createModuleKey("foo", ""))
-            .build();
+    Module module = buildModule("foo", "1.0").setKey(createModuleKey("foo", "")).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =
