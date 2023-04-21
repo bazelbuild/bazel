@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,6 +25,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,14 +60,13 @@ public final class ActionOutputDirectoryHelper {
   }
 
   /**
-   * Creates output directories for an in-memory action file system ({@link
-   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}). The
-   * action-local filesystem starts empty, so we expect the output directory creation to always
-   * succeed. There can be no interference from state left behind by prior builds or other actions
-   * intra-build.
+   * Creates output directories for an action file system. The action file system uses an in-memory
+   * filesystem and sometimes it mixes a local filesystem, e.g. Build without the Bytes, ({@link
+   * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType}). In the latter case,
+   * creating output directories could fail for the same reason as {@link #createOutputDirectories}.
    */
   void createActionFsOutputDirectories(
-      ImmutableSet<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
+      Collection<Artifact> actionOutputs, ArtifactPathResolver artifactPathResolver)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
@@ -81,9 +80,13 @@ public final class ActionOutputDirectoryHelper {
       if (done.add(outputDir)) {
         try {
           outputDir.createDirectoryAndParents();
+          continue;
         } catch (IOException e) {
-          throw new CreateOutputDirectoryException(outputDir.asFragment(), e);
+          /* Fall through to plan B. */
         }
+
+        Path rootPath = artifactPathResolver.convertPath(outputFile.getRoot().getRoot().asPath());
+        forceCreateDirectoryAndParents(outputDir, rootPath);
       }
     }
   }
@@ -99,7 +102,7 @@ public final class ActionOutputDirectoryHelper {
    * <p>Note that this does not need to be called if using an in-memory action file system ({@link
    * com.google.devtools.build.lib.vfs.OutputService.ActionFileSystemType#inMemoryFileSystem}).
    */
-  void invalidateTreeArtifactDirectoryCreation(ImmutableSet<Artifact> actionOutputs) {
+  void invalidateTreeArtifactDirectoryCreation(Collection<Artifact> actionOutputs) {
     for (Artifact output : actionOutputs) {
       if (output.isTreeArtifact()) {
         knownDirectories.remove(output.getPath().asFragment());
@@ -119,7 +122,7 @@ public final class ActionOutputDirectoryHelper {
    * directories to be created in action file system for only one of the actions as opposed to all
    * of them.
    */
-  void createOutputDirectories(ImmutableSet<Artifact> actionOutputs)
+  void createOutputDirectories(Collection<Artifact> actionOutputs)
       throws CreateOutputDirectoryException {
     Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
     for (Artifact outputFile : actionOutputs) {
@@ -133,71 +136,77 @@ public final class ActionOutputDirectoryHelper {
       }
 
       if (done.add(outputDir)) {
+        Path rootPath = outputFile.getRoot().getRoot().asPath();
         try {
-          createAndCheckForSymlinks(outputDir, outputFile);
+          createAndCheckForSymlinks(outputDir, rootPath);
           continue;
         } catch (IOException e) {
           /* Fall through to plan B. */
         }
 
-        // Possibly some direct ancestors are not directories.  In that case, we traverse the
-        // ancestors downward, deleting any non-directories. This handles the case where a file
-        // becomes a directory. The traversal is done downward because otherwise we may delete
-        // files through a symlink in a parent directory. Since Blaze never creates such
-        // directories within a build, we have no idea where on disk we're actually deleting.
-        //
-        // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
-        // outputs from previous builds. See bug [incremental build of Fileset fails if
-        // Fileset.out was changed to be a subdirectory of the old value].
-        try {
-          Path p = outputFile.getRoot().getRoot().asPath();
-          for (String segment : outputDir.relativeTo(p).segments()) {
-            p = p.getRelative(segment);
+        forceCreateDirectoryAndParents(outputDir, rootPath);
+      }
+    }
+  }
 
-            // This lock ensures that the only thread that observes a filesystem transition in
-            // which the path p first exists and then does not is the thread that calls
-            // p.delete() and causes the transition.
-            //
-            // If it were otherwise, then some thread A could test p.exists(), see that it does,
-            // then test p.isDirectory(), see that p isn't a directory (because, say, thread
-            // B deleted it), and then call p.delete(). That could result in two different kinds
-            // of failures:
-            //
-            // 1) In the time between when thread A sees that p is not a directory and when thread
-            // A calls p.delete(), thread B may reach the call to createDirectoryAndParents
-            // and create a directory at p, which thread A then deletes. Thread B would then try
-            // adding outputs to the directory it thought was there, and fail.
-            //
-            // 2) In the time between when thread A sees that p is not a directory and when thread
-            // A calls p.delete(), thread B may create a directory at p, and then either create a
-            // subdirectory beneath it or add outputs to it. Then when thread A tries to delete p,
-            // it would fail.
-            Lock lock = outputDirectoryDeletionLock.get(p);
-            lock.lock();
-            try {
-              FileStatus stat = p.statIfFound(Symlinks.NOFOLLOW);
-              if (stat == null) {
-                // Missing entry: Break out and create expected directories.
-                break;
-              }
-              if (stat.isDirectory()) {
-                // If this directory used to be a tree artifact it won't be writable.
-                p.setWritable(true);
-                knownDirectories.put(p.asFragment(), DirectoryState.FOUND);
-              } else {
-                // p may be a file or symlink (possibly from a Fileset in a previous build).
-                p.delete(); // throws IOException
-                break;
-              }
-            } finally {
-              lock.unlock();
-            }
+  private void forceCreateDirectoryAndParents(Path outputDir, Path rootPath)
+      throws CreateOutputDirectoryException {
+    // Possibly some direct ancestors are not directories.  In that case, we traverse the
+    // ancestors downward, deleting any non-directories. This handles the case where a file
+    // becomes a directory. The traversal is done downward because otherwise we may delete
+    // files through a symlink in a parent directory. Since Blaze never creates such
+    // directories within a build, we have no idea where on disk we're actually deleting.
+    //
+    // Symlinks should not be followed so in order to clean up symlinks pointing to Fileset
+    // outputs from previous builds. See bug [incremental build of Fileset fails if
+    // Fileset.out was changed to be a subdirectory of the old value].
+    try {
+      Path p = rootPath;
+      for (String segment : outputDir.relativeTo(p).segments()) {
+        p = p.getRelative(segment);
+
+        // This lock ensures that the only thread that observes a filesystem transition in
+        // which the path p first exists and then does not is the thread that calls
+        // p.delete() and causes the transition.
+        //
+        // If it were otherwise, then some thread A could test p.exists(), see that it does,
+        // then test p.isDirectory(), see that p isn't a directory (because, say, thread
+        // B deleted it), and then call p.delete(). That could result in two different kinds
+        // of failures:
+        //
+        // 1) In the time between when thread A sees that p is not a directory and when thread
+        // A calls p.delete(), thread B may reach the call to createDirectoryAndParents
+        // and create a directory at p, which thread A then deletes. Thread B would then try
+        // adding outputs to the directory it thought was there, and fail.
+        //
+        // 2) In the time between when thread A sees that p is not a directory and when thread
+        // A calls p.delete(), thread B may create a directory at p, and then either create a
+        // subdirectory beneath it or add outputs to it. Then when thread A tries to delete p,
+        // it would fail.
+        Lock lock = outputDirectoryDeletionLock.get(p);
+        lock.lock();
+        try {
+          FileStatus stat = p.statIfFound(Symlinks.NOFOLLOW);
+          if (stat == null) {
+            // Missing entry: Break out and create expected directories.
+            break;
           }
-          outputDir.createDirectoryAndParents();
-        } catch (IOException e) {
-          throw new CreateOutputDirectoryException(outputDir.asFragment(), e);
+          if (stat.isDirectory()) {
+            // If this directory used to be a tree artifact it won't be writable.
+            p.setWritable(true);
+            knownDirectories.put(p.asFragment(), DirectoryState.FOUND);
+          } else {
+            // p may be a file or symlink (possibly from a Fileset in a previous build).
+            p.delete(); // throws IOException
+            break;
+          }
+        } finally {
+          lock.unlock();
         }
       }
+      outputDir.createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new CreateOutputDirectoryException(outputDir.asFragment(), e);
     }
   }
 
@@ -206,8 +215,7 @@ public final class ActionOutputDirectoryHelper {
    * output file. These are all expected to be regular directories. Violations of this expectations
    * can only come from state left behind by previous invocations or external filesystem mutation.
    */
-  private void createAndCheckForSymlinks(Path dir, Artifact outputFile) throws IOException {
-    Path rootPath = outputFile.getRoot().getRoot().asPath();
+  private void createAndCheckForSymlinks(Path dir, Path rootPath) throws IOException {
     PathFragment root = rootPath.asFragment();
 
     // If the output root has not been created yet, do so now.

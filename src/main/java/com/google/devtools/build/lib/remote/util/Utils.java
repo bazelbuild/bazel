@@ -74,6 +74,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
@@ -104,6 +105,8 @@ public final class Utils {
       throws IOException, InterruptedException {
     try {
       return f.get();
+    } catch (CancellationException e) {
+      throw new InterruptedException();
     } catch (ExecutionException e) {
       Throwable cause = e.getCause();
       if (cause instanceof InterruptedException) {

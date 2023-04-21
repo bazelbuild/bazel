@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
@@ -35,11 +36,13 @@ public class SpawnStats {
       ImmutableList.of("disk cache hit", "remote cache hit");
 
   private final ConcurrentHashMultiset<String> runners = ConcurrentHashMultiset.create();
+  private final ConcurrentHashMap<String, String> runnerExecKinds = new ConcurrentHashMap<>();
   private final AtomicLong totalWallTimeMillis = new AtomicLong();
   private final AtomicInteger totalNumberOfActions = new AtomicInteger();
 
   public void countActionResult(ActionResult actionResult) {
     for (SpawnResult r : actionResult.spawnResults()) {
+      storeRunnerExecKind(r);
       countRunnerName(r.getRunnerName());
       totalWallTimeMillis.addAndGet(r.getMetrics().executionWallTimeInMs());
     }
@@ -47,6 +50,12 @@ public class SpawnStats {
 
   public void countRunnerName(String runner) {
     runners.add(runner);
+  }
+
+  private void storeRunnerExecKind(SpawnResult r) {
+    String name = r.getRunnerName();
+    String execKind = r.getMetrics().execKind().toString();
+    runnerExecKinds.put(name, execKind);
   }
 
   public void incrementActionCount() {
@@ -95,6 +104,10 @@ public class SpawnStats {
     }
 
     return result.buildOrThrow();
+  }
+
+  public String getExecKindFor(String runnerName) {
+    return runnerExecKinds.getOrDefault(runnerName, null);
   }
 
   public static String convertSummaryToString(ImmutableMap<String, Integer> spawnSummary) {

@@ -36,6 +36,6 @@ public final class InMemoryMemoizingEvaluatorTest extends MemoizingEvaluatorTest
         eventFilter,
         emittedEventState,
         /* keepEdges= */ true,
-        /* usePooledSkyKeyInterning= */ true);
+        /* usePooledInterning= */ true);
   }
 }

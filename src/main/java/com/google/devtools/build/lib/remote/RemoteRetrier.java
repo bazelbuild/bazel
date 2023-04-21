@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
+import static java.lang.Math.max;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -158,7 +160,7 @@ public class RemoteRetrier extends Retrier {
       Preconditions.checkArgument(jitter >= 0 && jitter <= 1, "jitter must be in the range (0, 1)");
       Preconditions.checkArgument(maxAttempts >= 0, "maxAttempts must be >= 0");
       nextDelayMillis = initial.toMillis();
-      maxMillis = max.toMillis();
+      maxMillis = max(max.toMillis(), nextDelayMillis);
       this.multiplier = multiplier;
       this.jitter = jitter;
       this.maxAttempts = maxAttempts;
@@ -166,8 +168,8 @@ public class RemoteRetrier extends Retrier {
 
     public ExponentialBackoff(RemoteOptions options) {
       this(
-          /* initial = */ Duration.ofMillis(100),
-          /* max = */ Duration.ofSeconds(5),
+          /* initial= */ Duration.ofMillis(100),
+          /* max= */ options.remoteRetryMaxDelay,
           /* multiplier= */ 2,
           /* jitter= */ 0.1,
           options.remoteMaxRetryAttempts);

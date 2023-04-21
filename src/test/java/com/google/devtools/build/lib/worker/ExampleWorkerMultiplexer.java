@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -105,10 +106,10 @@ public class ExampleWorkerMultiplexer {
     while (true) {
       try {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
-        int requestId = request.getRequestId();
         if (request == null) {
           break;
         }
+        int requestId = request.getRequestId();
 
         inputs.clear();
         for (Input input : request.getInputsList()) {
@@ -273,7 +274,7 @@ public class ExampleWorkerMultiplexer {
 
     String residueStr = Joiner.on(' ').join(residue);
     if (options.uppercase) {
-      residueStr = residueStr.toUpperCase();
+      residueStr = Ascii.toUpperCase(residueStr);
     }
     outputs.add(residueStr);
     String prefix = options.ignoreSandbox ? "" : request.getSandboxDir();
@@ -285,7 +286,7 @@ public class ExampleWorkerMultiplexer {
       List<String> lines = Files.readAllLines(path);
       String content = Joiner.on("\n").join(lines);
       if (options.uppercase) {
-        content = content.toUpperCase();
+        content = Ascii.toUpperCase(content);
       }
       outputs.add(content);
     }

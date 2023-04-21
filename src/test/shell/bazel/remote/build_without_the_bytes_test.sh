@@ -409,7 +409,7 @@ EOF
   ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
 }
 
-function test_symlink_outputs_not_allowed_with_minimial() {
+function test_symlink_outputs_warning_with_minimal() {
   mkdir -p a
   cat > a/input.txt <<'EOF'
 Input file
@@ -426,7 +426,7 @@ EOF
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    //a:foo >& $TEST_log && fail "Expected failure to build //a:foo"
+    //a:foo >& $TEST_log || fail "Expected build of //a:foo to succeed"
   expect_log "Symlinks in action outputs are not yet supported"
 }
 

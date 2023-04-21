@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -58,7 +57,8 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
       throws ActionExecutionException, InterruptedException {
     try {
       DeterministicWriter deterministicWriter = newDeterministicWriter(actionExecutionContext);
-      FileWriteActionContext context = getStrategy(actionExecutionContext);
+      FileWriteActionContext context =
+          actionExecutionContext.getContext(FileWriteActionContext.class);
       ImmutableList<SpawnResult> result =
           context.writeOutputToFile(
               this, actionExecutionContext, deterministicWriter, makeExecutable, isRemotable());
@@ -68,7 +68,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
       throw ActionExecutionException.fromExecException(e, this);
     }
   }
-  
+
   /**
    * Produce a DeterministicWriter that can write the file to an OutputStream deterministically.
    *
@@ -102,11 +102,6 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    */
   public boolean isRemotable() {
     return true;
-  }
-
-  private FileWriteActionContext getStrategy(
-      ActionContext.ActionContextRegistry actionContextRegistry) {
-    return actionContextRegistry.getContext(FileWriteActionContext.class);
   }
 
 }

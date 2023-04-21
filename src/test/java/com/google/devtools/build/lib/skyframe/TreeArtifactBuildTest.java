@@ -41,9 +41,9 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
@@ -153,16 +153,19 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           @Override
           void run(ActionExecutionContext actionExecutionContext) throws IOException {
             // Check the metadata provider for input TreeFileArtifacts.
-            MetadataProvider metadataProvider = actionExecutionContext.getMetadataProvider();
+            InputMetadataProvider inputMetadataProvider =
+                actionExecutionContext.getInputMetadataProvider();
             assertThat(
-                    metadataProvider
-                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
+                    inputMetadataProvider
+                        .getInputMetadata(
+                            TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
                         .getType()
                         .isFile())
                 .isTrue();
             assertThat(
-                    metadataProvider
-                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
+                    inputMetadataProvider
+                        .getInputMetadata(
+                            TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
                         .getType()
                         .isFile())
                 .isTrue();
@@ -578,7 +581,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             writeFile(child1, "one");
             writeFile(child2, "two");
 
-            MetadataHandler md = actionExecutionContext.getMetadataHandler();
+            OutputMetadataStore md = actionExecutionContext.getOutputMetadataStore();
             FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
             FileArtifactValue metadata1 =
                 md.constructMetadataForDigest(
@@ -637,7 +640,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
             writeFile(child2, "two");
 
             actionExecutionContext
-                .getMetadataHandler()
+                .getOutputMetadataStore()
                 .injectTree(
                     out,
                     TreeArtifactValue.newBuilder(out)

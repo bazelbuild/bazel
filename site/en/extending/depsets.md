@@ -5,7 +5,7 @@ Book: /_book.yaml
 
 {% include "_buttons.html" %}
 
-[Depsets](/rules/lib/depset) are a specialized data structure for efficiently
+[Depsets](/rules/lib/builtins/depset) are a specialized data structure for efficiently
 collecting data across a target’s transitive dependencies. They are an essential
 element of rule processing.
 
@@ -35,7 +35,7 @@ previous without having to read or copy them.
 Each node in the DAG holds a list of direct elements and a list of child nodes.
 The contents of the depset are the transitive elements, such as the direct elements
 of all the nodes. A new depset can be created using the
-[depset](/rules/lib/globals#depset) constructor: it accepts a list of direct
+[depset](/rules/lib/globals/bzl#depset) constructor: it accepts a list of direct
 elements and another list of child nodes.
 
 ```python
@@ -47,7 +47,7 @@ print(t)    # depset(["d", "e", "a", "b", "c"])
 ```
 
 To retrieve the contents of a depset, use the
-[to_list()](/rules/lib/depset#to_list) method. It returns a list of all transitive
+[to_list()](/rules/lib/builtins/depset#to_list) method. It returns a list of all transitive
 elements, not including duplicates. There is no way to directly inspect the
 precise structure of the DAG, although this structure does affect the order in
 which the elements are returned.
@@ -343,5 +343,5 @@ For more information about using depsets efficiently, see the [performance](/rul
 
 ## API Reference
 
-Please see [here](/rules/lib/depset) for more details.
+Please see [here](/rules/lib/builtins/depset) for more details.
 

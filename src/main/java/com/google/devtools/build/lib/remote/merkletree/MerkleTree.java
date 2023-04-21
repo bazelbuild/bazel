@@ -30,7 +30,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -213,14 +213,14 @@ public class MerkleTree {
    * @param inputs a map of path to input. The map is required to be sorted lexicographically by
    *     paths. Inputs of type tree artifacts are not supported and are expected to have been
    *     expanded before.
-   * @param metadataProvider provides metadata for all {@link ActionInput}s in {@code inputs}, as
-   *     well as any {@link ActionInput}s being discovered via directory expansion.
+   * @param inputMetadataProvider provides metadata for all {@link ActionInput}s in {@code inputs},
+   *     as well as any {@link ActionInput}s being discovered via directory expansion.
    * @param execRoot all paths in {@code inputs} need to be relative to this {@code execRoot}.
    * @param digestUtil a hashing utility
    */
   public static MerkleTree build(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
@@ -228,7 +228,7 @@ public class MerkleTree {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
           DirectoryTreeBuilder.fromActionInputs(
-              inputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
+              inputs, inputMetadataProvider, execRoot, artifactPathResolver, digestUtil);
       return build(tree, digestUtil);
     }
   }
@@ -239,15 +239,15 @@ public class MerkleTree {
    * @param inputs a map of path to input. The map is required to be sorted lexicographically by
    *     paths. Inputs of type tree artifacts are not supported and are expected to have been
    *     expanded before.
-   * @param metadataProvider provides metadata for all {@link ActionInput}s in {@code inputs}, as
-   *     well as any {@link ActionInput}s being discovered via directory expansion.
+   * @param inputMetadataProvider provides metadata for all {@link ActionInput}s in {@code inputs},
+   *     as well as any {@link ActionInput}s being discovered via directory expansion.
    * @param execRoot all paths in {@code inputs} need to be relative to this {@code execRoot}.
    * @param digestUtil a hashing utility
    */
   public static MerkleTree build(
       SortedMap<PathFragment, ActionInput> inputs,
       Set<PathFragment> toolInputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
@@ -255,7 +255,12 @@ public class MerkleTree {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
           DirectoryTreeBuilder.fromActionInputs(
-              inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
+              inputs,
+              toolInputs,
+              inputMetadataProvider,
+              execRoot,
+              artifactPathResolver,
+              digestUtil);
       return build(tree, digestUtil);
     }
   }

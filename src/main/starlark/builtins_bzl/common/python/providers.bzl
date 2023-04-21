@@ -154,10 +154,14 @@ def _PyInfo_init(
         has_py2_only_sources = False,
         has_py3_only_sources = False):
     _check_arg_type("transitive_sources", "depset", transitive_sources)
+
+    # Verify it's postorder compatible, but retain is original ordering.
+    depset(transitive = [transitive_sources], order = "postorder")
+
     _check_arg_type("uses_shared_libraries", "bool", uses_shared_libraries)
     _check_arg_type("imports", "depset", imports)
     _check_arg_type("has_py2_only_sources", "bool", has_py2_only_sources)
-    _check_arg_type("has_py2_only_sources", "bool", has_py3_only_sources)
+    _check_arg_type("has_py3_only_sources", "bool", has_py3_only_sources)
     return {
         "transitive_sources": transitive_sources,
         "imports": imports,
@@ -166,7 +170,7 @@ def _PyInfo_init(
         "has_py3_only_sources": has_py2_only_sources,
     }
 
-StarlarkPyInfo, _unused_raw_py_info_ctor = provider(
+PyInfo, _unused_raw_py_info_ctor = provider(
     "Encapsulates information provided by the Python rules.",
     init = _PyInfo_init,
     fields = {
@@ -191,15 +195,13 @@ is recommended to use `default` order (the default).
     },
 )
 
-PyInfo = _builtins.toplevel.PyInfo
-
 def _PyCcLinkParamsProvider_init(cc_info):
     return {
         "cc_info": _CcInfo(linking_context = cc_info.linking_context),
     }
 
 # buildifier: disable=name-conventions
-StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
+PyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
     doc = ("Python-wrapper to forward CcInfo.linking_context. This is to " +
            "allow Python targets to propagate C++ linking information, but " +
            "without the Python target appearing to be a valid C++ rule dependency"),
@@ -208,6 +210,3 @@ StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = pr
         "cc_info": "A CcInfo instance; it has only linking_context set",
     },
 )
-
-# TODO(b/203567235): Re-implement in Starlark
-PyCcLinkParamsProvider = _builtins.toplevel.PyCcLinkParamsProvider  # buildifier: disable=name-conventions

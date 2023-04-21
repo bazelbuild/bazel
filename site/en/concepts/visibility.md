@@ -275,7 +275,7 @@ Load visibility is available as of Bazel 6.0.
 ### Declaring load visibility {:#declaring-load-visibility}
 
 To set the load visibility of a `.bzl` file, call the
-[`visibility()`](/rules/lib/globals#visibility) function from within the file.
+[`visibility()`](/rules/lib/globals/bzl#visibility) function from within the file.
 The argument to `visibility()` is a list of package specifications, just like
 the [`packages`](/reference/be/functions#package_group.packages) attribute of
 `package_group`. However, `visibility()` does not accept negative package

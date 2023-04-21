@@ -107,7 +107,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       name = "string_list",
       doc =
           "A string list-typed build setting. On the command line pass a list using"
-              + " comma-separated value like '--//my/setting=foo,bar'.",
+              + " comma-separated value like <code>--//my/setting=foo,bar</code>.",
       parameters = {
         @Param(
             name = FLAG_ARG,

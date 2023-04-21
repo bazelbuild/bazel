@@ -166,7 +166,7 @@ The snippet defines a repo whose canonical name is `foo`. In the `WORKSPACE`
 system, by default, the canonical name of a repo is also its apparent name to
 all other repos.
 
-<!-- TODO(wyv): add link to WORKSPACE globals -->
+See the [full list](/rules/lib/globals/workspace) of functions available in `WORKSPACE` files.
 
 ### Shortcomings of the `WORKSPACE` system
 

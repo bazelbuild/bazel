@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.DocCategory;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
@@ -26,10 +24,6 @@ import net.starlark.java.syntax.Location;
  * A module extension object, which can be used to perform arbitrary logic in order to create repos.
  */
 @AutoValue
-@StarlarkBuiltin(
-    name = "module_extension",
-    category = DocCategory.BUILTIN,
-    doc = "A module extension declared using the <code>module_extension</code> function.")
 public abstract class ModuleExtension implements StarlarkValue {
   public abstract StarlarkCallable getImplementation();
 

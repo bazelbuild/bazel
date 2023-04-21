@@ -94,13 +94,6 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       documented = false)
   ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing();
 
-  @StarlarkMethod(
-      name = "use_workers_with_dexbuilder",
-      structField = true,
-      doc = "",
-      documented = false)
-  boolean useWorkersWithDexbuilder();
-
   @StarlarkMethod(name = "desugar_java8", structField = true, doc = "", documented = false)
   boolean desugarJava8();
 
@@ -237,6 +230,20 @@ public interface AndroidConfigurationApi extends StarlarkValue {
       doc = "",
       documented = false)
   boolean persistentMultiplexBusyboxTools();
+
+  @StarlarkMethod(
+      name = "persistent_android_dex_desugar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentDexDesugar();
+
+  @StarlarkMethod(
+      name = "persistent_multiplex_android_dex_desugar",
+      structField = true,
+      doc = "",
+      documented = false)
+  boolean persistentMultiplexDexDesugar();
 
   @StarlarkMethod(
       name = "get_output_directory_name",

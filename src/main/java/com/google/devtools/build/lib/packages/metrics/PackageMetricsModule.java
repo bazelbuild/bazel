@@ -48,6 +48,14 @@ public class PackageMetricsModule extends BlazeModule {
             "Configures PackageMetrics to record all metrics for all packages. Disables Top-n INFO"
                 + " logging.")
     public boolean enableAllMetrics;
+
+    @Option(
+        name = "experimental_publish_package_metrics_in_bep",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Whether to publish package metrics in the BEP.")
+    public boolean publishPackageMetricsInBep;
   }
 
   private final PackageMetricsPackageLoadingListener packageLoadingListener;
@@ -83,6 +91,7 @@ public class PackageMetricsModule extends BlazeModule {
             ? new CompletePackageMetricsRecorder()
             : new ExtremaPackageMetricsRecorder(Math.max(options.numberOfPackagesToTrack, 0));
     packageLoadingListener.setPackageMetricsRecorder(recorder);
+    packageLoadingListener.setPublishPackageMetricsInBep(options.publishPackageMetricsInBep);
   }
 
   @Override

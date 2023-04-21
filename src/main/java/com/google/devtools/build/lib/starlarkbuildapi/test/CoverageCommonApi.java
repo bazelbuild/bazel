@@ -44,10 +44,10 @@ public interface CoverageCommonApi<
   @StarlarkMethod(
       name = "instrumented_files_info",
       doc =
-          "Creates a new "
-              + "<a class=\"anchor\" href=\"InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a> "
-              + "instance. Use this provider to communicate coverage-related attributes of the "
-              + "current build rule.",
+          "Creates a new <a class=\"anchor\""
+              + " href=\"../providers/InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a>"
+              + " instance. Use this provider to communicate coverage-related attributes of the"
+              + " current build rule.",
       parameters = {
         @Param(name = "ctx", positional = true, named = true, doc = "The rule context."),
         @Param(

@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -46,7 +49,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
-import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetProducer;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -56,9 +59,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -69,7 +74,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
@@ -90,8 +94,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * Helper logic for {@link ConfiguredTargetFunction}: performs the analysis phase through
@@ -124,12 +128,23 @@ public final class PrerequisiteProducer {
      * <p>Non-null only while the computation is in-flight.
      */
     @Nullable private Driver incompatibleTargetProducer;
+
     /**
      * If a value is present, it means the target was directly incompatible.
      *
-     * <p>Non-null after the {@link #incompatibleTargetProducer} completes.
+     * <p>Either this or {@link #validationException} will be non-null after the {@link
+     * #incompatibleTargetProducer} completes.
      */
-    private Optional<RuleConfiguredTargetValue> incompatibleTarget;
+    @Nullable private Optional<RuleConfiguredTargetValue> incompatibleTarget;
+
+    /**
+     * If this is set, an exception occurred during validation of the {@code target_compatible_with}
+     * attribute.
+     *
+     * <p>Either this or {@link #incompatibleTarget} will be non-null after the {@link
+     * #incompatibleTargetProducer} completes.
+     */
+    @Nullable private ValidationException validationException;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
     @Nullable private OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMapResult;
@@ -140,10 +155,6 @@ public final class PrerequisiteProducer {
     /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
     @Nullable
     private Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependenciesResult;
-
-    /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
-    @Nullable
-    private OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependenciesResult;
 
     /**
      * Non-null if all the work in {@link #computeDependencies} is already done. This field contains
@@ -174,6 +185,11 @@ public final class PrerequisiteProducer {
     public void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget) {
       this.incompatibleTarget = incompatibleTarget;
     }
+
+    @Override
+    public void acceptValidationException(ValidationException e) {
+      this.validationException = e;
+    }
   }
 
   /**
@@ -181,23 +197,6 @@ public final class PrerequisiteProducer {
    * non-null-configured dep of a null-configured target.
    */
   static class InconsistentNullConfigException extends Exception {}
-
-  /**
-   * Thrown if this target is platform-incompatible with the current build.
-   *
-   * <p>See {@link IncompatibleTargetChecker}.
-   */
-  static class IncompatibleTargetException extends Exception {
-    private final RuleConfiguredTargetValue target;
-
-    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
-      this.target = target;
-    }
-
-    public RuleConfiguredTargetValue target() {
-      return target;
-    }
-  }
 
   /** Lets calling logic provide a semaphore to restrict the number of concurrent analysis calls. */
   public interface SemaphoreAcquirer {
@@ -293,7 +292,7 @@ public final class PrerequisiteProducer {
           InconsistentNullConfigException,
           IncompatibleTargetException,
           InterruptedException {
-    targetAndConfiguration =
+    this.targetAndConfiguration =
         computeTargetAndConfiguration(
             configuredTargetKey, state, transitiveRootCauses, transitivePackages, env);
     if (targetAndConfiguration == null) {
@@ -310,34 +309,75 @@ public final class PrerequisiteProducer {
       throw new InconsistentNullConfigException();
     }
 
-    SkyframeDependencyResolver resolver = new SkyframeDependencyResolver(env);
-
     // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
     //  with #processors threads, but ideally we would call #tryAcquire here, and if we failed,
     //  would exit this SkyFunction and restart it when permits were available.
     semaphoreLocker.acquireSemaphore();
     try {
-      // Determine what toolchains are needed by this target.
-      ComputedToolchainContexts result =
-          computeUnloadedToolchainContexts(
-              env,
-              ruleClassProvider,
+      // Check target compatibility before requesting toolchains - known missing toolchains are a
+      // valid reason for declaring a target incompatible and should not result in the target
+      // failing to build rather than being skipped as incompatible.
+      // Non-rule targets and those that are part of the toolchain resolution system do not support
+      // target compatibility checking anyway.
+      if (targetAndConfiguration.getTarget() instanceof Rule
+          && ((Rule) targetAndConfiguration.getTarget()).useToolchainResolution()) {
+        platformInfo = loadTargetPlatformInfo(env);
+        // loadTargetPlatformInfo may return null even when no deps are missing.
+        if (env.valuesMissing()) {
+          return false;
+        }
+
+        configConditions =
+            computeConfigConditions(
+                env,
+                targetAndConfiguration,
+                transitivePackages,
+                platformInfo,
+                transitiveRootCauses);
+        if (configConditions == null) {
+          return false;
+        }
+
+        if (!checkForIncompatibleTarget(
+            env,
+            state,
+            targetAndConfiguration,
+            configConditions,
+            platformInfo,
+            transitivePackages)) {
+          return false;
+        }
+      }
+      var unloadedToolchainContextsInputs =
+          getUnloadedToolchainContextsInputs(
               targetAndConfiguration,
-              configuredTargetKey.getExecutionPlatformLabel());
-      if (env.valuesMissing()) {
-        // computeUnloadedToolchainContexts may return non-null even when deps are missing.
+              configuredTargetKey.getExecutionPlatformLabel(),
+              ruleClassProvider,
+              env.getListener());
+      // Determine what toolchains are needed by this target.
+      Optional<ToolchainCollection<UnloadedToolchainContext>> result =
+          computeUnloadedToolchainContexts(env, unloadedToolchainContextsInputs);
+      if (result == null) {
         return false;
       }
-      unloadedToolchainContexts = result.toolchainCollection;
-      execGroupCollectionBuilder = result.execGroupCollectionBuilder;
-      platformInfo =
+      this.unloadedToolchainContexts = result.orElse(null);
+      this.execGroupCollectionBuilder = unloadedToolchainContextsInputs;
+      this.platformInfo =
           unloadedToolchainContexts != null ? unloadedToolchainContexts.getTargetPlatform() : null;
 
       // Get the configuration targets that trigger this rule's configurable attributes.
-      configConditions =
-          computeConfigConditions(
-              env, targetAndConfiguration, transitivePackages, platformInfo, transitiveRootCauses);
+      // Has been computed as part of checking for incompatible targets at the beginning of this
+      // function unless the current target is not a rule participating in toolchain resolution.
+      if (configConditions == null) {
+        configConditions =
+            computeConfigConditions(
+                env,
+                targetAndConfiguration,
+                transitivePackages,
+                platformInfo,
+                transitiveRootCauses);
+      }
       if (configConditions == null) {
         return false;
       }
@@ -361,10 +401,6 @@ public final class PrerequisiteProducer {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      if (!checkForIncompatibleTarget(env, state, transitivePackages)) {
-        return false;
-      }
-
       // Calculate the dependencies of this target.
       depValueMap =
           computeDependencies(
@@ -372,8 +408,6 @@ public final class PrerequisiteProducer {
               transitivePackages,
               transitiveRootCauses,
               env,
-              resolver,
-              targetAndConfiguration,
               ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
@@ -405,23 +439,55 @@ public final class PrerequisiteProducer {
     return true;
   }
 
+  // May return null even when no deps are missing, use env.valuesMissing() to check.
+  @Nullable
+  private PlatformInfo loadTargetPlatformInfo(Environment env)
+      throws InterruptedException, ToolchainException {
+    PlatformConfiguration platformConfiguration =
+        targetAndConfiguration.getConfiguration().getFragment(PlatformConfiguration.class);
+    if (platformConfiguration == null) {
+      // No restart required in this case.
+      return null;
+    }
+    Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
+    ConfiguredTargetKey targetPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(targetAndConfiguration.getConfiguration())
+            .build();
+
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfoMap =
+        PlatformLookupUtil.getPlatformInfo(ImmutableList.of(targetPlatformKey), env);
+    if (platformInfoMap == null) {
+      return null;
+    }
+
+    return platformInfoMap.get(targetPlatformKey);
+  }
+
   /**
    * Checks if a target is incompatible because of its "target_compatible_with" attribute.
    *
    * @return false if a {@code Skyframe} restart is needed.
    */
-  private boolean checkForIncompatibleTarget(
-      Environment env, State state, @Nullable NestedSetBuilder<Package> transitivePackages)
-      throws InterruptedException, IncompatibleTargetException {
+  private static boolean checkForIncompatibleTarget(
+      Environment env,
+      State state,
+      TargetAndConfiguration targetAndConfiguration,
+      @Nullable ConfigConditions configConditions,
+      @Nullable PlatformInfo targetPlatformInfo,
+      @Nullable NestedSetBuilder<Package> transitivePackages)
+      throws InterruptedException, IncompatibleTargetException, DependencyEvaluationException {
     if (state.incompatibleTarget == null) {
+      BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
       if (state.incompatibleTargetProducer == null) {
         state.incompatibleTargetProducer =
             new Driver(
                 new IncompatibleTargetProducer(
                     targetAndConfiguration.getTarget(),
-                    targetAndConfiguration.getConfiguration(),
+                    configuration,
                     configConditions,
-                    platformInfo,
+                    targetPlatformInfo,
                     transitivePackages,
                     state));
       }
@@ -429,6 +495,26 @@ public final class PrerequisiteProducer {
         return false;
       }
       state.incompatibleTargetProducer = null;
+      if (state.validationException != null) {
+        Label label = targetAndConfiguration.getLabel();
+        Location location = targetAndConfiguration.getTarget().getLocation();
+        env.getListener()
+            .post(
+                new AnalysisRootCauseEvent(
+                    configuration, label, state.validationException.getMessage()));
+        throw new DependencyEvaluationException(
+            new ConfiguredValueCreationException(
+                location,
+                state.validationException.getMessage(),
+                label,
+                configuration.getEventId(),
+                null,
+                null),
+            // These errors occur within DependencyResolver, which is attached to the current
+            // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
+            // error.
+            /* depReportedOwnError= */ false);
+      }
       if (state.incompatibleTarget.isPresent()) {
         throw new IncompatibleTargetException(state.incompatibleTarget.get());
       }
@@ -569,188 +655,65 @@ public final class PrerequisiteProducer {
     return state.targetAndConfiguration;
   }
 
-  /**
-   * Simple wrapper to allow returning two variables from {@link #computeUnloadedToolchainContexts}.
-   */
-  @VisibleForTesting
-  public static class ComputedToolchainContexts {
-    @Nullable public ToolchainCollection<UnloadedToolchainContext> toolchainCollection = null;
-    public ExecGroupCollection.Builder execGroupCollectionBuilder =
-        ExecGroupCollection.emptyBuilder();
-  }
+  @AutoValue
+  abstract static class UnloadedToolchainContextsInputs extends ExecGroupCollection.Builder {
+    @Nullable // Null if no toolchain resolution is required.
+    abstract ToolchainContextKey targetToolchainContextKey();
 
-  @VisibleForTesting
-  @Nullable
-  public static ComputedToolchainContexts computeUnloadedToolchainContexts(
-      Environment env,
-      RuleClassProvider ruleClassProvider,
-      TargetAndConfiguration targetAndConfig,
-      @Nullable Label parentExecutionPlatformLabel)
-      throws InterruptedException, ToolchainException {
-
-    // We can only perform toolchain resolution on Targets and Aspects.
-    if (!(targetAndConfig.getTarget() instanceof Rule)) {
-      return new ComputedToolchainContexts();
+    static UnloadedToolchainContextsInputs create(
+        ImmutableMap<String, ExecGroup> processedExecGroups,
+        @Nullable ToolchainContextKey targetToolchainContextKey) {
+      return new AutoValue_PrerequisiteProducer_UnloadedToolchainContextsInputs(
+          processedExecGroups, targetToolchainContextKey);
     }
 
-    Label label = targetAndConfig.getLabel();
-    Rule rule = ((Rule) targetAndConfig.getTarget());
-    BuildConfigurationValue configuration = targetAndConfig.getConfiguration();
-
-    ImmutableSet<ToolchainTypeRequirement> toolchainTypes =
-        rule.getRuleClassObject().getToolchainTypes();
-    // Collect local (target, rule) constraints for filtering out execution platforms.
-    ImmutableSet<Label> defaultExecConstraintLabels =
-        getExecutionPlatformConstraints(
-            rule, configuration.getFragment(PlatformConfiguration.class));
-    ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
-
-    // The toolchain context's options are the parent rule's options with manual trimming
-    // auto-applied. This means toolchains don't inherit feature flags. This helps build
-    // performance: if the toolchain context had the exact same configuration of its parent and that
-    // included feature flags, all the toolchain's dependencies would apply this transition
-    // individually. That creates a lot more potentially expensive applications of that transition
-    // (especially since manual trimming applies to every configured target in the build).
-    //
-    // In other words: without this modification:
-    // parent rule -> toolchain context -> toolchain
-    //     -> toolchain dep 1 # applies manual trimming to remove feature flags
-    //     -> toolchain dep 2 # applies manual trimming to remove feature flags
-    //     ...
-    //
-    // With this modification:
-    // parent rule -> toolchain context # applies manual trimming to remove feature flags
-    //     -> toolchain
-    //         -> toolchain dep 1
-    //         -> toolchain dep 2
-    //         ...
-    //
-    // None of this has any effect on rules that don't utilize manual trimming.
-    PatchTransition toolchainTaggedTrimmingTransition =
-        ((ConfiguredRuleClassProvider) ruleClassProvider).getToolchainTaggedTrimmingTransition();
-    BuildOptions toolchainOptions =
-        toolchainTaggedTrimmingTransition.patch(
-            new BuildOptionsView(
-                configuration.getOptions(),
-                toolchainTaggedTrimmingTransition.requiresOptionFragments()),
-            env.getListener());
-
-    BuildConfigurationKey toolchainConfig =
-        BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
-
-    PlatformConfiguration platformConfig = configuration.getFragment(PlatformConfiguration.class);
-
-    boolean useAutoExecGroups;
-    if (rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)) {
-      useAutoExecGroups = (boolean) rule.getAttr("$use_auto_exec_groups");
-    } else {
-      useAutoExecGroups = configuration.useAutoExecGroups();
+    static UnloadedToolchainContextsInputs empty() {
+      return new AutoValue_PrerequisiteProducer_UnloadedToolchainContextsInputs(
+          ImmutableMap.of(), /* targetToolchainContextKey= */ null);
     }
-
-    return computeUnloadedToolchainContexts(
-        env,
-        label,
-        platformConfig != null && rule.useToolchainResolution(),
-        l -> platformConfig != null && platformConfig.debugToolchainResolution(l),
-        useAutoExecGroups,
-        toolchainConfig,
-        toolchainTypes,
-        defaultExecConstraintLabels,
-        execGroups,
-        parentExecutionPlatformLabel);
   }
 
   /**
-   * Returns the toolchain context and exec group collection for this target. The toolchain context
-   * may be {@code null} if the target doesn't use toolchains.
+   * Computes the unloaded toolchain contexts.
    *
-   * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
-   * to check the result is valid.
+   * @return null if a Skyframe restart is needed, {@link Optional#empty} if there is no toolchain
+   *     resolution and the unloaded toolchain contexts otherwise.
    */
+  @VisibleForTesting // package private
   @Nullable
-  static ComputedToolchainContexts computeUnloadedToolchainContexts(
-      Environment env,
-      Label label,
-      boolean useToolchainResolution,
-      Predicate<Label> debugResolution,
-      boolean useAutoExecGroups,
-      BuildConfigurationKey configurationKey,
-      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
-      ImmutableSet<Label> defaultExecConstraintLabels,
-      ImmutableMap<String, ExecGroup> execGroups,
-      @Nullable Label parentExecutionPlatformLabel)
-      throws InterruptedException, ToolchainException {
-        
-    Map<String, ExecGroup> allExecGroups = new HashMap<>();
-
-    // Add exec groups that the rule itself has defined (custom exec groups).
-    allExecGroups.putAll(execGroups);
-
-    if (useAutoExecGroups) {
-      // Create one exec group for each toolchain (automatic exec groups).
-      for (ToolchainTypeRequirement toolchainType : toolchainTypes) {
-        allExecGroups.put(
-            toolchainType.toolchainType().toString(),
-            ExecGroup.builder().addToolchainType(toolchainType).copyFrom(null).build());
-      }
-    }
-
-    ExecGroupCollection.Builder execGroupCollectionBuilder =
-        ExecGroupCollection.builder(
-            /* execGroups= */ ImmutableMap.copyOf(allExecGroups),
-            /* defaultExecWith= */ defaultExecConstraintLabels,
-            /* defaultToolchainTypes= */ toolchainTypes);
-
+  public static Optional<ToolchainCollection<UnloadedToolchainContext>>
+      computeUnloadedToolchainContexts(Environment env, UnloadedToolchainContextsInputs inputs)
+          throws InterruptedException, ToolchainException {
+    var targetToolchainContextKey = inputs.targetToolchainContextKey();
     // Short circuit and end now if this target doesn't require toolchain resolution.
-    if (!useToolchainResolution) {
-      ComputedToolchainContexts result = new ComputedToolchainContexts();
-      result.execGroupCollectionBuilder = execGroupCollectionBuilder;
-      return result;
+    if (targetToolchainContextKey == null) {
+      return Optional.empty();
     }
 
-    Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
-    String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
+    var toolchainContextKeys = new HashMap<String, ToolchainContextKey>();
+    toolchainContextKeys.put(DEFAULT_EXEC_GROUP_NAME, targetToolchainContextKey);
 
-    // Check if this specific target should be debugged for toolchain resolution.
-    boolean debugTarget = debugResolution.test(label);
-
-    ToolchainContextKey.Builder toolchainContextKeyBuilder =
+    var keyBuilder =
         ToolchainContextKey.key()
-            .configurationKey(configurationKey)
-            .execConstraintLabels(defaultExecConstraintLabels)
-            .debugTarget(debugTarget);
-
-    // Add toolchain types only if automatic exec groups are not created for this target.
-    if (!useAutoExecGroups) {
-      toolchainContextKeyBuilder.toolchainTypes(toolchainTypes);
-    }
-
-    if (parentExecutionPlatformLabel != null) {
-      // Find out what execution platform the parent used, and force that.
-      // This should only be set for direct toolchain dependencies.
-      toolchainContextKeyBuilder.forceExecutionPlatform(parentExecutionPlatformLabel);
-    }
-
-    ToolchainContextKey toolchainContextKey = toolchainContextKeyBuilder.build();
-    toolchainContextKeys.put(targetUnloadedToolchainContext, toolchainContextKey);
-    for (String name : execGroupCollectionBuilder.getExecGroupNames()) {
-      ExecGroup execGroup = execGroupCollectionBuilder.getExecGroup(name);
+            .configurationKey(targetToolchainContextKey.configurationKey())
+            .debugTarget(targetToolchainContextKey.debugTarget());
+    for (Map.Entry<String, ExecGroup> entry : inputs.execGroups().entrySet()) {
+      var execGroup = entry.getValue();
       toolchainContextKeys.put(
-          name,
-          ToolchainContextKey.key()
-              .configurationKey(configurationKey)
+          entry.getKey(),
+          keyBuilder
               .toolchainTypes(execGroup.toolchainTypes())
               .execConstraintLabels(execGroup.execCompatibleWith())
-              .debugTarget(debugTarget)
               .build());
     }
 
     SkyframeLookupResult values = env.getValuesAndExceptions(toolchainContextKeys.values());
-
     boolean valuesMissing = env.valuesMissing();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        valuesMissing ? null : ToolchainCollection.builder();
+        valuesMissing
+            ? null
+            : ToolchainCollection.builderWithExpectedSize(toolchainContextKeys.size());
     for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
         toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
@@ -766,19 +729,16 @@ public final class PrerequisiteProducer {
         throw new NoMatchingPlatformException(unloadedToolchainContext.errorData());
       }
       if (!valuesMissing) {
-        String execGroup = unloadedToolchainContextKey.getKey();
-        if (execGroup.equals(targetUnloadedToolchainContext)) {
-          toolchainContexts.addDefaultContext(unloadedToolchainContext);
-        } else {
-          toolchainContexts.addContext(execGroup, unloadedToolchainContext);
-        }
+        toolchainContexts.addContext(
+            unloadedToolchainContextKey.getKey(), unloadedToolchainContext);
       }
     }
 
-    ComputedToolchainContexts result = new ComputedToolchainContexts();
-    result.toolchainCollection = env.valuesMissing() ? null : toolchainContexts.build();
-    result.execGroupCollectionBuilder = execGroupCollectionBuilder;
-    return result;
+    if (valuesMissing) {
+      return null;
+    }
+
+    return Optional.of(toolchainContexts.build());
   }
 
   /**
@@ -786,7 +746,7 @@ public final class PrerequisiteProducer {
    * any constraints added by the target, including those added for the target on the command line.
    */
   public static ImmutableSet<Label> getExecutionPlatformConstraints(
-      Rule rule, PlatformConfiguration platformConfiguration) {
+      Rule rule, @Nullable PlatformConfiguration platformConfiguration) {
     if (platformConfiguration == null) {
       return ImmutableSet.of(); // See NoConfigTransition.
     }
@@ -815,8 +775,6 @@ public final class PrerequisiteProducer {
    *
    * @param state the compute state
    * @param env the Skyframe environment
-   * @param resolver the dependency resolver
-   * @param ctgValue the label and the configuration of the node
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
@@ -831,8 +789,6 @@ public final class PrerequisiteProducer {
       @Nullable NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Cause> transitiveRootCauses,
       Environment env,
-      SkyframeDependencyResolver resolver,
-      TargetAndConfiguration ctgValue,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
@@ -842,12 +798,12 @@ public final class PrerequisiteProducer {
           ConfiguredValueCreationException,
           AspectCreationException,
           InterruptedException {
+    if (state.computeDependenciesResult != null) {
+      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
+      return state.computeDependenciesResult;
+    }
     try {
-      if (state.computeDependenciesResult != null) {
-        state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
-        return state.computeDependenciesResult;
-      }
-
+      TargetAndConfiguration ctgValue = state.targetAndConfiguration;
       OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
       if (state.resolveConfigurationsResult != null) {
         depValueNames = state.resolveConfigurationsResult;
@@ -861,14 +817,15 @@ public final class PrerequisiteProducer {
           Label label = ctgValue.getLabel();
           try {
             initialDependencies =
-                resolver.dependentNodeMap(
-                    ctgValue,
-                    aspects,
-                    configConditions,
-                    toolchainContexts,
-                    transitiveRootCauses,
-                    ((ConfiguredRuleClassProvider) ruleClassProvider)
-                        .getTrimmingTransitionFactory());
+                new SkyframeDependencyResolver(env)
+                    .dependentNodeMap(
+                        ctgValue,
+                        aspects,
+                        configConditions,
+                        toolchainContexts,
+                        transitiveRootCauses,
+                        ((ConfiguredRuleClassProvider) ruleClassProvider)
+                            .getTrimmingTransitionFactory());
           } catch (DependencyResolver.Failure e) {
             env.getListener()
                 .post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
@@ -934,17 +891,11 @@ public final class PrerequisiteProducer {
       }
 
       // Resolve required aspects.
-      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects;
-      if (state.resolveAspectDependenciesResult != null) {
-        depAspects = state.resolveAspectDependenciesResult;
-      } else {
-        depAspects =
-            AspectResolver.resolveAspectDependencies(
-                env, depValues, depValueNames.values(), transitivePackages);
-        if (env.valuesMissing()) {
-          return null;
-        }
-        state.resolveAspectDependenciesResult = depAspects;
+      OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
+          AspectResolver.resolveAspectDependencies(
+              env, depValues, depValueNames.values(), transitivePackages);
+      if (env.valuesMissing()) {
+        return null;
       }
 
       // Merge the dependent configured targets and aspects into a single map.
@@ -962,7 +913,6 @@ public final class PrerequisiteProducer {
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
       state.resolveConfiguredTargetDependenciesResult = null;
-      state.resolveAspectDependenciesResult = null;
 
       return mergeAspectsResult;
     } catch (InterruptedException e) {
@@ -980,7 +930,7 @@ public final class PrerequisiteProducer {
   /**
    * Returns the targets that key the configurable attributes used by this rule.
    *
-   * <p>>If the configured targets supplying those providers aren't yet resolved by the dependency
+   * <p>If the configured targets supplying those providers aren't yet resolved by the dependency
    * resolver, returns null.
    */
   @Nullable
@@ -1068,6 +1018,115 @@ public final class PrerequisiteProducer {
 
     return ConfigConditions.create(
         asConfiguredTargets.buildOrThrow(), asConfigConditions.buildOrThrow());
+  }
+
+  static ToolchainContextKey createDefaultToolchainContextKey(
+      BuildConfigurationKey configurationKey,
+      ImmutableSet<Label> defaultExecConstraintLabels,
+      boolean debugTarget,
+      boolean useAutoExecGroups,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
+      @Nullable Label parentExecutionPlatformLabel) {
+    ToolchainContextKey.Builder toolchainContextKeyBuilder =
+        ToolchainContextKey.key()
+            .configurationKey(configurationKey)
+            .execConstraintLabels(defaultExecConstraintLabels)
+            .debugTarget(debugTarget);
+
+    // Add toolchain types only if automatic exec groups are not created for this target.
+    if (!useAutoExecGroups) {
+      toolchainContextKeyBuilder.toolchainTypes(toolchainTypes);
+    }
+
+    if (parentExecutionPlatformLabel != null) {
+      // Find out what execution platform the parent used, and force that.
+      // This should only be set for direct toolchain dependencies.
+      toolchainContextKeyBuilder.forceExecutionPlatform(parentExecutionPlatformLabel);
+    }
+    return toolchainContextKeyBuilder.build();
+  }
+
+  @VisibleForTesting // private
+  public static UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
+      TargetAndConfiguration targetAndConfiguration,
+      @Nullable Label parentExecutionPlatformLabel,
+      RuleClassProvider ruleClassProvider,
+      ExtendedEventHandler listener)
+      throws InterruptedException {
+    var target = targetAndConfiguration.getTarget();
+    if (!(target instanceof Rule)) {
+      return UnloadedToolchainContextsInputs.empty();
+    }
+
+    Rule rule = (Rule) target;
+    var configuration = targetAndConfiguration.getConfiguration();
+    boolean useAutoExecGroups =
+        rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)
+            ? (boolean) rule.getAttr("$use_auto_exec_groups")
+            : configuration.useAutoExecGroups();
+    var platformConfig = configuration.getFragment(PlatformConfiguration.class);
+    var defaultExecConstraintLabels = getExecutionPlatformConstraints(rule, platformConfig);
+    var ruleClass = rule.getRuleClassObject();
+    var processedExecGroups =
+        ExecGroupCollection.process(
+            ruleClass.getExecGroups(),
+            defaultExecConstraintLabels,
+            ruleClass.getToolchainTypes(),
+            useAutoExecGroups);
+
+    if (platformConfig == null || !rule.useToolchainResolution()) {
+      return UnloadedToolchainContextsInputs.create(
+          processedExecGroups, /* targetToolchainContextKey= */ null);
+    }
+
+    return UnloadedToolchainContextsInputs.create(
+        processedExecGroups,
+        createDefaultToolchainContextKey(
+            computeToolchainConfigurationKey(
+                configuration,
+                ((ConfiguredRuleClassProvider) ruleClassProvider)
+                    .getToolchainTaggedTrimmingTransition(),
+                listener),
+            defaultExecConstraintLabels,
+            /* debugTarget= */ platformConfig.debugToolchainResolution(rule.getLabel()),
+            /* useAutoExecGroups= */ useAutoExecGroups,
+            ruleClass.getToolchainTypes(),
+            parentExecutionPlatformLabel));
+  }
+
+  private static BuildConfigurationKey computeToolchainConfigurationKey(
+      BuildConfigurationValue configuration,
+      PatchTransition toolchainTaggedTrimmingTransition,
+      ExtendedEventHandler listener)
+      throws InterruptedException {
+    // The toolchain context's options are the parent rule's options with manual trimming
+    // auto-applied. This means toolchains don't inherit feature flags. This helps build
+    // performance: if the toolchain context had the exact same configuration of its parent and that
+    // included feature flags, all the toolchain's dependencies would apply this transition
+    // individually. That creates a lot more potentially expensive applications of that transition
+    // (especially since manual trimming applies to every configured target in the build).
+    //
+    // In other words: without this modification:
+    // parent rule -> toolchain context -> toolchain
+    //     -> toolchain dep 1 # applies manual trimming to remove feature flags
+    //     -> toolchain dep 2 # applies manual trimming to remove feature flags
+    //     ...
+    //
+    // With this modification:
+    // parent rule -> toolchain context # applies manual trimming to remove feature flags
+    //     -> toolchain
+    //         -> toolchain dep 1
+    //         -> toolchain dep 2
+    //         ...
+    //
+    // None of this has any effect on rules that don't utilize manual trimming.
+    BuildOptions toolchainOptions =
+        toolchainTaggedTrimmingTransition.patch(
+            new BuildOptionsView(
+                configuration.getOptions(),
+                toolchainTaggedTrimmingTransition.requiresOptionFragments()),
+            listener);
+    return BuildConfigurationKey.withoutPlatformMapping(toolchainOptions);
   }
 
   /**
@@ -1215,16 +1274,5 @@ public final class PrerequisiteProducer {
               prioritizedDetailedExitCode, c.getDetailedExitCode());
     }
     return prioritizedDetailedExitCode;
-  }
-
-  private static class NoMatchingPlatformException extends ToolchainException {
-    NoMatchingPlatformException(NoMatchingPlatformData error) {
-      super(error.formatError());
-    }
-
-    @Override
-    protected FailureDetails.Toolchain.Code getDetailedCode() {
-      return FailureDetails.Toolchain.Code.NO_MATCHING_EXECUTION_PLATFORM;
-    }
   }
 }

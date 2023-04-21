@@ -238,12 +238,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             .distinct()
             .forEach(output -> rulePb.addRuleOutput(output.getLabel().toString()));
       }
-      for (String feature : rule.getPackage().getFeatures()) {
+      for (String feature : rule.getPackage().getFeatures().toStringList()) {
         rulePb.addDefaultSetting(feature);
       }
 
       if (includeInstantiationStack) {
-        for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toList()) {
+        for (StarlarkThread.CallStackEntry fr : rule.reconstructCallStack()) {
           // Always report relative locations.
           // (New fields needn't honor relativeLocations.)
           rulePb.addInstantiationStack(
@@ -297,7 +297,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           input.addSubinclude(starlarkLoadLabel.toString());
         }
 
-        for (String feature : inputFile.getPackage().getFeatures()) {
+        for (String feature : inputFile.getPackage().getFeatures().toStringList()) {
           input.addFeature(feature);
         }
 

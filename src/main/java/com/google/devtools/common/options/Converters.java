@@ -310,7 +310,7 @@ public final class Converters {
 
     @Override
     public String getTypeDescription() {
-      return separatorDescription + "-seperated set of options";
+      return separatorDescription + "-separated set of options";
     }
   }
 

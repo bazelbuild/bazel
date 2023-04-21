@@ -118,7 +118,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
             actualRule.getLabel(),
             actualRule.getRuleClassObject(),
             actualRule.getLocation(),
-            actualRule.getCallStack());
+            actualRule.getInteriorCallStack());
 
     firstCustomAttrIndex = rule.getRuleClassObject().getAttributeIndex("attr0");
     firstCustomAttr = attrAt(firstCustomAttrIndex);

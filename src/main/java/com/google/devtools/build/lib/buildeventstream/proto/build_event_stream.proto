@@ -18,6 +18,7 @@ package build_event_stream;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
+import "src/main/java/com/google/devtools/build/lib/packages/metrics/package_load_metrics.proto";
 import "src/main/protobuf/action_cache.proto";
 import "src/main/protobuf/command_line.proto";
 import "src/main/protobuf/failure_details.proto";
@@ -873,6 +874,7 @@ message BuildMetrics {
     message RunnerCount {
       string name = 1;
       int32 count = 2;
+      string exec_kind = 3;
     }
     repeated RunnerCount runner_count = 6;
 
@@ -941,6 +943,10 @@ message BuildMetrics {
     // After Feb 2022, this value is the number of packages successfully
     // loaded.
     int64 packages_loaded = 1;
+
+    // Loading time metrics per package.
+    repeated devtools.build.lib.packages.metrics.PackageLoadMetrics
+        package_load_metrics = 2;
   }
   PackageMetrics package_metrics = 4;
 

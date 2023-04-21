@@ -98,7 +98,7 @@ public class WorkerParser {
 
     SortedMap<PathFragment, byte[]> workerFiles =
         WorkerFilesHash.getWorkerFilesWithDigests(
-            spawn, context.getArtifactExpander(), context.getMetadataProvider());
+            spawn, context.getArtifactExpander(), context.getInputMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 

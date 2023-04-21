@@ -213,7 +213,9 @@ public class RxFutures {
 
           @Override
           public void onError(Throwable e) {
-            if (e instanceof CancellationException) {
+            if (e instanceof InterruptedException) {
+              future.cancel(true);
+            } else if (e instanceof CancellationException) {
               future.cancel(true);
             } else {
               future.setException(e);

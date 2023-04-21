@@ -39,8 +39,6 @@ public class DocgenConsts {
 
   public static final String STARLARK_LIBRARY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/starlark-library.vm";
-  public static final String STARLARK_NAV_TEMPLATE =
-      "com/google/devtools/build/docgen/templates/starlark-nav.vm";
   public static final String STARLARK_MODULE_CATEGORY_TEMPLATE =
       "com/google/devtools/build/docgen/templates/starlark-category.vm";
   public static final String STARLARK_OVERVIEW_TEMPLATE =

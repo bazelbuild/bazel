@@ -892,6 +892,33 @@ EOF
   expect_log 'ERROR: Build did NOT complete successfully'
 }
 
+# Regression test for b/277371822.
+function test_missing_default() {
+  cat >> target_skipping/BUILD <<'EOF'
+sh_test(
+    name = "pass_on_foo1_or_foo2_but_not_on_foo3",
+    srcs = [":pass.sh"],
+    target_compatible_with = select({
+        ":foo1": [],
+        # No default branch.
+    }),
+)
+EOF
+
+  cd target_skipping || fail "couldn't cd into workspace"
+
+  bazel test \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo3_platform \
+    --platforms=@//target_skipping:foo3_platform \
+    //target_skipping:pass_on_foo1_or_foo2_but_not_on_foo3 &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly."
+
+  expect_log 'ERROR:.*configurable attribute "target_compatible_with" in //target_skipping:pass_on_foo1_or_foo2_but_not_on_foo3'
+  expect_log 'ERROR: Build did NOT complete successfully'
+  expect_not_log 'FATAL: bazel crashed'
+}
+
 # Validates that we can express targets being compatible with everything _but_
 # A and B.
 function test_inverse_logic() {
@@ -1040,6 +1067,40 @@ EOF
     && fail "Bazel passed unexpectedly."
   expect_log 'ERROR: Target //target_skipping:also_some_foo3_target is incompatible and cannot be built, but was explicitly requested'
   expect_log 'ERROR: Build did NOT complete successfully'
+}
+
+# Validate what happens when setting `target_compatible_with` directly on an
+# alias(). This is a regression test for
+# https://github.com/bazelbuild/bazel/issues/17663.
+function test_alias_incompatibility() {
+  cat >> target_skipping/BUILD <<'EOF'
+filegroup(
+    name = "test_cc_filegroup",
+    srcs = ["test.cc"],
+)
+
+alias(
+    name = "test_cc_filegroup_alias",
+    actual = ":test_cc_filegroup",
+    target_compatible_with = [":foo3"],
+)
+
+cc_library(
+    name = "test_cc",
+    srcs = [":test_cc_filegroup_alias"],
+)
+EOF
+
+  echo > target_skipping/test.cc
+
+  cd target_skipping || fail "couldn't cd into workspace"
+  bazel build \
+    --show_result=10 \
+    --host_platform=@//target_skipping:foo1_bar1_platform \
+    --platforms=@//target_skipping:foo1_bar1_platform \
+    //target_skipping:test_cc &> "${TEST_log}" \
+    && fail "Bazel passed unexpectedly"
+  expect_log_once 'ERROR: Target //target_skipping:test_cc is incompatible and cannot be built, but was explicitly requested.'
 }
 
 # Validate that an incompatible target with a toolchain not available for the
@@ -1573,6 +1634,35 @@ EOF
   expect_not_log "${debug_message3}"
   expect_not_log "${debug_message4}"
   expect_not_log "${debug_message5}"
+}
+
+function test_skipping_with_missing_toolchain() {
+  mkdir -p missing_toolchain
+
+  cat > missing_toolchain/BUILD <<'EOF'
+load(":rule.bzl", "my_rule")
+
+toolchain_type(name = "my_toolchain_type")
+
+my_rule(
+    name = "my_rule",
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+EOF
+
+  cat > missing_toolchain/rule.bzl <<'EOF'
+def _my_rule_impl(ctx):
+    pass
+
+my_rule = rule(
+    _my_rule_impl,
+    toolchains = ["//missing_toolchain:my_toolchain_type"],
+)
+EOF
+
+  bazel build --show_result=10 //missing_toolchain:all &> "${TEST_log}" \
+    || fail "Bazel failed unexpectedly."
+  expect_log "Target //missing_toolchain:my_rule was skipped"
 }
 
 run_suite "target_compatible_with tests"

@@ -574,7 +574,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -605,7 +604,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -623,7 +621,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -641,7 +638,6 @@ DIST_DEPS = {
             "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -657,7 +653,7 @@ DIST_DEPS = {
             "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
             "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
         ],
-        "used_in": ["additional_distfiles"],
+        "used_in": [],
     },
     "remotejdk17_macos": {
         "aliases": [
@@ -673,7 +669,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -691,7 +686,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
@@ -709,89 +703,75 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
         ],
         "used_in": [
-            "additional_distfiles",
             "test_WORKSPACE_files",
         ],
     },
-    "remotejdk19_linux_aarch64": {
+    "remotejdk20_linux_aarch64": {
         "aliases": [
-            "remotejdk19_linux_for_testing",
+            "remotejdk20_linux_for_testing",
         ],
-        "archive": "zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
-        "sha256": "76216efa69e448fe487d57310372aea0df1cf15b82974c84a8cb0d97eb934165",
-        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-linux_aarch64",
+        "archive": "zulu20.28.85-ca-jdk20.0.0-linux_aarch64.tar.gz",
+        "sha256": "47ce58ead9a05d5d53b96706ff6fa0eb2e46755ee67e2b416925e28f5b55038a",
+        "strip_prefix": "zulu20.28.85-ca-jdk20.0.0-linux_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_aarch64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-linux_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-linux_aarch64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk19_linux_s390x": {
+    "remotejdk20_linux": {
         "aliases": [
-            "remotejdk19_linux_s390x_for_testing",
-            "openjdk19_linux_s390x_archive",
+            "remotejdk20_linux_for_testing",
+            "openjdk20_linux_archive",
         ],
-        "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
-        "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
-        "strip_prefix": "jdk-19.0.2+7",
+        "archive": "zulu20.28.85-ca-jdk20.0.0-linux_x64.tar.gz",
+        "sha256": "0386418db7f23ae677d05045d30224094fc13423593ce9cd087d455069893bac",
+        "strip_prefix": "zulu20.28.85-ca-jdk20.0.0-linux_x64",
         "urls": [
-            "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-linux_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-linux_x64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk19_linux": {
+    "remotejdk20_macos": {
         "aliases": [
-            "remotejdk19_linux_for_testing",
-            "openjdk19_linux_archive",
+            "remotejdk20_macos_for_testing",
+            "openjdk20_darwin_archive",
         ],
-        "archive": "zulu19.32.13-ca-jdk19.0.2-linux_x64.tar.gz",
-        "sha256": "4a994aded1d9b35258d543a59d4963d2687a1094a818b79a21f00273fbbc5bca",
-        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-linux_x64",
+        "archive": "zulu20.28.85-ca-jdk20.0.0-macosx_x64.tar.gz",
+        "sha256": "fde6cc17a194ea0d9b0c6c0cb6178199d8edfc282d649eec2c86a9796e843f86",
+        "strip_prefix": "zulu20.28.85-ca-jdk20.0.0-macosx_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-linux_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-macosx_x64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-macosx_x64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk19_macos": {
+    "remotejdk20_macos_aarch64": {
         "aliases": [
-            "remotejdk19_macos_for_testing",
-            "openjdk19_darwin_archive",
+            "remotejdk20_macos_aarch64_for_testing",
+            "openjdk20_darwin_aarch64_archive",
         ],
-        "archive": "zulu19.32.13-ca-jdk19.0.2-macosx_x64.tar.gz",
-        "sha256": "2804575ae9ac63e39caa910e57610bf52b0f9e2d671928a98d18e2fcc9f62ac1",
-        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-macosx_x64",
+        "archive": "zulu20.28.85-ca-jdk20.0.0-macosx_aarch64.tar.gz",
+        "sha256": "a2eff6a940c2df3a2352278027e83f5959f34dcfc8663034fe92be0f1b91ce6f",
+        "strip_prefix": "zulu20.28.85-ca-jdk20.0.0-macosx_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_x64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_x64.tar.gz",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-macosx_aarch64.tar.gz",
+            "https://cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-macosx_aarch64.tar.gz",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },
-    "remotejdk19_macos_aarch64": {
+    "remotejdk20_win": {
         "aliases": [
-            "remotejdk19_macos_aarch64_for_testing",
-            "openjdk19_darwin_aarch64_archive",
+            "remotejdk20_win_for_testing",
+            "openjdk20_windows_archive",
         ],
-        "archive": "zulu19.32.13-ca-jdk19.0.2-macosx_aarch64.tar.gz",
-        "sha256": "177d058d968b2fbe7a5ff5eceb18cdc16f6376ce291004f1a3139e78b2fb6391",
-        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-macosx_aarch64",
+        "archive": "zulu20.28.85-ca-jdk20.0.0-win_x64.zip",
+        "sha256": "ac5f6a7d84dbbb0bb4d376feb331cc4c49a9920562f2a5e85b7a6b4863b10e1e",
+        "strip_prefix": "zulu20.28.85-ca-jdk20.0.0-win_x64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_aarch64.tar.gz",
-            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-macosx_aarch64.tar.gz",
-        ],
-        "used_in": ["test_WORKSPACE_files"],
-    },
-    "remotejdk19_win": {
-        "aliases": [
-            "remotejdk19_win_for_testing",
-            "openjdk19_windows_archive",
-        ],
-        "archive": "zulu19.32.13-ca-jdk19.0.2-win_x64.zip",
-        "sha256": "d6c768c5ec3252f936bd0562c25458f7c753c62835ca3e91166f975f7a5fe9f1",
-        "strip_prefix": "zulu19.32.13-ca-jdk19.0.2-win_x64",
-        "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-win_x64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu19.32.13-ca-jdk19.0.2-win_x64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-win_x64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu20.28.85-ca-jdk20.0.0-win_x64.zip",
         ],
         "used_in": ["test_WORKSPACE_files"],
     },

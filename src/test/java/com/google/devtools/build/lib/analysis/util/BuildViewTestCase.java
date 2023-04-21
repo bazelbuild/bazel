@@ -55,8 +55,8 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -1416,6 +1416,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return view.getArtifactFactory().getSourceArtifact(rootRelativePath, root);
   }
 
+  protected Artifact getSourceArtifact(String name, ArtifactOwner owner) {
+    return view.getArtifactFactory()
+        .getSourceArtifact(PathFragment.create(name), Root.fromPath(rootDirectory), owner);
+  }
+
   protected Artifact getSourceArtifact(String name) {
     return getSourceArtifact(PathFragment.create(name), Root.fromPath(rootDirectory));
   }
@@ -2493,14 +2498,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /** Creates instances of {@link ActionExecutionContext} consistent with test case. */
   public class ActionExecutionContextBuilder {
-    private MetadataProvider actionInputFileCache = null;
+    private InputMetadataProvider actionInputFileCache = null;
     private final TreeMap<String, String> clientEnv = new TreeMap<>();
     private ArtifactExpander artifactExpander = null;
     private Executor executor = new DummyExecutor(fileSystem, getExecRoot());
 
     @CanIgnoreReturnValue
     public ActionExecutionContextBuilder setMetadataProvider(
-        MetadataProvider actionInputFileCache) {
+        InputMetadataProvider actionInputFileCache) {
       this.actionInputFileCache = actionInputFileCache;
       return this;
     }
@@ -2521,17 +2526,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       return new ActionExecutionContext(
           executor,
           actionInputFileCache,
-          /*actionInputPrefetcher=*/ null,
+          /* actionInputPrefetcher= */ null,
           actionKeyContext,
-          /*metadataHandler=*/ null,
-          /*rewindingEnabled=*/ false,
+          /* outputMetadataStore= */ null,
+          /* rewindingEnabled= */ false,
           LostInputsCheck.NONE,
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           reporter,
           clientEnv,
-          /*topLevelFilesets=*/ ImmutableMap.of(),
+          /* topLevelFilesets= */ ImmutableMap.of(),
           artifactExpander,
-          /*actionFileSystem=*/ null,
+          /* actionFileSystem= */ null,
           /*skyframeDepsResult*/ null,
           DiscoveredModulesPruner.DEFAULT,
           SyscallCache.NO_CACHE,

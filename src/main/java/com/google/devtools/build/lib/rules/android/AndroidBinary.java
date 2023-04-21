@@ -599,7 +599,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             filesBuilder,
             dexingOutput.classesDexZip,
             proguardOutput,
-            postProcessingOutputMap);
+            postProcessingOutputMap,
+            dexingOutput.mainDexList);
 
     // Compute the final DEX files by appending Java 8 legacy .dex if used.
     Artifact finalClassesDex;
@@ -1241,12 +1242,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     private final Artifact classesDexZip;
     final Artifact javaResourceJar;
     final ImmutableList<Artifact> shardDexZips;
+    // This is not technically and output of dexing, but the processed main dex list that was used
+    // in dexing.
+    final Artifact mainDexList;
 
     private DexingOutput(
-        Artifact classesDexZip, Artifact javaResourceJar, ImmutableList<Artifact> shardDexZips) {
+        Artifact classesDexZip,
+        Artifact javaResourceJar,
+        ImmutableList<Artifact> shardDexZips,
+        Artifact mainDexList) {
       this.classesDexZip = classesDexZip;
       this.javaResourceJar = javaResourceJar;
       this.shardDexZips = Preconditions.checkNotNull(shardDexZips);
+      this.mainDexList = mainDexList;
     }
   }
 
@@ -1398,7 +1406,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // for other multidex modes.
         javaResourceJar = javaResourceSourceJar;
       }
-      return new DexingOutput(classesDex, javaResourceJar, shardDexes);
+      return new DexingOutput(classesDex, javaResourceJar, shardDexes, mainDexList);
     } else {
       if (usesDexArchives) {
         createIncrementalDexingActions(
@@ -1430,7 +1438,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             mainDexList);
         createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
       }
-      return new DexingOutput(classesDex, javaResourceSourceJar, ImmutableList.of(classesDex));
+      return new DexingOutput(
+          classesDex, javaResourceSourceJar, ImmutableList.of(classesDex), mainDexList);
     }
   }
 

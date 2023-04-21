@@ -410,8 +410,8 @@ public class PackageMetricsPackageLoadingListenerTest {
 
     recordEverything();
 
-    PackageMetrics pkg1 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg1 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg1")
             .setLoadDuration(Durations.fromMillis(42))
             .setComputationSteps(1000)
@@ -420,8 +420,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(100_000)
             .build();
 
-    PackageMetrics pkg2 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg2 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg2")
             .setLoadDuration(Durations.fromMillis(43))
             .setComputationSteps(100)
@@ -430,8 +430,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(200_000)
             .build();
 
-    PackageMetrics pkg3 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg3 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg3")
             .setLoadDuration(Durations.fromMillis(44))
             .setComputationSteps(10)
@@ -440,7 +440,7 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(300_000)
             .build();
 
-    assertThat(underTest.getPackageMetricsRecorder().getPackageMetrics())
+    assertThat(underTest.getPackageMetricsRecorder().getPackageLoadMetrics())
         .containsExactly(pkg1, pkg2, pkg3);
     recorder.loadingFinished();
     assertAllMapsEmpty(recorder);
@@ -453,8 +453,8 @@ public class PackageMetricsPackageLoadingListenerTest {
 
     recordEverything();
 
-    PackageMetrics pkg1 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg1 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg1")
             .setLoadDuration(Durations.fromMillis(42))
             .setComputationSteps(1000)
@@ -463,8 +463,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(100_000)
             .build();
 
-    PackageMetrics pkg2 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg2 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg2")
             .setLoadDuration(Durations.fromMillis(43))
             .setComputationSteps(100)
@@ -473,8 +473,8 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(200_000)
             .build();
 
-    PackageMetrics pkg3 =
-        PackageMetrics.newBuilder()
+    PackageLoadMetrics pkg3 =
+        PackageLoadMetrics.newBuilder()
             .setName("my/pkg3")
             .setLoadDuration(Durations.fromMillis(44))
             .setComputationSteps(10)
@@ -483,7 +483,7 @@ public class PackageMetricsPackageLoadingListenerTest {
             .setPackageOverhead(300_000)
             .build();
 
-    assertThat(underTest.getPackageMetricsRecorder().getPackageMetrics())
+    assertThat(underTest.getPackageMetricsRecorder().getPackageLoadMetrics())
         .containsExactly(pkg1, pkg2, pkg3);
     recorder.loadingFinished();
     assertAllMapsEmpty(recorder);

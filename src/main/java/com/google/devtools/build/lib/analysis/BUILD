@@ -288,6 +288,7 @@ java_library(
         ":config/config_matching_provider",
         ":config/core_options",
         ":config/execution_transition_factory",
+        ":config/feature_set",
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_options",
@@ -331,6 +332,7 @@ java_library(
         ":make_variable_supplier",
         ":options_diff_predicate",
         ":package_specification_provider",
+        ":platform_configuration",
         ":platform_options",
         ":provider_collection",
         ":repo_mapping_manifest_action",
@@ -688,7 +690,7 @@ java_library(
         ":provider_collection",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 
@@ -980,6 +982,28 @@ java_library(
     deps = [
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "actions/buildinfo_file_write_action",
+    srcs = ["actions/BuildInfoFileWriteAction.java"],
+    deps = [
+        ":actions/substitution",
+        ":actions/template",
+        ":actions/template_expansion_action",
+        ":workspace_status_action",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -1528,6 +1552,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -1562,6 +1587,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1619,6 +1645,7 @@ java_library(
         ":config/build_options",
         ":config/compilation_mode",
         ":config/core_options",
+        ":config/feature_set",
         ":config/fragment",
         ":config/fragment_class_set",
         ":config/fragment_factory",
@@ -1784,6 +1811,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "config/feature_set",
+    srcs = ["config/FeatureSet.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 

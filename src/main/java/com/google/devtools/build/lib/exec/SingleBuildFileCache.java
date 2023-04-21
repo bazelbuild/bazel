@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.DigestOfDirectoryException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -34,7 +34,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * <p>Simply maintains a cached mapping from filename to metadata that may be populated only once.
  */
 @ThreadSafe
-public class SingleBuildFileCache implements MetadataProvider {
+public class SingleBuildFileCache implements InputMetadataProvider {
 
   private final Path execRoot;
 
@@ -55,7 +55,10 @@ public class SingleBuildFileCache implements MetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
+    // TODO(lberki): It would be nice to assert that only source files are passed here.
+    // Unfortunately, that's not quite true at the moment and an unknown amount of work would be
+    // needed to make that true.
     return pathToMetadata
         .get(
             input.getExecPathString(),

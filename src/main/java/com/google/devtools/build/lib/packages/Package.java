@@ -29,6 +29,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -269,7 +270,7 @@ public class Package {
   private Set<Label> defaultCompatibleWith = ImmutableSet.of();
   private Set<Label> defaultRestrictedTo = ImmutableSet.of();
 
-  private ImmutableSet<String> features;
+  private FeatureSet features;
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
@@ -444,16 +445,6 @@ public class Package {
    * and be shared publicly.
    */
   private void finishInit(Builder builder) {
-    // If any error occurred during evaluation of this package, consider all
-    // rules in the package to be "in error" also (even if they were evaluated
-    // prior to the error).  This behaviour is arguably stricter than need be,
-    // but stopping a build only for some errors but not others creates user
-    // confusion.
-    if (builder.containsErrors) {
-      for (Rule rule : builder.getRules()) {
-        rule.setContainsErrors();
-      }
-    }
     this.filename = builder.getFilename();
     this.packageDirectory = filename.asPath().getParentDirectory();
     String baseName = filename.getRootRelativePath().getBaseName();
@@ -487,13 +478,13 @@ public class Package {
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
     this.buildFile = builder.buildFile;
-    this.containsErrors = builder.containsErrors;
+    this.containsErrors |= builder.containsErrors;
     this.failureDetail = builder.getFailureDetail();
     this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
-    this.features = ImmutableSortedSet.copyOf(builder.features);
+    this.features = builder.features;
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -593,6 +584,10 @@ public class Package {
     return containsErrors;
   }
 
+  void setContainsErrors() {
+    containsErrors = true;
+  }
+
   /**
    * Returns the first {@link FailureDetail} describing one of the package's errors, or {@code null}
    * if it has no errors or all its errors lack details.
@@ -675,10 +670,8 @@ public class Package {
     return workspaceName;
   }
 
-  /**
-   * Returns the features specified in the <code>package()</code> declaration.
-   */
-  public ImmutableSet<String> getFeatures() {
+  /** Returns the features specified in the <code>package()</code> declaration. */
+  public FeatureSet getFeatures() {
     return features;
   }
 
@@ -1011,7 +1004,7 @@ public class Package {
     private RuleVisibility defaultVisibility = RuleVisibility.PRIVATE;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
     private boolean defaultVisibilitySet;
-    private final List<String> features = new ArrayList<>();
+    private FeatureSet features = FeatureSet.EMPTY;
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
     @Nullable private String ioExceptionMessage = null;
@@ -1364,7 +1357,7 @@ public class Package {
 
     @CanIgnoreReturnValue
     public Builder addFeatures(Iterable<String> features) {
-      Iterables.addAll(this.features, features);
+      this.features = FeatureSet.merge(this.features, FeatureSet.parse(features));
       return this;
     }
 
@@ -1528,11 +1521,20 @@ public class Package {
      * state.
      */
     Rule createRule(
+        Label label, RuleClass ruleClass, List<StarlarkThread.CallStackEntry> callstack) {
+      return createRule(
+          label,
+          ruleClass,
+          callstack.isEmpty() ? Location.BUILTIN : callstack.get(0).location,
+          CallStack.compactInterior(callstack));
+    }
+
+    Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
-        List<StarlarkThread.CallStackEntry> callstack) {
-      return new Rule(pkg, label, ruleClass, location, CallStack.createFrom(callstack));
+        @Nullable CallStack.Node interiorCallStack) {
+      return new Rule(pkg, label, ruleClass, location, interiorCallStack);
     }
 
     @Nullable

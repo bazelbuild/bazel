@@ -21,7 +21,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
-import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
@@ -38,14 +37,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -290,7 +290,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   @Override
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      MetadataSupplier metadataSupplier,
       Priority priority) {
     List<ActionInput> files = new ArrayList<>();
 
@@ -312,8 +312,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
-            .flatMapSingle(
-                input -> toTransferResult(prefetchFile(dirCtx, metadataProvider, input, priority)));
+            .flatMapSingle(input -> prefetchFile(dirCtx, metadataSupplier, input, priority));
 
     Completable prefetch =
         Completable.using(
@@ -322,48 +321,53 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     return toListenableFuture(prefetch);
   }
 
-  private Completable prefetchFile(
+  private Single<TransferResult> prefetchFile(
       DirectoryContext dirCtx,
-      MetadataProvider metadataProvider,
+      MetadataSupplier metadataSupplier,
       ActionInput input,
-      Priority priority)
-      throws IOException {
-    if (input instanceof VirtualActionInput) {
-      prefetchVirtualActionInput((VirtualActionInput) input);
-      return Completable.complete();
+      Priority priority) {
+    try {
+      if (input instanceof VirtualActionInput) {
+        prefetchVirtualActionInput((VirtualActionInput) input);
+        return Single.just(TransferResult.ok());
+      }
+
+      PathFragment execPath = input.getExecPath();
+
+      FileArtifactValue metadata = metadataSupplier.getMetadata(input);
+      if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
+        return Single.just(TransferResult.ok());
+      }
+
+      @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataSupplier);
+
+      if (symlink != null) {
+        checkState(execPath.startsWith(symlink.getLinkExecPath()));
+        execPath =
+            symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
+      }
+
+      @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataSupplier);
+
+      Completable result =
+          downloadFileNoCheckRx(
+              dirCtx,
+              execRoot.getRelative(execPath),
+              treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
+              input,
+              metadata,
+              priority);
+
+      if (symlink != null) {
+        result = result.andThen(plantSymlink(symlink));
+      }
+
+      return RxUtils.toTransferResult(result);
+    } catch (IOException e) {
+      return Single.just(TransferResult.error(e));
+    } catch (InterruptedException e) {
+      return Single.just(TransferResult.interrupted());
     }
-
-    PathFragment execPath = input.getExecPath();
-
-    FileArtifactValue metadata = metadataProvider.getMetadata(input);
-    if (metadata == null || !canDownloadFile(execRoot.getRelative(execPath), metadata)) {
-      return Completable.complete();
-    }
-
-    @Nullable Symlink symlink = maybeGetSymlink(input, metadata, metadataProvider);
-
-    if (symlink != null) {
-      checkState(execPath.startsWith(symlink.getLinkExecPath()));
-      execPath =
-          symlink.getTargetExecPath().getRelative(execPath.relativeTo(symlink.getLinkExecPath()));
-    }
-
-    @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(input, metadataProvider);
-
-    Completable result =
-        downloadFileNoCheckRx(
-            dirCtx,
-            execRoot.getRelative(execPath),
-            treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
-            input,
-            metadata,
-            priority);
-
-    if (symlink != null) {
-      result = result.andThen(plantSymlink(symlink));
-    }
-
-    return result;
   }
 
   /**
@@ -375,15 +379,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * FileArtifactValue#getMaterializationExecPath()} field in their metadata.
    */
   @Nullable
-  private PathFragment maybeGetTreeRoot(ActionInput input, MetadataProvider metadataProvider)
-      throws IOException {
+  private PathFragment maybeGetTreeRoot(ActionInput input, MetadataSupplier metadataSupplier)
+      throws IOException, InterruptedException {
     if (!(input instanceof TreeFileArtifact)) {
       return null;
     }
     SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();
     FileArtifactValue treeMetadata =
         checkNotNull(
-            metadataProvider.getMetadata(treeArtifact),
+            metadataSupplier.getMetadata(treeArtifact),
             "input %s belongs to a tree artifact whose metadata is missing",
             input);
     return treeMetadata.getMaterializationExecPath().orElse(treeArtifact.getExecPath());
@@ -400,17 +404,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Nullable
   private Symlink maybeGetSymlink(
-      ActionInput input, FileArtifactValue metadata, MetadataProvider metadataProvider)
-      throws IOException {
+      ActionInput input, FileArtifactValue metadata, MetadataSupplier metadataSupplier)
+      throws IOException, InterruptedException {
     if (input instanceof TreeFileArtifact) {
       // Check whether the entire tree artifact should be prefetched into a separate location.
       SpecialArtifact treeArtifact = ((TreeFileArtifact) input).getParent();
       FileArtifactValue treeMetadata =
           checkNotNull(
-              metadataProvider.getMetadata(treeArtifact),
+              metadataSupplier.getMetadata(treeArtifact),
               "input %s belongs to a tree artifact whose metadata is missing",
               input);
-      return maybeGetSymlink(treeArtifact, treeMetadata, metadataProvider);
+      return maybeGetSymlink(treeArtifact, treeMetadata, metadataSupplier);
     }
     PathFragment execPath = input.getExecPath();
     PathFragment materializationExecPath = metadata.getMaterializationExecPath().orElse(execPath);
@@ -586,20 +590,20 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   @SuppressWarnings({"CheckReturnValue", "FutureReturnValueIgnored"})
-  public void finalizeAction(Action action, MetadataHandler metadataHandler) {
+  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore) {
     List<Artifact> inputsToDownload = new ArrayList<>();
     List<Artifact> outputsToDownload = new ArrayList<>();
 
     for (Artifact output : action.getOutputs()) {
       if (outputsAreInputs.remove(output)) {
         if (output.isTreeArtifact()) {
-          var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
+          var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
           inputsToDownload.addAll(children);
         } else {
           inputsToDownload.add(output);
         }
       } else if (output.isTreeArtifact()) {
-        var children = metadataHandler.getTreeArtifactChildren((SpecialArtifact) output);
+        var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
         for (var file : children) {
           if (outputMatchesPattern(file)) {
             outputsToDownload.add(file);
@@ -611,7 +615,10 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!inputsToDownload.isEmpty()) {
-      var future = prefetchFiles(inputsToDownload, metadataHandler, Priority.HIGH);
+      // "input" here means "input to another action" (but an output of this one), so
+      // getOutputMetadata() is the right method to pass to prefetchFiles()
+      var future =
+          prefetchFiles(inputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH);
       addCallback(
           future,
           new FutureCallback<Void>() {
@@ -632,7 +639,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!outputsToDownload.isEmpty()) {
-      var future = prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
+      var future =
+          prefetchFiles(outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {

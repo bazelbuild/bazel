@@ -13,40 +13,51 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfo;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyCcLinkParamsProviderApi;
+import net.starlark.java.eval.EvalException;
 
 /** A target that provides C++ libraries to be linked into Python targets. */
+@VisibleForTesting
 @Immutable
-public final class PyCcLinkParamsProvider extends NativeInfo
-    implements PyCcLinkParamsProviderApi<Artifact> {
+public final class PyCcLinkParamsProvider {
   public static final Provider PROVIDER = new Provider();
 
   private final CcInfo ccInfo;
 
-  public PyCcLinkParamsProvider(CcInfo ccInfo) {
-    this.ccInfo = CcInfo.builder().setCcLinkingContext(ccInfo.getCcLinkingContext()).build();
+  public PyCcLinkParamsProvider(StarlarkInfo info) throws EvalException {
+    this.ccInfo = info.getValue("cc_info", CcInfo.class);
   }
 
-  @Override
   public Provider getProvider() {
     return PROVIDER;
   }
 
-  @Override
   public CcInfo getCcInfo() {
     return ccInfo;
   }
 
   /** Provider class for {@link PyCcLinkParamsProvider} objects. */
-  public static class Provider extends BuiltinProvider<PyCcLinkParamsProvider>
-      implements PyCcLinkParamsProviderApi.Provider {
+  public static class Provider extends StarlarkProviderWrapper<PyCcLinkParamsProvider> {
     private Provider() {
-      super("PyCcLinkParamsProvider", PyCcLinkParamsProvider.class);
+      super(
+          Label.parseCanonicalUnchecked("@_builtins//:common/python/providers.bzl"),
+          "PyCcLinkParamsProvider");
+    }
+
+    @Override
+    public PyCcLinkParamsProvider wrap(Info value) throws RuleErrorException {
+      try {
+        return new PyCcLinkParamsProvider((StarlarkInfo) value);
+      } catch (EvalException e) {
+        throw new RuleErrorException(e.getMessageWithStack());
+      }
     }
   }
 }

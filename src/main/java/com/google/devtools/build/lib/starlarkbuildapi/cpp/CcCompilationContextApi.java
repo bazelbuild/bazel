@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "CompilationContext",
-    category = DocCategory.PROVIDER,
+    category = DocCategory.BUILTIN,
     doc =
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")

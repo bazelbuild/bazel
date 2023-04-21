@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -256,7 +257,9 @@ final class LabelVisitor {
       }
       this.executor =
           AbstractQueueVisitor.createWithExecutorService(
-              executorService, /*failFastOnException=*/ !keepGoing, ErrorClassifier.DEFAULT);
+              executorService,
+              keepGoing ? ExceptionHandlingMode.KEEP_GOING : ExceptionHandlingMode.FAIL_FAST,
+              ErrorClassifier.DEFAULT);
       this.eventHandler = eventHandler;
       this.maxDepth = maxDepth;
       this.observer = observer;

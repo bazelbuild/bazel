@@ -66,8 +66,8 @@ import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -77,13 +77,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ObjcLibraryTest extends ObjcRuleTestCase {
 
-  static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("objc_library");
+  private static final RuleType RULE_TYPE = new OnlyNeedsSourcesRuleType("objc_library");
   private static final String WRAPPED_CLANG = "wrapped_clang";
-  /** Creates an {@code objc_library} target writer. */
-  @Override
-  protected ScratchAttributeWriter createLibraryTargetWriter(String labelString) {
-    return ScratchAttributeWriter.fromLabelString(this, "objc_library", labelString);
-  }
 
   @Test
   public void testConfigTransitionWithTopLevelAppleConfiguration() throws Exception {
@@ -838,7 +833,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAppleBitcode_invalidPlatformNameGivesError() throws Exception {
+  public void testAppleBitcode_invalidPlatformNameGivesError() {
     checkBitcodeModeError(
         "--apple_platform_type=ios",
         "--ios_multi_cpus=arm64",
@@ -847,30 +842,30 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testAppleBitcode_invalidBitcodeModeGivesError() throws Exception {
+  public void testAppleBitcode_invalidBitcodeModeGivesError() {
     checkBitcodeModeError(
         "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=indebted");
   }
 
   @Test
-  public void testAppleBitcode_invalidBitcodeModeWithPlatformGivesError() throws Exception {
+  public void testAppleBitcode_invalidBitcodeModeWithPlatformGivesError() {
     checkBitcodeModeError(
         "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=indebted");
   }
 
   @Test
-  public void testAppleBitcode_emptyBitcodeModeGivesError() throws Exception {
+  public void testAppleBitcode_emptyBitcodeModeGivesError() {
     checkBitcodeModeError(
         "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=");
   }
 
   @Test
-  public void testAppleBitcode_emptyValueGivesError() throws Exception {
+  public void testAppleBitcode_emptyValueGivesError() {
     checkBitcodeModeError(
         "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=");
   }
 
-  private void checkBitcodeModeError(String... args) throws Exception {
+  private void checkBitcodeModeError(String... args) {
     OptionsParsingException thrown =
         assertThrows(OptionsParsingException.class, () -> useConfiguration(args));
     assertThat(thrown).hasMessageThat().contains(INVALID_APPLE_BITCODE_OPTION_FORMAT);
@@ -1286,7 +1281,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testIosSdkVersionCannotBeDefinedButEmpty() throws Exception {
+  public void testIosSdkVersionCannotBeDefinedButEmpty() {
     OptionsParsingException e =
         assertThrows(OptionsParsingException.class, () -> useConfiguration("--ios_sdk_version="));
     assertThat(e).hasMessageThat().contains("--ios_sdk_version");
@@ -1383,7 +1378,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   // Converts output artifacts into expected command-line arguments.
-  protected List<String> outputArgs(Set<Artifact> outputs) {
+  private ImmutableList<String> outputArgs(Collection<Artifact> outputs) {
     ImmutableList.Builder<String> result = new ImmutableList.Builder<>();
     for (String outputConfig : Artifact.toExecPaths(outputs)) {
       String output = removeConfigFragment(outputConfig);
@@ -1811,7 +1806,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//objc:x")
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
-    List<String> copts = ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
+    ImmutableList<String> copts = ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
     assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAtLeastElementsIn(copts);
     assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAtLeastElementsIn(copts);
     assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAtLeastElementsIn(copts);
@@ -1827,7 +1822,8 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     createLibraryTargetWriter("//objc:x")
         .setAndCreateFiles("srcs", "a.mm", "b.cc", "c.mm", "d.cxx", "e.c", "f.m", "g.C")
         .write();
-    List<String> copts = ImmutableList.of("-fprofile-instr-generate", "-fcoverage-mapping");
+    ImmutableList<String> copts =
+        ImmutableList.of("-fprofile-instr-generate", "-fcoverage-mapping");
     assertThat(compileAction("//objc:x", "a.o").getArguments()).containsAtLeastElementsIn(copts);
     assertThat(compileAction("//objc:x", "b.o").getArguments()).containsAtLeastElementsIn(copts);
     assertThat(compileAction("//objc:x", "c.o").getArguments()).containsAtLeastElementsIn(copts);
@@ -2230,7 +2226,7 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(archiveAction.getMnemonic()).isEqualTo("CppArchive");
   }
 
-  protected List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
+  private static List<String> linkstampExecPaths(NestedSet<CcLinkingContext.Linkstamp> linkstamps) {
     return ActionsTestUtil.execPaths(
         ActionsTestUtil.transform(linkstamps.toList(), CcLinkingContext.Linkstamp::getArtifact));
   }

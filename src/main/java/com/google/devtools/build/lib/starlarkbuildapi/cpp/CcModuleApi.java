@@ -1241,6 +1241,12 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "module_map",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationContextT createCcCompilationContext(
       Object headers,
@@ -1254,6 +1260,7 @@ public interface CcModuleApi<
       Sequence<?> directPublicHdrs,
       Sequence<?> directPrivateHdrs,
       Object purpose,
+      Object moduleMap,
       StarlarkThread thread)
       throws EvalException;
 

@@ -815,7 +815,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     // Test that the archive commandline contains the individual object files inside
     // the object file tree artifact.
-    assertThat(archiveAction.getLinkCommandLine().arguments(DUMMY_ARTIFACT_EXPANDER))
+    assertThat(archiveAction.getLinkCommandLineForTesting().arguments(DUMMY_ARTIFACT_EXPANDER))
         .containsAtLeast(
             objectFilesFromGenJar.getExecPathString() + "/children1",
             objectFilesFromGenJar.getExecPathString() + "/children2",

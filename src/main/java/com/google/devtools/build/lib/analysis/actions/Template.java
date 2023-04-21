@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -151,7 +152,8 @@ public abstract class Template {
    * input for the action, or this won't work. Therefore this method is private, and you should use
    * the corresponding {@link TemplateExpansionAction} constructor.
    */
-  static Template forArtifact(final Artifact templateArtifact) {
+  @VisibleForTesting
+  public static Template forArtifact(final Artifact templateArtifact) {
     return new ArtifactTemplate(templateArtifact);
   }
 }

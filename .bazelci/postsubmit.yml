@@ -9,7 +9,9 @@ tasks:
     build_flags:
       - "--config=bzlmod"
     build_targets:
-      - "//src:bazel_nojdk"
+      - "//src:bazel"
+    test_targets:
+      - "//src/test/cpp/..."
   centos7_java11_devtoolset10:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -343,7 +345,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
-      - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
       - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
       - "-//src/test/shell/bazel/remote/..."

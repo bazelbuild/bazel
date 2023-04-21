@@ -50,10 +50,10 @@ public interface DefaultInfoApi extends StructApi {
   @StarlarkMethod(
       name = "files",
       doc =
-          "A <a href='depset.html'><code>depset</code></a> of "
-              + "<a href='File.html'><code>File</code></a> objects representing the default "
-              + "outputs to build when this target is specified on the bazel command line. By "
-              + "default it is all predeclared outputs.",
+          "A <a href='../builtins/depset.html'><code>depset</code></a> of <a"
+              + " href='../builtins/File.html'><code>File</code></a> objects representing the"
+              + " default outputs to build when this target is specified on the bazel command line."
+              + " By default it is all predeclared outputs.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -62,8 +62,8 @@ public interface DefaultInfoApi extends StructApi {
   @StarlarkMethod(
       name = "files_to_run",
       doc =
-          "A <a href='FilesToRunProvider.html'><code>FilesToRunProvider</code></a> object "
-              + "containing information about the executable and runfiles of the target.",
+          "A <a href='../providers/FilesToRunProvider.html'><code>FilesToRunProvider</code></a>"
+              + " object containing information about the executable and runfiles of the target.",
       structField = true,
       allowReturnNones = true)
   @Nullable
@@ -111,10 +111,10 @@ public interface DefaultInfoApi extends StructApi {
               positional = false,
               defaultValue = "None",
               doc =
-                  "A <a href='depset.html'><code>depset</code></a> of <a"
-                      + " href='File.html'><code>File</code></a> objects representing the default"
-                      + " outputs to build when this target is specified on the bazel command"
-                      + " line. By default it is all predeclared outputs."),
+                  "A <a href='../builtins/depset.html'><code>depset</code></a> of <a"
+                      + " href='../builtins/File.html'><code>File</code></a> objects representing"
+                      + " the default outputs to build when this target is specified on the bazel"
+                      + " command line. By default it is all predeclared outputs."),
           @Param(
               name = "runfiles",
               allowedTypes = {
@@ -165,11 +165,11 @@ public interface DefaultInfoApi extends StructApi {
               defaultValue = "None",
               doc =
                   "If this rule is marked <a"
-                      + " href='globals.html#rule.executable'><code>executable</code></a> or <a"
-                      + " href='globals.html#rule.test'><code>test</code></a>, this is a <a"
-                      + " href='File.html'><code>File</code></a> object representing the file that"
-                      + " should be executed to run the target. By default it is the predeclared"
-                      + " output <code>ctx.outputs.executable</code>.")
+                      + " href='../globals/bzl.html#rule.executable'><code>executable</code></a> or"
+                      + " <a href='../globals/bzl.html#rule.test'><code>test</code></a>, this is a"
+                      + " <a href='../builtins/File.html'><code>File</code></a> object representing"
+                      + " the file that should be executed to run the target. By default it is the"
+                      + " predeclared output <code>ctx.outputs.executable</code>.")
         },
         selfCall = true,
         useStarlarkThread = true)

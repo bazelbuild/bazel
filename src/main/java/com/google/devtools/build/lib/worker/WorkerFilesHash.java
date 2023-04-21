@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -59,7 +59,7 @@ public class WorkerFilesHash {
    * @throws MissingInputException if metadata is missing for any of the worker files.
    */
   public static SortedMap<PathFragment, byte[]> getWorkerFilesWithDigests(
-      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
+      Spawn spawn, ArtifactExpander artifactExpander, InputMetadataProvider actionInputFileCache)
       throws IOException {
     TreeMap<PathFragment, byte[]> workerFilesMap = new TreeMap<>();
 
@@ -67,11 +67,12 @@ public class WorkerFilesHash {
         ActionInputHelper.expandArtifacts(
             spawn.getToolFiles(), artifactExpander, /* keepEmptyTreeArtifacts= */ false);
     for (ActionInput tool : tools) {
-      @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(tool);
+      @Nullable FileArtifactValue metadata = actionInputFileCache.getInputMetadata(tool);
       if (metadata == null) {
         throw new MissingInputException(tool);
       }
-      workerFilesMap.put(tool.getExecPath(), actionInputFileCache.getMetadata(tool).getDigest());
+      workerFilesMap.put(
+          tool.getExecPath(), actionInputFileCache.getInputMetadata(tool).getDigest());
     }
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
@@ -81,7 +82,8 @@ public class WorkerFilesHash {
       for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
-          @Nullable FileArtifactValue metadata = actionInputFileCache.getMetadata(localArtifact);
+          @Nullable
+          FileArtifactValue metadata = actionInputFileCache.getInputMetadata(localArtifact);
           if (metadata == null) {
             throw new MissingInputException(localArtifact);
           }

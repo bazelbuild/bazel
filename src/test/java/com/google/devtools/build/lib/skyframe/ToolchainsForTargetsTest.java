@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -46,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,7 +91,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   /**
    * Returns a {@link ToolchainCollection<UnloadedToolchainContext>} as the result of {@link
-   * ConfiguredTargetFunction#computeUnloadedToolchainContexts}.
+   * PrerequisiteProducer#computeUnloadedToolchainContexts}.
    */
   @AutoValue
   abstract static class Value implements SkyValue {
@@ -104,7 +104,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   /**
    * A mock {@link SkyFunction} that just calls {@link
-   * ConfiguredTargetFunction#computeUnloadedToolchainContexts} and returns its results.
+   * PrerequisiteProducer#computeUnloadedToolchainContexts} and returns its results.
    */
   static class ComputeUnloadedToolchainContextsFunction implements SkyFunction {
     static final SkyFunctionName SKYFUNCTION_NAME =
@@ -122,17 +122,19 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         throws ComputeUnloadedToolchainContextsException, InterruptedException {
       try {
         Key key = (Key) skyKey.argument();
-        ComputedToolchainContexts result =
-            PrerequisiteProducer.computeUnloadedToolchainContexts(
-                env,
-                stateProvider.lateBoundRuleClassProvider(),
+        var unloadedToolchainContextsInputs =
+            PrerequisiteProducer.getUnloadedToolchainContextsInputs(
                 key.targetAndConfiguration(),
-                key.configuredTargetKey().getExecutionPlatformLabel());
-        if (env.valuesMissing()) {
+                key.configuredTargetKey().getExecutionPlatformLabel(),
+                stateProvider.lateBoundRuleClassProvider(),
+                env.getListener());
+        Optional<ToolchainCollection<UnloadedToolchainContext>> result =
+            PrerequisiteProducer.computeUnloadedToolchainContexts(
+                env, unloadedToolchainContextsInputs);
+        if (result == null) {
           return null;
         }
-        ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
-            result.toolchainCollection;
+        ToolchainCollection<UnloadedToolchainContext> toolchainCollection = result.orElse(null);
         return Value.create(toolchainCollection);
       } catch (ToolchainException e) {
         throw new ComputeUnloadedToolchainContextsException(e);

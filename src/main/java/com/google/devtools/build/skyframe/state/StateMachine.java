@@ -143,7 +143,7 @@ public interface StateMachine {
    */
   @FunctionalInterface
   interface ValueOrExceptionSink<E extends Exception> {
-    void accept(@Nullable SkyValue value, @Nullable E exception);
+    void acceptValueOrException(@Nullable SkyValue value, @Nullable E exception);
   }
 
   /**
@@ -153,7 +153,7 @@ public interface StateMachine {
    */
   @FunctionalInterface
   interface ValueOrException2Sink<E1 extends Exception, E2 extends Exception> {
-    void accept(@Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2);
+    void acceptValueOrException2(@Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2);
   }
 
   /**
@@ -164,6 +164,7 @@ public interface StateMachine {
   @FunctionalInterface
   interface ValueOrException3Sink<
       E1 extends Exception, E2 extends Exception, E3 extends Exception> {
-    void accept(@Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2, @Nullable E3 e3);
+    void acceptValueOrException3(
+        @Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2, @Nullable E3 e3);
   }
 }

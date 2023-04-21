@@ -157,7 +157,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:ps_info_collector",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -202,6 +201,7 @@ java_library(
         ":worker",
         ":worker_key",
         "//third_party:apache_commons_pool2",
+        "//third_party:guava",
     ],
 )
 

@@ -194,7 +194,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   /** The default watchos CPU value. */
   public static final String DEFAULT_WATCHOS_CPU =
-      CPU.getCurrent() == CPU.AARCH64 ? "arm64" : "i386";
+      CPU.getCurrent() == CPU.AARCH64 ? "arm64" : "x86_64";
 
   /** The default tvOS CPU value. */
   public static final String DEFAULT_TVOS_CPU =

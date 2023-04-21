@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.DirectoryNode;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
@@ -60,19 +60,24 @@ class DirectoryTreeBuilder {
 
   static DirectoryTree fromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
       throws IOException {
     return fromActionInputs(
-        inputs, ImmutableSet.of(), metadataProvider, execRoot, artifactPathResolver, digestUtil);
+        inputs,
+        ImmutableSet.of(),
+        inputMetadataProvider,
+        execRoot,
+        artifactPathResolver,
+        digestUtil);
   }
 
   static DirectoryTree fromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
       Set<PathFragment> toolInputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil)
@@ -80,7 +85,13 @@ class DirectoryTreeBuilder {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
     int numFiles =
         buildFromActionInputs(
-            inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil, tree);
+            inputs,
+            toolInputs,
+            inputMetadataProvider,
+            execRoot,
+            artifactPathResolver,
+            digestUtil,
+            tree);
     return new DirectoryTree(tree, numFiles);
   }
 
@@ -138,7 +149,7 @@ class DirectoryTreeBuilder {
   private static int buildFromActionInputs(
       SortedMap<PathFragment, ActionInput> inputs,
       Set<PathFragment> toolInputs,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil,
@@ -163,7 +174,7 @@ class DirectoryTreeBuilder {
 
           FileArtifactValue metadata =
               Preconditions.checkNotNull(
-                  metadataProvider.getMetadata(input),
+                  inputMetadataProvider.getInputMetadata(input),
                   "missing metadata for '%s'",
                   input.getExecPathString());
           switch (metadata.getType()) {
@@ -184,7 +195,7 @@ class DirectoryTreeBuilder {
               return buildFromActionInputs(
                   directoryInputs,
                   toolInputs,
-                  metadataProvider,
+                  inputMetadataProvider,
                   execRoot,
                   artifactPathResolver,
                   digestUtil,

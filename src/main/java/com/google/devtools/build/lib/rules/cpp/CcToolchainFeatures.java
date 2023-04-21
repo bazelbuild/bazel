@@ -56,6 +56,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * Provides access to features supported by a specific toolchain.
@@ -74,7 +75,7 @@ import net.starlark.java.eval.Starlark;
  * them from build variables).
  */
 @Immutable
-public class CcToolchainFeatures {
+public class CcToolchainFeatures implements StarlarkValue {
 
   /**
    * Thrown when a flag value cannot be expanded under a set of build variables.

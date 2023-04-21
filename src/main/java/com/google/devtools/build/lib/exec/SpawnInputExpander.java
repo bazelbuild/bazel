@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.FilesetManifest.ForbiddenRelativeSy
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
@@ -112,7 +112,7 @@ public class SpawnInputExpander {
   void addRunfilesToInputs(
       Map<PathFragment, ActionInput> inputMap,
       RunfilesSupplier runfilesSupplier,
-      MetadataProvider actionFileCache,
+      InputMetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory)
       throws IOException, ForbiddenActionInputException {
@@ -165,7 +165,7 @@ public class SpawnInputExpander {
   /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
   public Map<PathFragment, ActionInput> addRunfilesToInputs(
       RunfilesSupplier runfilesSupplier,
-      MetadataProvider actionFileCache,
+      InputMetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory)
       throws IOException, ForbiddenActionInputException {
@@ -175,9 +175,9 @@ public class SpawnInputExpander {
     return inputMap;
   }
 
-  private static void failIfDirectory(MetadataProvider actionFileCache, ActionInput input)
+  private static void failIfDirectory(InputMetadataProvider actionFileCache, ActionInput input)
       throws IOException, ForbiddenActionInputException {
-    FileArtifactValue metadata = actionFileCache.getMetadata(input);
+    FileArtifactValue metadata = actionFileCache.getInputMetadata(input);
     if (metadata != null && !metadata.getType().isFile()) {
       throw new ForbiddenNonFileException(input);
     }
@@ -251,7 +251,7 @@ public class SpawnInputExpander {
       Spawn spawn,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory,
-      MetadataProvider actionInputFileCache)
+      InputMetadataProvider actionInputFileCache)
       throws IOException, ForbiddenActionInputException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(inputMap, spawn.getInputFiles(), artifactExpander, baseDirectory);
@@ -304,7 +304,7 @@ public class SpawnInputExpander {
       Spawn spawn,
       ArtifactExpander artifactExpander,
       PathFragment baseDirectory,
-      MetadataProvider actionInputFileCache,
+      InputMetadataProvider actionInputFileCache,
       InputVisitor visitor)
       throws IOException, ForbiddenActionInputException {
     walkNestedSetInputs(baseDirectory, spawn.getInputFiles(), artifactExpander, visitor);

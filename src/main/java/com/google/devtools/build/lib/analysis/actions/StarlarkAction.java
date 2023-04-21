@@ -18,6 +18,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
@@ -34,6 +36,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathStripper;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -63,12 +66,13 @@ import javax.annotation.Nullable;
 /** A Starlark specific SpawnAction. */
 public final class StarlarkAction extends SpawnAction implements ActionCacheAwareAction {
 
-  // All the inputs of the Starlark action including those listed in the unused inputs and
-  // execluding the shadowed action inputs
+  // All the inputs of the Starlark action including those listed in the unused inputs and excluding
+  // the shadowed action inputs
   private final NestedSet<Artifact> allStarlarkActionInputs;
 
   private final Optional<Artifact> unusedInputsList;
   private final Optional<Action> shadowedAction;
+  private boolean inputsDiscovered = false;
 
   /**
    * Constructs a StarlarkAction using direct initialization arguments.
@@ -81,13 +85,10 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    * @param inputs the set of all files potentially read by this action; must not be subsequently
    *     modified
    * @param outputs the set of all files written by this action; must not be subsequently modified.
-   * @param primaryOutput the primary output of this action
    * @param resourceSetOrBuilder the resources consumed by executing this Action
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
    * @param commandLineLimits the command line limits, from the build configuration
-   * @param isShellCommand Whether the command line represents a shell command with the given shell
-   *     executable. This is used to give better error messages.
    * @param env the action's environment
    * @param executionInfo out-of-band information for scheduling the spawn
    * @param progressMessage the message printed during the progression of the build
@@ -103,11 +104,9 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
-      Artifact primaryOutput,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
       CommandLineLimits commandLineLimits,
-      boolean isShellCommand,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
@@ -123,19 +122,15 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
             ? createInputs(shadowedAction.get().getInputs(), inputs)
             : inputs,
         outputs,
-        primaryOutput,
         resourceSetOrBuilder,
         commandLines,
         commandLineLimits,
-        isShellCommand,
         env,
         executionInfo,
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        /* executeUnconditionally */ false,
-        /* extraActionInfoSupplier */ null,
-        /* resultConsumer */ null,
+        /* resultConsumer= */ null,
         stripOutputPaths);
 
     this.allStarlarkActionInputs = inputs;
@@ -150,13 +145,23 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
 
   @Override
   public boolean isShareable() {
-    return !unusedInputsList.isPresent();
+    return unusedInputsList.isEmpty();
   }
 
   @Override
   public boolean discoversInputs() {
     return unusedInputsList.isPresent()
         || (shadowedAction.isPresent() && shadowedAction.get().discoversInputs());
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   @Override
@@ -190,7 +195,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           createInputs(
               shadowedActionObj.getInputs(), inputFilesForExtraAction, allStarlarkActionInputs));
       return NestedSetBuilder.wrap(
-          Order.STABLE_ORDER, Sets.<Artifact>difference(getInputs().toSet(), oldInputs.toSet()));
+          Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
     }
     // Otherwise, we need to "re-discover" all the original inputs: the unused ones that were
     // removed might now be needed.
@@ -229,7 +234,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
       throws ExecException {
-    if (!unusedInputsList.isPresent()) {
+    if (unusedInputsList.isEmpty()) {
       return;
     }
 
@@ -297,6 +302,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         .build();
   }
 
+  @SafeVarargs
   private static NestedSet<Artifact> createInputs(NestedSet<Artifact>... inputsLists) {
     NestedSetBuilder<Artifact> nestedSetBuilder = new NestedSetBuilder<>(Order.STABLE_ORDER);
     for (NestedSet<Artifact> inputs : inputsLists) {
@@ -339,6 +345,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
+    ActionEnvironment env = getEnvironment();
     Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
 
     if (shadowedAction.isPresent()) {
@@ -376,12 +383,10 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
-        ImmutableList<Artifact> outputs,
-        Artifact primaryOutput,
+        ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
-        boolean isShellCommand,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -403,11 +408,9 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           tools,
           inputsAndTools,
           outputs,
-          primaryOutput,
           resourceSetOrBuilder,
           commandLines,
           commandLineLimits,
-          isShellCommand,
           env,
           executionInfo,
           progressMessage,
@@ -415,7 +418,7 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           mnemonic,
           unusedInputsList,
           shadowedAction,
-          stripOutputPaths(mnemonic, inputsAndTools, primaryOutput, configuration));
+          stripOutputPaths(mnemonic, inputsAndTools, outputs, configuration));
     }
 
     /**
@@ -424,18 +427,18 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
      * <p>Since we don't currently have a proper Starlark API for this, we hard-code support for
      * specific actions we're interested in.
      *
-     * <p>The difference between this and {@link PathStripper.CommandAdjuster#mapCustomStarlarkArgs}
-     * is this triggers Bazel's standard path stripping logic for chosen mnemonics while {@link
-     * PathStripper.CommandAdjuster#mapCustomStarlarkArgs} custom-adjusts certain command line
-     * parameters the standard logic can't handle. For example, Starlark rules that only set {@code
+     * <p>The difference between this and {@link PathMapper#mapCustomStarlarkArgs} is this triggers
+     * Bazel's standard path stripping logic for chosen mnemonics while {@link
+     * PathMapper#mapCustomStarlarkArgs} custom-adjusts certain command line parameters the standard
+     * logic can't handle. For example, Starlark rules that only set {@code
      * ctx.actions.args().add(file_handle)} need an entry here but not in {@link
-     * PathStripper.CommandAdjuster#mapCustomStarlarkArgs} because standard path stripping logic
-     * handles that interface.
+     * PathMapper#mapCustomStarlarkArgs} because standard path stripping logic handles that
+     * interface.
      */
     private static boolean stripOutputPaths(
         String mnemonic,
         NestedSet<Artifact> inputs,
-        Artifact primaryOutput,
+        ImmutableSet<Artifact> outputs,
         BuildConfigurationValue configuration) {
       ImmutableList<String> qualifyingMnemonics =
           ImmutableList.of(
@@ -456,7 +459,8 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
       return coreOptions.outputPathsMode == OutputPathsMode.STRIP
           && qualifyingMnemonics.contains(mnemonic)
-          && PathStripper.isPathStrippable(inputs, primaryOutput.getExecPath().subFragment(0, 1));
+          && PathStripper.isPathStrippable(
+              inputs, Iterables.get(outputs, 0).getExecPath().subFragment(0, 1));
     }
   }
 }

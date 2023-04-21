@@ -63,7 +63,7 @@ public final class InMemoryMemoizingEvaluator
         EventFilter.FULL_STORAGE,
         new EmittedEventState(),
         /* keepEdges= */ true,
-        /* usePooledSkyKeyInterning= */ true);
+        /* usePooledInterning= */ true);
   }
 
   public InMemoryMemoizingEvaluator(
@@ -74,7 +74,7 @@ public final class InMemoryMemoizingEvaluator
       EventFilter eventFilter,
       EmittedEventState emittedEventState,
       boolean keepEdges,
-      boolean usePooledSkyKeyInterning) {
+      boolean usePooledInterning) {
     super(
         ImmutableMap.copyOf(skyFunctions),
         differencer,
@@ -85,8 +85,8 @@ public final class InMemoryMemoizingEvaluator
         keepEdges);
     this.graph =
         keepEdges
-            ? InMemoryGraph.create(usePooledSkyKeyInterning)
-            : InMemoryGraph.createEdgeless(usePooledSkyKeyInterning);
+            ? InMemoryGraph.create(usePooledInterning)
+            : InMemoryGraph.createEdgeless(usePooledInterning);
   }
 
   private static final Duration MIN_TIME_TO_LOG_DELETION = Duration.ofMillis(10);

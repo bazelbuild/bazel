@@ -118,9 +118,6 @@ public final class TargetSummaryPublisher {
   /**
    * Populates the aggregator for a particular top level target, including test targets.
    *
-   * <p>Since the event is fired from within a SkyFunction, it is possible to receive duplicate
-   * events. In case of duplication, simply return without creating any new aggregator.
-   *
    * <p>With skymeld, the corresponding AspectCompleteEvents may arrive before the aggregator is set
    * up. We therefore need to put those events in a queue and resolve them when the aggregator
    * becomes available.

@@ -234,7 +234,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   }
 
   /**
-   * Returns whether Objective C builtin rules should get their linking info from CcInfo instead of
+   * Returns whether Objective-C builtin rules should get their linking info from CcInfo instead of
    * ObjcProvider.
    */
   @Override

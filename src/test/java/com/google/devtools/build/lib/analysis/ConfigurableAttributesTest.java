@@ -642,7 +642,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "Illegal ambiguous match on configurable attribute \"srcs\" in //a:gen:\n"
             + "//conditions:dup1\n"
             + "//conditions:dup2\n"
-            + "Multiple matches are not allowed unless one is unambiguously more specialized.");
+            + "Multiple matches are not allowed unless one is unambiguously more specialized "
+            + "or they resolve to the same value.");
   }
 
   /**
@@ -686,6 +687,37 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         /*expected:*/ ImmutableList.of("bin java/a/libmost_precise.jar"),
         /*not expected:*/ ImmutableList.of(
             "bin java/a/libgeneric.jar", "bin java/a/libprecise.jar"));
+  }
+
+  /** Tests that multiple matches are allowed for conditions where the value is the same. */
+  @Test
+  public void multipleMatchesSameValue() throws Exception {
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    scratch.file(
+        "conditions/BUILD",
+        "config_setting(",
+        "    name = 'dup1',",
+        "    values = {'compilation_mode': 'opt'})",
+        "config_setting(",
+        "    name = 'dup2',",
+        "    values = {'define': 'foo=bar'})");
+    scratch.file(
+        "a/BUILD",
+        "genrule(",
+        "    name = 'gen',",
+        "    cmd = '',",
+        "    outs = ['gen.out'],",
+        "    srcs = select({",
+        "        '//conditions:dup1': ['a.in'],",
+        "        '//conditions:dup2': ['a.in'],",
+        "        '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': [':default.in'],",
+        "    }))");
+    checkRule(
+        "//a:gen",
+        "srcs",
+        ImmutableList.of("-c", "opt", "--define", "foo=bar"),
+        /*expected:*/ ImmutableList.of("src a/a.in"),
+        /*not expected:*/ ImmutableList.of("src a/default.in"));
   }
 
   /**
@@ -1426,7 +1458,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void selectOnlyToolchainResolvingTargetsCanSelectDirectlyOnConstraints() throws Exception {
     // Tests select()ing directly on a constraint_value when the rule uses toolchain resolution
     // *only if it has a select()*. As of this test, alias() is the only rule that supports that
-    // (see Alias#useToolchainResolution(ToolchainResolutionMode.HAS_SELECT).
+    // (see Alias#useToolchainResolution(ToolchainResolutionMode.ENABLED_ONLY_FOR_COMMON_LOGIC).
     scratch.file(
         "conditions/BUILD",
         "constraint_setting(name = 'fruit')",

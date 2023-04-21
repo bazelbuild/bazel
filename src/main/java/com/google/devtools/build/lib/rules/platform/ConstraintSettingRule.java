@@ -40,12 +40,7 @@ public class ConstraintSettingRule implements RuleDefinition {
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
         .useToolchainResolution(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
-        .override(
-            attr("applicable_licenses", BuildType.LABEL_LIST)
-                // This is a constant which is never linked into a target
-                .value(ImmutableList.of())
-                .allowedFileTypes()
-                .nonconfigurable("fundamental constant, used in platform configuration"))
+        .removeAttribute("applicable_licenses")
         .override(
             attr("tags", Type.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.

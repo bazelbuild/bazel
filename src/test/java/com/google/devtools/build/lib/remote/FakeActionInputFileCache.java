@@ -22,7 +22,7 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileContentsProxy;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.IOException;
 
-/** A fake implementation of the {@link MetadataProvider} interface. */
-final class FakeActionInputFileCache implements MetadataProvider {
+/** A fake implementation of the {@link InputMetadataProvider} interface. */
+final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Path execRoot;
   private final BiMap<ActionInput, String> cas = HashBiMap.create();
   private final DigestUtil digestUtil;
@@ -45,7 +45,7 @@ final class FakeActionInputFileCache implements MetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     String hexDigest = Preconditions.checkNotNull(cas.get(input), input);
     Path path = execRoot.getRelative(input.getExecPath());
     FileStatus stat = path.stat(Symlinks.FOLLOW);

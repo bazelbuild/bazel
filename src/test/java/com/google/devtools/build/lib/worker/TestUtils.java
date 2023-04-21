@@ -19,16 +19,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
-import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -40,7 +36,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import net.starlark.java.syntax.Location;
 
 /** Utilities that come in handy when unit-testing the worker code. */
 class TestUtils {
@@ -64,21 +59,6 @@ class TestUtils {
         ResourceSet.ZERO);
   }
 
-  static ActionOwner createActionOwner(String mnemonic) {
-    return ActionOwner.create(
-        Label.parseCanonicalUnchecked("//null/action:owner"),
-        ImmutableList.of(),
-        new Location("dummy-file", 0, 0),
-        mnemonic,
-        "dummy-kind",
-        "dummy-configuration",
-        new BuildConfigurationEvent(
-            BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
-            BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        null,
-        ImmutableMap.of(),
-        null);
-  }
   /** A helper method to create a WorkerKey through WorkerParser. */
   static WorkerKey createWorkerKey(
       WorkerProtocolFormat protocolFormat,

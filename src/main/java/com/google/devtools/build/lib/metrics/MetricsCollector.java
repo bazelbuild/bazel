@@ -45,6 +45,9 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.packages.metrics.PackageLoadMetrics;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsPackageLoadingListener;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsRecorder;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -111,6 +114,10 @@ class MetricsCollector {
     numAnalyses.getAndIncrement();
   }
 
+  // For each of the 4 metrics allow only 10 entries to be printed when handling
+  // extremes.
+  private static final int MAX_EXTREME_PACKAGE_STATS = 4 * 10;
+
   @SuppressWarnings("unused")
   @Subscribe
   public void onAnalysisPhaseComplete(AnalysisPhaseCompleteEvent event) {
@@ -122,8 +129,22 @@ class MetricsCollector {
     targetMetrics
         .setTargetsConfigured(targetsConfigured.total())
         .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
+
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
+
+    if (PackageMetricsPackageLoadingListener.getInstance().getPublishPackageMetricsInBep()) {
+      PackageMetricsRecorder recorder =
+          PackageMetricsPackageLoadingListener.getInstance().getPackageMetricsRecorder();
+      if (recorder != null) {
+        Stream<PackageLoadMetrics> metrics =
+            recorder.getRecorderType() == PackageMetricsRecorder.Type.ONLY_EXTREMES
+                ? recorder.getPackageLoadMetrics().stream().limit(MAX_EXTREME_PACKAGE_STATS)
+                : recorder.getPackageLoadMetrics().stream();
+
+        metrics.forEach(packageMetrics::addPackageLoadMetrics);
+      }
+    }
   }
 
   @SuppressWarnings("unused")
@@ -263,9 +284,15 @@ class MetricsCollector {
     spawnSummary
         .entrySet()
         .forEach(
-            e ->
-                actionSummary.addRunnerCount(
-                    RunnerCount.newBuilder().setName(e.getKey()).setCount(e.getValue()).build()));
+            e -> {
+              RunnerCount.Builder builder = RunnerCount.newBuilder();
+              builder.setName(e.getKey()).setCount(e.getValue());
+              String execKind = spawnStats.getExecKindFor(e.getKey());
+              if (execKind != null) {
+                builder.setExecKind(execKind);
+              }
+              actionSummary.addRunnerCount(builder.build());
+            });
     return actionSummary.build();
   }
 

@@ -18,9 +18,9 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_BIMAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_LIST;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
+import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.VerifyException;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -30,7 +30,6 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.List;
 
 /**
@@ -89,25 +88,7 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
-  public static TypeAdapter<Registry> registryTypeAdapter(RegistryFactory registryFactory) {
-    return new TypeAdapter<>() {
-      @Override
-      public void write(JsonWriter jsonWriter, Registry registry) throws IOException {
-        jsonWriter.value(registry.getUrl());
-      }
-
-      @Override
-      public Registry read(JsonReader jsonReader) throws IOException {
-        try {
-          return registryFactory.getRegistryWithUrl(jsonReader.nextString());
-        } catch (URISyntaxException e) {
-          throw new VerifyException("Lockfile registry URL is not valid", e);
-        }
-      }
-    };
-  }
-
-  private static final GsonBuilder adapterGson =
+  public static final Gson LOCKFILE_GSON =
       new GsonBuilder()
           .setPrettyPrinting()
           .disableHtmlEscaping()
@@ -116,20 +97,11 @@ public final class GsonTypeAdapterUtil {
           .registerTypeAdapterFactory(IMMUTABLE_MAP)
           .registerTypeAdapterFactory(IMMUTABLE_LIST)
           .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
+          .registerTypeAdapterFactory(IMMUTABLE_SET)
           .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
-          .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER);
-
-  /**
-   * Gets a gson with registered adapters needed to read the lockfile.
-   *
-   * @param registryFactory Registry factory to use in the registry adapter
-   * @return gson with type adapters
-   */
-  public static Gson getLockfileGsonWithTypeAdapters(RegistryFactory registryFactory) {
-    return adapterGson
-        .registerTypeAdapter(Registry.class, registryTypeAdapter(registryFactory))
-        .create();
-  }
+          .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
+          .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
+          .create();
 
   private GsonTypeAdapterUtil() {}
 }

@@ -74,7 +74,7 @@ public interface SkyKey extends Serializable {
     return new SkyKeyInterner<>();
   }
 
-  /** {@link PooledInterner} for {@link SkyKey}s */
+  /** {@link PooledInterner} for {@link SkyKey}s. */
   final class SkyKeyInterner<T extends SkyKey> extends PooledInterner<T> {
     @Nullable static Pool<? extends SkyKey> globalPool = null;
 

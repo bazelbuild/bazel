@@ -19,7 +19,6 @@ import static org.mockito.Mockito.mock;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
-import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -42,9 +41,8 @@ public class BuildDriverFunctionTest {
         new TransitiveActionLookupValuesHelper() {
           @Override
           public ActionLookupValuesCollectionResult collect(ActionLookupKey key) {
-            // Return an empty sharder to have an easy "conflict free" scenario.
             return ActionLookupValuesCollectionResult.create(
-                new Sharder<>(1, 1), ImmutableSet.of(key));
+                ImmutableSet.of(), ImmutableSet.of(key));
           }
 
           @Override

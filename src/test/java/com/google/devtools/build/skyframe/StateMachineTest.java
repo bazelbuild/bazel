@@ -31,10 +31,10 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeS
 import com.google.devtools.build.skyframe.state.Driver;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.ValueOrException2Producer;
+import com.google.devtools.build.skyframe.state.ValueOrException3Producer;
 import com.google.devtools.build.skyframe.state.ValueOrExceptionProducer;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -511,8 +511,26 @@ public final class StateMachineTest {
     assertThatEvaluationResult(result).hasSingletonErrorThat(KEY_A2);
   }
 
+  private static class SomeErrorException1 extends SomeErrorException {
+    public SomeErrorException1(String msg) {
+      super(msg);
+    }
+  }
+
+  private static class SomeErrorException2 extends SomeErrorException {
+    public SomeErrorException2(String msg) {
+      super(msg);
+    }
+  }
+
+  private static class SomeErrorException3 extends SomeErrorException {
+    public SomeErrorException3(String msg) {
+      super(msg);
+    }
+  }
+
   private static class StringOrException2Producer
-      extends ValueOrException2Producer<StringValue, SomeErrorException, ExecutionException>
+      extends ValueOrException2Producer<StringValue, SomeErrorException1, SomeErrorException2>
       implements SkyKeyComputeState {
     @Override
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
@@ -521,7 +539,7 @@ public final class StateMachineTest {
           SomeErrorException.class,
           (v, e) -> {
             if (e != null) {
-              setException1(e);
+              setException1(new SomeErrorException1(e.getMessage()));
             }
           });
       tasks.lookUp(
@@ -529,7 +547,7 @@ public final class StateMachineTest {
           SomeErrorException.class,
           (v, e) -> {
             if (e != null) {
-              setException2(new ExecutionException(e));
+              setException2(new SomeErrorException2(e.getMessage()));
             }
           });
       return (t, l) -> {
@@ -554,7 +572,7 @@ public final class StateMachineTest {
                   return null;
                 }
                 assertThat(value).isEqualTo(SUCCESS_VALUE);
-              } catch (SomeErrorException | ExecutionException e) {
+              } catch (SomeErrorException e) {
                 fail("Unexpecteded exception: " + e);
               }
               return DONE_VALUE;
@@ -577,19 +595,151 @@ public final class StateMachineTest {
               if (!hasRestarted.getAndSet(true)) {
                 try {
                   assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
-                } catch (SomeErrorException | ExecutionException e) {
+                } catch (SomeErrorException e) {
                   fail("Unexpecteded exception: " + e);
                 }
                 return null;
               }
               if (trueForException1) {
                 assertThrows(
-                    SomeErrorException.class,
+                    SomeErrorException1.class,
                     () -> producer.tryProduceValue(env, env.getListener()));
               } else {
                 assertThrows(
-                    ExecutionException.class,
+                    SomeErrorException2.class,
                     () -> producer.tryProduceValue(env, env.getListener()));
+              }
+              return DONE_VALUE;
+            });
+    var result = eval(ROOT_KEY, keepGoing);
+    if (keepGoing) {
+      assertThat(result.get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+      assertThat(result.hasError()).isFalse();
+    } else {
+      assertThat(result.get(ROOT_KEY)).isNull();
+      assertThatEvaluationResult(result).hasSingletonErrorThat(errorKey);
+    }
+  }
+
+  private static class StringOrException3Producer
+      extends ValueOrException3Producer<
+          StringValue, SomeErrorException1, SomeErrorException2, SomeErrorException3>
+      implements SkyKeyComputeState {
+    @Override
+    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      tasks.lookUp(
+          KEY_A1,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (e != null) {
+              setException1(new SomeErrorException1(e.getMessage()));
+            }
+          });
+      tasks.lookUp(
+          KEY_A2,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (e != null) {
+              setException2(new SomeErrorException2(e.getMessage()));
+            }
+          });
+      tasks.lookUp(
+          KEY_A3,
+          SomeErrorException.class,
+          (v, e) -> {
+            if (e != null) {
+              setException3(new SomeErrorException3(e.getMessage()));
+            }
+          });
+      return (t, l) -> {
+        if (getException1() == null && getException2() == null && getException3() == null) {
+          setValue(SUCCESS_VALUE);
+        }
+        return DONE;
+      };
+    }
+  }
+
+  @Test
+  public void valueOrException3Producer_propagatesValues() throws InterruptedException {
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException3Producer::new);
+              SkyValue value;
+              try {
+                if ((value = producer.tryProduceValue(env, env.getListener())) == null) {
+                  return null;
+                }
+                assertThat(value).isEqualTo(SUCCESS_VALUE);
+              } catch (SomeErrorException e) {
+                fail("Unexpecteded exception: " + e);
+              }
+              return DONE_VALUE;
+            });
+    assertThat(eval(ROOT_KEY, /* keepGoing= */ false).get(ROOT_KEY)).isEqualTo(DONE_VALUE);
+  }
+
+  enum ValueOrException3ExceptionCase {
+    ONE {
+      @Override
+      SkyKey errorKey() {
+        return KEY_A1;
+      }
+    },
+    TWO {
+      @Override
+      SkyKey errorKey() {
+        return KEY_A2;
+      }
+    },
+    THREE {
+      @Override
+      SkyKey errorKey() {
+        return KEY_A3;
+      }
+    };
+
+    abstract SkyKey errorKey();
+  }
+
+  @Test
+  public void valueOrException3Producer_propagatesExceptions(
+      @TestParameter ValueOrException3ExceptionCase exceptionCase, @TestParameter boolean keepGoing)
+      throws InterruptedException {
+    var hasRestarted = new AtomicBoolean(false);
+    SkyKey errorKey = exceptionCase.errorKey();
+    tester.getOrCreate(errorKey).unsetConstantValue().setHasError(true);
+    tester
+        .getOrCreate(ROOT_KEY)
+        .setBuilder(
+            (k, env) -> {
+              var producer = env.getState(StringOrException3Producer::new);
+              if (!hasRestarted.getAndSet(true)) {
+                try {
+                  assertThat(producer.tryProduceValue(env, env.getListener())).isNull();
+                } catch (SomeErrorException e) {
+                  fail("Unexpecteded exception: " + e);
+                }
+                return null;
+              }
+              switch (exceptionCase) {
+                case ONE:
+                  assertThrows(
+                      SomeErrorException1.class,
+                      () -> producer.tryProduceValue(env, env.getListener()));
+                  break;
+                case TWO:
+                  assertThrows(
+                      SomeErrorException2.class,
+                      () -> producer.tryProduceValue(env, env.getListener()));
+                  break;
+                case THREE:
+                  assertThrows(
+                      SomeErrorException3.class,
+                      () -> producer.tryProduceValue(env, env.getListener()));
+                  break;
               }
               return DONE_VALUE;
             });
@@ -804,7 +954,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public void accept(@Nullable SkyValue value, @Nullable Exception1 exception1) {
+    public void acceptValueOrException(@Nullable SkyValue value, @Nullable Exception1 exception1) {
       checkState(this.value == null && exception == null);
       if (value != null) {
         this.value = value;
@@ -817,7 +967,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public void accept(
+    public void acceptValueOrException2(
         @Nullable SkyValue value,
         @Nullable Exception1 exception1,
         @Nullable Exception2 exception2) {
@@ -839,7 +989,7 @@ public final class StateMachineTest {
     }
 
     @Override
-    public void accept(
+    public void acceptValueOrException3(
         @Nullable SkyValue value,
         @Nullable Exception1 exception1,
         @Nullable Exception2 exception2,

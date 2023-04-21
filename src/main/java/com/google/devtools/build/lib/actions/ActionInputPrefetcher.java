@@ -20,12 +20,22 @@ import java.io.IOException;
 
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
+  /**
+   * Returns the metadata for an {@link ActionInput}.
+   *
+   * <p>This will generally call through to a {@link InputMetadataProvider} and ask for the metadata
+   * of either an input or an output artifact.
+   */
+  public interface MetadataSupplier {
+    FileArtifactValue getMetadata(ActionInput actionInput) throws IOException, InterruptedException;
+  }
+
   public static final ActionInputPrefetcher NONE =
       new ActionInputPrefetcher() {
         @Override
         public ListenableFuture<Void> prefetchFiles(
             Iterable<? extends ActionInput> inputs,
-            MetadataProvider metadataProvider,
+            MetadataSupplier metadataSupplier,
             Priority priority) {
           // Do nothing.
           return immediateVoidFuture();
@@ -69,7 +79,7 @@ public interface ActionInputPrefetcher {
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider, Priority priority);
+      Iterable<? extends ActionInput> inputs, MetadataSupplier metadataSupplier, Priority priority);
 
   /**
    * Whether the prefetcher requires the metadata for a tree artifact to be available whenever one

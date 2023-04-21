@@ -998,7 +998,8 @@ public final class RemoteModule extends BlazeModule {
               (path) -> {
                 FileSystem fileSystem = path.getFileSystem();
                 if (fileSystem instanceof RemoteActionFileSystem) {
-                  return (RemoteActionFileSystem) path.getFileSystem();
+                  RemoteActionFileSystem rafs = (RemoteActionFileSystem) path.getFileSystem();
+                  return rafs::getOutputMetadataForTopLevelArtifactDownloader;
                 }
                 return null;
               });

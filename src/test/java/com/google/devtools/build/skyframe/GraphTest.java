@@ -524,7 +524,7 @@ public abstract class GraphTest {
     }
   }
 
-  private static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
+  protected static DependencyState startEvaluation(NodeEntry entry) throws InterruptedException {
     return entry.addReverseDepAndCheckIfDone(null);
   }
 }

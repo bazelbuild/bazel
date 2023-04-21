@@ -800,6 +800,7 @@ public abstract class CcModule
       Sequence<?> directPublicHdrs,
       Sequence<?> directPrivateHdrs,
       Object purposeNoneable,
+      Object moduleMap,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -843,6 +844,9 @@ public abstract class CcModule
         && purposeNoneable != Starlark.UNBOUND
         && purposeNoneable != Starlark.NONE) {
       ccCompilationContext.setPurpose((String) purposeNoneable);
+    }
+    if (moduleMap != null && moduleMap != Starlark.UNBOUND && moduleMap != Starlark.NONE) {
+      ccCompilationContext.setCppModuleMap((CppModuleMap) moduleMap);
     }
 
     return ccCompilationContext.build();

@@ -145,10 +145,7 @@ public class WorkerModule extends BlazeModule {
 
     WorkerPoolConfig newConfig =
         new WorkerPoolConfig(
-            workerFactory,
-            options.workerMaxInstances,
-            options.workerMaxMultiplexInstances,
-            options.highPriorityWorkers);
+            workerFactory, options.workerMaxInstances, options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (workerPool == null || !newConfig.equals(workerPool.getWorkerPoolConfig())) {
@@ -162,12 +159,18 @@ public class WorkerModule extends BlazeModule {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
+
+      // Start collecting after a pool is defined
+      workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+      if (options.workerVerbose) {
+        workerLifecycleManager.setReporter(env.getReporter());
+      }
+      workerLifecycleManager.setDaemon(true);
+      workerLifecycleManager.start();
     }
 
-    // Start collecting after a pool is defined
-    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    workerLifecycleManager.setDaemon(true);
-    workerLifecycleManager.start();
+    // Clean doomed workers on the beginning of a build.
+    workerPool.clearDoomedWorkers();
   }
 
   @Override

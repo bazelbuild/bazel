@@ -173,7 +173,7 @@ def _bar_binary_impl(ctx):
 ```
 
 `ctx.toolchains["//bar_tools:toolchain_type"]` returns the
-[`ToolchainInfo` provider](/rules/lib/platform_common#ToolchainInfo)
+[`ToolchainInfo` provider](/rules/lib/toplevel/platform_common#ToolchainInfo)
 of whatever target Bazel resolved the toolchain dependency to. The fields of the
 `ToolchainInfo` object are set by the underlying tool's rule; in the next
 section, this rule is defined such that there is a `barcinfo` field that wraps
@@ -207,7 +207,7 @@ bar_binary = rule(
 When an optional toolchain type cannot be resolved, analysis continues, and the
 result of `ctx.toolchains["//bar_tools:toolchain_type"]` is `None`.
 
-The [`config_common.toolchain_type`](/rules/lib/config_common#toolchain_type)
+The [`config_common.toolchain_type`](/rules/lib/toplevel/config_common#toolchain_type)
 function defaults to mandatory.
 
 The following forms can be used:
@@ -407,7 +407,7 @@ bar_toolchain = rule(
 )
 ```
 
-The use of [`attr.label`](/rules/lib/attr#label) is the same as for a standard rule,
+The use of [`attr.label`](/rules/lib/toplevel/attr#label) is the same as for a standard rule,
 but the meaning of the `cfg` parameter is slightly different.
 
 The dependency from a target (called the "parent") to a toolchain via toolchain
@@ -486,9 +486,9 @@ platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
 `WORKSPACE` file via
-[`register_execution_platforms`](/rules/lib/globals#register_execution_platforms)
+[`register_execution_platforms`](/rules/lib/globals/workspace#register_execution_platforms)
 and
-[`register_toolchains`](/rules/lib/globals#register_toolchains).
+[`register_toolchains`](/rules/lib/globals/workspace#register_toolchains).
 Additional execution platforms and toolchains may also be specified on the
 command line via
 [`--extra_execution_platforms`](/reference/command-line-reference#flag--extra_execution_platforms)
@@ -510,7 +510,7 @@ The resolution steps are as follows.
 1. If the target being built specifies the
    [`exec_compatible_with` attribute](/reference/be/common-definitions#common.exec_compatible_with)
    (or its rule definition specifies the
-   [`exec_compatible_with` argument](/rules/lib/globals#rule.exec_compatible_with)),
+   [`exec_compatible_with` argument](/rules/lib/globals/bzl#rule.exec_compatible_with)),
    the list of available execution platforms is filtered to remove
    any that do not match the execution constraints.
 

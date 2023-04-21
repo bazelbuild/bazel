@@ -9,7 +9,7 @@ Book: /_book.yaml
 
 This page is an overview of [Starlark](https://github.com/bazelbuild/starlark),
 formerly known as Skylark, the language used in Bazel. For a complete list of
-functions and types, see the [Bazel API reference](/rules/lib/starlark-overview).
+functions and types, see the [Bazel API reference](/rules/lib/overview).
 
 For more information about the language, see [Starlark's GitHub repo](https://github.com/bazelbuild/starlark/).
 
@@ -100,7 +100,7 @@ definitions for constants, rules, macros, and functions.
 [Native functions](/reference/be/functions) and [native rules](
 /reference/be/overview#language-specific-native-rules) are global symbols in
 `BUILD` files. `bzl` files need to load them using the [`native` module](
-https://bazel.build/rules/lib/native).
+/rules/lib/toplevel/native).
 
 There are two syntactic restrictions in `BUILD` files: 1) declaring functions is
 illegal, and 2) `*args` and `**kwargs` arguments are not allowed.

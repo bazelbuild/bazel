@@ -64,38 +64,39 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " to associate a label with the file that rules can refer to (allowing finer"
           + " dependency control) instead of referencing the whole rule.";
   String EXECUTABLE_DOC =
-      "A <code>struct</code> containing executable files defined in <a "
-          + "href='attr.html#label'>label type attributes</a> marked as <a "
-          + "href='attr.html#label.executable'><code>executable=True</code><a>. The struct "
-          + "fields correspond to the attribute names. Each value in the struct is either a <a "
-          + "href='File.html'><code>File</code></a> or <code>None</code>. If an optional "
-          + "attribute is not specified in the rule then the corresponding struct value is "
-          + "<code>None</code>. If a label type is not marked as <code>executable=True</code>, no "
-          + "corresponding struct field is generated. <a "
-          + "href=\"https://github.com/bazelbuild/examples/blob/main/rules/actions_run/"
-          + "execute.bzl\">See example of use</a>.";
+      "A <code>struct</code> containing executable files defined in <a"
+          + " href='../toplevel/attr.html#label'>label type attributes</a> marked as <a"
+          + " href='../toplevel/attr.html#label.executable'><code>executable=True</code></a>. The"
+          + " struct fields correspond to the attribute names. Each value in the struct is either a"
+          + " <a href='../builtins/File.html'><code>File</code></a> or <code>None</code>. If an"
+          + " optional attribute is not specified in the rule then the corresponding struct value"
+          + " is <code>None</code>. If a label type is not marked as <code>executable=True</code>,"
+          + " no corresponding struct field is generated. <a "
+          + "href=\"https://github.com/bazelbuild/examples/blob/main/rules/actions_run/execute.bzl\">See"
+          + " example of use</a>.";
   String FILES_DOC =
-      "A <code>struct</code> containing files defined in <a href='attr.html#label'>label</a> or <a"
-          + " href='attr.html#label_list'>label list</a> type attributes. The struct fields"
-          + " correspond to the attribute names. The struct values are <code>list</code> of <a"
-          + " href='File.html'><code>File</code></a>s.  It is a shortcut for:<pre"
+      "A <code>struct</code> containing files defined in <a"
+          + " href='../toplevel/attr.html#label'>label</a> or <a"
+          + " href='../toplevel/attr.html#label_list'>label list</a> type attributes. The struct"
+          + " fields correspond to the attribute names. The struct values are <code>list</code> of"
+          + " <a href='../builtins/File.html'><code>File</code></a>s.  It is a shortcut for:<pre"
           + " class=language-python>[f for t in ctx.attr.&lt;ATTR&gt; for f in t.files]</pre> In"
           + " other words, use <code>files</code> to access the <a"
-          + " href=\"https://bazel.build/extending/rules#requesting_output_files\">"
-          + " default outputs</a> of a dependency. <a"
+          + " href=\"https://bazel.build/extending/rules#requesting_output_files\"> default"
+          + " outputs</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/depsets/foo.bzl\">See"
           + " example of use</a>.";
   String FILE_DOC =
-      "A <code>struct</code> containing files defined in <a href='attr.html#label'>label type"
-          + " attributes</a> marked as <a"
-          + " href='attr.html#label.allow_single_file'><code>allow_single_file</code></a>. The"
-          + " struct fields correspond to the attribute names. The struct value is always a <a"
-          + " href='File.html'><code>File</code></a> or <code>None</code>. If an optional attribute"
-          + " is not specified in the rule then the corresponding struct value is"
-          + " <code>None</code>. If a label type is not marked as <code>allow_single_file</code>,"
-          + " no corresponding struct field is generated. It is a shortcut for:<pre"
-          + " class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In other words, use"
-          + " <code>file</code> to access the (singular) <a"
+      "A <code>struct</code> containing files defined in <a"
+          + " href='../toplevel/attr.html#label'>label type attributes</a> marked as <a"
+          + " href='../toplevel/attr.html#label.allow_single_file'><code>allow_single_file</code></a>."
+          + " The struct fields correspond to the attribute names. The struct value is always a <a"
+          + " href='../builtins/File.html'><code>File</code></a> or <code>None</code>. If an"
+          + " optional attribute is not specified in the rule then the corresponding struct value"
+          + " is <code>None</code>. If a label type is not marked as"
+          + " <code>allow_single_file</code>, no corresponding struct field is generated. It is a"
+          + " shortcut for:<pre class=language-python>list(ctx.attr.&lt;ATTR&gt;.files)[0]</pre>In"
+          + " other words, use <code>file</code> to access the (singular) <a"
           + " href=\"https://bazel.build/extending/rules#requesting_output_files\">default"
           + " output</a> of a dependency. <a"
           + " href=\"https://github.com/bazelbuild/examples/blob/main/rules/expand_template/hello.bzl\">See"
@@ -105,8 +106,8 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + " href='https://bazel.build/extending/rules#attributes'>attributes</a>. The values are"
           + " provided by the user (if not, a default value is used). The attributes of the struct"
           + " and the types of their values correspond to the keys and values of the <a"
-          + " href='globals.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a"
-          + " href='globals.html#rule'><code>rule</code> function</a>. <a "
+          + " href='../globals/bzl.html#rule.attrs'><code>attrs</code> dict</a> provided to the <a"
+          + " href='../globals/bzl.html#rule'><code>rule</code> function</a>. <a "
           + "href=\"https://github.com/bazelbuild/examples/blob/main/rules/attributes/printer.bzl\">See"
           + " example of use</a>.";
   String SPLIT_ATTR_DOC =
@@ -119,34 +120,36 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
           + "merged together.";
   String OUTPUTS_DOC =
       "A pseudo-struct containing all the predeclared output files, represented by <a"
-          + " href='File.html'><code>File</code></a> objects. See the <a"
+          + " href='../builtins/File.html'><code>File</code></a> objects. See the <a"
           + " href='https://bazel.build/extending/rules#files'>Rules page</a> for more information"
           + " and examples.<p>This field does not exist on aspect contexts, since aspects do not"
           + " have predeclared outputs.<p>The fields of this object are defined as follows. It is"
           + " an error if two outputs produce the same field name or have the same label.<ul><li>"
-          + " If the rule declares an <a href='globals.html#rule.outputs'><code>outputs</code></a>"
-          + " dict, then for every entry in the dict, there is a field whose name is the key and"
-          + " whose value is the corresponding <code>File</code>.<li>For every attribute of type <a"
-          + " href='attr.html#output'><code>attr.output</code></a> that the rule declares, there is"
-          + " a field whose name is the attribute's name. If the target specified a label for that"
-          + " attribute, then the field value is the corresponding <code>File</code>; otherwise the"
-          + " field value is <code>None</code>.<li>For every attribute of type <a"
-          + " href='attr.html#output_list'><code>attr.output_list</code></a> that the rule"
-          + " declares, there is a field whose name is the attribute's name. The field value is a"
-          + " list of <code>File</code> objects corresponding to the labels given for that"
+          + " If the rule declares an <a"
+          + " href='../globals/bzl.html#rule.outputs'><code>outputs</code></a> dict, then for every"
+          + " entry in the dict, there is a field whose name is the key and whose value is the"
+          + " corresponding <code>File</code>.<li>For every attribute of type <a"
+          + " href='../toplevel/attr.html#output'><code>attr.output</code></a> that the rule"
+          + " declares, there is a field whose name is the attribute's name. If the target"
+          + " specified a label for that attribute, then the field value is the corresponding"
+          + " <code>File</code>; otherwise the field value is <code>None</code>.<li>For every"
+          + " attribute of type <a"
+          + " href='../toplevel/attr.html#output_list'><code>attr.output_list</code></a> that the"
+          + " rule declares, there is a field whose name is the attribute's name. The field value"
+          + " is a list of <code>File</code> objects corresponding to the labels given for that"
           + " attribute in the target, or an empty list if the attribute was not specified in the"
           + " target.<li><b>(Deprecated)</b> If the rule is marked <a"
-          + " href='globals.html#rule.executable'><code>executable</code></a> or <a"
-          + " href='globals.html#rule.test'><code>test</code></a>, there is a field named"
+          + " href='../globals/bzl.html#rule.executable'><code>executable</code></a> or <a"
+          + " href='../globals/bzl.html#rule.test'><code>test</code></a>, there is a field named"
           + " <code>\"executable\"</code>, which is the default executable. It is recommended that"
           + " instead of using this, you pass another file (either predeclared or not) to the"
           + " <code>executable</code> arg of <a"
-          + " href='DefaultInfo.html'><code>DefaultInfo</code></a>.</ul>";
+          + " href='../providers/DefaultInfo.html'><code>DefaultInfo</code></a>.</ul>";
 
   @StarlarkMethod(
       name = "default_provider",
       structField = true,
-      doc = "Deprecated. Use <a href=\"DefaultInfo.html\">DefaultInfo</a> instead.")
+      doc = "Deprecated. Use <a href=\"../providers/DefaultInfo.html\">DefaultInfo</a> instead.")
   ProviderApi getDefaultProvider();
 
   @StarlarkMethod(
@@ -158,10 +161,10 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "created_actions",
       doc =
-          "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable</a>"
-              + " set to <code>True</code>, this returns an <a"
-              + " href=\"globals.html#Actions\">Actions</a> provider representing all actions"
-              + " created so far for the current rule. For all other rules, returns"
+          "For rules with <a"
+              + " href=\"../globals/bzl.html#rule._skylark_testable\">_skylark_testable</a> set to"
+              + " <code>True</code>, this returns an <code>Actions</code> provider representing all"
+              + " actions created so far for the current rule. For all other rules, returns"
               + " <code>None</code>. Note that the provider is not updated when subsequent actions"
               + " are created, so you will have to call this function again if you wish to inspect"
               + " them. <br/><br/>This is intended to help write tests for rule-implementation"
@@ -206,7 +209,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "configuration",
       structField = true,
       doc =
-          "The default configuration. See the <a href=\"configuration.html\">"
+          "The default configuration. See the <a href=\"../builtins/configuration.html\">"
               + "configuration</a> type for more details.")
   BuildConfigurationApi getConfiguration() throws EvalException;
 
@@ -223,17 +226,16 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "coverage_instrumented",
       doc =
-          "Returns whether code coverage instrumentation should be generated when performing "
-              + "compilation actions for this rule or, if <code>target</code> is provided, the "
-              + "rule specified by that Target. (If a non-rule or a Starlark rule Target is "
-              + "provided, this returns False.) Checks if the sources of the current rule "
-              + "(if no Target is provided) or the sources of Target should be instrumented "
-              + "based on the --instrumentation_filter and "
-              + "--instrument_test_targets config settings. "
-              + "This differs from <code>coverage_enabled</code> in the "
-              + "<a href=\"configuration.html\">configuration</a>, which notes whether coverage "
-              + "data collection is enabled for the entire run, but not whether a specific "
-              + "target should be instrumented.",
+          "Returns whether code coverage instrumentation should be generated when performing"
+              + " compilation actions for this rule or, if <code>target</code> is provided, the"
+              + " rule specified by that Target. (If a non-rule or a Starlark rule Target is"
+              + " provided, this returns False.) Checks if the sources of the current rule (if no"
+              + " Target is provided) or the sources of Target should be instrumented based on the"
+              + " --instrumentation_filter and --instrument_test_targets config settings. This"
+              + " differs from <code>coverage_enabled</code> in the <a"
+              + " href=\"../builtins/configuration.html\">configuration</a>, which notes whether"
+              + " coverage data collection is enabled for the entire run, but not whether a"
+              + " specific target should be instrumented.",
       parameters = {
         @Param(
             name = "target",
@@ -342,21 +344,16 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "new_file",
       doc =
-          "DEPRECATED. Use <a href=\"actions.html#declare_file\">ctx.actions.declare_file</a>. <br>"
-              + "Creates a file object. There are four possible signatures to this method:<br><ul>"
-              + ""
-              + "<li>new_file(filename): Creates a file object with the given filename in the "
-              + "current package.</li>"
-              + ""
-              + "<li>new_file(file_root, filename): Creates a file object with the given "
-              + "filename under the given file root.</li>"
-              + ""
-              + "<li>new_file(sibling_file, filename): Creates a file object in the same "
-              + "directory as the given sibling file.</li>"
-              + ""
-              + "<li>new_file(file_root, sibling_file, suffix): Creates a file object with same "
-              + "base name of the sibling_file but with different given suffix, under the given "
-              + "file root.</li></ul> <br>"
+          "DEPRECATED. Use <a"
+              + " href=\"../builtins/actions.html#declare_file\">ctx.actions.declare_file</a>."
+              + " <br>Creates a file object. There are four possible signatures to this"
+              + " method:<br><ul><li>new_file(filename): Creates a file object with the given"
+              + " filename in the current package.</li><li>new_file(file_root, filename): Creates a"
+              + " file object with the given filename under the given file root.</li>"
+              + "<li>new_file(sibling_file, filename): Creates a file object in the same directory"
+              + " as the given sibling file.</li><li>new_file(file_root, sibling_file, suffix):"
+              + " Creates a file object with same base name of the sibling_file but with different"
+              + " given suffix, under the given file root.</li></ul> <br>"
               + DOC_NEW_FILE_TAIL,
       parameters = {
         @Param(
@@ -405,19 +402,16 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "expand_make_variables",
       doc =
-          "<b>Deprecated.</b> Use <a href=\"ctx.html#var\">ctx.var</a> to access the variables "
-              + "instead.<br>Returns a string after expanding all references to \"Make "
-              + "variables\". The "
-              + "variables must have the following format: <code>$(VAR_NAME)</code>. Also, "
-              + "<code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. "
-              + "Examples:"
-              + "<pre class=language-python>\n"
-              + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  "
-              + "# == \"Hi\"\n"
+          "<b>Deprecated.</b> Use <a href=\"../builtins/ctx.html#var\">ctx.var</a> to access the"
+              + " variables instead.<br>Returns a string after expanding all references to \"Make"
+              + " variables\". The variables must have the following format:"
+              + " <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME</code> expands to"
+              + " <code>$VAR_NAME</code>. Examples:<pre class=language-python>\n"
+              + "ctx.expand_make_variables(\"cmd\", \"$(MY_VAR)\", {\"MY_VAR\": \"Hi\"})  # =="
+              + " \"Hi\"\n"
               + "ctx.expand_make_variables(\"cmd\", \"$$PWD\", {})  # == \"$PWD\"\n"
-              + "</pre>"
-              + "Additional variables may come from other places, such as configurations. Note "
-              + "that this function is experimental.",
+              + "</pre>Additional variables may come from other places, such as configurations."
+              + " Note that this function is experimental.",
       parameters = {
         @Param(
             name = "attribute_name",
