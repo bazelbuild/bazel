@@ -15,6 +15,10 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
+import static java.util.Comparator.naturalOrder;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -22,14 +26,19 @@ import com.google.common.collect.Comparators;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -62,10 +71,40 @@ import javax.annotation.Nullable;
  *       be removed before the end of selection (by becoming unreachable, for example), otherwise
  *       it'll be an error since they're not allowed by the override (these versions are in
  *       selection groups that have no valid target allowed version).
+ *   <li>Things get even more complicated with max_compatibility_level. The difference this
+ *       introduces is that each "DepSpec" could be satisfied by one of multiple choices. (Without
+ *       max_compatibility_level, there is always only one choice.) So what we do is go through all
+ *       the combinations of possible choices for each distinct DepSpec, and for each combination,
+ *       see if the resulting dep graph is valid. As soon as we find a valid combination, we return
+ *       that result. The distinct DepSpecs are sorted by the order they first appear in the dep
+ *       graph if we BFS from the root module. The combinations are attempted in the typical
+ *       cartesian product order (see {@link Lists#cartesianProduct}); the "version choices" of each
+ *       DepSpec are sorted from low to high.
  * </ul>
  */
 final class Selection {
   private Selection() {}
+
+  /** The result of selection. */
+  @AutoValue
+  abstract static class Result {
+    /** Final dep graph sorted in BFS iteration order, with unused modules removed. */
+    abstract ImmutableMap<ModuleKey, InterimModule> getResolvedDepGraph();
+
+    /**
+     * Un-pruned dep graph, with updated dep keys, and additionally containing the unused modules
+     * which were initially discovered (and their MODULE.bazel files loaded). Does not contain
+     * modules overridden by {@code single_version_override} or {@link NonRegistryOverride}, only by
+     * {@code multiple_version_override}.
+     */
+    abstract ImmutableMap<ModuleKey, InterimModule> getUnprunedDepGraph();
+
+    static Result create(
+        ImmutableMap<ModuleKey, InterimModule> resolvedDepGraph,
+        ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph) {
+      return new AutoValue_Selection_Result(resolvedDepGraph, unprunedDepGraph);
+    }
+  }
 
   /** During selection, a version is selected for each distinct "selection group". */
   @AutoValue
@@ -102,7 +141,8 @@ final class Selection {
    */
   private static ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>>
       computeAllowedVersionSets(
-          ImmutableMap<String, ModuleOverride> overrides, ImmutableMap<ModuleKey, Module> depGraph)
+          ImmutableMap<String, ModuleOverride> overrides,
+          ImmutableMap<ModuleKey, InterimModule> depGraph)
           throws ExternalDepsException {
     Map<ModuleNameAndCompatibilityLevel, ImmutableSortedSet.Builder<Version>> allowedVersionSets =
         new HashMap<>();
@@ -114,7 +154,8 @@ final class Selection {
       }
       ImmutableList<Version> allowedVersions = ((MultipleVersionOverride) override).getVersions();
       for (Version allowedVersion : allowedVersions) {
-        Module allowedVersionModule = depGraph.get(ModuleKey.create(moduleName, allowedVersion));
+        InterimModule allowedVersionModule =
+            depGraph.get(ModuleKey.create(moduleName, allowedVersion));
         if (allowedVersionModule == null) {
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
@@ -143,7 +184,7 @@ final class Selection {
    * used to compute its targetAllowedVersion.
    */
   private static SelectionGroup computeSelectionGroup(
-      Module module,
+      InterimModule module,
       ImmutableMap<ModuleNameAndCompatibilityLevel, ImmutableSortedSet<Version>>
           allowedVersionSets) {
     ImmutableSortedSet<Version> allowedVersionSet =
@@ -152,10 +193,11 @@ final class Selection {
                 module.getName(), module.getCompatibilityLevel()));
     if (allowedVersionSet == null) {
       // This means that this module has no multiple-version override.
-      return SelectionGroup.create(module.getName(), module.getCompatibilityLevel(), Version.EMPTY);
+      return SelectionGroup.create(
+          module.getKey().getName(), module.getCompatibilityLevel(), Version.EMPTY);
     }
     return SelectionGroup.create(
-        module.getName(),
+        module.getKey().getName(),
         module.getCompatibilityLevel(),
         // We use the `ceiling` method here to quickly locate the lowest allowed version that's
         // still no lower than this module's version.
@@ -166,10 +208,94 @@ final class Selection {
   }
 
   /**
-   * Runs module selection (aka version resolution). Returns a {@link BazelModuleResolutionValue}.
+   * Computes the possible list of ModuleKeys a single given DepSpec can resolve to. This is
+   * normally just one ModuleKey, but when max_compatibility_level is involved, multiple choices may
+   * be possible.
    */
-  public static BazelModuleResolutionValue run(
-      ImmutableMap<ModuleKey, Module> depGraph, ImmutableMap<String, ModuleOverride> overrides)
+  private static ImmutableList<ModuleKey> computePossibleResolutionResultsForOneDepSpec(
+      DepSpec depSpec,
+      ImmutableMap<ModuleKey, SelectionGroup> selectionGroups,
+      Map<SelectionGroup, Version> selectedVersions) {
+    int minCompatibilityLevel = selectionGroups.get(depSpec.toModuleKey()).getCompatibilityLevel();
+    int maxCompatibilityLevel =
+        depSpec.getMaxCompatibilityLevel() < 0
+            ? minCompatibilityLevel
+            : depSpec.getMaxCompatibilityLevel();
+    // First find the selection groups that this DepSpec could use.
+    return Maps.filterKeys(
+            selectedVersions,
+            group ->
+                group.getModuleName().equals(depSpec.getName())
+                    && group.getCompatibilityLevel() >= minCompatibilityLevel
+                    && group.getCompatibilityLevel() <= maxCompatibilityLevel
+                    && group.getTargetAllowedVersion().compareTo(depSpec.getVersion()) >= 0)
+        .entrySet()
+        .stream()
+        // Collect into an ImmutableSortedMap so that:
+        //  1. The final list is sorted by compatibility level, guaranteeing lowest version first;
+        //  2. Only one ModuleKey is attempted per compatibility level, so that in the case of a
+        //     multiple-version override, we only try the lowest allowed version in that
+        //     compatibility level (note the Comparators::min call).
+        .collect(
+            toImmutableSortedMap(
+                naturalOrder(),
+                e -> e.getKey().getCompatibilityLevel(),
+                e -> e.getValue(),
+                Comparators::min))
+        .values()
+        .stream()
+        .map(v -> ModuleKey.create(depSpec.getName(), v))
+        .collect(toImmutableList());
+  }
+
+  /**
+   * Computes the possible list of ModuleKeys a DepSpec can resolve to, for all distinct DepSpecs in
+   * the dependency graph.
+   */
+  private static ImmutableMap<DepSpec, ImmutableList<ModuleKey>> computePossibleResolutionResults(
+      ImmutableMap<ModuleKey, InterimModule> depGraph,
+      ImmutableMap<ModuleKey, SelectionGroup> selectionGroups,
+      Map<SelectionGroup, Version> selectedVersions) {
+    // Important that we use a LinkedHashMap here to ensure reproducibility.
+    Map<DepSpec, ImmutableList<ModuleKey>> results = new LinkedHashMap<>();
+    for (InterimModule module : depGraph.values()) {
+      for (DepSpec depSpec : module.getDeps().values()) {
+        results.computeIfAbsent(
+            depSpec,
+            ds ->
+                computePossibleResolutionResultsForOneDepSpec(
+                    ds, selectionGroups, selectedVersions));
+      }
+    }
+    return ImmutableMap.copyOf(results);
+  }
+
+  /**
+   * Given the possible list of ModuleKeys each DepSpec can resolve to, enumerate through all the
+   * possible resolution strategies. Each strategy assigns each DepSpec to a single ModuleKey out of
+   * its possible list.
+   */
+  private static List<Function<DepSpec, ModuleKey>> enumerateStrategies(
+      ImmutableMap<DepSpec, ImmutableList<ModuleKey>> possibleResolutionResults) {
+    Map<DepSpec, Integer> depSpecToPosition = new HashMap<>();
+    int position = 0;
+    for (DepSpec depSpec : possibleResolutionResults.keySet()) {
+      depSpecToPosition.put(depSpec, position++);
+    }
+    return Lists.transform(
+        Lists.cartesianProduct(possibleResolutionResults.values().asList()),
+        (List<ModuleKey> choices) ->
+            (DepSpec depSpec) -> choices.get(depSpecToPosition.get(depSpec)));
+    // TODO(wyv): There are some strategies that we could eliminate earlier. For example, the
+    //   strategy where (foo@1.1, maxCL=3) resolves to foo@2.0 and (foo@1.2, maxCL=3) resolves to
+    //   foo@3.0 is obviously not valid. All foo@? should resolve to the same version (assuming no
+    //   multiple-version override).
+  }
+
+  /** Runs module selection (aka version resolution). */
+  public static Result run(
+      ImmutableMap<ModuleKey, InterimModule> depGraph,
+      ImmutableMap<String, ModuleOverride> overrides)
       throws ExternalDepsException {
     // For any multiple-version overrides, build a mapping from (moduleName, compatibilityLevel) to
     // the set of allowed versions.
@@ -193,42 +319,55 @@ final class Selection {
       selectedVersions.merge(selectionGroup, key.getVersion(), Comparators::max);
     }
 
-    // Build a new dep graph where deps with unselected versions are removed.
-    ImmutableMap.Builder<ModuleKey, Module> newDepGraphBuilder = new ImmutableMap.Builder<>();
-
-    // Also keep a version of the full dep graph with updated deps.
-    ImmutableMap.Builder<ModuleKey, Module> unprunedDepGraphBuilder = new ImmutableMap.Builder<>();
-    for (Module module : depGraph.values()) {
-      // Rewrite deps to point to the selected version.
-      ModuleKey key = module.getKey();
-      Module updatedModule =
-          module.withDepKeysTransformed(
-              depKey ->
-                  ModuleKey.create(
-                      depKey.getName(), selectedVersions.get(selectionGroups.get(depKey))));
-
-      // Add all updated modules to the un-pruned dep graph.
-      unprunedDepGraphBuilder.put(key, updatedModule);
-
-      // Remove any dep whose version isn't selected from the resolved graph.
-      Version selectedVersion = selectedVersions.get(selectionGroups.get(module.getKey()));
-      if (module.getKey().getVersion().equals(selectedVersion)) {
-        newDepGraphBuilder.put(key, updatedModule);
+    // Compute the possible list of ModuleKeys that each DepSpec could resolve to.
+    ImmutableMap<DepSpec, ImmutableList<ModuleKey>> possibleResolutionResults =
+        computePossibleResolutionResults(depGraph, selectionGroups, selectedVersions);
+    for (Map.Entry<DepSpec, ImmutableList<ModuleKey>> e : possibleResolutionResults.entrySet()) {
+      if (e.getValue().isEmpty()) {
+        throw ExternalDepsException.withMessage(
+            Code.VERSION_RESOLUTION_ERROR,
+            "Unexpected error: %s has no valid resolution result",
+            e.getKey());
       }
     }
-    ImmutableMap<ModuleKey, Module> newDepGraph = newDepGraphBuilder.buildOrThrow();
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph = unprunedDepGraphBuilder.buildOrThrow();
 
-    // Further, removes unreferenced modules from the graph. We can find out which modules are
-    // referenced by collecting deps transitively from the root.
-    // We can also take this opportunity to check that none of the remaining modules conflict with
-    // each other (e.g. same module name but different compatibility levels, or not satisfying
-    // multiple_version_override).
-    ImmutableMap<ModuleKey, Module> prunedDepGraph =
-        new DepGraphWalker(newDepGraph, overrides, selectionGroups).walk();
-
-    // Return the result containing both the pruned and un-pruned dep graphs
-    return BazelModuleResolutionValue.create(prunedDepGraph, unprunedDepGraph);
+    // Each DepSpec may resolve to one or more ModuleKeys. We try out every single possible
+    // combination; in other words, we enumerate through the cartesian product of the "possible
+    // resolution result" set for every distinct DepSpec. Each element of this cartesian product is
+    // essentially a mapping from DepSpecs to ModuleKeys; we can call this mapping a "resolution
+    // strategy".
+    //
+    // Given a resolution strategy, we can walk through the graph from the root module, and see if
+    // the strategy yields a valid graph (only containing the nodes reachable from the root). If the
+    // graph is invalid (for example, because there are modules with different compatibility
+    // levels), we try the next resolution strategy. When all strategies are exhausted, we know
+    // there is no way to achieve a valid selection result, so we report the failure from the time
+    // we attempted to walk the graph using the first resolution strategy.
+    DepGraphWalker depGraphWalker = new DepGraphWalker(depGraph, overrides, selectionGroups);
+    ExternalDepsException firstFailure = null;
+    for (Function<DepSpec, ModuleKey> resolutionStrategy :
+        enumerateStrategies(possibleResolutionResults)) {
+      try {
+        ImmutableMap<ModuleKey, InterimModule> prunedDepGraph =
+            depGraphWalker.walk(resolutionStrategy);
+        // If the call above didn't throw, we have a valid graph. Go ahead and produce a result!
+        ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+            ImmutableMap.copyOf(
+                Maps.transformValues(
+                    depGraph,
+                    module ->
+                        module.withDepSpecsTransformed(
+                            depSpec -> DepSpec.fromModuleKey(resolutionStrategy.apply(depSpec)))));
+        return Result.create(prunedDepGraph, unprunedDepGraph);
+      } catch (ExternalDepsException e) {
+        if (firstFailure == null) {
+          firstFailure = e;
+        }
+      }
+    }
+    // firstFailure cannot be null, since enumerateStrategies(...) cannot be empty, since no
+    // element of possibleResolutionResults is empty.
+    throw firstFailure;
   }
 
   /**
@@ -237,27 +376,27 @@ final class Selection {
    */
   static class DepGraphWalker {
     private static final Joiner JOINER = Joiner.on(", ");
-    private final ImmutableMap<ModuleKey, Module> oldDepGraph;
+    private final ImmutableMap<ModuleKey, InterimModule> oldDepGraph;
     private final ImmutableMap<String, ModuleOverride> overrides;
     private final ImmutableMap<ModuleKey, SelectionGroup> selectionGroups;
-    private final HashMap<String, ExistingModule> moduleByName;
 
     DepGraphWalker(
-        ImmutableMap<ModuleKey, Module> oldDepGraph,
+        ImmutableMap<ModuleKey, InterimModule> oldDepGraph,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<ModuleKey, SelectionGroup> selectionGroups) {
       this.oldDepGraph = oldDepGraph;
       this.overrides = overrides;
       this.selectionGroups = selectionGroups;
-      this.moduleByName = new HashMap<>();
     }
 
     /**
      * Walks the old dep graph and builds a new dep graph containing only deps reachable from the
      * root module. The returned map has a guaranteed breadth-first iteration order.
      */
-    ImmutableMap<ModuleKey, Module> walk() throws ExternalDepsException {
-      ImmutableMap.Builder<ModuleKey, Module> newDepGraph = ImmutableMap.builder();
+    ImmutableMap<ModuleKey, InterimModule> walk(Function<DepSpec, ModuleKey> resolutionStrategy)
+        throws ExternalDepsException {
+      HashMap<String, ExistingModule> moduleByName = new HashMap<>();
+      ImmutableMap.Builder<ModuleKey, InterimModule> newDepGraph = ImmutableMap.builder();
       Set<ModuleKey> known = new HashSet<>();
       Queue<ModuleKeyAndDependent> toVisit = new ArrayDeque<>();
       toVisit.add(ModuleKeyAndDependent.create(ModuleKey.ROOT, null));
@@ -265,12 +404,16 @@ final class Selection {
       while (!toVisit.isEmpty()) {
         ModuleKeyAndDependent moduleKeyAndDependent = toVisit.remove();
         ModuleKey key = moduleKeyAndDependent.getModuleKey();
-        Module module = oldDepGraph.get(key);
-        visit(key, module, moduleKeyAndDependent.getDependent());
+        InterimModule module =
+            oldDepGraph
+                .get(key)
+                .withDepSpecsTransformed(
+                    depSpec -> DepSpec.fromModuleKey(resolutionStrategy.apply(depSpec)));
+        visit(key, module, moduleKeyAndDependent.getDependent(), moduleByName);
 
-        for (ModuleKey depKey : module.getDeps().values()) {
-          if (known.add(depKey)) {
-            toVisit.add(ModuleKeyAndDependent.create(depKey, key));
+        for (DepSpec depSpec : module.getDeps().values()) {
+          if (known.add(depSpec.toModuleKey())) {
+            toVisit.add(ModuleKeyAndDependent.create(depSpec.toModuleKey(), key));
           }
         }
         newDepGraph.put(key, module);
@@ -278,7 +421,11 @@ final class Selection {
       return newDepGraph.buildOrThrow();
     }
 
-    void visit(ModuleKey key, Module module, @Nullable ModuleKey from)
+    void visit(
+        ModuleKey key,
+        InterimModule module,
+        @Nullable ModuleKey from,
+        HashMap<String, ExistingModule> moduleByName)
         throws ExternalDepsException {
       ModuleOverride override = overrides.get(key.getName());
       if (override instanceof MultipleVersionOverride) {
@@ -321,10 +468,10 @@ final class Selection {
 
       // Make sure that we don't have `module` depending on the same dependency version twice.
       HashMap<ModuleKey, String> depKeyToRepoName = new HashMap<>();
-      for (Map.Entry<String, ModuleKey> depEntry : module.getDeps().entrySet()) {
+      for (Map.Entry<String, DepSpec> depEntry : module.getDeps().entrySet()) {
         String repoName = depEntry.getKey();
-        ModuleKey depKey = depEntry.getValue();
-        String previousRepoName = depKeyToRepoName.put(depKey, repoName);
+        DepSpec depSpec = depEntry.getValue();
+        String previousRepoName = depKeyToRepoName.put(depSpec.toModuleKey(), repoName);
         if (previousRepoName != null) {
           throw ExternalDepsException.withMessage(
               Code.VERSION_RESOLUTION_ERROR,
@@ -332,7 +479,7 @@ final class Selection {
                   + " multiple_version_override if you want to depend on multiple versions of"
                   + " %s simultaneously",
               key,
-              depKey,
+              depSpec.toModuleKey(),
               repoName,
               previousRepoName,
               key.getName());

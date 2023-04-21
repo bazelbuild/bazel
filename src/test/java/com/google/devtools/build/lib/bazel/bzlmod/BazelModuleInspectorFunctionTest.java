@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.ModuleBuilder;
+import com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.InterimModuleBuilder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -35,25 +35,25 @@ public class BazelModuleInspectorFunctionTest {
 
   @Test
   public void testDiamond_simple() throws Exception {
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb_from_aaa", createModuleKey("bbb", "1.0"))
                     .addDep("ccc_from_aaa", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
+                InterimModuleBuilder.create("bbb", "1.0")
                     .addDep("ddd_from_bbb", createModuleKey("ddd", "2.0"))
                     .addOriginalDep("ddd_from_bbb", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
+                InterimModuleBuilder.create("ccc", "2.0")
                     .addDep("ddd_from_ccc", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0", 1).buildEntry())
+            .put(InterimModuleBuilder.create("ddd", "1.0", 1).buildEntry())
+            .put(InterimModuleBuilder.create("ddd", "2.0", 1).buildEntry())
             .buildOrThrow();
 
     ImmutableSet<ModuleKey> usedModules =
@@ -91,29 +91,29 @@ public class BazelModuleInspectorFunctionTest {
 
   @Test
   public void testDiamond_withFurtherRemoval() throws Exception {
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
+                InterimModuleBuilder.create("bbb", "1.0")
                     .addDep("ddd", createModuleKey("ddd", "2.0"))
                     .addOriginalDep("ddd", createModuleKey("ddd", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
+                InterimModuleBuilder.create("ccc", "2.0")
                     .addDep("ddd", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
+            .put(InterimModuleBuilder.create("ddd", "2.0").buildEntry())
             .put(
-                ModuleBuilder.create("ddd", "1.0")
+                InterimModuleBuilder.create("ddd", "1.0")
                     .addDep("eee", createModuleKey("eee", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("eee", "1.0").buildEntry())
+            .put(InterimModuleBuilder.create("eee", "1.0").buildEntry())
             .buildOrThrow();
 
     ImmutableSet<ModuleKey> usedModules =
@@ -154,27 +154,27 @@ public class BazelModuleInspectorFunctionTest {
 
   @Test
   public void testCircularDependencyDueToSelection() throws Exception {
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
+                InterimModuleBuilder.create("bbb", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
+                InterimModuleBuilder.create("ccc", "2.0")
                     .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .addOriginalDep("bbb", createModuleKey("bbb", "1.0-pre"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0-pre")
+                InterimModuleBuilder.create("bbb", "1.0-pre")
                     .addDep("ddd", createModuleKey("ddd", "1.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "1.0").buildEntry())
+            .put(InterimModuleBuilder.create("ddd", "1.0").buildEntry())
             .buildOrThrow();
 
     ImmutableSet<ModuleKey> usedModules =
@@ -210,23 +210,23 @@ public class BazelModuleInspectorFunctionTest {
     // single_version_override (ccc, 2.0)
     // aaa -> bbb 1.0 -> ccc 1.0 -> ddd 1.0
     //                   ccc 2.0 -> ddd 2.0
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
+                InterimModuleBuilder.create("bbb", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("ccc", "2.0")
+                InterimModuleBuilder.create("ccc", "2.0")
                     .addDep("ddd", createModuleKey("ddd", "2.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ddd", "2.0").buildEntry())
+            .put(InterimModuleBuilder.create("ddd", "2.0").buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
@@ -271,20 +271,20 @@ public class BazelModuleInspectorFunctionTest {
     // archive_override "file://users/user/bbb.zip"
     // aaa    -> bbb 1.0        -> ccc 1.0 (not loaded)
     //   (local) bbb 1.0-hotfix -> ccc 1.1
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb", createModuleKey("bbb", ""))
                     .addOriginalDep("bbb", createModuleKey("bbb", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
+                InterimModuleBuilder.create("bbb", "1.0")
                     .setKey(createModuleKey("bbb", ""))
                     .addDep("ccc", createModuleKey("ccc", "1.1"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.1").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.1").buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
@@ -328,27 +328,27 @@ public class BazelModuleInspectorFunctionTest {
     //     \-> ccc 2.0
     // multiple_version_override ccc: [1.5, 2.0]
     // multiple_version_override bbb: [1.0, 2.0]
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb1", createModuleKey("bbb", "1.0"))
                     .addDep("bbb2", createModuleKey("bbb", "2.0"))
                     .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "1.0")
+                InterimModuleBuilder.create("bbb", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .addOriginalDep("ccc", createModuleKey("ccc", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb", "2.0")
+                InterimModuleBuilder.create("bbb", "2.0")
                     .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0").buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.5").buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.0").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.5").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "2.0").buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
@@ -412,10 +412,10 @@ public class BazelModuleInspectorFunctionTest {
     //     \            \-> bbb4@1.1
     //     \-> bbb4@1.1
     // ccc@1.5 and ccc@3.0, the versions violating the allowlist, are gone.
-    ImmutableMap<ModuleKey, Module> unprunedDepGraph =
-        ImmutableMap.<ModuleKey, Module>builder()
+    ImmutableMap<ModuleKey, InterimModule> unprunedDepGraph =
+        ImmutableMap.<ModuleKey, InterimModule>builder()
             .put(
-                ModuleBuilder.create("aaa", Version.EMPTY)
+                InterimModuleBuilder.create("aaa", Version.EMPTY)
                     .setKey(ModuleKey.ROOT)
                     .addDep("bbb1", createModuleKey("bbb1", "1.0"))
                     .addDep("bbb2", createModuleKey("bbb2", "1.1"))
@@ -425,29 +425,29 @@ public class BazelModuleInspectorFunctionTest {
                     .addOriginalDep("bbb4", createModuleKey("bbb4", "1.0"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb1", "1.0")
+                InterimModuleBuilder.create("bbb1", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "1.0"))
                     .addDep("bbb2", createModuleKey("bbb2", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb2", "1.0")
+                InterimModuleBuilder.create("bbb2", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "1.5"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb2", "1.1").buildEntry())
+            .put(InterimModuleBuilder.create("bbb2", "1.1").buildEntry())
             .put(
-                ModuleBuilder.create("bbb3", "1.0")
+                InterimModuleBuilder.create("bbb3", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "2.0"))
                     .addDep("bbb4", createModuleKey("bbb4", "1.1"))
                     .buildEntry())
             .put(
-                ModuleBuilder.create("bbb4", "1.0")
+                InterimModuleBuilder.create("bbb4", "1.0")
                     .addDep("ccc", createModuleKey("ccc", "3.0"))
                     .buildEntry())
-            .put(ModuleBuilder.create("bbb4", "1.1").buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.0", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "1.5", 1).buildEntry())
-            .put(ModuleBuilder.create("ccc", "2.0", 2).buildEntry())
-            .put(ModuleBuilder.create("ccc", "3.0", 3).buildEntry())
+            .put(InterimModuleBuilder.create("bbb4", "1.1").buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.0", 1).buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "1.5", 1).buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "2.0", 2).buildEntry())
+            .put(InterimModuleBuilder.create("ccc", "3.0", 3).buildEntry())
             .buildOrThrow();
 
     ImmutableMap<String, ModuleOverride> overrides =
