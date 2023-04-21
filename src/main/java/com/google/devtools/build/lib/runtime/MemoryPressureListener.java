@@ -40,6 +40,7 @@ final class MemoryPressureListener implements NotificationListener {
 
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   private final RetainedHeapLimiter retainedHeapLimiter;
+  private final AtomicReference<GcThrashingDetector> gcThrashingDetector = new AtomicReference<>();
 
   private MemoryPressureListener(RetainedHeapLimiter retainedHeapLimiter) {
     this.retainedHeapLimiter = retainedHeapLimiter;
@@ -125,6 +126,11 @@ final class MemoryPressureListener implements NotificationListener {
             .setTenuredSpaceMaxBytes(tenuredSpaceMaxBytes)
             .build();
 
+    GcThrashingDetector gcThrashingDetector = this.gcThrashingDetector.get();
+    if (gcThrashingDetector != null) {
+      gcThrashingDetector.handle(event);
+    }
+
     // A null EventBus implies memory pressure event between commands with no active EventBus.
     // In such cases, notify RetainedHeapLimiter but do not publish event.
     EventBus eventBus = this.eventBus.get();
@@ -138,5 +144,9 @@ final class MemoryPressureListener implements NotificationListener {
 
   void setEventBus(@Nullable EventBus eventBus) {
     this.eventBus.set(eventBus);
+  }
+
+  void setGcThrashingDetector(@Nullable GcThrashingDetector gcThrashingDetector) {
+    this.gcThrashingDetector.set(gcThrashingDetector);
   }
 }
