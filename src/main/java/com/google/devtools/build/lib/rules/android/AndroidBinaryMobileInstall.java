@@ -527,7 +527,6 @@ public final class AndroidBinaryMobileInstall {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          /* resultConsumer= */ null,
           /* stripOutputPaths= */ false);
     }
 

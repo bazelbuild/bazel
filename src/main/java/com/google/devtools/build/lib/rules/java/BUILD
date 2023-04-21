@@ -105,7 +105,7 @@ java_library(
         "JavaCompileOutputs.java",
         "JavaConfiguration.java",
         "JavaGenJarsProvider.java",
-        "JavaHeaderCompileActionBuilder.java",
+        "JavaHeaderCompileAction.java",
         "JavaHelper.java",
         "JavaInfo.java",
         "JavaInfoBuildHelper.java",
