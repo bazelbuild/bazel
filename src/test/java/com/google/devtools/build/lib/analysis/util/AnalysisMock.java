@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
@@ -142,7 +143,9 @@ public abstract class AnalysisMock extends LoadingMock {
             directories.getWorkspace(),
             getBuiltinModules(directories)),
         SkyFunctions.BAZEL_DEP_GRAPH,
-        new BazelDepGraphFunction(),
+        new BazelDepGraphFunction(directories.getWorkspace()),
+        SkyFunctions.BAZEL_LOCK_FILE,
+        new BazelLockFileFunction(directories.getWorkspace()),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
         SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,

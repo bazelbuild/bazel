@@ -467,7 +467,7 @@ public class ModuleFileGlobals {
             tags.add(
                 Tag.builder()
                     .setTagName(tagName)
-                    .setAttributeValues(kwargs)
+                    .setAttributeValues(AttributeValues.create(kwargs))
                     .setDevDependency(devDependency)
                     .setLocation(thread.getCallerLocation())
                     .build());

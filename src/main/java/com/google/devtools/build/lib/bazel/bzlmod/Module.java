@@ -22,6 +22,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
  * discovery but before selection, or when there's a multiple_version_override in play).
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class Module {
 
   /**
@@ -136,12 +138,21 @@ public abstract class Module {
     return RepositoryMapping.create(mapping.buildOrThrow(), getCanonicalRepoName());
   }
 
+  // TODO(salmasamy) create two modules (One with registry, one with repospec and only necessary
+  // things for lockfile)
   /**
    * The registry where this module came from. Must be null iff the module has a {@link
-   * NonRegistryOverride}.
+   * NonRegistryOverride}. Set to null after running selection and verifying yanked versions.
    */
   @Nullable
   public abstract Registry getRegistry();
+
+  /**
+   * The repo spec for this module (information about the attributes of its repository rule) Filled
+   * after running selection to avoid extra calls to the registry.
+   */
+  @Nullable
+  public abstract RepoSpec getRepoSpec();
 
   /** The module extensions used in this module. */
   public abstract ImmutableList<ModuleExtensionUsage> getExtensionUsages();
@@ -186,6 +197,8 @@ public abstract class Module {
     /** Optional; defaults to {@link #setName}. */
     public abstract Builder setRepoName(String value);
 
+    public abstract Builder setBazelCompatibility(ImmutableList<String> value);
+
     abstract ImmutableList.Builder<String> bazelCompatibilityBuilder();
 
     @CanIgnoreReturnValue
@@ -194,6 +207,8 @@ public abstract class Module {
       return this;
     }
 
+    public abstract Builder setExecutionPlatformsToRegister(ImmutableList<String> value);
+
     abstract ImmutableList.Builder<String> executionPlatformsToRegisterBuilder();
 
     @CanIgnoreReturnValue
@@ -201,6 +216,8 @@ public abstract class Module {
       executionPlatformsToRegisterBuilder().addAll(values);
       return this;
     }
+
+    public abstract Builder setToolchainsToRegister(ImmutableList<String> value);
 
     abstract ImmutableList.Builder<String> toolchainsToRegisterBuilder();
 
@@ -231,6 +248,8 @@ public abstract class Module {
     }
 
     public abstract Builder setRegistry(Registry value);
+
+    public abstract Builder setRepoSpec(RepoSpec value);
 
     public abstract Builder setExtensionUsages(ImmutableList<ModuleExtensionUsage> value);
 

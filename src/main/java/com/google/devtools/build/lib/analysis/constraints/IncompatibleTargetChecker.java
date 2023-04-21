@@ -107,7 +107,7 @@ public class IncompatibleTargetChecker {
       Environment env,
       @Nullable PlatformInfo platformInfo,
       NestedSetBuilder<Package> transitivePackages)
-      throws InterruptedException {
+      throws ConfiguredAttributeMapper.ValidationException, InterruptedException {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
@@ -124,7 +124,7 @@ public class IncompatibleTargetChecker {
     }
 
     // Resolve the constraint labels.
-    List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
+    List<Label> labels = attrs.getAndValidate("target_compatible_with", BuildType.LABEL_LIST);
     ImmutableList<ConfiguredTargetKey> constraintKeys =
         labels.stream()
             .map(

@@ -127,7 +127,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * Variation of {@link #get} that throws an informative exception if the attribute can't be
    * resolved due to intrinsic contradictions in the configuration.
    */
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
+  public <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.

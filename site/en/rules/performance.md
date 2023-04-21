@@ -278,6 +278,7 @@ Example:
   "otherData": {
     "build_id": "101bff9a-7243-4c1a-8503-9dc6ae4c3b05",
     "date": "Tue Jun 16 08:30:21 CEST 2020",
+    "profile_finish_ts": "1677666095162000",
     "output_base": "/usr/local/google/_bazel_johndoe/573d4be77eaa72b91a3dfaa497bf8cd0"
   },
   "traceEvents": [

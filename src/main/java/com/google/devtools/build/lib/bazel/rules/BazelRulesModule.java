@@ -273,6 +273,15 @@ public final class BazelRulesModule extends BlazeModule {
         help = "Deprecated no-op. Use --experimental_dynamic_local_load_factor instead.")
     @Deprecated
     public boolean skipFirstBuild;
+
+    @Option(
+            name = "use_workers_with_dexbuilder",
+            defaultValue = "true",
+            documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+            effectTags = {OptionEffectTag.EXECUTION},
+            help = "This option is deprecated and has no effect.")
+    @Deprecated
+    public boolean useWorkersWithDexbuilder;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
@@ -108,6 +109,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.syntax.Location;
 
 /**
  * SkyFunction for {@link ConfiguredTargetValue}s.
@@ -335,13 +337,28 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                 getPrioritizedDetailedExitCode(causes)));
       }
 
-      Optional<RuleConfiguredTargetValue> incompatibleTarget =
-          IncompatibleTargetChecker.createDirectlyIncompatibleTarget(
-              targetAndConfiguration,
-              configConditions,
-              env,
-              platformInfo,
-              state.transitivePackages);
+      Optional<RuleConfiguredTargetValue> incompatibleTarget;
+      try {
+        incompatibleTarget =
+            IncompatibleTargetChecker.createDirectlyIncompatibleTarget(
+                targetAndConfiguration,
+                configConditions,
+                env,
+                platformInfo,
+                state.transitivePackages);
+      } catch (ConfiguredAttributeMapper.ValidationException e) {
+        BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
+        Label label = targetAndConfiguration.getLabel();
+        Location location = targetAndConfiguration.getTarget().getLocation();
+        env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+        throw new DependencyEvaluationException(
+            new ConfiguredValueCreationException(
+                location, e.getMessage(), label, configuration.getEventId(), null, null),
+            // These errors occur within DependencyResolver, which is attached to the current
+            // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
+            // error.
+            /* depReportedOwnError= */ false);
+      }
       if (incompatibleTarget == null) {
         return null;
       }

@@ -44,6 +44,9 @@ public class LabelConstants {
   public static final PathFragment WORKSPACE_DOT_BAZEL_FILE_NAME =
       PathFragment.create("WORKSPACE.bazel");
   public static final PathFragment MODULE_DOT_BAZEL_FILE_NAME = PathFragment.create("MODULE.bazel");
+
+  public static final PathFragment MODULE_LOCKFILE_NAME = PathFragment.create("MODULE.bazel.lock");
+
   public static final String DEFAULT_REPOSITORY_DIRECTORY = "__main__";
 
   // With this prefix, non-main repositories are symlinked under

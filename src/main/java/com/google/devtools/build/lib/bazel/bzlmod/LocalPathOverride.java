@@ -35,7 +35,8 @@ public abstract class LocalPathOverride implements NonRegistryOverride {
   public RepoSpec getRepoSpec(RepositoryName repoName) {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
-        .setAttributes(ImmutableMap.of("name", repoName.getName(), "path", getPath()))
+        .setAttributes(
+            AttributeValues.create(ImmutableMap.of("name", repoName.getName(), "path", getPath())))
         .build();
   }
 

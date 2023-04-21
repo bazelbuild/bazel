@@ -305,7 +305,7 @@ public final class BzlmodTestUtil {
       return Tag.builder()
           .setTagName(tagName)
           .setLocation(Location.BUILTIN)
-          .setAttributeValues(attrValuesBuilder.buildImmutable())
+          .setAttributeValues(AttributeValues.create(attrValuesBuilder.buildImmutable()))
           .setDevDependency(devDependency)
           .build();
     }

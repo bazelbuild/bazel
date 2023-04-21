@@ -16,5 +16,5 @@ filegroup(
 distrib_java_import(
     name = "javapoet",
     enable_distributions = ["debian"],
-    jars = ["javapoet-1.8.0.jar"],
+    jars = ["javapoet-1.12.1.jar"],
 )

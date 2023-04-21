@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -108,6 +109,8 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
+    String moduleFileHash =
+        new Fingerprint().addBytes(getModuleFileResult.moduleFileContents).hexDigestAndReset();
 
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
@@ -139,7 +142,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "The MODULE.bazel file of %s declares overrides", moduleKey);
     }
 
-    return NonRootModuleFileValue.create(module);
+    return NonRootModuleFileValue.create(module, moduleFileHash);
   }
 
   @Nullable
@@ -152,6 +155,7 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
     byte[] moduleFile = readFile(moduleFilePath.asPath());
+    String moduleFileHash = new Fingerprint().addBytes(moduleFile).hexDigestAndReset();
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
             moduleFile,
@@ -184,7 +188,7 @@ public class ModuleFileFunction implements SkyFunction {
                     name -> ModuleKey.create(name, Version.EMPTY).getCanonicalRepoName(),
                     name -> name));
     return RootModuleFileValue.create(
-        module, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+        module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
   }
 
   private ModuleFileGlobals execModuleFile(

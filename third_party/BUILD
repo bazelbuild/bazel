@@ -239,9 +239,9 @@ java_plugin(
 
 distrib_java_import(
     name = "auto_common",
+    applicable_licenses = [":auto_license"],
     enable_distributions = ["debian"],
     jars = ["auto/auto-common-1.1.2.jar"],
-    applicable_licenses = [":auto_license"],
 )
 
 license(
@@ -297,13 +297,37 @@ java_plugin(
     ],
 )
 
+java_plugin(
+    name = "auto_value_gson_plugin",
+    processor_class = "com.ryanharter.auto.value.gson.factory.AutoValueGsonAdapterFactoryProcessor",
+    deps = [
+        "auto/autotransient-1.0.0.jar",
+        ":auto_value_gson",
+        ":auto_value_value",
+        ":gson",
+        "//third_party/java/javapoet",
+    ],
+)
+
+java_import(
+    name = "auto_value_gson",
+    applicable_licenses = [":auto_license"],
+    jars = [
+        "auto/auto-value-gson-extension-1.3.1.jar",
+        "auto/auto-value-gson-factory-1.3.1.jar",
+        "auto/auto-value-gson-runtime-1.3.1.jar",
+    ],
+)
+
 java_library(
     name = "auto_value",
     exported_plugins = [
         ":auto_annotation_plugin",
         ":auto_value_plugin",
+        ":auto_value_gson_plugin",
     ],
     exports = [
+        ":auto_value_gson",
         ":auto_value_value",
         ":tomcat_annotations_api",
     ],
@@ -451,6 +475,7 @@ filegroup(
 
 distrib_java_import(
     name = "guava",
+    applicable_licenses = [":guava_license"],
     enable_distributions = ["debian"],
     jars = [
         "guava/failureaccess-1.0.1.jar",
@@ -461,7 +486,6 @@ distrib_java_import(
         ":jcip_annotations",
         ":jsr305",
     ],
-    applicable_licenses = [":guava_license"],
 )
 
 license(
@@ -475,13 +499,13 @@ license(
 
 distrib_java_import(
     name = "flogger",
+    applicable_licenses = [":flogger_license"],
     enable_distributions = ["debian"],
     jars = [
         "flogger/flogger-0.5.1.jar",
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
-    applicable_licenses = [":flogger_license"],
 )
 
 license(
@@ -743,6 +767,7 @@ java_import(
 
 java_import(
     name = "truth",
+    applicable_licenses = [":truth_license"],
     jars = ["truth/truth-1.0.1.jar"],
     exports = [
         ":truth8",
@@ -751,7 +776,6 @@ java_import(
     deps = [
         ":diffutils",
     ],
-    applicable_licenses = [":truth_license"],
 )
 
 license(
@@ -765,8 +789,8 @@ license(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
     applicable_licenses = [":truth8_license"],
+    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
 license(
@@ -780,11 +804,11 @@ license(
 
 java_import(
     name = "truth_proto",
+    applicable_licenses = [":truth_proto_license"],
     jars = [
         "truth_proto/truth-liteproto-extension-1.0.1.jar",
         "truth_proto/truth-proto-extension-1.0.1.jar",
     ],
-    applicable_licenses = [":truth_proto_license"],
 )
 
 license(
@@ -798,9 +822,9 @@ license(
 
 distrib_java_import(
     name = "xz",
+    applicable_licenses = [":xz_license"],
     enable_distributions = ["debian"],
     jars = ["xz/xz-1.9.jar"],
-    applicable_licenses = [":xz_license"],
 )
 
 license(
