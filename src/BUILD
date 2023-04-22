@@ -587,6 +587,7 @@ filegroup(
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",
+        "@rules_testing//:WORKSPACE.bazel",
     ] + [
         "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
         for version in ("17", "20")

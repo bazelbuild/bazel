@@ -23,12 +23,22 @@ EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE = [
     "echo 'exports_files([\"WORKSPACE\"], visibility = [\"//visibility:public\"])' >> BUILD.bazel",
 ]
 
+EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE = [
+    "test -f BUILD && chmod u+w BUILD || true",
+    "echo >> BUILD",
+    "echo 'exports_files([\"WORKSPACE.bazel\"], visibility = [\"//visibility:public\"])' >> BUILD",
+]
+
 EXPORT_WORKSPACE_IN_BUILD_FILE_WIN = [
     "Add-Content -Path BUILD -Value \"`nexports_files([`\"WORKSPACE`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
 ]
 
 EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN = [
     "Add-Content -Path BUILD.bazel -Value \"`nexports_files([`\"WORKSPACE`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
+]
+
+EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE_WIN = [
+    "Add-Content -Path BUILD -Value \"`nexports_files([`\"WORKSPACE.bazel`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
 ]
 
 # Protobuf expects an //external:python_headers label which would contain the
@@ -564,6 +574,12 @@ dist_http_archive(
 
 dist_http_archive(
     name = "rules_jvm_external",
+)
+
+dist_http_archive(
+    name = "rules_testing",
+    patch_cmds = EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE_WIN,
 )
 
 # Projects using gRPC as an external dependency must call both grpc_deps() and
