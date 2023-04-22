@@ -405,11 +405,11 @@ public final class RemoteModule extends BlazeModule {
     }
 
     ClientInterceptor loggingInterceptor = null;
-    if (remoteOptions.experimentalRemoteGrpcLog != null) {
+    if (remoteOptions.remoteGrpcLog != null) {
       try {
         rpcLogFile =
             new AsynchronousFileOutputStream(
-                env.getWorkingDirectory().getRelative(remoteOptions.experimentalRemoteGrpcLog));
+                env.getWorkingDirectory().getRelative(remoteOptions.remoteGrpcLog));
       } catch (IOException e) {
         handleInitFailure(env, e, Code.RPC_LOG_FAILURE);
         return;
