@@ -246,17 +246,16 @@ DIST_DEPS = {
         ],
     },
     "com_google_absl": {
-        "archive": "20211102.0.tar.gz",
-        "sha256": "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
+        "archive": "20220623.1.tar.gz",
+        "sha256": "91ac87d30cc6d79f9ab974c51874a704de9c2647c40f6932597329a282217ba8",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "strip_prefix": "abseil-cpp-20211102.0",
+        "strip_prefix": "abseil-cpp-20220623.1",
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
         ],
