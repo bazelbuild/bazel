@@ -49,7 +49,7 @@ public abstract class ToolchainContextKey implements SkyKey {
     return interner;
   }
 
-  abstract BuildConfigurationKey configurationKey();
+  public abstract BuildConfigurationKey configurationKey();
 
   abstract ImmutableSet<ToolchainTypeRequirement> toolchainTypes();
 
@@ -57,7 +57,7 @@ public abstract class ToolchainContextKey implements SkyKey {
 
   abstract Optional<Label> forceExecutionPlatform();
 
-  abstract boolean debugTarget();
+  public abstract boolean debugTarget();
 
   /** Builder for {@link ToolchainContextKey}. */
   @AutoValue.Builder

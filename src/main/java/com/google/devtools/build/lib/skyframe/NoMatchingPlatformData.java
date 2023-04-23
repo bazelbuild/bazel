@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 
 /** Contains information related to missing execution platform. */
 @AutoValue
-abstract class NoMatchingPlatformData {
+public abstract class NoMatchingPlatformData {
   abstract ImmutableSet<ToolchainTypeRequirement> toolchainTypes();
 
   abstract ImmutableList<ConfiguredTargetKey> availableExecutionPlatformKeys();
