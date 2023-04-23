@@ -262,7 +262,7 @@ DIST_DEPS = {
             "@rules_license//licenses/generic:notice",
         ],
         "license_text": "LICENSE",
-        "package_version": "2021-11-02.0",
+        "package_version": "20220623.1",
     },
     "zstd-jni": {
         "archive": "v1.5.2-3.zip",

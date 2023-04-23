@@ -7,6 +7,7 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//third_party/abseil-cpp:srcs",
         "//third_party/allocation_instrumenter:srcs",
         "//third_party/android_dex:srcs",
         "//third_party/def_parser:srcs",
