@@ -1,0 +1,25 @@
+Date: Sun, 23 Apr 2023 13:42:26 +0200
+Subject: [PATCH] Revert "Change workaround for MSVC bug regarding compile-time
+ initialization to trigger from MSC_VER 1910 to 1930."
+
+This reverts commit b8bbe92f84ffe1e249016cfe8b79efdffb7a35c1.
+---
+ absl/time/time.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/absl/time/time.h b/absl/time/time.h
+index bd01867e..bf68f041 100644
+--- a/absl/time/time.h
++++ b/absl/time/time.h
+@@ -162,7 +162,7 @@ class Duration {
+   constexpr Duration() : rep_hi_(0), rep_lo_(0) {}  // zero-length duration
+ 
+   // Copyable.
+-#if !defined(__clang__) && defined(_MSC_VER) && _MSC_VER < 1930
++#if !defined(__clang__) && defined(_MSC_VER) && _MSC_VER < 1910
+   // Explicitly defining the constexpr copy constructor avoids an MSVC bug.
+   constexpr Duration(const Duration& d)
+       : rep_hi_(d.rep_hi_), rep_lo_(d.rep_lo_) {}
+-- 
+2.40.0
+
