@@ -591,6 +591,54 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_relativeOutputSymlinks_success() throws Exception {
+    // Test that download outputs works when the action result only contains output_symlinks
+    // and not output_file_symlinks or output_directory_symlinks, which are deprecated.
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputSymlinksBuilder().setPath("outputs/a/b/link").setTarget("../../foo");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // Doesn't check for dangling links, hence download succeeds.
+    service.downloadOutputs(action, result);
+
+    Path path = execRoot.getRelative("outputs/a/b/link");
+    assertThat(path.isSymbolicLink()).isTrue();
+    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_outputSymlinksCompatibility_success() throws Exception {
+    // Test that download outputs works when the action result contains both output_symlinks
+    // and output_file_symlinks (or output_directory_symlinks).
+    //
+    // Remote Execution Server may set both fields to ensure backward compatibility with
+    // clients that don't support output_symlinks.
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputFileSymlinksBuilder().setPath("outputs/a/b/link").setTarget("foo");
+    builder.addOutputSymlinksBuilder().setPath("outputs/a/b/link").setTarget("foo");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // Doesn't check for dangling links, hence download succeeds.
+    service.downloadOutputs(action, result);
+
+    Path path = execRoot.getRelative("outputs/a/b/link");
+    assertThat(path.isSymbolicLink()).isTrue();
+    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_relativeSymlinkInDirectory_success() throws Exception {
     Tree tree =
         Tree.newBuilder()
@@ -2011,6 +2059,12 @@ public class RemoteExecutionServiceTest {
       Artifact output =
           ActionsTestUtil.createTreeArtifactWithGeneratingAction(
               artifactRoot, path.relativeTo(execRoot));
+      outputs.add(output);
+    }
+
+    for (OutputSymlink symlink : result.getOutputSymlinks()) {
+      Path path = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
       outputs.add(output);
     }
 

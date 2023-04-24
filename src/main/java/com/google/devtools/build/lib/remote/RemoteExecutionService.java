@@ -644,6 +644,10 @@ public class RemoteExecutionService {
       return actionResult.getOutputDirectorySymlinksList();
     }
 
+    public List<OutputSymlink> getOutputSymlinks() {
+      return actionResult.getOutputSymlinksList();
+    }
+
     /**
      * Returns the freeform informational message with details on the execution of the action that
      * may be displayed to the user upon failure or when requested explicitly.
@@ -1089,8 +1093,11 @@ public class RemoteExecutionService {
     }
 
     ImmutableMap.Builder<Path, SymlinkMetadata> symlinks = ImmutableMap.builder();
-    Iterable<OutputSymlink> outputSymlinks =
-        Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
+    var outputSymlinks = ImmutableSet.<OutputSymlink>builder()
+      .addAll(result.getOutputFileSymlinks())
+      .addAll(result.getOutputDirectorySymlinks())
+      .addAll(result.getOutputSymlinks())
+      .build();
     for (OutputSymlink symlink : outputSymlinks) {
       Path localPath =
           remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
