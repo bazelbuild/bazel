@@ -62,20 +62,6 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public boolean equals(Object other) {
-    if (!(other instanceof CompositeRunfilesSupplier)) {
-      return false;
-    }
-    CompositeRunfilesSupplier that = (CompositeRunfilesSupplier) other;
-    return suppliers.equals(that.suppliers);
-  }
-
-  @Override
-  public int hashCode() {
-    return suppliers.hashCode();
-  }
-
-  @Override
   public NestedSet<Artifact> getArtifacts() {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (RunfilesSupplier supplier : suppliers) {
@@ -132,5 +118,10 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
       }
     }
     return false;
+  }
+
+  @Override
+  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
+    throw new UnsupportedOperationException();
   }
 }

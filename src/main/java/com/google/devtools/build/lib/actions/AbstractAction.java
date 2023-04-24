@@ -309,7 +309,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
+  public final RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
   }
 

@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.lang.ref.SoftReference;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -42,20 +41,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   @Nullable private final Artifact repoMappingManifest;
   private final boolean buildRunfileLinks;
   private final boolean runfileLinksEnabled;
-
-  /**
-   * Creates a no-manifest {@link SingleRunfilesSupplier} from the given {@link RunfilesSupport}.
-   */
-  public static SingleRunfilesSupplier create(RunfilesSupport runfilesSupport) {
-    return new SingleRunfilesSupplier(
-        runfilesSupport.getRunfilesDirectoryExecPath(),
-        runfilesSupport.getRunfiles(),
-        /*runfilesCachingEnabled=*/ false,
-        /*manifest=*/ null,
-        runfilesSupport.getRepoMappingManifest(),
-        runfilesSupport.isBuildRunfileLinks(),
-        runfilesSupport.isRunfilesEnabled());
-  }
 
   /**
    * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, Artifact,
@@ -151,26 +136,6 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public boolean equals(Object other) {
-    if (!(other instanceof SingleRunfilesSupplier)) {
-      return false;
-    }
-
-    SingleRunfilesSupplier that = (SingleRunfilesSupplier) other;
-    // Not dependent on runfilesInputs which is only used for enabling caching.
-    return (Objects.equals(runfilesDir, that.runfilesDir)
-        && Objects.equals(runfiles, that.runfiles)
-        && Objects.equals(manifest, that.manifest)
-        && (buildRunfileLinks == that.buildRunfileLinks)
-        && (runfileLinksEnabled == that.runfileLinksEnabled));
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(runfilesDir, runfiles, manifest, buildRunfileLinks, runfileLinksEnabled);
-  }
-
-  @Override
   public NestedSet<Artifact> getArtifacts() {
     return runfiles.getAllArtifacts();
   }
@@ -200,10 +165,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     return runfileLinksEnabled && this.runfilesDir.equals(runfilesDir);
   }
 
-  /**
-   * Returns a {@link SingleRunfilesSupplier} identical to this one, but with the given runfiles
-   * directory.
-   */
+  @Override
   public SingleRunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
     return newRunfilesDir.equals(runfilesDir)
         ? this

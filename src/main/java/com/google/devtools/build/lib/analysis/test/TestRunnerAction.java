@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -189,7 +188,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      SingleRunfilesSupplier runfilesSupplier,
+      RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -483,11 +482,6 @@ public class TestRunnerAction extends AbstractAction
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
     return computeExecuteUnconditionallyFromTestStatus();
-  }
-
-  @Override // Tighten return type.
-  public SingleRunfilesSupplier getRunfilesSupplier() {
-    return (SingleRunfilesSupplier) super.getRunfilesSupplier();
   }
 
   @Override
