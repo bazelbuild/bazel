@@ -117,6 +117,21 @@ public class PlatformMappingFunctionParserTest {
   }
 
   @Test
+  public void testParseStarlarkFlag() throws Exception {
+    PlatformMappingFunction.Mappings mappings =
+        parse(
+            "",
+            "platforms:",
+            "  //platforms:one",
+            "    --//user:flag=foo");
+
+    assertThat(mappings.platformsToFlags.keySet()).containsExactly(PLATFORM1);
+    assertThat(mappings.platformsToFlags.get(PLATFORM1)).containsExactly("--//user:flag=foo");
+
+    assertThat(mappings.flagsToPlatforms.keySet()).isEmpty();
+  }
+
+  @Test
   public void testParseMultipleFlagsInPlatform() throws Exception {
     PlatformMappingFunction.Mappings mappings =
         parse(

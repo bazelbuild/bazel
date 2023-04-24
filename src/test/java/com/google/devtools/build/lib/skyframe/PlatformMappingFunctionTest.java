@@ -232,6 +232,27 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo("something_new");
   }
 
+  // Internal flags (OptionMetadataTag.INTERNAL) cannot be set from the command-line, but
+  // platform mapping needs to access them.
+  @Test
+  public void ableToChangeStarlarkFlag() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --//user:flag=something_new");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+
+    assertThat(mapped.getOptions().getStarlarkOptions()).containsAtLeast("//user:flag", "something_new");
+  }
+
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.injectExtraPrecomputedValues(
