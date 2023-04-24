@@ -236,7 +236,9 @@ public class RemoteExecutionService {
     Collections.sort(outputFiles);
     Collections.sort(outputDirectories);
     command.addAllOutputFiles(outputFiles);
+    command.addAllOutputPaths(outputFiles);
     command.addAllOutputDirectories(outputDirectories);
+    command.addAllOutputPaths(outputDirectories);
 
     if (platform != null) {
       command.setPlatform(platform);
