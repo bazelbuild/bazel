@@ -391,80 +391,80 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v12.0.zip",
-        "sha256": "6efab6ca6e16e02c90e62bbd08ca65f61527984ab78564ea7ad7a2692b2ffdbb",
+        "archive": "java_tools-v12.1.zip",
+        "sha256": "0db35ec44745fd15b77d9df954e70a4fcf74554dd5bfe3f6e6cb6bbdc1f1c649",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools-v12.0.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools-v12.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools-v12.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools-v12.1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.0",
+        "package_version": "12.1",
     },
     "remote_java_tools_linux": {
         "aliases": [
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v12.0.zip",
-        "sha256": "4b8366b780387fc5ce69527ed287f2b444ee429d3325305ad062c92ac43c7fb6",
+        "archive": "java_tools_linux-v12.1.zip",
+        "sha256": "093ecac3b42fcbc3621d08edc3ae3c8b0bc2bf56a0d9a85ddcdb1e0bcf10cbc7",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_linux-v12.0.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_linux-v12.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_linux-v12.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_linux-v12.1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.0",
+        "package_version": "12.1",
     },
     "remote_java_tools_windows": {
         "aliases": [
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v12.0.zip",
-        "sha256": "7b938f0c67d9d390f10489b1b9a4dabb51e39ecc94532c3acdf8c4c16900457f",
+        "archive": "java_tools_windows-v12.1.zip",
+        "sha256": "1df7cc7fac54f437f43c24c019462e13058f394fdba5a64f566b92e8af18d0cf",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_windows-v12.0.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_windows-v12.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_windows-v12.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_windows-v12.1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.0",
+        "package_version": "12.1",
     },
     "remote_java_tools_darwin_x86_64": {
         "aliases": [
             "remote_java_tools_test_darwin_x86_64",
             "remote_java_tools_darwin_x86_64_for_testing",
         ],
-        "archive": "java_tools_darwin_x86_64-v12.0.zip",
-        "sha256": "abc434be713ee9e1fd6525d7a7bd9d7cdff6e27ae3ca9d96420490e7ff6e28a3",
+        "archive": "java_tools_darwin_x86_64-v12.1.zip",
+        "sha256": "16ca145203a62a1fcd6ae50513c0935d938591cb309b9b1172e257c57873f60d",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_darwin_x86_64-v12.0.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_darwin_x86_64-v12.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_darwin_x86_64-v12.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_darwin_x86_64-v12.1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.0",
+        "package_version": "12.1",
     },
     "remote_java_tools_darwin_arm64": {
         "aliases": [
             "remote_java_tools_test_darwin_arm64",
             "remote_java_tools_darwin_arm64_for_testing",
         ],
-        "archive": "java_tools_darwin_arm64-v12.0.zip",
-        "sha256": "24a47a5557ee2ccdacd10a54fe4c15d627c6aeaf7596a5dccf2e11a866a5a32a",
+        "archive": "java_tools_darwin_arm64-v12.1.zip",
+        "sha256": "1d8e575e558782c2ceec0940e424f0e2df56b0df3d7fae68333eaceef2c4e41c",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.0/java_tools_darwin_arm64-v12.0.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.0/java_tools_darwin_arm64-v12.0.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_darwin_arm64-v12.1.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_darwin_arm64-v12.1.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.0",
+        "package_version": "12.1",
     },
     "remotejdk11_linux": {
         "aliases": [

@@ -254,7 +254,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               toolchainContexts,
-              prereqs.getExecGroupCollectionsBuilder(),
+              state.computeDependenciesState.execGroupCollectionBuilder,
               state.transitivePackages);
       if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();

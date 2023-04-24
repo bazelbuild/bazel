@@ -15,7 +15,7 @@
 """cc_binary Starlark implementation replacing native"""
 
 load(":common/cc/semantics.bzl", "semantics")
-load(":common/cc/experimental_cc_shared_library.bzl", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "throw_linked_but_not_exported_errors")
+load(":common/cc/cc_shared_library.bzl", "GraphNodeInfo", "build_exports_map_from_only_dynamic_deps", "build_link_once_static_libs_map", "merge_cc_shared_library_infos", "separate_static_and_dynamic_link_libraries", "throw_linked_but_not_exported_errors")
 load(":common/cc/cc_helper.bzl", "cc_helper", "linker_mode")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
@@ -445,7 +445,7 @@ def _create_transitive_linking_actions(
         owner = ctx.label,
         libraries = depset(libraries_for_current_cc_linking_context),
         user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain) + additional_linkopts,
-        additional_inputs = depset(cc_helper.linker_scripts(ctx) + compilation_context.transitive_compilation_prerequisites().to_list()),
+        additional_inputs = depset(cc_helper.linker_scripts(ctx)),
     )
     current_cc_linking_context = cc_common.create_linking_context(linker_inputs = depset([linker_inputs]))
 

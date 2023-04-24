@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
@@ -68,13 +69,16 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -101,6 +105,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
@@ -123,7 +128,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -636,18 +640,31 @@ public class BuildViewForTesting {
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
+    var state = new PrerequisiteProducer.State();
+    state.targetAndConfiguration =
+        new TargetAndConfiguration(target.getAssociatedRule(), targetConfig);
+    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
-    var unloadedToolchainContextsInputs =
-        PrerequisiteProducer.getUnloadedToolchainContextsInputs(
-            new TargetAndConfiguration(target.getAssociatedRule(), targetConfig),
-            /* parentExecutionPlatformLabel= */ null,
-            ruleClassProvider,
-            eventHandler);
-    Optional<ToolchainCollection<UnloadedToolchainContext>> result =
-        PrerequisiteProducer.computeUnloadedToolchainContexts(
-            skyfunctionEnvironment, unloadedToolchainContextsInputs);
-
-    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection = result.orElse(null);
+    DependencyContext result;
+    try {
+      result =
+          getDependencyContext(
+              state,
+              /* parentExecutionPlatformLabel= */ null,
+              transitiveRootCauses,
+              /* transitivePackages= */ null,
+              ruleClassProvider,
+              skyfunctionEnvironment);
+    } catch (ConfiguredValueCreationException
+        | IncompatibleTargetException
+        | DependencyEvaluationException e) {
+      throw new IllegalStateException(e);
+    }
+    if (!transitiveRootCauses.isEmpty()) {
+      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+    }
+    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
+        result.unloadedToolchainContexts();
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
@@ -681,7 +698,7 @@ public class BuildViewForTesting {
         .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
-        .setExecGroupCollectionBuilder(unloadedToolchainContextsInputs)
+        .setExecGroupCollectionBuilder(state.execGroupCollectionBuilder)
         .unsafeBuild();
   }
 

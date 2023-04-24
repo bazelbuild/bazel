@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainCollectionSubject.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
+import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -31,11 +32,17 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
+import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -45,7 +52,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,19 +60,19 @@ import org.junit.runners.JUnit4;
 /**
  * Tests {@link ConfiguredTargetFunction}'s logic for determining each target toolchain context.
  *
- * <p>This is essentially an integration test for {@link
- * PrerequisiteProducer#computeUnloadedToolchainContexts}. These methods form the core logic that
- * figures out what a target's toolchain dependencies are.
+ * <p>This is essentially an integration test for the toolchain part of {@link
+ * DependencyContextProducer}. These methods form the core logic that figures out what a target's
+ * toolchain dependencies are.
  *
  * <p>{@link ConfiguredTargetFunction} is a complicated class that does a lot of things. This test
  * focuses purely on the task of toolchain resolution. So instead of evaluating full {@link
  * ConfiguredTargetFunction} instances, it evaluates a mock {@link SkyFunction} that just wraps the
- * {@link PrerequisiteProducer#computeUnloadedToolchainContexts} part. This keeps focus tight and
- * integration dependencies narrow.
+ * {@link PrerequisiteProducer#getDependencyContext} part. This keeps focus tight and integration
+ * dependencies narrow.
  *
- * <p>We can't just call {@link PrerequisiteProducer#computeUnloadedToolchainContexts} directly
- * because that method needs a {@link SkyFunction.Environment} and Blaze's test infrastructure
- * doesn't support direct access to environments.
+ * <p>We can't just call {@link ToolchainContextProducer} directly because that method needs a
+ * {@link SkyFunction.Environment} and Blaze's test infrastructure doesn't support direct access to
+ * environments.
  */
 @RunWith(JUnit4.class)
 public final class ToolchainsForTargetsTest extends AnalysisTestCase {
@@ -91,7 +97,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   /**
    * Returns a {@link ToolchainCollection<UnloadedToolchainContext>} as the result of {@link
-   * PrerequisiteProducer#computeUnloadedToolchainContexts}.
+   * PrerequisiteProducer#getDependencyContext}.
    */
   @AutoValue
   abstract static class Value implements SkyValue {
@@ -103,8 +109,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   /**
-   * A mock {@link SkyFunction} that just calls {@link
-   * PrerequisiteProducer#computeUnloadedToolchainContexts} and returns its results.
+   * A mock {@link SkyFunction} that just calls {@link PrerequisiteProducer#getDependencyContext}
+   * and returns its results.
    */
   static class ComputeUnloadedToolchainContextsFunction implements SkyFunction {
     static final SkyFunctionName SKYFUNCTION_NAME =
@@ -120,25 +126,33 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws ComputeUnloadedToolchainContextsException, InterruptedException {
+      Key key = (Key) skyKey.argument();
+      var state = env.getState(PrerequisiteProducer.State::new);
+      state.targetAndConfiguration = key.targetAndConfiguration();
+      NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
+      DependencyContext result;
       try {
-        Key key = (Key) skyKey.argument();
-        var unloadedToolchainContextsInputs =
-            PrerequisiteProducer.getUnloadedToolchainContextsInputs(
-                key.targetAndConfiguration(),
+        result =
+            getDependencyContext(
+                state,
                 key.configuredTargetKey().getExecutionPlatformLabel(),
+                transitiveRootCauses,
+                /* transitivePackages= */ null,
                 stateProvider.lateBoundRuleClassProvider(),
-                env.getListener());
-        Optional<ToolchainCollection<UnloadedToolchainContext>> result =
-            PrerequisiteProducer.computeUnloadedToolchainContexts(
-                env, unloadedToolchainContextsInputs);
-        if (result == null) {
-          return null;
-        }
-        ToolchainCollection<UnloadedToolchainContext> toolchainCollection = result.orElse(null);
-        return Value.create(toolchainCollection);
-      } catch (ToolchainException e) {
+                env);
+      } catch (ToolchainException
+          | ConfiguredValueCreationException
+          | IncompatibleTargetException
+          | DependencyEvaluationException e) {
         throw new ComputeUnloadedToolchainContextsException(e);
       }
+      if (!transitiveRootCauses.isEmpty()) {
+        throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+      }
+      if (result == null) {
+        return null;
+      }
+      return Value.create(result.unloadedToolchainContexts());
     }
 
     private static class ComputeUnloadedToolchainContextsException extends SkyFunctionException {

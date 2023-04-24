@@ -130,7 +130,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        /* resultConsumer= */ null,
         stripOutputPaths);
 
     this.allStarlarkActionInputs = inputs;

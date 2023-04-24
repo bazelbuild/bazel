@@ -91,7 +91,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
@@ -295,7 +294,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException {
@@ -316,7 +314,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         buildSetting,
         cfg,
         execGroups,
-        compileOneFiletype,
         name,
         thread);
   }
@@ -338,7 +335,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException {
@@ -489,17 +485,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     if (!execCompatibleWith.isEmpty()) {
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
-    }
-
-    if (compileOneFiletype instanceof Sequence) {
-      if (!bzlModule.label().getRepository().getNameWithAt().equals("@_builtins")) {
-        throw Starlark.errorf(
-            "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
-      }
-      ImmutableList<String> filesTypes =
-          Sequence.cast(compileOneFiletype, String.class, "compile_one_filetype")
-              .getImmutableList();
-      builder.setPreferredDependencyPredicate(FileType.of(filesTypes));
     }
 
     StarlarkRuleFunction starlarkRuleFunction =

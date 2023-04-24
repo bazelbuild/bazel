@@ -64,6 +64,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/vfs",

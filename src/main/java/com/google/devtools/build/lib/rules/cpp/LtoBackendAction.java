@@ -101,7 +101,6 @@ public final class LtoBackendAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        null,
         /*stripOutputPaths=*/ false);
     mandatoryInputs = inputs;
     Preconditions.checkState(

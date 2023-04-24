@@ -111,12 +111,14 @@ public class IncompatibleTargetChecker {
 
     private final ResultSink sink;
 
+    private final StateMachine runAfter;
+
     private final ImmutableList.Builder<ConstraintValueInfo> invalidConstraintValuesBuilder =
         new ImmutableList.Builder<>();
 
     /** Sink for the output of this state machine. */
     public interface ResultSink {
-      void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget);
+      void acceptIncompatibleTarget(Optional<RuleConfiguredTargetValue> incompatibleTarget);
 
       void acceptValidationException(ValidationException e);
     }
@@ -127,29 +129,31 @@ public class IncompatibleTargetChecker {
         ConfigConditions configConditions,
         @Nullable PlatformInfo platformInfo,
         @Nullable NestedSetBuilder<Package> transitivePackages,
-        ResultSink sink) {
+        ResultSink sink,
+        StateMachine runAfter) {
       this.target = target;
       this.configuration = configuration;
       this.configConditions = configConditions;
       this.platformInfo = platformInfo;
       this.transitivePackages = transitivePackages;
       this.sink = sink;
+      this.runAfter = runAfter;
     }
 
     @Override
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       Rule rule = target.getAssociatedRule();
       if (rule == null || !rule.useToolchainResolution() || platformInfo == null) {
-        sink.accept(Optional.empty());
-        return DONE;
+        sink.acceptIncompatibleTarget(Optional.empty());
+        return runAfter;
       }
 
       // Retrieves the label list for the target_compatible_with attribute.
       ConfiguredAttributeMapper attrs =
           ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
       if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-        sink.accept(Optional.empty());
-        return DONE;
+        sink.acceptIncompatibleTarget(Optional.empty());
+        return runAfter;
       }
 
       // Resolves the constraint labels, checking for invalid configured attributes.
@@ -158,7 +162,7 @@ public class IncompatibleTargetChecker {
         targetCompatibleWith = attrs.getAndValidate("target_compatible_with", BuildType.LABEL_LIST);
       } catch (ValidationException e) {
         sink.acceptValidationException(e);
-        return DONE;
+        return runAfter;
       }
       for (Label label : targetCompatibleWith) {
         tasks.lookUp(
@@ -180,21 +184,21 @@ public class IncompatibleTargetChecker {
 
     private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
       var invalidConstraintValues = invalidConstraintValuesBuilder.build();
-      if (invalidConstraintValues.isEmpty()) {
-        sink.accept(Optional.empty());
-        return DONE;
+      if (!invalidConstraintValues.isEmpty()) {
+        sink.acceptIncompatibleTarget(
+            Optional.of(
+                createIncompatibleRuleConfiguredTarget(
+                    target,
+                    configuration,
+                    configConditions,
+                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                        platformInfo.label(), invalidConstraintValues),
+                    target.getAssociatedRule().getRuleClass(),
+                    transitivePackages)));
+        return runAfter;
       }
-      sink.accept(
-          Optional.of(
-              createIncompatibleRuleConfiguredTarget(
-                  target,
-                  configuration,
-                  configConditions,
-                  IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                      platformInfo.label(), invalidConstraintValues),
-                  target.getAssociatedRule().getRuleClass(),
-                  transitivePackages)));
-      return DONE;
+      sink.acceptIncompatibleTarget(Optional.empty());
+      return runAfter;
     }
   }
 

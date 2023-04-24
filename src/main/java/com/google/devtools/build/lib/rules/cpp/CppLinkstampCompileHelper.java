@@ -37,7 +37,7 @@ public class CppLinkstampCompileHelper {
   /**
    * Creates {@link CppCompileAction} to compile linkstamp source
    *
-   * @param inputsForInvalidation: see {@link CppCompileAction#inputsForInvalidation}
+   * @param compilationPrerequisites: see {@link CppCompileAction#inputsForInvalidation}
    */
   public static CppCompileAction createLinkstampCompileAction(
       RuleErrorConsumer ruleErrorConsumer,
@@ -48,7 +48,7 @@ public class CppLinkstampCompileHelper {
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,
       NestedSet<Artifact> nonCodeInputs,
-      NestedSet<Artifact> inputsForInvalidation,
+      NestedSet<Artifact> compilationPrerequisites,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
@@ -88,7 +88,7 @@ public class CppLinkstampCompileHelper {
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
-            .setInputsForInvalidation(inputsForInvalidation)
+            .addMandatoryInputs(compilationPrerequisites)
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
             .setShareable(true)

@@ -442,18 +442,6 @@ public interface StarlarkRuleFunctionsApi {
                     + " single target. See <a href='${link exec-groups}'>execution groups"
                     + " documentation</a> for more info."),
         @Param(
-            name = "compile_one_filetype",
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = String.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            doc =
-                "Used by --compile_one_dependency: if multiple rules consume the specified file, "
-                    + "should we choose this rule over others."),
-        @Param(
             name = "name",
             named = true,
             defaultValue = "None",
@@ -495,7 +483,6 @@ public interface StarlarkRuleFunctionsApi {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException;
