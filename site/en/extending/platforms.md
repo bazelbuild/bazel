@@ -226,7 +226,7 @@ cc_library(
     target_compatible_with = select({
         "@platforms//cpu:arm": ["@platforms//:incompatible"],
         "//conditions:default": [],
-    ],
+    }),
 )
 ```
 
