@@ -279,6 +279,7 @@ public abstract class NativeDepsHelper {
             ruleContext.getSymbolGenerator(),
             TargetUtils.getExecutionInfo(
                 ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+        .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
         .setIsStampingEnabled(AnalysisUtils.isStampingEnabled(ruleContext))
         .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
         .setLinkerOutputArtifact(sharedLibrary)

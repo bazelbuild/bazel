@@ -305,11 +305,6 @@ public final class CcToolchainRule implements RuleDefinition {
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         .add(
-            attr("$grep_includes", LABEL)
-                .exec()
-                .cfg(ExecutionTransitionFactory.createFactory())
-                .value(env.getToolsLabel("//tools/cpp:grep-includes")))
-        .add(
             attr(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL)
                 .value(CppRuleClasses.ccToolchainTypeAttribute(env)))
         .add(

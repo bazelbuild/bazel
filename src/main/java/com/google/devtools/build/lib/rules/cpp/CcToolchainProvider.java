@@ -91,7 +91,6 @@ public final class CcToolchainProvider extends NativeInfo
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
   @Nullable private final Artifact linkDynamicLibraryTool;
-  @Nullable private final Artifact grepIncludes;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
   @Nullable private final PathFragment sysroot;
   private final PathFragment targetSysroot;
@@ -164,7 +163,6 @@ public final class CcToolchainProvider extends NativeInfo
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> targetBuiltinIncludeFiles,
       Artifact linkDynamicLibraryTool,
-      @Nullable Artifact grepIncludes,
       ImmutableList<PathFragment> builtInIncludeDirectories,
       @Nullable PathFragment sysroot,
       @Nullable PathFragment targetSysroot,
@@ -262,7 +260,6 @@ public final class CcToolchainProvider extends NativeInfo
     this.stripExecutable = stripExecutable;
     this.ldExecutable = ldExecutable;
     this.gcovExecutable = gcovExecutable;
-    this.grepIncludes = grepIncludes;
   }
 
   @Override
@@ -792,12 +789,6 @@ public final class CcToolchainProvider extends NativeInfo
    */
   public Artifact getLinkDynamicLibraryTool() {
     return linkDynamicLibraryTool;
-  }
-
-  /** Returns the grep-includes tool which is needing during linking because of linkstamping. */
-  @Nullable
-  public Artifact getGrepIncludes() {
-    return grepIncludes;
   }
 
   /** Returns the tool that builds interface libraries from dynamic libraries. */

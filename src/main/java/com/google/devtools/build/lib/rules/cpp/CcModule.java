@@ -1911,6 +1911,7 @@ public abstract class CcModule
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
+            .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .addNonCodeLinkerInputs(
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .setShouldCreateStaticLibraries(!disallowStaticLibraries)
@@ -2422,6 +2423,7 @@ public abstract class CcModule
       StarlarkThread thread)
       throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
+    Artifact grepIncludes = convertFromNoneable(grepIncludesObject, /* defaultValue= */ null);
     getSemantics()
         .validateStarlarkCompileApiCall(
             starlarkActionFactoryApi,
@@ -2507,6 +2509,7 @@ public abstract class CcModule
             actions.asActionRegistry(actions),
             actions.getActionConstructionContext(),
             label,
+            grepIncludes,
             getSemantics(language),
             featureConfiguration.getFeatureConfiguration(),
             sourceCategory,
@@ -2751,6 +2754,7 @@ public abstract class CcModule
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
                     actions.getRuleContext().isAllowTagsPropagation()))
+            .setGrepIncludes(convertFromNoneable(grepIncludes, /* defaultValue= */ null))
             .setLinkingMode(linkDepsStatically ? LinkingMode.STATIC : LinkingMode.DYNAMIC)
             .setIsStampingEnabled(isStampingEnabled)
             .addTransitiveAdditionalLinkerInputs(additionalInputsSet)
@@ -2909,6 +2913,7 @@ public abstract class CcModule
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleContext,
                 ruleContext,
+                grepIncludes,
                 ruleContext.getConfiguration(),
                 sourceFile,
                 outputFile,

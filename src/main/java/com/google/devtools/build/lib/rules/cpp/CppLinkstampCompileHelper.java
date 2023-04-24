@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
 public class CppLinkstampCompileHelper {
@@ -41,6 +42,7 @@ public class CppLinkstampCompileHelper {
   public static CppCompileAction createLinkstampCompileAction(
       RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
+      @Nullable Artifact grepIncludes,
       BuildConfigurationValue configuration,
       Artifact sourceFile,
       Artifact outputFile,
@@ -60,7 +62,11 @@ public class CppLinkstampCompileHelper {
       CppSemantics semantics) {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
-                actionConstructionContext, ccToolchainProvider, configuration, semantics)
+                actionConstructionContext,
+                grepIncludes,
+                ccToolchainProvider,
+                configuration,
+                semantics)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(

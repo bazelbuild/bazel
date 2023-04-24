@@ -79,7 +79,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
   private final String cpu;
   private final Artifact ifsoBuilder;
   private final Artifact linkDynamicLibraryTool;
-  @Nullable private final Artifact grepIncludes;
   private final TransitiveInfoCollection fdoOptimize;
   private final ImmutableList<Artifact> fdoOptimizeArtifacts;
   private final FdoPrefetchHintsProvider fdoPrefetch;
@@ -118,11 +117,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
           "attributes 'cpu' and 'compiler' have been deprecated, please remove them. See "
               + "https://github.com/bazelbuild/bazel/issues/7075 for details.");
     }
-
-    // grep_includes is not supported by Bazel.
-    String toolsRepository = ruleContext.getRuleClassProvider().getToolsRepository().getName();
-    this.grepIncludes =
-        toolsRepository.isEmpty() ? ruleContext.getPrerequisiteArtifact("$grep_includes") : null;
 
     this.cpu = ruleContext.attributes().get("cpu", Type.STRING);
     this.compiler = ruleContext.attributes().get("compiler", Type.STRING);
@@ -348,11 +342,6 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public Artifact getLinkDynamicLibraryTool() {
     return linkDynamicLibraryTool;
-  }
-
-  @Nullable
-  public Artifact getGrepIncludes() {
-    return grepIncludes;
   }
 
   @StarlarkMethod(
