@@ -28,6 +28,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -386,7 +387,7 @@ public class ParallelEvaluatorTest {
     // thread, aka the main Skyframe evaluation thread),
     CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
     CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
-    InMemoryNodeEntry nodeEntryB = mock(InMemoryNodeEntry.class);
+    InMemoryNodeEntry nodeEntryB = spy(new InMemoryNodeEntry(keyB));
     AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
     doAnswer(
             invocation -> {

@@ -301,6 +301,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
               });
       return nodeEntry != null ? nodeEntry.getKey() : weakInterned[0];
     }
+
+    @Override
+    public void cleanupForTest() {
+      cleanupInterningPool();
+    }
   }
 
   /** {@link PooledInterner.Pool} for {@link Label}s. */
@@ -340,6 +345,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
       } finally {
         readLock.unlock();
       }
+    }
+
+    @Override
+    public void cleanupForTest() {
+      cleanupInterningPool();
     }
   }
 
