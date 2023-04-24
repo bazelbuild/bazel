@@ -203,7 +203,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   private ActionOwner dummyActionOwner() throws LabelSyntaxException {
-    return ActionOwner.create(
+    return ActionOwner.createDummy(
         Label.parseCanonical("//foo:a"),
         new Location("dummy-file", 0, 0),
         /* targetKind= */ "",
@@ -212,7 +212,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        /* additionalProgressInfo= */ "",
+        /* isToolConfiguration= */ true,
         /* executionPlatform= */ null,
         /* aspectDescriptors= */ ImmutableList.of(),
         /* execProperties= */ ImmutableMap.of());
@@ -636,7 +636,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Label label =
         Label.parseCanonical("//some/very/very/long/path/for/some/library/directory:libfoo");
     ActionOwner owner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             label,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
@@ -645,7 +645,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            /* additionalProgressInfo= */ null,
+            /* isToolConfiguration= */ false,
             /* executionPlatform= */ null,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
@@ -1182,7 +1182,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ConfiguredTarget targetFooTest = mock(ConfiguredTarget.class);
     when(targetFooTest.getLabel()).thenReturn(labelFooTest);
     ActionOwner fooOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             labelFooTest,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
@@ -1191,7 +1191,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            /* additionalProgressInfo= */ null,
+            /* isToolConfiguration= */ false,
             /* executionPlatform= */ null,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
@@ -1200,7 +1200,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
     ActionOwner barOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             labelBarTest,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
@@ -1209,7 +1209,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            /* additionalProgressInfo= */ null,
+            /* isToolConfiguration= */ false,
             /* executionPlatform= */ null,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());
@@ -1218,7 +1218,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ConfiguredTarget targetBazTest = mock(ConfiguredTarget.class);
     when(targetBazTest.getLabel()).thenReturn(labelBazTest);
     ActionOwner bazOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             labelBazTest,
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-target-kind",
@@ -1227,7 +1227,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            /* additionalProgressInfo= */ null,
+            /* isToolConfiguration= */ false,
             /* executionPlatform= */ null,
             /* aspectDescriptors= */ ImmutableList.of(),
             /* execProperties= */ ImmutableMap.of());

@@ -60,23 +60,6 @@ public class CommandLines {
   private static final UUID PARAM_FILE_UUID =
       UUID.fromString("106c1389-88d7-4cc1-8f05-f8a61fd8f7b1");
 
-  /** Command line OS limitations, such as the max length. */
-  public static class CommandLineLimits {
-    /**
-     * "Unlimited" command line limits.
-     *
-     * <p>Use these limits when you want to prohibit param files, or you don't use param files so
-     * you don't care what the limit is.
-     */
-    public static final CommandLineLimits UNLIMITED = new CommandLineLimits(Integer.MAX_VALUE);
-
-    public final int maxLength;
-
-    public CommandLineLimits(int maxLength) {
-      this.maxLength = maxLength;
-    }
-  }
-
   /** A simple tuple of a {@link CommandLine} and a {@link ParamFileInfo}. */
   public static class CommandLineAndParamFileInfo {
     public final CommandLine commandLine;

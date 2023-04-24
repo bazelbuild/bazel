@@ -424,8 +424,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       return null;
     }
     message = replaceProgressMessagePlaceholders(message, mainRepositoryMapping);
-    String additionalInfo = owner.getAdditionalProgressInfo();
-    return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
+    return owner.isBuildConfigurationForTool() ? message + " [for tool]" : message;
   }
 
   private String replaceProgressMessagePlaceholders(

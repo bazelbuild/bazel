@@ -80,7 +80,7 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public ActionOwner getOwner() {
-    return ActionOwner.create(
+    return ActionOwner.createDummy(
         Label.parseCanonicalUnchecked(ownerLabel),
         new Location("dummy-file", 0, 0),
         /* targetKind= */ "dummy-target-kind",
@@ -89,7 +89,7 @@ public class FakeOwner implements ActionExecutionMetadata {
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        /* additionalProgressInfo= */ "additionalProgressInfo",
+        /* isToolConfiguration= */ true,
         /* executionPlatform= */ null,
         /* aspectDescriptors= */ ImmutableList.of(),
         /* execProperties= */ ImmutableMap.of());
