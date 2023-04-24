@@ -105,8 +105,8 @@ public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHand
   }
 
   @Override
-  public void stopConsumer() {
-    queue.add(POISON_PILL);
+  public void stopConsumer() throws InterruptedException {
+    queue.put(POISON_PILL);
   }
 
   /** Construct the printing task and put it in the queue. */
