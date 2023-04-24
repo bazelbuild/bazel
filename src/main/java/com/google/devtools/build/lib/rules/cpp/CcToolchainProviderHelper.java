@@ -221,6 +221,7 @@ public final class CcToolchainProviderHelper {
         getBuiltinIncludes(attributes.getLibc()),
         getBuiltinIncludes(attributes.getTargetLibc()),
         attributes.getLinkDynamicLibraryTool(),
+        attributes.getGrepIncludes(),
         builtInIncludeDirectories,
         sysroot,
         targetSysroot,

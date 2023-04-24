@@ -127,7 +127,6 @@ public final class CcLinkingHelper {
   private final SymbolGenerator<?> symbolGenerator;
   private final ImmutableMap<String, String> executionInfo;
 
-  private Artifact grepIncludes;
   private boolean isStampingEnabled;
   private boolean isTestOrTestOnlyTarget;
 
@@ -508,15 +507,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  /**
-   * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
-   */
-  @CanIgnoreReturnValue
-  public CcLinkingHelper setGrepIncludes(Artifact grepIncludes) {
-    this.grepIncludes = grepIncludes;
-    return this;
-  }
-
   /** Whether linkstamping is enabled. */
   @CanIgnoreReturnValue
   public CcLinkingHelper setIsStampingEnabled(boolean isStampingEnabled) {
@@ -876,7 +866,6 @@ public final class CcLinkingHelper {
                 fdoContext,
                 featureConfiguration,
                 semantics)
-            .setGrepIncludes(grepIncludes)
             .setMnemonic(mnemonic)
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(isTestOrTestOnlyTarget)

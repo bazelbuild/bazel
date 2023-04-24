@@ -224,6 +224,7 @@ public class CcStarlarkInternal implements StarlarkValue {
                 targetBuiltinIncludeFiles, Artifact.class, "target_builtin_include_files")
             .getImmutableList(),
         /* linkDynamicLibraryTool= */ attributes.getLinkDynamicLibraryTool(),
+        /* grepIncludes= */ attributes.getGrepIncludes(),
         /* builtInIncludeDirectories= */ builtInIncludeDirectories,
         /* sysroot= */ sysroot,
         /* targetSysroot= */ targetSysroot,
