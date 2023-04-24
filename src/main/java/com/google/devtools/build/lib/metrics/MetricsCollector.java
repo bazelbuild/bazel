@@ -57,17 +57,16 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTarge
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.util.Durations;
+
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAccumulator;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
 
 class MetricsCollector {
@@ -197,17 +196,13 @@ class MetricsCollector {
     spawnStats.countActionResult(event.getActionResult());
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
-    Duration systemTime = event.getActionResult().cumulativeCommandExecutionSystemTime();
-    if (systemTime != null) {
-      actionStats.systemTime.add(systemTime);
-    } else {
-      actionStats.systemTime.invalidate();
+    int systemTime = event.getActionResult().cumulativeCommandExecutionSystemTimeInMs();
+    if (systemTime > 0) {
+      actionStats.systemTime.addAndGet(systemTime);
     }
-    Duration userTime = event.getActionResult().cumulativeCommandExecutionUserTime();
-    if (userTime != null) {
-      actionStats.userTime.add(userTime);
-    } else {
-      actionStats.userTime.invalidate();
+    int userTime = event.getActionResult().cumulativeCommandExecutionUserTimeInMs();
+    if (userTime > 0) {
+      actionStats.userTime.addAndGet(userTime);
     }
   }
 
@@ -276,17 +271,13 @@ class MetricsCollector {
             nanosToMillisSinceEpochConverter.toEpochMillis(
                 actionStats.lastEnded.longValue()))
         .setActionsExecuted(actionStats.numActions.get());
-    Optional<Duration> systemTime = actionStats.systemTime.sum();
-    if (systemTime.isPresent()) {
-      builder.setSystemTime(com.google.protobuf.Duration.newBuilder()
-          .setSeconds(systemTime.get().getSeconds())
-          .setNanos(systemTime.get().getNano()));
+    long systemTime = actionStats.systemTime.get();
+    if (systemTime > 0) {
+      builder.setSystemTime(Durations.fromMillis(systemTime));
     }
-    Optional<Duration> userTime = actionStats.userTime.sum();
-    if (userTime.isPresent()) {
-      builder.setUserTime(com.google.protobuf.Duration.newBuilder()
-          .setSeconds(userTime.get().getSeconds())
-          .setNanos(userTime.get().getNano()));
+    long userTime = actionStats.userTime.get();
+    if (userTime > 0) {
+      builder.setUserTime(Durations.fromMillis(userTime));
     }
     return builder.build();
   }
@@ -373,62 +364,22 @@ class MetricsCollector {
     return timingMetrics.build();
   }
 
-  /**
-   * Microsecond-based duration adder which maintain initially zero long sum of microseconds.
-   * May be accessed from multiple threads.
-   * As it maintains duration as long microseconds nanoseconds will be ignored.
-   * The value can be marked invalid with {@code invalidate()}.
-   * For example if the system receives some actions with unknown duration the value is getting unknown (invalid).
-   */
-  static class DurationAdder {
-
-    final LongAdder duration_us;
-    final AtomicBoolean valid;
-
-    public DurationAdder() {
-      valid = new AtomicBoolean(true);
-      duration_us = new LongAdder();
-    }
-
-    public void add(Duration duration) {
-      if (valid.get())
-        this.duration_us.add(duration.toNanos()/1000);
-    }
-
-    public void invalidate() {
-      if (valid.get()) valid.set(false);
-    }
-
-    /**
-     * Returns {@code Optional} describing total duration.
-     * If was marked as invalid or 0 microseconds collected returns {@code Optional.empty}
-     * @return {@code Optional} of {@code Duration}
-     */
-    public Optional<Duration> sum() {
-      if (valid.get() && (duration_us.sum() > 0)) {
-        return Optional.of(Duration.of(duration_us.sum(), ChronoUnit.MICROS));
-      } else {
-        return Optional.empty();
-      }
-    }
-  }
-
   private static class ActionStats {
 
     final LongAccumulator firstStarted;
     final LongAccumulator lastEnded;
     final AtomicLong numActions;
     final String mnemonic;
-    final DurationAdder systemTime;
-    final DurationAdder userTime;
+    final AtomicLong systemTime;
+    final AtomicLong userTime;
 
     ActionStats(String mnemonic) {
       this.mnemonic = mnemonic;
       firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
       lastEnded = new LongAccumulator(Math::max, 0);
       numActions = new AtomicLong();
-      systemTime = new DurationAdder();
-      userTime = new DurationAdder();
+      systemTime = new AtomicLong();
+      userTime = new AtomicLong();
     }
   }
 }
