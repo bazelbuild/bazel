@@ -8185,4 +8185,36 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     getConfiguredTarget("//tools/build_defs/android:custom");
   }
+
+  // grep_includes is not supported by Bazel.
+  @Test
+  public void testGrepIncludesIsSetToNullInsideCcToolchain() throws Exception {
+    if (!AnalysisMock.get().isThisBazel()) {
+      return;
+    }
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'cc_skylark_library')",
+        "cc_skylark_library(",
+        "    name = 'skylark_lib',",
+        ")");
+    scratch.file(
+        "foo/extension.bzl",
+        "def _cc_skylark_library_impl(ctx):",
+        "    return [ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]]",
+        "cc_skylark_library = rule(",
+        "    implementation = _cc_skylark_library_impl,",
+        "    attrs = {",
+        "      '_cc_toolchain': attr.label(default =",
+        "          configuration_field(fragment = 'cpp', name = 'cc_toolchain')),",
+        "    },",
+        "    fragments = ['cpp'],",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);
+    Artifact grepIncludes = toolchainProvider.getGrepIncludes();
+
+    assertThat(grepIncludes).isNull();
+  }
 }

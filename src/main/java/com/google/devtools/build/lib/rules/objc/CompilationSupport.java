@@ -650,7 +650,6 @@ public class CompilationSupport implements StarlarkValue {
                 ruleContext.getSymbolGenerator(),
                 TargetUtils.getExecutionInfo(
                     ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
-            .setGrepIncludes(CppHelper.getGrepIncludes(ruleContext))
             .setIsStampingEnabled(isStampingEnabled)
             .setTestOrTestOnlyTarget(ruleContext.isTestOnlyTarget() || ruleContext.isTestTarget())
             .addNonCodeLinkerInputs(asNeededLibraryList)

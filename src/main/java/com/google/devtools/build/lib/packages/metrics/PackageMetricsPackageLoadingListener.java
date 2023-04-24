@@ -26,8 +26,6 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   @GuardedBy("this")
   private PackageMetricsRecorder recorder;
 
-  private boolean publishPackageMetricsInBep = false;
-
   @GuardedBy("PackageMetricsPackageLoadingListener.class")
   private static PackageMetricsPackageLoadingListener instance = null;
 
@@ -53,8 +51,8 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
       return;
     }
 
-    PackageLoadMetrics.Builder builder =
-        PackageLoadMetrics.newBuilder()
+    PackageMetrics.Builder builder =
+        PackageMetrics.newBuilder()
             .setLoadDuration(Durations.fromNanos(loadTimeNanos))
             .setComputationSteps(pkg.getComputationSteps())
             .setNumTargets(pkg.getTargets().size())
@@ -70,14 +68,6 @@ public class PackageMetricsPackageLoadingListener implements PackageLoadingListe
   /** Set the PackageMetricsRecorder for this listener. */
   public synchronized void setPackageMetricsRecorder(PackageMetricsRecorder recorder) {
     this.recorder = recorder;
-  }
-
-  public void setPublishPackageMetricsInBep(boolean publishPackageMetricsInBep) {
-    this.publishPackageMetricsInBep = publishPackageMetricsInBep;
-  }
-
-  public boolean getPublishPackageMetricsInBep() {
-    return publishPackageMetricsInBep;
   }
 
   /** Returns the PackageMetricsRecorder, if any, for the PackageLoadingListener. */

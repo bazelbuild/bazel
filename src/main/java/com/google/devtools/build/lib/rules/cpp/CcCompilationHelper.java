@@ -300,14 +300,12 @@ public final class CcCompilationHelper {
   private final ActionRegistry actionRegistry;
   private final ActionConstructionContext actionConstructionContext;
   private final Label label;
-  @Nullable private final Artifact grepIncludes;
 
   /** Creates a CcCompilationHelper that outputs artifacts in a given configuration. */
   public CcCompilationHelper(
       ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       Label label,
-      @Nullable Artifact grepIncludes,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       SourceCategory sourceCategory,
@@ -333,7 +331,6 @@ public final class CcCompilationHelper {
     this.ruleErrorConsumer = actionConstructionContext.getRuleErrorConsumer();
     this.actionRegistry = Preconditions.checkNotNull(actionRegistry);
     this.label = Preconditions.checkNotNull(label);
-    this.grepIncludes = grepIncludes;
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
     this.shouldProcessHeaders = shouldProcessHeaders;
   }
@@ -343,7 +340,6 @@ public final class CcCompilationHelper {
       ActionRegistry actionRegistry,
       ActionConstructionContext actionConstructionContext,
       Label label,
-      @Nullable Artifact grepIncludes,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
@@ -354,7 +350,6 @@ public final class CcCompilationHelper {
         actionRegistry,
         actionConstructionContext,
         label,
-        grepIncludes,
         semantics,
         featureConfiguration,
         SourceCategory.CC,
@@ -1674,7 +1669,7 @@ public final class CcCompilationHelper {
    */
   private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact) {
     return new CppCompileActionBuilder(
-            actionConstructionContext, grepIncludes, ccToolchain, configuration, semantics)
+            actionConstructionContext, ccToolchain, configuration, semantics)
         .setSourceFile(sourceArtifact)
         .setCcCompilationContext(ccCompilationContext)
         .setCoptsFilter(coptsFilter)
