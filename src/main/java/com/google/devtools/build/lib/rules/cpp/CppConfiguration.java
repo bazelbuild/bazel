@@ -367,10 +367,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.isCSFdo();
   }
 
-  public boolean ignoreParamFile() {
-    return cppOptions.ignoreParamFile;
-  }
-
   public boolean useArgsParamsFile() {
     return cppOptions.useArgsParamsFile;
   }
@@ -481,10 +477,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalLinkStaticLibrariesOnce;
   }
 
-  public boolean experimentalEnableTargetExportCheck() {
-    return cppOptions.experimentalEnableTargetExportCheck;
-  }
-
   public boolean experimentalCcSharedLibraryDebug() {
     return cppOptions.experimentalCcSharedLibraryDebug;
   }
@@ -503,10 +495,6 @@ public final class CppConfiguration extends Fragment
 
   public boolean getInmemoryDotdFiles() {
     return cppOptions.inmemoryDotdFiles;
-  }
-
-  public boolean getParseHeadersSkippedIfCorrespondingSrcsFound() {
-    return cppOptions.parseHeadersSkippedIfCorrespondingSrcsFound;
   }
 
   public boolean getUseInterfaceSharedLibraries() {
@@ -910,13 +898,6 @@ public final class CppConfiguration extends Fragment
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
     return experimentalLinkStaticLibrariesOnce();
-  }
-
-  @Override
-  public boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread)
-      throws EvalException {
-    CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return experimentalEnableTargetExportCheck();
   }
 
   @Override

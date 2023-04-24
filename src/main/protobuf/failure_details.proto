@@ -630,8 +630,9 @@ message InfoCommand {
 message MemoryOptions {
   enum Code {
     MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
-    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
-        [(metadata) = { exit_code: 2 }];
+    // Deprecated: validation is now implemented by the option converter.
+    DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }, deprecated = true];
     // Deprecated: no tenured collectors found is now a crash on startup.
     DEPRECATED_EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
         [(metadata) = { exit_code: 2 }, deprecated = true];

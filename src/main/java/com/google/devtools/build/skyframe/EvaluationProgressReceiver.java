@@ -122,11 +122,15 @@ public interface EvaluationProgressReceiver {
    * @param state {@code EvaluationState.BUILT} if the node needed to be evaluated and has a new
    *     value or error (i.e., {@code EvaluationState.BUILT} if and only if at least one of newValue
    *     and newError is non-null)
+   * @param directDeps Direct dependencies of {@code skyKey}. This is not-{@code null} when node was
+   *     just built, so direct deps are available; {@code null} when node was dirty but marked clean
+   *     or was already up-to-date from a prior evaluation.
    */
   default void evaluated(
       SkyKey skyKey,
       @Nullable SkyValue newValue,
       @Nullable ErrorInfo newError,
       Supplier<EvaluationSuccessState> evaluationSuccessState,
-      EvaluationState state) {}
+      EvaluationState state,
+      @Nullable GroupedDeps directDeps) {}
 }

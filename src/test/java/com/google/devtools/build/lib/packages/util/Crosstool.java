@@ -612,8 +612,7 @@ public final class Crosstool {
     StringBuilder compilerMap =
         new StringBuilder()
             .append("'k8': ':cc-compiler-darwin_x86_64',\n")
-            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n")
-            .append("'darwin': ':cc-compiler-darwin_x86_64',\n");
+            .append("'aarch64': ':cc-compiler-darwin_x86_64',\n");
     Set<String> seenCpus = new LinkedHashSet<>();
     for (CcToolchainConfig toolchain : ccToolchainConfigList) {
       if (seenCpus.add(toolchain.getTargetCpu())) {

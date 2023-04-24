@@ -13,17 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -43,10 +46,14 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.OS;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
@@ -1976,10 +1983,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     setBuildLanguageOptions("--experimental_google_legacy_api");
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:binary");
 
-    TemplateExpansionAction action =
-        (TemplateExpansionAction) getGeneratingAction(getExecutable(testTarget));
     // Check that the directory name is on the java.library.path
-    assertThat(action.getFileContents())
+    assertThat(getJvmFlags(getExecutable(testTarget)))
         .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
@@ -2006,10 +2011,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_test(name = 'test', test_class='test', srcs = ['Test.java'], deps = [':r'])");
 
     ConfiguredTarget testTarget = getConfiguredTarget("//foo:test");
-    TemplateExpansionAction action =
-        (TemplateExpansionAction) getGeneratingAction(getExecutable(testTarget));
     // Check that the directory name is on the java.library.path
-    assertThat(action.getFileContents())
+    assertThat(getJvmFlags(getExecutable(testTarget)))
         .containsMatch("-Djava.library.path=\\$\\{JAVA_RUNFILES\\}/.*/foo");
   }
 
@@ -3213,7 +3216,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "foo/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, True)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3466,7 +3469,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     scratch.file(
         "bazel_internal/test/custom_rule.bzl",
         "def _impl(ctx):",
-        "  artifacts = java_common.get_build_info(ctx)",
+        "  artifacts = java_common.get_build_info(ctx, False)",
         "  return [DefaultInfo(files = depset(artifacts))]",
         "custom_rule = rule(",
         "  implementation = _impl,",
@@ -3602,25 +3605,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testUseLegacyJavaTestIsPrivateApi() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.java.use_legacy_java_test()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['java']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
   public void testEnforceExplicitJavaTestDepsIsPrivateApi() throws Exception {
     scratch.file(
         "foo/rule.bzl",
@@ -3637,5 +3621,21 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:myrule");
 
     assertContainsEvent("Rule in 'foo' cannot use private API");
+  }
+
+  private String getJvmFlags(Artifact executable)
+      throws CommandLineExpansionException, InterruptedException, EvalException {
+    if (OS.getCurrent() == OS.WINDOWS) {
+      return getGeneratingSpawnActionArgs(executable).stream()
+          .filter(a -> a.startsWith("jvm_flags="))
+          .flatMap(a -> Arrays.stream(a.substring("jvm_flags=".length()).split("\t")))
+          .collect(joining(" "));
+    } else {
+      return ((TemplateExpansionAction) getGeneratingAction(executable))
+          .getSubstitutions().stream()
+              .filter(s -> Objects.equals(s.getKey(), "%jvm_flags%"))
+              .collect(onlyElement())
+              .getValue();
+    }
   }
 }

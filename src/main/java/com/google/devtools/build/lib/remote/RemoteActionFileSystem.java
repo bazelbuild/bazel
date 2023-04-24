@@ -20,16 +20,21 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
@@ -68,9 +73,9 @@ import javax.annotation.Nullable;
  * <p>This implementation only supports creating local action outputs.
  */
 public class RemoteActionFileSystem extends DelegateFileSystem {
-
   private final PathFragment execRoot;
   private final PathFragment outputBase;
+  private final InputMetadataProvider fileCache;
   private final ActionInputMap inputArtifactData;
   private final ImmutableMap<PathFragment, Artifact> outputMapping;
   private final RemoteActionInputFetcher inputFetcher;
@@ -84,6 +89,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       String relativeOutputPath,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
+      InputMetadataProvider fileCache,
       RemoteActionInputFetcher inputFetcher) {
     super(localDelegate);
     this.execRoot = checkNotNull(execRootFragment, "execRootFragment");
@@ -91,6 +97,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     this.inputArtifactData = checkNotNull(inputArtifactData, "inputArtifactData");
     this.outputMapping =
         stream(outputArtifacts).collect(toImmutableMap(Artifact::getExecPath, a -> a));
+    this.fileCache = checkNotNull(fileCache, "fileCache");
     this.inputFetcher = checkNotNull(inputFetcher, "inputFetcher");
     this.remoteOutputTree = new RemoteInMemoryFileSystem(getDigestFunction());
   }
@@ -107,19 +114,23 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
   /** Returns true if {@code path} is a file that's stored remotely. */
   boolean isRemote(Path path) {
-    return getRemoteMetadata(path.asFragment()) != null;
+    return isRemote(path.asFragment());
+  }
+
+  private boolean isRemote(PathFragment path) {
+    return getRemoteMetadata(path) != null;
   }
 
   public void updateContext(MetadataInjector metadataInjector) {
     this.metadataInjector = metadataInjector;
   }
 
-  void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
+  void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
       throws IOException {
     if (!isOutput(path)) {
       return;
     }
-    remoteOutputTree.injectRemoteFile(path, digest, size, actionId);
+    remoteOutputTree.injectRemoteFile(path, digest, size, expireAtEpochMilli);
   }
 
   void flush() throws IOException {
@@ -206,7 +217,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
               metadata.getDigest(),
               metadata.getSize(),
               metadata.getLocationIndex(),
-              metadata.getActionId(),
+              metadata.getExpireAtEpochMilli(),
               // Avoid a double indirection when the target is already materialized as a symlink.
               metadata.getMaterializationExecPath().orElse(targetPath.relativeTo(execRoot)));
 
@@ -219,7 +230,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         remoteFile.getFastDigest(),
         remoteFile.getSize(),
         /* locationIndex= */ 1,
-        remoteFile.getActionId());
+        remoteFile.getExpireAtEpochMilli());
   }
 
   @Override
@@ -230,7 +241,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected boolean delete(PathFragment path) throws IOException {
     boolean deleted = super.delete(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       deleted = remoteOutputTree.getPath(path).delete() || deleted;
     }
     return deleted;
@@ -239,6 +250,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   protected InputStream getInputStream(PathFragment path) throws IOException {
     downloadFileIfRemote(path);
+    // TODO(tjgq): Consider only falling back to the local filesystem for source (non-output) files.
+    // See getMetadata() for why this isn't currently possible.
     return super.getInputStream(path);
   }
 
@@ -390,7 +403,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     super.createSymbolicLink(linkPath, targetFragment);
-    if (linkPath.startsWith(outputBase)) {
+    if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
   }
@@ -539,18 +552,58 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
-  protected RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
-    if (!isOutput(path)) {
-      return null;
+  @VisibleForTesting
+  ActionInput getInput(String execPath) {
+    ActionInput input = inputArtifactData.getInput(execPath);
+    if (input != null) {
+      return input;
     }
-    PathFragment execPath = path.relativeTo(execRoot);
+    input = outputMapping.get(PathFragment.create(execPath));
+    if (input != null) {
+      return input;
+    }
+    if (!isOutput(execRoot.getRelative(execPath))) {
+      return fileCache.getInput(execPath);
+    }
+    return null;
+  }
+
+  public FileArtifactValue getOutputMetadataForTopLevelArtifactDownloader(ActionInput input)
+      throws IOException {
+    RemoteFileInfo remoteFile =
+        remoteOutputTree.getRemoteFileInfo(
+            execRoot.getRelative(input.getExecPath()), /* followSymlinks= */ true);
+    if (remoteFile != null) {
+      return createRemoteMetadata(remoteFile);
+    }
+
+    // TODO(tjgq): This should not work.
+    // The astute reader will notice that when this method is called, the artifact to be downloaded
+    // is an *output* artifact from the point of view of this RemoteActionFileSystem. The way this
+    // apparently works is that this is a SingleBuildFileCache, which then stat()s the actual file
+    // system, where the output file is materialized in mysterious ways.
+    //
+    // For further bafflement, see the comment at ToplevelArtifactsDownloader.downloadTestOutput().
+    return fileCache.getInputMetadata(input);
+  }
+
+  @Nullable
+  @VisibleForTesting
+  FileArtifactValue getInputMetadata(ActionInput input) {
+    PathFragment execPath = input.getExecPath();
+    return inputArtifactData.getMetadata(execPath);
+  }
+
+  @Nullable
+  private FileArtifactValue getMetadataByExecPath(PathFragment execPath) {
     FileArtifactValue m = inputArtifactData.getMetadata(execPath);
-    if (m != null && m.isRemote()) {
-      return (RemoteFileArtifactValue) m;
+    if (m != null) {
+      return m;
     }
 
     RemoteFileInfo remoteFile =
-        remoteOutputTree.getRemoteFileInfo(path, /* followSymlinks= */ true);
+        remoteOutputTree.getRemoteFileInfo(
+            execRoot.getRelative(execPath), /* followSymlinks= */ true);
     if (remoteFile != null) {
       return createRemoteMetadata(remoteFile);
     }
@@ -559,12 +612,23 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   @Nullable
-  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
-    if (!path.startsWith(outputBase)) {
+  private RemoteFileArtifactValue getRemoteMetadata(PathFragment path) {
+    if (!isOutput(path)) {
       return null;
     }
-    PathFragment execPath = path.relativeTo(execRoot);
-    TreeArtifactValue m = inputArtifactData.getTreeMetadata(execPath);
+    FileArtifactValue m = getMetadataByExecPath(path.relativeTo(execRoot));
+    if (m != null && m.isRemote()) {
+      return (RemoteFileArtifactValue) m;
+    }
+    return null;
+  }
+
+  @Nullable
+  private TreeArtifactValue getRemoteTreeMetadata(PathFragment path) {
+    if (!isOutput(path)) {
+      return null;
+    }
+    TreeArtifactValue m = inputArtifactData.getTreeMetadata(path.relativeTo(execRoot));
     // TODO: Handle partially remote tree artifacts.
     if (m != null && m.isEntirelyRemote()) {
       return m;
@@ -574,15 +638,23 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   private void downloadFileIfRemote(PathFragment path) throws IOException {
-    FileArtifactValue m = getRemoteMetadata(path);
-    if (m != null) {
-      try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), m);
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        throw new IOException(
-            String.format("Received interrupt while fetching file '%s'", path), e);
+    if (!isRemote(path)) {
+      return;
+    }
+    PathFragment execPath = path.relativeTo(execRoot);
+    try {
+      ActionInput input = getInput(execPath.getPathString());
+      if (input == null) {
+        // For undeclared outputs, getInput returns null as there's no artifact associated with the
+        // path. Therefore, we synthesize one here just so we're able to call prefetchFiles.
+        input = ActionInputHelper.fromPath(execPath);
       }
+      getFromFuture(
+          inputFetcher.prefetchFiles(
+              ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);
     }
   }
 
@@ -620,7 +692,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
     super.createDirectoryAndParents(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       remoteOutputTree.createDirectoryAndParents(path);
     }
   }
@@ -629,7 +701,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
     boolean created = delegateFs.createDirectory(path);
-    if (path.startsWith(outputBase)) {
+    if (isOutput(path)) {
       created = remoteOutputTree.createDirectory(path) || created;
     }
     return created;
@@ -741,7 +813,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return new RemoteFileInfo(clock);
     }
 
-    void injectRemoteFile(PathFragment path, byte[] digest, long size, String actionId)
+    void injectRemoteFile(PathFragment path, byte[] digest, long size, long expireAtEpochMilli)
         throws IOException {
       createDirectoryAndParents(path.getParentDirectory());
       InMemoryContentInfo node = getOrCreateWritableInode(path);
@@ -752,7 +824,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       RemoteFileInfo remoteFileInfo = (RemoteFileInfo) node;
-      remoteFileInfo.set(digest, size, actionId);
+      remoteFileInfo.set(digest, size, expireAtEpochMilli);
     }
 
     @Nullable
@@ -769,16 +841,17 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     private byte[] digest;
     private long size;
-    private String actionId;
+
+    private long expireAtEpochMilli;
 
     RemoteFileInfo(Clock clock) {
       super(clock);
     }
 
-    private void set(byte[] digest, long size, String actionId) {
+    private void set(byte[] digest, long size, long expireAtEpochMilli) {
       this.digest = digest;
       this.size = size;
-      this.actionId = actionId;
+      this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
     @Override
@@ -806,8 +879,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       return size;
     }
 
-    public String getActionId() {
-      return actionId;
+    public long getExpireAtEpochMilli() {
+      return expireAtEpochMilli;
     }
   }
 }

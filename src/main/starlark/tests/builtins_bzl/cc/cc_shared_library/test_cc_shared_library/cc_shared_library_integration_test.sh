@@ -38,16 +38,16 @@ function check_symbol_absent() {
 
 function test_shared_library_symbols() {
   foo_so=$(find . -name libfoo_so.so)
-  symbols=$(nm -D $foo_so)
+  symbols=$(nm $foo_so)
   check_symbol_present "$symbols" "U _Z3barv"
   check_symbol_present "$symbols" "T _Z3bazv"
   check_symbol_present "$symbols" "T _Z3foov"
-  # Check that the preloaded dep symbol is not present
-  check_symbol_present "$symbols" "U _Z13preloaded_depv"
-
-  check_symbol_absent "$symbols" "_Z3quxv"
+  check_symbol_present "$symbols" "T _Z3foov"
+  check_symbol_present "$symbols" "t _Z3quxv"
+  check_symbol_present "$symbols" "t _Z12indirect_depv"
+  check_symbol_present "$symbols" "t _Z13indirect_dep2v"
+  check_symbol_absent "$symbols" "_Z13indirect_dep3v"
   check_symbol_absent "$symbols" "_Z4bar3v"
-  check_symbol_absent "$symbols" "_Z4bar4v"
 }
 
 function test_shared_library_user_link_flags() {
@@ -66,14 +66,11 @@ function do_test_binary() {
 function test_binary() {
   binary=$(find . -name binary)
   do_test_binary $binary
-  check_symbol_present "$symbols" "T _Z13preloaded_depv"
 }
 
 function test_cc_test() {
   cc_test=$(find . -name cc_test)
   do_test_binary $cc_test
-  check_symbol_absent "$symbols" "_Z13preloaded_depv"
-  $LDD_BINARY $cc_test | (grep -q "preloaded_Udep.so" || (echo "Expected '"preloaded_Udep.so"'" && exit 1))
 }
 
 test_shared_library_user_link_flags

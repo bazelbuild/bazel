@@ -11,9 +11,9 @@
 ${description}
 
 <ul>
-#foreach ($module in $modules)
+#foreach ($page in $allPages)
 
-<li><a href="/rules/lib/${module.name}">${module.title}</a></li>
+<li><a href="/rules/lib/${category.path}/${page.name}">${page.title}</a></li>
 #end
 </ul>
 </body>

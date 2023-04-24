@@ -136,7 +136,7 @@ remote execution:
     build to fail on the remote execution platform as Bazel will not be able to
     locate them. Instead, create symlinks using standard build actions so that
     the symlinked tools and libraries are accessible from Bazel's `runfiles`
-    tree. Do not use [`repository_ctx.symlink`](/rules/lib/repository_ctx#symlink)
+    tree. Do not use [`repository_ctx.symlink`](/rules/lib/builtins/repository_ctx#symlink)
     to symlink target files outside of the external repo directory.
 
 *   **Mutating the host platform.** Avoid creating files outside of the Bazel

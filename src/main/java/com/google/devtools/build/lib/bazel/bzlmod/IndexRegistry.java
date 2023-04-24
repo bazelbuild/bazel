@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
@@ -110,6 +111,7 @@ public class IndexRegistry implements Registry {
     Map<String, String> patches;
     int patchStrip;
     String path;
+    String archiveType;
   }
 
   /**
@@ -175,7 +177,15 @@ public class IndexRegistry implements Registry {
       path = moduleBase + "/" + path;
       if (!PathFragment.isAbsolute(moduleBase)) {
         if (uri.getScheme().equals("file")) {
-          path = uri.getPath() + "/" + path;
+          if (uri.getPath().isEmpty() || !uri.getPath().startsWith("/")) {
+            throw new IOException(
+                String.format(
+                    "Provided non absolute local registry path for module %s: %s",
+                    key, uri.getPath()));
+          }
+          // Unix:    file:///tmp --> /tmp
+          // Windows: file:///C:/tmp --> C:/tmp
+          path = uri.getPath().substring(OS.getCurrent() == OS.WINDOWS ? 1 : 0) + "/" + path;
         } else {
           throw new IOException(String.format("Provided non local registry for module %s", key));
         }
@@ -185,8 +195,9 @@ public class IndexRegistry implements Registry {
     return RepoSpec.builder()
         .setRuleClassName("local_repository")
         .setAttributes(
-            ImmutableMap.of(
-                "name", repoName.getName(), "path", PathFragment.create(path).toString()))
+            AttributeValues.create(
+                ImmutableMap.of(
+                    "name", repoName.getName(), "path", PathFragment.create(path).toString())))
         .build();
   }
 
@@ -244,6 +255,7 @@ public class IndexRegistry implements Registry {
         .setStripPrefix(Strings.nullToEmpty(sourceJson.get().stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
         .setRemotePatchStrip(sourceJson.get().patchStrip)
+        .setArchiveType(sourceJson.get().archiveType)
         .build();
   }
 

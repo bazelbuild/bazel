@@ -15,24 +15,26 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableMap;
-import java.util.Optional;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import javax.annotation.Nullable;
 
 /**
  * A class holding information about the attributes of a repository rule and where the rule class is
  * defined.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class RepoSpec {
 
   /**
    * The label string for the bzl file this repository rule is defined in, empty for native rule.
    */
-  public abstract Optional<String> bzlFile();
+  @Nullable
+  public abstract String bzlFile();
 
   public abstract String ruleClassName();
 
-  public abstract ImmutableMap<String, Object> attributes();
+  public abstract AttributeValues attributes();
 
   public static Builder builder() {
     return new AutoValue_RepoSpec.Builder();
@@ -43,17 +45,15 @@ public abstract class RepoSpec {
   public abstract static class Builder {
     public abstract Builder setBzlFile(String bzlFile);
 
-    public abstract Builder setBzlFile(Optional<String> bzlFile);
-
     public abstract Builder setRuleClassName(String name);
 
-    public abstract Builder setAttributes(ImmutableMap<String, Object> attributes);
+    public abstract Builder setAttributes(AttributeValues attributes);
 
     public abstract RepoSpec build();
   }
 
   public boolean isNativeRepoRule() {
-    return !bzlFile().isPresent();
+    return bzlFile() == null;
   }
 
   /**
@@ -61,6 +61,6 @@ public abstract class RepoSpec {
    * repo rule: //:repo.bzl%my_repo
    */
   public String getRuleClass() {
-    return bzlFile().map(f -> f + "%").orElse("") + ruleClassName();
+    return (bzlFile() == null ? "" : bzlFile() + "%") + ruleClassName();
   }
 }

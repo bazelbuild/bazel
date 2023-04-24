@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NETNS_WITH_LOOPBACK;
+import static com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.NetworkNamespace.NO_NETNS;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -41,7 +44,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.sandbox.LinuxSandboxCommandLineBuilder.BindMount;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.OS;
@@ -317,6 +319,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     Duration timeout = context.getTimeout();
     SandboxOptions sandboxOptions = getSandboxOptions();
 
+    boolean createNetworkNamespace =
+        !(allowNetwork || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork));
     LinuxSandboxCommandLineBuilder commandLineBuilder =
         LinuxSandboxCommandLineBuilder.commandLineBuilder(linuxSandbox, spawn.getArguments())
             .addExecutionInfo(spawn.getExecutionInfo())
@@ -325,9 +329,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setBindMounts(getBindMounts(blazeDirs, inputs, sandboxExecRootBase, sandboxTmp))
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
-            .setCreateNetworkNamespace(
-                !(allowNetwork
-                    || Spawns.requiresNetwork(spawn, sandboxOptions.defaultSandboxAllowNetwork)))
+            .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
             .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
 
@@ -429,22 +431,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       throws UserExecException {
     Path tmpPath = fileSystem.getPath("/tmp");
     final SortedMap<Path, Path> bindMounts = Maps.newTreeMap();
-
-    for (ImmutableMap.Entry<String, String> additionalMountPath :
-        getSandboxOptions().sandboxAdditionalMounts) {
-      try {
-        final Path mountTarget = fileSystem.getPath(additionalMountPath.getValue());
-        // If source path is relative, treat it as a relative path inside the execution root
-        final Path mountSource = sandboxExecRootBase.getRelative(additionalMountPath.getKey());
-        // If a target has more than one source path, the latter one will take effect.
-        bindMounts.put(mountTarget, mountSource);
-      } catch (IllegalArgumentException e) {
-        throw new UserExecException(
-            SandboxHelpers.createFailureDetail(
-                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
-                Code.BIND_MOUNT_ANALYSIS_FAILURE));
-      }
-    }
+    SandboxHelpers.mountAdditionalPaths(
+        getSandboxOptions().sandboxAdditionalMounts, sandboxExecRootBase, bindMounts);
 
     for (Path inaccessiblePath : getInaccessiblePaths()) {
       if (inaccessiblePath.isDirectory(Symlinks.NOFOLLOW)) {
@@ -505,7 +493,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         continue;
       }
 
-      FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+      FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
+      if (metadata == null) {
+        // This can happen if we are executing a spawn in an action that has multiple spawns and
+        // the output of one is the input of another. In this case, we assume that no one modifies
+        // an output of the first spawn before the action is completed (which requires the
+        // the completion of the second spawn, which happens after this point is reached in the
+        // code)
+        continue;
+      }
       if (!metadata.getType().isFile()) {
         // The hermetic sandbox creates hardlinks from files inside sandbox to files outside
         // sandbox. The content of the files outside the sandbox could have been tampered with via

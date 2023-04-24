@@ -572,8 +572,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     RuleVisibility visibility =
         Starlark.isNullOrNone(visibilityO)
-            ? ConstantRuleVisibility.PUBLIC
-            : PackageUtils.getVisibility(
+            ? RuleVisibility.PUBLIC
+            : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
 
@@ -633,6 +633,20 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("invalid label in native.package_relative_label: %s", e.getMessage());
     }
+  }
+
+  @Override
+  @Nullable
+  public String moduleName(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_name");
+    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleName().orElse(null);
+  }
+
+  @Override
+  @Nullable
+  public String moduleVersion(StarlarkThread thread) throws EvalException {
+    BazelStarlarkContext.from(thread).checkLoadingPhase("native.module_version");
+    return PackageFactory.getContext(thread).getBuilder().getAssociatedModuleVersion().orElse(null);
   }
 
   private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {

@@ -27,13 +27,12 @@ import net.starlark.java.eval.StarlarkValue;
             + " distinct from a \"platform\", which is the platform type combined with one or more"
             + " CPU architectures.<p>Specific instances of this type can be retrieved by accessing"
             + " the fields of the <a"
-            + " href='apple_common.html#platform_type'>apple_common.platform_type</a>:<br><ul>"
+            + " href='../toplevel/apple_common.html#platform_type'>apple_common.platform_type</a>:<br><ul>"
             + "<li><code>apple_common.platform_type.ios</code></li>"
             + "<li><code>apple_common.platform_type.macos</code></li>"
-            + "<li><code>apple_common.platform_type.tvos</code></li>"
-            + "<li><code>apple_common.platform_type.watchos</code></li></ul><p>Likewise, the"
-            + " platform type of an existing platform value can be retrieved using its"
+            + "<li><code>apple_common.platform_type.tvos</code></li><li><code>apple_common.platform_type.watchos</code></li></ul><p>Likewise,"
+            + " the platform type of an existing platform value can be retrieved using its"
             + " <code>platform_type</code> field.<p>Platform types can be converted to a lowercase"
             + " string (e.g., <code>ios</code> or <code>macos</code>) using the <a"
-            + " href='globals.html#str'>str</a> function.")
+            + " href='../globals/all.html#str'>str</a> function.")
 public interface ApplePlatformTypeApi extends StarlarkValue {}

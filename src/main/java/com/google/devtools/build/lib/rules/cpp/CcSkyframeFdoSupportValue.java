@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.Path;
@@ -42,7 +40,7 @@ public class CcSkyframeFdoSupportValue implements SkyValue {
   @Immutable
   @AutoCodec
   public static class Key implements SkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private final PathFragment fdoZipPath;
 
@@ -81,6 +79,11 @@ public class CcSkyframeFdoSupportValue implements SkyValue {
     @Override
     public SkyFunctionName functionName() {
       return SKYFUNCTION;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

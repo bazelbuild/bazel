@@ -35,7 +35,7 @@ public class CcToolchainInputsTransitionFactory
     if (data.attributes().has(ATTR_NAME) && !data.attributes().get(ATTR_NAME, BOOLEAN)) {
       return NoTransition.INSTANCE;
     } else {
-      return ExecutionTransitionFactory.create().create(data);
+      return ExecutionTransitionFactory.createFactory().create(data);
     }
   }
 

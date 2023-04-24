@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -84,7 +84,7 @@ public class SpawnLogContext implements ActionContext {
   /** Log the executed spawn to the output stream. */
   public void logSpawn(
       Spawn spawn,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       SortedMap<PathFragment, ActionInput> inputMap,
       Duration timeout,
       SpawnResult result)
@@ -108,9 +108,9 @@ public class SpawnLogContext implements ActionContext {
         }
         Path inputPath = execRoot.getRelative(input.getExecPathString());
         if (inputPath.isDirectory()) {
-          listDirectoryContents(inputPath, builder::addInputs, metadataProvider);
+          listDirectoryContents(inputPath, builder::addInputs, inputMetadataProvider);
         } else {
-          Digest digest = computeDigest(input, null, metadataProvider, xattrProvider);
+          Digest digest = computeDigest(input, null, inputMetadataProvider, xattrProvider);
           builder.addInputsBuilder().setPath(input.getExecPathString()).setDigest(digest);
         }
       }
@@ -126,13 +126,13 @@ public class SpawnLogContext implements ActionContext {
     for (Map.Entry<Path, ActionInput> e : existingOutputs.entrySet()) {
       Path path = e.getKey();
       if (path.isDirectory()) {
-        listDirectoryContents(path, builder::addActualOutputs, metadataProvider);
+        listDirectoryContents(path, builder::addActualOutputs, inputMetadataProvider);
       } else {
         File.Builder outputBuilder = builder.addActualOutputsBuilder();
         outputBuilder.setPath(path.relativeTo(execRoot).toString());
         try {
           outputBuilder.setDigest(
-              computeDigest(e.getValue(), path, metadataProvider, xattrProvider));
+              computeDigest(e.getValue(), path, inputMetadataProvider, xattrProvider));
         } catch (IOException ex) {
           logger.atWarning().withCause(ex).log("Error computing spawn event output properties");
         }
@@ -167,7 +167,7 @@ public class SpawnLogContext implements ActionContext {
       builder.setProgressMessage(progressMessage);
     }
     builder.setMnemonic(spawn.getMnemonic());
-    builder.setWalltime(durationToProto(result.getMetrics().executionWallTime()));
+    builder.setWalltime(millisToProto(result.getMetrics().executionWallTimeInMs()));
 
     if (spawn.getTargetLabel() != null) {
       builder.setTargetLabel(spawn.getTargetLabel());
@@ -176,35 +176,35 @@ public class SpawnLogContext implements ActionContext {
     if (executionOptions != null && executionOptions.executionLogSpawnMetrics) {
       SpawnMetrics metrics = result.getMetrics();
       Protos.SpawnMetrics.Builder metricsBuilder = builder.getMetricsBuilder();
-      if (!metrics.totalTime().isZero()) {
-        metricsBuilder.setTotalTime(durationToProto(metrics.totalTime()));
+      if (metrics.totalTimeInMs() != 0L) {
+        metricsBuilder.setTotalTime(millisToProto(metrics.totalTimeInMs()));
       }
-      if (!metrics.parseTime().isZero()) {
-        metricsBuilder.setParseTime(durationToProto(metrics.parseTime()));
+      if (metrics.parseTimeInMs() != 0L) {
+        metricsBuilder.setParseTime(millisToProto(metrics.parseTimeInMs()));
       }
-      if (!metrics.networkTime().isZero()) {
-        metricsBuilder.setNetworkTime(durationToProto(metrics.networkTime()));
+      if (metrics.networkTimeInMs() != 0L) {
+        metricsBuilder.setNetworkTime(millisToProto(metrics.networkTimeInMs()));
       }
-      if (!metrics.fetchTime().isZero()) {
-        metricsBuilder.setFetchTime(durationToProto(metrics.fetchTime()));
+      if (metrics.fetchTimeInMs() != 0L) {
+        metricsBuilder.setFetchTime(millisToProto(metrics.fetchTimeInMs()));
       }
-      if (!metrics.queueTime().isZero()) {
-        metricsBuilder.setQueueTime(durationToProto(metrics.queueTime()));
+      if (metrics.queueTimeInMs() != 0L) {
+        metricsBuilder.setQueueTime(millisToProto(metrics.queueTimeInMs()));
       }
-      if (!metrics.setupTime().isZero()) {
-        metricsBuilder.setSetupTime(durationToProto(metrics.setupTime()));
+      if (metrics.setupTimeInMs() != 0L) {
+        metricsBuilder.setSetupTime(millisToProto(metrics.setupTimeInMs()));
       }
-      if (!metrics.uploadTime().isZero()) {
-        metricsBuilder.setUploadTime(durationToProto(metrics.uploadTime()));
+      if (metrics.uploadTimeInMs() != 0L) {
+        metricsBuilder.setUploadTime(millisToProto(metrics.uploadTimeInMs()));
       }
-      if (!metrics.executionWallTime().isZero()) {
-        metricsBuilder.setExecutionWallTime(durationToProto(metrics.executionWallTime()));
+      if (metrics.executionWallTimeInMs() != 0L) {
+        metricsBuilder.setExecutionWallTime(millisToProto(metrics.executionWallTimeInMs()));
       }
-      if (!metrics.processOutputsTime().isZero()) {
-        metricsBuilder.setProcessOutputsTime(durationToProto(metrics.processOutputsTime()));
+      if (metrics.processOutputsTimeInMs() != 0L) {
+        metricsBuilder.setProcessOutputsTime(millisToProto(metrics.processOutputsTimeInMs()));
       }
-      if (!metrics.retryTime().isZero()) {
-        metricsBuilder.setRetryTime(durationToProto(metrics.retryTime()));
+      if (metrics.retryTimeInMs() != 0L) {
+        metricsBuilder.setRetryTime(millisToProto(metrics.retryTimeInMs()));
       }
       metricsBuilder.setInputBytes(metrics.inputBytes());
       metricsBuilder.setInputFiles(metrics.inputFiles());
@@ -214,16 +214,16 @@ public class SpawnLogContext implements ActionContext {
       metricsBuilder.setOutputBytesLimit(metrics.outputBytesLimit());
       metricsBuilder.setOutputFilesLimit(metrics.outputFilesLimit());
       metricsBuilder.setMemoryBytesLimit(metrics.memoryLimit());
-      if (!metrics.timeLimit().isZero()) {
-        metricsBuilder.setTimeLimit(durationToProto(metrics.timeLimit()));
+      if (metrics.timeLimitInMs() != 0L) {
+        metricsBuilder.setTimeLimit(millisToProto(metrics.timeLimitInMs()));
       }
     }
 
     executionLog.write(builder.build());
   }
 
-  private static com.google.protobuf.Duration durationToProto(Duration d) {
-    return Durations.fromNanos(d.toNanos());
+  private static com.google.protobuf.Duration millisToProto(int t) {
+    return Durations.fromMillis(t);
   }
 
   public void close() throws IOException {
@@ -251,7 +251,7 @@ public class SpawnLogContext implements ActionContext {
   }
 
   private void listDirectoryContents(
-      Path path, Consumer<File> addFile, MetadataProvider metadataProvider) {
+      Path path, Consumer<File> addFile, InputMetadataProvider inputMetadataProvider) {
     try {
       // TODO(olaola): once symlink API proposal is implemented, report symlinks here.
       List<Dirent> sortedDirent = new ArrayList<>(path.readdir(Symlinks.NOFOLLOW));
@@ -260,7 +260,7 @@ public class SpawnLogContext implements ActionContext {
         String name = dirent.getName();
         Path child = path.getRelative(name);
         if (dirent.getType() == Dirent.Type.DIRECTORY) {
-          listDirectoryContents(child, addFile, metadataProvider);
+          listDirectoryContents(child, addFile, inputMetadataProvider);
         } else {
           String pathString;
           if (child.startsWith(execRoot)) {
@@ -271,7 +271,7 @@ public class SpawnLogContext implements ActionContext {
           addFile.accept(
               File.newBuilder()
                   .setPath(pathString)
-                  .setDigest(computeDigest(null, child, metadataProvider, xattrProvider))
+                  .setDigest(computeDigest(null, child, inputMetadataProvider, xattrProvider))
                   .build());
         }
       }
@@ -287,7 +287,7 @@ public class SpawnLogContext implements ActionContext {
   private Digest computeDigest(
       @Nullable ActionInput input,
       @Nullable Path path,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       XattrProvider xattrProvider)
       throws IOException {
     Preconditions.checkArgument(input != null || path != null);
@@ -305,7 +305,7 @@ public class SpawnLogContext implements ActionContext {
       }
       // Try to access the cached metadata, otherwise fall back to local computation.
       try {
-        FileArtifactValue metadata = metadataProvider.getMetadata(input);
+        FileArtifactValue metadata = inputMetadataProvider.getInputMetadata(input);
         if (metadata != null) {
           byte[] hash = metadata.getDigest();
           if (hash != null) {
@@ -331,5 +331,9 @@ public class SpawnLogContext implements ActionContext {
                 .toString())
         .setSizeBytes(fileSize)
         .build();
+  }
+
+  public boolean shouldSort() {
+    return executionOptions.executionLogSort;
   }
 }

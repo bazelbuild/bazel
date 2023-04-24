@@ -16,14 +16,16 @@
 
 load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
+load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
-load("@_builtins//:common/cc/experimental_cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library", "cc_shared_library_permissions")
+load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryHintInfo", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
+load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain_wrapper.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
 load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
@@ -31,6 +33,7 @@ load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyIn
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
+load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -38,11 +41,14 @@ exported_toplevels = {
     # "original value".
     "_builtins_dummy": "overridden value",
     "CcSharedLibraryInfo": CcSharedLibraryInfo,
+    "CcSharedLibraryHintInfo": CcSharedLibraryHintInfo,
     "proto_common_do_not_use": proto_common_do_not_use,
     "PyRuntimeInfo": PyRuntimeInfo,
     "PyInfo": PyInfo,
     "PyCcLinkParamsProvider": PyCcLinkParamsProvider,
     "py_internal": py_internal,
+    "ProtoInfo": ProtoInfo,
+    "cc_common": cc_common,
 }
 
 # A list of Starlarkified native rules.
@@ -57,11 +63,10 @@ exported_rules = {
     "objc_import": objc_import,
     "objc_library": objc_library,
     "proto_library": proto_library,
-    "+cc_shared_library": cc_shared_library,
-    "+cc_shared_library_permissions": cc_shared_library_permissions,
-    "+cc_binary": cc_binary,
-    "+cc_test": cc_test,
-    "+cc_library": cc_library,
+    "cc_shared_library": cc_shared_library,
+    "cc_binary": cc_binary,
+    "cc_test": cc_test,
+    "cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
     "+py_runtime": py_runtime,
     "+cc_toolchain_alias": cc_toolchain_alias,
@@ -75,4 +80,5 @@ exported_to_java = {
     "proto_common_experimental_should_generate_code": proto_common_do_not_use.experimental_should_generate_code,
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
+    "get_cc_toolchain_provider": get_cc_toolchain_provider,
 }

@@ -189,7 +189,7 @@ public class CcCommonTest extends BuildViewTestCase {
   private Iterable<Artifact> getLinkerInputs(ConfiguredTarget target) {
     Artifact executable = getExecutable(target);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    return linkAction.getLinkCommandLine().getLinkerInputArtifacts().toList();
+    return linkAction.getLinkCommandLineForTesting().getLinkerInputArtifacts().toList();
   }
 
   @Test
@@ -203,7 +203,7 @@ public class CcCommonTest extends BuildViewTestCase {
 
     Artifact executable = getExecutable(archiveInSrcsTest);
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(executable);
-    assertThat(linkAction.getLinkCommandLine().toString()).contains(" -larchive.34 ");
+    assertThat(linkAction.getLinkCommandLineForTesting().toString()).contains(" -larchive.34 ");
   }
 
   @Test
@@ -709,8 +709,8 @@ public class CcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testCcLibraryWithDashStaticOnDarwin() throws Exception {
-    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin");
-    useConfiguration("--cpu=darwin");
+    getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "darwin_x86_64");
+    useConfiguration("--cpu=darwin_x86_64");
     checkError(
         "badlib",
         "lib_with_dash_static",
@@ -818,7 +818,7 @@ public class CcCommonTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//a:bin");
     CppLinkAction action =
         (CppLinkAction) getGeneratingAction(getFilesToBuild(target).getSingleton());
-    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLine()))
+    assertThat(MockCcSupport.getLinkopts(action.getLinkCommandLineForTesting()))
         .containsExactly(
             String.format(
                 "-Wl,@%s/a/a.lds",
@@ -1148,30 +1148,12 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCppCompileActionArgvReturnParamFile() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCcToolchainConfig(
-            mockToolsConfig,
-            CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
-    scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
-    CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
-    ImmutableList<String> argv =
-        cppCompileAction.getStarlarkArgv().stream()
-            .map(x -> removeOutDirectory(x))
-            .collect(ImmutableList.toImmutableList());
-    assertThat(argv)
-        .containsExactly("/usr/bin/mock-gcc", "@/k8-fastbuild/bin/a/_objs/foo/foo.o.params");
-  }
-
-  @Test
   public void testCppCompileActionArgvIgnoreParamFile() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.COMPILER_PARAM_FILE));
-    useConfiguration("--experimental_cpp_compile_argv_ignore_param_file");
     scratch.file("a/BUILD", "cc_library(name='foo', srcs=['foo.cc'])");
     CppCompileAction cppCompileAction = getCppCompileAction("//a:foo");
     ImmutableList<String> argv =

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.BoolOrEnumConverter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.CaffeineSpecConverter;
+import com.google.devtools.common.options.Converters.PercentageConverter;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -409,7 +410,8 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean useActionCache;
 
   @Option(
-      name = "experimental_action_cache_store_output_metadata",
+      name = "action_cache_store_output_metadata",
+      oldName = "experimental_action_cache_store_output_metadata",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -461,7 +463,7 @@ public class BuildRequestOptions extends OptionsBase {
 
   /**
    * Do not use directly. Instead use {@link
-   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecution()}.
+   * com.google.devtools.build.lib.runtime.CommandEnvironment#withMergedAnalysisAndExecutionSourceOfTruth()}.
    */
   @Option(
       name = "experimental_merged_skyframe_analysis_execution",
@@ -471,6 +473,22 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
       help = "If this flag is set, the analysis and execution phases of Skyframe are merged.")
   public boolean mergedSkyframeAnalysisExecutionDoNotUseDirectly;
+
+  @Option(
+      name = "experimental_skymeld_analysis_overlap_percentage",
+      defaultValue = "100",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
+      converter = PercentageConverter.class,
+      help =
+          "The value represents the % of the analysis phase which will be overlapped with the"
+              + " execution phase. A value of x means Skyframe will queue up execution tasks and"
+              + " wait until there's x% of the top level target left to be analyzed before allowing"
+              + " them to launch. When the value is 0%, we'd wait for all analysis to finish before"
+              + " executing (no overlap). When it's 100%, the phases are free to overlap as much as"
+              + " they can.")
+  public int skymeldAnalysisOverlapPercentage;
 
   /** Converter for filesystem value checker threads. */
   public static class ThreadConverter extends ResourceConverter {

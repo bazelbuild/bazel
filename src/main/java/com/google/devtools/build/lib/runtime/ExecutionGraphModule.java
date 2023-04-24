@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
@@ -62,6 +63,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.EnumConverter;
@@ -73,7 +75,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -85,7 +86,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Blaze module that writes a partial execution graph with performance data. */
+/**
+ * Blaze module that writes a partial execution graph with performance data. The file will be zstd
+ * compressed, length-delimited binary execution_graph.Node protos.
+ */
 public class ExecutionGraphModule extends BlazeModule {
 
   private static final String ACTION_DUMP_NAME = "execution_graph_dump.proto.zst";
@@ -95,16 +99,30 @@ public class ExecutionGraphModule extends BlazeModule {
   /** Options for the generated execution graph. */
   public static class ExecutionGraphOptions extends OptionsBase {
     @Option(
-        name = "experimental_execution_graph_log",
+        name = "experimental_enable_execution_graph_log",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        defaultValue = "",
+        defaultValue = "false",
         help =
             "Enabling this flag makes Blaze write a file of all actions executed during a build. "
                 + "Note that this dump may use a different granularity of actions than other APIs, "
                 + "and may also contain additional information as necessary to reconstruct the "
                 + "full dependency graph in combination with other sources of data.")
-    public String executionGraphLogFile;
+    public boolean enableExecutionGraphLog;
+
+    @Option(
+        name = "experimental_execution_graph_log_path",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        defaultValue = "",
+        help =
+            "Local path at which the execution path will be written. If this is set, the log will"
+                + " only be written locally, and not to BEP. If this is set when"
+                + " experimental_enable_execution_graph_log is disabled, there will be an error. If"
+                + " this is unset while BEP uploads are disabled and"
+                + " experimental_enable_execution_graph_log is enabled, the log will be written to"
+                + " a local default.")
+    public String executionGraphLogPath;
 
     @Option(
         name = "experimental_execution_graph_log_dep_type",
@@ -151,6 +169,14 @@ public class ExecutionGraphModule extends BlazeModule {
         defaultValue = "true",
         help = "Subscribe to ActionCompletionEvent in ExecutionGraphModule.")
     public boolean logMissedActions;
+
+    @Option(
+        name = "experimental_execution_graph_enable_edges_from_filewrite_actions",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "true",
+        help = "Handle edges from filewrite actions to their inputs correctly.")
+    public boolean logFileWriteEdges;
   }
 
   /** What level of dependency information to include in the dump. */
@@ -206,8 +232,21 @@ public class ExecutionGraphModule extends BlazeModule {
           checkNotNull(
               env.getOptions().getOptions(ExecutionGraphOptions.class),
               "ExecutionGraphOptions must be present for ExecutionGraphModule");
-      if (!options.executionGraphLogFile.isBlank()) {
+      if (options.enableExecutionGraphLog) {
         env.getEventBus().register(this);
+      } else if (!options.executionGraphLogPath.isBlank()) {
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    DetailedExitCode.of(
+                        ExitCode.COMMAND_LINE_ERROR,
+                        FailureDetail.newBuilder()
+                            .setMessage(
+                                "experimental_execution_graph_log_path cannot be set when"
+                                    + " experimental_enable_execution_graph_log is false")
+                            .setBuildReport(
+                                BuildReport.newBuilder().setCode(Code.BUILD_REPORT_WRITE_FAILED))
+                            .build())));
       }
       this.options = options;
     }
@@ -423,44 +462,52 @@ public class ExecutionGraphModule extends BlazeModule {
 
       SpawnMetrics metrics = spawnResult.getMetrics();
       spawnResult = null;
-      long totalMillis = metrics.totalTime().toMillis();
+      int totalMillis = metrics.totalTimeInMs();
 
-      long discoverInputsMillis = 0;
       ActionInput firstOutput = getFirstOutput(spawn.getResourceOwner(), spawn.getOutputFiles());
-      Duration discoverInputsTime = outputToDiscoverInputsTime.get(firstOutput);
-      if (discoverInputsTime != null) {
+      Integer discoverInputsTimeInMs = outputToDiscoverInputsTimeMs.get(firstOutput);
+      if (discoverInputsTimeInMs != null) {
         // Remove this so we don't count it again later, if an action has multiple spawns.
-        outputToDiscoverInputsTime.remove(firstOutput);
-        discoverInputsMillis = discoverInputsTime.toMillis();
-        totalMillis += discoverInputsMillis;
+        outputToDiscoverInputsTimeMs.remove(firstOutput);
+        totalMillis += discoverInputsTimeInMs;
       }
 
       ExecutionGraph.Metrics.Builder metricsBuilder =
           ExecutionGraph.Metrics.newBuilder()
               .setStartTimestampMillis(startMillis)
-              .setDurationMillis((int) totalMillis)
-              .setFetchMillis((int) metrics.fetchTime().toMillis())
-              .setDiscoverInputsMillis((int) discoverInputsMillis)
-              .setParseMillis((int) metrics.parseTime().toMillis())
-              .setProcessMillis((int) metrics.executionWallTime().toMillis())
-              .setQueueMillis((int) metrics.queueTime().toMillis())
-              .setRetryMillis((int) metrics.retryTime().toMillis())
-              .setSetupMillis((int) metrics.setupTime().toMillis())
-              .setUploadMillis((int) metrics.uploadTime().toMillis())
-              .setNetworkMillis((int) metrics.networkTime().toMillis())
-              .setOtherMillis((int) metrics.otherTime().toMillis())
-              .setProcessOutputsMillis((int) metrics.processOutputsTime().toMillis());
+              .setDurationMillis(totalMillis)
+              .setFetchMillis(metrics.fetchTimeInMs())
+              .setDiscoverInputsMillis(discoverInputsTimeInMs != null ? discoverInputsTimeInMs : 0)
+              .setParseMillis(metrics.parseTimeInMs())
+              .setProcessMillis(metrics.executionWallTimeInMs())
+              .setQueueMillis(metrics.queueTimeInMs())
+              .setRetryMillis(metrics.retryTimeInMs())
+              .setSetupMillis(metrics.setupTimeInMs())
+              .setUploadMillis(metrics.uploadTimeInMs())
+              .setNetworkMillis(metrics.networkTimeInMs())
+              .setOtherMillis(metrics.otherTimeInMs())
+              .setProcessOutputsMillis(metrics.processOutputsTimeInMs());
 
-      for (Map.Entry<Integer, Duration> entry : metrics.retryTimeByError().entrySet()) {
-        metricsBuilder.putRetryMillisByError(entry.getKey(), (int) entry.getValue().toMillis());
+      for (Map.Entry<Integer, Integer> entry : metrics.retryTimeByError().entrySet()) {
+        metricsBuilder.putRetryMillisByError(entry.getKey(), entry.getValue());
       }
       metrics = null;
+
+      NestedSet<? extends ActionInput> inputFiles;
+      if (logFileWriteEdges && spawn.getResourceOwner() instanceof AbstractFileWriteAction) {
+        // In order to handle file write like actions correctly, get the inputs
+        // from the corresponding action.
+        inputFiles = spawn.getResourceOwner().getInputs();
+      } else {
+        inputFiles = spawn.getInputFiles();
+      }
+
       // maybeAddEdges can take a while, so do it last and try to give up references to any objects
       // we won't need.
       maybeAddEdges(
           nodeBuilder,
           spawn.getOutputEdgesForExecutionGraph(),
-          spawn.getInputFiles(),
+          inputFiles,
           spawn.getResourceOwner(),
           spawn.getRunfilesSupplier(),
           startMillis,
@@ -578,8 +625,10 @@ public class ExecutionGraphModule extends BlazeModule {
 
     private final BugReporter bugReporter;
     private final boolean localLockFreeOutputEnabled;
+    private final boolean logFileWriteEdges;
     private final Map<ActionInput, NodeInfo> outputToNode = new ConcurrentHashMap<>();
-    private final Map<ActionInput, Duration> outputToDiscoverInputsTime = new ConcurrentHashMap<>();
+    private final Map<ActionInput, Integer> outputToDiscoverInputsTimeMs =
+        new ConcurrentHashMap<>();
     private final DependencyInfo depType;
     private final AtomicInteger nextIndex = new AtomicInteger(0);
 
@@ -605,12 +654,14 @@ public class ExecutionGraphModule extends BlazeModule {
     ActionDumpWriter(
         BugReporter bugReporter,
         boolean localLockFreeOutputEnabled,
+        boolean logFileWriteEdges,
         OutputStream outStream,
         UUID commandId,
         DependencyInfo depType,
         int queueSize) {
       this.bugReporter = bugReporter;
       this.localLockFreeOutputEnabled = localLockFreeOutputEnabled;
+      this.logFileWriteEdges = logFileWriteEdges;
       this.outStream = outStream;
       this.depType = depType;
       if (queueSize < 0) {
@@ -646,15 +697,11 @@ public class ExecutionGraphModule extends BlazeModule {
     void enqueue(DiscoveredInputsEvent event) {
       // The other times from SpawnMetrics are not needed. The only instance of
       // DiscoveredInputsEvent sets only total and parse time, and to the same value.
-      var totalTime = event.getMetrics().totalTime();
+      var totalTime = event.getMetrics().totalTimeInMs();
       var firstOutput = getFirstOutput(event.getAction(), event.getAction().getOutputs());
-      var sum = outputToDiscoverInputsTime.get(firstOutput);
-      if (sum != null) {
-        sum = sum.plus(totalTime);
-      } else {
-        sum = totalTime;
-      }
-      outputToDiscoverInputsTime.put(firstOutput, sum);
+      var sum = outputToDiscoverInputsTimeMs.getOrDefault(firstOutput, 0);
+      sum += totalTime;
+      outputToDiscoverInputsTimeMs.put(firstOutput, sum);
     }
 
     void enqueue(Action action, long startMillis) {
@@ -768,22 +815,28 @@ public class ExecutionGraphModule extends BlazeModule {
         checkNotNull(parsingResult.getOptions(BuildEventProtocolOptions.class));
     ExecutionGraphOptions executionGraphOptions =
         checkNotNull(parsingResult.getOptions(ExecutionGraphOptions.class));
-    if (bepOptions.streamingLogFileUploads) {
+    if (bepOptions.streamingLogFileUploads
+        && executionGraphOptions.executionGraphLogPath.isBlank()) {
       return new StreamingActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
+          executionGraphOptions.logFileWriteEdges,
           newUploader(env, bepOptions).startUpload(LocalFileType.PERFORMANCE_LOG, null),
           env.getCommandId(),
           executionGraphOptions.depType,
           executionGraphOptions.queueSize);
     }
 
-    Path actionGraphFile =
-        env.getWorkingDirectory().getRelative(executionGraphOptions.executionGraphLogFile);
+    String path = executionGraphOptions.executionGraphLogPath;
+    if (path.isBlank()) {
+      path = ACTION_DUMP_NAME;
+    }
+    Path actionGraphFile = env.getOutputBase().getRelative(path);
     try {
       return new FilesystemActionDumpWriter(
           env.getRuntime().getBugReporter(),
           env.getOptions().getOptions(LocalExecutionOptions.class).localLockfreeOutput,
+          executionGraphOptions.logFileWriteEdges,
           actionGraphFile,
           env.getCommandId(),
           executionGraphOptions.depType,
@@ -799,6 +852,7 @@ public class ExecutionGraphModule extends BlazeModule {
     public FilesystemActionDumpWriter(
         BugReporter bugReporter,
         boolean localLockFreeOutputEnabled,
+        boolean logFileWriteEdges,
         Path actionGraphFile,
         UUID uuid,
         DependencyInfo depType,
@@ -807,6 +861,7 @@ public class ExecutionGraphModule extends BlazeModule {
       super(
           bugReporter,
           localLockFreeOutputEnabled,
+          logFileWriteEdges,
           actionGraphFile.getOutputStream(),
           uuid,
           depType,
@@ -845,6 +900,7 @@ public class ExecutionGraphModule extends BlazeModule {
     public StreamingActionDumpWriter(
         BugReporter bugReporter,
         boolean localLockFreeOutputEnabled,
+        boolean logFileWriteEdges,
         UploadContext uploadContext,
         UUID commandId,
         DependencyInfo depType,
@@ -852,6 +908,7 @@ public class ExecutionGraphModule extends BlazeModule {
       super(
           bugReporter,
           localLockFreeOutputEnabled,
+          logFileWriteEdges,
           uploadContext.getOutputStream(),
           commandId,
           depType,

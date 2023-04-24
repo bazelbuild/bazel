@@ -55,8 +55,8 @@ public class StarlarkConfig implements StarlarkConfigApi {
   @Override
   public ExecutionTransitionFactory exec(Object execGroupUnchecked) {
     return execGroupUnchecked == Starlark.NONE
-        ? ExecutionTransitionFactory.create()
-        : ExecutionTransitionFactory.create((String) execGroupUnchecked);
+        ? ExecutionTransitionFactory.createFactory()
+        : ExecutionTransitionFactory.createFactory((String) execGroupUnchecked);
   }
 
   @Override

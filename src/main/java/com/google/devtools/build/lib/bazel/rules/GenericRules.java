@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.rules.LabelBuildSettings.LabelBuildFlagRule
 import com.google.devtools.build.lib.rules.LabelBuildSettings.LabelBuildSettingRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
+import com.google.devtools.build.lib.rules.starlarkdocextract.StarlarkDocExtractRule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
@@ -49,6 +50,7 @@ public class GenericRules implements RuleSet {
     GenQueryRule.register(builder);
     builder.addRuleDefinition(new LabelBuildSettingRule());
     builder.addRuleDefinition(new LabelBuildFlagRule());
+    StarlarkDocExtractRule.register(builder);
 
     try {
       builder.addWorkspaceFilePrefix(

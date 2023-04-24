@@ -54,25 +54,27 @@ public final class Driver {
   public boolean drive(Environment env, ExtendedEventHandler listener) throws InterruptedException {
     if (!pending.isEmpty()) {
       // If pending is non-empty, it means there was a Skyframe restart. Either everything that was
-      // pending is available now or we are in error bubbling. In the latter case, an error will be
-      // present and this code will fail fast.
+      // pending is available now or we are in error bubbling. In the latter case, this method
+      // returns early when it either observes an error or missing value.
       //
       // NB: this assumption does not hold under partial re-evaluation and likewise the inference
       // below about unavailable values being errors.
       SkyframeLookupResult result = env.getLookupHandleForPreviouslyRequestedDeps();
-      boolean hasException = false;
+      boolean hasExceptionOrMissingValue = false;
       for (var lookup : pending) {
         if (!result.queryDep(lookup.key(), lookup)) {
-          // Since the key was previously requested, unavailability here implies an unhandled or
-          // unavailable exception. Requests the error to ensure that this environment instance
-          // knows the failure is due to a child error.
+          // Since the key was previously requested, unavailability here could be an unhandled
+          // exception or a missing value during error bubbling. It's not possible to determine
+          // which here. Requests the key to ensure that if it is an error, the environment
+          // instance knows that the failure is due to child error.
           var unusedNull = env.getValue(lookup.key());
-          // Failing fast here would make behavior dependent on element ordering, so instead, flags
-          // the exception and fails after all elements have been processed.
-          hasException = true;
+          // Failing fast here would make behavior dependent on element ordering and possibly miss
+          // errors in error bubbling, so instead, flags the exception and fails after all lookups
+          // have been processed.
+          hasExceptionOrMissingValue = true;
         }
       }
-      if (hasException) {
+      if (hasExceptionOrMissingValue) {
         return false;
       }
       pending.clear();
@@ -92,11 +94,18 @@ public final class Driver {
       }
 
       // Performs lookups for any newly added keys.
-      SkyframeLookupResult result =
-          env.getValuesAndExceptions(Lists.transform(newlyAdded, Lookup::key));
-      for (var lookup : newlyAdded) {
-        if (!result.queryDep(lookup.key(), lookup)) {
-          pending.add(lookup); // Unhandled exceptions also end up here.
+      if (newlyAdded.size() == 1) { // Uses a lower overhead lookup for the unary case.
+        var onlyLookup = newlyAdded.get(0);
+        if (!onlyLookup.doLookup(env)) {
+          pending.add(onlyLookup);
+        }
+      } else {
+        SkyframeLookupResult result =
+            env.getValuesAndExceptions(Lists.transform(newlyAdded, Lookup::key));
+        for (var lookup : newlyAdded) {
+          if (!result.queryDep(lookup.key(), lookup)) {
+            pending.add(lookup); // Unhandled exceptions also end up here.
+          }
         }
       }
       newlyAdded.clear(); // Every entry is either done or has moved to pending.

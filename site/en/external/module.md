@@ -22,7 +22,7 @@ bazel_dep(name = "rules_cc", version = "0.0.1")
 bazel_dep(name = "protobuf", version = "3.19.0")
 ```
 
-<!-- TODO(wyv): add link to MODULE.bazel globals -->
+See the [full list](/rules/lib/globals/module) of directives available in `MODULE.bazel` files.
 
 To perform module resolution, Bazel starts by reading the root module's
 `MODULE.bazel` file, and then repeatedly requests any dependency's
@@ -91,19 +91,19 @@ flag to explicitly allow the yanked version.
 
 ## Compatibility level
 
-MVS's assumption about backwards compatibility works because it treats backwards
-incompatible versions of a module as a separate module. In terms of SemVer, that
-means `A 1.x` and `A 2.x` are considered distinct modules, and can coexist in
-the resolved dependency graph. This is, in turn, made possible by encoding the
-major version in the package path in Go, so there aren't any compile-time or
-linking-time conflicts.
+In Go, MVS's assumption about backwards compatibility works because it treats
+backwards incompatible versions of a module as a separate module. In terms of
+SemVer, that means `A 1.x` and `A 2.x` are considered distinct modules, and can
+coexist in the resolved dependency graph. This is, in turn, made possible by
+encoding the major version in the package path in Go, so there aren't any
+compile-time or linking-time conflicts.
 
-Bazel cannot provide such guarantees, so it needs the "major version" number in
-order to detect backwards incompatible versions. This number is called the
-*compatibility level*, and is specified by each module version in its `module()`
-directive. With this information, Bazel can throw an error when it detects that
-versions of the same module with different compatibility levels exist in the
-resolved dependency graph.
+Bazel, however, cannot provide such guarantees, so it needs the "major version"
+number in order to detect backwards incompatible versions. This number is called
+the *compatibility level*, and is specified by each module version in its
+`module()` directive. With this information, Bazel can throw an error when it
+detects that versions of the same module with different compatibility levels
+exist in the resolved dependency graph.
 
 ## Overrides
 
@@ -118,7 +118,7 @@ directly depend on.
 
 ### Single-version override
 
-The [`single_version_override`](/rules/lib/globals#single_version_override)
+The [`single_version_override`](/rules/lib/globals/module#single_version_override)
 serves multiple purposes:
 
 *   With the `version` attribute, you can pin a dependency to a specific
@@ -134,7 +134,7 @@ These attributes are all optional and can be mixed and matched with each other.
 
 ### Multiple-version override
 
-A [`multiple_version_override`](/rules/lib/globals#multiple_version_override)
+A [`multiple_version_override`](/rules/lib/globals/module#multiple_version_override)
 can be specified to allow multiple versions of the same module to coexist in the
 resolved dependency graph.
 
@@ -169,9 +169,9 @@ the repo itself.
 
 Bazel supports the following non-registry overrides:
 
-*   [`archive_override`](/rules/lib/globals#archive_override)
-*   [`git_override`](/rules/lib/globals#git_override)
-*   [`local_path_override`](/rules/lib/globals#local_path_override)
+*   [`archive_override`](/rules/lib/globals/module#archive_override)
+*   [`git_override`](/rules/lib/globals/module#git_override)
+*   [`local_path_override`](/rules/lib/globals/module#local_path_override)
 
 ## Repository names and strict deps
 
@@ -184,7 +184,7 @@ you should depend on and is subject to change at any time.
 
 The [apparent name](/external/overview#apparent_repository_name) of a repo
 backing a module to its direct dependents defaults to its module name, unless
-the `repo_name` attribute of the [`bazel_dep`](/rules/lib/globals#bazel_dep)
+the `repo_name` attribute of the [`bazel_dep`](/rules/lib/globals/module#bazel_dep)
 directive says otherwise. Note that this means a module can only find its direct
 dependencies. This helps prevent accidental breakages due to changes in
 transitive dependencies.

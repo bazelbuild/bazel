@@ -76,6 +76,7 @@ public final class Bazel {
           com.google.devtools.build.lib.buildeventservice.BazelBuildEventServiceModule.class,
           com.google.devtools.build.lib.profiler.callcounts.CallcountsModule.class,
           com.google.devtools.build.lib.profiler.memory.AllocationTrackerModule.class,
+          com.google.devtools.build.lib.profiler.CommandProfilerModule.class,
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder
               .PostGCMemoryUseRecorderModule.class,
           com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.GcAfterBuildModule.class,
@@ -84,6 +85,7 @@ public final class Bazel {
           com.google.devtools.build.lib.runtime.ExecutionGraphModule.class,
           BazelBuiltinCommandModule.class,
           com.google.devtools.build.lib.includescanning.IncludeScanningModule.class,
+          com.google.devtools.build.lib.skyframe.SkymeldModule.class,
           // This module needs to be registered after any module submitting tasks with its {@code
           // submit} method.
           com.google.devtools.build.lib.runtime.BlockWaitingModule.class);

@@ -34,7 +34,7 @@
 <h2 id="package">package</h2>
 
 <pre>
-package(default_deprecation, default_testonly, default_visibility, features)
+package(default_deprecation, default_package_metadata, default_testonly, default_visibility, features)
 </pre>
 <p>This function declares metadata that applies to every subsequent rule in the
 package. It is used at most once within a package (BUILD file).</p>
@@ -57,6 +57,12 @@ file, before any rule.</p>
   </thead>
   <tbody>
     <tr>
+      <td id="package.default_applicable_licenses"><code>default_applicable_licenses</code></td>
+      <td>
+        <p>Alias for <a href="#package.default_package_metadata"><code>default_package_metadata</code></a>.
+      </td>
+    </tr>
+    <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
         <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
@@ -76,6 +82,15 @@ file, before any rule.</p>
         <p><code>String; optional</code></p>
         <p>Sets the default <a href="common-definitions.html#common.deprecation">
         <code>deprecation</code></a> message for all rules in this package.</p>
+      </td>
+    </tr>
+    <tr>
+      <td id="package.default_package_metadata"><code>default_package_metadata</code></td>
+      <td>
+        <p><code>List of <a href="$expander.expandRef("build-ref#labels")">labels</a>; optional</code></p>
+        <p>Sets a default list of metadata targets which apply to all other targets in the package.
+        These are typically targets related to OSS package and license declarations.
+        See <a href="https://github.com/bazelbuild/rules_license">rules_license</a> for examples.</p>
       </td>
     </tr>
     <tr>
@@ -675,7 +690,7 @@ sh_binary(
     demonstrated in Example 2 below.
   </li>
   <li>If multiple conditions match and one is not a specialization of all the
-    others, Bazel fails with an error.
+    others, Bazel fails with an error, unless all conditions resolve to the same value.
   </li>
   <li>The special pseudo-label <code>//conditions:default</code> is
     considered to match if no other condition matches. If this condition

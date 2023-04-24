@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.configuredtargets.AbstractConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
@@ -242,7 +243,13 @@ public class JavaStarlarkCommon
       Label targetLabel,
       JavaToolchainProvider javaToolchain)
       throws EvalException {
-    return JavaInfoBuildHelper.getInstance().stampJar(actions, jar, targetLabel, javaToolchain);
+    return JavaInfoBuildHelper.getInstance()
+        .stampJar(
+            actions,
+            jar,
+            targetLabel,
+            javaToolchain,
+            getExecGroup(actions.getRuleContext().useAutoExecGroups()));
   }
 
   @Override
@@ -439,11 +446,16 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Sequence<Artifact> getBuildInfo(StarlarkRuleContext ruleContext, StarlarkThread thread)
+  public Sequence<Artifact> getBuildInfo(
+      StarlarkRuleContext starlarkRuleContext, boolean isStampingEnabled, StarlarkThread thread)
       throws EvalException, InterruptedException {
     checkPrivateAccess(thread);
+    RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     return StarlarkList.immutableCopyOf(
-        ruleContext.getRuleContext().getBuildInfo(JavaBuildInfoFactory.KEY));
+        ruleContext
+            .getAnalysisEnvironment()
+            .getBuildInfo(
+                isStampingEnabled, JavaBuildInfoFactory.KEY, ruleContext.getConfiguration()));
   }
 
   @Override
@@ -493,11 +505,11 @@ public class JavaStarlarkCommon
       return runtimeClasspath;
     } else {
       return Depset.of(
-          Artifact.TYPE,
+          Artifact.class,
           NestedSetBuilder.wrap(
               Order.STABLE_ORDER,
               Iterables.filter(
-                  runtimeClasspath.toList(),
+                  runtimeClasspath.toList(Artifact.class),
                   Predicates.not(Predicates.in(excludedArtifacts.getSet().toSet())))));
     }
   }

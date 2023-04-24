@@ -171,7 +171,7 @@ public class SandboxHelpersTest {
                     sandboxHelpers.processInputFiles(
                         inputMap(input), customExecRoot, customExecRoot, ImmutableList.of(), null);
                 finishProcessingSemaphore.release();
-              } catch (IOException e) {
+              } catch (IOException | InterruptedException e) {
                 throw new IllegalArgumentException(e);
               }
             });

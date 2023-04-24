@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubst
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -547,6 +549,9 @@ public class BazelJavaSemantics implements JavaSemantics {
         if (testClass == null) {
           ruleContext.ruleError("cannot determine test class");
         } else {
+          if (JavaRuntimeInfo.from(ruleContext).version() >= 17) {
+            jvmFlags.add("-Djava.security.manager=allow");
+          }
           // Always run junit tests with -ea (enable assertion)
           jvmFlags.add("-ea");
           // "suite" is a misnomer.
@@ -573,6 +578,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   public CustomCommandLine buildSingleJarCommandLine(
       String toolchainIdentifier,
       Artifact output,
+      Label label,
       String mainClass,
       ImmutableList<String> manifestLines,
       Iterable<Artifact> buildInfoFiles,
@@ -593,6 +599,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       NestedSet<String> addOpens) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
+            label,
             mainClass,
             manifestLines,
             buildInfoFiles,

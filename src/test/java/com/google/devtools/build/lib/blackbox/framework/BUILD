@@ -46,6 +46,7 @@ gen_workspace_stanza(
     repos = [
         "rules_cc",
         "rules_proto",
+        "rules_python",
     ],
     visibility = ["//visibility:private"],
 )

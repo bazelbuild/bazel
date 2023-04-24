@@ -17,8 +17,8 @@
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
-cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
 config_common = _builtins.toplevel.config_common
@@ -59,7 +59,7 @@ ios_cpus = struct(
     TVOS_SIMULATOR_TARGET_CPUS = ["tvos_x86_64", "tvos_sim_arm64"],
     TVOS_DEVICE_TARGET_CPUS = ["tvos_arm64"],
     CATALYST_TARGET_CPUS = ["catalyst_x86_64"],
-    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin"],
+    MACOS_TARGET_CPUS = ["darwin_x86_64", "darwin_arm64", "darwin_arm64e"],
 )
 
 cpp_file_types = struct(
@@ -387,7 +387,7 @@ ARCHIVE = [".a", ".lib"]
 PIC_ARCHIVE = [".pic.a"]
 ALWAYSLINK_LIBRARY = [".lo"]
 ALWAYSLINK_PIC_LIBRARY = [".pic.lo"]
-SHARED_LIBRARY = [".so", ".dylib", ".dll"]
+SHARED_LIBRARY = [".so", ".dylib", ".dll", ".wasm"]
 INTERFACE_SHARED_LIBRARY = [".ifso", ".tbd", ".lib", ".dll.a"]
 OBJECT_FILE = [".o", ".obj"]
 PIC_OBJECT_FILE = [".pic.o"]
@@ -569,12 +569,13 @@ def _is_versioned_shared_library_extension_valid(shared_library_name):
 def _is_valid_shared_library_name(shared_library_name):
     if (shared_library_name.endswith(".so") or
         shared_library_name.endswith(".dll") or
-        shared_library_name.endswith(".dylib")):
+        shared_library_name.endswith(".dylib") or
+        shared_library_name.endswith(".wasm")):
         return True
 
     return _is_versioned_shared_library_extension_valid(shared_library_name)
 
-_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib"]
+_SHARED_LIBRARY_EXTENSIONS = ["so", "dll", "dylib", "wasm"]
 
 def _is_valid_shared_library_artifact(shared_library):
     if (shared_library.extension in _SHARED_LIBRARY_EXTENSIONS):
@@ -1120,7 +1121,7 @@ def _create_cc_instrumented_files_info(ctx, cc_config, cc_toolchain, metadata_fi
     coverage_environment = {}
     if ctx.configuration.coverage_enabled:
         coverage_environment = _get_coverage_environment(ctx, cc_config, cc_toolchain)
-    coverage_support_files = cc_toolchain.coverage_files() if ctx.coverage_instrumented() else depset([])
+    coverage_support_files = cc_toolchain.coverage_files() if ctx.configuration.coverage_enabled else depset([])
     info = coverage_common.instrumented_files_info(
         ctx = ctx,
         source_attributes = ["srcs", "hdrs"],
@@ -1266,4 +1267,5 @@ cc_helper = struct(
     local_defines = _local_defines,
     linker_scripts = _linker_scripts,
     copts_filter = _copts_filter,
+    package_exec_path = _package_exec_path,
 )

@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -96,10 +97,10 @@ public abstract class InvalidatingNodeVisitor<GraphT extends QueryableGraph> {
       GraphT graph, DirtyTrackingProgressReceiver progressReceiver, InvalidationState state) {
     this.executor =
         new AbstractQueueVisitor(
-            /*parallelism=*/ DEFAULT_THREAD_COUNT,
-            /*keepAliveTime=*/ 15,
-            /*units=*/ TimeUnit.SECONDS,
-            /*failFastOnException=*/ true,
+            /* parallelism= */ DEFAULT_THREAD_COUNT,
+            /* keepAliveTime= */ 15,
+            /* units= */ TimeUnit.SECONDS,
+            ExceptionHandlingMode.FAIL_FAST,
             "skyframe-invalidator",
             errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);

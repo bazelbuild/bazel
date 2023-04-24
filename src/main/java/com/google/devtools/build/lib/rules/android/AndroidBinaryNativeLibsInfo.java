@@ -57,7 +57,7 @@ public class AndroidBinaryNativeLibsInfo extends NativeInfo
       return null;
     }
     return Dict.immutableCopyOf(
-        Maps.transformValues(nativeLibs.getMap(), set -> Depset.of(Artifact.TYPE, set)));
+        Maps.transformValues(nativeLibs.getMap(), set -> Depset.of(Artifact.class, set)));
   }
 
   @Nullable
@@ -75,7 +75,7 @@ public class AndroidBinaryNativeLibsInfo extends NativeInfo
     if (transitiveNativeLibs == null) {
       return null;
     }
-    return Depset.of(Artifact.TYPE, transitiveNativeLibs);
+    return Depset.of(Artifact.class, transitiveNativeLibs);
   }
 
   @Nullable

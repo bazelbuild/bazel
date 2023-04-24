@@ -2509,6 +2509,7 @@ EOF
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2532,6 +2533,7 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2559,6 +2561,7 @@ EOF
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo-alias >& $TEST_log || fail "Failed to build"
 
@@ -2605,6 +2608,7 @@ EOF
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2628,6 +2632,7 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       --remote_upload_local_results=false \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2653,6 +2658,7 @@ EOF
       --disk_cache=$cache_dir \
       --remote_upload_local_results=false \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2684,6 +2690,7 @@ EOF
     --build_event_json_file=bep.json \
     --noremote_upload_local_results \
     --incompatible_remote_build_event_upload_respect_no_cache \
+    --remote_build_event_upload=all \
     //a:test >& $TEST_log || fail "Failed to test //a:test"
 
   cat bep.json > $TEST_log
@@ -2709,6 +2716,7 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       --disk_cache=$cache_dir \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"
 
@@ -2737,6 +2745,7 @@ EOF
       --remote_cache=grpc://localhost:${worker_port} \
       --disk_cache=$cache_dir \
       --incompatible_remote_build_event_upload_respect_no_cache \
+      --remote_build_event_upload=all \
       --incompatible_remote_results_ignore_disk \
       --build_event_json_file=bep.json \
       //a:foo >& $TEST_log || fail "Failed to build"

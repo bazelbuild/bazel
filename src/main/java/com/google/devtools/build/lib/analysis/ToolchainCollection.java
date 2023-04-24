@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Maps.newHashMapWithExpectedSize;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -78,10 +79,22 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
     return new Builder<T>();
   }
 
+  public static <T extends ToolchainContext> Builder<T> builderWithExpectedSize(int expectedSize) {
+    return new Builder<T>(expectedSize);
+  }
+
   /** Builder for ToolchainCollection. */
   public static final class Builder<T extends ToolchainContext> {
     // This is not immutable so that we can check for duplicate keys easily.
-    private final Map<String, T> toolchainContexts = new HashMap<>();
+    private final Map<String, T> toolchainContexts;
+
+    private Builder() {
+      this.toolchainContexts = new HashMap<>();
+    }
+
+    private Builder(int expectedSize) {
+      this.toolchainContexts = newHashMapWithExpectedSize(expectedSize);
+    }
 
     public ToolchainCollection<T> build() {
       Preconditions.checkArgument(toolchainContexts.containsKey(ExecGroup.DEFAULT_EXEC_GROUP_NAME));

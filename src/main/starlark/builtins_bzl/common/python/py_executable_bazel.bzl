@@ -290,11 +290,13 @@ def _expand_bootstrap_template(
 
     if runtime:
         shebang = runtime.stub_shebang
+        template = runtime.bootstrap_template
     else:
         shebang = DEFAULT_STUB_SHEBANG
+        template = ctx.file._bootstrap_template
 
     ctx.actions.expand_template(
-        template = ctx.file._bootstrap_template,
+        template = template,
         output = output,
         substitutions = {
             "%shebang%": shebang,
@@ -338,6 +340,8 @@ def _create_windows_exe_launcher(
         outputs = [output],
         mnemonic = "PyBuildLauncher",
         progress_message = "Creating launcher for %{label}",
+        # Needed to inherit PATH when using non-MSVC compilers like MinGW
+        use_default_shell_env = True,
     )
 
 def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_zip_file, runfiles):

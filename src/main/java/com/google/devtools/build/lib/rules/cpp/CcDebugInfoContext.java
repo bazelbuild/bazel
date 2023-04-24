@@ -82,12 +82,12 @@ public final class CcDebugInfoContext implements CcDebugInfoContextApi {
 
   @Override
   public Depset getStarlarkTransitiveFiles() {
-    return Depset.of(Artifact.TYPE, getTransitiveDwoFiles());
+    return Depset.of(Artifact.class, getTransitiveDwoFiles());
   }
 
   @Override
   public Depset getStarlarkTransitivePicFiles() {
-    return Depset.of(Artifact.TYPE, getTransitivePicDwoFiles());
+    return Depset.of(Artifact.class, getTransitivePicDwoFiles());
   }
 
   @Override

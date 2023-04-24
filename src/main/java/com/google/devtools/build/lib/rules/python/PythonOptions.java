@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.rules.python;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
@@ -260,6 +262,29 @@ public class PythonOptions extends FragmentOptions {
               + "https://github.com/bazelbuild/bazel/issues/10076.")
   public boolean incompatibleDefaultToExplicitInitPy;
 
+  @Option(
+      name = "python_native_rules_allowlist",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "null",
+      converter = LabelConverter.class,
+      help =
+          "An allowlist (package_group target) to use when enforcing "
+              + "--incompatible_python_disallow_native_rules.")
+  public Label nativeRulesAllowlist;
+
+  @Option(
+      name = "incompatible_python_disallow_native_rules",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      defaultValue = "false",
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "When true, an error occurs when using the builtin py_* rules; instead the rule_python"
+              + " rules should be used. See https://github.com/bazelbuild/bazel/issues/17773 for"
+              + " more information and migration instructions.")
+  public boolean disallowNativeRules;
+
   // Helper field to store hostForcePython in exec configuration
   private PythonVersion defaultPythonVersion = null;
 
@@ -276,12 +301,12 @@ public class PythonOptions extends FragmentOptions {
     restrictions.put(
         FORCE_PYTHON_DEFINITION,
         new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ true,
+            /* visibleWithinToolsPackage= */ true,
             "Use @bazel_tools//python/tools:python_version instead."));
     restrictions.put(
         HOST_FORCE_PYTHON_DEFINITION,
         new SelectRestriction(
-            /*visibleWithinToolsPackage=*/ false,
+            /* visibleWithinToolsPackage= */ false,
             "Use @bazel_tools//python/tools:python_version instead."));
     return restrictions.buildOrThrow();
   }
@@ -355,6 +380,8 @@ public class PythonOptions extends FragmentOptions {
     hostPythonOptions.incompatibleDisallowLegacyPyProvider = incompatibleDisallowLegacyPyProvider;
     hostPythonOptions.incompatibleRemoveOldPythonVersionApi = incompatibleRemoveOldPythonVersionApi;
     hostPythonOptions.disablePy2 = disablePy2;
+    hostPythonOptions.nativeRulesAllowlist = nativeRulesAllowlist;
+    hostPythonOptions.disallowNativeRules = disallowNativeRules;
 
     // Save host options in case of a further exec->host transition.
     hostPythonOptions.hostForcePython = hostForcePython;

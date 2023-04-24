@@ -24,8 +24,8 @@ import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.r8.OptionsConverters.ExistingPathConverter;
+import com.google.devtools.build.android.r8.OptionsConverters.PathConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -378,7 +378,7 @@ public class DexFileMerger {
     }
   }
 
-  public static void main(String[] args) throws CompilationFailedException {
+  public static void main(String[] args) {
     try {
       if (PRINT_ARGS) {
         printArgs(args);
@@ -386,7 +386,7 @@ public class DexFileMerger {
       run(args);
     } catch (CompilationFailedException | IOException e) {
       System.err.println("Merge failed: " + e.getMessage());
-      throw new CompilationFailedException("Merge failed: " + e.getMessage());
+      throw new RuntimeException("Merge failed: " + e.getMessage(), e);
     }
   }
 

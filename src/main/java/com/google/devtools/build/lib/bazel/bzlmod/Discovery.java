@@ -16,9 +16,9 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayDeque;
@@ -42,23 +42,24 @@ final class Discovery {
    * dependency is missing and this function needs a restart).
    */
   @Nullable
-  public static ImmutableMap<ModuleKey, Module> run(Environment env, RootModuleFileValue root)
-      throws SkyFunctionException, InterruptedException {
+  public static ImmutableMap<ModuleKey, InterimModule> run(
+      Environment env, RootModuleFileValue root) throws InterruptedException {
     String rootModuleName = root.getModule().getName();
     ImmutableMap<String, ModuleOverride> overrides = root.getOverrides();
-    Map<ModuleKey, Module> depGraph = new HashMap<>();
-    depGraph.put(ModuleKey.ROOT, rewriteDepKeys(root.getModule(), overrides, rootModuleName));
+    Map<ModuleKey, InterimModule> depGraph = new HashMap<>();
+    depGraph.put(ModuleKey.ROOT, rewriteDepSpecs(root.getModule(), overrides, rootModuleName));
     Queue<ModuleKey> unexpanded = new ArrayDeque<>();
     unexpanded.add(ModuleKey.ROOT);
     while (!unexpanded.isEmpty()) {
       Set<SkyKey> unexpandedSkyKeys = new HashSet<>();
       while (!unexpanded.isEmpty()) {
-        Module module = depGraph.get(unexpanded.remove());
-        for (ModuleKey depKey : module.getDeps().values()) {
-          if (depGraph.containsKey(depKey)) {
+        InterimModule module = depGraph.get(unexpanded.remove());
+        for (DepSpec depSpec : module.getDeps().values()) {
+          if (depGraph.containsKey(depSpec.toModuleKey())) {
             continue;
           }
-          unexpandedSkyKeys.add(ModuleFileValue.key(depKey, overrides.get(depKey.getName())));
+          unexpandedSkyKeys.add(
+              ModuleFileValue.key(depSpec.toModuleKey(), overrides.get(depSpec.getName())));
         }
       }
       SkyframeLookupResult result = env.getValuesAndExceptions(unexpandedSkyKeys);
@@ -70,7 +71,7 @@ final class Discovery {
           depGraph.put(depKey, null);
         } else {
           depGraph.put(
-              depKey, rewriteDepKeys(moduleFileValue.getModule(), overrides, rootModuleName));
+              depKey, rewriteDepSpecs(moduleFileValue.getModule(), overrides, rootModuleName));
           unexpanded.add(depKey);
         }
       }
@@ -81,16 +82,16 @@ final class Discovery {
     return ImmutableMap.copyOf(depGraph);
   }
 
-  private static Module rewriteDepKeys(
-      Module module, ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
-    return module.withDepKeysTransformed(
-        depKey -> {
-          if (rootModuleName.equals(depKey.getName())) {
-            return ModuleKey.ROOT;
+  private static InterimModule rewriteDepSpecs(
+      InterimModule module, ImmutableMap<String, ModuleOverride> overrides, String rootModuleName) {
+    return module.withDepSpecsTransformed(
+        depSpec -> {
+          if (rootModuleName.equals(depSpec.getName())) {
+            return DepSpec.fromModuleKey(ModuleKey.ROOT);
           }
 
-          Version newVersion = depKey.getVersion();
-          @Nullable ModuleOverride override = overrides.get(depKey.getName());
+          Version newVersion = depSpec.getVersion();
+          @Nullable ModuleOverride override = overrides.get(depSpec.getName());
           if (override instanceof NonRegistryOverride) {
             newVersion = Version.EMPTY;
           } else if (override instanceof SingleVersionOverride) {
@@ -100,7 +101,7 @@ final class Discovery {
             }
           }
 
-          return ModuleKey.create(depKey.getName(), newVersion);
+          return DepSpec.create(depSpec.getName(), newVersion, depSpec.getMaxCompatibilityLevel());
         });
   }
 }

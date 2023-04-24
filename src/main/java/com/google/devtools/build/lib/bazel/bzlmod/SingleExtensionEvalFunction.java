@@ -149,10 +149,10 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
     // Check that the .bzl file actually exports a module extension by our name.
     Object exported = bzlLoadValue.getModule().getGlobal(extensionId.getExtensionName());
-    if (!(exported instanceof ModuleExtension.InStarlark)) {
+    if (!(exported instanceof ModuleExtension)) {
       ImmutableSet<String> exportedExtensions =
           bzlLoadValue.getModule().getGlobals().entrySet().stream()
-              .filter(e -> e.getValue() instanceof ModuleExtension.InStarlark)
+              .filter(e -> e.getValue() instanceof ModuleExtension)
               .map(Entry::getKey)
               .collect(toImmutableSet());
       throw new SingleExtensionEvalFunctionException(
@@ -167,7 +167,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     // Run that extension!
-    ModuleExtension extension = ((ModuleExtension.InStarlark) exported).get();
+    ModuleExtension extension = (ModuleExtension) exported;
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
             usagesValue.getExtensionUniqueName() + "~",
@@ -183,8 +183,26 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           createContext(env, usagesValue, starlarkSemantics, extensionId, extension);
       threadContext.storeInThread(thread);
       try {
-        Starlark.fastcall(
-            thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);
+        Object returnValue =
+            Starlark.fastcall(
+                thread, extension.getImplementation(), new Object[] {moduleContext}, new Object[0]);
+        if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
+          throw new SingleExtensionEvalFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_MODULE,
+                  "expected module extension %s in %s to return None or extension_metadata, got %s",
+                  extensionId.getExtensionName(),
+                  extensionId.getBzlFileLabel(),
+                  Starlark.type(returnValue)),
+              Transience.PERSISTENT);
+        }
+        if (returnValue instanceof ModuleExtensionMetadata) {
+          ModuleExtensionMetadata metadata = (ModuleExtensionMetadata) returnValue;
+          metadata.evaluate(
+              usagesValue.getExtensionUsages().values(),
+              threadContext.getGeneratedRepos().keySet(),
+              env.getListener());
+        }
       } catch (NeedsSkyframeRestartException e) {
         // Clean up and restart by returning null.
         try {

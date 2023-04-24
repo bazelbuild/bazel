@@ -24,6 +24,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Attr
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -39,18 +40,23 @@ import net.starlark.java.syntax.Location;
 public class FakeRepositoryModule implements RepositoryModuleApi {
   private static final FakeDescriptor IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(
-          AttributeType.NAME, "A unique name for this repository.", true, ImmutableList.of(), "");
+          AttributeType.NAME,
+          Optional.of("A unique name for this repository."),
+          true,
+          ImmutableList.of(),
+          "");
 
   private static final FakeDescriptor IMPLICIT_REPO_MAPPING_ATTRIBUTE_DESCRIPTOR =
       new FakeDescriptor(
           AttributeType.STRING_DICT,
-          "A dictionary from local repository name to global repository name. "
-              + "This allows controls over workspace dependency resolution for dependencies of "
-              + "this repository."
-              + "<p>For example, an entry `\"@foo\": \"@bar\"` declares that, for any time "
-              + "this repository depends on `@foo` (such as a dependency on "
-              + "`@foo//some:target`, it should actually resolve that dependency within "
-              + "globally-declared `@bar` (`@bar//some:target`).",
+          Optional.of(
+              "A dictionary from local repository name to global repository name. "
+                  + "This allows controls over workspace dependency resolution for dependencies of "
+                  + "this repository."
+                  + "<p>For example, an entry `\"@foo\": \"@bar\"` declares that, for any time "
+                  + "this repository depends on `@foo` (such as a dependency on "
+                  + "`@foo//some:target`, it should actually resolve that dependency within "
+                  + "globally-declared `@bar` (`@bar//some:target`)."),
           true,
           ImmutableList.of(),
           "");
@@ -114,6 +120,19 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     public String getName() {
       return name;
     }
+  }
+
+  @Override
+  public Object moduleExtension(
+      StarlarkCallable implementation, Dict<?, ?> tagClasses, String doc, StarlarkThread thread)
+      throws EvalException {
+    return new Object();
+  }
+
+  @Override
+  public TagClassApi tagClass(Dict<?, ?> attrs, String doc, StarlarkThread thread)
+      throws EvalException {
+    return new TagClassApi() {};
   }
 
   @Override

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -21,7 +22,7 @@ import java.util.function.Consumer;
 /** Captures information about a lookup requested by a state machine. */
 abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
   private final TaskTreeNode parent;
-  private final SkyKey key;
+  final SkyKey key;
 
   private Lookup(TaskTreeNode parent, SkyKey key) {
     this.parent = parent;
@@ -31,6 +32,17 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
   final SkyKey key() {
     return key;
   }
+
+  /**
+   * Performs a lookup directly against the environment.
+   *
+   * <p>This is more efficient than {@link Environment#getValuesAndExceptions} when there is only
+   * one key at a time.
+   *
+   * @return true if a value was available or an exception was handled. Note: this is false for
+   *     unhandled exceptions.
+   */
+  abstract boolean doLookup(Environment env) throws InterruptedException;
 
   @Override
   public final void acceptValue(SkyKey unusedKey, SkyValue value) {
@@ -60,6 +72,16 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      var value = env.getValue(key);
+      if (value == null) {
+        return false;
+      }
+      acceptValue(key, value);
+      return true;
+    }
+
+    @Override
     void acceptValue(SkyValue value) {
       sink.accept(value);
     }
@@ -85,14 +107,33 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      SkyValue value;
+      try {
+        if ((value = env.getValueOrThrow(key(), exceptionClass)) == null) {
+          return false;
+        }
+        acceptValue(key, value);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        }
+        if (!tryHandleException(e)) {
+          throw new IllegalArgumentException("Unexpected exception for " + key(), e);
+        }
+      }
+      return true;
+    }
+
+    @Override
     void acceptValue(SkyValue value) {
-      sink.accept(value, /* exception= */ null);
+      sink.acceptValueOrException(value, /* exception= */ null);
     }
 
     @Override
     boolean tryHandleException(Exception exception) {
       if (exceptionClass.isInstance(exception)) {
-        sink.accept(/* value= */ null, exceptionClass.cast(exception));
+        sink.acceptValueOrException(/* value= */ null, exceptionClass.cast(exception));
         return true;
       }
       return false;
@@ -118,18 +159,39 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      SkyValue value;
+      try {
+        if ((value = env.getValueOrThrow(key(), exceptionClass1, exceptionClass2)) == null) {
+          return false;
+        }
+        acceptValue(key, value);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        }
+        if (!tryHandleException(e)) {
+          throw new IllegalArgumentException("Unexpected exception for " + key(), e);
+        }
+      }
+      return true;
+    }
+
+    @Override
     void acceptValue(SkyValue value) {
-      sink.accept(value, /* e1= */ null, /* e2= */ null);
+      sink.acceptValueOrException2(value, /* e1= */ null, /* e2= */ null);
     }
 
     @Override
     boolean tryHandleException(Exception exception) {
       if (exceptionClass1.isInstance(exception)) {
-        sink.accept(/* value= */ null, exceptionClass1.cast(exception), /* e2= */ null);
+        sink.acceptValueOrException2(
+            /* value= */ null, exceptionClass1.cast(exception), /* e2= */ null);
         return true;
       }
       if (exceptionClass2.isInstance(exception)) {
-        sink.accept(/* value= */ null, /* e1= */ null, exceptionClass2.cast(exception));
+        sink.acceptValueOrException2(
+            /* value= */ null, /* e1= */ null, exceptionClass2.cast(exception));
         return true;
       }
       return false;
@@ -159,24 +221,44 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
+    boolean doLookup(Environment env) throws InterruptedException {
+      SkyValue value;
+      try {
+        if ((value = env.getValueOrThrow(key(), exceptionClass1, exceptionClass2, exceptionClass3))
+            == null) {
+          return false;
+        }
+        acceptValue(key, value);
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          throw (InterruptedException) e;
+        }
+        if (!tryHandleException(e)) {
+          throw new IllegalArgumentException("Unexpected exception for " + key(), e);
+        }
+      }
+      return true;
+    }
+
+    @Override
     void acceptValue(SkyValue value) {
-      sink.accept(value, /* e1= */ null, /* e2= */ null, /* e3= */ null);
+      sink.acceptValueOrException3(value, /* e1= */ null, /* e2= */ null, /* e3= */ null);
     }
 
     @Override
     boolean tryHandleException(Exception exception) {
       if (exceptionClass1.isInstance(exception)) {
-        sink.accept(
+        sink.acceptValueOrException3(
             /* value= */ null, exceptionClass1.cast(exception), /* e2= */ null, /* e3= */ null);
         return true;
       }
       if (exceptionClass2.isInstance(exception)) {
-        sink.accept(
+        sink.acceptValueOrException3(
             /* value= */ null, /* e1= */ null, exceptionClass2.cast(exception), /* e3= */ null);
         return true;
       }
       if (exceptionClass3.isInstance(exception)) {
-        sink.accept(
+        sink.acceptValueOrException3(
             /* value= */ null, /* e1= */ null, /* e2= */ null, exceptionClass3.cast(exception));
         return true;
       }

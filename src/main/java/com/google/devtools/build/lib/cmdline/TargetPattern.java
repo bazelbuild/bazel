@@ -19,6 +19,8 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -39,7 +41,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -257,11 +258,17 @@ public abstract class TargetPattern {
    */
   public abstract boolean getRulesOnly();
 
-  private static final class SingleTarget extends TargetPattern {
+  protected final ToStringHelper toStringHelper() {
+    return MoreObjects.toStringHelper(this).add("originalPattern", originalPattern);
+  }
+
+  @VisibleForTesting
+  static final class SingleTarget extends TargetPattern {
 
     private final Label target;
 
-    private SingleTarget(Label target, String originalPattern) {
+    @VisibleForTesting
+    SingleTarget(String originalPattern, Label target) {
       super(originalPattern);
       this.target = Preconditions.checkNotNull(target);
     }
@@ -318,12 +325,19 @@ public abstract class TargetPattern {
     public int hashCode() {
       return Objects.hash(getType(), target);
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper().add("target", target).toString();
+    }
   }
 
-  private static final class InterpretPathAsTarget extends TargetPattern {
+  @VisibleForTesting
+  static final class InterpretPathAsTarget extends TargetPattern {
     private final String path;
 
-    private InterpretPathAsTarget(String path, String originalPattern) {
+    @VisibleForTesting
+    InterpretPathAsTarget(String originalPattern, String path) {
       super(originalPattern);
       this.path = normalize(Preconditions.checkNotNull(path));
     }
@@ -403,28 +417,32 @@ public abstract class TargetPattern {
     public int hashCode() {
       return Objects.hash(getType(), path);
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper().add("path", path).toString();
+    }
   }
 
-  private static final class TargetsInPackage extends TargetPattern {
+  @VisibleForTesting
+  static final class TargetsInPackage extends TargetPattern {
     private final PackageIdentifier packageIdentifier;
     private final String suffix;
     private final boolean wasOriginallyAbsolute;
     private final boolean rulesOnly;
-    private final boolean checkWildcardConflict;
 
-    private TargetsInPackage(
+    @VisibleForTesting
+    TargetsInPackage(
         String originalPattern,
         PackageIdentifier packageIdentifier,
         String suffix,
         boolean wasOriginallyAbsolute,
-        boolean rulesOnly,
-        boolean checkWildcardConflict) {
+        boolean rulesOnly) {
       super(originalPattern);
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
       this.wasOriginallyAbsolute = wasOriginallyAbsolute;
       this.rulesOnly = rulesOnly;
-      this.checkWildcardConflict = checkWildcardConflict;
     }
 
     @Override
@@ -435,12 +453,10 @@ public abstract class TargetPattern {
         BatchCallback<T, E> callback,
         Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException, InconsistentFilesystemException {
-      if (checkWildcardConflict) {
-        ResolvedTargets<T> targets = getWildcardConflict(resolver);
-        if (targets != null) {
-          callback.process(targets.getTargets());
-          return;
-        }
+      ResolvedTargets<T> targets = getWildcardConflict(resolver);
+      if (targets != null) {
+        callback.process(targets.getTargets());
+        return;
       }
 
       callback.process(
@@ -478,7 +494,6 @@ public abstract class TargetPattern {
       TargetsInPackage that = (TargetsInPackage) o;
       return wasOriginallyAbsolute == that.wasOriginallyAbsolute
           && rulesOnly == that.rulesOnly
-          && checkWildcardConflict == that.checkWildcardConflict
           && getOriginalPattern().equals(that.getOriginalPattern())
           && packageIdentifier.equals(that.packageIdentifier)
           && suffix.equals(that.suffix);
@@ -492,8 +507,17 @@ public abstract class TargetPattern {
           packageIdentifier,
           suffix,
           wasOriginallyAbsolute,
-          rulesOnly,
-          checkWildcardConflict);
+          rulesOnly);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper()
+          .add("packageIdentifier", packageIdentifier)
+          .add("suffix", suffix)
+          .add("wasOriginallyAbsolute", wasOriginallyAbsolute)
+          .add("rulesOnly", rulesOnly)
+          .toString();
     }
 
     /**
@@ -547,8 +571,8 @@ public abstract class TargetPattern {
     private final PackageIdentifier directory;
     private final boolean rulesOnly;
 
-    private TargetsBelowDirectory(
-        String originalPattern, PackageIdentifier directory, boolean rulesOnly) {
+    @VisibleForTesting
+    TargetsBelowDirectory(String originalPattern, PackageIdentifier directory, boolean rulesOnly) {
       super(originalPattern);
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
@@ -816,16 +840,15 @@ public abstract class TargetPattern {
     public int hashCode() {
       return Objects.hash(getType(), getOriginalPattern(), directory, rulesOnly);
     }
+
+    @Override
+    public String toString() {
+      return toStringHelper().add("directory", directory).add("rulesOnly", rulesOnly).toString();
+    }
   }
 
   @Immutable
   public static final class Parser {
-    // A valid pattern either starts with exactly 0 slashes (relative pattern) or exactly two
-    // slashes (absolute pattern).
-    private static final Pattern VALID_SLASH_PREFIX = Pattern.compile("(//)?([^/]|$)");
-
-    // TODO(bazel-team): Merge the Label functionality that requires similar constants into this
-    // class.
     /**
      * The set of target-pattern suffixes which indicate wildcards over all <em>rules</em> in a
      * single package.
@@ -838,34 +861,6 @@ public abstract class TargetPattern {
      */
     private static final ImmutableList<String> ALL_TARGETS_IN_SUFFIXES =
         ImmutableList.of("*", "all-targets");
-
-    private static final List<String> SUFFIXES;
-
-    static {
-      SUFFIXES =
-          ImmutableList.<String>builder()
-              .addAll(ALL_RULES_IN_SUFFIXES)
-              .addAll(ALL_TARGETS_IN_SUFFIXES)
-              .add("/...")
-              .build();
-    }
-
-    /**
-     * Returns whether the given pattern is simple, i.e., not starting with '-' and using none of
-     * the target matching suffixes.
-     */
-    public static boolean isSimpleTargetPattern(String pattern) {
-      if (pattern.startsWith("-")) {
-        return false;
-      }
-
-      for (String suffix : SUFFIXES) {
-        if (pattern.endsWith(":" + suffix)) {
-          return false;
-        }
-      }
-      return true;
-    }
 
     /**
      * Directory prefix to use when resolving relative labels (rather than absolute ones). For
@@ -885,6 +880,9 @@ public abstract class TargetPattern {
     /** Creates a new parser with the given offset for relative patterns. */
     public Parser(
         PathFragment relativeDirectory, RepositoryName currentRepo, RepositoryMapping repoMapping) {
+      Preconditions.checkArgument(
+          currentRepo.isMain() || relativeDirectory.isEmpty(),
+          "parsing target patterns in a non-main repo with a relative directory is unsupported");
       this.relativeDirectory = relativeDirectory;
       this.currentRepo = currentRepo;
       this.repoMapping = repoMapping;
@@ -897,153 +895,85 @@ public abstract class TargetPattern {
      * @throws TargetParsingException if the pattern is invalid
      */
     public TargetPattern parse(String pattern) throws TargetParsingException {
-      // The structure of this method is by cases, according to the usage string
-      // constant (see lib/blaze/commands/target-syntax.txt).
+      LabelParser.Parts parts;
+      try {
+        parts = LabelParser.Parts.parse(pattern);
+      } catch (LabelSyntaxException e) {
+        throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
+      }
 
-      String originalPattern = pattern;
-      final boolean includesRepo = pattern.startsWith("@");
-      RepositoryName repository;
-      if (!includesRepo) {
-        repository = currentRepo;
+      // Special case: For a target pattern that just looks like `foo/bar/baz`, we treat this as a
+      // file path. LabelParser parses it as `:foo/bar/baz`, so we need to distinguish this case by
+      // checking if the original pattern contains a colon.
+      if (!parts.pkgIsAbsolute()
+          && currentRepo.isMain()
+          && parts.pkg().isEmpty()
+          && !parts.pkgEndsWithTripleDots()
+          && !pattern.contains(":")) {
+        return new InterpretPathAsTarget(
+            pattern, relativeDirectory.getRelative(parts.target()).getPathString());
+      }
+
+      PackageIdentifier packageIdentifier = createPackageIdentifierFromParts(parts);
+      if (parts.pkgEndsWithTripleDots()) {
+        if (parts.target().isEmpty() || ALL_RULES_IN_SUFFIXES.contains(parts.target())) {
+          return new TargetsBelowDirectory(pattern, packageIdentifier, true);
+        } else if (ALL_TARGETS_IN_SUFFIXES.contains(parts.target())) {
+          return new TargetsBelowDirectory(pattern, packageIdentifier, false);
+        }
+        throw new TargetParsingException(
+            "Invalid target pattern " + pattern + ": '...' can only be used with wildcard targets",
+            Code.LABEL_SYNTAX_ERROR);
+      }
+
+      if (pattern.contains(":") && ALL_RULES_IN_SUFFIXES.contains(parts.target())) {
+        return new TargetsInPackage(
+            pattern, packageIdentifier, parts.target(), parts.pkgIsAbsolute(), true);
+      }
+
+      if (pattern.contains(":") && ALL_TARGETS_IN_SUFFIXES.contains(parts.target())) {
+        return new TargetsInPackage(
+            pattern, packageIdentifier, parts.target(), parts.pkgIsAbsolute(), false);
+      }
+
+      return new SingleTarget(pattern, Label.createUnvalidated(packageIdentifier, parts.target()));
+    }
+
+    private PackageIdentifier createPackageIdentifierFromParts(LabelParser.Parts parts)
+        throws TargetParsingException {
+      RepositoryName repo;
+      if (parts.repo() == null) {
+        repo = currentRepo;
+      } else if (parts.repoIsCanonical()) {
+        repo = RepositoryName.createUnvalidated(parts.repo());
       } else {
-        int pkgStart = pattern.indexOf("//");
-        if (pkgStart < 0) {
+        repo = repoMapping.get(parts.repo());
+        if (!repo.isVisible()) {
           throw new TargetParsingException(
-              "Couldn't find package in target " + pattern, TargetPatterns.Code.PACKAGE_NOT_FOUND);
-        }
-        boolean isCanonicalRepoName = pattern.startsWith("@@");
-        String repoPart = pattern.substring(isCanonicalRepoName ? 2 : 1, pkgStart);
-        try {
-          RepositoryName.validate(repoPart);
-        } catch (LabelSyntaxException e) {
-          throw new TargetParsingException(e.getMessage(), TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-        }
-        if (isCanonicalRepoName) {
-          repository = RepositoryName.createUnvalidated(repoPart);
-        } else {
-          repository = repoMapping.get(repoPart);
-          if (!repository.isVisible()) {
-            throw new TargetParsingException(
-                String.format(
-                    "No repository visible as '@%s' from %s",
-                    repository.getName(), repository.getOwnerRepoDisplayString()),
-                Code.PACKAGE_NOT_FOUND);
-          }
-        }
-
-        pattern = pattern.substring(pkgStart);
-      }
-
-      if (!VALID_SLASH_PREFIX.matcher(pattern).lookingAt()) {
-        throw new TargetParsingException(
-            "not a valid absolute pattern (absolute target patterns "
-                + "must start with exactly two slashes): '"
-                + pattern
-                + "'",
-            TargetPatterns.Code.ABSOLUTE_TARGET_PATTERN_INVALID);
-      }
-
-      final boolean wasOriginallyAbsolute = pattern.startsWith("//");
-      // We now ensure the relativeDirectory is applied to relative patterns.
-      pattern = absolutize(pattern).substring(2);
-
-      if (pattern.isEmpty()) {
-        throw new TargetParsingException(
-            "the empty string is not a valid target",
-            TargetPatterns.Code.TARGET_CANNOT_BE_EMPTY_STRING);
-      }
-
-      int colonIndex = pattern.lastIndexOf(':');
-      String packagePart = colonIndex < 0 ? pattern : pattern.substring(0, colonIndex);
-      String targetPart = colonIndex < 0 ? "" : pattern.substring(colonIndex + 1);
-
-      if (packagePart.equals("...")) {
-        packagePart = "/..."; // special case this for easier parsing
-      }
-
-      if (packagePart.endsWith("/")) {
-        throw new TargetParsingException(
-            "The package part of '" + originalPattern + "' should not end in a slash",
-            TargetPatterns.Code.PACKAGE_PART_CANNOT_END_IN_SLASH);
-      }
-
-      if (packagePart.endsWith("/...")) {
-        String realPackagePart = packagePart.substring(0, packagePart.length() - "/...".length());
-        PackageIdentifier packageIdentifier = createPackageIdentifier(repository, realPackagePart);
-        if (targetPart.isEmpty() || ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
-          return new TargetsBelowDirectory(originalPattern, packageIdentifier, true);
-        } else if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
-          return new TargetsBelowDirectory(originalPattern, packageIdentifier, false);
+              String.format(
+                  "No repository visible as '@%s' from %s",
+                  repo.getName(), repo.getOwnerRepoDisplayString()),
+              Code.PACKAGE_NOT_FOUND);
         }
       }
 
-      if (ALL_RULES_IN_SUFFIXES.contains(targetPart)) {
-        return new TargetsInPackage(
-            originalPattern,
-            createPackageIdentifier(repository, packagePart),
-            targetPart,
-            wasOriginallyAbsolute,
-            true,
-            true);
-      }
-
-      if (ALL_TARGETS_IN_SUFFIXES.contains(targetPart)) {
-        return new TargetsInPackage(
-            originalPattern,
-            createPackageIdentifier(repository, packagePart),
-            targetPart,
-            wasOriginallyAbsolute,
-            false,
-            true);
-      }
-
-      if (includesRepo || wasOriginallyAbsolute || pattern.contains(":")) {
-        Label label;
-        try {
-          label = Label.parseCanonical(repository.getNameWithAt() + "//" + pattern);
-        } catch (LabelSyntaxException e) {
-          throw new TargetParsingException(
-              "invalid target format '" + originalPattern + "': " + e.getMessage(),
-              TargetPatterns.Code.TARGET_FORMAT_INVALID);
-        }
-        return new SingleTarget(label, originalPattern);
-      }
-
-      // This is a stripped-down version of interpretPathAsTarget that does no I/O.  We have a basic
-      // relative path. e.g. "foo/bar/Wiz.java". The strictest correct check we can do here (without
-      // I/O) is just to ensure that there is *some* prefix that is a valid package-name. It's
-      // sufficient to test the first segment. This is really a rather weak check; perhaps we should
-      // just eliminate it.
-      int slashIndex = pattern.indexOf('/');
-      String packageName = pattern;
-      if (slashIndex > 0) {
-        packageName = pattern.substring(0, slashIndex);
-      }
-      String pkgError = LabelValidator.validatePackageName(packageName);
-      if (pkgError != null) {
-        throw new TargetParsingException(
-            "Bad target pattern '" + originalPattern + "': " + pkgError,
-            TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-      }
-      return new InterpretPathAsTarget(pattern, originalPattern);
+      PathFragment packagePathFragment =
+          parts.pkgIsAbsolute()
+              ? PathFragment.create(parts.pkg())
+              : relativeDirectory.getRelative(parts.pkg());
+      return PackageIdentifier.create(repo, packagePathFragment);
     }
 
     public RepositoryMapping getRepoMapping() {
       return repoMapping;
     }
 
-    public PathFragment getRelativeDirectory() {
-      return relativeDirectory;
+    public RepositoryName getCurrentRepo() {
+      return currentRepo;
     }
 
-    private PackageIdentifier createPackageIdentifier(RepositoryName repoName, String pkg)
-        throws TargetParsingException {
-      String pkgError = LabelValidator.validatePackageName(pkg);
-      if (pkgError != null) {
-        throw new TargetParsingException(
-            "Invalid package name '" + pkg + "': " + pkgError, Code.LABEL_SYNTAX_ERROR);
-      }
-      return PackageIdentifier.create(repoName, PathFragment.create(pkg));
+    public PathFragment getRelativeDirectory() {
+      return relativeDirectory;
     }
 
     /**

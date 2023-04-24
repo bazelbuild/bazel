@@ -29,6 +29,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils.MoveResult;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,9 +51,12 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -309,6 +314,27 @@ public final class SandboxHelpers {
         .build();
   }
 
+  /** Adds additional bind mounts entries from {@code paths} to {@code bindMounts}. */
+  public static void mountAdditionalPaths(
+      List<Entry<String, String>> paths, Path sandboxExecRoot, SortedMap<Path, Path> bindMounts)
+      throws UserExecException {
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    for (Map.Entry<String, String> additionalMountPath : paths) {
+      try {
+        final Path mountTarget = fs.getPath(additionalMountPath.getValue());
+        // If source path is relative, treat it as a relative path inside the execution root
+        final Path mountSource = sandboxExecRoot.getRelative(additionalMountPath.getKey());
+        // If a target has more than one source path, the latter one will take effect.
+        bindMounts.put(mountTarget, mountSource);
+      } catch (IllegalArgumentException e) {
+        throw new UserExecException(
+            createFailureDetail(
+                String.format("Error occurred when analyzing bind mount pairs. %s", e.getMessage()),
+                Code.BIND_MOUNT_ANALYSIS_FAILURE));
+      }
+    }
+  }
+
   /** Wrapper class for the inputs of a sandbox. */
   public static final class SandboxInputs {
     private final Map<PathFragment, RootedPath> files;
@@ -426,7 +452,7 @@ public final class SandboxHelpers {
       Path withinSandboxExecRootPath,
       ImmutableList<Root> packageRoots,
       Path sandboxSourceRoots)
-      throws IOException {
+      throws IOException, InterruptedException {
     Root withinSandboxExecRoot = Root.fromPath(withinSandboxExecRootPath);
     Root execRoot =
         withinSandboxExecRootPath.equals(execRootPath)
@@ -439,9 +465,13 @@ public final class SandboxHelpers {
     Map<Root, Root> sourceRootToSandboxSourceRoot = new TreeMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput) {
+        // TODO(larsrc): Figure out which VAIs actually require atomicity, maybe avoid it.
         VirtualActionInput input = (VirtualActionInput) actionInput;
         byte[] digest =
             input.atomicallyWriteRelativeTo(
@@ -449,7 +479,9 @@ public final class SandboxHelpers {
                 // When 2 actions try to atomically create the same virtual input, they need to have
                 // a different suffix for the temporary file in order to avoid racy write to the
                 // same one.
-                ".sandbox" + tempFileUniquifierForVirtualInputWrites.incrementAndGet());
+                "_sandbox"
+                    + tempFileUniquifierForVirtualInputWrites.incrementAndGet()
+                    + ".virtualinputlock");
         virtualInputs.put(input, digest);
       }
 

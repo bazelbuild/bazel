@@ -1,5 +1,9 @@
-name: bazel.build doc issue
-description: File a documentation issue through bazel.build's "Report an Issue" button
+name: Documentation issue
+description: File a documentation issue (through bazel.build's "report an issue" button)
+labels: ["type: documentation (cleanup)", "untriaged", "team-Documentation"]
+assignees:
+  - pavank1992
+  - sgowroji
 body:
   - type: input
     id: link

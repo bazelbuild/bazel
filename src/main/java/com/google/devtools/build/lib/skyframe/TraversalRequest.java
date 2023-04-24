@@ -18,12 +18,12 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.ForOverride;
 
 /** A request for {@link RecursiveFilesystemTraversalFunction}. */
-public abstract class TraversalRequest implements SkyKey {
+public abstract class TraversalRequest implements ExecutionPhaseSkyKey {
 
   /** The path to start the traversal from; may be a file, a directory or a symlink. */
   @VisibleForTesting
@@ -68,6 +68,15 @@ public abstract class TraversalRequest implements SkyKey {
   protected abstract String errorInfo();
 
   /**
+   * Determines whether events for {@linkplain
+   * com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException infinite symlink
+   * expansion errors} encountered during the traversal should be emitted.
+   */
+  protected boolean reportInfiniteSymlinkExpansionErrors() {
+    return true;
+  }
+
+  /**
    * Creates a new traversal request identical to this one except with the given new values for
    * {@link #root} and {@link #skipTestingForSubpackage}.
    */
@@ -109,6 +118,7 @@ public abstract class TraversalRequest implements SkyKey {
         .add("strictOutputFiles", strictOutputFiles())
         .add("skipTestingForSubpackage", skipTestingForSubpackage())
         .add("errorInfo", errorInfo())
+        .add("reportInfiniteSymlinkExpansionErrors", reportInfiniteSymlinkExpansionErrors())
         .toString();
   }
 }

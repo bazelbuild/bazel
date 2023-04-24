@@ -268,16 +268,22 @@ class NodeEntryVisitor {
 
     var runnable = runnableMakerToUse.make(key, evaluationPriority);
     if (quiescingExecutor instanceof MultiThreadPoolsQuiescingExecutor) {
+      MultiThreadPoolsQuiescingExecutor multiThreadPoolsQuiescingExecutor =
+          (MultiThreadPoolsQuiescingExecutor) quiescingExecutor;
       ThreadPoolType threadPoolType;
       if (key instanceof CPUHeavySkyKey) {
         threadPoolType = ThreadPoolType.CPU_HEAVY;
-      } else if (key instanceof ExecutionPhaseSkyKey) {
+      } else if (multiThreadPoolsQuiescingExecutor.hasSeparatePoolForExecutionTasks()
+          && key instanceof ExecutionPhaseSkyKey) {
         // Only possible with --experimental_merged_skyframe_analysis_execution.
         threadPoolType = ThreadPoolType.EXECUTION_PHASE;
       } else {
         threadPoolType = ThreadPoolType.REGULAR;
       }
-      ((MultiThreadPoolsQuiescingExecutor) quiescingExecutor).execute(runnable, threadPoolType);
+      multiThreadPoolsQuiescingExecutor.execute(
+          runnable,
+          threadPoolType,
+          /* shouldStallAwaitingSignal= */ key instanceof StallableSkykey);
     } else {
       quiescingExecutor.execute(runnable);
     }

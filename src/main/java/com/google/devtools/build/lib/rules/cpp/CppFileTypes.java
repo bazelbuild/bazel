@@ -30,9 +30,44 @@ public final class CppFileTypes {
   // .cu and .cl are CUDA and OpenCL source extensions, respectively. They are expected to only be
   // supported with clang. Bazel is not officially supporting these targets, and the extensions are
   // listed only as long as they work with the existing C++ actions.
+  // FileType is extended to use case-sensitive comparison also on Windows
   public static final FileType CPP_SOURCE =
-      FileType.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
-  public static final FileType C_SOURCE = FileType.of(".c");
+      new FileType() {
+        final ImmutableList<String> extensions =
+            ImmutableList.of(".cc", ".cpp", ".cxx", ".c++", ".C", ".cu", ".cl");
+
+        @Override
+        public boolean apply(String path) {
+          for (String ext : extensions) {
+            if (path.endsWith(ext)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return extensions;
+        }
+      };
+
+  // FileType is extended to use case-sensitive comparison also on Windows
+  public static final FileType C_SOURCE =
+      new FileType() {
+        final String ext = ".c";
+
+        @Override
+        public boolean apply(String path) {
+          return path.endsWith(ext);
+        }
+
+        @Override
+        public ImmutableList<String> getExtensions() {
+          return ImmutableList.of(ext);
+        }
+      };
+
   public static final FileType OBJC_SOURCE = FileType.of(".m");
   public static final FileType OBJCPP_SOURCE = FileType.of(".mm");
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
@@ -206,7 +241,8 @@ public final class CppFileTypes {
 
   // TODO(bazel-team): File types should not be read from this hard-coded list but should come from
   // the toolchain instead. See https://github.com/bazelbuild/bazel/issues/17117
-  public static final FileType SHARED_LIBRARY = FileType.of(".so", ".dylib", ".dll", ".pyd");
+  public static final FileType SHARED_LIBRARY =
+      FileType.of(".so", ".dylib", ".dll", ".pyd", ".wasm");
   // Unix shared libraries can be passed to linker, but not .dll on Windows
   public static final FileType UNIX_SHARED_LIBRARY = FileType.of(".so", ".dylib");
   public static final FileType INTERFACE_SHARED_LIBRARY =

@@ -17,12 +17,14 @@
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_common.bzl", "cc_common")
 
-cc_common = _builtins.toplevel.cc_common
 cc_internal = _builtins.internal.cc_internal
 
 def _cc_library_impl(ctx):
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_library", True)
+
+    semantics.check_cc_shared_library_tags(ctx)
 
     common = cc_internal.create_common(ctx = ctx)
     cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
@@ -124,10 +126,8 @@ def _cc_library_impl(ctx):
     if has_compilation_outputs:
         dll_name_suffix = ""
         win_def_file = None
-        if cc_common.is_enabled(
-            feature_configuration = feature_configuration,
-            feature_name = "targets_windows",
-        ):
+        is_windows_enabled = cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows")
+        if is_windows_enabled:
             dll_name_suffix = cc_helper.dll_hash_suffix(ctx, feature_configuration, ctx.fragments.cpp)
             generated_def_file = None
 
@@ -152,7 +152,7 @@ def _cc_library_impl(ctx):
             grep_includes = ctx.executable._grep_includes,
             user_link_flags = cc_helper.linkopts(ctx, additional_make_variable_substitutions, cc_toolchain),
             alwayslink = ctx.attr.alwayslink,
-            disallow_dynamic_library = not create_dynamic_library,
+            disallow_dynamic_library = not create_dynamic_library or is_windows_enabled and win_def_file == None,
             linked_dll_name_suffix = dll_name_suffix,
             win_def_file = win_def_file,
         )
@@ -467,7 +467,7 @@ def _identifier_of_library(library):
     if library.dynamic_library != None:
         return _identifier_of_artifact(library.dynamic_library)
     if library.interface_library != None:
-        return _identifier_of_artifact(library.interface_libary)
+        return _identifier_of_artifact(library.interface_library)
 
     return None
 
@@ -613,7 +613,6 @@ cc_library = rule(
     incompatible_use_toolchain_transition = True,
     provides = [CcInfo],
     exec_groups = {
-        "cpp_link": exec_group(copy_from_rule = True),
+        "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
-    compile_one_filetype = [".cc", ".h", ".c"],
 )

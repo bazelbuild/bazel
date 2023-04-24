@@ -197,7 +197,7 @@ public class RewindingTestsHelper {
 
   private String getHexDigest(ActionInput input, ActionExecutionContext context)
       throws IOException {
-    return toHex(context.getMetadataProvider().getMetadata(input).getDigest());
+    return toHex(context.getInputMetadataProvider().getInputMetadata(input).getDigest());
   }
 
   static ActionInputDepOwners getInputOwners(Multimap<ActionInput, Artifact> mappings) {

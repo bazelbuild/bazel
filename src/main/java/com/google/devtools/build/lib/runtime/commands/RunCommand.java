@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
@@ -145,6 +146,17 @@ public class RunCommand implements BlazeCommand {
 
   private static final FileType RUNFILES_MANIFEST = FileType.of(".runfiles_manifest");
 
+  private static final ImmutableList<String> ENV_VARIABLES_TO_CLEAR =
+      ImmutableList.of(
+          // These variables are all used by runfiles libraries to locate the runfiles directory or
+          // manifest and can cause incorrect behavior when set for the top-level binary run with
+          // bazel run.
+          "JAVA_RUNFILES",
+          "RUNFILES_DIR",
+          "RUNFILES_MANIFEST_FILE",
+          "RUNFILES_MANIFEST_ONLY",
+          "TEST_SRCDIR");
+
   /** The test policy to determine the environment variables from when running tests */
   private final TestPolicy testPolicy;
 
@@ -211,6 +223,7 @@ public class RunCommand implements BlazeCommand {
               /* prettyPrintArgs= */ false,
               runCommandLine.args,
               runCommandLine.runEnvironment,
+              ENV_VARIABLES_TO_CLEAR,
               runCommandLine.workingDir.getPathString(),
               builtTargets.configuration.checksum(),
               /* executionPlatformAsLabelString= */ null);
@@ -261,6 +274,7 @@ public class RunCommand implements BlazeCommand {
               runCommandLine.workingDir,
               runCommandLine.args,
               runEnv.buildOrThrow(),
+              ENV_VARIABLES_TO_CLEAR,
               builtTargets.configuration));
     } catch (RunCommandException e) {
       return e.result;
@@ -678,6 +692,7 @@ public class RunCommand implements BlazeCommand {
       Path workingDir,
       ImmutableList<String> args,
       ImmutableSortedMap<String, String> runEnv,
+      ImmutableList<String> runEnvToClear,
       BuildConfigurationValue configuration)
       throws RunCommandException {
     ExecRequest.Builder execDescription =
@@ -729,6 +744,10 @@ public class RunCommand implements BlazeCommand {
               .setValue(ByteString.copyFrom(variable.getValue(), ISO_8859_1))
               .build());
     }
+    execDescription.addAllEnvironmentVariableToClear(
+        runEnvToClear.stream()
+            .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+            .collect(toImmutableList()));
     return execDescription.build();
   }
 

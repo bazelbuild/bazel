@@ -17,6 +17,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.IntegrationTestUtils.startWorker;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.runtime.BuildSummaryStatsModule;
 import com.google.devtools.build.lib.standalone.StandaloneModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import org.junit.After;
 import org.junit.Test;
@@ -86,13 +89,24 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Override
-  protected void assertOutputEquals(String realContent, String expectedContent) throws Exception {
+  protected void assertOutputEquals(String realContent, String expectedContent, boolean isLocal)
+      throws Exception {
     assertThat(realContent).isEqualTo(expectedContent);
   }
 
   @Override
   protected void assertOutputContains(String content, String contains) throws Exception {
     assertThat(content).contains(contains);
+  }
+
+  @Override
+  protected void evictAllBlobs() throws Exception {
+    worker.restart();
+  }
+
+  @Override
+  protected boolean hasAccessToRemoteOutputs() {
+    return true;
   }
 
   @After
@@ -315,6 +329,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void symlinkToNestedFile() throws Exception {
+    addOptions("--noincompatible_strict_conflict_checks");
+
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -367,6 +383,8 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
 
   @Test
   public void symlinkToNestedDirectory() throws Exception {
+    addOptions("--noincompatible_strict_conflict_checks");
+
     write(
         "a/defs.bzl",
         "def _impl(ctx):",
@@ -418,7 +436,66 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
-  public void remoteCacheEvictBlobs_exitWithCode39() throws Exception {
+  public void outputSymlinkHandledGracefully() throws Exception {
+    // Symlinks may not be supported on Windows
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  out = ctx.actions.declare_symlink(ctx.label.name)",
+        "  ctx.actions.run_shell(",
+        "    inputs = [],",
+        "    outputs = [out],",
+        "    command = 'ln -s hello $1',",
+        "    arguments = [out.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([out]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "", "my_rule(name = 'hello')");
+
+    buildTarget("//a:hello");
+
+    Path outputPath = getOutputPath("a/hello");
+    assertThat(outputPath.stat(Symlinks.NOFOLLOW).isSymbolicLink()).isTrue();
+  }
+
+  @Test
+  public void replaceOutputDirectoryWithFile() throws Exception {
+    write(
+        "a/defs.bzl",
+        "def _impl(ctx):",
+        "  dir = ctx.actions.declare_directory(ctx.label.name + '.dir')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [dir],",
+        "    command = 'touch $1/hello',",
+        "    arguments = [dir.path],",
+        "  )",
+        "  return DefaultInfo(files = depset([dir]))",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        ")");
+    write("a/BUILD", "load(':defs.bzl', 'my_rule')", "", "my_rule(name = 'hello')");
+
+    setDownloadToplevel();
+    buildTarget("//a:hello");
+
+    // Replace the existing output directory of the package with a file.
+    // A subsequent build should remove this file and replace it with a
+    // directory.
+    Path outputPath = getOutputPath("a");
+    outputPath.deleteTree();
+    FileSystemUtils.writeContent(outputPath, new byte[] {1, 2, 3, 4, 5});
+
+    buildTarget("//a:hello");
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenPrefetchingInput_exitWithCode39() throws Exception {
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -452,17 +529,159 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     assertOutputDoesNotExist("a/foo.out");
 
     // Act: Evict blobs from remote cache and do an incremental build
-    getFileSystem().getPath(worker.getCasPath().getSafePathString()).deleteTreesBelow();
+    evictAllBlobs();
     write("a/bar.in", "updated bar");
     var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
 
     // Assert: Exit code is 39
     assertThat(error)
         .hasMessageThat()
-        .contains(
-            "Build without the Bytes does not work if your remote cache evicts blobs"
-                + " during builds");
+        .contains("Failed to fetch blobs because they do not exist remotely");
     assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
     assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInput_exitWithCode39() throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    setDownloadAll();
+    buildTarget("//a:bar");
+    waitDownloads();
+    var bytes = FileSystemUtils.readContent(getOutputPath("a/foo.out"));
+    var hashCode = getDigestHashFunction().getHashFunction().hashBytes(bytes);
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Act: Evict blobs from remote cache and do an incremental build
+    evictAllBlobs();
+    write("a/bar.in", "updated bar");
+    var error = assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Assert: Exit code is 39
+    assertThat(error).hasMessageThat().contains(String.format("%s/%s", hashCode, bytes.length));
+    assertThat(error.getDetailedExitCode().getExitCode().getNumericExitCode()).isEqualTo(39);
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInputFile_incrementalBuildCanContinue()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write(
+        "a/BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")");
+    write("a/foo.in", "foo");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").delete();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // trigger build error
+    write("a/bar.in", "updated bar");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile("a/bar.out", "foo" + lineSeparator() + "updated bar" + lineSeparator());
+  }
+
+  @Test
+  public void remoteCacheEvictBlobs_whenUploadingInputTree_incrementalBuildCanContinue()
+      throws Exception {
+    // Arrange: Prepare workspace and populate remote cache
+    write("BUILD");
+    writeOutputDirRule();
+    write(
+        "a/BUILD",
+        "load('//:output_dir.bzl', 'output_dir')",
+        "output_dir(",
+        "  name = 'foo.out',",
+        "  content_map = {'file-inside': 'hello world'},",
+        ")",
+        "genrule(",
+        "  name = 'bar',",
+        "  srcs = ['foo.out', 'bar.in'],",
+        "  outs = ['bar.out'],",
+        "  cmd = '( ls $(location :foo.out); cat $(location :bar.in) ) > $@',",
+        ")");
+    write("a/bar.in", "bar");
+
+    // Populate remote cache
+    buildTarget("//a:bar");
+    getOutputPath("a/foo.out").deleteTreesBelow();
+    getOutputPath("a/bar.out").delete();
+    getOutputBase().getRelative("action_cache").deleteTreesBelow();
+    restartServer();
+
+    // Clean build, foo.out isn't downloaded
+    buildTarget("//a:bar");
+    assertOutputDoesNotExist("a/foo.out/file-inside");
+
+    // Evict blobs from remote cache
+    evictAllBlobs();
+
+    // trigger build error
+    setDownloadToplevel();
+    write("a/bar.in", "updated bar");
+    // Build failed because of remote cache eviction
+    assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));
+
+    // Act: Do an incremental build without "clean" or "shutdown"
+    buildTarget("//a:bar");
+    waitDownloads();
+
+    // Assert: target was successfully built
+    assertValidOutputFile(
+        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
   }
 }

@@ -101,13 +101,9 @@ genrule(
 )
 EOF
 
-  bazel build --incompatible_use_platforms_repo_for_constraints //:all &> \
+  bazel build //:all &> \
     $TEST_log && fail "Build passed when we expected an error."
   expect_log "Constraints from @bazel_tools//platforms have been removed."
-
-  bazel build --noincompatible_use_platforms_repo_for_constraints //:all &> \
-    $TEST_log || fail "Build failed when we expected no error."
-  expect_not_log "Constraints from @bazel_tools//platforms have been removed."
 }
 
 function test_platform_accessor() {

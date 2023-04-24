@@ -1,6 +1,7 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -157,7 +158,6 @@ java_library(
     srcs = [
         "AbstractIndexer.java",
         "AnsiStrippingOutputStream.java",
-        "BigIntegerFingerprintUtils.java",
         "CPU.java",
         "CanonicalStringIndexer.java",
         "ClassName.java",
@@ -165,7 +165,6 @@ java_library(
         "Either.java",
         "FileHandlerQuerier.java",
         "Fingerprint.java",
-        "GroupedList.java",
         "JavaSleeper.java",
         "LogHandlerQuerier.java",
         "LoggingUtil.java",
@@ -195,10 +194,8 @@ java_library(
         ":shell_escaper",
         ":string",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
@@ -237,7 +234,10 @@ java_library(
     srcs = [
         "ResourceUsage.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unix:procmeminfo_parser",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -328,6 +328,12 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
     ],
+)
+
+java_library(
+    name = "hash_codes",
+    srcs = ["HashCodes.java"],
+    deps = ["//third_party:jsr305"],
 )
 
 java_library(

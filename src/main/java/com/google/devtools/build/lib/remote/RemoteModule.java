@@ -983,11 +983,9 @@ public final class RemoteModule extends BlazeModule {
               env.getExecRoot(),
               tempPathGenerator,
               patternsToDownload,
-              outputPermissions,
-              remoteOptions.useNewExitCodeForLostInputs);
+              outputPermissions);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
-      remoteOutputService.setActionInputFetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
 
       toplevelArtifactsDownloader =
@@ -996,15 +994,26 @@ public final class RemoteModule extends BlazeModule {
               remoteOutputsMode.downloadToplevelOutputsOnly(),
               env.getSkyframeExecutor().getEvaluator(),
               actionInputFetcher,
+              env.getExecRoot().asFragment(),
               (path) -> {
                 FileSystem fileSystem = path.getFileSystem();
                 if (fileSystem instanceof RemoteActionFileSystem) {
-                  return ((RemoteActionFileSystem) path.getFileSystem())
-                      .getRemoteMetadata(path.asFragment());
+                  RemoteActionFileSystem rafs = (RemoteActionFileSystem) path.getFileSystem();
+                  return rafs::getOutputMetadataForTopLevelArtifactDownloader;
                 }
                 return null;
               });
       env.getEventBus().register(toplevelArtifactsDownloader);
+
+      var leaseService =
+          new LeaseService(
+              env.getSkyframeExecutor().getEvaluator(),
+              env.getBlazeWorkspace().getPersistentActionCache());
+
+      remoteOutputService.setActionInputFetcher(actionInputFetcher);
+      remoteOutputService.setLeaseService(leaseService);
+      remoteOutputService.setFileCacheSupplier(env::getFileCache);
+      env.getEventBus().register(remoteOutputService);
     }
   }
 

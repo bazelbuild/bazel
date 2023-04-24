@@ -17,6 +17,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(
     ":common/python/common.bzl",
     "TOOLCHAIN_TYPE",
+    "check_native_allowed",
     "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
@@ -24,7 +25,6 @@ load(
     "create_py_info",
     "csv",
     "filter_to_py_srcs",
-    "is_bool",
     "union_attrs",
 )
 load(
@@ -38,16 +38,18 @@ load(
 )
 load(
     ":common/python/providers.bzl",
+    "PyCcLinkParamsProvider",
     "PyRuntimeInfo",
 )
 load(
     ":common/python/semantics.bzl",
+    "ALLOWED_MAIN_EXTENSIONS",
     "BUILD_DATA_SYMLINK_PATH",
     "IS_BAZEL",
     "PY_RUNTIME_ATTR_NAME",
 )
+load(":common/cc/cc_common.bzl", _cc_common = "cc_common")
 
-_cc_common = _builtins.toplevel.cc_common
 _py_builtins = _builtins.internal.py_builtins
 
 # Non-Google-specific attributes for executables
@@ -185,6 +187,7 @@ def py_executable_base_impl(ctx, *, semantics, is_test, inherited_environment = 
 def _validate_executable(ctx):
     if ctx.attr.python_version != "PY3":
         fail("It is not allowed to use Python 2")
+    check_native_allowed(ctx)
 
 def _compute_outputs(ctx, output_sources):
     # TODO: This should use the configuration instead of the Bazel OS.
@@ -211,19 +214,13 @@ def _get_runtime_details(ctx, semantics):
         A struct; see inline-field comments of the return value for details.
     """
 
-    # NOTE: Both Bazel and Google have similar legacy "path to a python
-    # interpreter" flags with similar functions, but with subtle differences.
-    #
     # Bazel has --python_path. This flag has a computed default of "python" when
     # its actual default is null (see
     # BazelPythonConfiguration.java#getPythonPath). This flag is only used if
-    # toolchains are not enabled and `--python_top` isn't set.
+    # toolchains are not enabled and `--python_top` isn't set. Note that Google
+    # used to have a variant of this named --python_binary, but it has since
+    # been removed.
     #
-    # Google has --python_binary. This flag defaults to null; no special
-    # computed behavior. If set, it is used instead of any runtime or toolchain.
-    # This is a legacy behavior, but not fully cleaned up yet.
-    #
-    # TODO(b/230428071): Remove this once Google's --python_binary flag is removed.
     # TOOD(bazelbuild/bazel#7901): Remove this once --python_path flag is removed.
 
     if IS_BAZEL:
@@ -623,7 +620,7 @@ def determine_main(ctx):
     """
     if ctx.attr.main:
         proposed_main = ctx.attr.main.label.name
-        if not proposed_main.endswith(".py"):
+        if not proposed_main.endswith(tuple(ALLOWED_MAIN_EXTENSIONS)):
             fail("main must end in '.py'")
     else:
         if ctx.label.name.endswith(".py"):
@@ -756,7 +753,7 @@ def _create_providers(
     # are cleaned up.
     if cc_info:
         providers.append(
-            _py_builtins.new_py_cc_link_params_provider(cc_info = cc_info),
+            PyCcLinkParamsProvider(cc_info = cc_info),
         )
 
     py_info, deps_transitive_sources = create_py_info(
@@ -817,29 +814,6 @@ def create_base_executable_rule(*, attrs, fragments = [], **kwargs):
         attrs = EXECUTABLE_ATTRS | attrs,
         toolchains = [TOOLCHAIN_TYPE] + cc_helper.use_cpp_toolchain(),
         fragments = fragments,
-        **kwargs
-    )
-
-def py_executable_macro(*, exec_rule, rule_is_test, name, paropts = [], **kwargs):
-    """Wrapper macro for common executable logic.
-
-    Args:
-      exec_rule: rule object; the underlying rule to call. It will be passed `kwargs` among
-          other attributes.
-      name: str, the target name
-      rule_is_test: bool, True if `exec_rule` has test=True, False if not.
-      paropts: list of str; additional flags that affect par building.
-      **kwargs: Additional args passed to `exec_rule`.
-    """
-
-    # The Java version of tristate attributes also accept boolean.
-    if is_bool(kwargs.get("stamp")):
-        kwargs["stamp"] = 1 if kwargs["stamp"] else 0
-    exec_rule(
-        name = name,
-        # Even though the binary rule doesn't generate the par, it still needs
-        # paropts so it can add them to the build_data.txt file.
-        paropts = paropts,  # Google-specific
         **kwargs
     )
 

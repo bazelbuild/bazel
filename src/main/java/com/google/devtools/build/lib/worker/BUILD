@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -154,7 +157,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:ps_info_collector",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 
@@ -199,6 +201,7 @@ java_library(
         ":worker",
         ":worker_key",
         "//third_party:apache_commons_pool2",
+        "//third_party:guava",
     ],
 )
 

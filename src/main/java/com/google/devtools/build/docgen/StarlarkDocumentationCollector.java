@@ -14,51 +14,47 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.docgen.StarlarkDocumentationProcessor.Category;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocExpander;
+import com.google.devtools.build.docgen.starlark.StarlarkDocPage;
+import com.google.devtools.build.docgen.starlark.StarlarkGlobalsDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.lang.reflect.Method;
+import java.text.Collator;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.TreeMap;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkAnnotations;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkValue;
 
 /** A helper class that collects Starlark module documentation. */
 final class StarlarkDocumentationCollector {
-  @StarlarkBuiltin(
-      name = "globals",
-      category = DocCategory.TOP_LEVEL_TYPE,
-      doc = "Objects, functions and modules registered in the global environment.")
-  private static final class TopLevelModule implements StarlarkValue {}
-
   private StarlarkDocumentationCollector() {}
 
-  /** Returns the StarlarkBuiltin annotation for the top-level Starlark module. */
-  public static StarlarkBuiltin getTopLevelModule() {
-    return TopLevelModule.class.getAnnotation(StarlarkBuiltin.class);
-  }
+  private static ImmutableMap<Category, ImmutableList<StarlarkDocPage>> all;
 
-  private static ImmutableMap<String, StarlarkBuiltinDoc> all;
-
-  /** Applies {@link #collectModules} to all Bazel and Starlark classes. */
-  static synchronized ImmutableMap<String, StarlarkBuiltinDoc> getAllModules(
+  /** Applies {@link #collectDocPages} to all Bazel and Starlark classes. */
+  static synchronized ImmutableMap<Category, ImmutableList<StarlarkDocPage>> getAllDocPages(
       StarlarkDocExpander expander) throws ClassPathException {
     if (all == null) {
       all =
-          collectModules(
+          collectDocPages(
               Iterables.concat(
                   /*Bazel*/ Classpath.findClasses("com/google/devtools/build"),
                   /*Starlark*/ Classpath.findClasses("net/starlark/java")),
@@ -71,27 +67,16 @@ final class StarlarkDocumentationCollector {
    * Collects the documentation for all Starlark modules comprised of the given classes and returns
    * a map from the name of each Starlark module to its documentation.
    */
-  static ImmutableMap<String, StarlarkBuiltinDoc> collectModules(
+  static ImmutableMap<Category, ImmutableList<StarlarkDocPage>> collectDocPages(
       Iterable<Class<?>> classes, StarlarkDocExpander expander) {
-    Map<String, StarlarkBuiltinDoc> modules = new TreeMap<>();
-    // The top level module first.
-    // (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
-    StarlarkBuiltin topLevelModule = getTopLevelModule();
-    modules.put(
-        topLevelModule.name(),
-        new StarlarkBuiltinDoc(
-            topLevelModule,
-            /*title=*/ "Globals",
-            TopLevelModule.class,
-            expander,
-            /*isTopLevel=*/ true));
+    Map<Category, Map<String, StarlarkDocPage>> pages = new EnumMap<>(Category.class);
+    for (Category category : Category.values()) {
+      pages.put(category, new HashMap<>());
+    }
 
-    // Creating module documentation is done in three passes.
     // 1. Add all classes/interfaces annotated with @StarlarkBuiltin with documented = true.
     for (Class<?> candidateClass : classes) {
-      if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {
-        collectStarlarkModule(candidateClass, modules, expander);
-      }
+      collectStarlarkBuiltin(candidateClass, pages, expander);
     }
 
     // 2. Add all object methods and global functions.
@@ -112,175 +97,177 @@ final class StarlarkDocumentationCollector {
     //    Note that BuiltinFunction doesn't actually have getJavaMethod.
     //
     for (Class<?> candidateClass : classes) {
-      if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {
-        collectModuleMethods(candidateClass, modules, expander);
-      }
-      if (candidateClass.isAnnotationPresent(DocumentMethods.class)
-          || candidateClass.getName().equals("net.starlark.java.eval.MethodLibrary")) {
-        collectDocumentedMethods(candidateClass, modules, expander);
-      }
+      collectBuiltinMethods(candidateClass, pages, expander);
+      collectGlobalMethods(candidateClass, pages, expander);
     }
 
     // 3. Add all constructors.
     for (Class<?> candidateClass : classes) {
-      if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)
-          || candidateClass.isAnnotationPresent(DocumentMethods.class)) {
-        collectConstructorMethods(candidateClass, modules, expander);
-      }
+      collectConstructorMethods(candidateClass, pages, expander);
     }
 
-    return ImmutableMap.copyOf(modules);
+    return ImmutableMap.copyOf(
+        Maps.transformValues(
+            pages,
+            pagesInCategory ->
+                ImmutableList.sortedCopyOf(
+                    Comparator.comparing(
+                        StarlarkDocPage::getTitle, Collator.getInstance(Locale.US)),
+                    pagesInCategory.values())));
   }
 
   /**
-   * Returns the {@link StarlarkBuiltinDoc} entry representing the collection of top level
-   * functions. (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
+   * Adds a single {@link StarlarkDocPage} entry to {@code pages} representing the given {@code
+   * builtinClass}, if it is a documented builtin.
    */
-  private static StarlarkBuiltinDoc getTopLevelModuleDoc(Map<String, StarlarkBuiltinDoc> modules) {
-    return modules.get(getTopLevelModule().name());
-  }
-
-  /**
-   * Adds a single {@link StarlarkBuiltinDoc} entry to {@code modules} representing the given {@code
-   * moduleClass}, if it is a documented module.
-   */
-  private static void collectStarlarkModule(
-      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules, StarlarkDocExpander expander) {
-    if (moduleClass.equals(TopLevelModule.class)) {
-      // The top level module doc is a special case and is handled separately.
+  private static void collectStarlarkBuiltin(
+      Class<?> builtinClass,
+      Map<Category, Map<String, StarlarkDocPage>> pages,
+      StarlarkDocExpander expander) {
+    StarlarkBuiltin starlarkBuiltin = builtinClass.getAnnotation(StarlarkBuiltin.class);
+    if (starlarkBuiltin == null || !starlarkBuiltin.documented()) {
       return;
     }
 
-    StarlarkBuiltin moduleAnnotation =
-        Preconditions.checkNotNull(moduleClass.getAnnotation(StarlarkBuiltin.class));
+    Map<String, StarlarkDocPage> pagesInCategory = pages.get(Category.of(starlarkBuiltin));
+    StarlarkDocPage existingPage = pagesInCategory.get(starlarkBuiltin.name());
+    if (existingPage == null) {
+      pagesInCategory.put(
+          starlarkBuiltin.name(), new StarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
+      return;
+    }
 
-    if (moduleAnnotation.documented()) {
-      StarlarkBuiltinDoc previousModuleDoc = modules.get(moduleAnnotation.name());
-      if (previousModuleDoc == null) {
-        modules.put(
-            moduleAnnotation.name(),
-            new StarlarkBuiltinDoc(
-                moduleAnnotation, moduleAnnotation.name(), moduleClass, expander));
-      } else {
-        // Handle a strange corner-case: If moduleClass has a subclass which is also
-        // annotated with {@link StarlarkBuiltin} with the same name, and also has the same
-        // module-level docstring, then the subclass takes precedence.
-        // (This is useful if one module is a "common" stable module, and its subclass is
-        // an experimental module that also supports all stable methods.)
-        validateCompatibleModules(previousModuleDoc.getClassObject(), moduleClass);
+    // Handle a strange corner-case: If builtinClass has a subclass which is also
+    // annotated with @StarlarkBuiltin with the same name, and also has the same
+    // docstring, then the subclass takes precedence.
+    // (This is useful if one class is the "common" one with stable methods, and its subclass is
+    // an experimental class that also supports all stable methods.)
+    Preconditions.checkState(
+        existingPage instanceof StarlarkBuiltinDoc,
+        "the same name %s is assigned to both a global method environment and a builtin type",
+        starlarkBuiltin.name());
+    Class<?> clazz = ((StarlarkBuiltinDoc) existingPage).getClassObject();
+    validateCompatibleBuiltins(clazz, builtinClass);
 
-        if (previousModuleDoc.getClassObject().isAssignableFrom(moduleClass)) {
-          // The new module is a subclass of the old module, so use the subclass.
-          modules.put(
-              moduleAnnotation.name(),
-              new StarlarkBuiltinDoc(
-                  moduleAnnotation, /*title=*/ moduleAnnotation.name(), moduleClass, expander));
-        }
-      }
+    if (clazz.isAssignableFrom(builtinClass)) {
+      // The new builtin is a subclass of the old builtin, so use the subclass.
+      pagesInCategory.put(
+          starlarkBuiltin.name(), new StarlarkBuiltinDoc(starlarkBuiltin, builtinClass, expander));
     }
   }
 
-  /**
-   * Validate that it is acceptable that the given module classes with the same module name
-   * co-exist.
-   */
-  private static void validateCompatibleModules(Class<?> one, Class<?> two) {
-    StarlarkBuiltin moduleOne = one.getAnnotation(StarlarkBuiltin.class);
-    StarlarkBuiltin moduleTwo = two.getAnnotation(StarlarkBuiltin.class);
+  /** Validate that it is acceptable that the given builtin classes with the same name co-exist. */
+  private static void validateCompatibleBuiltins(Class<?> one, Class<?> two) {
+    StarlarkBuiltin builtinOne = one.getAnnotation(StarlarkBuiltin.class);
+    StarlarkBuiltin builtinTwo = two.getAnnotation(StarlarkBuiltin.class);
     if (one.isAssignableFrom(two) || two.isAssignableFrom(one)) {
-      if (!moduleOne.doc().equals(moduleTwo.doc())) {
+      if (!builtinOne.doc().equals(builtinTwo.doc())) {
         throw new IllegalStateException(
             String.format(
-                "%s and %s are related modules but have mismatching documentation for '%s'",
-                one, two, moduleOne.name()));
+                "%s and %s are related builtins but have mismatching documentation for '%s'",
+                one, two, builtinOne.name()));
       }
     } else {
       throw new IllegalStateException(
           String.format(
-              "%s and %s are unrelated modules with documentation for '%s'",
-              one, two, moduleOne.name()));
+              "%s and %s are unrelated builtins with documentation for '%s'",
+              one, two, builtinOne.name()));
     }
   }
 
-  private static void collectModuleMethods(
-      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules, StarlarkDocExpander expander) {
-    StarlarkBuiltin moduleAnnotation =
-        Preconditions.checkNotNull(moduleClass.getAnnotation(StarlarkBuiltin.class));
+  private static void collectBuiltinMethods(
+      Class<?> builtinClass,
+      Map<Category, Map<String, StarlarkDocPage>> pages,
+      StarlarkDocExpander expander) {
+    StarlarkBuiltin starlarkBuiltin = builtinClass.getAnnotation(StarlarkBuiltin.class);
 
-    if (moduleAnnotation.documented()) {
-      StarlarkBuiltinDoc moduleDoc =
-          Preconditions.checkNotNull(modules.get(moduleAnnotation.name()));
+    if (starlarkBuiltin == null || !starlarkBuiltin.documented()) {
+      return;
+    }
+    StarlarkBuiltinDoc builtinDoc =
+        (StarlarkBuiltinDoc) pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
 
-      if (moduleClass == moduleDoc.getClassObject()) {
-        for (Map.Entry<Method, StarlarkMethod> entry :
-            Starlark.getMethodAnnotations(moduleClass).entrySet()) {
-          // Collect methods that aren't directly constructors (i.e. have the @StarlarkConstructor
-          // annotation).
-          // Struct fields that return a type that has @StarlarkConstructor are a bit special:
-          // they're visited here because they're seen as an attribute of the module, but act more
-          // like a reference to the type they construct
-          if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
-            Method javaMethod = entry.getKey();
-            StarlarkMethod starlarkMethod = entry.getValue();
-            // Handle struct fields that return a Starlark constructor so that
-            // documentation can link to the constructed type.
-            if (starlarkMethod.structField()) {
-              Method constructor = getSelfCallConstructorMethod(javaMethod.getReturnType());
-              if (constructor != null) {
-                javaMethod = constructor;
-              }
-            }
-            moduleDoc.addMethod(
-                new StarlarkJavaMethodDoc(
-                    moduleDoc.getName(), javaMethod, starlarkMethod, expander));
-          }
+    if (builtinClass != builtinDoc.getClassObject()) {
+      return;
+    }
+    for (Map.Entry<Method, StarlarkMethod> entry :
+        Starlark.getMethodAnnotations(builtinClass).entrySet()) {
+      // Collect methods that aren't directly constructors (i.e. have the @StarlarkConstructor
+      // annotation).
+      if (entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
+        continue;
+      }
+      Method javaMethod = entry.getKey();
+      StarlarkMethod starlarkMethod = entry.getValue();
+      // Struct fields that return a type that has @StarlarkConstructor are a bit special:
+      // they're visited here because they're seen as an attribute of the module, but act more
+      // like a reference to the type they construct.
+      // TODO(wyv): does this actually happen???
+      if (starlarkMethod.structField()) {
+        Method selfCall =
+            Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, javaMethod.getReturnType());
+        if (selfCall != null && selfCall.isAnnotationPresent(StarlarkConstructor.class)) {
+          javaMethod = selfCall;
         }
       }
+      builtinDoc.addMethod(
+          new StarlarkJavaMethodDoc(builtinDoc.getName(), javaMethod, starlarkMethod, expander));
     }
-  }
-
-  @Nullable
-  private static Method getSelfCallConstructorMethod(Class<?> objectClass) {
-    Method selfCallMethod = Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, objectClass);
-    if (selfCallMethod != null && selfCallMethod.isAnnotationPresent(StarlarkConstructor.class)) {
-      return selfCallMethod;
-    }
-    return null;
   }
 
   /**
    * Adds {@link StarlarkJavaMethodDoc} entries to the top level module, one for
-   * each @StarlarkMethod method defined in the given @DocumentMethods class {@code moduleClass}.
+   * each @StarlarkMethod method defined in the given @GlobalMethods class {@code clazz}.
    */
-  private static void collectDocumentedMethods(
-      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules, StarlarkDocExpander expander) {
-    StarlarkBuiltinDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
+  private static void collectGlobalMethods(
+      Class<?> clazz,
+      Map<Category, Map<String, StarlarkDocPage>> pages,
+      StarlarkDocExpander expander) {
+    GlobalMethods globalMethods = clazz.getAnnotation(GlobalMethods.class);
 
-    for (Map.Entry<Method, StarlarkMethod> entry :
-        Starlark.getMethodAnnotations(moduleClass).entrySet()) {
-      // Only add non-constructor global library methods. Constructors are added later.
-      if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
-        topLevelModuleDoc.addMethod(
-            new StarlarkJavaMethodDoc("", entry.getKey(), entry.getValue(), expander));
+    if (globalMethods == null && !clazz.getName().equals("net.starlark.java.eval.MethodLibrary")) {
+      return;
+    }
+
+    Environment[] environments =
+        globalMethods == null ? new Environment[] {Environment.ALL} : globalMethods.environment();
+    for (Environment environment : environments) {
+      StarlarkDocPage page =
+          pages
+              .get(Category.GLOBAL_FUNCTION)
+              .computeIfAbsent(
+                  environment.getTitle(), title -> new StarlarkGlobalsDoc(environment, expander));
+      for (Map.Entry<Method, StarlarkMethod> entry :
+          Starlark.getMethodAnnotations(clazz).entrySet()) {
+        // Only add non-constructor global library methods. Constructors are added later.
+        // TODO(wyv): add a redirect instead
+        if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
+          page.addMethod(new StarlarkJavaMethodDoc("", entry.getKey(), entry.getValue(), expander));
+        }
       }
     }
   }
 
   private static void collectConstructor(
-      Map<String, StarlarkBuiltinDoc> modules, Method method, StarlarkDocExpander expander) {
-    Preconditions.checkNotNull(method.getAnnotation(StarlarkConstructor.class));
+      Map<Category, Map<String, StarlarkDocPage>> pages,
+      Method method,
+      StarlarkDocExpander expander) {
+    if (!method.isAnnotationPresent(StarlarkConstructor.class)) {
+      return;
+    }
 
-    StarlarkBuiltin builtinType = StarlarkAnnotations.getStarlarkBuiltin(method.getReturnType());
-    if (builtinType == null || !builtinType.documented()) {
+    StarlarkBuiltin starlarkBuiltin =
+        StarlarkAnnotations.getStarlarkBuiltin(method.getReturnType());
+    if (starlarkBuiltin == null || !starlarkBuiltin.documented()) {
       // The class of the constructed object type has no documentation, so no place to add
       // constructor information.
       return;
     }
     StarlarkMethod methodAnnot =
         Preconditions.checkNotNull(method.getAnnotation(StarlarkMethod.class));
-    StarlarkBuiltinDoc doc = modules.get(builtinType.name());
+    StarlarkDocPage doc = pages.get(Category.of(starlarkBuiltin)).get(starlarkBuiltin.name());
     doc.setConstructor(
-        new StarlarkConstructorMethodDoc(builtinType.name(), method, methodAnnot, expander));
+        new StarlarkConstructorMethodDoc(starlarkBuiltin.name(), method, methodAnnot, expander));
   }
 
   /**
@@ -297,16 +284,20 @@ final class StarlarkDocumentationCollector {
    * documentation)
    */
   private static void collectConstructorMethods(
-      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules, StarlarkDocExpander expander) {
-    Method selfCallConstructor = getSelfCallConstructorMethod(moduleClass);
-    if (selfCallConstructor != null) {
-      collectConstructor(modules, selfCallConstructor, expander);
+      Class<?> clazz,
+      Map<Category, Map<String, StarlarkDocPage>> pages,
+      StarlarkDocExpander expander) {
+    if (!clazz.isAnnotationPresent(StarlarkBuiltin.class)
+        && !clazz.isAnnotationPresent(GlobalMethods.class)) {
+      return;
+    }
+    Method selfCall = Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, clazz);
+    if (selfCall != null) {
+      collectConstructor(pages, selfCall, expander);
     }
 
-    for (Method method : Starlark.getMethodAnnotations(moduleClass).keySet()) {
-      if (method.isAnnotationPresent(StarlarkConstructor.class)) {
-        collectConstructor(modules, method, expander);
-      }
+    for (Method method : Starlark.getMethodAnnotations(clazz).keySet()) {
+      collectConstructor(pages, method, expander);
     }
   }
 }

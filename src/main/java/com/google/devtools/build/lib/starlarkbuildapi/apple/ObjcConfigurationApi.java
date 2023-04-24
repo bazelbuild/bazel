@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** A configuration fragment for Objective C. */
@@ -140,4 +143,18 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       structField = true,
       doc = "Returns whether sdk_frameworks and weak_sdk_frameworks are disallowed attributes.")
   boolean disallowSdkFrameworksAttributes();
+
+  @StarlarkMethod(
+      name = "alwayslink_by_default",
+      structField = true,
+      doc = "Returns whether objc_library and objc_import should default to alwayslink=True.")
+  boolean alwayslinkByDefault();
+
+  @StarlarkMethod(
+      name = "target_should_alwayslink",
+      documented = false,
+      parameters = {@Param(name = "ctx")},
+      useStarlarkThread = true)
+  boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException;
 }

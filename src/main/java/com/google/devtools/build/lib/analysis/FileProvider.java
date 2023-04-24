@@ -60,7 +60,7 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
    */
   @Override
   public Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
-    return Depset.of(Artifact.TYPE, filesToBuild);
+    return Depset.of(Artifact.class, filesToBuild);
   }
 
   public NestedSet<Artifact> getFilesToBuild() {

@@ -331,7 +331,7 @@ public class StarlarkDebugServerTest {
             .setPauseReason(PauseReason.CONDITIONAL_BREAKPOINT_ERROR)
             .setLocation(location.toBuilder().setColumnNumber(1))
             .setConditionalBreakpointError(
-                StarlarkDebuggingProtos.Error.newBuilder().setMessage("name \'z\' is not defined"))
+                StarlarkDebuggingProtos.Error.newBuilder().setMessage("name 'z' is not defined"))
             .build();
 
     assertThat(event).isEqualTo(DebugEventHelper.threadPausedEvent(expectedThreadState));
@@ -370,7 +370,7 @@ public class StarlarkDebugServerTest {
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(0),
         Frame.newBuilder()
-            .setFunctionName("<toplevel>")
+            .setFunctionName(StarlarkThread.TOP_LEVEL)
             .setLocation(breakpoint.toBuilder().setColumnNumber(1))
             .addScope(
                 Scope.newBuilder()
@@ -463,7 +463,7 @@ public class StarlarkDebugServerTest {
     assertFramesEqualIgnoringValueIdentifiers(
         frames.getFrame(1),
         Frame.newBuilder()
-            .setFunctionName("<toplevel>")
+            .setFunctionName(StarlarkThread.TOP_LEVEL)
             .setLocation(
                 Location.newBuilder()
                     .setPath("/a/build/file/test.bzl")
@@ -802,7 +802,7 @@ public class StarlarkDebugServerTest {
   /**
    * Asserts that the given frames are equal after clearing the identifier from all {@link Value}s.
    */
-  private void assertFramesEqualIgnoringValueIdentifiers(Frame frame1, Frame frame2) {
+  private static void assertFramesEqualIgnoringValueIdentifiers(Frame frame1, Frame frame2) {
     assertThat(clearIds(frame1)).isEqualTo(clearIds(frame2));
   }
 
@@ -822,7 +822,7 @@ public class StarlarkDebugServerTest {
     return builder.build();
   }
 
-  private void assertValuesEqualIgnoringId(Value value1, Value value2) {
+  private static void assertValuesEqualIgnoringId(Value value1, Value value2) {
     assertThat(clearId(value1)).isEqualTo(clearId(value2));
   }
 

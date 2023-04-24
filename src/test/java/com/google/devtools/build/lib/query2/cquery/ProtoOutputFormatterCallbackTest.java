@@ -135,7 +135,7 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
                     builder.add(
                         attr("deps", LABEL_LIST)
                             .allowedFileTypes(FileTypeSet.ANY_FILE)
-                            .cfg(ExecutionTransitionFactory.create())));
+                            .cfg(ExecutionTransitionFactory.createFactory())));
     MockRule parentRuleClass =
         () ->
             MockRule.define(

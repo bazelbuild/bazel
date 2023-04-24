@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
@@ -183,7 +182,8 @@ public class ActionGraphDump {
       // AbstractAction, we can call getEffectiveEnvironment here to handle these actions as well.
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEffectiveEnvironment(Map.of());
+      ImmutableMap<String, String> fixedEnvironment =
+          spawnAction.getEffectiveEnvironment(ImmutableMap.of());
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()
@@ -234,7 +234,7 @@ public class ActionGraphDump {
 
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
-      BuildEvent event = actionOwner.getConfiguration();
+      BuildEvent event = actionOwner.getBuildConfigurationEvent();
       actionBuilder.setConfigurationId(knownConfigurations.dataToIdAndStreamOutputProto(event));
       if (actionOwner.getExecutionPlatform() != null) {
         actionBuilder.setExecutionPlatform(actionOwner.getExecutionPlatform().label().toString());
@@ -268,11 +268,10 @@ public class ActionGraphDump {
     }
 
     if (action instanceof TemplateExpansionAction) {
-      actionBuilder.setTemplateContent(
-          ((TemplateExpansionAction) action)
-              .getTemplate()
-              .getContent(ArtifactPathResolver.IDENTITY));
-      for (Substitution substitution : ((TemplateExpansionAction) action).getSubstitutions()) {
+      TemplateExpansionAction templateExpansionAction = (TemplateExpansionAction) action;
+      actionBuilder.setTemplateContent(AqueryUtils.getTemplateContent(templateExpansionAction));
+
+      for (Substitution substitution : templateExpansionAction.getSubstitutions()) {
         try {
           actionBuilder.addSubstitutions(
               AnalysisProtosV2.KeyValuePair.newBuilder()
@@ -287,9 +286,18 @@ public class ActionGraphDump {
     aqueryOutputHandler.outputAction(actionBuilder.build());
   }
 
-  public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
-      throws CommandLineExpansionException, InterruptedException, IOException,
+  public void dumpAspect(
+      @Nullable AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)
+      throws CommandLineExpansionException,
+          InterruptedException,
+          IOException,
           TemplateExpansionException {
+    // It's possible for a value from a previous build on the same server to be missing
+    // e.g. after having cleared the analysis cache.
+    if (aspectValue == null) {
+      return;
+    }
+
     ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;

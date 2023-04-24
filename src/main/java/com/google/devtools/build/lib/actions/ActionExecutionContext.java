@@ -14,11 +14,13 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -56,10 +58,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   private final Executor executor;
-  private final MetadataProvider actionInputFileCache;
+  private final InputMetadataProvider inputMetadataProvider;
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionKeyContext actionKeyContext;
-  private final MetadataHandler metadataHandler;
+  private final OutputMetadataStore outputMetadataStore;
   private final boolean rewindingEnabled;
   private final LostInputsCheck lostInputsCheck;
   private final FileOutErr fileOutErr;
@@ -72,7 +74,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   @Nullable private final FileSystem actionFileSystem;
   @Nullable private final Object skyframeDepsResult;
 
-  @Nullable private ImmutableList<FilesetOutputSymlink> outputSymlinks;
+  private ImmutableList<FilesetOutputSymlink> outputSymlinks = ImmutableList.of();
 
   private final ArtifactPathResolver pathResolver;
   private final DiscoveredModulesPruner discoveredModulesPruner;
@@ -81,10 +83,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   private ActionExecutionContext(
       Executor executor,
-      MetadataProvider actionInputFileCache,
+      InputMetadataProvider inputMetadataProvider,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      MetadataHandler metadataHandler,
+      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -98,10 +100,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       DiscoveredModulesPruner discoveredModulesPruner,
       SyscallCache syscallCache,
       ThreadStateReceiver threadStateReceiverForMetrics) {
-    this.actionInputFileCache = actionInputFileCache;
+    this.inputMetadataProvider = inputMetadataProvider;
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
-    this.metadataHandler = metadataHandler;
+    this.outputMetadataStore = outputMetadataStore;
     this.rewindingEnabled = rewindingEnabled;
     this.lostInputsCheck = lostInputsCheck;
     this.fileOutErr = fileOutErr;
@@ -123,10 +125,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public ActionExecutionContext(
       Executor executor,
-      MetadataProvider actionInputFileCache,
+      InputMetadataProvider inputMetadataProvider,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      MetadataHandler metadataHandler,
+      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -141,10 +143,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ThreadStateReceiver threadStateReceiverForMetrics) {
     this(
         executor,
-        actionInputFileCache,
+        inputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
-        metadataHandler,
+        outputMetadataStore,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
@@ -152,7 +154,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         clientEnv,
         topLevelFilesets,
         artifactExpander,
-        /*env=*/ null,
+        /* env= */ null,
         actionFileSystem,
         skyframeDepsResult,
         discoveredModulesPruner,
@@ -162,10 +164,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   public static ActionExecutionContext forInputDiscovery(
       Executor executor,
-      MetadataProvider actionInputFileCache,
+      InputMetadataProvider actionInputFileCache,
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
-      MetadataHandler metadataHandler,
+      OutputMetadataStore outputMetadataStore,
       boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
@@ -181,17 +183,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputFileCache,
         actionInputPrefetcher,
         actionKeyContext,
-        metadataHandler,
+        outputMetadataStore,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
         clientEnv,
         ImmutableMap.of(),
-        /*artifactExpander=*/ null,
+        /* artifactExpander= */ null,
         env,
         actionFileSystem,
-        /*skyframeDepsResult=*/ null,
+        /* skyframeDepsResult= */ null,
         discoveredModulesPruner,
         syscalls,
         threadStateReceiverForMetrics);
@@ -201,12 +203,12 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return actionInputPrefetcher;
   }
 
-  public MetadataProvider getMetadataProvider() {
-    return actionInputFileCache;
+  public InputMetadataProvider getInputMetadataProvider() {
+    return inputMetadataProvider;
   }
 
-  public MetadataHandler getMetadataHandler() {
-    return metadataHandler;
+  public OutputMetadataStore getOutputMetadataStore() {
+    return outputMetadataStore;
   }
 
   public FileSystem getFileSystem() {
@@ -283,18 +285,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return topLevelFilesets;
   }
 
-  @Nullable
   public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return outputSymlinks;
   }
 
   public void setOutputSymlinks(ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    Preconditions.checkState(
-        this.outputSymlinks == null,
+    checkState(
+        this.outputSymlinks.isEmpty(),
         "Unexpected reassignment of the outputSymlinks of a Fileset from\n:%s to:\n%s",
         this.outputSymlinks,
         outputSymlinks);
-    this.outputSymlinks = outputSymlinks;
+    this.outputSymlinks = checkNotNull(outputSymlinks);
   }
 
   @Override
@@ -341,6 +342,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
             showSubcommands.prettyPrintArgs,
             spawn.getArguments(),
             spawn.getEnvironment(),
+            /* environmentVariablesToClear= */ null,
             getExecRoot().getPathString(),
             spawn.getConfigurationChecksum(),
             spawn.getExecutionPlatformLabelString());
@@ -372,7 +374,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
    * Provides a mechanism for the action to request values from Skyframe while it discovers inputs.
    */
   public Environment getEnvironmentForDiscoveringInputs() {
-    return Preconditions.checkNotNull(env);
+    return checkNotNull(env);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -405,16 +407,29 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   }
 
   /**
-   * Allows us to create a new context that overrides the FileOutErr with another one. This is
-   * useful for muting the output for example.
+   * Creates a new {@link ActionExecutionContext} whose {@link InputMetadataProvider} has the given
+   * {@link ActionInput}s as inputs.
+   *
+   * <p>Each {@link ActionInput} must be an output of the current {@link ActionExecutionContext} and
+   * it must already have been built.
    */
-  public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
+  public ActionExecutionContext withOutputsAsInputs(
+      Iterable<? extends ActionInput> additionalInputs) throws IOException, InterruptedException {
+    ImmutableMap.Builder<ActionInput, FileArtifactValue> additionalInputMap =
+        ImmutableMap.builder();
+
+    for (ActionInput input : additionalInputs) {
+      additionalInputMap.put(input, getOutputMetadataStore().getOutputMetadata(input));
+    }
+    StaticInputMetadataProvider additionalInputMetadata =
+        new StaticInputMetadataProvider(additionalInputMap.buildOrThrow());
+
     return new ActionExecutionContext(
         executor,
-        actionInputFileCache,
+        new DelegatingPairInputMetadataProvider(additionalInputMetadata, inputMetadataProvider),
         actionInputPrefetcher,
         actionKeyContext,
-        metadataHandler,
+        outputMetadataStore,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
@@ -429,15 +444,17 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         syscallCache,
         threadStateReceiverForMetrics);
   }
-
-  /** Allows us to create a new context that overrides the MetadataHandler with another one. */
-  public ActionExecutionContext withMetadataHandler(MetadataHandler metadataHandler) {
+  /**
+   * Allows us to create a new context that overrides the FileOutErr with another one. This is
+   * useful for muting the output for example.
+   */
+  public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
     return new ActionExecutionContext(
         executor,
-        actionInputFileCache,
+        inputMetadataProvider,
         actionInputPrefetcher,
         actionKeyContext,
-        metadataHandler,
+        outputMetadataStore,
         rewindingEnabled,
         lostInputsCheck,
         fileOutErr,

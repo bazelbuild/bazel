@@ -11,7 +11,7 @@ to others.
 ## Hosting and naming rules
 
 New rules should go into their own GitHub repository under your organization.
-Contact the [bazel-dev mailing list](https://groups.google.com/forum/#!forum/bazel-dev)
+Start a thread on [GitHub](https://github.com/bazelbuild/bazel/discussions)
 if you feel like your rules belong in the [bazelbuild](https://github.com/bazelbuild)
 organization.
 
@@ -71,8 +71,8 @@ In the project's `WORKSPACE`, you should define the name that users will use
 to reference your rules. If your rules belong to the
 [bazelbuild](https://github.com/bazelbuild) organization, you must use
 `rules_<lang>` (such as `rules_mockascript`). Otherwise, you should name your
-repository `<org>_rules_<lang>` (such as `build_stack_rules_proto`). Please contact
-[bazel-dev mailing list](https://groups.google.com/forum/#!forum/bazel-dev)
+repository `<org>_rules_<lang>` (such as `build_stack_rules_proto`). Please
+start a thread on [GitHub](https://github.com/bazelbuild/bazel/discussions)
 if you feel like your rules should follow the convention for rules in the
 [bazelbuild](https://github.com/bazelbuild) organization.
 

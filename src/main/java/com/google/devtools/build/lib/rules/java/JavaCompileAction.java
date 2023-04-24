@@ -236,7 +236,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());
     }
-    env.addTo(fp);
+    getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
     fp.addBoolean(stripOutputPaths());
   }
@@ -297,8 +297,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), configuration);
   }
 
-  @VisibleForTesting
-  JavaSpawn getReducedSpawn(
+  private JavaSpawn getReducedSpawn(
       ActionExecutionContext actionExecutionContext,
       ReducedClasspath reducedClasspath,
       boolean fallback)
@@ -332,7 +331,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         reducedCommandLine.expand(
             actionExecutionContext.getArtifactExpander(),
             getPrimaryOutput().getExecPath(),
-            PathStripper.CommandAdjuster.create(
+            PathStripper.createForAction(
                 stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
             configuration.getCommandLineLimits());
     NestedSet<Artifact> inputs =
@@ -357,7 +356,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
             .expand(
                 actionExecutionContext.getArtifactExpander(),
                 getPrimaryOutput().getExecPath(),
-                PathStripper.CommandAdjuster.create(
+                PathStripper.createForAction(
                     stripOutputPaths, null, getPrimaryOutput().getExecPath().subFragment(0, 1)),
                 configuration.getCommandLineLimits());
     return new JavaSpawn(
@@ -383,6 +382,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
+    ActionEnvironment env = getEnvironment();
     LinkedHashMap<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(effectiveEnvironment, clientEnv);
@@ -460,7 +460,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throw wrapIOException(e, "Failed to delete reduced action outputs");
     }
 
-    actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
+    actionExecutionContext.getOutputMetadataStore().resetOutputs(getOutputs());
 
     try {
       actionExecutionContext.getFileOutErr().clearOut();
@@ -672,12 +672,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   @Override
-  public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
+  public ImmutableList<String> getArguments()
+      throws CommandLineExpansionException, InterruptedException {
     return ImmutableList.copyOf(getCommandLines().allArguments());
   }
 
   @Override
-  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() {
     ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
     ImmutableSet<Artifact> directoryInputs =
         getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
@@ -689,12 +690,8 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @Override
   @VisibleForTesting
-  public final ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
-    // TODO(ulfjack): AbstractAction should declare getEnvironment with a return value of type
-    // ActionEnvironment to avoid developers misunderstanding the purpose of this method. That
-    // requires first updating all subclasses and callers to actually handle environments correctly,
-    // so it's not a small change.
-    return env.getFixedEnv();
+  public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
+    return getEnvironment().getFixedEnv();
   }
 
   @Nullable
@@ -793,7 +790,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     Path fsPath = actionExecutionContext.getInputPath(outputDepsProto);
     if (fsPath.exists()) {
       // Make sure to clear the output store cache if it has an entry from before the rewrite.
-      actionExecutionContext.getMetadataHandler().resetOutputs(ImmutableList.of(outputDepsProto));
+      actionExecutionContext
+          .getOutputMetadataStore()
+          .resetOutputs(ImmutableList.of(outputDepsProto));
       fsPath.setWritable(true);
       try (var outputStream = fsPath.getOutputStream()) {
         fullOutputDeps.writeTo(outputStream);

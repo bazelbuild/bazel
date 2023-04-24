@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -33,6 +34,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Helper functions for Starlark to access coverage-related infrastructure */
 @StarlarkBuiltin(
     name = "coverage_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
@@ -42,10 +44,10 @@ public interface CoverageCommonApi<
   @StarlarkMethod(
       name = "instrumented_files_info",
       doc =
-          "Creates a new "
-              + "<a class=\"anchor\" href=\"InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a> "
-              + "instance. Use this provider to communicate coverage-related attributes of the "
-              + "current build rule.",
+          "Creates a new <a class=\"anchor\""
+              + " href=\"../providers/InstrumentedFilesInfo.html\">InstrumentedFilesInfo</a>"
+              + " instance. Use this provider to communicate coverage-related attributes of the"
+              + " current build rule.",
       parameters = {
         @Param(name = "ctx", positional = true, named = true, doc = "The rule context."),
         @Param(

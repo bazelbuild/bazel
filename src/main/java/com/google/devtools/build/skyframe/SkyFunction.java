@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -281,7 +280,7 @@ public interface SkyFunction {
      * you're doing!
      */
     @Nullable
-    default GroupedList<SkyKey> getTemporaryDirectDeps() {
+    default GroupedDeps getTemporaryDirectDeps() {
       return null;
     }
 
@@ -319,10 +318,6 @@ public interface SkyFunction {
      * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
      * may be called upon to transform a lower-level exception. This method can tell it whether to
      * transform a dependency's exception or ignore it and return a value as usual.
-     *
-     * <p>An exception is with {@link
-     * com.google.devtools.build.lib.skyframe.BuildDriverFunction#checkActionConflicts}. See the
-     * documentation at the method for more details.
      */
     boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
 

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -32,7 +31,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.time.Duration;
@@ -40,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
-import java.util.regex.Pattern;
 
 /** Options for remote execution and distributed caching for Bazel only. */
 public final class RemoteOptions extends CommonRemoteOptions {
@@ -203,7 +200,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "60s",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
-      converter = RemoteTimeoutConverter.class,
+      converter = RemoteDurationConverter.class,
       help =
           "The maximum amount of time to wait for remote execution and cache calls. For the REST"
               + " cache, this is both the connect and the read timeout. Following units can be"
@@ -223,24 +220,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "to no longer correspond to the canonical name of the remote execution service. "
               + "When not set, it will default to \"${hostname}/${instance_name}\".")
   public String remoteBytestreamUriPrefix;
-
-  /** Returns the specified duration. Assumes seconds if unitless. */
-  public static class RemoteTimeoutConverter extends Converter.Contextless<Duration> {
-    private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
-
-    @Override
-    public Duration convert(String input) throws OptionsParsingException {
-      if (UNITLESS_REGEX.matcher(input).matches()) {
-        input += "s";
-      }
-      return new Converters.DurationConverter().convert(input, /*conversionContext=*/ null);
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "An immutable length of time.";
-    }
-  }
 
   @Option(
       name = "remote_accept_cached",
@@ -286,15 +265,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       deprecationWarning =
           "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
-              + " of --experimental_remote_build_event_upload=minimal.",
+              + " of --remote_build_event_upload=minimal.",
       help =
           "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
               + " generating action cannot be cached remotely.")
   public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
-      name = "experimental_remote_build_event_upload",
-      defaultValue = "all",
+      name = "remote_build_event_upload",
+      oldName = "experimental_remote_build_event_upload",
+      defaultValue = "minimal",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = RemoteBuildEventUploadModeConverter.class,
@@ -304,7 +284,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " remote cache, except for files that are important to the consumers of BEP (e.g."
               + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
               + " files even if they are missing from remote cache.\n"
-              + "Default to 'all'.")
+              + "Default to 'minimal'.")
   public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
   /** Build event upload mode flag parser */
@@ -324,7 +304,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
           "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
-              + " apply to the disk cache. If a combined cache is used:\n"
+              + " apply to the disk cache. If both --disk_cache and --remote_cache are set"
+              + " (combined cache):\n"
               + "\t--noremote_upload_local_results will cause results to be written to the disk"
               + " cache, but not uploaded to the remote cache.\n"
               + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
@@ -361,6 +342,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "The maximum number of attempts to retry a transient error. "
               + "If set to 0, retries are disabled.")
   public int remoteMaxRetryAttempts;
+
+  @Option(
+      name = "remote_retry_max_delay",
+      defaultValue = "5s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum backoff delay between remote retry attempts. Following units can be used:"
+              + " Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
+              + " the unit is omitted, the value is interpreted as seconds.")
+  public Duration remoteRetryMaxDelay;
 
   @Option(
       name = "disk_cache",
@@ -426,7 +419,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
-      name = "experimental_remote_cache_compression",
+      name = "remote_cache_compression",
+      oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -470,9 +464,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       expansion = {
         "--nobuild_runfile_links",
+        "--action_cache_store_output_metadata",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
@@ -480,9 +474,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --experimental_inmemory_jdeps_files,"
-              + " --experimental_inmemory_dotd_files,"
-              + " --experimental_action_cache_store_output_metadata and "
+              + " for flags: --action_cache_store_output_metadata,"
+              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
               + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
@@ -491,9 +484,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
       expansion = {
+        "--action_cache_store_output_metadata",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=toplevel"
       },
       category = "remote",
@@ -501,9 +494,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --experimental_inmemory_jdeps_files,"
-              + " --experimental_inmemory_dotd_files,"
-              + " --experimental_action_cache_store_output_metadata and "
+              + " shortcut for flags: --action_cache_store_output_metadata,"
+              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
               + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
@@ -657,17 +649,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "memory usage significantly, but does require Bazel to recompute them upon remote "
               + "cache misses and retries.")
   public boolean remoteDiscardMerkleTrees;
-
-  @Option(
-      name = "incompatible_remote_use_new_exit_code_for_lost_inputs",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
-              + " blobs during the build.")
-  public boolean useNewExitCodeForLostInputs;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

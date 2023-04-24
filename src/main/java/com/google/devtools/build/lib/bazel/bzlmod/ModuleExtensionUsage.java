@@ -17,7 +17,9 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -25,12 +27,16 @@ import net.starlark.java.syntax.Location;
  * information pertinent to the proxy object returned from the {@code use_extension} call.
  */
 @AutoValue
+@GenerateTypeAdapter
 public abstract class ModuleExtensionUsage {
   /** An unresolved label pointing to the Starlark file where the module extension is defined. */
   public abstract String getExtensionBzlFile();
 
   /** The name of the extension. */
   public abstract String getExtensionName();
+
+  /** The module that contains this particular extension usage. */
+  public abstract ModuleKey getUsingModule();
 
   /**
    * The location where this proxy object was created (by the {@code use_extension} call). Note that
@@ -45,6 +51,12 @@ public abstract class ModuleExtensionUsage {
    * by the module extension.
    */
   public abstract ImmutableBiMap<String, String> getImports();
+
+  /**
+   * The repo names as exported by the module extension that were imported using a proxy marked as a
+   * dev dependency.
+   */
+  public abstract ImmutableSet<String> getDevImports();
 
   /** All the tags specified by this module for this extension. */
   public abstract ImmutableList<Tag> getTags();
@@ -61,9 +73,13 @@ public abstract class ModuleExtensionUsage {
 
     public abstract Builder setExtensionName(String value);
 
+    public abstract Builder setUsingModule(ModuleKey value);
+
     public abstract Builder setLocation(Location value);
 
     public abstract Builder setImports(ImmutableBiMap<String, String> value);
+
+    public abstract Builder setDevImports(ImmutableSet<String> value);
 
     public abstract Builder setTags(ImmutableList<Tag> value);
 

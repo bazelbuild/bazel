@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourcePriority;
@@ -157,7 +157,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
     context.report(
         SpawnSchedulingEvent.create(
             WorkerKey.makeWorkerTypeName(
-                Spawns.supportsMultiplexWorkers(spawn), context.speculating())));
+                Spawns.supportsMultiplexWorkers(spawn) && workerOptions.workerMultiplex,
+                context.speculating())));
     if (spawn.getToolFiles().isEmpty()) {
       throw createUserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()),
@@ -182,7 +183,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           context.getFileOutErr(),
           xattrProvider);
 
-      MetadataProvider inputFileCache = context.getMetadataProvider();
+      InputMetadataProvider inputFileCache = context.getInputMetadataProvider();
 
       SandboxInputs inputFiles;
       try (SilentCloseable c1 =
@@ -221,8 +222,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setStartTime(startTime)
-            .setWallTime(wallTime)
-            .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
+            .setWallTimeInMs((int) wallTime.toMillis())
+            .setSpawnMetrics(spawnMetrics.setTotalTimeInMs((int) wallTime.toMillis()).build());
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -241,9 +242,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SpawnExecutionContext context,
       List<String> flagfiles,
       Map<VirtualActionInput, byte[]> virtualInputDigests,
-      MetadataProvider inputFileCache,
+      InputMetadataProvider inputFileCache,
       WorkerKey key)
-      throws IOException {
+      throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     for (String flagfile : flagfiles) {
       expandArgument(execRoot, flagfile, requestBuilder);
@@ -262,7 +263,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             checkNotNull(virtualInputDigests.get(input), "missing metadata for virtual input");
       } else {
         FileArtifactValue metadata =
-            checkNotNull(inputFileCache.getMetadata(input), "missing metadata for input");
+            checkNotNull(inputFileCache.getInputMetadata(input), "missing metadata for input");
         digestBytes = metadata.getDigest();
       }
       ByteString digest;
@@ -298,8 +299,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
   static void expandArgument(Path execRoot, String arg, WorkRequest.Builder requestBuilder)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (arg.startsWith("@") && !arg.startsWith("@@") && !isExternalRepositoryLabel(arg)) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       String argValue = arg.substring(1);
       Path path = execRoot.getRelative(argValue);
       try {
@@ -359,10 +363,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SandboxInputs inputFiles,
       SandboxOutputs outputs,
       List<String> flagFiles,
-      MetadataProvider inputFileCache,
+      InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
       throws InterruptedException, ExecException {
-    WorkerOwner workerOwner = new WorkerOwner();
+    WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;
     ActionExecutionMetadata owner = spawn.getResourceOwner();
@@ -386,7 +390,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
-    spawnMetrics.setSetupTime(setupInputsTime);
+    spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
 
     Stopwatch queueStopwatch = Stopwatch.createStarted();
     ResourceSet resourceSet =
@@ -405,13 +409,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
               owner,
               resourceSet,
               context.speculating() ? ResourcePriority.DYNAMIC_WORKER : ResourcePriority.LOCAL);
-      workerOwner.setWorker(handle.getWorker());
+      workerOwner = new WorkerOwner(handle.getWorker());
       workerOwner.getWorker().setReporter(workerOptions.workerVerbose ? reporter : null);
       request =
           createWorkRequest(spawn, context, flagFiles, virtualInputDigests, inputFileCache, key);
 
       // We acquired a worker and resources -- mark that as queuing time.
-      spawnMetrics.setQueueTime(queueStopwatch.elapsed());
+      spawnMetrics.setQueueTimeInMs((int) queueStopwatch.elapsed().toMillis());
       response =
           executeRequest(
               spawn, context, inputFiles, outputs, workerOwner, key, request, spawnMetrics, handle);
@@ -437,7 +441,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           context.lockOutputFiles(response.getExitCode(), response.getOutput(), null);
           hasOutputFileLock = true;
           workerOwner.getWorker().finishExecution(execRoot, outputs);
-          spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
+          spawnMetrics.setProcessOutputsTimeInMs(
+              (int) processOutputsStopwatch.elapsed().toMillis());
         } else {
           throw createUserExecException(
               "The response finished successfully, but worker is taken by finishAsync",
@@ -460,7 +465,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       String message = "IOException during worker execution:";
       throw createUserExecException(e, message, Code.BORROW_FAILURE);
     } catch (UserExecException | InterruptedException e) {
-      Worker worker = workerOwner.getWorker();
+      Worker worker = (workerOwner == null) ? null : workerOwner.getWorker();
       if (handle != null && worker != null) {
         try {
           handle.invalidateAndClose();
@@ -478,7 +483,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
       throw e;
     } finally {
-      if (handle != null && workerOwner.getWorker() != null) {
+      // if worker owner haven't initialized or we still haven't relased worker, than we need to
+      // return resources.
+      if (handle != null && (workerOwner == null || workerOwner.getWorker() != null)) {
         try {
           handle.close();
         } catch (IOException e) {
@@ -519,7 +526,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
       worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithDigests().keySet());
       initializeMetrics(key, worker);
-      spawnMetrics.addSetupTime(prepareExecutionStopwatch.elapsed());
+      spawnMetrics.addSetupTimeInMs((int) prepareExecutionStopwatch.elapsed().toMillis());
     } catch (IOException e) {
       restoreInterrupt(e);
       String message =
@@ -580,7 +587,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
     }
 
-    spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
+    spawnMetrics.setExecutionWallTimeInMs((int) executionStopwatch.elapsed().toMillis());
 
     return response;
   }
@@ -653,6 +660,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
    */
   private static class WorkerOwner {
     Worker worker;
+
+    public WorkerOwner(Worker worker) {
+      this.worker = worker;
+    }
 
     public void setWorker(Worker worker) {
       this.worker = worker;

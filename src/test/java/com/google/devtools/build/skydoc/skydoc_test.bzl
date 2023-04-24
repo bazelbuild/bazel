@@ -21,7 +21,7 @@
 """Convenience macro for skydoc tests."""
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load(":stardoc_for_testing.bzl", "stardoc")
+load(":stardoc.bzl", "stardoc")
 
 def skydoc_test(
         name,
@@ -82,14 +82,14 @@ def skydoc_test(
         kwargs["header_template"] = "test_templates/html_tables/header.vm"
         kwargs["provider_template"] = "test_templates/html_tables/provider.vm"
         kwargs["rule_template"] = "test_templates/html_tables/rule.vm"
-        format = "custom"
+        format = "markdown"
     elif format == "markdown_tables":
         kwargs["aspect_template"] = "test_templates/markdown_tables/aspect.vm"
         kwargs["func_template"] = "test_templates/markdown_tables/func.vm"
         kwargs["header_template"] = "test_templates/markdown_tables/header.vm"
         kwargs["provider_template"] = "test_templates/markdown_tables/provider.vm"
         kwargs["rule_template"] = "test_templates/markdown_tables/rule.vm"
-        format = "custom"
+        format = "markdown"
     stardoc(
         name = "regenerate_%s_golden" % name,
         out = actual_generated_doc,

@@ -10,13 +10,13 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/extra:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/mock:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/testing:srcs",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:srcs",
-        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -39,6 +39,7 @@ java_library(
             "RunfilesRepoMappingManifestTest.java",
             "SourceManifestActionTest.java",
             "AnalysisFailureInfoTest.java",
+            "config/FeatureSetTest.java",
         ],
     ),
     deps = [
@@ -53,6 +54,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/abstract_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/buildinfo_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/compression",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/deterministic_writer",
@@ -108,6 +110,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:required_config_fragments_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_custom_command_line",
@@ -152,6 +155,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context_impl",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
@@ -430,6 +434,16 @@ java_test(
     deps = [
         ":AbstractRunfilesSupportTest",
         "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "config/FeatureSetTest",
+    srcs = ["config/FeatureSetTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/feature_set",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

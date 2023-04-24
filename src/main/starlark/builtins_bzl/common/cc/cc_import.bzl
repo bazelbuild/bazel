@@ -21,8 +21,7 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_common.bzl", "cc_common")
 
 CPP_LINK_STATIC_LIBRARY_ACTION_NAME = "c++-link-static-library"
 

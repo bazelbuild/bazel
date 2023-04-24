@@ -25,15 +25,19 @@ public interface InMemoryGraph extends ProcessableGraph {
 
   /** Creates a new in-memory graph suitable for incremental builds. */
   static InMemoryGraph create() {
-    return new InMemoryGraphImpl();
+    return new InMemoryGraphImpl(/* usePooledInterning= */ true);
+  }
+
+  static InMemoryGraph create(boolean usePooledInterning) {
+    return new InMemoryGraphImpl(usePooledInterning);
   }
 
   /**
    * Creates a new in-memory graph that discards graph edges to save memory and cannot be used for
    * incremental builds.
    */
-  static InMemoryGraph createEdgeless() {
-    return new EdgelessInMemoryGraphImpl();
+  static InMemoryGraph createEdgeless(boolean usePooledInterning) {
+    return new EdgelessInMemoryGraphImpl(usePooledInterning);
   }
 
   @Override
@@ -81,4 +85,15 @@ public interface InMemoryGraph extends ProcessableGraph {
 
   /** Applies the given consumer to each node in the graph, potentially in parallel. */
   void parallelForEach(Consumer<InMemoryNodeEntry> consumer);
+
+  /**
+   * Removes the node entry associated with the given {@link SkyKey} from the graph if it is done.
+   */
+  void removeIfDone(SkyKey key);
+
+  /**
+   * Cleans up the {@link com.google.devtools.build.lib.concurrent.PooledInterner.Pool} by moving
+   * instances back to weak interner and uninstall current pool.
+   */
+  void cleanupInterningPool();
 }

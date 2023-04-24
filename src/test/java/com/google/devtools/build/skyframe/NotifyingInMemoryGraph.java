@@ -85,4 +85,14 @@ class NotifyingInMemoryGraph extends NotifyingHelper.NotifyingProcessableGraph
   public void parallelForEach(Consumer<InMemoryNodeEntry> consumer) {
     ((InMemoryGraph) delegate).parallelForEach(consumer);
   }
+
+  @Override
+  public void cleanupInterningPool() {
+    ((InMemoryGraph) delegate).cleanupInterningPool();
+  }
+
+  @Override
+  public void removeIfDone(SkyKey key) {
+    ((InMemoryGraph) delegate).removeIfDone(key);
+  }
 }

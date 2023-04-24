@@ -14,13 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.rules.python;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses.PyBinaryBaseRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
@@ -41,15 +38,6 @@ public final class BazelPyBinaryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(PythonConfiguration.class, BazelPythonConfiguration.class)
         .cfg(PyRuleClasses.VERSION_TRANSITION)
-        .add(
-            attr("$zipper", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .exec()
-                .value(env.getToolsLabel("//tools/zip:zipper")))
-        .add(
-            attr("$launcher", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
-                .value(env.getToolsLabel("//tools/launcher:launcher")))
         .build();
   }
 
@@ -58,7 +46,7 @@ public final class BazelPyBinaryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("py_binary")
         .ancestors(PyBinaryBaseRule.class, BaseRuleClasses.BinaryBaseRule.class)
-        .factoryClass(BazelPyBinary.class)
+        .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
 }

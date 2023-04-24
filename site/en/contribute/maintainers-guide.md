@@ -175,7 +175,7 @@ issues.
     * Contact: [sventiffe](https://github.com/sventiffe){: .external}
 *   [`team-CLI`](https://github.com/bazelbuild/bazel/labels/team-CLI){: .external}: Console UI
     * Contact: [meisterT](https://github.com/meisterT){: .external}
-*   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team
+*   [`team-Configurability`](https://github.com/bazelbuild/bazel/labels/team-Configurability){: .external}: Issues for Configurability team. Includes: Core build configuration and transition system. Does *not* include: Changes to new or existing flags
     * Contact: [gregestren](https://github.com/gregestren){: .external}
 *   [`team-Core`](https://github.com/bazelbuild/bazel/labels/team-Core){: .external}: Skyframe, bazel query, BEP, options parsing, bazelrc
     * Contact: [haxorz](https://github.com/haxorz){: .external}

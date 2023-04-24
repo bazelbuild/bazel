@@ -46,7 +46,7 @@ public final class JavaPluginsFlagAliasRule implements RuleDefinition {
     return builder
         .add(
             attr(":java_plugins", LABEL_LIST)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .mandatoryProviders(JavaPluginInfo.PROVIDER.id())
                 .silentRuleClassFilter()
                 .value(JavaSemantics.JAVA_PLUGINS))

@@ -201,17 +201,24 @@ class RemoteServerCapabilities {
         return result.build(); // No point checking other execution fields.
       }
 
-      // Check execution digest function.
-      if (execCap.getDigestFunction() == DigestFunction.Value.UNKNOWN) {
-        // Server side error -- this is not supposed to happen.
-        result.addError("Remote server error: UNKNOWN execution digest function.");
-      }
-      if (execCap.getDigestFunction() != digestFunction) {
+      // Check execution digest function. The protocol only later added
+      // support for multiple digest functions for remote execution, so
+      // check both the singular and repeated field.
+      if (execCap.getDigestFunctionsList().isEmpty()
+          && execCap.getDigestFunction() != DigestFunction.Value.UNKNOWN) {
+        if (execCap.getDigestFunction() != digestFunction) {
+          result.addError(
+              String.format(
+                  "Cannot use hash function %s with remote execution. "
+                      + "Server supported function is %s",
+                  digestFunction, execCap.getDigestFunction()));
+        }
+      } else if (!execCap.getDigestFunctionsList().contains(digestFunction)) {
         result.addError(
             String.format(
                 "Cannot use hash function %s with remote execution. "
-                    + "Server supported function is %s",
-                digestFunction, execCap.getDigestFunction()));
+                    + "Server supported functions are: %s",
+                digestFunction, execCap.getDigestFunctionsList()));
       }
 
       // Check execution priority is in the supported range.
@@ -244,8 +251,7 @@ class RemoteServerCapabilities {
       if (remoteOptions.cacheCompression
           && !cacheCap.getSupportedCompressorsList().contains(Compressor.Value.ZSTD)) {
         result.addError(
-            "--experimental_remote_cache_compression requested but remote does not support"
-                + " compression");
+            "--remote_cache_compression requested but remote does not support compression");
       }
 
       // Check result cache priority is in the supported range.

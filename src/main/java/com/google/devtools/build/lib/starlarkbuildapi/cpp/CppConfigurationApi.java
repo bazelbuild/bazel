@@ -41,12 +41,6 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   boolean getExperimentalLinkStaticLibrariesOnce(StarlarkThread thread) throws EvalException;
 
   @StarlarkMethod(
-      name = "experimental_enable_target_export_check",
-      documented = false,
-      useStarlarkThread = true)
-  boolean getExperimentalEnableTargetExportCheck(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
       name = "experimental_cc_shared_library_debug",
       documented = false,
       useStarlarkThread = true)
@@ -105,7 +99,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
       doc =
           "Returns label pointed to by <a href=\"${link user-manual#flag--custom_malloc}\">"
               + "<code>--custom_malloc</code></a> option. Can be accessed with"
-              + " <a href=\"globals.html#configuration_field\"><code>configuration_field"
+              + " <a href=\"../globals/bzl.html#configuration_field\"><code>configuration_field"
               + "</code></a>:<br/>"
               + "<pre>attr.label(<br/>"
               + "    default = configuration_field(<br/>"

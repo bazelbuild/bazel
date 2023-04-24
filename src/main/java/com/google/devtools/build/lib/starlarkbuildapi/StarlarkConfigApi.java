@@ -31,7 +31,7 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "config",
-    category = DocCategory.BUILTIN,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
         "This is a top-level module for creating configuration transitions and build "
             + "setting descriptors which describe what kind of build setting (if any) a rule is. "
@@ -107,7 +107,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       name = "string_list",
       doc =
           "A string list-typed build setting. On the command line pass a list using"
-              + " comma-separated value like '--//my/setting=foo,bar'.",
+              + " comma-separated value like <code>--//my/setting=foo,bar</code>.",
       parameters = {
         @Param(
             name = FLAG_ARG,

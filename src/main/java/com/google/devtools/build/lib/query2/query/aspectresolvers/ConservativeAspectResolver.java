@@ -47,8 +47,7 @@ public class ConservativeAspectResolver implements AspectResolver {
     Multimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Attribute attribute : rule.getAttributes()) {
       for (Aspect aspect : attribute.getAspects(rule)) {
-        AspectDefinition.addAllAttributesOfAspect(
-            rule, result, aspect, dependencyFilter);
+        AspectDefinition.addAllAttributesOfAspect(result, aspect, dependencyFilter);
       }
     }
 

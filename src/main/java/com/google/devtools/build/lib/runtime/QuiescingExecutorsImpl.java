@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -155,7 +156,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
           newNamedPool(SKYFRAME_EVALUATOR, analysisParallelism),
           AbstractQueueVisitor.createExecutorService(
               /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
-          /* failFastOnException= */ true,
+          ExceptionHandlingMode.FAIL_FAST,
           ParallelEvaluatorErrorClassifier.instance());
     }
     return AbstractQueueVisitor.create(
@@ -167,7 +168,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
     checkState(executionParallelism > 0, "expected executionParallelism > 0 : %s", this);
     return AbstractQueueVisitor.createWithExecutorService(
         newNamedPool(SKYFRAME_EVALUATOR, executionParallelism),
-        /* failFastOnException= */ true,
+        ExceptionHandlingMode.FAIL_FAST,
         ParallelEvaluatorErrorClassifier.instance());
   }
 
@@ -183,7 +184,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
             /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
         AbstractQueueVisitor.createExecutorService(
             /* parallelism= */ executionParallelism, SKYFRAME_EVALUATOR_EXECUTION),
-        /* failFastOnException= */ true,
+        ExceptionHandlingMode.FAIL_FAST,
         ParallelEvaluatorErrorClassifier.instance());
   }
 }

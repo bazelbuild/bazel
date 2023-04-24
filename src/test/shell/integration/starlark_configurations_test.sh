@@ -112,8 +112,8 @@ EOF
 #### TESTS #############################################################
 
 function test_default_flag() {
- local -r pkg=$FUNCNAME
- mkdir -p $pkg
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
 
   write_build_setting_bzl
 

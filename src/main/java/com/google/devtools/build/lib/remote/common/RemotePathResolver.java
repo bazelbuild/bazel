@@ -117,7 +117,7 @@ public interface RemotePathResolver {
               spawn,
               context.getArtifactExpander(),
               PathFragment.EMPTY_FRAGMENT,
-              context.getMetadataProvider(),
+              context.getInputMetadataProvider(),
               visitor);
     }
 
@@ -193,7 +193,7 @@ public interface RemotePathResolver {
               spawn,
               context.getArtifactExpander(),
               PathFragment.create(checkNotNull(getWorkingDirectory())),
-              context.getMetadataProvider(),
+              context.getInputMetadataProvider(),
               visitor);
     }
 

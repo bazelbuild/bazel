@@ -112,7 +112,8 @@ public class TopLevelConstraintSemantics {
       ConfiguredTarget configuredTarget,
       ExtendedEventHandler eventHandler,
       boolean eagerlyThrowError,
-      boolean explicitlyRequested)
+      boolean explicitlyRequested,
+      boolean skipIncompatibleExplicitTargets)
       throws TargetCompatibilityCheckException {
 
     RuleContextConstraintSemantics.IncompatibleCheckResult incompatibleCheckResult =
@@ -124,7 +125,7 @@ public class TopLevelConstraintSemantics {
     // We need the label in unambiguous form here. I.e. with the "@" prefix for targets in the
     // main repository. explicitTargetPatterns is also already in the unambiguous form to make
     // comparison succeed regardless of the provided form.
-    if (explicitlyRequested) {
+    if (!skipIncompatibleExplicitTargets && explicitlyRequested) {
       if (eagerlyThrowError) {
         // Use the slightly simpler form for printing error messages. I.e. no "@" prefix for
         // targets in the main repository.
@@ -136,7 +137,8 @@ public class TopLevelConstraintSemantics {
               String.format(TARGET_INCOMPATIBLE_ERROR_TEMPLATE, configuredTarget.getLabel(), "")));
       return PlatformCompatibility.INCOMPATIBLE_EXPLICIT;
     }
-    // If this is not an explicitly requested target we can safely skip it.
+    // We can safely skip this target if it wasn't explicitly requested or we've been instructed
+    // to skip explicitly requested targets.
     return PlatformCompatibility.INCOMPATIBLE_IMPLICIT;
   }
 
@@ -240,8 +242,8 @@ public class TopLevelConstraintSemantics {
    * the command line should be skipped.
    *
    * <p>Targets that are incompatible with the target platform and *are* explicitly requested on the
-   * command line are errored. Having one or more errored targets will cause the entire build to
-   * fail with an error message.
+   * command line are errored unless --skip_incompatible_explicit_targets is enabled. Having one or
+   * more errored targets will cause the entire build to fail with an error message.
    *
    * @param topLevelTargets the build's top-level targets
    * @param explicitTargetPatterns the set of explicit target patterns specified by the user on the
@@ -254,7 +256,8 @@ public class TopLevelConstraintSemantics {
   public PlatformRestrictionsResult checkPlatformRestrictions(
       ImmutableSet<ConfiguredTarget> topLevelTargets,
       ImmutableSet<Label> explicitTargetPatterns,
-      boolean keepGoing)
+      boolean keepGoing,
+      boolean skipIncompatibleExplicitTargets)
       throws ViewCreationFailedException {
     ImmutableSet.Builder<ConfiguredTarget> incompatibleTargets = ImmutableSet.builder();
     ImmutableSet.Builder<ConfiguredTarget> incompatibleButRequestedTargets = ImmutableSet.builder();
@@ -265,8 +268,9 @@ public class TopLevelConstraintSemantics {
             compatibilityWithPlatformRestrictions(
                 target,
                 eventHandler,
-                /*eagerlyThrowError=*/ !keepGoing,
-                explicitTargetPatterns.contains(target.getLabel()));
+                /* eagerlyThrowError= */ !keepGoing,
+                explicitTargetPatterns.contains(target.getLabel()),
+                skipIncompatibleExplicitTargets);
         if (PlatformCompatibility.INCOMPATIBLE_EXPLICIT.equals(platformCompatibility)) {
           incompatibleButRequestedTargets.add(target);
         } else if (PlatformCompatibility.INCOMPATIBLE_IMPLICIT.equals(platformCompatibility)) {
@@ -299,7 +303,7 @@ public class TopLevelConstraintSemantics {
     String message = "\nDependency chain:";
     IncompatiblePlatformProvider provider = null;
 
-    // TODO(austinschuh): While the first eror is helpful, reporting all the errors at once would
+    // TODO(austinschuh): While the first error is helpful, reporting all the errors at once would
     // save the user bazel round trips.
     while (target != null) {
       message +=

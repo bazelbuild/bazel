@@ -121,8 +121,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
     }
     LabelParser.Parts parts = LabelParser.Parts.parse(input + ":dummy_target");
     RepositoryName repoName =
-        parts.repo == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo);
-    return create(repoName, PathFragment.create(parts.pkg));
+        parts.repo() == null ? RepositoryName.MAIN : RepositoryName.createUnvalidated(parts.repo());
+    return create(repoName, PathFragment.create(parts.pkg()));
   }
 
   public RepositoryName getRepository() {
@@ -189,7 +189,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
   /**
    * Returns a label representation for this package that is suitable for display. The returned
    * string is as simple as possible while referencing the current package when parsed in the
-   * context of the main repository.
+   * context of the main repository whose repository mapping is provided.
    *
    * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
    * @return
@@ -204,24 +204,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier> {
    *           from the main module
    */
   public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
-    Preconditions.checkArgument(
-        mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
-    if (repository.isMain()) {
-      // Packages in the main repository can always use repo-relative form.
-      return "//" + getPackageFragment();
-    }
-    if (!mainRepositoryMapping.usesStrictDeps()) {
-      // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
-      // disabled, which means that canonical and apparent names can be used interchangeably from
-      // the context of the main repository.
-      return repository.getNameWithAt() + "//" + getPackageFragment();
-    }
-    // If possible, represent the repository with a non-canonical label using the apparent name the
-    // main repository has for it, otherwise fall back to a canonical label.
-    return mainRepositoryMapping
-        .getInverse(repository)
-        .map(apparentName -> "@" + apparentName + "//" + getPackageFragment())
-        .orElseGet(this::getUnambiguousCanonicalForm);
+    return String.format(
+        "%s//%s", getRepository().getDisplayForm(mainRepositoryMapping), getPackageFragment());
   }
 
   /**

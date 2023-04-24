@@ -1,6 +1,9 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_applicable_licenses = ["//:license"],
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
@@ -17,6 +20,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/python:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/starlarkdocextract:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

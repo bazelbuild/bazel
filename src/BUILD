@@ -1,6 +1,6 @@
 # Packaging
 
-load("//tools/python:private/defs.bzl", "py_binary", "py_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load(":embedded_tools.bzl", "srcsfile")
 load(":rule_size_test.bzl", "rule_size_test")
 load("//src:release_archive.bzl", "release_archive")
@@ -90,8 +90,14 @@ JAVA_TOOLS = [
     srcs = JAVA_TOOLS + [
                "BUILD.tools",
                "MODULE.tools",
-               "//tools:embedded_tools_srcs",
+               "//src/conditions:embedded_tools",
+               "//src/main/cpp/util:embedded_tools",
+               "//src/main/native:embedded_tools",
+               "//src/main/protobuf:srcs",
+               "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
+               "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
+               "//third_party/def_parser:srcs",
                "//third_party/grpc:embedded_tools_srcs",
                "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
@@ -99,14 +105,8 @@ JAVA_TOOLS = [
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
                "//third_party/py/six:srcs",
-               "//src/conditions:embedded_tools",
-               "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
-               "//src/tools/launcher:srcs",
-               "//src/main/cpp/util:embedded_tools",
-               "//src/main/native:embedded_tools",
-               "//src/main/protobuf:srcs",
-               "//third_party/def_parser:srcs",
                "//third_party/zlib:embedded_tools",
+               "//tools:embedded_tools_srcs",
            ] + select({
                "//src/conditions:darwin": [
                    "//tools/osx:xcode_locator.m",
@@ -114,9 +114,9 @@ JAVA_TOOLS = [
                "//conditions:default": [],
            }) + select({
                "//src/conditions:windows": [
-                   "//src/tools/launcher:launcher",
+                   "//src/tools/launcher",
                    "//src/tools/launcher:launcher_maker",
-                   "//third_party/def_parser:def_parser",
+                   "//third_party/def_parser",
                ],
                "//conditions:default": [],
            }) +
@@ -339,7 +339,6 @@ filegroup(
         "//src/java_tools/junitrunner/javatests/com/google/testing/coverage:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
-        "//src/main/res:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib:srcs",
         "//src/main/java/com/google/devtools/build/lib/includescanning:srcs",
@@ -349,16 +348,15 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/net/starlark/java/cmd:srcs",
-        "//src/main/java/net/starlark/java/spelling:srcs",
         "//src/main/java/net/starlark/java/lib/json:srcs",
+        "//src/main/java/net/starlark/java/spelling:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
+        "//src/main/res:srcs",
         "//src/main/starlark/builtins_bzl:srcs",
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
-        "//src/test/res:srcs",
-        "//src/test/native/windows:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
@@ -368,18 +366,20 @@ filegroup(
         "//src/test/java/com/google/devtools/common/options:srcs",
         "//src/test/java/net/starlark/java/eval:srcs",
         "//src/test/java/net/starlark/java/spelling:srcs",
+        "//src/test/native/windows:srcs",
         "//src/test/py/bazel:srcs",
+        "//src/test/res:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/tools/android:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/execlog:srcs",
-        "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
-        "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
-        "//src/tools/singlejar:srcs",
         "//src/tools/remote:srcs",
+        "//src/tools/singlejar:srcs",
+        "//src/tools/starlark/java/com/google/devtools/starlark/common:srcs",
+        "//src/tools/workspacelog:srcs",
         "//tools/osx:srcs",
     ],
     visibility = ["//:__pkg__"],
@@ -442,8 +442,6 @@ genrule(
         "//src/java_tools/junitrunner:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/tools/singlejar:embedded_java_tools",
-        "//third_party/checker_framework_dataflow:srcs",
-        "//third_party/checker_framework_javacutil:srcs",
         "//third_party/ijar:transitive_sources",
         "//third_party/java/jacoco:transitive_sources",
         "//third_party/java/proguard:srcs",
@@ -537,7 +535,8 @@ sh_binary(
         "tmp/build",
         "--platform",
     ] + select({
-        "//src/conditions:darwin": ["darwin"],
+        "//src/conditions:darwin_x86_64": ["darwin_x86_64"],
+        "//src/conditions:darwin_arm64": ["darwin_arm64"],
         "//src/conditions:windows": ["windows"],
         "//src/conditions:linux": ["linux"],
         "//conditions:default": ["unknown"],
@@ -565,11 +564,13 @@ filegroup(
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:WORKSPACE",
         "@remote_coverage_tools//:WORKSPACE",
-        "@remote_java_tools_darwin_for_testing//:WORKSPACE",
+        "@remote_java_tools_darwin_arm64_for_testing//:WORKSPACE",
+        "@remote_java_tools_darwin_x86_64_for_testing//:WORKSPACE",
         "@remote_java_tools_for_testing//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_test//:WORKSPACE",
-        "@remote_java_tools_test_darwin//:WORKSPACE",
+        "@remote_java_tools_test_darwin_arm64//:WORKSPACE",
+        "@remote_java_tools_test_darwin_x86_64//:WORKSPACE",
         "@remote_java_tools_test_linux//:WORKSPACE",
         "@remote_java_tools_test_windows//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
@@ -588,11 +589,11 @@ filegroup(
         "@rules_python//:WORKSPACE",
     ] + [
         "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for os in ("darwin", "darwin_aarch64", "linux", "windows", "windows_arm64")
-        for version in ("17", "18")
+        for version in ("17", "20")
+        for os in ("darwin", "darwin_aarch64", "linux", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
     ] + [
         "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
-        for os in ("macos", "macos_aarch64", "linux", "win", "win_arm64")
-        for version in ("17", "18")
+        for version in ("17", "20")
+        for os in ("macos", "macos_aarch64", "linux", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
     ],
 )

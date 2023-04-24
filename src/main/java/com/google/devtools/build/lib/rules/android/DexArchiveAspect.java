@@ -28,6 +28,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -166,7 +167,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .add(
                 attr(ASPECT_DESUGAR_PREREQ, LABEL)
-                    .cfg(ExecutionTransitionFactory.create())
+                    .cfg(ExecutionTransitionFactory.createFactory())
                     .exec()
                     .value(
                         Label.parseCanonicalUnchecked(
@@ -187,7 +188,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(
           attr(ASPECT_DEXBUILDER_PREREQ, LABEL)
-              .cfg(ExecutionTransitionFactory.create())
+              .cfg(ExecutionTransitionFactory.createFactory())
               .exec()
               .value(
                   Label.parseCanonicalUnchecked(toolsRepository + "//tools/android:dexbuilder")));
@@ -536,7 +537,10 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             .addOutput(result)
             .setMnemonic("Desugar")
             .setProgressMessage("Desugaring %s for Android", jar.prettyPrint())
-            .setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
+            .setExecutionInfo(
+                createDexingDesugaringExecRequirements(ruleContext)
+                    .putAll(ExecutionRequirements.WORKER_MODE_ENABLED)
+                    .buildKeepingLast());
 
     // SpawnAction.Builder.build() is documented as being safe for re-use. So we can call build here
     // to get the action's inputs for vetting path stripping safety, then call it again later to
@@ -628,8 +632,11 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
             .useDefaultShellEnvironment()
             .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq))
             .setExecutionInfo(
-                TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                createDexingDesugaringExecRequirements(ruleContext)
+                    .putAll(
+                        TargetUtils.getExecutionInfo(
+                            ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                    .buildKeepingLast())
             // WorkerSpawnStrategy expects the last argument to be @paramfile
             .addInput(jar)
             .addOutput(dexArchive)
@@ -658,9 +665,6 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     dexbuilder
         .addCommandLine(args.build(), ParamFileInfo.builder(UNQUOTED).setUseAlways(true).build())
         .stripOutputPaths(stripOutputPaths);
-    if (getAndroidConfig(ruleContext).useWorkersWithDexbuilder()) {
-      dexbuilder.setExecutionInfo(ExecutionRequirements.WORKER_MODE_ENABLED);
-    }
     ruleContext.registerAction(dexbuilder.build(ruleContext));
     return dexArchive;
   }
@@ -668,6 +672,21 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   private static Set<Set<String>> aspectDexopts(RuleContext ruleContext) {
     return Sets.powerSet(
         normalizeDexopts(getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing()));
+  }
+
+  /** Creates the execution requires for the DexBuilder and Desugar actions */
+  private static ImmutableMap.Builder<String, String> createDexingDesugaringExecRequirements(
+      RuleContext ruleContext) {
+    final ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    AndroidConfiguration androidConfiguration = getAndroidConfig(ruleContext);
+    if (androidConfiguration.persistentDexDesugar()) {
+      executionInfo.putAll(ExecutionRequirements.WORKER_MODE_ENABLED);
+      if (androidConfiguration.persistentMultiplexDexDesugar()) {
+        executionInfo.putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED);
+      }
+    }
+
+    return executionInfo;
   }
 
   /**

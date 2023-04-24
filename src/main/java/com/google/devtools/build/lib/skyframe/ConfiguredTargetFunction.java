@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -65,7 +67,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -230,8 +231,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             prereqs.getUnloadedToolchainContexts().getContextMap().entrySet()) {
-          Set<ConfiguredTargetAndData> toolchainDependencies =
-              prereqs.getDepValueMap().get(DependencyKind.forExecGroup(unloadedContext.getKey()));
+          ImmutableSet<ConfiguredTargetAndData> toolchainDependencies =
+              ImmutableSet.copyOf(
+                  prereqs
+                      .getDepValueMap()
+                      .get(DependencyKind.forExecGroup(unloadedContext.getKey())));
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
@@ -250,7 +254,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               toolchainContexts,
-              prereqs.getExecGroupCollectionsBuilder(),
+              state.computeDependenciesState.execGroupCollectionBuilder,
               state.transitivePackages);
       if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
@@ -263,7 +267,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           new EmptyConfiguredTarget(
               configuredTargetKey.getLabel(), configuredTargetKey.getConfigurationKey()),
           state.transitivePackages == null ? null : state.transitivePackages.build());
-    } catch (PrerequisiteProducer.IncompatibleTargetException e) {
+    } catch (IncompatibleTargetException e) {
       return e.target();
     } catch (ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
@@ -282,7 +286,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ReportedException(cvce);
     } finally {
       maybeReleaseSemaphore();
-      ;
     }
   }
 

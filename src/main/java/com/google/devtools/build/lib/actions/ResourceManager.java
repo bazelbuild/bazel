@@ -545,9 +545,7 @@ public class ResourceManager implements ResourceEstimator {
       availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
       activeWorkers = this.workerPool.getNumActive(workerKey);
     }
-    boolean workerIsAvailable =
-        workerKey == null
-            || (activeWorkers < availableWorkers && workerPool.couldBeBorrowed(workerKey));
+    boolean workerIsAvailable = workerKey == null || (activeWorkers < availableWorkers);
 
     // We test for tracking of extra resources whenever acquired and throw an
     // exception before acquiring any untracked resource.

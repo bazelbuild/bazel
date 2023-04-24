@@ -328,6 +328,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean collectResourceEstimation;
 
   @Option(
+      name = "experimental_collect_pressure_stall_indicators",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "If enabled, the profiler collects the Linux PSI data.")
+  public boolean collectPressureStallIndicators;
+
+  @Option(
       name = "memory_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,

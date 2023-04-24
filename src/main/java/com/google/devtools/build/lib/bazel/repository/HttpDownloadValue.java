@@ -14,44 +14,4 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyValue;
 
-/**
- * A file that was downloaded.
- */
-public class HttpDownloadValue implements SkyValue {
-  private final Path path;
-
-  public HttpDownloadValue(Path path) {
-    Preconditions.checkNotNull(path);
-    this.path = path;
-  }
-
-  public Path getPath() {
-    return path;
-  }
-
-  @Override
-  public String toString() {
-    return path.getPathString();
-  }
-
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof HttpDownloadValue)) {
-      return false;
-    }
-    HttpDownloadValue otherValue = (HttpDownloadValue) other;
-    return this.path.equals(otherValue.path);
-  }
-
-  @Override
-  public int hashCode() {
-    return path.hashCode();
-  }
-}

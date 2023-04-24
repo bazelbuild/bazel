@@ -1,63 +1,134 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-# Building with Platforms
+# Migrating to Platforms
 
 {% include "_buttons.html" %}
 
-Bazel has sophisticated support for modeling [platforms][Platforms] and
-[toolchains][Toolchains]. Integrating this with real projects requires
-careful cooperation between code owners, rule maintainers, and core Bazel devs.
+Bazel has sophisticated [support](#background) for modeling
+[platforms][Platforms] and [toolchains][Toolchains] for multi-architecture and
+cross-compiled builds.
 
-This page summarizes the purpose of platforms and shows how to build with them.
+This page summarizes the state of this support.
 
-**tl;dr:** Bazel's platform and toolchain APIs are available but won't work
-everywhere until all language rules, `select()`s and other legacy references
-are updated. This work is ongoing. Eventually all builds will be platform-based.
-Read below to see where your builds fit.
+Key Point: Bazel's platform and toolchain APIs are available today. Not all
+languages support them. Use these APIs with your project if you can. Bazel is
+migrating all major languages so eventually all builds will be platform-based.
 
-For more formal documentation, see:
+See also:
 
 * [Platforms][Platforms]
 * [Toolchains][Toolchains]
+* [Background][Background]
+
+## Status {:#status}
+
+### C++ {:#cxx}
+
+C++ rules use platforms to select toolchains when
+`--incompatible_enable_cc_toolchain_resolution` is set.
+
+This means you can configure a C++ project with:
+
+```posix-terminal
+bazel build //:my_cpp_project --platforms=//:myplatform
+```
+
+instead of the legacy:
+
+```posix-terminal
+bazel build //:my_cpp_project` --cpu=... --crosstool_top=...  --compiler=...
+```
+
+This will be enabled by default in Bazel 7.0 ([#7260](https://github.com/bazelbuild/bazel/issues/7260){: .external}).
+
+To test your C++ project with platforms, see
+[Migrating Your Project](#migrating-your-project) and
+[Configuring C++ toolchains].
+
+### Java {:#java}
+
+Java rules use platforms to select toolchains.
+
+This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
+`--javabase`, and `--host_javabase`.
+
+See [Java and Bazel](/docs/bazel-and-java) for details.
+
+### Android {:#android}
+
+Android rules use platforms to select toolchains when
+`--incompatible_enable_android_toolchain_resolution` is set.
+
+This means you can configure an Android project with:
+
+```posix-terminal
+bazel build //:my_android_project --android_platforms=//:my_android_platform
+```
+
+instead of with legacy flags like  `--android_crosstool_top`, `--android_cpu`,
+and `--fat_apk_cpu`.
+
+This will be enabled by default in Bazel 7.0 ([#16285](https://github.com/bazelbuild/bazel/issues/16285){: .external}).
+
+To test your Android project with platforms, see
+[Migrating Your Project](#migrating-your-project).
+
+### Apple {:#apple}
+
+[Apple rules]{: .external} do not support platforms and are not yet scheduled
+for support.
+
+You can still use platform APIs with Apple builds (for example, when building
+with a mixture of Apple rules and pure C++) with [platform
+mappings](#platform-mappings).
+
+### Other languages {:#other-languages}
+
+* [Go rules]{: .external} fully support platforms
+* [Rust rules]{: .external} fully support platforms.
+
+If you own a language rule set, see [Migrating your rule set] for adding
+support.
 
 ## Background {:#background}
 
-*Platforms* and *toolchains* were introduced to *standardize* how software
-projects target different machines and build with the right language tools.
+*Platforms* and *toolchains* were introduced to standardize how software
+projects target different architectures and cross-compile.
 
-This is a relatively recent addition to Bazel. It was
+This was
 [inspired][Inspiration]{: .external}
-by the observation that language maintainers were *already* doing this in ad
-hoc, incompatible ways. For example, C++ rules use `--cpu` and `--crosstool_top`
-to set a build's target CPU and C++ toolchain. Neither of these correctly models
-a "platform". Historic attempts to do so caused awkward and inaccurate builds.
-These flags also don't control Java compilation, which evolved its own
-independent interface with `--java_toolchain`.
+by the observation that language maintainers were already doing this in ad
+hoc, incompatible ways. For example, C++ rules used `--cpu` and
+ `--crosstool_top` to declare a target CPU and toolchain. Neither of these
+correctly models a "platform". This produced awkward and incorrect builds.
+
+Java, Android, and other languages evolved their own flags for similar purposes,
+none of which interoperated with each other. This made cross-language builds
+confusing and complicated.
 
 Bazel is intended for large, multi-language, multi-platform projects. This
-demands more principled support for these concepts, including clear APIs that
-encourage language and project interoperability. This is what these new APIs are
-for.
+demands more principled support for these concepts, including a clear
+standard API.
 
-### Migration {:#migration}
+### Need for migration {:#migration}
 
-The platform and toolchain APIs only work when projects actually use them. This
-isn't trivial because a project's rule logic, toolchains, dependencies, and
-`select()`s have to support them. This requires a careful migration sequence
-to keep all projects and their dependencies working correctly.
+Upgrading to the new API requires two efforts: releasing the API and upgrading
+rule logic to use it.
 
-For example, Bazel's
-[C++ Rules] support platforms. But the [Apple Rules] don't. *Your* C++ project
-may not care about Apple. But others may. So
-it's not yet safe to globally enable platforms for all C++ builds.
+The first is done but the second is ongoing. This consists of ensuring
+language-specific platforms and toolchains are defined, language logic reads
+toolchains through the new API instead of old flags like `--crosstool_top`, and
+`config_setting`s select on the new API instead of old flags.
 
-The remainder of this page describes this migration sequence and how and when
-your projects can fit in.
+This work is straightforward but requires a distinct effort for each language,
+plus fair warning for project owners to test against upcoming changes.
 
-## Goal {:#goal}
+This is why this is an ongoing migration.
 
-Bazel's platform migration is complete when all projects build with the form:
+### Goal {:#goal}
+
+This migration is complete when all projects build with the form:
 
 ```posix-terminal
 bazel build //:myproject --platforms=//:myplatform
@@ -65,62 +136,196 @@ bazel build //:myproject --platforms=//:myplatform
 
 This implies:
 
-1. The rules your project uses can infer correct toolchains from
-`//:myplatform`.
-1. The rules your project's dependencies use can infer correct toolchains
-from `//:myplatform`.
-1. *Either* the projects depending on yours support `//:myplatform` *or* your
-project supports the legacy APIs (like `--crosstool_top`).
+1. Your project's rules choose the right toolchains for `//:myplatform`.
+1. Your project's dependencies choose the right toolchains for `//:myplatform`.
 1. `//:myplatform` references
 [common declarations][Common Platform Declarations]{: .external}
-of `CPU`, `OS`, and other generic concepts that support automatic cross-project
-compatibility.
-1. All relevant projects'
-[`select()`s][select()]
-understand the machine properties implied by `//:myplatform`.
-1. `//:myplatform` is defined in a clear, reusable place: in your project's
-repo if the platform is unique to your project, otherwise somewhere all projects
-that may use this platform can find.
+of `CPU`, `OS`, and other generic, language-independent properties
+1. All relevant [`select()`s][select()] properly match `//:myplatform`.
+1. `//:myplatform` is defined in a clear, accessible place: in your project's
+repo if the platform is unique to your project, or some common place all
+consuming projects can find it
 
-The old APIs will be removed as soon as this goal is achieved. Then this will
-be the standard way projects select platforms and toolchains.
+Old flags like `--cpu`, `--crosstool_top`, and `--fat_apk_cpu` will be
+deprecated and removed as soon as it's safe to do so.
 
-## Should I use platforms? {:#use-platforms-reason}
+Ultimately, this will be the *sole* way to configure architectures.
 
-If you just want to build or cross-compile a project, you should follow the
-project’s official documentation.
 
-If you’re a project, language, or toolchain maintainer, you'll eventually want
-to support the new APIs. Whether you wait until the global migration is complete
-or opt in early depends on your specific value / cost needs:
+## Migrating your project {:#migrating-your-project}
 
-### Value {:#value}
+If you build with languages that support platforms, your build should already
+work with an invocation like:
 
-* You can `select()` or choose toolchains on the exact properties you care
-  about instead of hard-coded flags like `--cpu`. For example, multiple CPUs
-  can support the [same instruction set](https://en.wikipedia.org/wiki/SSE4){: .external}.
-* More correct builds. If you `select()` with `--cpu` in the above example, then
-  add a new CPU that supports the same instruction set, the `select()`
-  fails to recognize the new CPU. But a `select()` on platforms remains accurate.
-* Simpler user experience. All projects understand:
-  `--platforms=//:myplatform`. No need for multiple language-specific
-  flags on the command line.
-* Simpler language design. All languages share a common API for defining
-  toolchains, using toolchains, and selecting the right toolchain for a platform.
-* Targets can be [skipped](/extending/platforms#skipping-incompatible-targets) in the
-  build and test phase if they are incompatible with the target platform.
+```posix-terminal
+bazel build //:myproject --platforms=//:myplatform
+```
 
-### Costs {:#costs}
+See [Status](#status) and your language's documentation for precise details.
 
-* Dependent projects that don't yet support platforms might not automatically work
-  with yours.
-* Making them work may require [additional temporary maintenance](#platform-mappings).
-* Co-existence of new and legacy APIs requires more careful user guidance to
-  avoid confusion.
-* Canonical definitions for [common properties](#common-platform-properties) like
-  `OS` and `CPU` are still evolving and may require extra initial contributions.
-* Canonical definitions for language-specific toolchains are still evolving and
-  may require extra initial contributions.
+If a language requires a flag to enable platform support, you also need to set
+that flag. See [Status](#status) for details.
+
+For your project to build, you need to check the following:
+
+1. `//:myplatform` must exist. It's generally the project owner's responsibility
+   to define platforms because different projects target different machines.
+   See [Default platforms](#default-platforms).
+
+1. The toolchains you want to use must exist. If using stock toolchains, the
+   language owners should include instructions for how to register them. If
+   writing your own custom toolchains, you need to [register](https://bazel.build/extending/toolchains#registering-building-toolchains) them in your
+   `WORKSPACE` or with [`--extra_toolchains`](https://bazel.build/reference/command-line-reference#flag--extra_toolchains).
+
+1. `select()`s and [configuration transitions][Starlark transitions] must
+  resolve properly. See [select()](#select) and [Transitions](#transitions).
+
+1. If your build mixes languages that do and don't support platforms, you may
+   need platform mappings to help the legacy languages work with the new API.
+   See [Platform mappings](#platform-mappings) for details.
+
+If you still have problems, [reach out](#questions) for support.
+
+### Default platforms {:#default-platforms}
+
+Project owners should define explicit
+[platforms][Defining Constraints and Platforms] to describe the architectures
+they want to build for. These are then triggered with `--platforms`.
+
+When `--platforms` isn't set, Bazel defaults to a `platform` representing the
+local build machine. This is auto-generated at `@local_config_platform//:host`
+so there's no need to explicitly define it. It maps the local machine's `OS`
+and `CPU` with `constraint_value`s declared in
+[`@platforms`](https://github.com/bazelbuild/platforms){: .external}.
+
+### `select()` {:#select}
+
+Projects can [`select()`][select()] on
+[`constraint_value` targets][constraint_value Rule] but not complete
+platforms. This is intentional so `select()` supports as wide a variety of
+machines as possible. A library with `ARM`-specific sources should support *all*
+`ARM`-powered machines unless there's reason to be more specific.
+
+To select on one or more `constraint_value`s, use:
+
+```python
+config_setting(
+    name = "is_arm",
+    constraint_values = [
+        "@platforms//cpu:arm",
+    ],
+)
+```
+
+This is equivalent to traditionally selecting on `--cpu`:
+
+```python
+config_setting(
+    name = "is_arm",
+    values = {
+        "cpu": "arm",
+    },
+)
+```
+
+More details [here][select() Platforms].
+
+`select`s on `--cpu`, `--crosstool_top`, etc. don't understand `--platforms`.
+When migrating your project to platforms, you must either convert them to
+`constraint_values` or use [platform mappings](#platform-mappings) to support
+both styles during migration.
+
+### Transitions {:#transitions}
+
+[Starlark transitions][Starlark transitions] change
+flags down parts of your build graph. If your project uses a transition that
+sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
+`--platforms` won't see these changes.
+
+When migrating your project to platforms, you must either convert changes like
+`return { "//command_line_option:cpu": "arm" }` to `return {
+"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
+mappings](#platform-mappings) to support both styles during migration.
+window.
+
+## Migrating your rule set  {:#migrating-your-rule-set}
+
+If you own a rule set and want to support platforms, you need to:
+
+1. Have rule logic resolve toolchains with the toolchain API. See
+   [toolchain API][Toolchains] (`ctx.toolchains`).
+
+1. Optional: define an `--incompatible_enable_platforms_for_my_language` flag so
+   rule logic alternately resolves toolchains through the new API or old flags
+   like `--crosstool_top` during migration testing.
+
+1. Define the relevant properties that make up platform components. See
+   [Common platform properties](#common-platform-properties)
+
+1. Define standard toolchains and make them accessible to users through your
+   rule's registration instructions ([details](https://bazel.build/extending/toolchains#registering-building-toolchains))
+
+1. Ensure [`select()`s](#select) and
+   [configuration transitions](#transitions) support platforms. This is the
+   biggest challenge. It's particularly challenging for multi-language projects
+   (which may fail if *all* languages can't read `--platforms`).
+
+If you need to mix with rules that don't support platforms, you may need
+[platform mappings](#platform-mappings) to bridge the gap.
+
+### Common platform properties {:#common-platform-properties}
+
+Common, cross-language platform properties like `OS` and `CPU` should be
+declared in [`@platforms`](https://github.com/bazelbuild/platforms){: .external}.
+This encourages sharing, standardization, and cross-language compatibility.
+
+Properties unique to your rules should be declared in your rule's repo. This
+lets you maintain clear ownership over the specific concepts your rules are
+responsible for.
+
+If your rules use custom-purpose OSes or CPUs, these should be declared in your
+rule's repo vs.
+[`@platforms`](https://github.com/bazelbuild/platforms){: .external}.
+
+## Platform mappings {:#platform-mappings}
+
+*Platform mappings* is a temporary API that lets platform-aware logic mix with
+legacy logic in the same build. This is a blunt tool that's only intended to
+smooth incompatibilities with different migration timeframes.
+
+Caution: Only use this if necessary, and expect to eventually  eliminate it.
+
+A platform mapping is a map of either a `platform()` to a
+corresponding set of legacy flags or the reverse. For example:
+
+```python
+platforms:
+  # Maps "--platforms=//platforms:ios" to "--cpu=ios_x86_64 --apple_platform_type=ios".
+  //platforms:ios
+    --cpu=ios_x86_64
+    --apple_platform_type=ios
+
+flags:
+  # Maps "--cpu=ios_x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
+  --cpu=ios_x86_64
+  --apple_platform_type=ios
+    //platforms:ios
+
+  # Maps "--cpu=darwin_x86_64 --apple_platform_type=macos" to "//platform:macos".
+  --cpu=darwin_x86_64
+  --apple_platform_type=macos
+    //platforms:macos
+```
+
+Bazel uses this to guarantee all settings, both platform-based and
+legacy, are consistently applied throughout the build, including through
+[transitions](#transitions).
+
+By default Bazel reads mappings from the `platform_mappings` file in your
+workspace root. You can also set
+`--platform_mappings=//:my_custom_mapping`.
+
+See the [platform mappings design]{: .external} for details.
 
 ## API review {:#api-review}
 
@@ -172,290 +377,53 @@ The set of available toolchains can be registered in the `WORKSPACE` with
 [`register_toolchains`][register_toolchains Function] or at the
 command line with [`--extra_toolchains`][extra_toolchains Flag].
 
-See [here][Toolchains] for a deeper dive.
-
-## Status {:#status}
-
-Current platform support varies among languages. All of Bazel's major rules are
-moving to platforms. But this process will take time. This is for three main reasons:
-
-1. Rule logic must be updated to get tool info from the new [toolchain
-API][Toolchains] (`ctx.toolchains`) and stop reading legacy settings like
-`--cpu` and `--crosstool_top`. This is relatively straightforward.
-
-1. Toolchain maintainers must define toolchains and make them accessible to
-   users (in GitHub repositories and `WORKSPACE` entries).
-   This is technically straightforward but must be intelligently organized to
-   maintain an easy user experience.
-
-   Platform definitions are also necessary (unless you build for the same machine
-   Bazel runs on). Generally, projects should define their own platforms.
-
-1. Existing projects must be migrated. `select()`s and
-   [transitions][Starlark transitions] also have to be
-   migrated. This is the biggest challenge. It's particularly challenging for
-   multi-language projects (which may fail if *all* languages can't read
-   `--platforms`).
-
-If you're designing a new rule set, you must support platforms from the
-beginning. This automatically makes your rules compatible with other
-rules and projects, with increasing value as the platform API becomes
-more ubiquitous.
-
-### Common platform properties {:#common-platform-properties}
-
-Platform properties like `OS` and `CPU` that are common across projects should
-be declared in a standard, centralized place. This encourages cross-project
-and cross-language compatibility.
-
-For example, if *MyApp* has a `select()` on `constraint_value`
-`@myapp//cpus:arm` and *SomeCommonLib* has a `select()` on
-`@commonlib//constraints:arm`, these trigger their "arm" modes with incompatible
-criteria.
-
-Globally common properties are declared in the
-[`@platforms`](https://github.com/bazelbuild/platforms){: .external} repo
-(so the canonical label for the above example is `@platforms//cpu:arm`).
-Language-common properties should be declared in the repos of their respective
-languages.
-
-### Default platforms {:#default-platforms}
-
-Generally, project owners should define explicit
-[platforms][Defining Constraints and Platforms] to describe the
-kinds of machines they want to build for. These are then triggered with
-`--platforms`.
-
-When `--platforms` isn't set, Bazel defaults to a `platform` representing the
-local build machine. This is auto-generated at `@local_config_platform//:host`
-so there's no need to explicitly define it. It maps the local machine's `OS`
-and `CPU` with `constraint_value`s declared in
-[`@platforms`](https://github.com/bazelbuild/platforms){: .external}.
-
-### C++ {:#cxx}
-
-Bazel's C++ rules use platforms to select toolchains when you set
-`--incompatible_enable_cc_toolchain_resolution`
-([#7260](https://github.com/bazelbuild/bazel/issues/7260){: .external}).
-
-This means you can configure a C++ project with:
-
-```posix-terminal
-bazel build //:my_cpp_project --platforms=//:myplatform
-```
-
-instead of the legacy:
-
-```posix-terminal
-bazel build //:my_cpp_project` --cpu=... --crosstool_top=...  --compiler=...
-```
-
-If your project is pure C++ and not depended on by non-C++ projects, you can use
-platforms safely as long as your [`select`](#select)s and
-[transitions](#transitions) are compatible. See
-[#7260](https://github.com/bazelbuild/bazel/issues/7260){: .external} and
-[Configuring C++ toolchains] for more guidance.
-
-This mode is not enabled by default. This is because Apple projects
-still configure C++ dependencies with `--cpu` and `--crosstool_top`
-([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-507230303){: .external}). So this depends on the Apple rules migrating to platforms.
-
-### Java {:#java}
-
-Bazel's Java rules use platforms.
-
-This replaces legacy flags `--java_toolchain`, `--host_java_toolchain`,
-`--javabase`, and `--host_javabase`.
-
-To learn how to use the configuration flags, see the [Bazel and Java](/docs/bazel-and-java) manual.
-For additional information, see the [Design document](https://docs.google.com/document/d/1MVbBxbKVKRJJY7DnkptHpvz7ROhyAYy4a-TZ-n7Q0r4){: .external}.
-
-If you are still using legacy flags, follow the migration process in [Issue #7849](https://github.com/bazelbuild/bazel/issues/7849){: .external}.
-
-### Android {:#android}
-
-Bazel's Android rules use platforms to select toolchains when you set
-`--incompatible_enable_android_toolchain_resolution`.
-
-This is not enabled by default. But migration is well on its way.
-
-### Apple {:#apple}
-
-Bazel's Apple rules do not yet support platforms to select Apple toolchains.
-
-They also don't support platform-enabled C++ dependencies because they use the
-legacy `--crosstool_top` to set the C++ toolchain. Until this is migrated, you
-can mix Apple projects with platorm-enabled C++ with [platform
-mappings](#platform-mappings)
-([example](https://github.com/bazelbuild/bazel/issues/8716#issuecomment-516572378){: .external}).
-
-### Other languages {:#other-languages}
-
-* Bazel's [Rust rules](https://github.com/bazelbuild/rules_rust){: .external} fully support
-platforms.
-* Bazel's [Go rules](https://github.com/bazelbuild/rules_go){: .external} fully support
-platforms
-([details](https://github.com/bazelbuild/rules_go#how-do-i-cross-compile){: .external}).
-
-If you're designing rules for a new language, use platforms
-to select your language's toolchains. See the
-[toolchains documentation](/extending/toolchains) for a good walkthrough.
-
-### `select()` {:#select}
-
-Projects can [`select()`][select()] on
-[`constraint_value` targets][constraint_value Rule] but not complete
-platforms. This is intentional so that `select()`s supports as wide a variety
-of machines as possible. A library with `ARM`-specific sources should support
-*all* `ARM`-powered machines unless there's reason to be more specific.
-
-To select on one or more `constraint_value`s, use:
-
-```python
-config_setting(
-    name = "is_arm",
-    constraint_values = [
-        "@platforms//cpu:arm",
-    ],
-)
-```
-
-This is equivalent to traditionally selecting on `--cpu`:
-
-```python
-config_setting(
-    name = "is_arm",
-    values = {
-        "cpu": "arm",
-    },
-)
-```
-
-More details [here][select() Platforms].
-
-`select`s on `--cpu`, `--crosstool_top`, etc. don't understand `--platforms`. When
-migrating your project to platforms, you must either convert them to
-`constraint_values` or use [platform mappings](#platform-mappings) to support
-both styles through the migration window.
-
-### Transitions {:#transitions}
-
-[Starlark transitions][Starlark transitions] change
-flags down parts of your build graph. If your project uses a transition that
-sets `--cpu`, `--crossstool_top`, or other legacy flags, rules that read
-`--platforms` won't see these changes.
-
-When migrating your project to platforms, you must either convert changes like
-`return { "//command_line_option:cpu": "arm" }` to `return {
-"//command_line_option:platforms": "//:my_arm_platform" }` or use [platform
-mappings](#platform-mappings) to support both styles through the migration
-window.
-
-## How to use platforms today {:#how-to-use-platforms}
-
-If you just want to build or cross-compile a project, you should follow the
-project's official documentation. It's up to language and project maintainers to
-determine how and when to integrate with platforms, and what value that offers.
-
-If you're a project, language, or toolchain maintainer and your build doesn't
-use platforms by default, you have three options (besides waiting for the global
-migration):
-
-1. Flip on the "use platforms" flag for your project's languages ([if they have
-   one](#status)) and do whatever testing you need to see if the projects you care
-   about work.
-
-1. If the projects you care about still depend on legacy flags like `--cpu` and
-   `--crosstool_top`, use these together with `--platforms`:
-
-   ```posix-terminal
-   bazel build //:my_mixed_project --platforms==//:myplatform --cpu=... --crosstool_top=...
-   ```
-
-    This has some maintenance cost (you have to manually make sure the settings
-    match). But this should work in the absence of renegade
-    [transitions](#transitions).
-
-1. Write [platform mappings](#platform-mappings) to support both styles by
-   mapping `--cpu`-style settings to corresponding platforms and vice versa.
-
-### Platform mappings {:#platform-mappings}
-
-*Platform mappings* is a temporary API that lets platform-powered and
-legacy-powered logic co-exist in the same build through the latter's deprecation
-window.
-
-A platform mapping is a map of either a `platform()` to a
-corresponding set of legacy flags or the reverse. For example:
-
-```python
-platforms:
-  # Maps "--platforms=//platforms:ios" to "--cpu=ios_x86_64 --apple_platform_type=ios".
-  //platforms:ios
-    --cpu=ios_x86_64
-    --apple_platform_type=ios
-
-flags:
-  # Maps "--cpu=ios_x86_64 --apple_platform_type=ios" to "--platforms=//platforms:ios".
-  --cpu=ios_x86_64
-  --apple_platform_type=ios
-    //platforms:ios
-
-  # Maps "--cpu=darwin --apple_platform_type=macos" to "//platform:macos".
-  --cpu=darwin
-  --apple_platform_type=macos
-    //platforms:macos
-```
-
-Bazel uses this to guarantee all settings, both platform-based and
-legacy, are consistently applied throughout the build, including through
-[transitions](#transitions).
-
-By default Bazel reads mappings from the `platform_mappings` file in your
-workspace root. You can also set
-`--platform_mappings=//:my_custom_mapping`.
-
-See
-[here](https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls/edit){: .external}
-for complete details.
+For more information see [here][Toolchains].
 
 ## Questions {:#questions}
 
 For general support and questions about the migration timeline, contact
-[bazel-discuss@googlegroups.com](https://groups.google.com/forum/#!forum/bazel-discuss){: .external}
-or the owners of the appropriate rules.
+[bazel-discuss]{: .external} or the owners of the appropriate rules.
 
 For discussions on the design and evolution of the platform/toolchain APIs,
-contact
-[bazel-dev@googlegroups.com](https://groups.google.com/forum/#!forum/bazel-dev){: .external}.
+contact [bazel-dev]{: .external}.
 
 ## See also {:#see-also}
 
-* [Configurable Builds - Part 1](https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html){: .external}
+* [Configurable Builds - Part 1]{: .external}
 * [Platforms]
 * [Toolchains]
-* [Bazel Platforms Cookbook](https://docs.google.com/document/d/1UZaVcL08wePB41ATZHcxQV4Pu1YfA1RvvWm8FbZHuW8/){: .external}
-* [`hlopko/bazel_platforms_examples`](https://github.com/hlopko/bazel_platforms_examples){: .external}
-* [Example C++ custom toolchain](https://github.com/gregestren/snippets/tree/master/custom_cc_toolchain_with_platforms){: .external}
+* [Bazel Platforms Cookbook]{: .external}
+* [Platforms examples]{: .external}
+* [Example C++ toolchain]{: .external}
 
-[Platforms]: /extending/platforms
-[Toolchains]: /extending/toolchains
-[Inspiration]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
-[C++ Rules]: /docs/bazel-and-cpp
 [Android Rules]: /docs/bazel-and-android
 [Apple Rules]: https://github.com/bazelbuild/rules_apple
-[Common Platform Declarations]: https://github.com/bazelbuild/platforms#motivation
+[Background]: #background
+[Bazel platforms Cookbook]: https://docs.google.com/document/d/1UZaVcL08wePB41ATZHcxQV4Pu1YfA1RvvWm8FbZHuW8/
+[bazel-dev]: https://groups.google.com/forum/#!forum/bazel-dev
+[bazel-discuss]: https://groups.google.com/forum/#!forum/bazel-discuss
+[Common Platform Declarations]: https://github.com/bazelbuild/platforms
+[constraint_setting Rule]: /reference/be/platform#constraint_setting
+[constraint_value Rule]: /reference/be/platform#constraint_value
+[Configurable Builds - Part 1]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
+[Configuring C++ toolchains]: /tutorials/ccp-toolchain-config
+[Defining Constraints and Platforms]: /extending/platforms#constraints-platforms
+[Example C++ toolchain]: https://github.com/gregestren/snippets/tree/master/custom_cc_toolchain_with_platforms
+[exec_compatible_with Attribute]: /reference/be/platform#toolchain.exec_compatible_with
+[extra_toolchains Flag]: /reference/command-line-reference#flag--extra_toolchains
+[Go Rules]: https://github.com/bazelbuild/rules_go
+[Inspiration]: https://blog.bazel.build/2019/02/11/configurable-builds-part-1.html
+[Migrating your rule set]: #migrating-your-rule-set
+[Platforms]: /extending/platforms
+[Platforms examples]: https://github.com/hlopko/bazel_platforms_examples
+[platform mappings design]: https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls/edit
+[platform Rule]: /reference/be/platform#platform
+[register_toolchains Function]: /rules/lib/globals/workspace#register_toolchains
+[Rust rules]: https://github.com/bazelbuild/rules_rust
 [select()]: /docs/configurable-attributes
 [select() Platforms]: /docs/configurable-attributes#platforms
-[platform Rule]: /reference/be/platform#platform
-[constraint_value Rule]: /reference/be/platform#constraint_value
-[constraint_setting Rule]: /reference/be/platform#constraint_setting
-[Starlark rule]: /extending/rules
 [Starlark provider]: /extending/rules#providers
-[target_compatible_with Attribute]: /reference/be/platform#toolchain.target_compatible_with
-[exec_compatible_with Attribute]: /reference/be/platform#toolchain.exec_compatible_with
-[register_toolchains Function]: /rules/lib/globals#register_toolchains
-[extra_toolchains Flag]: /reference/command-line-reference#flag--extra_toolchains
+[Starlark rule]: /extending/rules
 [Starlark transitions]: /extending/config#user-defined-transitions
-[Defining Constraints and Platforms]: /extending/platforms#constraints-platforms
-[Configuring C++ toolchains]: /tutorials/ccp-toolchain-config
+[target_compatible_with Attribute]: /reference/be/platform#toolchain.target_compatible_with
+[Toolchains]: /extending/toolchains

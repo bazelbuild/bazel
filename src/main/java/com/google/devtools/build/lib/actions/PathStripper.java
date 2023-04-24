@@ -54,10 +54,12 @@ import javax.annotation.Nullable;
  *   <li>"Qualifying" actions strip config paths from their command lines. An action qualifies if
  *       its implementation logic checks {@code --experimental_output_paths=strip}, creates a {@link
  *       Spawn} with {@link Spawn#stripOutputPaths()} == true, and removes config prefixes from its
- *       command line with the help of {@link PathStripper.CommandAdjuster}. Action logic should
- *       also check {@link PathStripper#isPathStrippable}: see that method's javadoc for why.
+ *       command line with the help of {@link PathStripper#createForAction(boolean, String,
+ *       PathFragment)}. Action logic should also check {@link PathStripper#isPathStrippable}: see
+ *       that method's javadoc for why.
  *   <li>A supporting executor strips paths from qualifying actions' inputs and outputs before
- *       staging for execution, with the help of {@link PathStripper.ActionStager}.
+ *       staging for execution, with the help of {@link PathStripper#createForExecutor(Spawn,
+ *       PathFragment)}.
  * </ol>
  *
  * <p>So an action is responsible for declaring that it strips paths and adjusting its command line
@@ -72,182 +74,132 @@ import javax.annotation.Nullable;
  */
 public final class PathStripper {
   /**
-   * Support for stripping config paths from an action's inputs and outputs.
+   * Creates a new {@link PathMapper} for action implementation logic to use.
    *
-   * <p>The executor should use this to correctly stage an action for execution.
+   * @param stripOutputPaths should this action strip config prefixes?
+   * @param starlarkMnemonic this action's mnemonic if it's a Starlark action, else null
+   * @param outputRoot the root path where outputs are written (e.g. "bazel-out"). Actions that
+   *     don't strip outputs can set this to null.
    */
-  public interface ActionStager {
-    /**
-     * Returns the exec path where the executor should stage an action input or output.
-     *
-     * <p>If the action should be config-stripped ({@link PathStripper}), removes "k8-fastbuild"
-     * from paths like "bazel-out/k8-fastbuild/foo/bar".
-     *
-     * <p>Else returns the artifact's original exec path.
-     */
-    String getExecPathString(ActionInput artifact);
-
-    /** Same as {@link #getExecPathString(ActionInput)} but for a {@link PathFragment}. */
-    PathFragment strip(PathFragment execPath);
-
-    /**
-     * Creates a new action stager for executor implementation logic to use.
-     *
-     * @param spawn the action to stage. If {@link Spawn#stripOutputPaths()} is true, paths like
-     *     "bazel-out/k8-fastbuild/bin/foo" are reduced to "bazel-out/bin/foo". Else they're
-     *     unchanged.
-     * @param outputRoot the root path where outputs are written (e.g. "bazel-out")
-     */
-    static ActionStager create(Spawn spawn, PathFragment outputRoot) {
+  public static PathMapper createForAction(
+      boolean stripOutputPaths,
+      @Nullable String starlarkMnemonic,
+      @Nullable PathFragment outputRoot) {
+    if (stripOutputPaths) {
+      Preconditions.checkNotNull(outputRoot);
       Preconditions.checkState(outputRoot.isSingleSegment());
       Preconditions.checkState(!outputRoot.getPathString().contains("\\"));
-      return spawn.stripOutputPaths() ? actionStripper(outputRoot) : NOOP;
     }
-
-    /** An {@link ActionStager} that doesn't change paths. */
-    ActionStager NOOP =
-        new ActionStager() {
-          @Override
-          public String getExecPathString(ActionInput artifact) {
-            return artifact.getExecPathString();
-          }
-
-          @Override
-          public PathFragment strip(PathFragment execPath) {
-            return execPath;
-          }
-        };
-
-    /** Instantiates an {@link ActionStager} that strips config prefixes from output paths. */
-    private static ActionStager actionStripper(PathFragment outputRoot) {
-      return new ActionStager() {
-        @Override
-        public String getExecPathString(ActionInput artifact) {
-          return strip(artifact.getExecPath()).getPathString();
-        }
-
-        @Override
-        public PathFragment strip(PathFragment execPath) {
-          return isOutputPath(execPath, outputRoot) ? PathStripper.strip(execPath) : execPath;
-        }
-      };
-    }
+    return stripOutputPaths ? commandStripper(starlarkMnemonic, outputRoot) : PathMapper.NOOP;
   }
 
   /**
-   * Support for stripping config paths from an action's command line.
+   * Creates a new {@link PathMapper} for executor implementation logic to use.
    *
-   * <p>Action implementation logic should use this to correctly set an action's command line.
+   * @param spawn the action to stage. If {@link Spawn#stripOutputPaths()} is true, paths like
+   *     "bazel-out/k8-fastbuild/bin/foo" are reduced to "bazel-out/bin/foo". Else they're
+   *     unchanged.
+   * @param outputRoot the root path where outputs are written (e.g. "bazel-out")
    */
-  public interface CommandAdjuster {
+  public static PathMapper createForExecutor(Spawn spawn, PathFragment outputRoot) {
+    Preconditions.checkState(outputRoot.isSingleSegment());
+    Preconditions.checkState(!outputRoot.getPathString().contains("\\"));
+    return spawn.stripOutputPaths() ? actionStripper(outputRoot) : PathMapper.NOOP;
+  }
+
+  /** Instantiates a {@link PathMapper} that strips config prefixes from output paths. */
+  private static PathMapper actionStripper(PathFragment outputRoot) {
+    return execPath -> isOutputPath(execPath, outputRoot) ? PathStripper.strip(execPath) : execPath;
+  }
+
+  /** Instantiates a {@link PathMapper} that strips config prefixes from output paths. */
+  private static PathMapper commandStripper(
+      @Nullable String starlarkMnemonic, PathFragment outputRoot) {
+    final StringStripper argStripper =
+        starlarkMnemonic != null ? new StringStripper(outputRoot.getPathString()) : null;
+    return new PathMapper() {
+      @Override
+      public String getMappedExecPathString(ActionInput artifact) {
+        if (artifact instanceof DerivedArtifact) {
+          return PathStripper.strip(artifact);
+        } else {
+          return artifact.getExecPathString();
+        }
+      }
+
+      @Override
+      public PathFragment map(PathFragment execPath) {
+        return PathStripper.isOutputPath(execPath, outputRoot)
+            ? PathStripper.strip(execPath)
+            : execPath;
+      }
+
+      @Override
+      public List<String> mapCustomStarlarkArgs(List<String> args) {
+        // Add your favorite Starlark mnemonic that needs custom arg processing here.
+        if (!starlarkMnemonic.contains("Android")
+            && !starlarkMnemonic.equals("MergeManifests")
+            && !starlarkMnemonic.equals("StarlarkRClassGenerator")) {
+          return args;
+        }
+        // Add your favorite arg to custom-process here. When Bazel finds one of these in the
+        // argument list (an argument name), it strips output path prefixes from the following
+        // argument (the argument value).
+        ImmutableList<String> starlarkArgsToStrip =
+            ImmutableList.of(
+                "--primaryData",
+                "--directData",
+                "--data",
+                "--resources",
+                "--mergeeManifests",
+                "--library");
+        for (int i = 1; i < args.size(); i++) {
+          if (starlarkArgsToStrip.contains(args.get(i - 1))) {
+            args.set(i, argStripper.strip(args.get(i)));
+          }
+        }
+        return args;
+      }
+    };
+  }
+
+  /**
+   * Support for mapping config parts of exec paths in an action's command line as well as when
+   * staging its inputs and outputs for execution.
+   *
+   * <p>Action implementation logic should use this to correctly set an action's command line. The
+   * executor should use this to correctly stage an action for execution.
+   */
+  public interface PathMapper {
     /**
-     * Returns the exec path to refer to an input or output by.
+     * Returns the exec path of the input with the config part replaced if necessary.
      *
      * <p>If the action should be config-stripped ({@link PathStripper}), removes "k8-fastbuild"
      * from paths like "bazel-out/k8-fastbuild/foo/bar".
      *
      * <p>Else returns the artifact's original exec path.
      */
-    String strip(DerivedArtifact artifact);
+    default String getMappedExecPathString(ActionInput artifact) {
+      return map(artifact.getExecPath()).getPathString();
+    }
 
-    /** Same as {@link #strip(DerivedArtifact)} but for a {@link PathFragment}. */
-    PathFragment strip(PathFragment execPath);
+    /** Same as {@link #getMappedExecPathString(ActionInput)} but for a {@link PathFragment}. */
+    PathFragment map(PathFragment execPath);
 
     /**
-     * We don't yet have a Starlark API for stripping command lines. Simple Starlark calls like
-     * {@code args.add(arg_name, file_path} are automatically handled. But calls that involve custom
-     * Starlark code require deeper API support that remains a TODO.
+     * We don't yet have a Starlark API for mapping paths in command lines. Simple Starlark calls
+     * like {@code args.add(arg_name, file_path} are automatically handled. But calls that involve
+     * custom Starlark code require deeper API support that remains a TODO.
      *
      * <p>This method hard-codes support for specific command line entries for specific Starlark
-     * actions that we know we want to strip.
+     * actions that we know we want to apply stripping to.
      */
-    List<String> stripCustomStarlarkArgs(List<String> args);
-
-    /**
-     * Creates a new command adjuster for action implementation logic to use.
-     *
-     * @param stripOutputPaths should this action strip config prefixes?
-     * @param starlarkMnemonic this action's mnemonic if it's a Starlark action, else null
-     * @param outputRoot the root path where outputs are written (e.g. "bazel-out"). Actions that
-     *     don't strip outputs can set this to null.
-     */
-    static CommandAdjuster create(
-        boolean stripOutputPaths,
-        @Nullable String starlarkMnemonic,
-        @Nullable PathFragment outputRoot) {
-      if (stripOutputPaths) {
-        Preconditions.checkNotNull(outputRoot);
-        Preconditions.checkState(outputRoot.isSingleSegment());
-        Preconditions.checkState(!outputRoot.getPathString().contains("\\"));
-      }
-      return stripOutputPaths ? commandStripper(starlarkMnemonic, outputRoot) : NOOP;
+    default List<String> mapCustomStarlarkArgs(List<String> args) {
+      return args;
     }
 
-    /** Instantiates a {@link CommandAdjuster} that doesn't change paths. */
-    CommandAdjuster NOOP =
-        new CommandAdjuster() {
-          @Override
-          public String strip(DerivedArtifact artifact) {
-            return artifact.getExecPathString();
-          }
-
-          @Override
-          public PathFragment strip(PathFragment execPath) {
-            return execPath;
-          }
-
-          @Override
-          public List<String> stripCustomStarlarkArgs(List<String> args) {
-            return args;
-          }
-        };
-
-    /** Instantiates a {@link CommandAdjuster} that strips config prefixes from output paths. */
-    private static CommandAdjuster commandStripper(
-        @Nullable String starlarkMnemonic, PathFragment outputRoot) {
-      final StringStripper argStripper =
-          starlarkMnemonic != null ? new StringStripper(outputRoot.getPathString()) : null;
-      return new CommandAdjuster() {
-        @Override
-        public String strip(DerivedArtifact artifact) {
-          return PathStripper.strip(artifact);
-        }
-
-        @Override
-        public PathFragment strip(PathFragment execPath) {
-          return PathStripper.isOutputPath(execPath, outputRoot)
-              ? PathStripper.strip(execPath)
-              : execPath;
-        }
-
-        @Override
-        public List<String> stripCustomStarlarkArgs(List<String> args) {
-          // Add your favorite Starlark mnemonic that needs custom arg processing here.
-          if (!starlarkMnemonic.contains("Android")
-              && !starlarkMnemonic.equals("MergeManifests")
-              && !starlarkMnemonic.equals("StarlarkRClassGenerator")) {
-            return args;
-          }
-          // Add your favorite arg to custom-process here. When Bazel finds one of these in the
-          // argument list (an argument name), it strips output path prefixes from the following
-          // argument (the argument value).
-          ImmutableList<String> starlarkArgsToStrip =
-              ImmutableList.of(
-                  "--primaryData",
-                  "--directData",
-                  "--data",
-                  "--resources",
-                  "--mergeeManifests",
-                  "--library");
-          for (int i = 1; i < args.size(); i++) {
-            if (starlarkArgsToStrip.contains(args.get(i - 1))) {
-              args.set(i, argStripper.strip(args.get(i)));
-            }
-          }
-          return args;
-        }
-      };
-    }
+    /** Instantiates a {@link PathMapper} that doesn't change paths. */
+    PathMapper NOOP = execPath -> execPath;
   }
 
   /**
@@ -353,7 +305,7 @@ public final class PathStripper {
    * Private utility method: returns an output artifact's exec path with its configuration prefix
    * stripped.
    */
-  static String strip(DerivedArtifact artifact) {
+  static String strip(ActionInput artifact) {
     return strip(artifact.getExecPath()).getPathString();
   }
 

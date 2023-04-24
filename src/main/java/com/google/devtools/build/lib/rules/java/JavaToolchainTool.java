@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +32,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /** An executable tool that is part of {@code java_toolchain}. */
@@ -47,6 +51,22 @@ public abstract class JavaToolchainTool {
    * expansion is performed on these flags using the inputs in {@link #data}.
    */
   public abstract NestedSet<String> jvmOpts();
+
+  /**
+   * Cache for the {@link CustomCommandLine} for a given tool.
+   *
+   * <p>Practically, every {@link JavaToolchainTool} is used with only 1 {@link
+   * JavaToolchainProvider} hence the initial capacity of 2 (path stripping on/off).
+   *
+   * <p>Using soft values since the main benefit is to share the command line between different
+   * actions, in which case the {@link CustomCommandLine} object remains strongly reachable anyway.
+   */
+  private final transient LoadingCache<Pair<JavaToolchainProvider, PathFragment>, CustomCommandLine>
+      commandLineCache =
+          Caffeine.newBuilder()
+              .initialCapacity(2)
+              .softValues()
+              .build(key -> extractCommandLine(key.first, key.second));
 
   @Nullable
   static JavaToolchainTool fromRuleContext(
@@ -92,26 +112,27 @@ public abstract class JavaToolchainTool {
   }
 
   /**
-   * Builds the executable command line for the tool and adds its inputs to the given input builder.
+   * Returns the executable command line for the tool.
    *
    * <p>For a Java command, the executable command line will include {@code java -jar deploy.jar} as
    * well as any JVM flags.
    *
-   * @param command the executable command line builder for the tool
    * @param toolchain {@code java_toolchain} for the action being constructed
-   * @param inputs inputs for the action being constructed
+   * @param stripOutputPath output tree root fragment to use for path stripping or null if disabled.
    */
-  void buildCommandLine(
-      CustomCommandLine.Builder command,
-      JavaToolchainProvider toolchain,
-      NestedSetBuilder<Artifact> inputs) {
-    inputs.addTransitive(data());
+  CustomCommandLine getCommandLine(
+      JavaToolchainProvider toolchain, @Nullable PathFragment stripOutputPath) {
+    return commandLineCache.get(Pair.of(toolchain, stripOutputPath));
+  }
+
+  private CustomCommandLine extractCommandLine(
+      JavaToolchainProvider toolchain, @Nullable PathFragment stripOutputPath) {
+    CustomCommandLine.Builder command = CustomCommandLine.builder();
+
     Artifact executable = tool().getExecutable();
     if (!executable.getExtension().equals("jar")) {
       command.addExecPath(executable);
-      inputs.addTransitive(tool().getFilesToRun());
     } else {
-      inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputs());
       command
           .addPath(toolchain.getJavaRuntime().javaBinaryExecPathFragment())
           .addAll(toolchain.getJvmOptions())
@@ -119,17 +140,22 @@ public abstract class JavaToolchainTool {
           .add("-jar")
           .addPath(executable.getExecPath());
     }
+
+    if (stripOutputPath != null) {
+      command.stripOutputPaths(stripOutputPath);
+    }
+
+    return command.build();
   }
 
-  /**
-   * Builds the executable command line for the tool and adds its inputs to the given builder, see
-   * also {@link #buildCommandLine(CustomCommandLine.Builder, JavaToolchainProvider,
-   * NestedSetBuilder)}.
-   */
-  CustomCommandLine.Builder buildCommandLine(
-      JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
-    CustomCommandLine.Builder command = CustomCommandLine.builder();
-    buildCommandLine(command, toolchain, inputs);
-    return command;
+  /** Adds its inputs for the tool to provided input builder. */
+  void addInputs(JavaToolchainProvider toolchain, NestedSetBuilder<Artifact> inputs) {
+    inputs.addTransitive(data());
+    Artifact executable = tool().getExecutable();
+    if (!executable.getExtension().equals("jar")) {
+      inputs.addTransitive(tool().getFilesToRun());
+    } else {
+      inputs.add(executable).addTransitive(toolchain.getJavaRuntime().javaBaseInputs());
+    }
   }
 }

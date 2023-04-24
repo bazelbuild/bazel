@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.exec.util;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-/** A fake implementation of the {@link MetadataProvider} interface. */
-public final class FakeActionInputFileCache implements MetadataProvider {
+/** A fake implementation of the {@link InputMetadataProvider} interface. */
+public final class FakeActionInputFileCache implements InputMetadataProvider {
   private final Map<ActionInput, FileArtifactValue> inputs = new HashMap<>();
 
   public FakeActionInputFileCache() {}
@@ -32,7 +32,7 @@ public final class FakeActionInputFileCache implements MetadataProvider {
   }
 
   @Override
-  public FileArtifactValue getMetadata(ActionInput input) throws IOException {
+  public FileArtifactValue getInputMetadata(ActionInput input) throws IOException {
     return Preconditions.checkNotNull(inputs.get(input));
   }
 

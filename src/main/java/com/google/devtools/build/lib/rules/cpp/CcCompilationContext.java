@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -158,20 +156,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   @Override
   public Depset getStarlarkDefines() {
-    return Depset.of(
-        Depset.ElementType.STRING, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
+    return Depset.of(String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getDefines()));
   }
 
   @Override
   public Depset getStarlarkNonTransitiveDefines() {
     return Depset.of(
-        Depset.ElementType.STRING,
-        NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
+        String.class, NestedSetBuilder.wrap(Order.STABLE_ORDER, getNonTransitiveDefines()));
   }
 
   @Override
   public Depset getStarlarkHeaders() {
-    return Depset.of(Artifact.TYPE, getDeclaredIncludeSrcs());
+    return Depset.of(Artifact.class, getDeclaredIncludeSrcs());
   }
 
   @Override
@@ -202,7 +198,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkSystemIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getSystemIncludeDirs().stream()
@@ -213,7 +209,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkFrameworkIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getFrameworkIncludeDirs().stream()
@@ -224,7 +220,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getIncludeDirs().stream()
@@ -235,7 +231,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkQuoteIncludeDirs() {
     return Depset.of(
-        Depset.ElementType.STRING,
+        String.class,
         NestedSetBuilder.wrap(
             Order.STABLE_ORDER,
             getQuoteIncludeDirs().stream()
@@ -247,18 +243,18 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   public Depset getStarlarkTransitiveCompilationPrerequisites(StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getTransitiveCompilationPrerequisites());
+    return Depset.of(Artifact.class, getTransitiveCompilationPrerequisites());
   }
 
   @Override
   public Depset getStarlarkValidationArtifacts() {
-    return Depset.of(Artifact.TYPE, getHeaderTokens());
+    return Depset.of(Artifact.class, getHeaderTokens());
   }
 
   @Override
   public Depset getStarlarkVirtualToOriginalHeaders(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Depset.ElementType.of(Tuple.class), getVirtualToOriginalHeaders());
+    return Depset.of(Tuple.class, getVirtualToOriginalHeaders());
   }
 
   /**
@@ -555,7 +551,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   public Depset getStarlarkTransitiveModules(boolean usePic, StarlarkThread thread)
       throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getTransitiveModules(usePic));
+    return Depset.of(Artifact.class, getTransitiveModules(usePic));
   }
 
   /**
@@ -571,7 +567,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   @Override
   public Depset getStarlarkAdditionalInputs(StarlarkThread thread) throws EvalException {
     CcModule.checkPrivateStarlarkificationAllowlist(thread);
-    return Depset.of(Artifact.TYPE, getAdditionalInputs());
+    return Depset.of(Artifact.class, getAdditionalInputs());
   }
 
   /** Adds additional transitive inputs needed for compilation to builder. */
@@ -691,24 +687,6 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
 
   public CppConfiguration.HeadersCheckingMode getHeadersCheckingMode() {
     return headersCheckingMode;
-  }
-
-  public static ImmutableList<CcCompilationContext> getCcCompilationContexts(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    ImmutableList.Builder<CcCompilationContext> ccCompilationContextsBuilder =
-        ImmutableList.builder();
-    for (CcInfo ccInfo : AnalysisUtils.getProviders(deps, CcInfo.PROVIDER)) {
-      ccCompilationContextsBuilder.add(ccInfo.getCcCompilationContext());
-    }
-    return ccCompilationContextsBuilder.build();
-  }
-
-  public static CcCompilationContext merge(Collection<CcCompilationContext> ccCompilationContexts) {
-    CcCompilationContext.Builder builder =
-        CcCompilationContext.builder(
-            /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
-    builder.addDependentCcCompilationContexts(ccCompilationContexts);
-    return builder.build();
   }
 
   public NestedSet<Tuple> getVirtualToOriginalHeaders() {

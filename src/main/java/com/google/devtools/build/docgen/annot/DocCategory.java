@@ -26,7 +26,5 @@ public final class DocCategory {
 
   public static final String BUILTIN = "BUILTIN";
 
-  public static final String TOP_LEVEL_TYPE = "TOP_LEVEL_TYPE";
-
-  public static final String NONE = "NONE";
+  public static final String TOP_LEVEL_MODULE = "TOP_LEVEL_MODULE";
 }

@@ -20,26 +20,36 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import org.junit.Test;
 
 public abstract class RemoteActionFileSystemTestBase {
-  protected abstract FileSystem createActionFileSystem(
-      ActionInputMap inputs, Iterable<Artifact> outputs) throws IOException;
 
-  protected FileSystem createActionFileSystem() throws IOException {
-    ActionInputMap inputs = new ActionInputMap(0);
-    return createActionFileSystem(inputs);
+  protected abstract FileSystem createActionFileSystem(
+      ActionInputMap inputs, Iterable<Artifact> outputs, InputMetadataProvider fileCache)
+      throws IOException;
+
+  protected FileSystem createActionFileSystem(ActionInputMap inputs, Iterable<Artifact> outputs)
+      throws IOException {
+    return createActionFileSystem(inputs, outputs, StaticInputMetadataProvider.empty());
   }
 
   protected FileSystem createActionFileSystem(ActionInputMap inputs) throws IOException {
     return createActionFileSystem(inputs, ImmutableList.of());
+  }
+
+  protected FileSystem createActionFileSystem() throws IOException {
+    return createActionFileSystem(new ActionInputMap(0));
   }
 
   protected abstract FileSystem getLocalFileSystem(FileSystem actionFs);
@@ -51,8 +61,9 @@ public abstract class RemoteActionFileSystemTestBase {
   protected abstract void writeLocalFile(FileSystem actionFs, PathFragment path, String content)
       throws IOException;
 
-  protected abstract void injectRemoteFile(FileSystem actionFs, PathFragment path, String content)
-      throws IOException;
+  @CanIgnoreReturnValue
+  protected abstract FileArtifactValue injectRemoteFile(
+      FileSystem actionFs, PathFragment path, String content) throws IOException;
 
   @Test
   public void exists_fileDoesNotExist_returnsFalse() throws Exception {

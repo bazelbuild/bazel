@@ -35,13 +35,13 @@ public class ExecutionTransitionFactoryTest {
 
   @Test
   public void executionTransition() throws OptionsParsingException, InterruptedException {
-    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
-        execTransitionFactory.create(
-            AttributeTransitionData.builder()
-                .attributes(FakeAttributeMapper.empty())
-                .executionPlatform(EXECUTION_PLATFORM)
-                .build());
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(EXECUTION_PLATFORM)
+                    .build());
 
     assertThat(transition).isNotNull();
 
@@ -67,14 +67,14 @@ public class ExecutionTransitionFactoryTest {
   @Test
   public void executionTransition_noExecPlatform()
       throws OptionsParsingException, InterruptedException {
-    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     // No execution platform available.
     PatchTransition transition =
-        execTransitionFactory.create(
-            AttributeTransitionData.builder()
-                .attributes(FakeAttributeMapper.empty())
-                .executionPlatform(null)
-                .build());
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(null)
+                    .build());
 
     assertThat(transition).isNotNull();
 
@@ -95,13 +95,13 @@ public class ExecutionTransitionFactoryTest {
   @Test
   public void executionTransition_confDist_legacy()
       throws OptionsParsingException, InterruptedException {
-    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
-        execTransitionFactory.create(
-            AttributeTransitionData.builder()
-                .attributes(FakeAttributeMapper.empty())
-                .executionPlatform(EXECUTION_PLATFORM)
-                .build());
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(EXECUTION_PLATFORM)
+                    .build());
 
     assertThat(transition).isNotNull();
 
@@ -125,13 +125,13 @@ public class ExecutionTransitionFactoryTest {
   @Test
   public void executionTransition_confDist_fullHash()
       throws OptionsParsingException, InterruptedException {
-    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
-        execTransitionFactory.create(
-            AttributeTransitionData.builder()
-                .attributes(FakeAttributeMapper.empty())
-                .executionPlatform(EXECUTION_PLATFORM)
-                .build());
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(EXECUTION_PLATFORM)
+                    .build());
 
     assertThat(transition).isNotNull();
 
@@ -159,13 +159,13 @@ public class ExecutionTransitionFactoryTest {
   @Test
   public void executionTransition_confDist_diffToAffected()
       throws OptionsParsingException, InterruptedException {
-    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
-        execTransitionFactory.create(
-            AttributeTransitionData.builder()
-                .attributes(FakeAttributeMapper.empty())
-                .executionPlatform(EXECUTION_PLATFORM)
-                .build());
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(EXECUTION_PLATFORM)
+                    .build());
 
     assertThat(transition).isNotNull();
 
@@ -188,13 +188,13 @@ public class ExecutionTransitionFactoryTest {
   @Test
   public void executionTransition_confDist_off()
       throws OptionsParsingException, InterruptedException {
-    ExecutionTransitionFactory execTransitionFactory = ExecutionTransitionFactory.create();
     PatchTransition transition =
-        execTransitionFactory.create(
-            AttributeTransitionData.builder()
-                .attributes(FakeAttributeMapper.empty())
-                .executionPlatform(EXECUTION_PLATFORM)
-                .build());
+        ExecutionTransitionFactory.createFactory()
+            .create(
+                AttributeTransitionData.builder()
+                    .attributes(FakeAttributeMapper.empty())
+                    .executionPlatform(EXECUTION_PLATFORM)
+                    .build());
 
     assertThat(transition).isNotNull();
 
@@ -211,7 +211,6 @@ public class ExecutionTransitionFactoryTest {
             new StoredEventHandler());
 
     assertThat(result.get(CoreOptions.class).affectedByStarlarkTransition).isEmpty();
-    assertThat(result.get(CoreOptions.class).platformSuffix)
-        .isEqualTo(options.get(CoreOptions.class).platformSuffix);
+    assertThat(result.get(CoreOptions.class).platformSuffix).isEqualTo("exec");
   }
 }

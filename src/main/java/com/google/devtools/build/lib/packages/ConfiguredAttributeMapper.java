@@ -17,8 +17,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -127,7 +125,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
    * Variation of {@link #get} that throws an informative exception if the attribute can't be
    * resolved due to intrinsic contradictions in the configuration.
    */
-  private <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
+  public <T> T getAndValidate(String attributeName, Type<T> type) throws ValidationException {
     SelectorList<T> selectorList = getSelectorList(attributeName, type);
     if (selectorList == null) {
       // This is a normal attribute.
@@ -150,9 +148,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
                       + " expression",
                   attributeName));
         }
-        Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
         @SuppressWarnings("unchecked")
-        T defaultValue = (T) attr.getDefaultValue(null);
+        T defaultValue = (T) attr.getDefaultValue();
         resolvedList.add(defaultValue);
       } else {
         resolvedList.add(resolvedPath.value);
@@ -164,7 +161,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
   private static class ConfigKeyAndValue<T> {
     final Label configKey;
     final T value;
-    /** If null, this means the default condition (doesn't correspond to a config_setting). * */
+    /** If null, this means the default condition (doesn't correspond to a config_setting). */
     @Nullable final ConfigMatchingProvider provider;
 
     ConfigKeyAndValue(Label key, T value, @Nullable ConfigMatchingProvider provider) {
@@ -176,7 +173,10 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private <T> ConfigKeyAndValue<T> resolveSelector(String attributeName, Selector<T> selector)
       throws ValidationException {
-    Map<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
+    // Use a LinkedHashMap to guarantee a deterministic branch selection when multiple branches
+    // matches but they
+    // resolve to the same value.
+    LinkedHashMap<Label, ConfigKeyAndValue<T>> matchingConditions = new LinkedHashMap<>();
     // Use a LinkedHashSet to guarantee deterministic error message ordering. We use a LinkedHashSet
     // vs. a more general SortedSet because the latter supports insertion-order, which should more
     // closely match how users see select() structures in BUILD files.
@@ -220,7 +220,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
           }
         });
 
-    if (matchingConditions.size() > 1) {
+    if (matchingConditions.values().stream().map(s -> s.value).distinct().count() > 1) {
       throw new ValidationException(
           "Illegal ambiguous match on configurable attribute \""
               + attributeName
@@ -228,9 +228,11 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
               + getLabel()
               + ":\n"
               + Joiner.on("\n").join(matchingConditions.keySet())
-              + "\nMultiple matches are not allowed unless one is unambiguously more specialized.");
-    } else if (matchingConditions.size() == 1) {
-      return Iterables.getOnlyElement(matchingConditions.values());
+              + "\nMultiple matches are not allowed unless one is unambiguously "
+              + "more specialized or they resolve to the same value. "
+              + "See https://bazel.build/reference/be/functions#select.");
+    } else if (matchingConditions.size() > 0) {
+      return Iterables.getFirst(matchingConditions.values(), null);
     }
 
     // If nothing matched, choose the default condition.
@@ -295,8 +297,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
       return getAndValidate(attributeName, type);
     } catch (ValidationException e) {
       // Callers that reach this branch should explicitly validate the attribute through an
-      // appropriate call and handle the exception directly. This method assumes
-      // pre-validated attributes.
+      // appropriate call (either {@link #validateAttributes} or {@link #getAndValidate}) and handle
+      // the exception directly. This method assumes pre-validated attributes.
       throw new IllegalStateException(
           "lookup failed on attribute " + attributeName + ": " + e.getMessage());
     }

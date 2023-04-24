@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /**
  * Rule definition for the java_test rule.
@@ -54,17 +53,16 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
-        .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
         // Input files for test actions collecting code coverage
         .add(
             attr(":lcov_merger", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(BaseRuleClasses.getCoverageOutputGeneratorLabel()))
         // Add the script as an attribute in order for java_test to output code coverage results for
         // code covered by CC binaries invocations.
         .add(
             attr("$collect_cc_coverage", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .singleArtifact()
                 .value(env.getToolsLabel("//tools/test:collect_cc_coverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->

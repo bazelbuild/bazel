@@ -48,7 +48,7 @@ public class CcHostToolchainAliasTest extends BuildViewTestCase {
         "    'k8|gcc-4.4.0': '//b:toolchain_b',",
         "    'k8|compiler': '//b:toolchain_b',",
         "    'x64_windows|windows_msys64': '//b:toolchain_b',",
-        "    'darwin|compiler': '//b:toolchain_b',",
+        "    'darwin_x86_64|compiler': '//b:toolchain_b',",
         "})",
         "cc_toolchain(",
         "    name = 'toolchain_b',",

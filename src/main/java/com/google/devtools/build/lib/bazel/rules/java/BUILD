@@ -2,6 +2,7 @@ load("@rules_java//java:defs.bzl", "java_library")
 load("//:distdir_deps.bzl", "gen_workspace_stanza")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//src:__subpackages__"],
 )
 
@@ -61,6 +62,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -90,10 +92,12 @@ gen_workspace_stanza(
         "remote_java_tools",
         "remote_java_tools_linux",
         "remote_java_tools_windows",
-        "remote_java_tools_darwin",
+        "remote_java_tools_darwin_x86_64",
+        "remote_java_tools_darwin_arm64",
         "rules_cc",
         "rules_java",
         "rules_proto",
+        "rules_python",
         "remotejdk11_linux",
         "remotejdk11_linux_aarch64",
         "remotejdk11_linux_ppc64le",
@@ -104,8 +108,8 @@ gen_workspace_stanza(
         "remotejdk11_win_arm64",
     ] + [
         "remotejdk%s_%s" % (version, os)
-        for os in ("macos", "macos_aarch64", "linux", "linux_aarch64", "win", "win_arm64")
-        for version in ("17", "18")
+        for version in ("17", "20")
+        for os in ("macos", "macos_aarch64", "linux", "linux_aarch64", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
     ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],

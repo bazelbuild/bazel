@@ -18,8 +18,7 @@ load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-cc_common = _builtins.toplevel.cc_common
+load(":common/cc/cc_common.bzl", "cc_common")
 
 ProtoCcFilesInfo = provider(fields = ["files"], doc = "Provide cc proto files.")
 ProtoCcHeaderInfo = provider(fields = ["headers"], doc = "Provide cc proto headers.")
@@ -256,11 +255,12 @@ def _aspect_impl(target, ctx):
         providers.append(header_provider)
     return providers
 
-_cc_proto_aspect = aspect(
+cc_proto_aspect = aspect(
     implementation = _aspect_impl,
     attr_aspects = ["deps"],
     fragments = ["cpp", "proto"],
     required_providers = [ProtoInfo],
+    provides = [CcInfo],
     attrs = {
         "_aspect_cc_proto_toolchain": attr.label(
             default = configuration_field(fragment = "proto", name = "proto_toolchain_for_cc"),
@@ -289,7 +289,7 @@ cc_proto_library = rule(
     implementation = _impl,
     attrs = {
         "deps": attr.label_list(
-            aspects = [_cc_proto_aspect],
+            aspects = [cc_proto_aspect],
             allow_rules = ["proto_library"],
             allow_files = False,
         ),

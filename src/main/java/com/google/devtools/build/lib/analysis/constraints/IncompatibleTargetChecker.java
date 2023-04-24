@@ -14,14 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
-import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
-import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -43,8 +42,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -54,10 +55,11 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -86,81 +88,118 @@ public class IncompatibleTargetChecker {
   /**
    * Creates an incompatible configured target if it is "directly incompatible".
    *
-   * <p>In other words, this function checks if a target is incompatible because of its
+   * <p>In other words, this state machine checks if a target is incompatible because of its
    * "target_compatible_with" attribute.
    *
-   * <p>This function returns a nullable {@code Optional} of a {@link RuleConfiguredTargetValue}.
-   * This provides three states of return values:
+   * <p>Outputs an {@code Optional} {@link RuleConfiguredTargetValue} as follows.
    *
    * <ul>
-   *   <li>{@code null}: A skyframe restart is required.
    *   <li>{@code Optional.empty()}: The target is not directly incompatible. Analysis can continue.
    *   <li>{@code !Optional.empty()}: The target is directly incompatible. Analysis should not
    *       continue.
    * </ul>
    */
-  @Nullable
-  public static Optional<RuleConfiguredTargetValue> createDirectlyIncompatibleTarget(
-      TargetAndConfiguration targetAndConfiguration,
-      ConfigConditions configConditions,
-      Environment env,
-      @Nullable PlatformInfo platformInfo,
-      NestedSetBuilder<Package> transitivePackages)
-      throws InterruptedException {
-    Target target = targetAndConfiguration.getTarget();
-    Rule rule = target.getAssociatedRule();
+  public static class IncompatibleTargetProducer implements StateMachine, Consumer<SkyValue> {
 
-    if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
-      return Optional.empty();
+    private final Target target;
+    @Nullable // Non-null when the target has an associated rule.
+    private final BuildConfigurationValue configuration;
+    private final ConfigConditions configConditions;
+    // Non-null when the target has an associated rule and does not opt out of toolchain resolution.
+    @Nullable private final PlatformInfo platformInfo;
+    @Nullable private final NestedSetBuilder<Package> transitivePackages;
+
+    private final ResultSink sink;
+
+    private final StateMachine runAfter;
+
+    private final ImmutableList.Builder<ConstraintValueInfo> invalidConstraintValuesBuilder =
+        new ImmutableList.Builder<>();
+
+    /** Sink for the output of this state machine. */
+    public interface ResultSink {
+      void acceptIncompatibleTarget(Optional<RuleConfiguredTargetValue> incompatibleTarget);
+
+      void acceptValidationException(ValidationException e);
     }
 
-    // Retrieve the label list for the target_compatible_with attribute.
-    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
-    ConfiguredAttributeMapper attrs =
-        ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
-    if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-      return Optional.empty();
+    public IncompatibleTargetProducer(
+        Target target,
+        @Nullable BuildConfigurationValue configuration,
+        ConfigConditions configConditions,
+        @Nullable PlatformInfo platformInfo,
+        @Nullable NestedSetBuilder<Package> transitivePackages,
+        ResultSink sink,
+        StateMachine runAfter) {
+      this.target = target;
+      this.configuration = configuration;
+      this.configConditions = configConditions;
+      this.platformInfo = platformInfo;
+      this.transitivePackages = transitivePackages;
+      this.sink = sink;
+      this.runAfter = runAfter;
     }
 
-    // Resolve the constraint labels.
-    List<Label> labels = attrs.get("target_compatible_with", BuildType.LABEL_LIST);
-    ImmutableList<ConfiguredTargetKey> constraintKeys =
-        labels.stream()
-            .map(
-                label ->
-                    Dependency.builder()
-                        .setLabel(label)
-                        .setConfiguration(configuration)
-                        .build()
-                        .getConfiguredTargetKey())
-            .collect(toImmutableList());
-    SkyframeLookupResult constraintValues = env.getValuesAndExceptions(constraintKeys);
-    if (env.valuesMissing()) {
-      return null;
+    @Override
+    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      Rule rule = target.getAssociatedRule();
+      if (rule == null || !rule.useToolchainResolution() || platformInfo == null) {
+        sink.acceptIncompatibleTarget(Optional.empty());
+        return runAfter;
+      }
+
+      // Retrieves the label list for the target_compatible_with attribute.
+      ConfiguredAttributeMapper attrs =
+          ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
+      if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
+        sink.acceptIncompatibleTarget(Optional.empty());
+        return runAfter;
+      }
+
+      // Resolves the constraint labels, checking for invalid configured attributes.
+      List<Label> targetCompatibleWith;
+      try {
+        targetCompatibleWith = attrs.getAndValidate("target_compatible_with", BuildType.LABEL_LIST);
+      } catch (ValidationException e) {
+        sink.acceptValidationException(e);
+        return runAfter;
+      }
+      for (Label label : targetCompatibleWith) {
+        tasks.lookUp(
+            ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build(),
+            this);
+      }
+      return this::processResult;
     }
 
-    // Find the constraints that don't satisfy the target platform.
-    ImmutableList<ConstraintValueInfo> invalidConstraintValues =
-        constraintKeys.stream()
-            .map(key -> (ConfiguredTargetValue) constraintValues.get(key))
-            .filter(notNull())
-            .map(ctv -> PlatformProviderUtils.constraintValue(ctv.getConfiguredTarget()))
-            .filter(notNull())
-            .filter(cv -> !platformInfo.constraints().hasConstraintValue(cv))
-            .collect(toImmutableList());
-    if (invalidConstraintValues.isEmpty()) {
-      return Optional.empty();
+    @Override
+    public void accept(SkyValue value) {
+      var configuredTarget = ((ConfiguredTargetValue) value).getConfiguredTarget();
+      @Nullable ConstraintValueInfo info = PlatformProviderUtils.constraintValue(configuredTarget);
+      if (info == null || platformInfo.constraints().hasConstraintValue(info)) {
+        return;
+      }
+      invalidConstraintValuesBuilder.add(info);
     }
 
-    return Optional.of(
-        createIncompatibleRuleConfiguredTarget(
-            target,
-            configuration,
-            configConditions,
-            IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                platformInfo.label(), invalidConstraintValues),
-            rule.getRuleClass(),
-            transitivePackages));
+    private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
+      var invalidConstraintValues = invalidConstraintValuesBuilder.build();
+      if (!invalidConstraintValues.isEmpty()) {
+        sink.acceptIncompatibleTarget(
+            Optional.of(
+                createIncompatibleRuleConfiguredTarget(
+                    target,
+                    configuration,
+                    configConditions,
+                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                        platformInfo.label(), invalidConstraintValues),
+                    target.getAssociatedRule().getRuleClass(),
+                    transitivePackages)));
+        return runAfter;
+      }
+      sink.acceptIncompatibleTarget(Optional.empty());
+      return runAfter;
+    }
   }
 
   /**
@@ -184,7 +223,7 @@ public class IncompatibleTargetChecker {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable PlatformInfo platformInfo,
-      NestedSetBuilder<Package> transitivePackages) {
+      @Nullable NestedSetBuilder<Package> transitivePackages) {
     Target target = targetAndConfiguration.getTarget();
     Rule rule = target.getAssociatedRule();
 
@@ -215,6 +254,19 @@ public class IncompatibleTargetChecker {
             transitivePackages));
   }
 
+  /** Thrown if this target is platform-incompatible with the current build. */
+  public static class IncompatibleTargetException extends Exception {
+    private final RuleConfiguredTargetValue target;
+
+    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
+      this.target = target;
+    }
+
+    public RuleConfiguredTargetValue target() {
+      return target;
+    }
+  }
+
   /** Creates an incompatible target. */
   private static RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
       Target target,
@@ -222,7 +274,7 @@ public class IncompatibleTargetChecker {
       ConfigConditions configConditions,
       IncompatiblePlatformProvider incompatiblePlatformProvider,
       String ruleClassString,
-      NestedSetBuilder<Package> transitivePackages) {
+      @Nullable NestedSetBuilder<Package> transitivePackages) {
     // Create dummy instances of the necessary data for a configured target. None of this data will
     // actually be used because actions associated with incompatible targets must not be evaluated.
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -234,7 +286,10 @@ public class IncompatibleTargetChecker {
             .put(incompatiblePlatformProvider)
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
             .add(fileProvider)
-            .add(filesToRunProvider);
+            .add(filesToRunProvider)
+            .add(
+                new SupportedEnvironments(
+                    EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));
     if (configuration.hasFragment(TestConfiguration.class)) {
       // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
       // though this test will never execute, some code still expects the provider.

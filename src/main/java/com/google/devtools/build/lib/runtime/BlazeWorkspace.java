@@ -77,6 +77,8 @@ public final class BlazeWorkspace {
 
   private final String outputBaseFilesystemTypeName;
 
+  private final boolean allowExternalRepositories;
+
   public BlazeWorkspace(
       BlazeRuntime runtime,
       BlazeDirectories directories,
@@ -85,7 +87,8 @@ public final class BlazeWorkspace {
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker,
-      SyscallCache syscallCache) {
+      SyscallCache syscallCache,
+      boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
@@ -96,6 +99,7 @@ public final class BlazeWorkspace {
     this.skyframeExecutor = skyframeExecutor;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = QuiescingExecutorsImpl.createDefault();
+    this.allowExternalRepositories = allowExternalRepositories;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -274,6 +278,12 @@ public final class BlazeWorkspace {
     return actionCache;
   }
 
+  /** Returns reference to the lazily instantiated persistent action cache instance */
+  @Nullable
+  public ActionCache getPersistentActionCache() {
+    return actionCache;
+  }
+
   /**
    * Generates a README file in the output base directory. This README file
    * contains the name of the workspace directory, so that users can figure out
@@ -324,6 +334,10 @@ public final class BlazeWorkspace {
   @Nullable
   public AllocationTracker getAllocationTracker() {
     return allocationTracker;
+  }
+
+  public boolean doesAllowExternalRepositories() {
+    return allowExternalRepositories;
   }
 }
 

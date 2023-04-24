@@ -23,6 +23,7 @@ load(
 )
 load(
     ":common/python/common.bzl",
+    "check_native_allowed",
     "collect_imports",
     "collect_runfiles",
     "create_instrumented_files_info",
@@ -31,6 +32,7 @@ load(
     "filter_to_py_srcs",
     "union_attrs",
 )
+load(":common/python/providers.bzl", "PyCcLinkParamsProvider")
 
 _py_builtins = _builtins.internal.py_builtins
 
@@ -51,6 +53,7 @@ def py_library_impl(ctx, *, semantics):
     Returns:
         A list of modern providers to propagate.
     """
+    check_native_allowed(ctx)
     direct_sources = filter_to_py_srcs(ctx.files.srcs)
     output_sources = depset(semantics.maybe_precompile(ctx, direct_sources))
     runfiles = collect_runfiles(ctx = ctx, files = output_sources)
@@ -74,7 +77,7 @@ def py_library_impl(ctx, *, semantics):
         DefaultInfo(files = output_sources, runfiles = runfiles),
         py_info,
         create_instrumented_files_info(ctx),
-        _py_builtins.new_py_cc_link_params_provider(cc_info = cc_info),
+        PyCcLinkParamsProvider(cc_info = cc_info),
         create_output_group_info(py_info.transitive_sources, extra_groups = {}),
     ]
 
@@ -92,8 +95,5 @@ def create_py_library_rule(*, attrs = {}, **kwargs):
         # TODO(b/253818097): fragments=py is only necessary so that
         # RequiredConfigFragmentsTest passes
         fragments = ["py"],
-        # Necessary for --compile_one_dependency to give preference to
-        # py_library if a .py file is associated with multiple targets.
-        compile_one_filetype = [".py"],
         **kwargs
     )

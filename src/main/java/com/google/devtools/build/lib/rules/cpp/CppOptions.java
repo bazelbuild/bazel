@@ -750,16 +750,6 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
-      name = "experimental_parse_headers_skipped_if_corresponding_srcs_found",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If enabled, the parse_headers feature does not create a separate header compile action "
-              + "if a source with the same basename is found in the same target.")
-  public boolean parseHeadersSkippedIfCorrespondingSrcsFound;
-
-  @Option(
       name = "experimental_omitfp",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1060,15 +1050,13 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_cpp_compile_argv_ignore_param_file",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      effectTags = {OptionEffectTag.NO_OP},
       metadataTags = {
         OptionMetadataTag.EXPERIMENTAL,
       },
-      help =
-          "If enabled, CppCompileAction action.argv returns the complete list of argv even if"
-              + " compiler_param_file is enabled.")
+      help = "This flag is a noop and scheduled for removal.")
   public boolean ignoreParamFile;
 
   @Option(
@@ -1125,7 +1113,7 @@ public class CppOptions extends FragmentOptions {
 
   @Option(
       name = "experimental_link_static_libraries_once",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
         OptionEffectTag.LOADING_AND_ANALYSIS,
@@ -1138,19 +1126,6 @@ public class CppOptions extends FragmentOptions {
           "If enabled, cc_shared_library will link all libraries statically linked into it, that"
               + " should only be linked once.")
   public boolean experimentalLinkStaticLibrariesOnce;
-
-  @Option(
-      name = "experimental_enable_target_export_check",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, cc_shared_library will export targets which is allowed by its `permissions`"
-              + " attribute.")
-  public boolean experimentalEnableTargetExportCheck;
 
   @Option(
       name = "experimental_cc_shared_library_debug",
@@ -1239,7 +1214,6 @@ public class CppOptions extends FragmentOptions {
       cxxoptListBuilder.add("-g0");
     }
     exec.experimentalLinkStaticLibrariesOnce = experimentalLinkStaticLibrariesOnce;
-    exec.experimentalEnableTargetExportCheck = experimentalEnableTargetExportCheck;
     exec.experimentalCcSharedLibraryDebug = experimentalCcSharedLibraryDebug;
     exec.experimentalCcImplementationDeps = experimentalCcImplementationDeps;
 
@@ -1265,7 +1239,6 @@ public class CppOptions extends FragmentOptions {
     exec.disableNoCopts = disableNoCopts;
     exec.loadCcRulesFromBzl = loadCcRulesFromBzl;
     exec.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
-    exec.parseHeadersSkippedIfCorrespondingSrcsFound = parseHeadersSkippedIfCorrespondingSrcsFound;
     exec.strictSystemIncludes = strictSystemIncludes;
     exec.useArgsParamsFile = useArgsParamsFile;
     exec.ignoreParamFile = ignoreParamFile;

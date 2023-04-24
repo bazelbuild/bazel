@@ -44,8 +44,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         ")");
     PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
-    assertThat(info.isInBuild()).isTrue();
-    assertThat(info.getInterpreterPath()).isNull();
+    assertThat(info.getInterpreterPathString()).isNull();
     assertThat(info.getInterpreter().getExecPathString()).isEqualTo("pkg/myinterpreter");
     assertThat(ActionsTestUtil.baseArtifactNames(info.getFiles())).containsExactly("myfile");
     assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
@@ -62,8 +61,7 @@ public class PyRuntimeConfiguredTargetTest extends BuildViewTestCase {
         ")");
     PyRuntimeInfo info = getConfiguredTarget("//pkg:myruntime").get(PyRuntimeInfo.PROVIDER);
 
-    assertThat(info.isInBuild()).isFalse();
-    assertThat(info.getInterpreterPath().getPathString()).isEqualTo("/system/interpreter");
+    assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
     assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);

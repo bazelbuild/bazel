@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,109 +33,115 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
+import com.google.devtools.build.lib.util.ClassName;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
 /** A value representing an executed action. */
 @Immutable
 @ThreadSafe
-public final class ActionExecutionValue implements SkyValue {
+public abstract class ActionExecutionValue implements SkyValue {
 
-  /** A map from each output artifact of this action to their {@link FileArtifactValue}s. */
-  private final ImmutableMap<Artifact, FileArtifactValue> artifactData;
+  private ActionExecutionValue() {}
 
-  /** The TreeArtifactValue of all TreeArtifacts output by this Action. */
-  private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData;
-
-  @Nullable private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
-
-  @Nullable private final NestedSet<Artifact> discoveredModules;
-
-  /**
-   * @param artifactData Map from Artifacts to corresponding {@link FileArtifactValue}.
-   * @param treeArtifactData All tree artifact data.
-   * @param outputSymlinks This represents the SymlinkTree which is the output of a fileset action.
-   * @param discoveredModules cpp modules discovered
-   */
-  private ActionExecutionValue(
+  @VisibleForTesting // All non-test usage should go through createFromOutputStore.
+  public static ActionExecutionValue create(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      @Nullable NestedSet<Artifact> discoveredModules) {
-    for (Map.Entry<Artifact, FileArtifactValue> entry : artifactData.entrySet()) {
-      Preconditions.checkArgument(
-          !entry.getKey().isChildOfDeclaredDirectory(),
-          "%s should only be stored in a TreeArtifactValue",
-          entry.getKey());
-      if (entry.getValue().getType().isFile()) {
-        Preconditions.checkNotNull(
-            entry.getValue().getDigest(), "missing digest for %s", entry.getKey());
-      }
+      ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      NestedSet<Artifact> discoveredModules) {
+    // Use forEach instead of entrySet to avoid instantiating an EntrySet in ImmutableMap.
+    artifactData.forEach(
+        (artifact, value) -> {
+          checkArgument(
+              !artifact.isChildOfDeclaredDirectory(),
+              "%s should only be stored in a TreeArtifactValue",
+              artifact);
+          checkArgument(
+              !value.getType().isFile() || value.getDigest() != null,
+              "Missing digest for %s",
+              artifact);
+        });
+    treeArtifactData.forEach(
+        (tree, treeValue) -> {
+          if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(treeValue)) {
+            return;
+          }
+          treeValue
+              .getChildValues()
+              .forEach(
+                  (child, childValue) ->
+                      // Ignore symlinks to directories, which don't have a digest.
+                      checkArgument(
+                          !childValue.getType().isFile() || childValue.getDigest() != null,
+                          "Missing digest for file %s in tree artifact %s",
+                          child,
+                          tree));
+        });
+
+    if (!outputSymlinks.isEmpty()) {
+      checkArgument(
+          artifactData.size() == 1,
+          "Fileset actions should have a single output file (the manifest): %s",
+          artifactData);
+      checkArgument(
+          treeArtifactData.isEmpty(),
+          "Fileset actions do not output tree artifacts: %s",
+          treeArtifactData);
+      checkArgument(
+          discoveredModules.isEmpty(),
+          "Fileset actions do not discover modules: %s",
+          discoveredModules);
+      return new Fileset(artifactData, outputSymlinks);
     }
 
-    for (Map.Entry<Artifact, TreeArtifactValue> tree : treeArtifactData.entrySet()) {
-      TreeArtifactValue treeArtifact = tree.getValue();
-      if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(treeArtifact)) {
-        continue;
-      }
-      for (Map.Entry<TreeFileArtifact, FileArtifactValue> file :
-          treeArtifact.getChildValues().entrySet()) {
-        // Tree artifacts can contain symlinks to directories, which don't have a digest.
-        if (file.getValue().getType().isFile()) {
-          Preconditions.checkNotNull(
-              file.getValue().getDigest(),
-              "missing digest for file %s in tree artifact %s",
-              file.getKey(),
-              tree.getKey());
-        }
-      }
+    if (!discoveredModules.isEmpty()) {
+      checkArgument(
+          artifactData.size() == 1,
+          "Module-discovering actions should have a single output file (the .pcm file): %s",
+          artifactData);
+      checkArgument(
+          treeArtifactData.isEmpty(),
+          "Module-discovering actions do not output tree artifacts: %s",
+          treeArtifactData);
+      return new ModuleDiscovering(artifactData, discoveredModules);
     }
 
-    this.artifactData = artifactData;
-    this.treeArtifactData = treeArtifactData;
-    this.outputSymlinks = outputSymlinks;
-    this.discoveredModules = discoveredModules;
+    if (!treeArtifactData.isEmpty()) {
+      return treeArtifactData.size() == 1 && artifactData.isEmpty()
+          ? new SingleTree(treeArtifactData)
+          : new MultiTree(artifactData, treeArtifactData);
+    }
+
+    checkArgument(!artifactData.isEmpty(), "No outputs");
+    return artifactData.size() == 1
+        ? new SingleOutputFile(artifactData)
+        : new MultiOutputFile(artifactData);
   }
 
   static ActionExecutionValue createFromOutputStore(
-      OutputStore outputStore,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      Action action) {
-    return new ActionExecutionValue(
+      OutputStore outputStore, ImmutableList<FilesetOutputSymlink> outputSymlinks, Action action) {
+    return create(
         outputStore.getAllArtifactData(),
         outputStore.getAllTreeArtifactData(),
         outputSymlinks,
         action instanceof IncludeScannable
             ? ((IncludeScannable) action).getDiscoveredModules()
-            : null);
-  }
-
-  @VisibleForTesting
-  public static ActionExecutionValue createForTesting(
-      ImmutableMap<Artifact, FileArtifactValue> artifactData,
-      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks) {
-    return new ActionExecutionValue(
-        artifactData, treeArtifactData, outputSymlinks, /* discoveredModules= */ null);
-  }
-
-  @VisibleForTesting
-  public static ActionExecutionValue createForTesting(
-      ImmutableMap<Artifact, FileArtifactValue> artifactData,
-      ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
-      NestedSet<Artifact> discoveredModules) {
-    return new ActionExecutionValue(
-        artifactData, treeArtifactData, outputSymlinks, discoveredModules);
+            : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   /**
@@ -142,7 +151,7 @@ public final class ActionExecutionValue implements SkyValue {
    * be thrown.
    */
   public FileArtifactValue getExistingFileArtifactValue(Artifact artifact) {
-    Preconditions.checkArgument(
+    checkArgument(
         artifact instanceof DerivedArtifact && !artifact.isTreeArtifact(),
         "Cannot request %s from %s",
         artifact,
@@ -150,24 +159,24 @@ public final class ActionExecutionValue implements SkyValue {
 
     FileArtifactValue result;
     if (artifact.isChildOfDeclaredDirectory()) {
-      TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
+      TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent());
       result = tree == null ? null : tree.getChildValues().get(artifact);
     } else if (artifact instanceof ArchivedTreeArtifact) {
-      TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
+      TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent());
       ArchivedRepresentation archivedRepresentation =
           tree.getArchivedRepresentation()
               .orElseThrow(
                   () -> new NoSuchElementException("Missing archived representation in: " + tree));
-      Preconditions.checkArgument(
+      checkArgument(
           archivedRepresentation.archivedTreeFileArtifact().equals(artifact),
           "Multiple archived tree artifacts for: %s",
           artifact.getParent());
       result = archivedRepresentation.archivedFileValue();
     } else {
-      result = artifactData.get(artifact);
+      result = getAllFileValues().get(artifact);
     }
 
-    return Preconditions.checkNotNull(
+    return checkNotNull(
         result,
         "Missing artifact %s (generating action key %s) in %s",
         artifact,
@@ -175,53 +184,41 @@ public final class ActionExecutionValue implements SkyValue {
         this);
   }
 
+  @Nullable
   TreeArtifactValue getTreeArtifactValue(Artifact artifact) {
-    Preconditions.checkArgument(artifact.isTreeArtifact());
-    return treeArtifactData.get(artifact);
+    checkArgument(artifact.isTreeArtifact(), artifact);
+    return null;
   }
 
   /**
    * Returns a map containing all artifacts output by the action, except for tree artifacts which
-   * are accesible via {@link #getAllTreeArtifactValues}.
-   *
-   * <p>Primarily needed by {@link FilesystemValueChecker}. Also called by {@link ArtifactFunction}
-   * when aggregating a {@link TreeArtifactValue} out of action template expansion outputs.
+   * are accessible via {@link #getAllTreeArtifactValues}.
    */
-  // Visible only for testing: should be package-private.
-  public ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
-    return artifactData;
-  }
+  public abstract ImmutableMap<Artifact, FileArtifactValue> getAllFileValues();
 
-  /**
-   * Returns a map containing all tree artifacts output by the action.
-   *
-   * <p>Should only be needed by {@link FilesystemValueChecker}.
-   */
-  // Visible only for testing: should be package-private.
+  /** Returns a map containing all tree artifacts output by the action. */
   public ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
-    return treeArtifactData;
+    return ImmutableMap.of();
   }
 
-  @Nullable
   public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
-    return outputSymlinks;
+    return ImmutableList.of();
   }
 
-  @Nullable
   public NestedSet<Artifact> getDiscoveredModules() {
-    return discoveredModules;
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("artifactData", artifactData)
-        .add("treeArtifactData", treeArtifactData)
+  public final String toString() {
+    return MoreObjects.toStringHelper(ClassName.getSimpleNameWithOuter(getClass()))
+        .add("files", getAllFileValues())
+        .add("trees", getAllTreeArtifactValues())
         .toString();
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public final boolean equals(Object obj) {
     if (this == obj) {
       return true;
     }
@@ -229,27 +226,20 @@ public final class ActionExecutionValue implements SkyValue {
       return false;
     }
     ActionExecutionValue o = (ActionExecutionValue) obj;
-    return artifactData.equals(o.artifactData)
-        && treeArtifactData.equals(o.treeArtifactData)
-        && Objects.equal(outputSymlinks, o.outputSymlinks)
+    return getAllFileValues().equals(o.getAllFileValues())
+        && getAllTreeArtifactValues().equals(o.getAllTreeArtifactValues())
+        && Objects.equals(getOutputSymlinks(), o.getOutputSymlinks())
         // We use shallowEquals to avoid materializing the nested sets just for change-pruning. This
         // makes change-pruning potentially less effective, but never incorrect.
-        && shallowEquals(discoveredModules, o.discoveredModules);
-  }
-
-  private static boolean shallowEquals(
-      @Nullable NestedSet<Artifact> set1, @Nullable NestedSet<Artifact> set2) {
-    if (set1 == null) {
-      return set2 == null;
-    }
-
-    return set1.shallowEquals(set2);
+        && getDiscoveredModules().shallowEquals(o.getDiscoveredModules());
   }
 
   @Override
-  public int hashCode() {
-    return 31 * Objects.hashCode(artifactData, treeArtifactData, outputSymlinks)
-        + (discoveredModules != null ? discoveredModules.shallowHashCode() : 0);
+  public final int hashCode() {
+    return 31
+            * HashCodes.hashObjects(
+                getAllFileValues(), getAllTreeArtifactValues(), getOutputSymlinks())
+        + getDiscoveredModules().shallowHashCode();
   }
 
   private static <V> ImmutableMap<Artifact, V> transformMap(
@@ -278,8 +268,7 @@ public final class ActionExecutionValue implements SkyValue {
   /** Transforms the children of a {@link TreeArtifactValue} so that owners are consistent. */
   private static TreeArtifactValue transformSharedTree(
       Artifact newArtifact, TreeArtifactValue tree) {
-    Preconditions.checkState(
-        newArtifact.isTreeArtifact(), "Expected tree artifact, got %s", newArtifact);
+    checkState(newArtifact.isTreeArtifact(), "Expected tree artifact, got %s", newArtifact);
 
     if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(tree)) {
       return TreeArtifactValue.OMITTED_TREE_MARKER;
@@ -312,20 +301,23 @@ public final class ActionExecutionValue implements SkyValue {
    * com.google.devtools.build.lib.actions.Actions#canBeShared shareable} with the action that
    * originally produced this {@code ActionExecutionValue}.
    */
-  public ActionExecutionValue transformForSharedAction(Action action)
+  public final ActionExecutionValue transformForSharedAction(Action action)
       throws ActionTransformException {
-    if (action.getOutputs().size() != artifactData.size() + treeArtifactData.size()) {
+    ImmutableMap<Artifact, FileArtifactValue> artifactData = getAllFileValues();
+    ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData = getAllTreeArtifactValues();
+    Collection<Artifact> outputs = action.getOutputs();
+    if (outputs.size() != artifactData.size() + treeArtifactData.size()) {
       throw new ActionTransformException("Cannot share %s with %s", this, action);
     }
-    Map<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
-        Maps.uniqueIndex(action.getOutputs(), OwnerlessArtifactWrapper::new);
-    return new ActionExecutionValue(
+    ImmutableMap<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
+        Maps.uniqueIndex(outputs, OwnerlessArtifactWrapper::new);
+    return create(
         transformMap(artifactData, newArtifactMap, action, (newArtifact, value) -> value),
         transformMap(
             treeArtifactData, newArtifactMap, action, ActionExecutionValue::transformSharedTree),
-        outputSymlinks,
+        getOutputSymlinks(),
         // Discovered modules come from the action's inputs, and so don't need to be transformed.
-        discoveredModules);
+        getDiscoveredModules());
   }
 
   /**
@@ -336,6 +328,146 @@ public final class ActionExecutionValue implements SkyValue {
     @FormatMethod
     private ActionTransformException(@FormatString String format, Object... args) {
       super(String.format(format, args));
+    }
+  }
+
+  /**
+   * The result of an action that outputs a single file (the common case). Optimizes for space by
+   * storing the single artifact and value without the {@link ImmutableMap} wrapper.
+   */
+  private static class SingleOutputFile extends ActionExecutionValue {
+    private final Artifact artifact;
+    private final FileArtifactValue value;
+
+    SingleOutputFile(ImmutableMap<Artifact, FileArtifactValue> artifactData) {
+      this.artifact = Iterables.getOnlyElement(artifactData.keySet());
+      this.value = artifactData.get(artifact);
+    }
+
+    // Override to avoid creating an ImmutableMap in the common case that the requested artifact is
+    // correct. This bypasses the preconditions checks in super, but if the artifact is correct,
+    // those would all pass anyway.
+    @Override
+    public final FileArtifactValue getExistingFileArtifactValue(Artifact artifact) {
+      if (artifact.equals(this.artifact)) {
+        return value;
+      }
+      // This will throw an exception. Call super to make failure modes consistent.
+      return super.getExistingFileArtifactValue(artifact);
+    }
+
+    @Override
+    public final ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
+      return ImmutableMap.of(artifact, value);
+    }
+  }
+
+  /**
+   * The result of a {@link
+   * com.google.devtools.build.lib.view.fileset.SkyframeFilesetManifestAction}.
+   */
+  private static final class Fileset extends SingleOutputFile {
+    private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
+
+    Fileset(
+        ImmutableMap<Artifact, FileArtifactValue> artifactData,
+        ImmutableList<FilesetOutputSymlink> outputSymlinks) {
+      super(artifactData);
+      this.outputSymlinks = outputSymlinks;
+    }
+
+    @Override
+    public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
+      return outputSymlinks;
+    }
+  }
+
+  /**
+   * The result of a {@link com.google.devtools.build.lib.rules.cpp.CppCompileAction} that
+   * {@linkplain IncludeScannable#getDiscoveredModules discovers modules}.
+   */
+  private static final class ModuleDiscovering extends SingleOutputFile {
+    private final NestedSet<Artifact> discoveredModules;
+
+    ModuleDiscovering(
+        ImmutableMap<Artifact, FileArtifactValue> artifactData,
+        NestedSet<Artifact> discoveredModules) {
+      super(artifactData);
+      this.discoveredModules = discoveredModules;
+    }
+
+    @Override
+    public NestedSet<Artifact> getDiscoveredModules() {
+      return discoveredModules;
+    }
+  }
+
+  /** The result of an action that outputs an arbitrary number of files. */
+  private static class MultiOutputFile extends ActionExecutionValue {
+    private final ImmutableMap<Artifact, FileArtifactValue> artifactData;
+
+    MultiOutputFile(ImmutableMap<Artifact, FileArtifactValue> artifactData) {
+      this.artifactData = artifactData;
+    }
+
+    @Override
+    public final ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
+      return artifactData;
+    }
+  }
+
+  /** The result of an action that outputs a single tree artifact and no other files. */
+  private static final class SingleTree extends ActionExecutionValue {
+    private final Artifact treeArtifact;
+    private final TreeArtifactValue treeValue;
+
+    SingleTree(ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
+      this.treeArtifact = Iterables.getOnlyElement(treeArtifactData.keySet());
+      this.treeValue = treeArtifactData.get(treeArtifact);
+    }
+
+    @Override
+    @Nullable
+    TreeArtifactValue getTreeArtifactValue(Artifact artifact) {
+      checkArgument(artifact.isTreeArtifact(), artifact);
+      return artifact.equals(treeArtifact) ? treeValue : null;
+    }
+
+    @Override
+    public ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
+      return ImmutableMap.of(treeArtifact, treeValue);
+    }
+
+    @Override
+    public ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
+      return ImmutableMap.of();
+    }
+  }
+
+  /**
+   * The result of an action that outputs multiple tree artifacts or a combination of tree artifacts
+   * and files.
+   */
+  private static final class MultiTree extends MultiOutputFile {
+    private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData;
+
+    MultiTree(
+        ImmutableMap<Artifact, FileArtifactValue> artifactData,
+        ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData) {
+      super(artifactData);
+      this.treeArtifactData = treeArtifactData;
+    }
+
+    @Override
+    @Nullable
+    TreeArtifactValue getTreeArtifactValue(Artifact artifact) {
+      checkArgument(artifact.isTreeArtifact(), artifact);
+      return treeArtifactData.get(artifact);
+    }
+
+    @Override
+    public ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
+      return treeArtifactData;
     }
   }
 }

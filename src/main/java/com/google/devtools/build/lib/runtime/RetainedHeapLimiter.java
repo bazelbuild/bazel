@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.MemoryOptions;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.runtime.MemoryPressure.MemoryPressureStats;
 import com.google.devtools.common.options.Options;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -40,19 +38,22 @@ import java.util.concurrent.atomic.AtomicLong;
  * stop-the-world collection; if it's still more than {@link
  * MemoryPressureOptions#oomMoreEagerlyThreshold}% full, exit with an {@link OutOfMemoryError}.
  */
-final class RetainedHeapLimiter {
+final class RetainedHeapLimiter implements MemoryPressureStatCollector {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final BugReporter bugReporter;
   private final Clock clock;
 
-  private volatile MemoryPressureOptions options = Options.getDefaults(MemoryPressureOptions.class);
+  private volatile MemoryPressureOptions options = inactiveOptions();
 
   private final AtomicBoolean throwingOom = new AtomicBoolean(false);
   private final AtomicBoolean heapLimiterTriggeredGc = new AtomicBoolean(false);
+  private final AtomicInteger consecutiveIgnoredFullGcsOverThreshold = new AtomicInteger(0);
   private final AtomicBoolean loggedIgnoreWarningSinceLastGc = new AtomicBoolean(false);
   private final AtomicLong lastTriggeredGcMillis = new AtomicLong();
+  private final AtomicInteger gcsTriggered = new AtomicInteger(0);
+  private final AtomicInteger maxConsecutiveIgnoredFullGcsOverThreshold = new AtomicInteger(0);
 
   static RetainedHeapLimiter create(BugReporter bugReporter) {
     return new RetainedHeapLimiter(bugReporter, BlazeClock.instance());
@@ -69,23 +70,13 @@ final class RetainedHeapLimiter {
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
-  void setOptions(MemoryPressureOptions options) throws AbruptExitException {
-    if (options.oomMoreEagerlyThreshold < 0 || options.oomMoreEagerlyThreshold > 100) {
-      throw createExitException(
-          "--experimental_oom_more_eagerly_threshold must be a percent between 0 and 100 but was "
-              + options.oomMoreEagerlyThreshold,
-          MemoryOptions.Code.EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE);
+  void setOptions(MemoryPressureOptions options) {
+    if (options.gcThrashingLimitsRetainedHeapLimiterMutuallyExclusive
+        && !options.gcThrashingLimits.isEmpty()) {
+      this.options = inactiveOptions();
+    } else {
+      this.options = options;
     }
-    this.options = options;
-  }
-
-  private static AbruptExitException createExitException(String message, MemoryOptions.Code code) {
-    return new AbruptExitException(
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setMemoryOptions(MemoryOptions.newBuilder().setCode(code))
-                .build()));
   }
 
   // Can be called concurrently, handles concurrent calls with #setThreshold gracefully.
@@ -96,6 +87,7 @@ final class RetainedHeapLimiter {
     }
 
     boolean wasHeapLimiterTriggeredGc = false;
+    boolean wasGcLockerDeferredHeapLimiterTriggeredGc = false;
     if (event.wasManualGc()) {
       wasHeapLimiterTriggeredGc = heapLimiterTriggeredGc.getAndSet(false);
       if (!wasHeapLimiterTriggeredGc) {
@@ -103,6 +95,17 @@ final class RetainedHeapLimiter {
         logger.atInfo().log("Ignoring manual GC from other source");
         return;
       }
+    } else if (event.wasGcLockerInitiatedGc() && heapLimiterTriggeredGc.getAndSet(false)) {
+      // If System.gc() is called was while there are JNI thread(s) in the critical region, GCLocker
+      // defers the GC until those threads exit the critical region. However, all GCLocker initiated
+      // GCs are minor evacuation pauses, so we won't get the full GC we requested. Cancel the
+      // timeout so we can attempt System.gc() again if we're still over the threshold. See full
+      // explanation in b/263405096#comment14.
+      logger.atWarning().log(
+          "Observed a GCLocker initiated GC without observing a manual GC since the last call to"
+              + " System.gc(), cancelling timeout to permit a retry");
+      wasGcLockerDeferredHeapLimiterTriggeredGc = true;
+      lastTriggeredGcMillis.set(0);
     }
 
     // Get a local reference to guard against concurrent modifications.
@@ -113,11 +116,12 @@ final class RetainedHeapLimiter {
       return; // Inactive.
     }
 
-    int actual = (int) ((event.tenuredSpaceUsedBytes() * 100L) / event.tenuredSpaceMaxBytes());
+    int actual = event.percentTenuredSpaceUsed();
     if (actual < threshold) {
-      if (wasHeapLimiterTriggeredGc) {
+      if (wasHeapLimiterTriggeredGc || wasGcLockerDeferredHeapLimiterTriggeredGc) {
         logger.atInfo().log("Back under threshold (%s%% of tenured space)", actual);
       }
+      consecutiveIgnoredFullGcsOverThreshold.set(0);
       return;
     }
 
@@ -141,15 +145,39 @@ final class RetainedHeapLimiter {
           "Triggering a full GC (%s%% of tenured space after %s GC)",
           actual, event.wasFullGc() ? "full" : "minor");
       heapLimiterTriggeredGc.set(true);
+      gcsTriggered.incrementAndGet();
       // Force a full stop-the-world GC and see if it can get us below the threshold.
       System.gc();
       lastTriggeredGcMillis.set(clock.currentTimeMillis());
+      consecutiveIgnoredFullGcsOverThreshold.set(0);
       loggedIgnoreWarningSinceLastGc.set(false);
-    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true) || event.wasFullGc()) {
+    } else if (event.wasFullGc()) {
+      int consecutiveIgnored = consecutiveIgnoredFullGcsOverThreshold.incrementAndGet();
+      maxConsecutiveIgnoredFullGcsOverThreshold.accumulateAndGet(consecutiveIgnored, Math::max);
       logger.atWarning().log(
-          "Ignoring possible GC thrashing (%s%% of tenured space after %s GC) because of recently"
-              + " triggered GC",
-          actual, event.wasFullGc() ? "full" : "minor");
+          "Ignoring possible GC thrashing x%s (%s%% of tenured space after full GC) because of"
+              + " recently triggered GC",
+          consecutiveIgnored, actual);
+    } else if (!loggedIgnoreWarningSinceLastGc.getAndSet(true)) {
+      logger.atWarning().log(
+          "Ignoring possible GC thrashing (%s%% of tenured space after minor GC) because of"
+              + " recently triggered GC",
+          actual);
     }
+  }
+
+  @Override
+  public void addStatsAndReset(MemoryPressureStats.Builder stats) {
+    stats
+        .setManuallyTriggeredGcs(gcsTriggered.getAndSet(0))
+        .setMaxConsecutiveIgnoredGcsOverThreshold(
+            maxConsecutiveIgnoredFullGcsOverThreshold.getAndSet(0));
+    consecutiveIgnoredFullGcsOverThreshold.set(0);
+  }
+
+  private static MemoryPressureOptions inactiveOptions() {
+    var options = Options.getDefaults(MemoryPressureOptions.class);
+    options.oomMoreEagerlyThreshold = 100;
+    return options;
   }
 }

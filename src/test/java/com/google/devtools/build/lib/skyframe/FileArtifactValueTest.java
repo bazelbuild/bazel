@@ -20,6 +20,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -65,19 +66,23 @@ public final class FileArtifactValueTest {
     new EqualsTester()
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 1L),
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L),
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 1L))
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 1L))
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("00112233445566778899AABBCCDDEEFF"), /*proxy=*/ null, 2L))
+                toBytes("00112233445566778899AABBCCDDEEFF"), /* proxy= */ null, 2L))
         .addEqualityGroup(FileArtifactValue.createForDirectoryWithMtime(1))
         .addEqualityGroup(
             FileArtifactValue.createForNormalFile(
-                toBytes("FFFFFF00000000000000000000000000"), /*proxy=*/ null, 1L))
+                toBytes("FFFFFF00000000000000000000000000"), /* proxy= */ null, 1L))
         .addEqualityGroup(
             FileArtifactValue.createForDirectoryWithMtime(2),
             FileArtifactValue.createForDirectoryWithMtime(2))
+        .addEqualityGroup(
+            // expireAtEpochMilli doesn't contribute to the equality
+            RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 1),
+            RemoteFileArtifactValue.create(toBytes("00112233445566778899AABBCCDDEEFF"), 1, 1, 2))
         .addEqualityGroup(FileArtifactValue.OMITTED_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.MISSING_FILE_MARKER)
         .addEqualityGroup(FileArtifactValue.DEFAULT_MIDDLEMAN)

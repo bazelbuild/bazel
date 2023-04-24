@@ -201,7 +201,9 @@ public class IndexRegistryTest extends FoundationTestCase {
         .isEqualTo(
             RepoSpec.builder()
                 .setRuleClassName("local_repository")
-                .setAttributes(ImmutableMap.of("name", "foorepo", "path", "/hello/bar/project_x"))
+                .setAttributes(
+                    AttributeValues.create(
+                        ImmutableMap.of("name", "foorepo", "path", "/hello/bar/project_x")))
                 .build());
   }
 
@@ -289,5 +291,34 @@ public class IndexRegistryTest extends FoundationTestCase {
             ImmutableMap.of(
                 Version.parse("1.0"),
                 "red-pill 1.0 is yanked due to CVE-2000-101, please upgrade to 2.0"));
+  }
+
+  @Test
+  public void testArchiveWithExplicitType() throws Exception {
+    server.serve(
+        "/modules/archive_type/1.0/source.json",
+        "{",
+        "  \"url\": \"https://mysite.com/thing?format=zip\",",
+        "  \"integrity\": \"sha256-blah\",",
+        "  \"archive_type\": \"zip\"",
+        "}");
+    server.start();
+
+    Registry registry = registryFactory.getRegistryWithUrl(server.getUrl());
+    assertThat(
+            registry.getRepoSpec(
+                createModuleKey("archive_type", "1.0"),
+                RepositoryName.create("archive_type_repo"),
+                reporter))
+        .isEqualTo(
+            new ArchiveRepoSpecBuilder()
+                .setRepoName("archive_type_repo")
+                .setUrls(ImmutableList.of("https://mysite.com/thing?format=zip"))
+                .setIntegrity("sha256-blah")
+                .setStripPrefix("")
+                .setArchiveType("zip")
+                .setRemotePatches(ImmutableMap.of())
+                .setRemotePatchStrip(0)
+                .build());
   }
 }

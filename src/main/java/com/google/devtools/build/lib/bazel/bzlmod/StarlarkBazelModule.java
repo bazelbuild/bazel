@@ -34,6 +34,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
+import net.starlark.java.spelling.SpellChecker;
 
 /** A Starlark object representing a Bazel module in the external dependency graph. */
 @StarlarkBuiltin(
@@ -118,10 +119,11 @@ public class StarlarkBazelModule implements StarlarkValue {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE,
             "The module extension defined at %s does not have a tag class named %s, but its use is"
-                + " attempted at %s",
+                + " attempted at %s%s",
             extension.getLocation(),
             tag.getTagName(),
-            tag.getLocation());
+            tag.getLocation(),
+            SpellChecker.didYouMean(tag.getTagName(), extension.getTagClasses().keySet()));
       }
 
       // Now we need to type-check the attribute values and convert them into "build language types"

@@ -15,13 +15,14 @@
 package com.google.testing.junit.runner;
 
 import com.google.testing.junit.runner.internal.StackTraces;
+import com.google.testing.junit.runner.junit4.JUnit4Bazel;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
-import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.junit4.JUnit4Runner;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -88,7 +89,7 @@ public class BazelTestRunner {
 
     printStackTracesIfJvmExitHangs(stderr);
 
-    DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    DateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
     Date shutdownTime = new Date();
     String formattedShutdownTime = format.format(shutdownTime);
     System.err.printf("-- JVM shutdown starting at %s --%n%n", formattedShutdownTime);
@@ -140,11 +141,7 @@ public class BazelTestRunner {
 
     // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
-        JUnit4Bazel.builder()
-            .suiteClass(new SuiteClass(suite))
-            .config(new Config(args))
-            .build()
-            .runner();
+        JUnit4Bazel.builder().suiteClass(suite).config(new Config(args)).build().runner();
     return runner.run().wasSuccessful() ? 0 : 1;
   }
 

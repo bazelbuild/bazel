@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.test;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.RunEnvironmentInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
@@ -32,12 +33,15 @@ import net.starlark.java.eval.StarlarkValue;
 /** Helper module for accessing test infrastructure. */
 @StarlarkBuiltin(
     name = "testing",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "ExecutionInfo",
-      doc = "<a href='ExecutionInfo.html'>testing.ExecutionInfo</a> provider key/constructor",
+      doc =
+          "<a href='../providers/ExecutionInfo.html'>testing.ExecutionInfo</a> provider"
+              + " key/constructor",
       structField = true)
   ExecutionInfoApi.ExecutionInfoApiProvider executionInfo() throws EvalException;
 
@@ -91,12 +95,13 @@ public interface TestingModuleApi extends StarlarkValue {
             named = true,
             doc =
                 "The Starlark function implementing this analysis test. It must have exactly one"
-                    + " parameter: <a href=\"ctx.html\">ctx</a>. The function is called during the"
-                    + " analysis phase. It can access the attributes declared by <code>attrs</code>"
-                    + " and populated via <code>attr_values</code>. The implementation function may"
-                    + " not register actions. Instead, it must register a pass/fail result"
-                    + " via providing <a"
-                    + " href='AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>."),
+                    + " parameter: <a href=\"../builtins/ctx.html\">ctx</a>. The function is called"
+                    + " during the analysis phase. It can access the attributes declared by"
+                    + " <code>attrs</code> and populated via <code>attr_values</code>. The"
+                    + " implementation function may not register actions. Instead, it must register"
+                    + " a pass/fail result via providing <a"
+                    + " href='../providers/AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>"
+                    + "."),
         @Param(
             name = "attrs",
             allowedTypes = {
@@ -106,9 +111,10 @@ public interface TestingModuleApi extends StarlarkValue {
             named = true,
             defaultValue = "None",
             doc =
-                "Dictionary declaring the attributes. See the <a href=\"rule.html\">rule</a> call."
-                    + "Attributes are allowed to use configuration transitions defined using <a "
-                    + " href=\"#analysis_test_transition\">analysis_test_transition</a>."),
+                "Dictionary declaring the attributes. See the <a"
+                    + " href=\"../globals/bzl.html#rule\">rule</a> call. Attributes are allowed to"
+                    + " use configuration transitions defined using <a "
+                    + " href=\"../globals/bzl.html#analysis_test_transition\">analysis_test_transition</a>."),
         @Param(
             name = "fragments",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -123,8 +129,8 @@ public interface TestingModuleApi extends StarlarkValue {
             named = true,
             defaultValue = "[]",
             doc =
-                "The set of toolchains the test requires. See the <a href=\"#rule\">rule</a>"
-                    + " call."),
+                "The set of toolchains the test requires. See the <a"
+                    + " href=\"../globals/bzl.html#rule\">rule</a> call."),
         @Param(
             name = "attr_values",
             allowedTypes = {@ParamType(type = Dict.class, generic1 = String.class)},

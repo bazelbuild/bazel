@@ -203,9 +203,7 @@ public final class JavaCompileActionBuilder {
     }
 
     NestedSetBuilder<Artifact> toolsBuilder = NestedSetBuilder.compileOrder();
-
-    CustomCommandLine.Builder executableLine =
-        javaBuilder.buildCommandLine(toolchain, toolsBuilder);
+    javaBuilder.addInputs(toolchain, toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
     ActionEnvironment actionEnvironment =
@@ -270,9 +268,10 @@ public final class JavaCompileActionBuilder {
             JavaCompileAction.allInputs(
                 mandatoryInputs, classpathEntries, compileTimeDependencyArtifacts),
             ruleContext.getConfiguration());
-    if (stripOutputPaths) {
-      executableLine.stripOutputPaths(JavaCompilationHelper.outputBase(outputs.output()));
-    }
+    CustomCommandLine executableLine =
+        javaBuilder.getCommandLine(
+            toolchain,
+            stripOutputPaths ? JavaCompilationHelper.outputBase(outputs.output()) : null);
 
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
@@ -292,7 +291,7 @@ public final class JavaCompileActionBuilder {
         /* outputs= */ allOutputs(),
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
-        /* executableLine= */ executableLine.build(),
+        /* executableLine= */ executableLine,
         /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,

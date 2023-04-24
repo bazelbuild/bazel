@@ -154,19 +154,19 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addToolchainTypes(CppRuleClasses.ccToolchainTypeRequirement(ccToolchainType))
         .add(
             attr("$grep_includes", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .value(
                     Label.parseCanonicalUnchecked(toolsRepository + "//tools/cpp:grep-includes")))
         .add(
             attr("$j2objc", LABEL)
-                .cfg(ExecutionTransitionFactory.create("j2objc"))
+                .cfg(ExecutionTransitionFactory.createFactory("j2objc"))
                 .exec()
                 .value(
                     Label.parseCanonicalUnchecked(
                         toolsRepository + "//tools/j2objc:j2objc_deploy.jar")))
         .add(
             attr("$j2objc_wrapper", LABEL)
-                .cfg(ExecutionTransitionFactory.create("j2objc"))
+                .cfg(ExecutionTransitionFactory.createFactory("j2objc"))
                 .exec()
                 .legacyAllowAnyFileType()
                 .value(
@@ -174,7 +174,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_wrapper_binary")))
         .add(
             attr("$j2objc_header_map", LABEL)
-                .cfg(ExecutionTransitionFactory.create("j2objc"))
+                .cfg(ExecutionTransitionFactory.createFactory("j2objc"))
                 .exec()
                 .legacyAllowAnyFileType()
                 .value(
@@ -182,19 +182,19 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//tools/j2objc:j2objc_header_map_binary")))
         .add(
             attr("$jre_emul_jar", LABEL)
-                .cfg(ExecutionTransitionFactory.create("j2objc"))
+                .cfg(ExecutionTransitionFactory.createFactory("j2objc"))
                 .value(
                     Label.parseCanonicalUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
         .add(
             attr("$jre_emul_module", LABEL)
-                .cfg(ExecutionTransitionFactory.create("j2objc"))
+                .cfg(ExecutionTransitionFactory.createFactory("j2objc"))
                 .value(
                     Label.parseCanonicalUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul_module")))
         .add(
             attr(":dead_code_report", LABEL)
-                .cfg(ExecutionTransitionFactory.create("j2objc"))
+                .cfg(ExecutionTransitionFactory.createFactory("j2objc"))
                 .value(DEAD_CODE_REPORT))
         .add(
             attr("$jre_lib", LABEL)
@@ -203,7 +203,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//third_party/java/j2objc:jre_core_lib")))
         .add(
             attr("$xcrunwrapper", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(
                     Label.parseCanonicalUnchecked(toolsRepository + "//tools/objc:xcrunwrapper")))
@@ -215,7 +215,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(AppleToolchain.getXcodeConfigLabel(toolsRepository)))
         .add(
             attr("$zipper", LABEL)
-                .cfg(ExecutionTransitionFactory.create())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .exec()
                 .value(Label.parseCanonicalUnchecked(toolsRepository + "//tools/zip:zipper")))
         .add(
@@ -852,7 +852,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private static boolean isProtoRule(ConfiguredTarget base) {
-    return base.get(ProtoInfo.PROVIDER) != null;
+    try {
+      return base.get(ProtoInfo.PROVIDER) != null;
+    } catch (RuleErrorException e) {
+      return false;
+    }
   }
 
   /** Returns a mutable List of objc output files. */

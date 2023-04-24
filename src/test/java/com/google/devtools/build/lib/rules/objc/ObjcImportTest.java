@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -96,6 +97,92 @@ public class ObjcImportTest extends ObjcRuleTestCase {
     CommandAction linkBinAction = linkAction("//bin:bin");
     verifyObjlist(linkBinAction, "imp/precomp_lib.a");
     assertThat(Artifact.asExecPaths(linkBinAction.getInputs())).contains("imp/precomp_lib.a");
+  }
+
+  @Test
+  public void testAlwaysLinkDefaultFalse() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    addTrivialImportLibrary();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments())).doesNotContain("-force_load");
+  }
+
+  @Test
+  public void testAlwaysLinkDefaultTrue() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    addTrivialImportLibrary();
+    addAppleBinaryStarlarkRule(scratch);
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments()))
+        .contains("-force_load imp/precomp_lib.a");
+  }
+
+  @Test
+  public void testAlwaysLinkTrueDefaultFalse() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default=false");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file("imp/precomp_lib.a");
+    scratch.file(
+        "imp/BUILD",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['precomp_lib.a'],",
+        "    alwayslink = True,",
+        ")");
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments()))
+        .contains("-force_load imp/precomp_lib.a");
+  }
+
+  @Test
+  public void testAlwaysLinkFalseDefaultTrue() throws Exception {
+    useConfiguration("--incompatible_objc_alwayslink_by_default");
+    addAppleBinaryStarlarkRule(scratch);
+
+    scratch.file("imp/precomp_lib.a");
+    scratch.file(
+        "imp/BUILD",
+        "objc_import(",
+        "    name = 'imp',",
+        "    archives = ['precomp_lib.a'],",
+        "    alwayslink = False,",
+        ")");
+    scratch.file(
+        "bin/BUILD",
+        "load('//test_starlark:apple_binary_starlark.bzl', 'apple_binary_starlark')",
+        "apple_binary_starlark(",
+        "    name = 'bin',",
+        "    platform_type = 'ios',",
+        "    deps = ['//imp:imp'],",
+        ")");
+    CommandAction linkBinAction = linkAction("//bin:bin");
+    assertThat(Joiner.on("").join(linkBinAction.getArguments())).doesNotContain("-force_load");
   }
 
   @Test

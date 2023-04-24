@@ -14,7 +14,6 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.io.PrintStream;
 import java.util.Collection;
@@ -113,10 +112,10 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
       }
       out.println(canonicalizedKey);
       if (entry.keepsEdges()) {
-        GroupedList<SkyKey> deps = GroupedList.create(entry.getCompressedDirectDepsForDoneEntry());
-        for (int i = 0; i < deps.listSize(); i++) {
+        GroupedDeps deps = GroupedDeps.decompress(entry.getCompressedDirectDepsForDoneEntry());
+        for (int i = 0; i < deps.numGroups(); i++) {
           out.format("  Group %d:\n", i + 1);
-          for (SkyKey dep : deps.get(i)) {
+          for (SkyKey dep : deps.getDepGroup(i)) {
             out.print("    ");
             out.println(canonicalizeKey(dep));
           }
@@ -158,5 +157,10 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
   private static String canonicalizeKey(SkyKey key) {
     return String.format(
         "%s:%s\n", key.functionName(), key.argument().toString().replace('\n', '_'));
+  }
+
+  @Override
+  public void cleanupInterningPools() {
+    getInMemoryGraph().cleanupInterningPool();
   }
 }

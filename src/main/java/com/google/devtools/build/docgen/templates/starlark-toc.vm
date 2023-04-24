@@ -2,23 +2,15 @@ toc:
 - title: Build API
   section:
   - title: Overview
-    path: /rules/lib/starlark-overview
-  - title: "Functions & Constants"
-    path: /rules/lib/globals
-  - title: Modules
-    section:
-#foreach ($module in $global_modules)
-    - title: ${module.name}
-      path: /rules/lib/${module.name}
-#end
-#foreach ($entry in $modules.entrySet())
+    path: /rules/lib/overview
+#foreach ($entry in $allPages.entrySet())
   - title: "${entry.key.title}"
     section:
     - title: Overview
-      path: /rules/lib/starlark-${entry.key.templateIdentifier}
-#foreach ($module in $entry.value)
-    - title: ${module.title}
-      path: /rules/lib/${module.name}
+      path: /rules/lib/${entry.key.path}
+#foreach ($page in $entry.value)
+    - title: ${page.title}
+      path: /rules/lib/${entry.key.path}/${page.name}
 #end
 #end
   - title: "Repository rules"

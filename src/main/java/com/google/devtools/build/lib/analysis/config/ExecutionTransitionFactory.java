@@ -44,7 +44,7 @@ public class ExecutionTransitionFactory
    * Returns a new {@link ExecutionTransitionFactory} for the default {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
    */
-  public static ExecutionTransitionFactory create() {
+  public static ExecutionTransitionFactory createFactory() {
     return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
   }
 
@@ -52,7 +52,7 @@ public class ExecutionTransitionFactory
    * Returns a new {@link ExecutionTransitionFactory} for the given {@link
    * com.google.devtools.build.lib.packages.ExecGroup}.
    */
-  public static ExecutionTransitionFactory create(String execGroup) {
+  public static ExecutionTransitionFactory createFactory(String execGroup) {
     return new ExecutionTransitionFactory(execGroup);
   }
 
@@ -184,7 +184,8 @@ public class ExecutionTransitionFactory
           result = result.clone();
           break;
         default:
-          // else if OFF do nothing
+          // else if OFF just mark that we are now in an exec transition
+          coreOptions.platformSuffix = "exec";
       }
 
       return result;

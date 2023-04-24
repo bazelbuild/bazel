@@ -18,9 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -38,14 +36,17 @@ public abstract class ModuleFileValue implements SkyValue {
    * module might not match the one in the requesting {@link SkyKey} in certain circumstances (for
    * example, for the root module, or when non-registry overrides are in play.
    */
-  public abstract Module getModule();
+  public abstract InterimModule getModule();
+
+  /** The hash string of Module.bazel (using SHA256) */
+  public abstract String getModuleFileHash();
 
   /** The {@link ModuleFileValue} for non-root modules. */
   @AutoValue
   public abstract static class NonRootModuleFileValue extends ModuleFileValue {
 
-    public static NonRootModuleFileValue create(Module module) {
-      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module);
+    public static NonRootModuleFileValue create(InterimModule module, String moduleFileHash) {
+      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module, moduleFileHash);
     }
   }
 
@@ -69,11 +70,12 @@ public abstract class ModuleFileValue implements SkyValue {
         getNonRegistryOverrideCanonicalRepoNameLookup();
 
     public static RootModuleFileValue create(
-        Module module,
+        InterimModule module,
+        String moduleFileHash,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(
-          module, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+          module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
     }
   }
 
@@ -85,7 +87,7 @@ public abstract class ModuleFileValue implements SkyValue {
   @AutoCodec
   @AutoValue
   abstract static class Key implements SkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     abstract ModuleKey getModuleKey();
 
@@ -105,5 +107,10 @@ public abstract class ModuleFileValue implements SkyValue {
     @Memoized
     @Override
     public abstract int hashCode();
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
+    }
   }
 }

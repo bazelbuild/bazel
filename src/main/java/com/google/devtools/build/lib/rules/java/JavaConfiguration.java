@@ -382,12 +382,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return useLegacyBazelJavaTest;
   }
 
-  @Override
-  public boolean useLegacyBazelJavaTestForStarlark(StarlarkThread thread) throws EvalException {
-    checkPrivateAccess(thread);
-    return useLegacyBazelJavaTest();
-  }
-
   /**
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
    * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.

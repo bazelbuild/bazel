@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.generatedprojecttest.util;
 
 import com.google.devtools.build.lib.testutil.BuildRuleBuilder;
 import com.google.devtools.build.lib.testutil.Scratch;
-
 import java.io.IOException;
 
 /**
@@ -33,10 +32,8 @@ public final class TestProjectBuilder {
 
   // The directory name to use for the workspace.
   private final String workspace;
-  /**
-   * Provides functionality to create and manipulate a scratch file system.
-   */
-  private final Scratch scratch = new Scratch();
+  /** Provides functionality to create and manipulate a scratch file system. */
+  private final Scratch scratch;
 
   /**
    * Creates a builder that will use the default workspace name as the directory.
@@ -50,6 +47,7 @@ public final class TestProjectBuilder {
    */
   public TestProjectBuilder(String workspace) {
     this.workspace = workspace;
+    this.scratch = new Scratch(String.format("/%s", workspace));
   }
 
   /**
@@ -73,12 +71,9 @@ public final class TestProjectBuilder {
     return this.scratch;
   }
 
-  /**
-   * Creates a dummy file with 'dummy' as content in the given package with the given name.
-   * @throws IOException 
-   */
+  /** Creates a dummy file with dummy content in the given package with the given name. */
   public void createDummyFileInDir(String pkg, String fileName) throws IOException {
-    scratch.file(String.format("%s/%s", pkg, fileName), "dummy");
+    scratch.file(String.format("%s/%s", pkg, fileName), dummyContentFor(fileName));
   }
 
   /**
@@ -86,7 +81,22 @@ public final class TestProjectBuilder {
    */
   public void createFilesToGenerate(BuildRuleBuilder ruleBuilder) throws IOException {
     for (String file : ruleBuilder.getFilesToGenerate()) {
-      scratch.file(file, "dummy");
+      scratch.file(file, dummyContentFor(file));
+    }
+  }
+
+  /** Generates dummy content for a file based on its name and extension. */
+  private static String dummyContentFor(String filePath) {
+    String fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+    String extension = fileName.substring(fileName.lastIndexOf('.') + 1);
+    if (extension.equals("bzl")
+        || fileName.equals("BUILD")
+        || fileName.equals("BUILD.bazel")
+        || fileName.equals("WORKSPACE")
+        || fileName.equals("WORKSPACE.bazel")) {
+      return "# dummy";
+    } else {
+      return "dummy";
     }
   }
 }

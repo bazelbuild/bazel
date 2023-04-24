@@ -11,10 +11,13 @@ package(
 SKYFRAME_OBJECT_SRCS = [
     "AbstractSkyKey.java",
     "FunctionHermeticity.java",
+    "GroupedDeps.java",
     "NodeVersion.java",
+    "NotComparableSkyValue.java",
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
+    "UsePooledLabelInterningFlag.java",
     "Version.java",
 ]
 
@@ -23,8 +26,12 @@ java_library(
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//third_party:auto_value",
+        "//third_party:checker_framework_annotations",
         "//third_party:guava",
     ],
 )
@@ -41,13 +48,17 @@ java_library(
         ":skyframe-objects",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",  # keep
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/supplier",
@@ -81,6 +92,13 @@ java_library(
 java_library(
     name = "execution_phase_skykey",
     srcs = ["ExecutionPhaseSkyKey.java"],
+    visibility = ["//visibility:public"],
+    deps = [":skyframe-objects"],
+)
+
+java_library(
+    name = "stallable_skykey",
+    srcs = ["StallableSkykey.java"],
     visibility = ["//visibility:public"],
     deps = [":skyframe-objects"],
 )

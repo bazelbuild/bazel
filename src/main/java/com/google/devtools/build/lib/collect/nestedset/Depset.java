@@ -63,8 +63,8 @@ import net.starlark.java.eval.StarlarkValue;
             + " If you need a general set datatype, you can"
             + " simulate one using a dictionary where all keys map to <code>True</code>."
             + "<p>Depsets are immutable. They should be created using their <a"
-            + " href=\"globals.html#depset\">constructor function</a> and merged or augmented with"
-            + " other depsets via the <code>transitive</code> argument. "
+            + " href=\"../globals/bzl.html#depset\">constructor function</a> and merged or"
+            + " augmented with other depsets via the <code>transitive</code> argument. "
             + "<p>The <code>order</code> parameter determines the"
             + " kind of traversal that is done to convert the depset to an iterable. There are"
             + " four possible values:"
@@ -100,40 +100,6 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   private Depset(@Nullable Class<?> elemClass, NestedSet<?> set) {
     this.elemClass = elemClass;
     this.set = set;
-  }
-
-  // Implementation of deprecated depset(items) constructor, where items is
-  // supplied positionally. See https://github.com/bazelbuild/bazel/issues/9017.
-  static Depset legacyOf(Order order, Object items) throws EvalException {
-    Class<?> elemClass = null; // special value for empty depset
-    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-
-    if (items instanceof Depset) {
-      Depset nestedSet = (Depset) items;
-      if (!nestedSet.isEmpty()) {
-        elemClass = nestedSet.elemClass;
-        try {
-          builder.addTransitive(nestedSet.set);
-        } catch (IllegalArgumentException e) {
-          // Order mismatch between items and builder.
-          throw Starlark.errorf("%s", e.getMessage());
-        }
-      }
-
-    } else if (items instanceof Sequence) {
-      for (Object x : (Sequence) items) {
-        checkElement(x, /* strict= */ true);
-        Class<?> xt = ElementType.getTypeClass(x.getClass());
-        elemClass = checkType(elemClass, xt);
-        builder.add(x);
-      }
-
-    } else {
-      throw Starlark.errorf(
-          "depset: got value of type '%s', want depset or sequence", Starlark.type(items));
-    }
-
-    return new Depset(elemClass, builder.build());
   }
 
   private static void checkElement(Object x, boolean strict) throws EvalException {
@@ -332,6 +298,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       return ElementType.EMPTY;
     }
     return ElementType.of(elemClass);
+  }
+
+  @Nullable
+  public Class<?> getElementClass() {
+    return elemClass;
   }
 
   @Override

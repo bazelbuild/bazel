@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -43,21 +44,41 @@ public final class BzlmodTestUtil {
     }
   }
 
+  public static DepSpec createDepSpec(String name, String version, int maxCompatibilityLevel) {
+    try {
+      return DepSpec.create(name, Version.parse(version), maxCompatibilityLevel);
+    } catch (Version.ParseException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
+  public static Module.Builder buildModule(String name, String version) throws Exception {
+    return Module.builder()
+        .setName(name)
+        .setVersion(Version.parse(version))
+        .setRepoName(name)
+        .setKey(createModuleKey(name, version))
+        .setExtensionUsages(ImmutableList.of())
+        .setExecutionPlatformsToRegister(ImmutableList.of())
+        .setToolchainsToRegister(ImmutableList.of());
+  }
+
   /** Builder class to create a {@code Entry<ModuleKey, Module>} entry faster inside UnitTests */
-  static final class ModuleBuilder {
-    Module.Builder builder;
+  static final class InterimModuleBuilder {
+    InterimModule.Builder builder;
     ModuleKey key;
-    ImmutableMap.Builder<String, ModuleKey> deps = new ImmutableMap.Builder<>();
-    ImmutableMap.Builder<String, ModuleKey> originalDeps = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, DepSpec> deps = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, DepSpec> originalDeps = new ImmutableMap.Builder<>();
 
-    private ModuleBuilder() {}
+    private InterimModuleBuilder() {}
 
-    public static ModuleBuilder create(String name, Version version, int compatibilityLevel) {
-      ModuleBuilder moduleBuilder = new ModuleBuilder();
+    public static InterimModuleBuilder create(
+        String name, Version version, int compatibilityLevel) {
+      InterimModuleBuilder moduleBuilder = new InterimModuleBuilder();
       ModuleKey key = ModuleKey.create(name, version);
       moduleBuilder.key = key;
       moduleBuilder.builder =
-          Module.builder()
+          InterimModule.builder()
               .setName(name)
               .setVersion(version)
               .setKey(key)
@@ -65,84 +86,96 @@ public final class BzlmodTestUtil {
       return moduleBuilder;
     }
 
-    public static ModuleBuilder create(String name, String version, int compatibilityLevel)
+    public static InterimModuleBuilder create(String name, String version, int compatibilityLevel)
         throws ParseException {
       return create(name, Version.parse(version), compatibilityLevel);
     }
 
-    public static ModuleBuilder create(String name, String version) throws ParseException {
+    public static InterimModuleBuilder create(String name, String version) throws ParseException {
       return create(name, Version.parse(version), 0);
     }
 
-    public static ModuleBuilder create(String name, Version version) throws ParseException {
+    public static InterimModuleBuilder create(String name, Version version) throws ParseException {
       return create(name, version, 0);
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder addDep(String depRepoName, ModuleKey key) {
-      deps.put(depRepoName, key);
+    public InterimModuleBuilder addDep(String depRepoName, ModuleKey key) {
+      deps.put(depRepoName, DepSpec.fromModuleKey(key));
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
-      originalDeps.put(depRepoName, key);
+    public InterimModuleBuilder addDep(String depRepoName, DepSpec depSpec) {
+      deps.put(depRepoName, depSpec);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder setKey(ModuleKey value) {
+    public InterimModuleBuilder addOriginalDep(String depRepoName, ModuleKey key) {
+      originalDeps.put(depRepoName, DepSpec.fromModuleKey(key));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public InterimModuleBuilder addOriginalDep(String depRepoName, DepSpec depSpec) {
+      originalDeps.put(depRepoName, depSpec);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public InterimModuleBuilder setKey(ModuleKey value) {
       this.key = value;
       this.builder.setKey(value);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder setRepoName(String value) {
+    public InterimModuleBuilder setRepoName(String value) {
       this.builder.setRepoName(value);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder setRegistry(FakeRegistry value) {
+    public InterimModuleBuilder setRegistry(FakeRegistry value) {
       this.builder.setRegistry(value);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder addExecutionPlatformsToRegister(ImmutableList<String> value) {
+    public InterimModuleBuilder addExecutionPlatformsToRegister(ImmutableList<String> value) {
       this.builder.addExecutionPlatformsToRegister(value);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder addToolchainsToRegister(ImmutableList<String> value) {
+    public InterimModuleBuilder addToolchainsToRegister(ImmutableList<String> value) {
       this.builder.addToolchainsToRegister(value);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public ModuleBuilder addExtensionUsage(ModuleExtensionUsage value) {
+    public InterimModuleBuilder addExtensionUsage(ModuleExtensionUsage value) {
       this.builder.addExtensionUsage(value);
       return this;
     }
 
-    public Map.Entry<ModuleKey, Module> buildEntry() {
-      Module module = this.build();
+    public Map.Entry<ModuleKey, InterimModule> buildEntry() {
+      InterimModule module = this.build();
       return new SimpleEntry<>(this.key, module);
     }
 
-    public Module build() {
-      ImmutableMap<String, ModuleKey> builtDeps = this.deps.buildOrThrow();
+    public InterimModule build() {
+      ImmutableMap<String, DepSpec> builtDeps = this.deps.buildOrThrow();
 
       /* Copy dep entries that have not been changed to original deps */
-      ImmutableMap<String, ModuleKey> initOriginalDeps = this.originalDeps.buildOrThrow();
-      for (Entry<String, ModuleKey> e : builtDeps.entrySet()) {
+      ImmutableMap<String, DepSpec> initOriginalDeps = this.originalDeps.buildOrThrow();
+      for (Entry<String, DepSpec> e : builtDeps.entrySet()) {
         if (!initOriginalDeps.containsKey(e.getKey())) {
           originalDeps.put(e);
         }
       }
-      ImmutableMap<String, ModuleKey> builtOriginalDeps = this.originalDeps.buildOrThrow();
+      ImmutableMap<String, DepSpec> builtOriginalDeps = this.originalDeps.buildOrThrow();
 
       return this.builder.setDeps(builtDeps).setOriginalDeps(builtOriginalDeps).build();
     }
@@ -283,6 +316,7 @@ public final class BzlmodTestUtil {
   public static class TestTagBuilder {
     private final Dict.Builder<String, Object> attrValuesBuilder = Dict.builder();
     private final String tagName;
+    private boolean devDependency = false;
 
     private TestTagBuilder(String tagName) {
       this.tagName = tagName;
@@ -294,11 +328,18 @@ public final class BzlmodTestUtil {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public TestTagBuilder setDevDependency() {
+      devDependency = true;
+      return this;
+    }
+
     public Tag build() {
       return Tag.builder()
           .setTagName(tagName)
           .setLocation(Location.BUILTIN)
-          .setAttributeValues(attrValuesBuilder.buildImmutable())
+          .setAttributeValues(AttributeValues.create(attrValuesBuilder.buildImmutable()))
+          .setDevDependency(devDependency)
           .build();
     }
   }

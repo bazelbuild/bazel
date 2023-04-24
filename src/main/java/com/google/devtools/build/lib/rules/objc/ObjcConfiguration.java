@@ -22,12 +22,21 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
@@ -68,6 +77,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   private final boolean avoidHardcodedCompilationFlags;
   private final boolean linkingInfoMigration;
   private final boolean disallowSdkFrameworksAttributes;
+  private final boolean alwayslinkByDefault;
 
   public ObjcConfiguration(BuildOptions buildOptions) {
     CoreOptions options = buildOptions.get(CoreOptions.class);
@@ -93,6 +103,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
         objcOptions.incompatibleAvoidHardcodedObjcCompilationFlags;
     this.linkingInfoMigration = objcOptions.incompatibleObjcLinkingInfoMigration;
     this.disallowSdkFrameworksAttributes = objcOptions.incompatibleDisallowSdkFrameworksAttributes;
+    this.alwayslinkByDefault = objcOptions.incompatibleObjcAlwayslinkByDefault;
   }
 
   /**
@@ -223,7 +234,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   }
 
   /**
-   * Returns whether Objective C builtin rules should get their linking info from CcInfo instead of
+   * Returns whether Objective-C builtin rules should get their linking info from CcInfo instead of
    * ObjcProvider.
    */
   @Override
@@ -235,5 +246,37 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean disallowSdkFrameworksAttributes() {
     return disallowSdkFrameworksAttributes;
+  }
+
+  /** Returns whether objc_library and objc_import should default to alwayslink=True. */
+  @Override
+  public boolean alwayslinkByDefault() {
+    return alwayslinkByDefault;
+  }
+
+  private static boolean isBuiltIn(StarlarkThread thread) {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    return label.getPackageIdentifier().getRepository().getName().equals("_builtins");
+  }
+
+  /**
+   * Looks at any explicit value for alwayslink on ctx and then falls back to the value of
+   * alwayslink_by_default.
+   */
+  @Override
+  public boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
+      throws EvalException {
+    if (!isBuiltIn(thread)) {
+      throw Starlark.errorf("Cannot use targetShouldAlwayslink API outside of builtins");
+    }
+
+    AttributeMap attributes = ruleContext.getRuleContext().attributes();
+    if (attributes.isAttributeValueExplicitlySpecified("alwayslink")) {
+      return attributes.get("alwayslink", Type.BOOLEAN);
+    }
+
+    return alwayslinkByDefault;
   }
 }

@@ -125,4 +125,51 @@ eof
   echo "$output" | grep --fixed-strings 'ExecuteProgram(C:\first_part second_part)' || fail "Expected error message to contain unquoted path"
 }
 
+function test_run_with_runfiles_env() {
+  mkdir -p b
+  cat > b/BUILD <<'EOF'
+sh_binary(
+  name = "binary",
+  srcs = ["binary.sh"],
+  deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+EOF
+  cat > b/binary.sh <<'EOF'
+#!/usr/bin/env bash
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
+own_path=$(rlocation main/b/binary.sh)
+echo "own path: $own_path"
+test -f "$own_path"
+EOF
+  chmod +x b/binary.sh
+
+  bazel run //b:binary --script_path=script.bat &>"$TEST_log" \
+    || fail "Script generation should succeed"
+
+  cat ./script.bat &>"$TEST_log"
+
+  # Make it so that the runfiles variables point to an incorrect but valid
+  # runfiles directory/manifest, simulating a left over one from a different
+  # test to which RUNFILES_DIR and RUNFILES_MANIFEST_FILE point in the client
+  # env.
+  BOGUS_RUNFILES_DIR="$(pwd)/bogus_runfiles/bazel_tools/tools/bash/runfiles"
+  mkdir -p "$BOGUS_RUNFILES_DIR"
+  touch "$BOGUS_RUNFILES_DIR/runfiles.bash"
+  BOGUS_RUNFILES_MANIFEST_FILE="$(pwd)/bogus_manifest"
+  echo "bazel_tools/tools/bash/runfiles/runfiles.bash bogus/path" > "$BOGUS_RUNFILES_MANIFEST_FILE"
+
+  RUNFILES_DIR="$BOGUS_RUNFILES_DIR" RUNFILES_MANIFEST_FILE="$BOGUS_RUNFILES_MANIFEST_FILE" \
+     ./script.bat || fail "Run should succeed"
+}
+
 run_suite "run_under_tests"

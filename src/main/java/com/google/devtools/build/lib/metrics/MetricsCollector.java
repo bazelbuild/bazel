@@ -13,9 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -40,13 +38,15 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.packages.metrics.PackageLoadMetrics;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsPackageLoadingListener;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsRecorder;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
-import com.google.devtools.build.lib.worker.WorkerMetric;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -118,6 +117,10 @@ class MetricsCollector {
     numAnalyses.getAndIncrement();
   }
 
+  // For each of the 4 metrics allow only 10 entries to be printed when handling
+  // extremes.
+  private static final int MAX_EXTREME_PACKAGE_STATS = 4 * 10;
+
   @SuppressWarnings("unused")
   @Subscribe
   public void onAnalysisPhaseComplete(AnalysisPhaseCompleteEvent event) {
@@ -129,8 +132,22 @@ class MetricsCollector {
     targetMetrics
         .setTargetsConfigured(targetsConfigured.total())
         .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
+
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
+
+    if (PackageMetricsPackageLoadingListener.getInstance().getPublishPackageMetricsInBep()) {
+      PackageMetricsRecorder recorder =
+          PackageMetricsPackageLoadingListener.getInstance().getPackageMetricsRecorder();
+      if (recorder != null) {
+        Stream<PackageLoadMetrics> metrics =
+            recorder.getRecorderType() == PackageMetricsRecorder.Type.ONLY_EXTREMES
+                ? recorder.getPackageLoadMetrics().stream().limit(MAX_EXTREME_PACKAGE_STATS)
+                : recorder.getPackageLoadMetrics().stream();
+
+        metrics.forEach(packageMetrics::addPackageLoadMetrics);
+      }
+    }
   }
 
   @SuppressWarnings("unused")
@@ -226,12 +243,6 @@ class MetricsCollector {
     env.getEventBus().post(new BuildMetricsEvent(createBuildMetrics()));
   }
 
-  private ImmutableList<WorkerMetrics> createWorkerMetrics() {
-    return WorkerMetricsCollector.instance().collectMetrics().stream()
-        .map(WorkerMetric::toProto)
-        .collect(toImmutableList());
-  }
-
   private BuildMetrics createBuildMetrics() {
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
@@ -243,7 +254,7 @@ class MetricsCollector {
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
-            .addAllWorkerMetrics(createWorkerMetrics());
+            .addAllWorkerMetrics(WorkerMetricsCollector.instance().createWorkerMetricsProto());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {
@@ -300,9 +311,15 @@ class MetricsCollector {
     spawnSummary
         .entrySet()
         .forEach(
-            e ->
-                actionSummary.addRunnerCount(
-                    RunnerCount.newBuilder().setName(e.getKey()).setCount(e.getValue()).build()));
+            e -> {
+              RunnerCount.Builder builder = RunnerCount.newBuilder();
+              builder.setName(e.getKey()).setCount(e.getValue());
+              String execKind = spawnStats.getExecKindFor(e.getKey());
+              if (execKind != null) {
+                builder.setExecKind(execKind);
+              }
+              actionSummary.addRunnerCount(builder.build());
+            });
     return actionSummary.build();
   }
 

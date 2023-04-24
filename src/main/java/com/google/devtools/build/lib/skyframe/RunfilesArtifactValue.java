@@ -13,41 +13,49 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
 
 /** The artifacts behind a runfiles middleman. */
-class RunfilesArtifactValue implements SkyValue {
-  private final ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs;
-  private final ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs;
+final class RunfilesArtifactValue implements SkyValue {
+
+  @FunctionalInterface
+  interface RunfilesConsumer<T> {
+    void accept(Artifact artifact, T metadata) throws InterruptedException;
+  }
+
   private final FileArtifactValue metadata;
 
+  // Parallel lists.
+  private final ImmutableList<Artifact> files;
+  private final ImmutableList<FileArtifactValue> fileValues;
+
+  // Parallel lists.
+  private final ImmutableList<Artifact> trees;
+  private final ImmutableList<TreeArtifactValue> treeValues;
+
   RunfilesArtifactValue(
-      ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs,
-      ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs,
-      FileArtifactValue metadata) {
-    this.fileInputs = Preconditions.checkNotNull(fileInputs);
-    this.directoryInputs = Preconditions.checkNotNull(directoryInputs);
-    this.metadata = Preconditions.checkNotNull(metadata);
-  }
-
-  /** Returns the none tree artifacts that this artifact expands to, together with their data. */
-  Collection<Pair<Artifact, FileArtifactValue>> getFileArtifacts() {
-    return fileInputs;
-  }
-
-  /**
-   * Returns the tree artifacts that this artifact expands to, together with the information to
-   * which artifacts the tree artifacts expand to.
-   */
-  Collection<Pair<Artifact, TreeArtifactValue>> getTreeArtifacts() {
-    return directoryInputs;
+      FileArtifactValue metadata,
+      ImmutableList<Artifact> files,
+      ImmutableList<FileArtifactValue> fileValues,
+      ImmutableList<Artifact> trees,
+      ImmutableList<TreeArtifactValue> treeValues) {
+    this.metadata = checkNotNull(metadata);
+    this.files = checkNotNull(files);
+    this.fileValues = checkNotNull(fileValues);
+    this.trees = checkNotNull(trees);
+    this.treeValues = checkNotNull(treeValues);
+    checkArgument(
+        files.size() == fileValues.size() && trees.size() == treeValues.size(),
+        "Size mismatch: %s",
+        this);
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
@@ -55,31 +63,49 @@ class RunfilesArtifactValue implements SkyValue {
     return metadata;
   }
 
-  @SuppressWarnings("EqualsGetClass") // RunfilesArtifactValue not equal to Aggregating.
+  /** Visits the file artifacts that this runfiles artifact expands to, together with their data. */
+  void forEachFile(RunfilesConsumer<FileArtifactValue> consumer) throws InterruptedException {
+    for (int i = 0; i < files.size(); i++) {
+      consumer.accept(files.get(i), fileValues.get(i));
+    }
+  }
+
+  /** Visits the tree artifacts that this runfiles artifact expands to, together with their data. */
+  void forEachTree(RunfilesConsumer<TreeArtifactValue> consumer) throws InterruptedException {
+    for (int i = 0; i < trees.size(); i++) {
+      consumer.accept(trees.get(i), treeValues.get(i));
+    }
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof RunfilesArtifactValue)) {
       return false;
     }
     RunfilesArtifactValue that = (RunfilesArtifactValue) o;
     return metadata.equals(that.metadata)
-        && fileInputs.equals(that.fileInputs)
-        && directoryInputs.equals(that.directoryInputs);
+        && files.equals(that.files)
+        && fileValues.equals(that.fileValues)
+        && trees.equals(that.trees)
+        && treeValues.equals(that.treeValues);
   }
 
   @Override
   public int hashCode() {
-    return 31 * 31 * directoryInputs.hashCode() + 31 * fileInputs.hashCode() + metadata.hashCode();
+    return HashCodes.hashObjects(metadata, files, fileValues, trees, treeValues);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("fileInputs", fileInputs)
-        .add("directoryInputs", directoryInputs)
+        .add("metadata", metadata)
+        .add("files", files)
+        .add("fileValues", fileValues)
+        .add("trees", trees)
+        .add("treeValues", treeValues)
         .toString();
   }
 }

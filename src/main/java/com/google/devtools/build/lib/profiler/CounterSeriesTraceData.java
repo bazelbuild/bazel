@@ -83,7 +83,9 @@ final class CounterSeriesTraceData implements TraceData {
           entry(ProfilerTask.WORKERS_MEMORY_USAGE, "rail_animation"),
           entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work"),
           entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "rail_idle"),
-          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "cq_build_attempt_passed"));
+          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "cq_build_attempt_passed"),
+          entry(ProfilerTask.PRESSURE_STALL_IO, "rail_idle"),
+          entry(ProfilerTask.PRESSURE_STALL_MEMORY, "rail_animation"));
 
   private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
       ImmutableMap.ofEntries(
@@ -98,7 +100,9 @@ final class CounterSeriesTraceData implements TraceData {
           entry(ProfilerTask.WORKERS_MEMORY_USAGE, "workers memory"),
           entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "load"),
           entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "estimated memory"),
-          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "estimated cpu"));
+          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "estimated cpu"),
+          entry(ProfilerTask.PRESSURE_STALL_IO, "i/o pressure"),
+          entry(ProfilerTask.PRESSURE_STALL_MEMORY, "memory pressure"));
 
   @Override
   public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {

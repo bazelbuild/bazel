@@ -31,9 +31,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
-import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.QueryableGraph.LookupHint;
@@ -68,7 +68,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   private boolean building = true;
   private SkyKey depErrorKey = null;
   private final SkyKey skyKey;
-  private final GroupedList<SkyKey> previouslyRequestedDeps;
+  private final GroupedDeps previouslyRequestedDeps;
 
   /**
    * The deps requested during the previous build of this node. Used for two reasons: (1) They are
@@ -154,7 +154,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   static SkyFunctionEnvironment create(
       SkyKey skyKey,
-      GroupedList<SkyKey> previouslyRequestedDeps,
+      GroupedDeps previouslyRequestedDeps,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
       throws InterruptedException, UndonePreviouslyRequestedDeps {
@@ -174,7 +174,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   static SkyFunctionEnvironment createForError(
       SkyKey skyKey,
-      GroupedList<SkyKey> previouslyRequestedDeps,
+      GroupedDeps previouslyRequestedDeps,
       Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext)
@@ -194,7 +194,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   private SkyFunctionEnvironment(
       SkyKey skyKey,
-      GroupedList<SkyKey> previouslyRequestedDeps,
+      GroupedDeps previouslyRequestedDeps,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
       Set<SkyKey> oldDeps,
       ParallelEvaluatorContext evaluatorContext,
@@ -295,7 +295,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
 
-    GroupedList<SkyKey> depKeys = entry.getTemporaryDirectDeps();
+    GroupedDeps depKeys = entry.getTemporaryDirectDeps();
     if (eventsToReport.isEmpty() && depKeys.isEmpty()) {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -308,12 +308,9 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     addTransitiveEventsFromDepValuesForDoneNode(
         eventBuilder,
-        // When there's no boundary between analysis & execution, we don't filter any dep.
-        evaluatorContext.mergingSkyframeAnalysisExecutionPhases()
-            ? depKeys.getAllElementsAsIterable()
-            : Iterables.filter(
-                depKeys.getAllElementsAsIterable(),
-                depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
+        Iterables.filter(
+            depKeys.getAllElementsAsIterable(),
+            depKey -> eventFilter.shouldPropagate(depKey, skyKey)),
         expectDoneDeps);
 
     NestedSet<Reportable> events = eventBuilder.buildInterruptibly();
@@ -755,12 +752,18 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
   }
 
   @Override
-  public GroupedList<SkyKey> getTemporaryDirectDeps() {
+  public GroupedDeps getTemporaryDirectDeps() {
     return previouslyRequestedDeps;
   }
 
   @Override
   public void handle(Event event) {
+    if (event.getKind() == EventKind.WARNING) {
+      event = event.withTag(getTagFromKey());
+      if (!evaluatorContext.getEmittedEventState().addWarning(event)) {
+        return; // Duplicate warning.
+      }
+    }
     reportEvent(event);
   }
 
@@ -886,10 +889,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
     } else {
       valueWithMetadata = ValueWithMetadata.normal(value, errorInfo, events);
     }
-    GroupedList<SkyKey> temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
+    GroupedDeps temporaryDirectDeps = primaryEntry.getTemporaryDirectDeps();
     if (!oldDeps.isEmpty()) {
       // Remove the rdep on this entry for each of its old deps that is no longer a direct dep.
-      Set<SkyKey> depsToRemove = Sets.difference(oldDeps, temporaryDirectDeps.toSet());
+      ImmutableList<SkyKey> depsToRemove =
+          ImmutableList.copyOf(Sets.difference(oldDeps, temporaryDirectDeps.toSet()));
       NodeBatch oldDepEntries =
           evaluatorContext.getGraph().getBatch(skyKey, Reason.RDEP_REMOVAL, depsToRemove);
       for (SkyKey key : depsToRemove) {
@@ -921,7 +925,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
             evaluationState == EvaluationState.BUILT ? value : null,
             evaluationState == EvaluationState.BUILT ? errorInfo : null,
             EvaluationSuccessStateSupplier.fromSkyValue(valueWithMetadata),
-            evaluationState);
+            evaluationState,
+            temporaryDirectDeps);
 
     return reverseDeps;
   }
@@ -1078,7 +1083,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
     private PartialReevaluation(
         SkyKey skyKey,
-        GroupedList<SkyKey> previouslyRequestedDeps,
+        GroupedDeps previouslyRequestedDeps,
         Set<SkyKey> oldDeps,
         ParallelEvaluatorContext evaluatorContext)
         throws UndonePreviouslyRequestedDeps, InterruptedException {

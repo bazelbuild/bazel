@@ -346,7 +346,7 @@ downloads JDK 11 from a remote repository and run the Java application using it.
 
 Default value is `local_jdk`.
 Possible values are: `local_jdk`, `local_jdk_{{ "<var>" }}version{{ "</var>" }}`,
-`remotejdk_11`, and `remote_jdk17`.
+`remotejdk_11`, and `remotejdk_17`.
 You can extend the values by registering custom JVM using either
 `local_java_repository` or `remote_java_repostory` repository rules.
 
@@ -977,7 +977,9 @@ excluded test sizes. For example,
 <pre>
   % bazel test --test_size_filters=small,medium //foo:all
 </pre>
-  and
+
+and
+
 <pre>
   % bazel test --test_size_filters=-large,-enormous //foo:all
 </pre>
@@ -1325,14 +1327,16 @@ The label of a platform rule that describes the host system.
 The platforms that are available as execution platforms to run actions.
 Platforms can be specified by exact target, or as a target pattern. These
 platforms will be considered before those declared in the WORKSPACE file by
-[register_execution_platforms()](/rules/lib/globals#register_execution_platforms).
+[register_execution_platforms()](/rules/lib/globals/workspace#register_execution_platforms).
+This option accepts a comma-separated list of platforms in order of priority.
+If the flag is passed multiple times, the most recent overrides.
 
 #### `--extra_toolchains={{ "<var>" }}labels{{ "</var>" }}` {:#extra-toolchains}
 
 The toolchain rules to be considered during toolchain resolution. Toolchains
 can be specified by exact target, or as a target pattern. These toolchains will
 be considered before those declared in the WORKSPACE file by
-[register_toolchains()](/rules/lib/globals#register_toolchains).
+[register_toolchains()](/rules/lib/globals/workspace#register_toolchains).
 
 #### `--toolchain_resolution_debug={{ "<var>" }}regex{{ "</var>" }}` {:#toolchain-resolution-debug}
 
@@ -2214,8 +2218,8 @@ Example:
 ### `analyze-profile` {:#analyze-profile}
 
 The `analyze-profile` command analyzes a
-[JSON trace profile](/config/json-trace-profile) previously gathered during a
-Bazel invocation.
+[JSON trace profile](/advanced/performance/json-trace-profile) previously
+gathered during a Bazel invocation.
 
 ### `canonicalize-flags` {:#canonicalize-flags}
 

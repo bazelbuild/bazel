@@ -17,7 +17,10 @@ load(":common/python/semantics.bzl", "TOOLS_REPO")
 
 _CcInfo = _builtins.toplevel.CcInfo
 
+# NOTE: This is copied to PyRuntimeInfo.java
 DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3"
+
+# NOTE: This is copied to PyRuntimeInfo.java
 DEFAULT_BOOTSTRAP_TEMPLATE = "@" + TOOLS_REPO + "//tools/python:python_bootstrap_template.txt"
 _PYTHON_VERSION_VALUES = ["PY2", "PY3"]
 
@@ -31,19 +34,42 @@ def _PyRuntimeInfo_init(
         python_version,
         stub_shebang = None,
         bootstrap_template = None):
-    if (interpreter_path == None) == (interpreter == None):
-        fail("exactly one of interpreter_path or interpreter must be set")
-    if (interpreter == None) != (files == None):
-        fail("interpreter and files must both be set or neither must be set")
-    if (coverage_tool == None) == (coverage_files == None):
-        fail("coverage_tool and coverage_files must both be set or neither must be set")
+    if (interpreter_path and interpreter) or (not interpreter_path and not interpreter):
+        fail("exactly one of interpreter or interpreter_path must be specified")
+
+    if interpreter_path and files != None:
+        fail("cannot specify 'files' if 'interpreter_path' is given")
+
+    if (coverage_tool and not coverage_files) or (not coverage_tool and coverage_files):
+        fail(
+            "coverage_tool and coverage_files must both be set or neither must be set, " +
+            "got coverage_tool={}, coverage_files={}".format(
+                coverage_tool,
+                coverage_files,
+            ),
+        )
+
     if python_version not in _PYTHON_VERSION_VALUES:
         fail("invalid python_version: '{}'; must be one of {}".format(
             python_version,
             _PYTHON_VERSION_VALUES,
         ))
+
+    if files != None and type(files) != type(depset()):
+        fail("invalid files: got value of type {}, want depset".format(type(files)))
+
+    if interpreter:
+        if files == None:
+            files = depset()
+    else:
+        files = None
+
+    if coverage_files == None:
+        coverage_files = depset()
+
     if not stub_shebang:
         stub_shebang = DEFAULT_STUB_SHEBANG
+
     return {
         "interpreter_path": interpreter_path,
         "interpreter": interpreter,
@@ -57,7 +83,7 @@ def _PyRuntimeInfo_init(
 
 # TODO(#15897): Rename this to PyRuntimeInfo when we're ready to replace the Java
 # implemented provider with the Starlark one.
-Starlark_PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
+PyRuntimeInfo, _unused_raw_py_runtime_info_ctor = provider(
     doc = """Contains information about a Python runtime, as returned by the `py_runtime`
 rule.
 
@@ -111,8 +137,6 @@ the same conventions as the standard CPython interpreter.
     },
 )
 
-PyRuntimeInfo = _builtins.toplevel.PyRuntimeInfo
-
 def _check_arg_type(name, required_type, value):
     value_type = type(value)
     if value_type != required_type:
@@ -130,10 +154,14 @@ def _PyInfo_init(
         has_py2_only_sources = False,
         has_py3_only_sources = False):
     _check_arg_type("transitive_sources", "depset", transitive_sources)
+
+    # Verify it's postorder compatible, but retain is original ordering.
+    depset(transitive = [transitive_sources], order = "postorder")
+
     _check_arg_type("uses_shared_libraries", "bool", uses_shared_libraries)
     _check_arg_type("imports", "depset", imports)
     _check_arg_type("has_py2_only_sources", "bool", has_py2_only_sources)
-    _check_arg_type("has_py2_only_sources", "bool", has_py3_only_sources)
+    _check_arg_type("has_py3_only_sources", "bool", has_py3_only_sources)
     return {
         "transitive_sources": transitive_sources,
         "imports": imports,
@@ -142,7 +170,7 @@ def _PyInfo_init(
         "has_py3_only_sources": has_py2_only_sources,
     }
 
-StarlarkPyInfo, _unused_raw_py_info_ctor = provider(
+PyInfo, _unused_raw_py_info_ctor = provider(
     "Encapsulates information provided by the Python rules.",
     init = _PyInfo_init,
     fields = {
@@ -167,15 +195,13 @@ is recommended to use `default` order (the default).
     },
 )
 
-PyInfo = _builtins.toplevel.PyInfo
-
 def _PyCcLinkParamsProvider_init(cc_info):
     return {
         "cc_info": _CcInfo(linking_context = cc_info.linking_context),
     }
 
 # buildifier: disable=name-conventions
-StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
+PyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = provider(
     doc = ("Python-wrapper to forward CcInfo.linking_context. This is to " +
            "allow Python targets to propagate C++ linking information, but " +
            "without the Python target appearing to be a valid C++ rule dependency"),
@@ -184,6 +210,3 @@ StarlarkPyCcLinkParamsProvider, _unused_raw_py_cc_link_params_provider_ctor = pr
         "cc_info": "A CcInfo instance; it has only linking_context set",
     },
 )
-
-# TODO(b/203567235): Re-implement in Starlark
-PyCcLinkParamsProvider = _builtins.toplevel.PyCcLinkParamsProvider  # buildifier: disable=name-conventions

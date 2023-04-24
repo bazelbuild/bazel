@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.List;
+import java.util.Optional;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -163,7 +163,9 @@ public class PackageTest {
             DefaultPackageSettings.INSTANCE,
             PackageIdentifier.createInMainRepo(name),
             "workspace",
-            /*noImplicitFileExport=*/ true,
+            Optional.empty(),
+            Optional.empty(),
+            /* noImplicitFileExport= */ true,
             RepositoryMapping.ALWAYS_FALLBACK,
             RepositoryMapping.ALWAYS_FALLBACK);
     result.setFilename(
@@ -174,13 +176,7 @@ public class PackageTest {
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)
       throws Exception {
-    Rule rule =
-        pkgBuilder.createRule(
-            label,
-            ruleClass,
-            Location.BUILTIN,
-            ImmutableList.of(),
-            new AttributeContainer.Mutable(FAUX_TEST_CLASS.getAttributeCount()));
+    Rule rule = pkgBuilder.createRule(label, ruleClass, /* callstack= */ ImmutableList.of());
     rule.populateOutputFiles(new StoredEventHandler(), pkgBuilder);
     pkgBuilder.addRule(rule);
     return rule;

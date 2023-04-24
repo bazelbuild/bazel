@@ -81,9 +81,20 @@ DATA_ATTRS = {
     ),
 }
 
+NATIVE_RULES_ALLOWLIST_ATTRS = {
+    "_native_rules_allowlist": attr.label(
+        default = configuration_field(
+            fragment = "py",
+            name = "native_rules_allowlist",
+        ),
+        providers = ["PackageSpecificationProvider"],
+    ),
+}
+
 # Attributes common to all rules.
 COMMON_ATTRS = union_attrs(
     DATA_ATTRS,
+    NATIVE_RULES_ALLOWLIST_ATTRS,
     {
         # TODO(b/148103851): This attribute is deprecated and slated for
         # removal.

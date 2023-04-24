@@ -61,7 +61,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
   public void buildAndWorkspaceBzlEnvsDeclareSameNames() throws Exception {
     BazelStarlarkEnvironment starlarkEnv = pkgFactory.getBazelStarlarkEnvironment();
     Set<String> buildBzlNames = starlarkEnv.getUninjectedBuildBzlEnv().keySet();
-    Set<String> workspaceBzlNames = starlarkEnv.getWorkspaceBzlEnv().keySet();
+    Set<String> workspaceBzlNames = starlarkEnv.getUninjectedWorkspaceBzlEnv().keySet();
     assertThat(buildBzlNames).isEqualTo(workspaceBzlNames);
   }
 
@@ -72,7 +72,7 @@ public final class BazelStarlarkEnvironmentTest extends BuildViewTestCase {
     buildBzlEnv.putAll(starlarkEnv.getUninjectedBuildBzlEnv());
     buildBzlEnv.remove("native");
     Map<String, Object> workspaceBzlEnv = new HashMap<>();
-    workspaceBzlEnv.putAll(starlarkEnv.getWorkspaceBzlEnv());
+    workspaceBzlEnv.putAll(starlarkEnv.getUninjectedWorkspaceBzlEnv());
     workspaceBzlEnv.remove("native");
     assertThat(buildBzlEnv).isEqualTo(workspaceBzlEnv);
   }

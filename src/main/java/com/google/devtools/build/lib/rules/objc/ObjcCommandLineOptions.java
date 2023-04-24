@@ -63,7 +63,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.TEST_RUNNER},
       help =
-          "The device to simulate when running an watchOS application in the simulator, e.g. "
+          "The device to simulate when running a watchOS application in the simulator, e.g. "
               + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
               + "devicetypes' on the machine the simulator will be run on.")
   public String watchosSimulatorDevice;
@@ -83,7 +83,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.TEST_RUNNER},
       help =
-          "The device to simulate when running an tvOS application in the simulator, e.g. "
+          "The device to simulate when running a tvOS application in the simulator, e.g. "
               + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
               + "devicetypes' on the machine the simulator will be run on.")
   public String tvosSimulatorDevice;
@@ -192,6 +192,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
               + "objc_import.")
   public boolean incompatibleDisallowSdkFrameworksAttributes;
 
+  @Option(
+      name = "incompatible_objc_alwayslink_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, make the default value true for alwayslink attributes in objc_library and"
+              + " objc_import.")
+  public boolean incompatibleObjcAlwayslinkByDefault;
+
   /** @deprecated delete when we are sure it's not used anywhere. */
   @Deprecated
   @Option(
@@ -213,6 +224,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
         incompatibleAvoidHardcodedObjcCompilationFlags;
     exec.incompatibleObjcLinkingInfoMigration = incompatibleObjcLinkingInfoMigration;
     exec.incompatibleDisallowSdkFrameworksAttributes = incompatibleDisallowSdkFrameworksAttributes;
+    exec.incompatibleObjcAlwayslinkByDefault = incompatibleObjcAlwayslinkByDefault;
     return exec;
   }
 }

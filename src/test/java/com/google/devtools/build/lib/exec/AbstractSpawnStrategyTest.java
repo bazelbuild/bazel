@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -80,7 +80,7 @@ public class AbstractSpawnStrategyTest {
 
   private static class TestedSpawnStrategy extends AbstractSpawnStrategy {
     public TestedSpawnStrategy(Path execRoot, SpawnRunner spawnRunner) {
-      super(execRoot, spawnRunner, /*verboseFailures=*/ true);
+      super(execRoot, spawnRunner, new ExecutionOptions());
     }
   }
 
@@ -530,7 +530,8 @@ public class AbstractSpawnStrategyTest {
                 .setFailureDetail(NON_ZERO_EXIT_DETAILS)
                 .setRunnerName("runner")
                 .build());
-    when(actionExecutionContext.getMetadataProvider()).thenReturn(mock(MetadataProvider.class));
+    when(actionExecutionContext.getInputMetadataProvider())
+        .thenReturn(mock(InputMetadataProvider.class));
   }
 
   /** Returns a SpawnExec pre-populated with values for a default spawn */

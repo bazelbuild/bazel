@@ -9,7 +9,9 @@ tasks:
     build_flags:
       - "--config=bzlmod"
     build_targets:
-      - "//src:bazel_nojdk"
+      - "//src:bazel"
+    test_targets:
+      - "//src/test/cpp/..."
   centos7_java11_devtoolset10:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -202,7 +204,6 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
-      - "//tools/osx/crosstool/..."
       - "//tools/python/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
@@ -266,7 +267,6 @@ tasks:
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
-      - "//tools/osx/crosstool/..."
       - "//tools/python/..."
       # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
@@ -345,7 +345,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
-      - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
       - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
       - "-//src/test/shell/bazel/remote/..."
@@ -400,6 +399,10 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
+      - "-//src/test/py/bazel:bazel_lockfile_test"
+      - "-//src/test/py/bazel:bazel_overrides_test"
+      - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/shell/bazel:verify_workspace"
     include_json_profile:
       - build

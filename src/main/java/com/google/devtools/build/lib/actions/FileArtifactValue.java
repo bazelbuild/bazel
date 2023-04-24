@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -107,15 +108,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public int getLocationIndex() {
     return 0;
-  }
-
-  /**
-   * Remote action source identifier for the file.
-   *
-   * <p>"" indicates that a remote action output was not the source of this artifact.
-   */
-  public String getActionId() {
-    return "";
   }
 
   /** Returns {@code true} if the file only exists remotely. */
@@ -387,7 +379,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) throws IOException {
+    public boolean wasModifiedSinceDigest(Path path) {
       return false;
     }
 
@@ -548,42 +540,45 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   /** Metadata for remotely stored files. */
   public static class RemoteFileArtifactValue extends FileArtifactValue {
-    protected final byte[] digest;
-    protected final long size;
-    protected final int locationIndex;
-    protected final String actionId;
+    private final byte[] digest;
+    private final long size;
+    private final int locationIndex;
+    @Nullable private final PathFragment materializationExecPath;
 
-    private RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
-      this.digest = Preconditions.checkNotNull(digest, actionId);
+    private RemoteFileArtifactValue(
+        byte[] digest,
+        long size,
+        int locationIndex,
+        @Nullable PathFragment materializationExecPath) {
+      this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
       this.locationIndex = locationIndex;
-      this.actionId = actionId;
+      this.materializationExecPath = materializationExecPath;
     }
 
     public static RemoteFileArtifactValue create(
-        byte[] digest, long size, int locationIndex, String actionId) {
-      return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
-    }
-
-    public static RemoteFileArtifactValue create(byte[] digest, long size, int locationIndex) {
-      return new RemoteFileArtifactValue(digest, size, locationIndex, /* actionId= */ "");
+        byte[] digest, long size, int locationIndex, long expireAtEpochMilli) {
+      return create(
+          digest, size, locationIndex, expireAtEpochMilli, /* materializationExecPath= */ null);
     }
 
     public static RemoteFileArtifactValue create(
         byte[] digest,
         long size,
         int locationIndex,
-        String actionId,
+        long expireAtEpochMilli,
         @Nullable PathFragment materializationExecPath) {
-      if (materializationExecPath != null) {
-        return new RemoteFileArtifactValueWithMaterializationPath(
-            digest, size, locationIndex, actionId, materializationExecPath);
-      }
-      return new RemoteFileArtifactValue(digest, size, locationIndex, actionId);
+      return expireAtEpochMilli < 0
+          ? new RemoteFileArtifactValue(digest, size, locationIndex, materializationExecPath)
+          : new RemoteFileArtifactValueWithExpiration(
+              digest, size, locationIndex, materializationExecPath, expireAtEpochMilli);
     }
 
     @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof RemoteFileArtifactValue)) {
         return false;
       }
@@ -592,126 +587,108 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return Arrays.equals(digest, that.digest)
           && size == that.size
           && locationIndex == that.locationIndex
-          && Objects.equals(actionId, that.actionId);
+          && Objects.equals(materializationExecPath, that.materializationExecPath);
     }
 
     @Override
-    public int hashCode() {
-      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, actionId);
+    public final int hashCode() {
+      return Objects.hash(Arrays.hashCode(digest), size, locationIndex, materializationExecPath);
     }
 
     @Override
-    public FileStateType getType() {
+    public final FileStateType getType() {
       return FileStateType.REGULAR_FILE;
     }
 
     @Override
-    public byte[] getDigest() {
+    public final byte[] getDigest() {
       return digest;
     }
 
     @Override
-    public FileContentsProxy getContentsProxy() {
+    public final FileContentsProxy getContentsProxy() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public long getSize() {
+    public final long getSize() {
       return size;
     }
 
     @Override
-    public String getActionId() {
-      return actionId;
-    }
-
-    @Override
-    public long getModifiedTime() {
+    public final long getModifiedTime() {
       throw new UnsupportedOperationException(
           "RemoteFileArtifactValue doesn't support getModifiedTime");
     }
 
     @Override
-    public int getLocationIndex() {
+    public final int getLocationIndex() {
       return locationIndex;
     }
 
     @Override
-    public boolean wasModifiedSinceDigest(Path path) {
-      return false;
+    public final Optional<PathFragment> getMaterializationExecPath() {
+      return Optional.ofNullable(materializationExecPath);
     }
 
-    @Override
-    public boolean isRemote() {
+    /**
+     * Returns the time when the remote file expires in milliseconds since epoch. A negative value
+     * means the remote is not known to expire.
+     *
+     * <p>Expiration time does not contribute to equality of remote files.
+     */
+    public long getExpireAtEpochMilli() {
+      return -1;
+    }
+
+    public boolean isAlive(Instant now) {
       return true;
     }
 
     @Override
-    public String toString() {
+    public final boolean wasModifiedSinceDigest(Path path) {
+      return false;
+    }
+
+    @Override
+    public final boolean isRemote() {
+      return true;
+    }
+
+    @Override
+    public final String toString() {
       return MoreObjects.toStringHelper(this)
           .add("digest", bytesToString(digest))
           .add("size", size)
           .add("locationIndex", locationIndex)
-          .add("actionId", actionId)
+          .add("materializationExecPath", materializationExecPath)
+          .add("expireAtEpochMilli", getExpireAtEpochMilli())
           .toString();
     }
   }
 
-  /**
-   * A remote artifact that should be materialized in the local filesystem as a symlink to another
-   * location.
-   *
-   * <p>See the documentation for {@link FileArtifactValue#getMaterializationExecPath}.
-   */
-  public static final class RemoteFileArtifactValueWithMaterializationPath
-      extends RemoteFileArtifactValue {
-    private final PathFragment materializationExecPath;
+  /** A remote artifact that expires at a particular time. */
+  private static final class RemoteFileArtifactValueWithExpiration extends RemoteFileArtifactValue {
+    private final long expireAtEpochMilli;
 
-    private RemoteFileArtifactValueWithMaterializationPath(
+    private RemoteFileArtifactValueWithExpiration(
         byte[] digest,
         long size,
         int locationIndex,
-        String actionId,
-        PathFragment materializationExecPath) {
-      super(digest, size, locationIndex, actionId);
-      this.materializationExecPath = Preconditions.checkNotNull(materializationExecPath);
+        PathFragment materializationExecPath,
+        long expireAtEpochMilli) {
+      super(digest, size, locationIndex, materializationExecPath);
+      this.expireAtEpochMilli = expireAtEpochMilli;
     }
 
     @Override
-    public Optional<PathFragment> getMaterializationExecPath() {
-      return Optional.ofNullable(materializationExecPath);
+    public long getExpireAtEpochMilli() {
+      return expireAtEpochMilli;
     }
 
     @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof RemoteFileArtifactValueWithMaterializationPath)) {
-        return false;
-      }
-
-      RemoteFileArtifactValueWithMaterializationPath that =
-          (RemoteFileArtifactValueWithMaterializationPath) o;
-      return Arrays.equals(digest, that.digest)
-          && size == that.size
-          && locationIndex == that.locationIndex
-          && Objects.equals(actionId, that.actionId)
-          && Objects.equals(materializationExecPath, that.materializationExecPath);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(
-          Arrays.hashCode(digest), size, locationIndex, actionId, materializationExecPath);
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this)
-          .add("digest", bytesToString(digest))
-          .add("size", size)
-          .add("locationIndex", locationIndex)
-          .add("actionId", actionId)
-          .add("materializationExecPath", materializationExecPath)
-          .toString();
+    public boolean isAlive(Instant now) {
+      return now.toEpochMilli() < expireAtEpochMilli;
     }
   }
 

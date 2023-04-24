@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
@@ -146,24 +145,25 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
       ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,
       Target target)
       throws QueryException, InterruptedException {
-   RuleVisibility ruleVisibility = target.getVisibility();
-   if (ruleVisibility instanceof ConstantRuleVisibility) {
-     if (((ConstantRuleVisibility) ruleVisibility).isPubliclyVisible()) {
-        packageSpecifications.add(QueryVisibility.everything());
-     }
-   } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
-     PackageGroupsRuleVisibility packageGroupsVisibility =
-         (PackageGroupsRuleVisibility) ruleVisibility;
-     for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
-       try {
+    RuleVisibility ruleVisibility = target.getVisibility();
+    if (ruleVisibility.equals(RuleVisibility.PRIVATE)) {
+      return;
+    }
+    if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
+      packageSpecifications.add(QueryVisibility.everything());
+    } else if (ruleVisibility instanceof PackageGroupsRuleVisibility) {
+      PackageGroupsRuleVisibility packageGroupsVisibility =
+          (PackageGroupsRuleVisibility) ruleVisibility;
+      for (Label groupLabel : packageGroupsVisibility.getPackageGroups()) {
+        try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);
-       } catch (TargetNotFoundException e) {
+        } catch (TargetNotFoundException e) {
           queryEnvironment.handleError(
               caller,
               "Invalid visibility label '" + groupLabel.getCanonicalForm() + "': " + e.getMessage(),
               e.getDetailedExitCode());
-       }
-     }
+        }
+      }
       packageSpecifications.add(
           new BlazeQueryVisibility(packageGroupsVisibility.getDirectPackages()));
    } else {

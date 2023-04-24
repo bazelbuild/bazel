@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Serializable;
-import java.lang.reflect.Field;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -67,103 +65,47 @@ public interface SkyKey extends Serializable {
     return false;
   }
 
+  @Nullable
+  default SkyKeyInterner<?> getSkyKeyInterner() {
+    return null;
+  }
+
   static <T extends SkyKey> SkyKeyInterner<T> newInterner() {
     return new SkyKeyInterner<>();
   }
 
-  /**
-   * An alternative container to the weak interner for storing {@link SkyKey}.
-   *
-   * <p>A pool is a storage space that already exists during normal program execution and provides
-   * lookup functionality for interning, thus eliminating storage overhead from using a classic weak
-   * interner.
-   */
-  interface SkyKeyPool {
+  /** {@link PooledInterner} for {@link SkyKey}s. */
+  final class SkyKeyInterner<T extends SkyKey> extends PooledInterner<T> {
+    @Nullable static Pool<? extends SkyKey> globalPool = null;
 
     /**
-     * Returns the canonical instance of the {@link SkyKey} if found in the pool, otherwise returns
-     * {@code null}.
-     */
-    @Nullable
-    SkyKey canonicalize(SkyKey key);
-  }
-
-  /**
-   * An extension of the weak interner which contains an alternative and static {@link #globalPool}
-   * container in addition to a weak interner and supports removing {@link SkyKey} from the {@link
-   * #weakInterner}.
-   *
-   * <p>The reason of implementing {@link SkyKeyInterner} is that the same {@link SkyKey} object can
-   * be stored in both weak interner and some other container in blaze with two equal references,
-   * causing some memory overhead.
-   *
-   * <p>{@link SkyKeyInterner} enables the client to manage where the {@link SkyKey} object is
-   * stored, addressing the memory overhead issue. In more detail,
-   *
-   * <ul>
-   *   <li>If the {@link SkyKey} object is already canonicalized in the {@link #globalPool}, it
-   *       should not be stored in {@link #weakInterner} again, thus removing the storage overhead
-   *       of using a weak interner;
-   *   <li>User can also remove {@link SkyKey} from {@link #weakInterner}'s underlying {@link
-   *       #internerAsMap} when the {@link SkyKey} object appears in {@link #globalPool}.
-   * </ul>
-   */
-  final class SkyKeyInterner<T extends SkyKey> implements Interner<T> {
-    @Nullable private static SkyKeyPool globalPool = null;
-
-    private final Interner<T> weakInterner = BlazeInterners.newWeakInterner();
-    private final Map<?, ?> internerAsMap = getMapReflectively(weakInterner);
-
-    private SkyKeyInterner() {}
-
-    // There was a Guava API review to include the feature of removing from an interner, and the
-    // outcome was that we should just get the map reflectively.
-    private static Map<?, ?> getMapReflectively(Interner<?> interner) {
-      try {
-        Field field = interner.getClass().getDeclaredField("map");
-        field.setAccessible(true);
-        return (Map<?, ?>) field.get(interner);
-      } catch (ReflectiveOperationException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    /**
-     * Sets the {@link SkyKeyPool} to be used for interning.
+     * Sets the {@link Pool} to be used for interning.
      *
      * <p>The pool is strongly retained until another pool is set. {@code null} can be passed to
      * clear the global pool.
      */
     @ThreadSafety.ThreadCompatible
-    public static void setGlobalPool(@Nullable SkyKeyPool pool) {
+    public static void setGlobalPool(@Nullable Pool<SkyKey> pool) {
       // No synchronization is needed. Setting global pool is guaranteed to happen sequentially
       // since only one build can happen at the same time.
       globalPool = pool;
     }
 
-    /**
-     * Returns the canonical instance of {@code sample} from either {@link #globalPool} or the
-     * {@link #weakInterner}.
-     */
     @Override
     @SuppressWarnings("unchecked")
-    public T intern(T sample) {
-      SkyKeyPool pool = globalPool;
-      if (pool != null) {
-        SkyKey result = pool.canonicalize(sample);
-        if (result != null) {
-          return (T) result;
-        }
-      }
-      return weakInterner.intern(sample);
+    protected Pool<T> getPool() {
+      return (Pool<T>) globalPool;
     }
 
     /**
-     * Removes {@link SkyKey} from the weak interner. Client can call this method when the {@link
-     * SkyKey} is already stored in the global pool in order to reduce the memory overhead.
+     * Call {@link #weakInternUnchecked(SkyKey)} on {@link SkyKeyInterner} returned by {@code
+     * key.getSkyKeyInterner}. This method is created to remove casts and
+     * {@code @SuppressWarnings("unchecked")} in callers and put them in one place.
      */
-    public void removeWeak(SkyKey sample) {
-      internerAsMap.remove(sample);
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked")
+    public T weakInternUnchecked(SkyKey sample) {
+      return weakIntern((T) sample);
     }
   }
 

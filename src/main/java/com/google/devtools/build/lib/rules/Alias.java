@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -42,13 +41,8 @@ public class Alias implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual");
 
-    // TODO(b/129045294): Remove once the flag is flipped.
-    if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")
-        && ruleContext
-            .getConfiguration()
-            .getOptions()
-            .get(CoreOptions.class)
-            .usePlatformsRepoForConstraints) {
+    // TODO(b/129045294): Remove the logic below completely when repo is deleted.
+    if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")) {
       throw ruleContext.throwWithRuleError(
           "Constraints from @bazel_tools//platforms have been "
               + "removed. Please use constraints from @platforms repository embedded in "
@@ -82,9 +76,11 @@ public class Alias implements RuleConfiguredTargetFactory {
           .canHaveAnyProvider()
           // Aliases themselves do not need toolchains or an execution platform, so this is fine.
           // The actual target will resolve platforms and toolchains with no issues regardless of
-          // this setting. The only time an alias directly needs the platform is when it has a
-          // select() on a constraint_setting, so special-case enable those instances too.
-          .useToolchainResolution(ToolchainResolutionMode.HAS_SELECT)
+          // this setting. In some circumstances an alias directly needs the platform:
+          // - when it has a select() on a constraint_setting, or
+          // - when it has a target_compatible_with attribute.
+          // Special-case enable those instances too.
+          .useToolchainResolution(ToolchainResolutionMode.ENABLED_ONLY_FOR_COMMON_LOGIC)
           .build();
     }
 

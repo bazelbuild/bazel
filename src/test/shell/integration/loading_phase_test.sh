@@ -289,24 +289,24 @@ function test_incremental_deleting_package_roots() {
   local -r pkg="${FUNCNAME}"
   mkdir -p "$pkg" || fail "could not create \"$pkg\""
 
-  local other_root=$TEST_TMPDIR/other_root/${WORKSPACE_NAME}
+  local other_root=other_root/${WORKSPACE_NAME}
   mkdir -p $other_root/$pkg/a
   touch $other_root/WORKSPACE
   echo 'sh_library(name="external")' > $other_root/$pkg/a/BUILD
   mkdir -p $pkg/a
   echo 'sh_library(name="internal")' > $pkg/a/BUILD
 
-  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
+  bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
   expect_log "//$pkg/a:external"
   expect_not_log "//$pkg/a:internal"
   rm -r $other_root
-  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
+  bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
   expect_log "//$pkg/a:internal"
   expect_not_log "//$pkg/a:external"
   mkdir -p $other_root
-  bazel query --package_path=$other_root:. $pkg/a:all >& $TEST_log \
+  bazel query --package_path=%workspace%/$other_root:. $pkg/a:all >& $TEST_log \
       || fail "Expected success"
   expect_log "//$pkg/a:internal"
   expect_not_log "//$pkg/a:external"
@@ -595,18 +595,6 @@ EOF
     fail "Expected build to succeed"
   )
   assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
-}
-
-function test_path_from_subdir() {
-  local -r pkg="${FUNCNAME}"
-  mkdir -p "$pkg/subdir" || fail "could not create \"$pkg/subdir\""
-  touch "$pkg/subdir/BUILD" || fail "Could not touch"
-  echo 'filegroup(name = "foo", srcs = [])' > "$pkg/BUILD" || fail "echo"
-  cd "$pkg/subdir"
-  bazel query '../BUILD + ../foo' >output 2> "$TEST_log" \
-      || fail "Expected success"
-  assert_contains "^//$pkg:BUILD" output
-  assert_contains "^//$pkg:foo" output
 }
 
 function test_target_with_BUILD() {

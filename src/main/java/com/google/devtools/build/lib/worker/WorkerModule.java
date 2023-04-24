@@ -101,7 +101,8 @@ public class WorkerModule extends BlazeModule {
               ImmutableList.copyOf(sandboxOptions.sandboxTmpfsPath),
               ImmutableList.copyOf(sandboxOptions.sandboxWritablePath),
               sandboxOptions.memoryLimitMb,
-              sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()));
+              sandboxOptions.getInaccessiblePaths(env.getRuntime().getFileSystem()),
+              ImmutableList.copyOf(sandboxOptions.sandboxAdditionalMounts));
     } else {
       workerSandboxOptions = null;
     }
@@ -144,10 +145,7 @@ public class WorkerModule extends BlazeModule {
 
     WorkerPoolConfig newConfig =
         new WorkerPoolConfig(
-            workerFactory,
-            options.workerMaxInstances,
-            options.workerMaxMultiplexInstances,
-            options.highPriorityWorkers);
+            workerFactory, options.workerMaxInstances, options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (workerPool == null || !newConfig.equals(workerPool.getWorkerPoolConfig())) {
@@ -161,12 +159,18 @@ public class WorkerModule extends BlazeModule {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
+
+      // Start collecting after a pool is defined
+      workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+      if (options.workerVerbose) {
+        workerLifecycleManager.setReporter(env.getReporter());
+      }
+      workerLifecycleManager.setDaemon(true);
+      workerLifecycleManager.start();
     }
 
-    // Start collecting after a pool is defined
-    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    workerLifecycleManager.setDaemon(true);
-    workerLifecycleManager.start();
+    // Clean doomed workers on the beginning of a build.
+    workerPool.clearDoomedWorkers();
   }
 
   @Override
@@ -193,8 +197,7 @@ public class WorkerModule extends BlazeModule {
     ExecutionOptions executionOptions =
         checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     registryBuilder.registerStrategy(
-        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions.verboseFailures),
-        "worker");
+        new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "worker");
   }
 
   @Subscribe

@@ -205,17 +205,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
   private ActionOwner dummyActionOwner() throws LabelSyntaxException {
     return ActionOwner.create(
         Label.parseCanonical("//foo:a"),
-        ImmutableList.of(),
         new Location("dummy-file", 0, 0),
-        /*mnemonic=*/ "",
-        /*targetKind=*/ "",
-        /*configurationChecksum=*/ "",
+        /* targetKind= */ "",
+        /* mnemonic= */ "",
+        /* configurationChecksum= */ "",
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        /*additionalProgressInfo=*/ "",
-        ImmutableMap.of(),
-        /*executionPlatform=*/ null);
+        /* additionalProgressInfo= */ "",
+        /* executionPlatform= */ null,
+        /* aspectDescriptors= */ ImmutableList.of(),
+        /* execProperties= */ ImmutableMap.of());
   }
 
   private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
@@ -638,17 +638,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner owner =
         ActionOwner.create(
             label,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
-            "dummy-target-kind",
-            "fedcba",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "dummy-mnemonic",
+            /* configurationChecksum= */ "fedcba",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* additionalProgressInfo= */ null,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
     when(action.getOwner()).thenReturn(owner);
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(3));
@@ -869,17 +869,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.runningAction(new RunningActionEvent(action1, "strategy2"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
-    assertThat(terminalWriter.getTranscript()).contains("3 actions, 2 running");
+    assertThat(terminalWriter.getTranscript()).contains("2 actions, 1 running");
 
     stateTracker.runningAction(new RunningActionEvent(action2, "strategy1"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
-    assertThat(terminalWriter.getTranscript()).contains("3 actions running");
+    assertThat(terminalWriter.getTranscript()).contains("2 actions running");
 
     stateTracker.runningAction(new RunningActionEvent(action2, "strategy2"));
     terminalWriter.reset();
     stateTracker.writeProgressBar(terminalWriter);
-    assertThat(terminalWriter.getTranscript()).contains("4 actions running");
+    assertThat(terminalWriter.getTranscript()).contains("2 actions running");
   }
 
   private void doTestOutputLength(boolean withTest, int actions) throws Exception {
@@ -1004,7 +1004,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Action foo being scanned should still be visible in output:\n" + output)
         .that(output.contains("sca") || output.contains("Sca"))
         .isTrue();
-    assertWithMessage("Indication at no actions are running is missing in output:\n" + output)
+    assertWithMessage("Indication that no actions are running is missing in output:\n" + output)
         .that(output.contains("0 running"))
         .isTrue();
     assertWithMessage("Total number of actions expected  in output:\n" + output)
@@ -1027,7 +1027,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     assertWithMessage("Action bar being scheduled should still be visible in output:\n" + output)
         .that(output.contains("sch") || output.contains("Sch"))
         .isTrue();
-    assertWithMessage("Indication at one action is running is missing in output:\n" + output)
+    assertWithMessage("Indication that one action is running is missing in output:\n" + output)
         .that(output.contains("1 running"))
         .isTrue();
     assertWithMessage("Total number of actions expected  in output:\n" + output)
@@ -1184,17 +1184,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner fooOwner =
         ActionOwner.create(
             labelFooTest,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "TestRunner",
-            "dummy-target-kind",
-            "abcdef",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "TestRunner",
+            /* configurationChecksum= */ "abcdef",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* additionalProgressInfo= */ null,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
 
     Label labelBarTest = Label.parseCanonical("//baz:bartest");
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
@@ -1202,17 +1202,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner barOwner =
         ActionOwner.create(
             labelBarTest,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "TestRunner",
-            "dummy-target-kind",
-            "fedcba",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "TestRunner",
+            /* configurationChecksum= */ "abcdef",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* additionalProgressInfo= */ null,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
 
     Label labelBazTest = Label.parseCanonical("//baz:baztest");
     ConfiguredTarget targetBazTest = mock(ConfiguredTarget.class);
@@ -1220,17 +1220,17 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner bazOwner =
         ActionOwner.create(
             labelBazTest,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "NonTestAction",
-            "dummy-target-kind",
-            "fedcba",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "NonTestAction",
+            /* configurationChecksum= */ "fedcba",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* additionalProgressInfo= */ null,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
 
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
     when(filteringComplete.getTestTargets())
@@ -1289,59 +1289,89 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   @Test
-  public void testDownloadShown() throws Exception {
-    // Verify that, whenever a single download is running in loading face, it is shown in the status
-    // bar.
+  public void testDownloadShown_duringLoading() throws Exception {
+    // Verify that, whenever a single download is running in loading phase, it is shown in the
+    // status bar.
     ManualClock clock = new ManualClock();
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 80);
+    clock.advance(Duration.ofSeconds(1234));
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
 
     URL url = new URL("http://example.org/first/dep");
 
     stateTracker.buildStarted();
     stateTracker.downloadProgress(new DownloadProgressEvent(url));
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(6));
+    clock.advance(Duration.ofSeconds(6));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     String output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain '" + url.toString() + "', but was:\n" + output)
-        .that(output.contains(url.toString()))
-        .isTrue();
-    assertWithMessage("Progress bar should contain '6s', but was:\n" + output)
-        .that(output.contains("6s"))
-        .isTrue();
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("6s");
 
     // Progress on the pending download should be reported appropriately
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    clock.advance(Duration.ofSeconds(1));
     stateTracker.downloadProgress(new DownloadProgressEvent(url, 256));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should contain '" + url.toString() + "', but was:\n" + output)
-        .that(output.contains(url.toString()))
-        .isTrue();
-    assertWithMessage("Progress bar should contain '7s', but was:\n" + output)
-        .that(output.contains("7s"))
-        .isTrue();
-    assertWithMessage("Progress bar should contain '256', but was:\n" + output)
-        .that(output.contains("256"))
-        .isTrue();
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("7s");
+    assertThat(output).contains("256");
 
     // After finishing the download, it should no longer be reported.
-    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    clock.advance(Duration.ofSeconds(1));
     stateTracker.downloadProgress(new DownloadProgressEvent(url, 256, true));
 
-    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
     stateTracker.writeProgressBar(terminalWriter);
     output = terminalWriter.getTranscript();
 
-    assertWithMessage("Progress bar should not contain url, but was:\n" + output)
-        .that(output.contains("example.org"))
-        .isFalse();
+    assertThat(output).doesNotContain("example.org");
+  }
+
+  @Test
+  public void testDownloadShown_duringMainRepoMappingComputation() throws Exception {
+    ManualClock clock = new ManualClock();
+    clock.advance(Duration.ofSeconds(1234));
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 80);
+
+    URL url = new URL("http://example.org/first/dep");
+
+    stateTracker.mainRepoMappingComputationStarted();
+    stateTracker.downloadProgress(new DownloadProgressEvent(url));
+    clock.advance(Duration.ofSeconds(6));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("6s");
+
+    // Progress on the pending download should be reported appropriately
+    clock.advance(Duration.ofSeconds(1));
+    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256));
+
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+
+    assertThat(output).contains(url.toString());
+    assertThat(output).contains("7s");
+    assertThat(output).contains("256");
+
+    // After finishing the download, it should no longer be reported.
+    clock.advance(Duration.ofSeconds(1));
+    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256, true));
+
+    terminalWriter = new LoggingTerminalWriter(/* discardHighlight= */ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+
+    assertThat(output).doesNotContain("example.org");
   }
 
   @Test
@@ -1350,7 +1380,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     // Also verify that the length is respected, even if only a download sample is shown.
     ManualClock clock = new ManualClock();
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
-    UiStateTracker stateTracker = getUiStateTracker(clock, /*targetWidth=*/ 60);
+    UiStateTracker stateTracker = getUiStateTracker(clock, /* targetWidth= */ 60);
     URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
 
     stateTracker.buildStarted();

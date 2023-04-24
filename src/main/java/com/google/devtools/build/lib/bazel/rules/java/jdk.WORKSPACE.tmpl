@@ -1,6 +1,7 @@
 # External dependencies for the java_* rules.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("@bazel_tools//tools/jdk:jdk_build_file.bzl", "JDK_BUILD_TEMPLATE")
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 load("@bazel_tools//tools/jdk:remote_java_repository.bzl", "remote_java_repository")
 
@@ -8,7 +9,7 @@ maybe(
     local_java_repository,
     name = "local_jdk",
     java_home = DEFAULT_SYSTEM_JAVABASE,
-    build_file = "@bazel_tools//tools/jdk:jdk.BUILD",
+    build_file_content = JDK_BUILD_TEMPLATE,
 )
 
 # OpenJDK distributions that should only be downloaded on demand (e.g. when
@@ -130,6 +131,17 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
+    {remotejdk17_linux_s390x}
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:s390x",
+    ],
+    version = "17",
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    remote_java_repository,
     {remotejdk17_macos}
     target_compatible_with = [
         "@platforms//os:macos",
@@ -173,67 +185,56 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_linux}
+    {remotejdk20_linux}
     target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
-    version = "18",
+    version = "20",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_linux_aarch64}
+    {remotejdk20_linux_aarch64}
     target_compatible_with = [
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
-    version = "18",
+    version = "20",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_macos}
+    {remotejdk20_macos}
     target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:x86_64",
     ],
-    version = "18",
+    version = "20",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_macos_aarch64}
+    {remotejdk20_macos_aarch64}
     target_compatible_with = [
         "@platforms//os:macos",
         "@platforms//cpu:aarch64",
     ],
-    version = "18",
+    version = "20",
 )
 
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     remote_java_repository,
-    {remotejdk18_win}
+    {remotejdk20_win}
     target_compatible_with = [
         "@platforms//os:windows",
         "@platforms//cpu:x86_64",
     ],
-    version = "18",
-)
-
-# This must be kept in sync with the top-level WORKSPACE file.
-maybe(
-    remote_java_repository,
-    {remotejdk18_win_arm64}
-    target_compatible_with = [
-        "@platforms//os:windows",
-        "@platforms//cpu:arm64",
-    ],
-    version = "18",
+    version = "20",
 )
 
 maybe(
@@ -253,7 +254,12 @@ maybe(
 
 maybe(
     http_archive,
-{remote_java_tools_darwin}
+{remote_java_tools_darwin_x86_64}
+)
+
+maybe(
+    http_archive,
+{remote_java_tools_darwin_arm64}
 )
 
 maybe(
@@ -271,6 +277,12 @@ maybe(
 maybe(
     http_archive,
 {rules_proto}
+)
+
+# Needed only because of proguard_allowlister in java_tools.
+maybe(
+    http_archive,
+{rules_python}
 )
 
 register_toolchains("@bazel_tools//tools/jdk:all")

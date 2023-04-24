@@ -21,12 +21,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
@@ -112,7 +111,7 @@ public class CommandEnvironment {
   private final BuildResultListener buildResultListener;
   private final CommandLinePathFactory commandLinePathFactory;
 
-  private final boolean mergedAnalysisAndExecution;
+  private boolean mergedAnalysisAndExecution;
 
   private OutputService outputService;
   private String workspaceName;
@@ -130,7 +129,7 @@ public class CommandEnvironment {
   private final Object fileCacheLock = new Object();
 
   @GuardedBy("fileCacheLock")
-  private MetadataProvider fileCache;
+  private InputMetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -284,36 +283,6 @@ public class CommandEnvironment {
 
     this.commandLinePathFactory =
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
-
-    this.mergedAnalysisAndExecution =
-        determineIfRunningWithMergedAnalysisAndExecution(options, packageLocator, warnings);
-  }
-
-  private static boolean determineIfRunningWithMergedAnalysisAndExecution(
-      OptionsParsingResult options,
-      @Nullable PathPackageLocator packageLocator,
-      List<String> warnings) {
-    // --nobuild means no execution will be carried out, hence it doesn't make sense to interleave
-    // analysis and execution in that case and --experimental_merged_skyframe_analysis_execution
-    // should be ignored.
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    boolean valueFromFlags =
-        buildRequestOptions != null
-            && buildRequestOptions.mergedSkyframeAnalysisExecutionDoNotUseDirectly
-            && buildRequestOptions.performExecutionPhase;
-    boolean havingMultiPackagePath =
-        packageLocator != null && packageLocator.getPathEntries().size() > 1;
-
-    // TODO(b/246324830): Skymeld and multi-package_path are incompatible.
-    if (valueFromFlags && havingMultiPackagePath) {
-      warnings.add(
-          "--experimental_merged_skyframe_analysis_execution is "
-              + "incompatible with multiple --package_path ("
-              + packageLocator.getPathEntries()
-              + ") and its value will be ignored.");
-    }
-
-    return valueFromFlags && !havingMultiPackagePath;
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -464,8 +433,15 @@ public class CommandEnvironment {
    * This should be the source of truth for whether this build should be run with merged analysis
    * and execution phases.
    */
-  public boolean withMergedAnalysisAndExecution() {
+  public boolean withMergedAnalysisAndExecutionSourceOfTruth() {
     return mergedAnalysisAndExecution;
+  }
+
+  public void setMergedAnalysisAndExecution(boolean value) {
+    mergedAnalysisAndExecution = value;
+    getSkyframeExecutor()
+        .setMergedSkyframeAnalysisExecutionSupplier(
+            this::withMergedAnalysisAndExecutionSourceOfTruth);
   }
 
   private Map<String, String> filterClientEnv(Set<String> vars) {
@@ -839,7 +815,7 @@ public class CommandEnvironment {
   }
 
   /** Returns the file cache to use during this build. */
-  public MetadataProvider getFileCache() {
+  public InputMetadataProvider getFileCache() {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =

@@ -156,6 +156,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     }
 
     final boolean isSymbolicLink = !followSymlinks && fileIsSymbolicLink(file);
+    final long lastChangeTime =
+        WindowsFileOperations.getLastChangeTime(getNioPath(path).toString(), followSymlinks);
     FileStatus status =
         new FileStatus() {
           @Override
@@ -182,25 +184,30 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           }
 
           @Override
-          public long getSize() throws IOException {
+          public long getSize() {
             return attributes.size();
           }
 
           @Override
-          public long getLastModifiedTime() throws IOException {
+          public long getLastModifiedTime() {
             return attributes.lastModifiedTime().toMillis();
           }
 
           @Override
           public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
+            return lastChangeTime;
           }
 
           @Override
           public long getNodeId() {
             // TODO(bazel-team): Consider making use of attributes.fileKey().
             return -1;
+          }
+
+          @Override
+          public int getPermissions() {
+            // Files on Windows are implicitly readable and executable.
+            return 0555 | (attributes.isReadOnly() ? 0 : 0200);
           }
         };
 
@@ -219,6 +226,18 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
     }
     return super.isDirectory(path, followSymlinks);
+  }
+
+  @Override
+  protected void setReadable(PathFragment path, boolean readable) {
+    // Windows does not have a notion of readable files.
+    // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
+  }
+
+  @Override
+  protected void setExecutable(PathFragment path, boolean executable) {
+    // Windows does not have a notion of executable files.
+    // https://github.com/openjdk/jdk/blob/e52a2aeeacaeb26c801b6e31f8e67e61b1ea2de3/src/java.base/windows/native/libjava/WinNTFileSystem_md.c#L473-L476
   }
 
   /**

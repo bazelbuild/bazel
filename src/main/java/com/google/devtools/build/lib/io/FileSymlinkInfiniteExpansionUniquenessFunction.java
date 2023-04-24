@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.io;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -40,7 +38,7 @@ public class FileSymlinkInfiniteExpansionUniquenessFunction
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey.WithCachedHashCode<ImmutableList<RootedPath>> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(ImmutableList<RootedPath> arg) {
       super(arg);
@@ -55,6 +53,11 @@ public class FileSymlinkInfiniteExpansionUniquenessFunction
     @Override
     public SkyFunctionName functionName() {
       return NAME;
+    }
+
+    @Override
+    public SkyKeyInterner<Key> getSkyKeyInterner() {
+      return interner;
     }
   }
 

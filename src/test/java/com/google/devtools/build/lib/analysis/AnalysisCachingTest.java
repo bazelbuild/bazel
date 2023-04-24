@@ -671,6 +671,9 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
           @Override
           public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+            if (options.underlying().hasNoConfig()) {
+              return options.underlying();
+            }
             BuildOptionsView cloned = options.clone();
             cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
             cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";

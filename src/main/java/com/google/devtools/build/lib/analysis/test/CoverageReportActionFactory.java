@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -72,7 +71,7 @@ public interface CoverageReportActionFactory {
       return processedActions;
     }
 
-    public ImmutableSet<Artifact> getCoverageOutputs() {
+    public Collection<Artifact> getCoverageOutputs() {
       return coverageReportAction.getOutputs();
     }
   }

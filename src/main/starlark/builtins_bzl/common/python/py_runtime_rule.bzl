@@ -15,10 +15,13 @@
 
 load(":common/paths.bzl", "paths")
 load(":common/python/providers.bzl", "DEFAULT_BOOTSTRAP_TEMPLATE", "DEFAULT_STUB_SHEBANG", _PyRuntimeInfo = "PyRuntimeInfo")
+load(":common/python/common.bzl", "check_native_allowed")
+load(":common/python/attributes.bzl", "NATIVE_RULES_ALLOWLIST_ATTRS")
 
 _py_builtins = _builtins.internal.py_builtins
 
 def _py_runtime_impl(ctx):
+    check_native_allowed(ctx)
     interpreter_path = ctx.attr.interpreter_path or None  # Convert empty string to None
     interpreter = ctx.file.interpreter
     if (interpreter_path and interpreter) or (not interpreter_path and not interpreter):
@@ -124,7 +127,7 @@ py_runtime(
 ```
 """,
     fragments = ["py"],
-    attrs = {
+    attrs = NATIVE_RULES_ALLOWLIST_ATTRS | {
         "files": attr.label_list(
             allow_files = True,
             doc = """

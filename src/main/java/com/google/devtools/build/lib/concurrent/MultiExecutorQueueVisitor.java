@@ -12,14 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
-
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An implementation of MultiThreadPoolsQuiescingExecutor that has 2 ExecutorServices, one with a
@@ -30,6 +32,8 @@ import javax.annotation.Nullable;
  * loading, analysis and execution. There's an additional 3rd pool for execution tasks. This is done
  * for performance reason: each of these phases has an optimal number of threads for its thread
  * pool.
+ *
+ * <p>Created anew each build.
  */
 public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
     implements MultiThreadPoolsQuiescingExecutor {
@@ -37,32 +41,44 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   private final ExecutorService cpuHeavyPoolExecutorService;
   @Nullable private final ExecutorService executionPhaseExecutorService;
 
+  // Whether execution phase tasks should be allowed to move forward.
+  private boolean executionPhaseTasksGoAhead;
+
+  @GuardedBy("this")
+  @Nullable
+  private List<Runnable> queuedPendingGoAhead;
+
   private MultiExecutorQueueVisitor(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
-      ExecutorService executionPhaseExecutorService,
-      boolean failFastOnException,
+      @Nullable ExecutorService executionPhaseExecutorService,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     super(
         regularPoolExecutorService,
-        /*shutdownOnCompletion=*/ true,
-        failFastOnException,
+        ExecutorOwnership.PRIVATE,
+        exceptionHandlingMode,
         errorClassifier);
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
     this.executionPhaseExecutorService = executionPhaseExecutorService;
+    this.executionPhaseTasksGoAhead = executionPhaseExecutorService == null;
+
+    if (executionPhaseExecutorService != null) {
+      queuedPendingGoAhead = Lists.newArrayList();
+    }
   }
 
   public static MultiExecutorQueueVisitor createWithExecutorServices(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return createWithExecutorServices(
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
-        /*executionPhaseExecutorService=*/ null,
-        failFastOnException,
+        /* executionPhaseExecutorService= */ null,
+        exceptionHandlingMode,
         errorClassifier);
   }
 
@@ -70,18 +86,27 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
       ExecutorService executionPhaseExecutorService,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return new MultiExecutorQueueVisitor(
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
         executionPhaseExecutorService,
-        failFastOnException,
+        exceptionHandlingMode,
         errorClassifier);
   }
 
   @Override
-  public void execute(Runnable runnable, ThreadPoolType threadPoolType) {
+  public void execute(
+      Runnable runnable, ThreadPoolType threadPoolType, boolean shouldStallAwaitingSignal) {
+    if (shouldStallAwaitingSignal && !executionPhaseTasksGoAhead) {
+      synchronized (this) {
+        if (!executionPhaseTasksGoAhead) {
+          Preconditions.checkNotNull(queuedPendingGoAhead).add(runnable);
+          return;
+        }
+      }
+    }
     super.executeWithExecutorService(runnable, getExecutorServiceByThreadPoolType(threadPoolType));
   }
 
@@ -121,5 +146,21 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
         setInterrupted();
       }
     }
+  }
+
+  @Override
+  public void launchQueuedUpExecutionPhaseTasks() {
+    synchronized (this) {
+      executionPhaseTasksGoAhead = true;
+      for (Runnable runnable : Preconditions.checkNotNull(queuedPendingGoAhead)) {
+        execute(runnable, ThreadPoolType.EXECUTION_PHASE, /* shouldStallAwaitingSignal= */ false);
+      }
+      queuedPendingGoAhead = null;
+    }
+  }
+
+  @Override
+  public boolean hasSeparatePoolForExecutionTasks() {
+    return executionPhaseExecutorService != null;
   }
 }

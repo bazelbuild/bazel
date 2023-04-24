@@ -169,20 +169,20 @@ final class RemoteActionContextProvider {
    * @param registryBuilder builder with which to register the strategy
    */
   public void registerRemoteSpawnStrategy(SpawnStrategyRegistry.Builder registryBuilder) {
-    boolean verboseFailures =
-        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures;
+    ExecutionOptions executionOptions =
+        checkNotNull(env.getOptions().getOptions(ExecutionOptions.class));
     RemoteSpawnRunner spawnRunner =
         new RemoteSpawnRunner(
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             env.getOptions().getOptions(ExecutionOptions.class),
-            verboseFailures,
+            executionOptions.verboseFailures,
             env.getReporter(),
             retryScheduler,
             logDir,
             getRemoteExecutionService());
     registryBuilder.registerStrategy(
-        new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, verboseFailures), "remote");
+        new RemoteSpawnStrategy(env.getExecRoot(), spawnRunner, executionOptions), "remote");
   }
 
   /**

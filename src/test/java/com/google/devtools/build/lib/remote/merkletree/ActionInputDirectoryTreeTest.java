@@ -18,11 +18,12 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.remote.merkletree.DirectoryTree.FileNode;
-import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,7 +51,11 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
     }
 
     return DirectoryTreeBuilder.fromActionInputs(
-        inputFiles, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+        inputFiles,
+        new StaticInputMetadataProvider(metadata),
+        execRoot,
+        ArtifactPathResolver.forExecRoot(execRoot),
+        digestUtil);
   }
 
   @Test
@@ -63,7 +68,11 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
-            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            sortedInputs,
+            new StaticInputMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
@@ -108,7 +117,11 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
-            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            sortedInputs,
+            new StaticInputMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");
@@ -152,7 +165,11 @@ public class ActionInputDirectoryTreeTest extends DirectoryTreeTest {
 
     DirectoryTree tree =
         DirectoryTreeBuilder.fromActionInputs(
-            sortedInputs, new StaticMetadataProvider(metadata), execRoot, digestUtil);
+            sortedInputs,
+            new StaticInputMetadataProvider(metadata),
+            execRoot,
+            ArtifactPathResolver.forExecRoot(execRoot),
+            digestUtil);
     assertLexicographicalOrder(tree);
 
     assertThat(directoriesAtDepth(0, tree)).containsExactly("srcs");

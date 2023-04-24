@@ -58,9 +58,10 @@ public final class SpawnExecutedEvent implements ExtendedEventHandler.Postable {
   /**
    * This event is fired to differentiate actions with multiple spawns that are run sequentially
    * versus parallel. An example of a use case of why this would be important is if we have flaky
-   * tests. We want to tell the {@link com.google.devtools.build.lib.runtime.CriticalPathComponent}
-   * that all the failed test spawns should have their Duration metrics aggregated so the test
-   * runtime matches the runtime of the entire CriticalPathComponent.
+   * tests. We want to tell the {@link
+   * com.google.devtools.build.lib.metrics.criticalpath.CriticalPathComponent} that all the failed
+   * test spawns should have their Duration metrics aggregated so the test runtime matches the
+   * runtime of the entire CriticalPathComponent.
    */
   public static final class ChangePhase implements ExtendedEventHandler.Postable {
     private final Action action;

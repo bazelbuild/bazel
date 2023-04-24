@@ -22,6 +22,7 @@ Install Bazel on Ubuntu using one of the following methods:
 *   *Recommended*: [Use Bazelisk](/install/bazelisk)
 *   [Use our custom APT repository](#install-on-ubuntu)
 *   [Use the binary installer](#binary-installer)
+*   [Use the Bazel Docker container](#docker-container)
 *   [Compile Bazel from source](/install/compile-source)
 
 **Note:** For Arm-based systems, the APT repository does not contain an `arm64`
@@ -33,9 +34,9 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 *   Access the [bash completion script](/install/completion#bash)
 *   Install the [zsh completion script](/install/completion#zsh)
 
-### Step 1: Add Bazel distribution URI as a package source {:#add-dis-uri}
-
 ## Using Bazel's apt repository {:#install-on-ubuntu}
+
+### Step 1: Add Bazel distribution URI as a package source {:#add-dis-uri}
 
 **Note:** This is a one-time setup step.
 
@@ -155,3 +156,15 @@ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` or `~/.zshrc` file to make it
 permanent.
+
+## Using the Bazel Docker container {:#docker-container}
+
+We publish Docker container with Bazel installed for each Bazel version at `gcr.io/bazel-public/bazel`.
+You can use the Docker container as follows:
+
+```
+$ docker pull gcr.io/bazel-public/bazel:<bazel version>
+```
+
+The Docker container is built by [these steps](https://github.com/bazelbuild/continuous-integration/tree/master/bazel/oci).
+

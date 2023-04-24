@@ -18,7 +18,7 @@ specific to the host Bazel is running on.
 ## Repository rule creation
 
 In a `.bzl` file, use the
-[repository_rule](/rules/lib/globals#repository_rule) function to create a new
+[repository_rule](/rules/lib/globals/bzl#repository_rule) function to create a new
 repository rule and store it in a global variable.
 
 A custom repository rule can be used just like a native repository rule. It
@@ -71,7 +71,7 @@ specified.
 The input parameter `repository_ctx` can be used to
 access attribute values, and non-hermetic functions (finding a binary,
 executing a binary, creating a file in the repository or downloading a file
-from the Internet). See [the library](/rules/lib/repository_ctx) for more
+from the Internet). See [the library](/rules/lib/builtins/repository_ctx) for more
 context. Example:
 
 ```python
@@ -85,33 +85,60 @@ local_repository = repository_rule(
 
 ## When is the implementation function executed?
 
-If the repository is declared as `local` then change in a dependency
-in the dependency graph (including the `WORKSPACE` file itself) will
-cause an execution of the implementation function.
+The implementation function of a repository is executed when Bazel needs a
+target from that repository, for example when another target (in another
+repository) depends on it or if it is mentioned on the commmand line. The
+implementation function is then expected to create the repository in the file
+system. This is called "fetching" the repository.
 
-The implementation function can be _restarted_ if a dependency it
-requests is _missing_. The beginning of the implementation function
-will be re-executed after the dependency has been resolved. To avoid
-unnecessary restarts (which are expensive, as network access might
+In contrast to regular targets, repositories are not necessarily re-fetched when
+something changes that would cause the repository to be different. This is
+because there are things that Bazel either cannot detect changes to or it would
+cause too much overhead on every build (for example, things that are fetched
+from the network). Therefore, repositories are re-fetched only if one of the
+following things changes:
+
+* The parameters passed to the declaration of the repository in the
+  `WORKSPACE` file.
+* The Starlark code comprising the implementation of the repository.
+* The value of any environment variable declared with the `environ`
+  attribute of the [`repository_rule`](/rules/lib/globals/bzl#repository_rule).
+  The values of these environment variables can be hard-wired on the command
+  line with the
+  [`--action_env`](/reference/command-line-reference#flag--action_env)
+  flag (but this flag will invalidate every action of the build).
+* The content of any file passed to the `read()`, `execute()` and similar
+  methods of `repository_ctx` which is referred to by a label (for example,
+  `//mypkg:label.txt` but not `mypkg/label.txt`)
+* When `bazel sync` is executed.
+
+There are two parameters of `repository_rule` that control when the repositories
+are re-fetched:
+
+* If the `configure` flag is set, the repository is only re-fetched on
+  `bazel sync` when the` --configure` parameter is passed to it (if the
+  attribute is unset, this command will not cause a re-fetch)
+* If the `local` flag is set, in addition to the above cases, the repository is
+  also re-fetched when the Bazel server restarts or when any file that affects
+  the declaration of the repository changes (e.g. the `WORKSPACE` file or a file
+  it loads), regardless of whether the changes resulted in a change to the
+  declaration of the repository or its code.
+
+  Non-local repositories are not re-fetched in these cases. This is because
+  these repositories are assumed to talk to the network or be otherwise
+  expensive.
+
+## Restarting the implementation function
+
+The implementation function can be _restarted_ while a repository is being
+fetched if a dependency it requests is _missing_. In that case, the execution of
+the implementation function will stop, the missing dependency is resolved and
+the function will be re-executed after the dependency has been resolved. To
+avoid unnecessary restarts (which are expensive, as network access might
 have to be repeated), label arguments are prefetched, provided all
 label arguments can be resolved to an existing file. Note that resolving
 a path from a string or a label that was constructed only during execution
 of the function might still cause a restart.
-
-Finally, for non-`local` repositories, only a change in the following
-dependencies might cause a restart:
-
-- `.bzl` files needed to define the repository rule.
-- Declaration of the repository rule in the `WORKSPACE` file.
-- Value of any environment variable declared with the `environ`
-attribute of the
-[`repository_rule`](/rules/lib/globals#repository_rule)
-function. The value of those environment variable can be enforced from
-the command line with the
-[`--action_env`](/reference/command-line-reference#flag--action_env)
-flag (but this flag will invalidate every action of the build).
-- Content of any file used and referred to by a label (for example,
-  `//mypkg:label.txt` not `mypkg/label.txt`).
 
 ## Forcing refetch of external repositories
 

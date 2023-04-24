@@ -46,6 +46,9 @@ public class DigestUtils {
     /** File system identifier of the file (typically the inode number). */
     private final long nodeId;
 
+    /** Last change time of the file. */
+    private final long changeTime;
+
     /** Last modification time of the file. */
     private final long modifiedTime;
 
@@ -62,6 +65,7 @@ public class DigestUtils {
     public CacheKey(Path path, FileStatus status) throws IOException {
       this.path = path.asFragment();
       this.nodeId = status.getNodeId();
+      this.changeTime = status.getLastChangeTime();
       this.modifiedTime = status.getLastModifiedTime();
       this.size = status.getSize();
     }
@@ -76,6 +80,7 @@ public class DigestUtils {
         CacheKey key = (CacheKey) object;
         return path.equals(key.path)
             && nodeId == key.nodeId
+            && changeTime == key.changeTime
             && modifiedTime == key.modifiedTime
             && size == key.size;
       }
@@ -86,6 +91,7 @@ public class DigestUtils {
       int result = 17;
       result = 31 * result + path.hashCode();
       result = 31 * result + Longs.hashCode(nodeId);
+      result = 31 * result + Longs.hashCode(changeTime);
       result = 31 * result + Longs.hashCode(modifiedTime);
       result = 31 * result + Longs.hashCode(size);
       return result;

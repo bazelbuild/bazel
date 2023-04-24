@@ -84,7 +84,7 @@ public class JacocoLCOVFormatter {
             if (parts[1].equals(matchingFileName)) {
               return parts[0];
             }
-          } else if (execPath.endsWith(matchingFileName)) {
+          } else if (execPath.endsWith(matchingFileName) || execPath.equals(classPath)) {
             return execPath;
           }
         }

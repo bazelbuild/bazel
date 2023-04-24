@@ -22,15 +22,17 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import java.math.BigInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link ArrayCodec}. */
 @RunWith(JUnit4.class)
-public class ArrayCodecTest {
+public final class ArrayCodecTest {
+
   @Test
-  public void smoke() throws Exception {
+  public void objectArray() throws Exception {
     Object[] instance = new Object[2];
     instance[0] = "hi";
     Object[] inner = new Object[2];
@@ -39,6 +41,16 @@ public class ArrayCodecTest {
     instance[1] = inner;
     new SerializationTester(new Object[0], instance)
         .setVerificationFunction(ArrayCodecTest::verifyDeserialized)
+        .runTests();
+  }
+
+  @Test
+  public void typedArray() throws Exception {
+    new SerializationTester(
+            new BigInteger[] {},
+            new BigInteger[] {BigInteger.ZERO},
+            new BigInteger[] {BigInteger.ZERO, BigInteger.ONE, BigInteger.TWO})
+        .addCodec(ArrayCodec.forComponentType(BigInteger.class))
         .runTests();
   }
 
