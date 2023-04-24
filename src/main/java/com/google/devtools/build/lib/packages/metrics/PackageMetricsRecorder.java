@@ -28,7 +28,7 @@ public interface PackageMetricsRecorder {
   }
 
   /** Records the metrics for a given package. */
-  void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics);
+  void recordMetrics(PackageIdentifier pkgId, PackageMetrics metrics);
 
   /**
    * Returns a {@code Map<PackageIdentifier, Duration>} of recorded load durations. This may contain
@@ -70,5 +70,5 @@ public interface PackageMetricsRecorder {
   Type getRecorderType();
 
   /** If Type is ALL returns metrics for all Packages loaded. */
-  Collection<PackageLoadMetrics> getPackageLoadMetrics();
+  Collection<PackageMetrics> getPackageMetrics();
 }
