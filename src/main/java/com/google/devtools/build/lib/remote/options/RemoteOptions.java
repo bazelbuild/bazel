@@ -397,7 +397,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean experimentalGuardAgainstConcurrentChanges;
 
   @Option(
-      name = "experimental_remote_grpc_log",
+      name = "remote_grpc_log",
+      oldName = "experimental_remote_grpc_log",
       defaultValue = "null",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -410,7 +411,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "protobufs with each message prefixed by a varint denoting the size of the"
               + " following serialized protobuf message, as performed by the method "
               + "LogEntry.writeDelimitedTo(OutputStream).")
-  public PathFragment experimentalRemoteGrpcLog;
+  public PathFragment remoteGrpcLog;
 
   @Option(
       name = "incompatible_remote_symlinks",
