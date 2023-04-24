@@ -38,33 +38,33 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @GuardedBy("this")
-  private final Extrema<PackageLoadMetricsContainer> slowestPackagesToLoad;
+  private final Extrema<PackageMetricsContainer> slowestPackagesToLoad;
 
   @GuardedBy("this")
-  private final Extrema<PackageLoadMetricsContainer> largestPackages;
+  private final Extrema<PackageMetricsContainer> largestPackages;
 
   @GuardedBy("this")
-  private final Extrema<PackageLoadMetricsContainer> packagesWithMostTransitiveLoads;
+  private final Extrema<PackageMetricsContainer> packagesWithMostTransitiveLoads;
 
   @GuardedBy("this")
-  private final Extrema<PackageLoadMetricsContainer> packagesWithMostComputationSteps;
+  private final Extrema<PackageMetricsContainer> packagesWithMostComputationSteps;
 
   @GuardedBy("this")
-  private final Extrema<PackageLoadMetricsContainer> packagesWithMostOverhead;
+  private final Extrema<PackageMetricsContainer> packagesWithMostOverhead;
 
   ExtremaPackageMetricsRecorder(int currentNumPackagesToTrack) {
     Preconditions.checkArgument(currentNumPackagesToTrack >= 0, "num packages must be >= 0");
     this.currentNumPackagesToTrack = currentNumPackagesToTrack;
     this.slowestPackagesToLoad =
-        Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.LOAD_TIMES_COMP);
+        Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.LOAD_TIMES_COMP);
     this.largestPackages =
-        Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.NUM_TARGETS_COMP);
+        Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.NUM_TARGETS_COMP);
     this.packagesWithMostTransitiveLoads =
-        Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.TRANSITIVE_LOADS_COMP);
+        Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.TRANSITIVE_LOADS_COMP);
     this.packagesWithMostComputationSteps =
-        Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.COMPUTATION_STEPS_COMP);
+        Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.COMPUTATION_STEPS_COMP);
     this.packagesWithMostOverhead =
-        Extrema.max(currentNumPackagesToTrack, PackageLoadMetricsContainer.OVERHEAD_COMP);
+        Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.OVERHEAD_COMP);
   }
 
   public int getNumPackageToTrack() {
@@ -72,8 +72,8 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   }
 
   @Override
-  public synchronized void recordMetrics(PackageIdentifier pkgId, PackageLoadMetrics metrics) {
-    PackageLoadMetricsContainer cont = PackageLoadMetricsContainer.create(pkgId, metrics);
+  public synchronized void recordMetrics(PackageIdentifier pkgId, PackageMetrics metrics) {
+    PackageMetricsContainer cont = PackageMetricsContainer.create(pkgId, metrics);
     slowestPackagesToLoad.aggregate(cont);
     packagesWithMostComputationSteps.aggregate(cont);
     largestPackages.aggregate(cont);
@@ -88,40 +88,40 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
     return slowestPackagesToLoad.getExtremeElements().stream()
         .collect(
             Collectors.toMap(
-                PackageLoadMetricsContainer::getPackageIdentifier,
-                v -> v.getPackageLoadMetricsInternal().getLoadDuration(),
+                PackageMetricsContainer::getPackageIdentifier,
+                v -> v.getPackageMetricsInternal().getLoadDuration(),
                 (k, v) -> v,
                 LinkedHashMap::new)); // use a LinkedHashMap to ensure iteration order is maintained
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getComputationSteps() {
-    return toMap(packagesWithMostComputationSteps, PackageLoadMetrics::getComputationSteps);
+    return toMap(packagesWithMostComputationSteps, PackageMetrics::getComputationSteps);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getNumTargets() {
-    return toMap(largestPackages, PackageLoadMetrics::getNumTargets);
+    return toMap(largestPackages, PackageMetrics::getNumTargets);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getNumTransitiveLoads() {
-    return toMap(packagesWithMostTransitiveLoads, PackageLoadMetrics::getNumTransitiveLoads);
+    return toMap(packagesWithMostTransitiveLoads, PackageMetrics::getNumTransitiveLoads);
   }
 
   @Override
   public synchronized Map<PackageIdentifier, Long> getPackageOverhead() {
-    return toMap(packagesWithMostOverhead, PackageLoadMetrics::getPackageOverhead);
+    return toMap(packagesWithMostOverhead, PackageMetrics::getPackageOverhead);
   }
 
   private synchronized Map<PackageIdentifier, Long> toMap(
-      Extrema<PackageLoadMetricsContainer> ext, Function<PackageLoadMetrics, Long> fn) {
+      Extrema<PackageMetricsContainer> ext, Function<PackageMetrics, Long> fn) {
 
     return ext.getExtremeElements().stream()
         .collect(
             Collectors.toMap(
-                PackageLoadMetricsContainer::getPackageIdentifier,
-                v -> fn.apply(v.getPackageLoadMetricsInternal()),
+                PackageMetricsContainer::getPackageIdentifier,
+                v -> fn.apply(v.getPackageMetricsInternal()),
                 (k, v) -> v,
                 LinkedHashMap::new)); // use a LinkedHashMap to ensure iteration order is maintained
   }
@@ -140,23 +140,23 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
     logIfNonEmpty(
         "Slowest packages (ms)",
         slowestPackagesToLoad.getExtremeElements(),
-        c -> Durations.toMillis(c.getPackageLoadMetricsInternal().getLoadDuration()));
+        c -> Durations.toMillis(c.getPackageMetricsInternal().getLoadDuration()));
     logIfNonEmpty(
         "Largest packages (num targets)",
         largestPackages.getExtremeElements(),
-        c -> c.getPackageLoadMetricsInternal().getNumTargets());
+        c -> c.getPackageMetricsInternal().getNumTargets());
     logIfNonEmpty(
         "Packages with most computation steps",
         packagesWithMostComputationSteps.getExtremeElements(),
-        c -> c.getPackageLoadMetricsInternal().getComputationSteps());
+        c -> c.getPackageMetricsInternal().getComputationSteps());
     logIfNonEmpty(
         "Packages with most transitive loads (num bzl files)",
         packagesWithMostTransitiveLoads.getExtremeElements(),
-        c -> c.getPackageLoadMetricsInternal().getNumTransitiveLoads());
+        c -> c.getPackageMetricsInternal().getNumTransitiveLoads());
     logIfNonEmpty(
         "Packages with most overhead",
         packagesWithMostOverhead.getExtremeElements(),
-        c -> c.getPackageLoadMetricsInternal().getPackageOverhead());
+        c -> c.getPackageMetricsInternal().getPackageOverhead());
     clear();
   }
 
@@ -166,21 +166,21 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   }
 
   @Override
-  public synchronized Collection<PackageLoadMetrics> getPackageLoadMetrics() {
+  public synchronized Collection<PackageMetrics> getPackageMetrics() {
     return Streams.concat(
             slowestPackagesToLoad.getExtremeElements().stream(),
             packagesWithMostComputationSteps.getExtremeElements().stream(),
             largestPackages.getExtremeElements().stream(),
             packagesWithMostTransitiveLoads.getExtremeElements().stream(),
             packagesWithMostOverhead.getExtremeElements().stream())
-        .map(PackageLoadMetricsContainer::getPackageLoadMetrics)
+        .map(PackageMetricsContainer::getPackageMetrics)
         .collect(toImmutableSet());
   }
 
   private static void logIfNonEmpty(
       String logLinePrefix,
-      List<PackageLoadMetricsContainer> extremeElements,
-      Function<PackageLoadMetricsContainer, Long> valueMapper) {
+      List<PackageMetricsContainer> extremeElements,
+      Function<PackageMetricsContainer, Long> valueMapper) {
     List<String> logString =
         extremeElements.stream()
             .map(v -> String.format("%s (%d)", v.getPackageIdentifier(), valueMapper.apply(v)))
