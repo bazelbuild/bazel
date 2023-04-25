@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Preconditions;
 import com.google.common.graph.GraphBuilder;
 import com.google.common.graph.ImmutableGraph;
@@ -21,6 +23,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -81,6 +84,19 @@ public interface SkyFunction {
    */
   @Nullable
   default String extractTag(SkyKey skyKey) {
+    return null;
+  }
+
+  /**
+   * Returns the max transitive source version that would be injected via {@link
+   * SkyFunctionEnvironment#injectVersionForNonHermeticFunction} if {@link #compute(SkyKey,
+   * Environment)} were invoked for the given {@link SkyKey}/{@link SkyValue} pair, or null if no
+   * call for version injection would be made.
+   */
+  @Nullable
+  default Version getMaxTransitiveSourceVersionToInjectForNonHermeticFunction(
+      SkyKey skyKey, SkyValue skyValue) throws IOException {
+    checkState(skyKey.functionName().getHermeticity() == FunctionHermeticity.HERMETIC);
     return null;
   }
 
