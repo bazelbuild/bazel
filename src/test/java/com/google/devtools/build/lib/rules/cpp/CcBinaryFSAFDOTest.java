@@ -67,7 +67,7 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
                     MockCcSupport.FSAFDO));
 
     List<String> testConfig =
-        Lists.newArrayList("--fdo_optimize=pkg/profile.afdo", "--compilation_mode=opt");
+        Lists.newArrayList("--fdo_optimize=/pkg/profile.afdo", "--compilation_mode=opt");
     Collections.addAll(testConfig, config);
     useConfiguration(Iterables.toArray(testConfig, String.class));
 
@@ -97,7 +97,6 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          malloc = '//base:system_malloc')");
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions("--features=implicit_fsafdo");
 
@@ -115,7 +114,6 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          malloc = '//base:system_malloc')");
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction =
         setupAndRunToolchainActions("--features=-implicit_fsafdo", "--features=fsafdo");
@@ -134,7 +132,6 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          malloc = '//base:system_malloc')");
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions("--features=fsafdo");
 
@@ -152,7 +149,6 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          malloc = '//base:system_malloc')");
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction = setupAndRunToolchainActions();
 
@@ -173,7 +169,6 @@ public class CcBinaryFSAFDOTest extends BuildViewTestCase {
         "          srcs = ['binfile.cc', ],",
         "          malloc = '//base:system_malloc')");
     scratch.file("pkg/binfile.cc", "int main() {}");
-    scratch.file("pkg/profile.afdo", "");
 
     LtoBackendAction backendAction =
         setupAndRunToolchainActions("--features=implicit_fsafdo", "--features=-fsafdo");

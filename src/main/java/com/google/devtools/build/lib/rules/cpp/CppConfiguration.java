@@ -211,6 +211,12 @@ public final class CppConfiguration extends Fragment
         }
       } else {
         fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        if (!fdoPath.isAbsolute()) {
+          throw new InvalidConfigurationException(
+              "Path of '"
+                  + fdoPath.getPathString()
+                  + "' in --fdo_optimize has to be either an absolute path or a label.");
+        }
         try {
           // We don't check for file existence, but at least the filename should be well-formed.
           FileSystemUtils.checkBaseName(fdoPath.getBaseName());

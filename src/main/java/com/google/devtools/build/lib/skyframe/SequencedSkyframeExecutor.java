@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -479,8 +480,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   /** Support for aquery output. */
-  public void dumpSkyframeState(
-      com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump actionGraphDump)
+  public void dumpSkyframeState(ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, IOException, TemplateExpansionException {
 
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :

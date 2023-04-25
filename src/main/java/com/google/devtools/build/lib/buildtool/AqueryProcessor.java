@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
@@ -90,7 +91,8 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
                 aqueryOptions.includeFileWriteContents,
                 aqueryOutputHandler,
                 env.getReporter());
-        ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
+        dumpActionGraph(env, aqueryOutputHandler, actionGraphDump);
+
       } catch (InvalidAqueryOutputFormatException e) {
         String message =
             "--skyframe_state must be used with --output=proto|textproto|jsonproto. "
@@ -114,6 +116,29 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
     } catch (QueryRuntimeHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
       return BlazeCommandResult.failureDetail(e.getFailureDetail());
+    }
+  }
+
+  public static void dumpActionGraph(
+      CommandEnvironment env,
+      AqueryOutputHandler aqueryOutputHandler,
+      ActionGraphDump actionGraphDump)
+      throws CommandLineExpansionException, TemplateExpansionException, IOException {
+    if (aqueryOutputHandler instanceof AqueryConsumingOutputHandler) {
+      AqueryConsumingOutputHandler aqueryConsumingOutputHandler =
+          (AqueryConsumingOutputHandler) aqueryOutputHandler;
+      try {
+        aqueryConsumingOutputHandler.startConsumer();
+        ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
+      } finally {
+        try {
+          aqueryConsumingOutputHandler.stopConsumer();
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    } else {
+      ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
   }
 

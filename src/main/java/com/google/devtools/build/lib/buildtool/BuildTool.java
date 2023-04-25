@@ -462,7 +462,7 @@ public class BuildTool {
               /* includeFileWriteContents */ false,
               aqueryOutputHandler,
               getReporter());
-      ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
+      AqueryProcessor.dumpActionGraph(env, aqueryOutputHandler, actionGraphDump);
     }
   }
 
