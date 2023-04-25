@@ -24,6 +24,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -31,9 +32,12 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEv
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.XattrProvider;
+
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
@@ -61,6 +65,7 @@ public class DownloadManager {
   private int retries = 0;
   private boolean urlsAsDefaultCanonicalId;
   @Nullable private Credentials netrcCreds;
+  @Nullable private XattrProvider xattrProvider;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -90,6 +95,10 @@ public class DownloadManager {
 
   public void setNetrcCreds(Credentials netrcCreds) {
     this.netrcCreds = netrcCreds;
+  }
+
+  public void setXattrProvider(XattrProvider xattrProvider) {
+    this.xattrProvider = xattrProvider;
   }
 
   /**
@@ -167,7 +176,16 @@ public class DownloadManager {
       try {
         eventHandler.post(
             new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
-        String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
+
+        String currentChecksum;
+        if (xattrProvider != null) {
+          currentChecksum = BaseEncoding.base16().lowerCase().encode(
+            DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(destination, xattrProvider)
+          );
+        } else {
+          currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
+        }
+
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
           return destination;
@@ -219,7 +237,17 @@ public class DownloadManager {
               eventHandler.post(
                   new CacheProgress(
                       mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
-              match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
+
+              String currentChecksum;
+              if (xattrProvider != null) {
+                currentChecksum = BaseEncoding.base16().lowerCase().encode(
+                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(candidate, xattrProvider)
+                );
+              } else {
+                currentChecksum = RepositoryCache.getChecksum(cacheKeyType, candidate);
+              }
+
+              match = currentChecksum.equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely
               // quietly. In fact, it is common to specify a whole list of dist dirs,

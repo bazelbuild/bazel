@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
@@ -296,6 +297,10 @@ public class BazelRepositoryModule extends BlazeModule {
     starlarkRepositoryFunction.setProcessWrapper(processWrapper);
     starlarkRepositoryFunction.setSyscallCache(env.getSyscallCache());
     singleExtensionEvalFunction.setProcessWrapper(processWrapper);
+
+    XattrProvider xattrProvider = env.getXattrProvider();
+    downloadManager.setXattrProvider(xattrProvider);
+    repositoryCache.setXattrProvider(xattrProvider);
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {

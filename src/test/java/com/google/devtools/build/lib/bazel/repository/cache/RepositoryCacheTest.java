@@ -173,7 +173,7 @@ public class RepositoryCacheTest {
 
   @Test
   public void testAssertFileChecksumPass() throws Exception {
-    RepositoryCache.assertFileChecksum(downloadedFileSha256, downloadedFile, KeyType.SHA256);
+    RepositoryCache.assertFileChecksum(null, downloadedFileSha256, downloadedFile, KeyType.SHA256);
   }
 
   @Test
@@ -181,6 +181,7 @@ public class RepositoryCacheTest {
     thrown.expect(IOException.class);
     thrown.expectMessage("does not match expected");
     RepositoryCache.assertFileChecksum(
+        null,
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         downloadedFile,
         KeyType.SHA256);
