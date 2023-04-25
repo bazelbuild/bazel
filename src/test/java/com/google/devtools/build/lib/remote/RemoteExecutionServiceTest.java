@@ -730,6 +730,28 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_symlinkCollision_error() throws Exception {
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputDirectorySymlinksBuilder().setPath("outputs/foo").setTarget("foo1");
+    builder.addOutputSymlinksBuilder().setPath("outputs/foo").setTarget("foo2");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    IOException expected =
+        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+
+    assertThat(expected.getSuppressed()).isEmpty();
+    assertThat(expected).hasMessageThat().contains("Symlink path collision");
+    assertThat(expected).hasMessageThat().contains("outputs/foo");
+    assertThat(expected).hasMessageThat().contains("foo1");
+    assertThat(expected).hasMessageThat().contains("foo2");
+  }
+
+  @Test
   public void downloadOutputs_onFailure_maintainDirectories() throws Exception {
     // Test that output directories are not deleted on download failure. See
     // https://github.com/bazelbuild/bazel/issues/6260.
