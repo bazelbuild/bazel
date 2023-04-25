@@ -1099,6 +1099,27 @@ message BuildMetrics {
   }
 
   NetworkMetrics network_metrics = 10;
+
+  // Information about worker pool actions.
+  message WorkerPoolMetrics {
+    // Statistics of worker pool per worker pool hash. Basically it's a map from
+    // worker pool hash to statistics.
+    repeated WorkerPoolStats worker_pool_stats = 1;
+
+    message WorkerPoolStats {
+      // Hash of worker pool these stats are for. Contains information about
+      // startup flags.
+      int32 hash = 1;
+      // Mnemonic of workers these stats are for.
+      string mnemonic = 2;
+      // Number of workers created during a build.
+      int64 created_count = 3;
+      // Number of workers destroyed during a build.
+      int64 destroyed_count = 4;
+    }
+  }
+
+  WorkerPoolMetrics worker_pool_metrics = 11;
 }
 
 // Event providing additional statistics/logs after completion of the build.
