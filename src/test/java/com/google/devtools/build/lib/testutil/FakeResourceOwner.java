@@ -126,6 +126,11 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
   }
 
   @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
   public Collection<String> getClientEnvironmentVariables() {
     return ImmutableList.of();
   }

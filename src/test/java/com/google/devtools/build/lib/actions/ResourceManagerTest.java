@@ -815,6 +815,11 @@ public final class ResourceManagerTest {
     }
 
     @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      throw new IllegalStateException();
+    }
+
+    @Override
     public Collection<String> getClientEnvironmentVariables() {
       throw new IllegalStateException();
     }

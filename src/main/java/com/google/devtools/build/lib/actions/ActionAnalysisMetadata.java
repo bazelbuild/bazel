@@ -134,6 +134,15 @@ public interface ActionAnalysisMetadata {
   NestedSet<Artifact> getInputs();
 
   /**
+   * Returns the input Artifacts that must be built before the action can be executed, but are not
+   * dependencies of the action in the action cache.
+   *
+   * <p>Useful for actions that do input discovery: then these Artifacts will be readable during
+   * input discovery and then it can be decided which ones are actually necessary.
+   */
+  NestedSet<Artifact> getSchedulingDependencies();
+
+  /**
    * Returns the environment variables from the client environment that this action depends on. May
    * be empty.
    *

@@ -1351,6 +1351,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     }
 
     @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    @Override
     public ImmutableList<String> getClientEnvironmentVariables() {
       return ImmutableList.of();
     }

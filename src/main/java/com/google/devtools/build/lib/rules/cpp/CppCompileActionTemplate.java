@@ -310,6 +310,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
   public ImmutableSet<Artifact> getOutputs() {
     if (dotdTreeArtifact == null) {
       return ImmutableSet.of(outputTreeArtifact);

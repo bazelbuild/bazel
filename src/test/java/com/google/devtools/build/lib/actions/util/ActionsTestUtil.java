@@ -931,6 +931,7 @@ public final class ActionsTestUtil {
         return artifact;
       }
     }
+
     throw new AssertionError("No input with basename '" + basename + "' in action " + action);
   }
 

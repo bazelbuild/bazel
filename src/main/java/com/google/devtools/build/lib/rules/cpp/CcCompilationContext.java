@@ -1207,7 +1207,12 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         // middle man.
         return compilationPrerequisites.build();
       }
+
       if (compilationPrerequisites.isEmpty()) {
+        return compilationPrerequisites.build();
+      }
+
+      if (!configuration.getFragment(CppConfiguration.class).useSchedulingMiddlemen()) {
         return compilationPrerequisites.build();
       }
 
