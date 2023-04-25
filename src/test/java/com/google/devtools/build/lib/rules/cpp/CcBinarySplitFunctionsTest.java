@@ -67,7 +67,7 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
                     MockCcSupport.SPLIT_FUNCTIONS));
 
     List<String> testConfig =
-        Lists.newArrayList("--fdo_optimize=pkg/profile.zip", "--compilation_mode=opt");
+        Lists.newArrayList("--fdo_optimize=/pkg/profile.zip", "--compilation_mode=opt");
     Collections.addAll(testConfig, config);
     useConfiguration(Iterables.toArray(testConfig, String.class));
 

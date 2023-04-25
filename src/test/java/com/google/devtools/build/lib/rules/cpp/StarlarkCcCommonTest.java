@@ -7232,7 +7232,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
   @Test
   public void testExpandedLtoAndFdoApiRaisesError() throws Exception {
-    useConfiguration("--fdo_optimize=pkg/profile.afdo", "--compilation_mode=opt");
+    useConfiguration("--fdo_optimize=/pkg/profile.afdo", "--compilation_mode=opt");
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load(':lto_backend_artifacts.bzl', 'lto_backend_artifacts')",
