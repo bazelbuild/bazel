@@ -629,6 +629,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_package_loader_test",
+    srcs = ["bazel_package_loader_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/packages/testing:BazelPackageLoaderTester",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_permissions_test",
     size = "small",
     srcs = ["bazel_permissions_test.sh"],
