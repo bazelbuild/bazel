@@ -370,7 +370,10 @@ final class ActionMetadataHandler implements MetadataHandler {
             throw new IOException(errorMessage, e);
           }
 
-          tree.putChild(child, metadata);
+          // visitTree() uses multiple threads and putChild() is not thread-safe
+          synchronized (tree) {
+            tree.putChild(child, metadata);
+          }
         });
 
     if (archivedTreeArtifactsEnabled) {

@@ -1240,7 +1240,9 @@ public class ActionCacheCheckerTest {
                   Artifact.TreeFileArtifact.createTreeOutput(output, parentRelativePath);
               FileArtifactValue metadata =
                   FileArtifactValue.createForTesting(treeDir.getRelative(parentRelativePath));
-              tree.putChild(child, metadata);
+              synchronized (tree) {
+                tree.putChild(child, metadata);
+              }
             });
       }
 
