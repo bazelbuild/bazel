@@ -18,5 +18,5 @@ public interface AqueryConsumingOutputHandler extends AqueryOutputHandler {
 
   void startConsumer();
 
-  void stopConsumer();
+  void stopConsumer() throws InterruptedException;
 }

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -32,18 +33,8 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   private EmptyRunfilesSupplier() {}
 
   @Override
-  public boolean equals(Object other) {
-    return (other instanceof EmptyRunfilesSupplier);
-  }
-
-  @Override
-  public int hashCode() {
-    return 0;
-  }
-
-  @Override
   public NestedSet<Artifact> getArtifacts() {
-    return NestedSetBuilder.<Artifact>stableOrder().build();
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -58,7 +49,7 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
 
   @Override
   public ImmutableList<Artifact> getManifests() {
-    return ImmutableList.<Artifact>of();
+    return ImmutableList.of();
   }
 
   @Override
@@ -69,5 +60,10 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   @Override
   public boolean isRunfileLinksEnabled(PathFragment runfilesDir) {
     return false;
+  }
+
+  @Override
+  public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
+    throw new UnsupportedOperationException();
   }
 }

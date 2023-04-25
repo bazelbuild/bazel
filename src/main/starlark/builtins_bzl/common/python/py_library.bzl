@@ -95,8 +95,5 @@ def create_py_library_rule(*, attrs = {}, **kwargs):
         # TODO(b/253818097): fragments=py is only necessary so that
         # RequiredConfigFragmentsTest passes
         fragments = ["py"],
-        # Necessary for --compile_one_dependency to give preference to
-        # py_library if a .py file is associated with multiple targets.
-        compile_one_filetype = [".py"],
         **kwargs
     )

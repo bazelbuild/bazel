@@ -85,7 +85,11 @@ public abstract class ExecGroupCollection {
       for (ToolchainTypeRequirement toolchainType : defaultToolchainTypes) {
         processedGroups.put(
             toolchainType.toolchainType().toString(),
-            ExecGroup.builder().addToolchainType(toolchainType).copyFrom(null).build());
+            ExecGroup.builder()
+                .addToolchainType(toolchainType)
+                .copyFrom(null)
+                .execCompatibleWith(defaultExecWith)
+                .build());
       }
     }
     return ImmutableMap.copyOf(processedGroups);

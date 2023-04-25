@@ -24,8 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -527,7 +527,6 @@ public final class AndroidBinaryMobileInstall {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          /* resultConsumer= */ null,
           /* stripOutputPaths= */ false);
     }
 

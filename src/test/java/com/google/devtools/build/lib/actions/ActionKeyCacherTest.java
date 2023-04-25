@@ -87,6 +87,11 @@ public class ActionKeyCacherTest {
     }
 
     @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return null;
+    }
+
+    @Override
     public Collection<String> getClientEnvironmentVariables() {
       return null;
     }

@@ -156,7 +156,7 @@ public class PlatformLookupUtil {
     }
   }
 
-  static boolean hasPlatformInfo(Target target) {
+  public static boolean hasPlatformInfo(Target target) {
     Rule rule = target.getAssociatedRule();
     // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
     if (rule == null) {
@@ -175,11 +175,11 @@ public class PlatformLookupUtil {
   public static final class InvalidPlatformException extends ToolchainException {
     private static final String DEFAULT_ERROR = "does not provide PlatformInfo";
 
-    InvalidPlatformException(Label label) {
+    public InvalidPlatformException(Label label) {
       super(formatError(label, DEFAULT_ERROR));
     }
 
-    InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
+    public InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
       super(formatError(label, DEFAULT_ERROR), e);
     }
 

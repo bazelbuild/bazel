@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,6 +32,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.util.FileType;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -41,6 +45,14 @@ import java.util.TreeSet;
  */
 public final class CompileOneDependencyTransformer {
   private final TargetProvider targetProvider;
+  private static final ImmutableMap<String, Predicate<String>> preferredRules =
+      ImmutableMap.of(
+          "cc_library",
+          FileType.of(".cc", ".h", ".c"),
+          "java_library",
+          FileType.of(".java"),
+          "py_library",
+          FileType.of(".py"));
 
   public CompileOneDependencyTransformer(TargetProvider targetProvider) {
     this.targetProvider = targetProvider;
@@ -76,7 +88,9 @@ public final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       Set<Label> labels = getInputLabels(rule);
       if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {
-        if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
+        if (preferredRules
+            .getOrDefault(rule.getRuleClass(), Predicates.alwaysFalse())
+            .apply(target.getName())) {
           result = rule;
           break;
         }

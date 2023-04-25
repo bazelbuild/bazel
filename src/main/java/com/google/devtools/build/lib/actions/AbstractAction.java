@@ -264,6 +264,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         "Method must be overridden for actions that may have unknown inputs.");
   }
 
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
   /**
    * Should be called when the inputs of the action become known, that is, either during {@link
    * #discoverInputs(ActionExecutionContext)} or during {@link #execute(ActionExecutionContext)}.
@@ -309,7 +314,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public RunfilesSupplier getRunfilesSupplier() {
+  public final RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
   }
 
@@ -424,8 +429,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       return null;
     }
     message = replaceProgressMessagePlaceholders(message, mainRepositoryMapping);
-    String additionalInfo = owner.getAdditionalProgressInfo();
-    return additionalInfo == null ? message : message + " [" + additionalInfo + "]";
+    return owner.isBuildConfigurationForTool() ? message + " [for tool]" : message;
   }
 
   private String replaceProgressMessagePlaceholders(

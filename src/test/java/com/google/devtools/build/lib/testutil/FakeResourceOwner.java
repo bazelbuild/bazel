@@ -75,14 +75,14 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
 
   @Override
   public ActionOwner getOwner() {
-    return ActionOwner.create(
+    return ActionOwner.createDummy(
         /* label= */ null,
         Location.BUILTIN,
         /* targetKind= */ "fake target kind",
         /* mnemonic= */ "fake",
         /* configurationChecksum= */ "fake",
         /* buildConfigurationEvent= */ null,
-        /* additionalProgressInfo= */ null,
+        /* isToolConfiguration= */ false,
         /* executionPlatform= */ null,
         /* aspectDescriptors= */ ImmutableList.of(),
         /* execProperties= */ ImmutableMap.of());
@@ -122,6 +122,11 @@ public class FakeResourceOwner implements ActionExecutionMetadata {
 
   @Override
   public NestedSet<Artifact> getInputs() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 

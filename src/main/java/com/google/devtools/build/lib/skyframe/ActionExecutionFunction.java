@@ -32,6 +32,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -137,6 +138,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  * dep on the execution's completion future.
  */
 public final class ActionExecutionFunction implements SkyFunction {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
@@ -571,6 +574,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
     return new AllInputs(
         allKnownInputs,
+        action.getSchedulingDependencies(),
         actionCacheInputs,
         action.getAllowedDerivedInputs(),
         resolver.packageLookupsRequested);
@@ -578,12 +582,14 @@ public final class ActionExecutionFunction implements SkyFunction {
 
   static class AllInputs {
     final NestedSet<Artifact> defaultInputs;
+    final NestedSet<Artifact> schedulingDependencies;
     @Nullable final NestedSet<Artifact> allowedDerivedInputs;
     @Nullable final List<Artifact> actionCacheInputs;
     @Nullable final List<ContainingPackageLookupValue.Key> packageLookupsRequested;
 
     AllInputs(NestedSet<Artifact> defaultInputs) {
       this.defaultInputs = checkNotNull(defaultInputs);
+      this.schedulingDependencies = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       this.actionCacheInputs = null;
       this.allowedDerivedInputs = null;
       this.packageLookupsRequested = null;
@@ -591,10 +597,12 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     AllInputs(
         NestedSet<Artifact> defaultInputs,
+        NestedSet<Artifact> schedulingDependencies,
         List<Artifact> actionCacheInputs,
         NestedSet<Artifact> allowedDerivedInputs,
         List<ContainingPackageLookupValue.Key> packageLookupsRequested) {
       this.defaultInputs = checkNotNull(defaultInputs);
+      this.schedulingDependencies = checkNotNull(schedulingDependencies);
       this.allowedDerivedInputs = checkNotNull(allowedDerivedInputs);
       this.actionCacheInputs = checkNotNull(actionCacheInputs);
       this.packageLookupsRequested = packageLookupsRequested;
@@ -609,18 +617,21 @@ public final class ActionExecutionFunction implements SkyFunction {
      *     from all derived inputs to know if they are remote or not during input discovery.
      */
     NestedSet<Artifact> getAllInputs(boolean prune) {
+      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+      builder.addTransitive(defaultInputs);
+      builder.addTransitive(schedulingDependencies);
+
       if (actionCacheInputs == null) {
-        return defaultInputs;
+        return builder.build();
       }
 
-      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
       if (prune) {
         // actionCacheInputs is never a NestedSet.
         builder.addAll(actionCacheInputs);
       } else {
         builder.addTransitive(allowedDerivedInputs);
       }
-      builder.addTransitive(defaultInputs);
+
       return builder.build();
     }
   }
@@ -1095,6 +1106,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       // Lazily flatten the NestedSet in case the predicate is never needed. It's only used in the
       // exceptional case of a missing artifact.
       private ImmutableSet<Artifact> mandatoryInputs = null;
+      private ImmutableSet<Artifact> schedulingDependencies = null;
 
       @Override
       public boolean test(Artifact input) {
@@ -1104,7 +1116,20 @@ public final class ActionExecutionFunction implements SkyFunction {
         if (mandatoryInputs == null) {
           mandatoryInputs = action.getMandatoryInputs().toSet();
         }
-        return mandatoryInputs.contains(input);
+
+        if (mandatoryInputs.contains(input)) {
+          return true;
+        }
+
+        if (schedulingDependencies == null) {
+          schedulingDependencies = action.getSchedulingDependencies().toSet();
+        }
+
+        if (schedulingDependencies.contains(input)) {
+          return true;
+        }
+
+        return false;
       }
     };
   }
@@ -1498,8 +1523,25 @@ public final class ActionExecutionFunction implements SkyFunction {
         handleActionExecutionExceptionPerArtifact((Artifact) key, e);
         return;
       }
-      for (Artifact input : skyKeyToDerivedArtifactSetForExceptions.get().get(key)) {
-        handleActionExecutionExceptionPerArtifact(input, e);
+      Set<Artifact> associatedInputs = skyKeyToDerivedArtifactSetForExceptions.get().get(key);
+      if (associatedInputs.isEmpty()) {
+        // This can happen if an action prunes its inputs, e.g. the way StarlarkAction implements
+        // unused_inputs_list. An input may no longer be present in getInputs(), but its generating
+        // action could still be a Skyframe dependency because Skyframe eagerly adds a dep group to
+        // a dirty node if all prior dep groups are clean. If the pruned input is in error, it
+        // propagates during error bubbling, and we reach this point.
+        // TODO(lberki): Can inputs be immutable instead?
+        logger.atWarning().log(
+            "While handling errors for %s, encountered error from %s which is not associated with"
+                + " any inputs",
+            action.prettyPrint(), key);
+        if (firstActionExecutionException == null) {
+          firstActionExecutionException = e;
+        }
+      } else {
+        for (Artifact input : associatedInputs) {
+          handleActionExecutionExceptionPerArtifact(input, e);
+        }
       }
     }
 

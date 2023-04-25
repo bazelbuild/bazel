@@ -73,7 +73,6 @@ public final class JavaCompilationHelper {
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
-  private final String fixDepsTool;
   private boolean enableJspecify = true;
   private boolean enableDirectClasspath = true;
   private final String execGroup;
@@ -92,7 +91,6 @@ public final class JavaCompilationHelper {
     this.semantics = semantics;
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
     this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
-    this.fixDepsTool = getJavaConfiguration().getFixDepsTool();
 
     if (ruleContext.useAutoExecGroups()) {
       this.execGroup = semantics.getJavaToolchainType();
@@ -203,8 +201,7 @@ public final class JavaCompilationHelper {
     return builder.build();
   }
 
-  public void createCompileAction(JavaCompileOutputs<Artifact> outputs)
-      throws InterruptedException {
+  public void createCompileAction(JavaCompileOutputs<Artifact> outputs) {
     if (outputs.genClass() != null) {
       createGenJarAction(
           outputs.output(),
@@ -247,7 +244,7 @@ public final class JavaCompilationHelper {
               ? outputs.genSource()
               : turbineOutput(outputs.output(), "-turbine-apt-gensrc.jar");
 
-      JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
+      JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
       builder.setOutputJar(turbineJar);
       builder.setOutputDepsProto(turbineJdeps);
       builder.setPlugins(plugins);
@@ -302,7 +299,7 @@ public final class JavaCompilationHelper {
       javacopts =
           ImmutableList.<String>builder()
               .addAll(javacopts)
-              // Add JSpecify options last to discourage overridding them, at least for now.
+              // Add JSpecify options last to discourage overriding them, at least for now.
               .addAll(jspecifyInfo.jspecifyJavacopts())
               .build();
     }
@@ -532,8 +529,7 @@ public final class JavaCompilationHelper {
    *     for new artifacts.
    */
   private Artifact createHeaderCompilationAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder)
-      throws InterruptedException {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder artifactBuilder) {
 
     Artifact headerJar = turbineOutput(runtimeJar, "-hjar.jar");
     Artifact headerDeps = turbineOutput(runtimeJar, "-hjar.jdeps");
@@ -543,7 +539,7 @@ public final class JavaCompilationHelper {
     // only run API-generating annotation processors during header compilation
     JavaPluginData plugins = attributes.plugins().apiGeneratingPlugins();
 
-    JavaHeaderCompileActionBuilder builder = getJavaHeaderCompileActionBuilder();
+    JavaHeaderCompileAction.Builder builder = getJavaHeaderCompileActionBuilder();
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setPlugins(plugins);
@@ -561,9 +557,9 @@ public final class JavaCompilationHelper {
     return headerJar;
   }
 
-  private JavaHeaderCompileActionBuilder getJavaHeaderCompileActionBuilder() {
+  private JavaHeaderCompileAction.Builder getJavaHeaderCompileActionBuilder() {
     JavaTargetAttributes attributes = getAttributes();
-    JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
+    JavaHeaderCompileAction.Builder builder = JavaHeaderCompileAction.newBuilder(getRuleContext());
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
@@ -714,7 +710,7 @@ public final class JavaCompilationHelper {
    * @return the header jar (if requested), or ijar (if requested), or else the class jar
    */
   public Artifact createCompileTimeJarAction(
-      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) throws InterruptedException {
+      Artifact runtimeJar, JavaCompilationArtifacts.Builder builder) {
     Artifact jar;
     boolean isFullJar = false;
     if (shouldUseHeaderCompilation()) {

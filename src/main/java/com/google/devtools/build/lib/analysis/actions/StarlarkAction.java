@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -130,7 +130,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        /* resultConsumer= */ null,
         stripOutputPaths);
 
     this.allStarlarkActionInputs = inputs;

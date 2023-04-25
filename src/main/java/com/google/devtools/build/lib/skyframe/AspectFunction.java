@@ -53,6 +53,10 @@ import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
+import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
+import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
+import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
@@ -82,7 +86,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -91,11 +94,11 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.devtools.build.skyframe.state.Driver;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -206,7 +209,7 @@ final class AspectFunction implements SkyFunction {
     }
 
     if (AliasProvider.isAlias(associatedTarget)) {
-      return createAliasAspect(env, targetAndConfiguration, aspect, key, associatedTarget);
+      return createAliasAspect(env, state, aspect, key, associatedTarget);
     }
     // If we get here, label should match original label, and therefore the target we looked up
     // above indeed corresponds to associatedTarget.getLabel().
@@ -278,33 +281,21 @@ final class AspectFunction implements SkyFunction {
     }
 
     try {
-      var unloadedToolchainContextsInputs =
-          getUnloadedToolchainContextsInputs(
-              aspect.getDefinition(), key.getConfigurationKey(), configuration);
-      Optional<ToolchainCollection<UnloadedToolchainContext>> computedToolchainContexts =
-          PrerequisiteProducer.computeUnloadedToolchainContexts(
-              env, unloadedToolchainContextsInputs);
-      if (computedToolchainContexts == null) {
+      var dependencyContext =
+          getDependencyContext(
+              computeDependenciesState,
+              key,
+              aspect,
+              state.transitiveRootCauses,
+              state.transitivePackages,
+              env);
+      if (dependencyContext == null) {
         return null;
       }
 
       ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts =
-          computedToolchainContexts.orElse(null);
-
-      // Get the configuration targets that trigger this rule's configurable attributes.
-      ConfigConditions configConditions =
-          PrerequisiteProducer.computeConfigConditions(
-              env,
-              targetAndConfiguration,
-              state.transitivePackages,
-              unloadedToolchainContexts == null
-                  ? null
-                  : unloadedToolchainContexts.getTargetPlatform(),
-              state.transitiveRootCauses);
-      if (configConditions == null) {
-        // Those targets haven't yet been resolved.
-        return null;
-      }
+          dependencyContext.unloadedToolchainContexts();
+      ConfigConditions configConditions = dependencyContext.configConditions();
 
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap;
       try {
@@ -368,7 +359,7 @@ final class AspectFunction implements SkyFunction {
           configuration,
           configConditions,
           toolchainContexts,
-          unloadedToolchainContextsInputs,
+          computeDependenciesState.execGroupCollectionBuilder,
           depValueMap,
           state.transitivePackages);
     } catch (DependencyEvaluationException e) {
@@ -409,6 +400,59 @@ final class AspectFunction implements SkyFunction {
           new AspectCreationException(
               e.getMessage(), new LabelCause(key.getLabel(), e.getDetailedExitCode())));
     }
+  }
+
+  /** Populates {@code state.execGroupCollection} as a side effect. */
+  @Nullable // Null if a Skyframe restart is needed.
+  private static DependencyContext getDependencyContext(
+      PrerequisiteProducer.State state,
+      AspectKey key,
+      Aspect aspect,
+      NestedSetBuilder<Cause> transitiveRootCauses,
+      @Nullable NestedSetBuilder<Package> transitivePackages,
+      Environment env)
+      throws InterruptedException, ConfiguredValueCreationException, ToolchainException {
+    if (state.dependencyContext != null) {
+      return state.dependencyContext;
+    }
+    if (state.dependencyContextProducer == null) {
+      TargetAndConfiguration targetAndConfiguration = state.targetAndConfiguration;
+      UnloadedToolchainContextsInputs unloadedToolchainContextsInputs =
+          getUnloadedToolchainContextsInputs(
+              aspect.getDefinition(),
+              key.getConfigurationKey(),
+              targetAndConfiguration.getConfiguration());
+      state.execGroupCollectionBuilder = unloadedToolchainContextsInputs;
+      state.dependencyContextProducer =
+          new Driver(
+              new DependencyContextProducer(
+                  unloadedToolchainContextsInputs,
+                  targetAndConfiguration,
+                  new TransitiveDependencyState(
+                      transitiveRootCauses, transitivePackages, /* prerequisitePackages= */ null),
+                  (DependencyContextProducer.ResultSink) state));
+    }
+    if (state.dependencyContextProducer.drive(env, env.getListener())) {
+      state.dependencyContextProducer = null;
+    }
+
+    // During error bubbling, the state machine might not be done, but still emit an error.
+    var error = state.dependencyContextError;
+    if (error != null) {
+      switch (error.kind()) {
+        case TOOLCHAIN:
+          throw error.toolchain();
+        case CONFIGURED_VALUE_CREATION:
+          throw error.configuredValueCreation();
+        case INCOMPATIBLE_TARGET:
+          throw new IllegalStateException("Unexpected error: " + error.incompatibleTarget());
+        case VALIDATION:
+          throw new IllegalStateException("Unexpected error: " + error.validation());
+      }
+      throw new IllegalStateException("unreachable");
+    }
+
+    return state.dependencyContext; // Null if not yet done.
   }
 
   static BzlLoadValue.Key bzlLoadKeyForStarlarkAspect(StarlarkAspectClass starlarkAspectClass) {
@@ -621,7 +665,7 @@ final class AspectFunction implements SkyFunction {
   @Nullable
   private AspectValue createAliasAspect(
       Environment env,
-      TargetAndConfiguration originalTarget,
+      State state,
       Aspect aspect,
       AspectKey originalKey,
       ConfiguredTarget configuredTarget)
@@ -636,36 +680,20 @@ final class AspectFunction implements SkyFunction {
         storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
+    TargetAndConfiguration originalTarget = state.computeDependenciesState.targetAndConfiguration;
+
     // Compute the Dependency from the original target to aliasedLabel.
     Dependency dep;
     try {
-      var configuration = originalTarget.getConfiguration();
-      // Determine what toolchains are needed by this target.
-      var unloadedToolchainContextsInputs =
-          getUnloadedToolchainContextsInputs(
-              aspect.getDefinition(), originalKey.getConfigurationKey(), configuration);
-      Optional<ToolchainCollection<UnloadedToolchainContext>> computedToolchainContexts =
-          PrerequisiteProducer.computeUnloadedToolchainContexts(
-              env, unloadedToolchainContextsInputs);
-      if (computedToolchainContexts == null) {
-        return null;
-      }
-
-      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts =
-          computedToolchainContexts.orElse(null);
-
-      // Get the configuration targets that trigger this rule's configurable attributes.
-      ConfigConditions configConditions =
-          PrerequisiteProducer.computeConfigConditions(
-              env,
-              originalTarget,
-              transitivePackages,
-              unloadedToolchainContexts == null
-                  ? null
-                  : unloadedToolchainContexts.getTargetPlatform(),
-              transitiveRootCauses);
-      if (configConditions == null) {
-        // Those targets haven't yet been resolved.
+      var dependencyContext =
+          getDependencyContext(
+              state.computeDependenciesState,
+              originalKey,
+              aspect,
+              state.transitiveRootCauses,
+              state.transitivePackages,
+              env);
+      if (dependencyContext == null) {
         return null;
       }
 
@@ -675,24 +703,25 @@ final class AspectFunction implements SkyFunction {
       }
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
-              configuration,
+              originalTarget.getConfiguration(),
               NoTransition.INSTANCE,
               aliasedTarget,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
 
       // Use ConfigurationResolver to apply any configuration transitions on the alias edge.
-      // This is a shortened/simplified variant of ConfiguredTargetFunction.computeDependencies
+      // This is a shortened/simplified variant of PrerequisiteProducer.computeDependencies
       // for just the one special attribute we care about here.
       DependencyKey depKey =
           DependencyKey.builder().setLabel(aliasedLabel).setTransition(transition).build();
       DependencyKind depKind =
           DependencyKind.AttributeDependencyKind.forRule(
               getAttributeContainingAlias(originalTarget.getTarget()));
+
       ConfigurationResolver resolver =
           new ConfigurationResolver(
               env,
               originalTarget,
-              configConditions.asProviders(),
+              dependencyContext.configConditions().asProviders(),
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache());
       ImmutableList<Dependency> deps =
           resolver.resolveConfiguration(depKind, depKey, env.getListener());

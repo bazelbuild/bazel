@@ -76,7 +76,7 @@ public final class TestActionBuilder {
       "COVERAGE_REPORTED_TO_ACTUAL_SOURCES_FILE";
 
   static class EmptyPackageProvider extends PackageGroupConfiguredTarget {
-    public EmptyPackageProvider() {
+    EmptyPackageProvider() {
       super(null, null, null);
     }
 
@@ -120,10 +120,10 @@ public final class TestActionBuilder {
         false,
         TestTimeout.ETERNAL,
         "invalid",
-        ImmutableList.<Artifact.DerivedArtifact>of(),
-        ImmutableList.<Artifact>of(),
+        ImmutableList.of(),
+        ImmutableList.of(),
         filesToRunProvider,
-        ImmutableList.<ActionInput>of());
+        ImmutableList.of());
   }
 
   /**
@@ -381,7 +381,7 @@ public final class TestActionBuilder {
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
-    SingleRunfilesSupplier testRunfilesSupplier;
+    RunfilesSupplier testRunfilesSupplier;
     if (shardRuns > 1 || runsPerTest > 1) {
       // When creating multiple test actions, cache the runfiles mappings across test actions. This
       // saves a lot of garbage when shard_count and/or runs_per_test is high.
@@ -393,7 +393,7 @@ public final class TestActionBuilder {
               runfilesSupport.isBuildRunfileLinks(),
               runfilesSupport.isRunfilesEnabled());
     } else {
-      testRunfilesSupplier = SingleRunfilesSupplier.create(runfilesSupport);
+      testRunfilesSupplier = runfilesSupport;
     }
 
     ActionOwner actionOwner =

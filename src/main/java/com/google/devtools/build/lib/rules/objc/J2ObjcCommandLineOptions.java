@@ -81,4 +81,11 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\")."
   )
   public boolean experimentalShorterHeaderPath;
+
+  @Override
+  public FragmentOptions getExec() {
+    J2ObjcCommandLineOptions exec = (J2ObjcCommandLineOptions) super.getExec();
+    exec.translationFlags = this.translationFlags;
+    return exec;
+  }
 }

@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -101,7 +101,6 @@ public final class LtoBackendAction extends SpawnAction {
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        null,
         /*stripOutputPaths=*/ false);
     mandatoryInputs = inputs;
     Preconditions.checkState(

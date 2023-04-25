@@ -202,6 +202,11 @@ public class SpawnIncludeScanner {
     }
 
     @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public RunfilesSupplier getRunfilesSupplier() {
       throw new UnsupportedOperationException();
     }

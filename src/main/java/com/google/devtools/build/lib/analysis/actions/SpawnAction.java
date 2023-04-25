@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
@@ -76,20 +76,19 @@ import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OnDemandString;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.DoNotCall;
+import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -112,8 +111,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private final ResourceSetOrBuilder resourceSetOrBuilder;
   private final ImmutableMap<String, String> executionInfo;
-  private final Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer;
-  private final boolean stripOutputPaths;
+  protected final boolean stripOutputPaths;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -157,7 +155,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         progressMessage,
         EmptyRunfilesSupplier.INSTANCE,
         mnemonic,
-        null,
         /* stripOutputPaths= */ false);
   }
 
@@ -195,7 +192,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       CharSequence progressMessage,
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
-      Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer,
       boolean stripOutputPaths) {
     super(owner, tools, inputs, runfilesSupplier, outputs, env);
     this.resourceSetOrBuilder = resourceSetOrBuilder;
@@ -207,7 +203,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.commandLineLimits = commandLineLimits;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
-    this.resultConsumer = resultConsumer;
     this.stripOutputPaths = stripOutputPaths;
   }
 
@@ -282,6 +277,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * if the subprocess execution returns normally, not in case of errors (non-zero exit,
    * setup/network failures, etc.).
    */
+  @ForOverride
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
       throws ExecException, InterruptedException {}
@@ -296,9 +292,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           actionExecutionContext
               .getContext(SpawnStrategyResolver.class)
               .exec(spawn, actionExecutionContext);
-      if (resultConsumer != null) {
-        resultConsumer.accept(Pair.of(actionExecutionContext, result));
-      }
       afterExecute(actionExecutionContext, result);
       return ActionResult.create(result);
     } catch (CommandLineExpansionException e) {
@@ -628,8 +621,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private String mnemonic = "Unknown";
     private boolean disableSandboxing = false;
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
-
-    private Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
     private boolean stripOutputPaths = false;
 
     /**
@@ -793,7 +784,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           progressMessage,
           runfilesSupplier,
           mnemonic,
-          resultConsumer,
           stripOutputPaths);
     }
 
@@ -1328,13 +1318,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setExecGroup(String execGroup) {
       this.execGroup = execGroup;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addResultConsumer(
-        Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
-      this.resultConsumer = resultConsumer;
       return this;
     }
   }

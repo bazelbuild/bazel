@@ -41,6 +41,7 @@ final class WorkerLifecycleManager extends Thread {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private boolean isWorking = false;
+  private boolean emptyEvictonWasLogged = false;
   private final WorkerPool workerPool;
   private final WorkerOptions options;
   private Reporter reporter;
@@ -107,21 +108,41 @@ final class WorkerLifecycleManager extends Thread {
         collectEvictionCandidates(
             workerMetrics, options.totalWorkerMemoryLimitMb, workerMemeoryUsage);
 
-    String msg =
-        String.format("Going to evict %d workers with ids: %s", candidates.size(), candidates);
-    logger.atInfo().log("%s", msg);
-    if (reporter != null) {
-      reporter.handle(Event.info(msg));
+    if (!candidates.isEmpty() || !emptyEvictonWasLogged) {
+      String msg;
+      if (candidates.isEmpty()) {
+        msg =
+            String.format(
+                "Could not find any worker eviction candidates. Worker memory usage: %d MB, Memory"
+                    + " limit: %d MB",
+                workerMemeoryUsage, options.totalWorkerMemoryLimitMb);
+      } else {
+        msg =
+            String.format("Going to evict %d workers with ids: %s", candidates.size(), candidates);
+      }
+
+      logger.atInfo().log("%s", msg);
+      if (reporter != null) {
+        reporter.handle(Event.info(msg));
+      }
     }
 
     ImmutableSet<Integer> evictedWorkers = evictCandidates(workerPool, candidates);
 
-    msg =
-        String.format(
-            "Total evicted idle workers %d. With ids: %s", evictedWorkers.size(), evictedWorkers);
-    logger.atInfo().log("%s", msg);
-    if (reporter != null) {
-      reporter.handle(Event.info(msg));
+    if (!evictedWorkers.isEmpty() || !emptyEvictonWasLogged) {
+      String msg =
+          String.format(
+              "Total evicted idle workers %d. With ids: %s", evictedWorkers.size(), evictedWorkers);
+      logger.atInfo().log("%s", msg);
+      if (reporter != null) {
+        reporter.handle(Event.info(msg));
+      }
+
+      if (candidates.isEmpty()) {
+        emptyEvictonWasLogged = true;
+      } else {
+        emptyEvictonWasLogged = false;
+      }
     }
 
     if (options.shrinkWorkerPool) {
@@ -151,12 +172,14 @@ final class WorkerLifecycleManager extends Thread {
         getCandidates(
             workerMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemeoryUsage);
 
-    String msg = String.format("New doomed workers candidates %s", potentialCandidates);
-    logger.atInfo().log("%s", msg);
-    if (reporter != null) {
-      reporter.handle(Event.info(msg));
+    if (!potentialCandidates.isEmpty()) {
+      String msg = String.format("New doomed workers candidates %s", potentialCandidates);
+      logger.atInfo().log("%s", msg);
+      if (reporter != null) {
+        reporter.handle(Event.info(msg));
+      }
+      workerPool.setDoomedWorkers(potentialCandidates);
     }
-    workerPool.setDoomedWorkers(potentialCandidates);
   }
 
   /**

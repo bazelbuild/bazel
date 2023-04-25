@@ -20,12 +20,12 @@ import "google/protobuf/duration.proto";
 option java_package = "com.google.devtools.build.lib.packages.metrics";
 option java_multiple_files = true;
 
-// Message used to concisely report all package metrics.
-message PackageLoadMetrics {
+// Message used to consisely report all package metrics.
+message PackageMetrics {
   // Name of the package.
   optional string name = 1;
 
-  // Wall-time duration it took to construct the package.
+  // Walltime Duration it took to construct the package.
   optional google.protobuf.Duration load_duration = 2;
 
   // Number of targets created in the package.
