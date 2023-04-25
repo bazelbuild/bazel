@@ -83,7 +83,7 @@ public enum ProfilerTask {
   STARLARK_REPOSITORY_FN("Starlark repository function call", Threshold.FIFTY_MILLIS),
   ACTION_FS_STAGING("Staging per-action file system"),
   REMOTE_CACHE_CHECK("remote action cache check"),
-  REMOTE_DOWNLOAD("remote output download"),
+  REMOTE_DOWNLOAD("remote output download", Threshold.TEN_MILLIS),
   REMOTE_NETWORK("remote network"),
   FILESYSTEM_TRAVERSAL("filesystem traversal"),
   WORKER_EXECUTION("local execution in worker"),
