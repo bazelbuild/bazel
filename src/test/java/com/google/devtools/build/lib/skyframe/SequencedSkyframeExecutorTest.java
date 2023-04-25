@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
@@ -275,7 +276,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   @Test
   public void testClearAnalysisCache() throws Exception {
     skyframeExecutor.setEventBus(new EventBus());
-    scratch.file(rootDirectory + "/discard/BUILD",
+    scratch.file(
+        rootDirectory + "/discard/BUILD",
         "genrule(name='x', srcs=['input'], outs=['out'], cmd='false')");
     scratch.file(rootDirectory + "/discard/input", "foo");
 
@@ -297,7 +299,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
-    scratch.file("python/hello/BUILD",
+    scratch.file(
+        "python/hello/BUILD",
         "py_binary(name = 'hello', srcs = ['hello.py'], data = glob(['*.txt']))");
     scratch.file("python/hello/foo.txt", "foo");
 
@@ -335,10 +338,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Root externalRoot = Root.fromPath(scratch.dir("/external"));
     RootedPath file = RootedPath.toRootedPath(externalRoot, scratch.file("/external/file"));
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+        /* doPackageLoadingChecks= */ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor
         .injectable()
-        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /*tsgm=*/ null));
+        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /* tsgm= */ null));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -355,10 +358,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Root externalRoot = Root.fromPath(scratch.dir("/external"));
     RootedPath file = RootedPath.toRootedPath(externalRoot, scratch.file("/external/file"));
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+        /* doPackageLoadingChecks= */ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor
         .injectable()
-        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /*tsgm=*/ null));
+        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /* tsgm= */ null));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -378,13 +381,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         DirectoryListingStateValue.create(dir.asPath().readdir(Symlinks.NOFOLLOW));
     DirectoryListingStateValue.Key dirListingKey = DirectoryListingStateValue.key(dir);
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+        /* doPackageLoadingChecks= */ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor
         .injectable()
         .inject(
             ImmutableMap.of(
                 dir,
-                FileStateValue.create(dir, SyscallCache.NO_CACHE, /*tsgm=*/ null),
+                FileStateValue.create(dir, SyscallCache.NO_CACHE, /* tsgm= */ null),
                 dirListingKey,
                 value));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
@@ -409,13 +412,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         DirectoryListingStateValue.create(dir.asPath().readdir(Symlinks.NOFOLLOW));
     DirectoryListingStateValue.Key dirListingKey = DirectoryListingStateValue.key(dir);
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
+        /* doPackageLoadingChecks= */ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor
         .injectable()
         .inject(
             ImmutableMap.of(
                 dir,
-                FileStateValue.create(dir, SyscallCache.NO_CACHE, /*tsgm=*/ null),
+                FileStateValue.create(dir, SyscallCache.NO_CACHE, /* tsgm= */ null),
                 dirListingKey,
                 value));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
@@ -456,7 +459,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   private Diff getRecordedDiff() {
     return skyframeExecutor
         .getDifferencerForTesting()
-        .getDiff(/*fromGraph=*/ null, ignored -> false, ignored -> false);
+        .getDiff(/* fromGraph= */ null, ignored -> false, ignored -> false);
   }
 
   @Test
@@ -496,10 +499,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 .getBuildFileForPackage(PackageIdentifier.createInMainRepo("not/a/package")))
         .isNull();
 
-    skyframeExecutor.getPackageManager().getPackage(
-        eventHandler, PackageIdentifier.createInMainRepo("foo/bar"));
-    skyframeExecutor.getPackageManager().getPackage(
-        eventHandler, PackageIdentifier.createInMainRepo("foo/baz"));
+    skyframeExecutor
+        .getPackageManager()
+        .getPackage(eventHandler, PackageIdentifier.createInMainRepo("foo/bar"));
+    skyframeExecutor
+        .getPackageManager()
+        .getPackage(eventHandler, PackageIdentifier.createInMainRepo("foo/baz"));
 
     assertThrows(
         "non-existent package was incorrectly thought to exist",
@@ -509,8 +514,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 .getPackageManager()
                 .getPackage(eventHandler, PackageIdentifier.createInMainRepo("not/a/package")));
 
-    ImmutableSet<PackageIdentifier> deletedPackages = ImmutableSet.of(
-        PackageIdentifier.createInMainRepo("foo/bar"));
+    ImmutableSet<PackageIdentifier> deletedPackages =
+        ImmutableSet.of(PackageIdentifier.createInMainRepo("foo/bar"));
     skyframeExecutor.setDeletedPackages(deletedPackages);
 
     assertThat(
@@ -545,21 +550,22 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   @Test
   public void testDependencyOnPotentialSubpackages() throws Exception {
     ExtendedEventHandler eventHandler = NullEventHandler.INSTANCE;
-    scratch.file("x/BUILD",
-        "sh_library(name = 'x', deps = ['//x:y/z'])",
-        "sh_library(name = 'y/z')");
+    scratch.file(
+        "x/BUILD", "sh_library(name = 'x', deps = ['//x:y/z'])", "sh_library(name = 'y/z')");
 
-    Package pkgBefore = skyframeExecutor.getPackageManager().getPackage(
-        eventHandler, PackageIdentifier.createInMainRepo("x"));
+    Package pkgBefore =
+        skyframeExecutor
+            .getPackageManager()
+            .getPackage(eventHandler, PackageIdentifier.createInMainRepo("x"));
     assertThat(pkgBefore.containsErrors()).isFalse();
 
-    scratch.file("x/y/BUILD",
-        "sh_library(name = 'z')");
-    ModifiedFileSet modifiedFiles = ModifiedFileSet.builder()
-        .modify(PathFragment.create("x"))
-        .modify(PathFragment.create("x/y"))
-        .modify(PathFragment.create("x/y/BUILD"))
-        .build();
+    scratch.file("x/y/BUILD", "sh_library(name = 'z')");
+    ModifiedFileSet modifiedFiles =
+        ModifiedFileSet.builder()
+            .modify(PathFragment.create("x"))
+            .modify(PathFragment.create("x/y"))
+            .modify(PathFragment.create("x/y/BUILD"))
+            .build();
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, modifiedFiles, Root.fromPath(rootDirectory));
 
@@ -578,8 +584,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     // The package lookup for "x" should now succeed again.
     reporter.addHandler(failFastHandler); // no longer expect errors
-    Package pkgAfter = skyframeExecutor.getPackageManager().getPackage(
-        eventHandler, PackageIdentifier.createInMainRepo("x"));
+    Package pkgAfter =
+        skyframeExecutor
+            .getPackageManager()
+            .getPackage(eventHandler, PackageIdentifier.createInMainRepo("x"));
     assertThat(pkgAfter).isNotSameInstanceAs(pkgBefore);
   }
 
@@ -589,8 +597,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     scratch.file("nobuildfile/foo.txt");
     scratch.file("deletedpackage/BUILD");
-    skyframeExecutor.setDeletedPackages(ImmutableList.of(
-        PackageIdentifier.createInMainRepo("deletedpackage")));
+    skyframeExecutor.setDeletedPackages(
+        ImmutableList.of(PackageIdentifier.createInMainRepo("deletedpackage")));
     scratch.file("invalidpackagename.42/BUILD");
     Path everythingGoodBuildFilePath = scratch.file("everythinggood/BUILD");
 
@@ -609,8 +617,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   /**
-   * Indirect regression test for b/12543229: "The Skyframe error propagation model is
-   * problematic".
+   * Indirect regression test for b/12543229: "The Skyframe error propagation model is problematic".
    */
   @Test
   public void testPackageFunctionHandlesExceptionFromDependencies() throws Exception {
@@ -619,8 +626,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // This will cause an IOException when trying to compute the glob, which is required to load
     // the package.
     badDirPath.setReadable(false);
-    scratch.file("bad/BUILD",
-        "filegroup(name='fg', srcs=glob(['**']))");
+    scratch.file("bad/BUILD", "filegroup(name='fg', srcs=glob(['**']))");
     assertThrows(
         NoSuchPackageException.class,
         () ->
@@ -649,7 +655,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       labels.add(Label.parseCanonical(labelString));
     }
     visitor.preloadTransitiveTargets(
-        reporter, labels, /*keepGoing=*/ false, /*parallelThreads=*/ 200, /*callerForError=*/ null);
+        reporter,
+        labels,
+        /* keepGoing= */ false,
+        /* parallelThreads= */ 200,
+        /* callerForError= */ null);
   }
 
   @Test
@@ -672,11 +682,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   }
 
   /**
-   * Generating the same output from two targets is ok if we build them on successive builds
-   * and invalidate the first target before we build the second target. This test is basically
-   * copied here from {@code AnalysisCachingTest} because here we can control the number of Skyframe
-   * update calls that we make. This prevents an intermediate update call from clearing the action
-   * and hiding the bug.
+   * Generating the same output from two targets is ok if we build them on successive builds and
+   * invalidate the first target before we build the second target. This test is basically copied
+   * here from {@code AnalysisCachingTest} because here we can control the number of Skyframe update
+   * calls that we make. This prevents an intermediate update call from clearing the action and
+   * hiding the bug.
    */
   @Test
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
@@ -717,9 +727,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
   public void testGetPackageUsesListener() throws Exception {
     scratch.file("pkg/BUILD", "thisisanerror");
     EventCollector customEventCollector = new EventCollector(EventKind.ERRORS);
-    Package pkg = skyframeExecutor.getPackageManager().getPackage(
-        new Reporter(new EventBus(), customEventCollector),
-        PackageIdentifier.createInMainRepo("pkg"));
+    Package pkg =
+        skyframeExecutor
+            .getPackageManager()
+            .getPackage(
+                new Reporter(new EventBus(), customEventCollector),
+                PackageIdentifier.createInMainRepo("pkg"));
     assertThat(pkg.containsErrors()).isTrue();
     MoreAsserts.assertContainsEvent(customEventCollector, "name 'thisisanerror' is not defined");
   }
@@ -749,14 +762,15 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           new ActionsTestUtil.FakeArtifactResolverBase(),
           new ActionKeyContext(),
           Predicates.alwaysTrue(),
-          /*cacheConfig=*/ null);
+          /* cacheConfig= */ null);
 
-  private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER = new ProgressSupplier() {
-    @Override
-    public String getProgressString() {
-      return "";
-    }
-  };
+  private static final ProgressSupplier EMPTY_PROGRESS_SUPPLIER =
+      new ProgressSupplier() {
+        @Override
+        public String getProgressString() {
+          return "";
+        }
+      };
 
   private static final ActionCompletedReceiver EMPTY_COMPLETION_RECEIVER =
       new ActionCompletedReceiver() {
@@ -816,8 +830,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
-    skyframeExecutor.setActionExecutionProgressReportingObjects(EMPTY_PROGRESS_SUPPLIER,
-        EMPTY_COMPLETION_RECEIVER, ActionExecutionStatusReporter.create(reporter));
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
     skyframeExecutor.buildArtifacts(
         reporter,
         ResourceManager.instanceForTestingOnly(),
@@ -838,8 +854,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     EvaluationResult<FileArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
     assertWithMessage(result.toString()).that(result.keyNames()).isEmpty();
     assertThat(result.hasError()).isTrue();
-    MoreAsserts.assertContainsEvent(eventCollector,
-        "output '" + output1.prettyPrint() + "' was not created");
+    MoreAsserts.assertContainsEvent(
+        eventCollector, "output '" + output1.prettyPrint() + "' was not created");
     MoreAsserts.assertContainsEvent(eventCollector, "not all outputs were created or valid");
     assertEventCount(2, eventCollector);
   }
@@ -914,8 +930,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2, inputKey, ctBase));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
-    skyframeExecutor.setActionExecutionProgressReportingObjects(EMPTY_PROGRESS_SUPPLIER,
-        EMPTY_COMPLETION_RECEIVER, ActionExecutionStatusReporter.create(reporter));
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
     skyframeExecutor.buildArtifacts(
         reporter,
         ResourceManager.instanceForTestingOnly(),
@@ -1783,7 +1801,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           "message",
           new Exception("just cause"),
           this,
-          /*catastrophe=*/ true,
+          /* catastrophe= */ true,
           expectedDetailedExitCode);
     }
   }
@@ -1847,8 +1865,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.getEventBus().register(collector);
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
-    skyframeExecutor.setActionExecutionProgressReportingObjects(EMPTY_PROGRESS_SUPPLIER,
-        EMPTY_COMPLETION_RECEIVER, ActionExecutionStatusReporter.create(reporter));
+    skyframeExecutor.setActionExecutionProgressReportingObjects(
+        EMPTY_PROGRESS_SUPPLIER,
+        EMPTY_COMPLETION_RECEIVER,
+        ActionExecutionStatusReporter.create(reporter));
 
     reporter.removeHandler(failFastHandler); // Expect errors.
     Builder builder =
@@ -1881,7 +1901,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       null,
-                      /* trustRemoteArtifacts= */ false));
+                      RemoteArtifactChecker.IGNORE_ALL));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -1894,7 +1914,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   private static ActionLookupValue createActionLookupValue(
       ActionAnalysisMetadata generatingAction, ActionLookupKey actionLookupKey)
-      throws ActionConflictException, InterruptedException,
+      throws ActionConflictException,
+          InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
     return new BasicActionLookupValue(
         Actions.assignOwnersAndFindAndThrowActionConflict(
@@ -1977,7 +1998,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     failureHappened.countDown();
                   }
                 },
-                /*deterministic=*/ true));
+                /* deterministic= */ true));
     TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
     skyframeExecutor.getEventBus().register(collector);
@@ -1995,7 +2016,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
-            /*fileCache=*/ null,
+            /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
     Set<Artifact> normalArtifacts = ImmutableSet.of(topArtifact);
@@ -2016,7 +2037,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       null,
-                      /* trustRemoteArtifacts= */ false));
+                      RemoteArtifactChecker.IGNORE_ALL));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2078,7 +2099,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     .addAll(failedActions)
                     .build(),
                 configuredTargetKey,
-                /*outputFiles=*/ null));
+                /* outputFiles= */ null));
     HashSet<ActionLookupData> failedActionKeys = new HashSet<>();
     for (Action failedAction : failedActions) {
       failedActionKeys.add(
@@ -2102,7 +2123,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 },
                 // Determinism actually doesn't help here because the internal maps are still
                 // effectively unordered.
-                /*deterministic=*/ true));
+                /* deterministic= */ true));
     TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
     skyframeExecutor.getEventBus().register(collector);
@@ -2120,7 +2141,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
-            /*fileCache=*/ null,
+            /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
     try {
@@ -2143,14 +2164,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       new TopLevelArtifactContext(
-                          /*runTestsExclusively=*/ false,
+                          /* runTestsExclusively= */ false,
                           false,
                           false,
                           OutputGroupInfo.determineOutputGroups(
                               ImmutableList.of(),
                               OutputGroupInfo.ValidationMode.OUTPUT_GROUP,
-                              /*shouldRunTests=*/ false)),
-                      /* trustRemoteArtifacts= */ false));
+                              /* shouldRunTests= */ false)),
+                      RemoteArtifactChecker.IGNORE_ALL));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2196,7 +2217,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 throw new ActionExecutionException(
                     "typical non-catastrophic user failure",
                     failedActionReference.get(),
-                    /*catastrophe=*/ false,
+                    /* catastrophe= */ false,
                     USER_DETAILED_EXIT_CODE);
               }
             },
@@ -2265,7 +2286,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                       options,
                       null,
                       null,
-                      /* trustRemoteArtifacts= */ false));
+                      RemoteArtifactChecker.IGNORE_ALL));
       // The catastrophic exception should be propagated into the BuildFailedException whether or
       // not --keep_going is set.
       assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
@@ -2288,15 +2309,18 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       throw new ActionExecutionException(
-          "foo", new Exception("bar"), this, /*catastrophe=*/ false, detailedExitCode);
+          "foo", new Exception("bar"), this, /* catastrophe= */ false, detailedExitCode);
     }
   }
 
   /**
    * Verify SkyframeBuilder returns correct user error code as global error code when:
-   *    1. keepGoing mode is true.
-   *    2. user error code exists.
-   *    3. no infrastructure error code exists.
+   *
+   * <ol>
+   *   <li>keepGoing mode is true.
+   *   <li>user error code exists.
+   *   <li>no infrastructure error code exists.
+   * </ol>
    */
   @Test
   public void testKeepGoingExitCodeWithUserError() throws Exception {
@@ -2368,7 +2392,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     options,
                     null,
                     null,
-                    /* trustRemoteArtifacts= */ false));
+                    RemoteArtifactChecker.IGNORE_ALL));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode()).isEqualTo(USER_DETAILED_EXIT_CODE);
@@ -2376,8 +2400,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   /**
    * Verify SkyframeBuilder returns correct infrastructure error code as global error code when:
-   *    1. keepGoing mode is true.
-   *    2. infrastructure error code exists.
+   *
+   * <ol>
+   *   <li>keepGoing mode is true.
+   *   <li>infrastructure error code exists.
+   * </ol>
    */
   @Test
   public void testKeepGoingExitCodeWithUserAndInfrastructureError() throws Exception {
@@ -2461,7 +2488,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     options,
                     null,
                     null,
-                    /* trustRemoteArtifacts= */ false));
+                    RemoteArtifactChecker.IGNORE_ALL));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
     assertThat(e.getDetailedExitCode()).isEqualTo(INFRA_DETAILED_EXIT_CODE);
@@ -2520,7 +2547,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             ResourceManager.instanceForTestingOnly(),
             NULL_CHECKER,
             ModifiedFileSet.EVERYTHING_MODIFIED,
-            /*fileCache=*/ null,
+            /* fileCache= */ null,
             ActionInputPrefetcher.NONE,
             BugReporter.defaultInstance());
     builder.buildArtifacts(
@@ -2535,7 +2562,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
     MoreAsserts.assertContainsEvent(
         eventCollector, Pattern.compile(".*during scanning.*\n.*Scanning.*\n.*Test dir/top.*"));
     MoreAsserts.assertNotContainsEvent(

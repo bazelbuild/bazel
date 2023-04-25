@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -96,12 +97,8 @@ public interface OutputService {
    */
   String getFilesSystemName();
 
-  /**
-   * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
-   * remotely and do not exist locally.
-   */
-  public default boolean shouldTrustRemoteArtifacts() {
-    return true;
+  default RemoteArtifactChecker getRemoteArtifactChecker() {
+    return RemoteArtifactChecker.TRUST_ALL;
   }
 
   /**
