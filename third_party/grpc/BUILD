@@ -24,12 +24,12 @@ license(
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
     license_text = "LICENSE",
-    package_version = "1.47",
+    package_version = "1.48",
 )
 
 exports_files([
-    "grpc_1.47.0.patch",
-    "grpc_1.47.0.win_arm64.patch",
+    "grpc_1.48.1.patch",
+    "grpc_1.48.1.win_arm64.patch",
 ])
 
 package(
