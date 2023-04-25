@@ -4,7 +4,7 @@ load(
     "build_failure_test",
     "debug_files_test",
     "interface_library_output_group_test",
-    "linking_suffix_test",
+    "linking_order_test",
     "paths_test",
     "runfiles_test",
     "check_linking_action_lib_parameters_test",
@@ -344,7 +344,7 @@ filegroup(
     output_group = "rule_impl_debug_files",
 )
 
-linking_suffix_test(
+linking_order_test(
     name = "linking_action_test",
     # TODO(bazel-team): Support this test on Windows and Mac.
     is_linux = select({
