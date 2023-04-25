@@ -43,16 +43,16 @@ class BazelLockfileTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
-            'common --registry=' + self.main_registry.getURL(),
+            'build --enable_bzlmod',
+            'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'common --registry=https://bcr.bazel.build',
-            'common --verbose_failures',
+            'build --registry=https://bcr.bazel.build',
+            'build --verbose_failures',
             # Set an explicit Java language version
-            'common --java_language_version=8',
-            'common --tool_java_language_version=8',
-            'common --lockfile_mode=update',
+            'build --java_language_version=8',
+            'build --tool_java_language_version=8',
+            'build --lockfile_mode=update',
         ],
     )
     self.ScratchFile('WORKSPACE')
@@ -85,8 +85,8 @@ class BazelLockfileTest(test_base.TestBase):
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
     scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
 
-    # Clean bazel to empty any cache of the deps tree
-    self.RunBazel(['clean', '--expunge'])
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
     # Runing again will try to get 'sss' which should produce an error
     exit_code, _, stderr = self.RunBazel(
         [
@@ -130,8 +130,8 @@ class BazelLockfileTest(test_base.TestBase):
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
     scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
 
-    # Clean bazel to empty any cache of the deps tree
-    self.RunBazel(['clean', '--expunge'])
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
     # Running with the lockfile, should not recognize the registry changes
     # hence find no errors
     self.RunBazel(['build', '--nobuild', '//:all'], allow_failure=False)
@@ -156,8 +156,8 @@ class BazelLockfileTest(test_base.TestBase):
     module_dir = self.main_registry.root.joinpath('modules', 'sss', '1.3')
     scratchFile(module_dir.joinpath('MODULE.bazel'), ['whatever!'])
 
-    # Clean bazel to empty any cache of the deps tree
-    self.RunBazel(['clean', '--expunge'])
+    # Shutdown bazel to empty any cache of the deps tree
+    self.RunBazel(['shutdown'])
     # Running with the lockfile, but adding a flag should cause resolution rerun
     exit_code, _, stderr = self.RunBazel(
         [
