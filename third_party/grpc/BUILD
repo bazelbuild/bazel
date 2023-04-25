@@ -30,6 +30,8 @@ license(
 exports_files([
     "grpc_1.47.0.patch",
     "grpc_1.47.0.win_arm64.patch",
+    "grpc_1.48.1.patch",
+    "grpc_1.48.1.win_arm64.patch",
 ])
 
 package(
