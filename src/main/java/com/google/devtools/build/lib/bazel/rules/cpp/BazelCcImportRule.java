@@ -154,6 +154,16 @@ cc_binary(
 )
 </pre>
 
+<code>cc_import</code> supports an include attribute. For example:
+<pre class="code">
+  cc_import(
+  name = "curl_lib",
+  hdrs = glob(["vendor/curl/include/curl/*.h"]),
+  includes = [ "vendor/curl/include" ],
+  shared_library = "vendor/curl/lib/.libs/libcurl.dylib",
+)
+</pre>
+
 
 
 </p>
