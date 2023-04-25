@@ -111,13 +111,5 @@ public abstract class PooledInterner<T> implements Interner<T> {
      * removed from the weak interner}.
      */
     T getOrWeakIntern(T sample);
-
-    /**
-     * Cleans up this pool by transferring all instances back to their weak interner.
-     *
-     * <p>Only called in tests to avoid leaking static state between test cases. Production code is
-     * expected to handle cleanup on its own.
-     */
-    default void cleanupForTest() {}
   }
 }

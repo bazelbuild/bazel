@@ -30,7 +30,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
-        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//third_party:auto_value",
         "//third_party:checker_framework_annotations",
         "//third_party:guava",
