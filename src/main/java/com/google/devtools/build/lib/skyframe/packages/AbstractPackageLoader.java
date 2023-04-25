@@ -369,8 +369,15 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       EvaluationContext evaluationContext,
       StoredEventHandler storedEventHandler)
       throws InterruptedException {
-    EvaluationResult<PackageValue> evalResult =
-        makeFreshEvaluator().evaluate(pkgKeys, evaluationContext);
+    MemoizingEvaluator evaluator = makeFreshEvaluator();
+    EvaluationResult<PackageValue> evalResult;
+    try {
+      evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+    } finally {
+      if (usePooledInterning) {
+        evaluator.cleanupInterningPools();
+      }
+    }
     ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
         ImmutableMap.builder();
     for (SkyKey key : pkgKeys) {

@@ -206,6 +206,7 @@ import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
+import org.junit.After;
 import org.junit.Before;
 
 /** Common test code that creates a BuildView instance. */
@@ -242,6 +243,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationKey targetConfigKey;
 
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
+
+  @After
+  public final void cleanupInterningPools() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
+  }
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
@@ -2537,7 +2543,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /* topLevelFilesets= */ ImmutableMap.of(),
           artifactExpander,
           /* actionFileSystem= */ null,
-          /*skyframeDepsResult*/ null,
+          /* skyframeDepsResult= */ null,
           DiscoveredModulesPruner.DEFAULT,
           SyscallCache.NO_CACHE,
           ThreadStateReceiver.NULL_INSTANCE);

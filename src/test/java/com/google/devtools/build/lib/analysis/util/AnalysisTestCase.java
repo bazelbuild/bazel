@@ -104,6 +104,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.After;
 import org.junit.Before;
 
 /**
@@ -211,7 +212,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
-  protected SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
+  @After
+  public final void cleanupInterningPools() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
+  }
+
+  private SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
