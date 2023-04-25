@@ -27,6 +27,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -405,7 +406,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   public void detectModifiedOutputFiles(
       ModifiedFileSet modifiedOutputFiles,
       @Nullable Range<Long> lastExecutionTimeRange,
-      boolean trustRemoteArtifacts,
+      RemoteArtifactChecker remoteArtifactChecker,
       int fsvcThreads)
       throws InterruptedException {
     long startTime = System.nanoTime();
@@ -418,7 +419,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             memoizingEvaluator.getValues(),
             batchStatter,
             modifiedOutputFiles,
-            trustRemoteArtifacts,
+            remoteArtifactChecker,
             (maybeModifiedTime, artifact) -> {
               modifiedFiles.incrementAndGet();
               int dirtyOutputsCount = outputDirtyFiles.incrementAndGet();

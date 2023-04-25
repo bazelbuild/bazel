@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRoots;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -316,12 +317,14 @@ public class ExecutionTool {
     }
 
     skyframeExecutor.drainChangedFiles();
-    boolean shouldTrustRemoteArtifacts =
-        env.getOutputService() != null && env.getOutputService().shouldTrustRemoteArtifacts();
+    var remoteArtifactChecker =
+        env.getOutputService() != null
+            ? env.getOutputService().getRemoteArtifactChecker()
+            : RemoteArtifactChecker.IGNORE_ALL;
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
-        shouldTrustRemoteArtifacts,
+        remoteArtifactChecker,
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(
@@ -461,8 +464,10 @@ public class ExecutionTool {
       }
 
       Profiler.instance().markPhase(ProfilePhase.EXECUTE);
-      boolean shouldTrustRemoteArtifacts =
-          env.getOutputService() != null && env.getOutputService().shouldTrustRemoteArtifacts();
+      var remoteArtifactChecker =
+          env.getOutputService() != null
+              ? env.getOutputService().getRemoteArtifactChecker()
+              : RemoteArtifactChecker.IGNORE_ALL;
       builder.buildArtifacts(
           env.getReporter(),
           analysisResult.getArtifactsToBuild(),
@@ -475,7 +480,7 @@ public class ExecutionTool {
           request,
           env.getBlazeWorkspace().getLastExecutionTimeRange(),
           topLevelArtifactContext,
-          shouldTrustRemoteArtifacts);
+          remoteArtifactChecker);
       buildCompleted = true;
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;

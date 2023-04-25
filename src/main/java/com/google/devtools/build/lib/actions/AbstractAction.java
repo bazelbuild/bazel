@@ -264,6 +264,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         "Method must be overridden for actions that may have unknown inputs.");
   }
 
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
   /**
    * Should be called when the inputs of the action become known, that is, either during {@link
    * #discoverInputs(ActionExecutionContext)} or during {@link #execute(ActionExecutionContext)}.

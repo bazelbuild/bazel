@@ -271,9 +271,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ImmutableList<Artifact> additionalOutputs) {
     super(
         owner,
-        NestedSetBuilder.fromNestedSet(mandatoryInputs)
-            .addTransitive(inputsForInvalidation)
-            .build(),
+        cppConfiguration.useSchedulingMiddlemen()
+            ? NestedSetBuilder.fromNestedSet(mandatoryInputs)
+                .addTransitive(inputsForInvalidation)
+                .build()
+            : mandatoryInputs,
         collectOutputs(
             Preconditions.checkNotNull(outputFile, "outputFile"),
             dotdFile,
@@ -631,9 +633,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   protected final NestedSet<Artifact> getOriginalInputs() {
-    return NestedSetBuilder.fromNestedSet(mandatoryInputs)
-        .addTransitive(inputsForInvalidation)
-        .build();
+    if (cppConfiguration.useSchedulingMiddlemen()) {
+      return NestedSetBuilder.fromNestedSet(mandatoryInputs)
+          .addTransitive(inputsForInvalidation)
+          .build();
+    } else {
+      return mandatoryInputs;
+    }
   }
 
   @Nullable
@@ -1219,9 +1225,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, this::describe)) {
       NestedSetBuilder<Artifact> inputsBuilder =
-          NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(mandatoryInputs)
-              .addTransitive(inputsForInvalidation);
+          NestedSetBuilder.<Artifact>stableOrder().addTransitive(mandatoryInputs);
+      if (cppConfiguration.useSchedulingMiddlemen()) {
+        inputsBuilder.addTransitive(inputsForInvalidation);
+      }
       if (discoveredInputs != null) {
         inputsBuilder.addTransitive(discoveredInputs);
       }
@@ -1264,6 +1271,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
     return CcToolchainVariables.builder().build();
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return cppConfiguration.useSchedulingMiddlemen()
+        ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
+        : inputsForInvalidation;
   }
 
   @Override

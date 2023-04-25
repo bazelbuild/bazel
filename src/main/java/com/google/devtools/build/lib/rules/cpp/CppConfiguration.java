@@ -795,6 +795,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.experimentalStarlarkCcImport;
   }
 
+  public boolean useSchedulingMiddlemen() {
+    return cppOptions.useSchedulingMiddlemen;
+  }
+
   public boolean strictHeaderCheckingFromStarlark() {
     return cppOptions.forceStrictHeaderCheckFromStarlark;
   }
