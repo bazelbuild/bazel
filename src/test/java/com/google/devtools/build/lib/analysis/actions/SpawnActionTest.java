@@ -133,7 +133,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   @Test
   public void testExecutionInfo_fromExecutionPlatform() throws Exception {
     ActionOwner actionOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             Label.parseCanonicalUnchecked("//target"),
             new Location("dummy-file", 0, 0),
             /* targetKind= */ "dummy-kind",
@@ -142,7 +142,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            /* additionalProgressInfo= */ null,
+            /* isToolConfiguration= */ false,
             /* executionPlatform= */ null,
             ImmutableList.of(),
             ImmutableMap.<String, String>builder()

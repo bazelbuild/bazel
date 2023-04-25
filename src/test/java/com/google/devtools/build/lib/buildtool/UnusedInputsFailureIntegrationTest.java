@@ -105,6 +105,98 @@ public final class UnusedInputsFailureIntegrationTest extends BuildIntegrationTe
     }
   }
 
+  /**
+   * Regression test for b/185998331.
+   *
+   * <p>The action graph is:
+   *
+   * <pre>
+   *            top [consume.out] -> [top.out]
+   *                           |
+   *           consume [consume.sh, prune.out] -> [consume.out]
+   *                           |
+   *      prune [prune.sh, [bad.out, good.out]] -> [prune.out, unused_list]
+   *                   /                \
+   *     bad [bad.sh] -> [bad.out]     good [] -> [good.out]
+   * </pre>
+   *
+   * where 'prune' reports 'bad' as an unused input. On the first build, 'consume' fails. On the
+   * second build, 'bad' fails. If the error is not handled correctly by 'prune', 'top' won't know
+   * that 'consume' is unavailable.
+   */
+  @Test
+  public void incrementalFailureOnUnusedInput_downstreamInputNotReady() throws Exception {
+    write(
+        "foo/defs.bzl",
+        "def _example_rule_impl(ctx):",
+        "  bad = ctx.actions.declare_file('bad.out')",
+        "  ctx.actions.run(",
+        "    outputs = [bad],",
+        "    executable = ctx.executable.bad_sh,",
+        "    arguments = [bad.path],",
+        "  )",
+        "",
+        "  good = ctx.actions.declare_file('good.out')",
+        "  ctx.actions.run_shell(outputs = [good], command = 'touch %s' % good.path)",
+        "",
+        "  unused_list = ctx.actions.declare_file('unused_list')",
+        "  prune = ctx.actions.declare_file('prune.out')",
+        "  ctx.actions.run(",
+        "    outputs = [prune, unused_list],",
+        "    inputs = [bad, good],",
+        "    unused_inputs_list = unused_list,",
+        "    executable = ctx.executable.prune_sh,",
+        "    arguments = [prune.path, unused_list.path, bad.path],",
+        "  )",
+        "",
+        "  consume = ctx.actions.declare_file('consume.out')",
+        "  ctx.actions.run(",
+        "    outputs = [consume],",
+        "    inputs = [prune],",
+        "    executable = ctx.executable.consume_sh,",
+        "    arguments = [consume.path],",
+        "  )",
+        "",
+        "  top = ctx.actions.declare_file('top.out')",
+        "  ctx.actions.run_shell(",
+        "    outputs = [top],",
+        "    inputs = [consume],",
+        "    command = 'touch %s' % top.path,",
+        "  )",
+        "  return DefaultInfo(files = depset([top]))",
+        "",
+        "example_rule = rule(",
+        "  implementation = _example_rule_impl,",
+        "  attrs = {",
+        "    'bad_sh': attr.label(",
+        "       executable = True, allow_single_file = True, cfg = 'exec', default = 'bad.sh'",
+        "    ),",
+        "    'prune_sh': attr.label(",
+        "       executable = True, allow_single_file = True, cfg = 'exec', default = 'prune.sh'",
+        "    ),",
+        "    'consume_sh': attr.label(",
+        "       executable = True, allow_single_file = True, cfg = 'exec', default = 'consume.sh'",
+        "    ),",
+        "  },",
+        ")");
+    write("foo/BUILD", "load(':defs.bzl', 'example_rule')", "example_rule(name = 'example')");
+    write("foo/bad.sh", "#!/bin/bash", "touch $1").setExecutable(true);
+    write("foo/prune.sh", "#!/bin/bash", "touch $1 && echo $3 > $2").setExecutable(true);
+    write("foo/consume.sh", "#!/bin/bash", "exit 1").setExecutable(true);
+    assertThrows(BuildFailedException.class, () -> buildTarget("//foo:example"));
+    assertContainsError("Action foo/consume.out failed");
+
+    write("foo/bad.sh", "#!/bin/bash", "exit 1").setExecutable(true);
+    write("foo/consume.sh", "#!/bin/bash", "touch $@").setExecutable(true);
+
+    if (keepGoing) {
+      buildTarget("//foo:example");
+    } else {
+      assertThrows(BuildFailedException.class, () -> buildTarget("//foo:example"));
+      assertContainsError("Action foo/bad.out failed");
+    }
+  }
+
   @Test
   public void incrementalUnusedSymlinkCycle() throws Exception {
     RecordingBugReporter bugReporter = recordBugReportsAndReinitialize();

@@ -660,4 +660,11 @@ public class CppHelper {
 
     return cppOptions.enableCcToolchainResolution;
   }
+
+  @Nullable
+  public static Artifact getGrepIncludes(RuleContext ruleContext) {
+    return ruleContext.attributes().has("$grep_includes")
+        ? ruleContext.getPrerequisiteArtifact("$grep_includes")
+        : null;
+  }
 }

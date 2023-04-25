@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.devtools.build.lib.analysis.CommonPrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.bazel.BazelConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
 /** Ensures that a target's prerequisites are visible to it and match its testonly status. */
@@ -40,7 +41,7 @@ public class BazelPrerequisiteValidator extends CommonPrerequisiteValidator {
   }
 
   @Override
-  protected boolean checkVisibilityForToolchains(RuleContext.Builder context) {
+  protected boolean checkVisibilityForToolchains(RuleContext.Builder context, Label prerequisite) {
     return context
         .getConfiguration()
         .getFragment(BazelConfiguration.class)

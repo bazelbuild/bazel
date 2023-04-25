@@ -515,7 +515,7 @@ public final class ActionsTestUtil {
           NULL_ARTIFACT_OWNER);
 
   public static final ActionOwner NULL_ACTION_OWNER =
-      ActionOwner.create(
+      ActionOwner.createDummy(
           NULL_LABEL,
           new Location("dummy-file", 0, 0),
           /* targetKind= */ "dummy-kind",
@@ -524,7 +524,7 @@ public final class ActionsTestUtil {
           new BuildConfigurationEvent(
               BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
               BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-          /* additionalProgressInfo= */ null,
+          /* isToolConfiguration= */ false,
           /* executionPlatform= */ null,
           /* aspectDescriptors= */ ImmutableList.of(),
           /* execProperties= */ ImmutableMap.of());

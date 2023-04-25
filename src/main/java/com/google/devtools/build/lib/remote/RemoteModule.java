@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.http.HttpException;
 import com.google.devtools.build.lib.remote.logging.LoggingInterceptor;
-import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -405,11 +404,11 @@ public final class RemoteModule extends BlazeModule {
     }
 
     ClientInterceptor loggingInterceptor = null;
-    if (remoteOptions.experimentalRemoteGrpcLog != null) {
+    if (remoteOptions.remoteGrpcLog != null) {
       try {
         rpcLogFile =
             new AsynchronousFileOutputStream(
-                env.getWorkingDirectory().getRelative(remoteOptions.experimentalRemoteGrpcLog));
+                env.getWorkingDirectory().getRelative(remoteOptions.remoteGrpcLog));
       } catch (IOException e) {
         handleInitFailure(env, e, Code.RPC_LOG_FAILURE);
         return;
@@ -756,17 +755,7 @@ public final class RemoteModule extends BlazeModule {
 
   // Separating the conditions for readability.
   private boolean shouldParseNoCacheOutputs() {
-    if (remoteOptions == null
-        || remoteOptions.remoteBuildEventUploadMode != RemoteBuildEventUploadMode.ALL
-        || !remoteOptions.incompatibleRemoteBuildEventUploadRespectNoCache) {
-      return false;
-    }
-
-    if (actionContextProvider == null || actionContextProvider.getRemoteCache() == null) {
-      return false;
-    }
-
-    return buildEventArtifactUploaderFactoryDelegate.get() != null;
+    return false;
   }
 
   private void parseNoCacheOutputs(AnalysisResult analysisResult) {

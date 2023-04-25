@@ -137,8 +137,6 @@ public final class RuleContext extends TargetContext
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
   }
 
-  private static final String TOOL_CONFIGURATION_PROGRESS_TAG = "for tool";
-
   public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
 
   /** A fake attribute to use for toolchain-related validation errors. */
@@ -507,17 +505,14 @@ public final class RuleContext extends TargetContext
   public static ActionOwner createActionOwner(
       Rule rule,
       ImmutableList<AspectDescriptor> aspectDescriptors,
-      BuildConfigurationValue configuration,
+      BuildConfigurationValue buildConfigurationValue,
       ImmutableMap<String, String> execProperties,
       @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
         rule.getLabel(),
         rule.getLocation(),
         rule.getTargetKind(),
-        configuration.getMnemonic(),
-        configuration.checksum(),
-        configuration.toBuildEvent(),
-        configuration.isToolConfiguration() ? TOOL_CONFIGURATION_PROGRESS_TAG : null,
+        buildConfigurationValue,
         executionPlatform,
         aspectDescriptors,
         execProperties);

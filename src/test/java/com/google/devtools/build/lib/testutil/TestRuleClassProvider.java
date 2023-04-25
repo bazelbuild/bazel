@@ -143,7 +143,8 @@ public class TestRuleClassProvider {
     }
 
     @Override
-    protected boolean checkVisibilityForToolchains(RuleContext.Builder context) {
+    protected boolean checkVisibilityForToolchains(
+        RuleContext.Builder context, Label prerequisite) {
       return true;
     }
 

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
 public class CppLinkstampCompileHelper {
@@ -36,17 +37,18 @@ public class CppLinkstampCompileHelper {
   /**
    * Creates {@link CppCompileAction} to compile linkstamp source
    *
-   * @param compilationPrerequisites: see {@link CppCompileAction#inputsForInvalidation}
+   * @param inputsForInvalidation: see {@link CppCompileAction#inputsForInvalidation}
    */
   public static CppCompileAction createLinkstampCompileAction(
       RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
+      @Nullable Artifact grepIncludes,
       BuildConfigurationValue configuration,
       Artifact sourceFile,
       Artifact outputFile,
       NestedSet<Artifact> compilationInputs,
       NestedSet<Artifact> nonCodeInputs,
-      NestedSet<Artifact> compilationPrerequisites,
+      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> buildInfoHeaderArtifacts,
       Iterable<String> additionalLinkstampDefines,
       CcToolchainProvider ccToolchainProvider,
@@ -60,7 +62,11 @@ public class CppLinkstampCompileHelper {
       CppSemantics semantics) {
     CppCompileActionBuilder builder =
         new CppCompileActionBuilder(
-                actionConstructionContext, ccToolchainProvider, configuration, semantics)
+                actionConstructionContext,
+                grepIncludes,
+                ccToolchainProvider,
+                configuration,
+                semantics)
             .addMandatoryInputs(compilationInputs)
             .setVariables(
                 getVariables(
@@ -82,7 +88,7 @@ public class CppLinkstampCompileHelper {
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
-            .addMandatoryInputs(compilationPrerequisites)
+            .setInputsForInvalidation(inputsForInvalidation)
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
             .setShareable(true)

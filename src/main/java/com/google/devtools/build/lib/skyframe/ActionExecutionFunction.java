@@ -32,6 +32,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -137,6 +138,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  * dep on the execution's completion future.
  */
 public final class ActionExecutionFunction implements SkyFunction {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ActionRewindStrategy actionRewindStrategy = new ActionRewindStrategy();
   private final SkyframeActionExecutor skyframeActionExecutor;
@@ -1498,8 +1501,25 @@ public final class ActionExecutionFunction implements SkyFunction {
         handleActionExecutionExceptionPerArtifact((Artifact) key, e);
         return;
       }
-      for (Artifact input : skyKeyToDerivedArtifactSetForExceptions.get().get(key)) {
-        handleActionExecutionExceptionPerArtifact(input, e);
+      Set<Artifact> associatedInputs = skyKeyToDerivedArtifactSetForExceptions.get().get(key);
+      if (associatedInputs.isEmpty()) {
+        // This can happen if an action prunes its inputs, e.g. the way StarlarkAction implements
+        // unused_inputs_list. An input may no longer be present in getInputs(), but its generating
+        // action could still be a Skyframe dependency because Skyframe eagerly adds a dep group to
+        // a dirty node if all prior dep groups are clean. If the pruned input is in error, it
+        // propagates during error bubbling, and we reach this point.
+        // TODO(lberki): Can inputs be immutable instead?
+        logger.atWarning().log(
+            "While handling errors for %s, encountered error from %s which is not associated with"
+                + " any inputs",
+            action.prettyPrint(), key);
+        if (firstActionExecutionException == null) {
+          firstActionExecutionException = e;
+        }
+      } else {
+        for (Artifact input : associatedInputs) {
+          handleActionExecutionExceptionPerArtifact(input, e);
+        }
       }
     }
 

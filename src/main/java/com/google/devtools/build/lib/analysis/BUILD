@@ -1637,6 +1637,7 @@ java_library(
 java_library(
     name = "config/build_configuration",
     srcs = [
+        "config/BuildConfigurationInfo.java",
         "config/BuildConfigurationValue.java",
         "config/OutputDirectories.java",
     ],
@@ -1654,8 +1655,10 @@ java_library(
         ":config/invalid_configuration_exception",
         ":config/run_under",
         ":platform_options",
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_environment",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:build_configuration_event",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_limits",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1672,6 +1675,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

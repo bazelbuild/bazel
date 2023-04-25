@@ -11,12 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe.actiongraph.v2;
+package com.google.devtools.build.lib.actions;
 
-/** AqueryOutputHandler that receives and consumes tasks via a work queue. */
-public interface AqueryConsumingOutputHandler extends AqueryOutputHandler {
+/** Command line OS limitations, such as the max length. */
+public class CommandLineLimits {
+  /**
+   * "Unlimited" command line limits.
+   *
+   * <p>Use these limits when you want to prohibit param files, or you don't use param files so you
+   * don't care what the limit is.
+   */
+  public static final CommandLineLimits UNLIMITED = new CommandLineLimits(Integer.MAX_VALUE);
 
-  void startConsumer();
+  public final int maxLength;
 
-  void stopConsumer() throws InterruptedException;
+  public CommandLineLimits(int maxLength) {
+    this.maxLength = maxLength;
+  }
 }
