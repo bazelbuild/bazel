@@ -418,8 +418,8 @@ EOF
 genrule(
   name = "foo",
   srcs = ["input.txt"],
-  outs = ["output.txt", "output_symlink"],
-  cmd = "cp $< $(location :output.txt) && ln -s output.txt $(location output_symlink)",
+  outs = ["output.txt", "output_symlink", "output_symlink_2"],
+  cmd = "cp $< $(location :output.txt) && ln -s output.txt $(location output_symlink) && ln -s output.txt $(location output_symlink_2)",
 )
 EOF
 

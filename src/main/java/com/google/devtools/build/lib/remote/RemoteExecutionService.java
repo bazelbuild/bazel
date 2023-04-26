@@ -1254,7 +1254,7 @@ public class RemoteExecutionService {
               String.format(
                   "Symlinks in action outputs are not yet supported by --remote_download_minimal,"
                       + " falling back to downloading all action outputs due to output symlink %s",
-                  Iterables.getOnlyElement(metadata.symlinks()).path())));
+                  Iterables.get(metadata.symlinks(), 0).path())));
       return true;
     }
     return false;
