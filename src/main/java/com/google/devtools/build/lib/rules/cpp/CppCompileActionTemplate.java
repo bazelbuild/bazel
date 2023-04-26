@@ -180,9 +180,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         commandLine.getEnvironment(),
         cppCompileActionBuilder.getExecutionInfo(),
         CppCompileAction.computeCommandLineKey(
-            commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
+            commandLine.getCompilerOptions(/* overwrittenVariables= */ null)),
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-        cppCompileActionBuilder.buildMandatoryInputs(),
+        mandatoryInputs,
+        mandatoryInputs,
         cppCompileActionBuilder.getPrunableHeaders(),
         cppCompileActionBuilder.getCcCompilationContext().getLooseHdrsDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),

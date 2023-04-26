@@ -130,6 +130,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final Artifact sourceFile;
   private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> mandatoryInputs;
+  private final NestedSet<Artifact> mandatorySpawnInputs;
   private final NestedSet<Artifact> inputsForInvalidation;
   private final NestedSet<Artifact> allowedDerivedInputs;
 
@@ -249,6 +250,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       boolean usePic,
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> mandatorySpawnInputs,
       NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> additionalPrunableHeaders,
@@ -292,6 +294,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // We do not need to include the middleman artifact since it is a generated artifact and will
     // definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
+    this.mandatorySpawnInputs = mandatorySpawnInputs;
     this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes && cppSemantics.allowIncludeScanning();
@@ -1387,6 +1390,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         getCommandLineKey(),
         ccCompilationContext.getDeclaredIncludeSrcs(),
         mandatoryInputs,
+        mandatorySpawnInputs,
         additionalPrunableHeaders,
         ccCompilationContext.getLooseHdrsDirs(),
         builtInIncludeDirectories,
@@ -1405,6 +1409,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       byte[] commandLineKey,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> mandatorySpawnInputs,
       NestedSet<Artifact> prunableHeaders,
       NestedSet<PathFragment> declaredIncludeDirs,
       List<PathFragment> builtInIncludeDirectories,
@@ -1421,6 +1426,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     actionKeyContext.addNestedSetToFingerprint(fp, declaredIncludeSrcs);
     fp.addInt(0); // mark the boundary between input types
     actionKeyContext.addNestedSetToFingerprint(fp, mandatoryInputs);
+    actionKeyContext.addNestedSetToFingerprint(fp, mandatorySpawnInputs);
     fp.addInt(0);
     actionKeyContext.addNestedSetToFingerprint(fp, prunableHeaders);
 
@@ -1639,7 +1645,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     NestedSetBuilder<ActionInput> inputsBuilder =
-        NestedSetBuilder.<ActionInput>stableOrder().addTransitive(getMandatoryInputs());
+        NestedSetBuilder.<ActionInput>stableOrder().addTransitive(mandatorySpawnInputs);
+
     if (discoversInputs()) {
       inputsBuilder.addTransitive(getAdditionalInputs());
     }
