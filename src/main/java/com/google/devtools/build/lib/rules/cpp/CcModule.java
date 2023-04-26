@@ -140,6 +140,8 @@ public abstract class CcModule
       ImmutableList.of("executable", "dynamic_library", "archive");
 
   private static final ImmutableList<PackageIdentifier> PRIVATE_STARLARKIFICATION_ALLOWLIST =
+      // Repo names in the allowlist are non canonical repo names and package names are package
+      // prefixes under which we allow restricted API usage.
       ImmutableList.of(
           PackageIdentifier.createUnchecked("_builtins", ""),
           PackageIdentifier.createInMainRepo("bazel_internal/test_rules/cc"),
@@ -1968,23 +1970,31 @@ public abstract class CcModule
   }
 
   private static void checkPrivateStarlarkificationAllowlistByLabel(
-      Label label, ImmutableList<PackageIdentifier> privateStarlarkificationAllowlist)
+      BazelModuleContext bazelModuleContext,
+      Label label,
+      ImmutableList<PackageIdentifier> privateStarlarkificationAllowlist)
       throws EvalException {
     if (privateStarlarkificationAllowlist.stream()
         .noneMatch(
             allowedPrefix ->
-                label.getRepository().equals(allowedPrefix.getRepository())
+                label
+                        .getRepository()
+                        .equals(
+                            bazelModuleContext
+                                .repoMapping()
+                                .get(allowedPrefix.getRepository().getName()))
                     && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
-      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label);
     }
   }
 
   public static void checkPrivateStarlarkificationAllowlist(StarlarkThread thread)
       throws EvalException {
-    Label label =
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label();
-    checkPrivateStarlarkificationAllowlistByLabel(label, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    BazelModuleContext bazelModuleContext =
+        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
+    Label label = bazelModuleContext.label();
+    checkPrivateStarlarkificationAllowlistByLabel(
+        bazelModuleContext, label, PRIVATE_STARLARKIFICATION_ALLOWLIST);
   }
 
   public static boolean isBuiltIn(StarlarkThread thread) {
@@ -2030,15 +2040,14 @@ public abstract class CcModule
   public void checkPrivateApi(Object allowlistObject, StarlarkThread thread) throws EvalException {
     // Make sure that check_private_api is called either from builtins or allowlisted packages.
     isCalledFromStarlarkCcCommon(thread);
-    Label label =
-        ((BazelModuleContext)
-                Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData())
-            .label();
+    BazelModuleContext bazelModuleContext =
+        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread, 1).getClientData();
+    Label label = bazelModuleContext.label();
     ImmutableList<PackageIdentifier> allowlist =
         Sequence.cast(allowlistObject, Tuple.class, "allowlist").stream()
             .map(p -> PackageIdentifier.createUnchecked((String) p.get(0), (String) p.get(1)))
             .collect(ImmutableList.toImmutableList());
-    checkPrivateStarlarkificationAllowlistByLabel(label, allowlist);
+    checkPrivateStarlarkificationAllowlistByLabel(bazelModuleContext, label, allowlist);
   }
 
   protected Language parseLanguage(String string) throws EvalException {

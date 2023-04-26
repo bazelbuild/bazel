@@ -110,15 +110,15 @@ public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
         "ctx.fragments.cpp.fission_active_for_current_compilation_mode()");
     AssertionError e;
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:pic"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'force_pic'");
+    assertThat(e).hasMessageThat().contains("cannot use 'force_pic'");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:lcov"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'generate_llvm_lcov'");
+    assertThat(e).hasMessageThat().contains("cannot use 'generate_llvm_lcov'");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fdo"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use 'fdo_instrument'");
+    assertThat(e).hasMessageThat().contains("cannot use 'fdo_instrument'");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:hdr_deps"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:save"));
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:fission"));
     assertThat(e)
         .hasMessageThat()
