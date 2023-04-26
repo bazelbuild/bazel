@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -320,9 +319,11 @@ public class ActionCacheChecker {
   }
 
   private static CachedOutputMetadata loadCachedOutputMetadata(
-      Action action, ActionCache.Entry entry, OutputMetadataStore outputMetadataStore)
+      Action action,
+      ActionCache.Entry entry,
+      OutputMetadataStore outputMetadataStore,
+      RemoteArtifactChecker remoteArtifactChecker)
       throws InterruptedException {
-    Instant now = Instant.now();
     ImmutableMap.Builder<Artifact, RemoteFileArtifactValue> remoteFileMetadata =
         ImmutableMap.builder();
     ImmutableMap.Builder<SpecialArtifact, TreeArtifactValue> mergedTreeMetadata =
@@ -336,31 +337,6 @@ public class ActionCacheChecker {
           continue;
         }
 
-        // If any child is not alive, discard the entire tree
-        if (cachedTreeMetadata.childValues().values().stream()
-            .anyMatch(metadata -> !metadata.isAlive(now))) {
-          continue;
-        }
-
-        if (cachedTreeMetadata.archivedFileValue().isPresent()
-            && !cachedTreeMetadata.archivedFileValue().get().isAlive(now)) {
-          continue;
-        }
-
-        TreeArtifactValue localTreeMetadata;
-        try {
-          localTreeMetadata = outputMetadataStore.getTreeArtifactValue(parent);
-        } catch (IOException e) {
-          // Ignore the cached metadata if we encountered an error when loading corresponding
-          // local one.
-          logger.atWarning().withCause(e).log("Failed to load metadata for %s", parent);
-          continue;
-        }
-
-        boolean localTreeMetadataExists =
-            localTreeMetadata != null
-                && !localTreeMetadata.equals(TreeArtifactValue.MISSING_TREE_ARTIFACT);
-
         Map<TreeFileArtifact, FileArtifactValue> childValues = new HashMap<>();
         // Load remote child file metadata from cache.
         cachedTreeMetadata
@@ -368,33 +344,66 @@ public class ActionCacheChecker {
             .forEach(
                 (key, value) ->
                     childValues.put(TreeFileArtifact.createTreeOutput(parent, key), value));
-        // Or add local one.
-        if (localTreeMetadataExists) {
-          childValues.putAll(localTreeMetadata.getChildValues());
-        }
 
-        Optional<ArchivedRepresentation> archivedRepresentation;
-        if (localTreeMetadataExists && localTreeMetadata.getArchivedRepresentation().isPresent()) {
-          archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
-        } else {
-          archivedRepresentation =
-              cachedTreeMetadata
-                  .archivedFileValue()
-                  .map(
-                      fileArtifactValue ->
-                          ArchivedRepresentation.create(
-                              ArchivedTreeArtifact.createForTree(parent), fileArtifactValue));
+        Optional<ArchivedRepresentation> archivedRepresentation =
+            cachedTreeMetadata
+                .archivedFileValue()
+                .map(
+                    fileArtifactValue ->
+                        ArchivedRepresentation.create(
+                            ArchivedTreeArtifact.createForTree(parent), fileArtifactValue));
+        try {
+          TreeArtifactValue localTreeMetadata = outputMetadataStore.getTreeArtifactValue(parent);
+          boolean localTreeMetadataExists =
+              localTreeMetadata != null
+                  && !localTreeMetadata.equals(TreeArtifactValue.MISSING_TREE_ARTIFACT);
+          if (localTreeMetadataExists) {
+            // Override remote tree using local one.
+            childValues.putAll(localTreeMetadata.getChildValues());
+            if (localTreeMetadata.getArchivedRepresentation().isPresent()) {
+              archivedRepresentation = localTreeMetadata.getArchivedRepresentation();
+            }
+          }
+        } catch (IOException e) {
+          // Ignore the cached metadata if we encountered an error when loading corresponding
+          // local one.
+          logger.atWarning().withCause(e).log("Failed to load metadata for %s", parent);
+          continue;
         }
 
         TreeArtifactValue.Builder merged = TreeArtifactValue.newBuilder(parent);
         childValues.forEach(merged::putChild);
         archivedRepresentation.ifPresent(merged::setArchivedRepresentation);
 
+        var mergedTree = merged.build();
+
+        // Check whether Bazel should trust remote child, and if any is not valid, discard the
+        // entire tree.
+        //
+        // Since the remote child will be overridden by local one for the merged tree, if there is
+        // remote child, it means the corresponding local one is missing.
+        if (mergedTree.getChildValues().entrySet().stream()
+            .anyMatch(
+                child ->
+                    child.getValue().isRemote()
+                        && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+                            child.getKey(), (RemoteFileArtifactValue) child.getValue()))) {
+          continue;
+        }
+
+        if (archivedRepresentation.isPresent()
+            && archivedRepresentation.get().archivedFileValue().isRemote()
+            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+                archivedRepresentation.get().archivedTreeFileArtifact(),
+                (RemoteFileArtifactValue) archivedRepresentation.get().archivedFileValue())) {
+          continue;
+        }
+
         // Always inject merged tree if we have a tree from cache
-        mergedTreeMetadata.put(parent, merged.build());
+        mergedTreeMetadata.put(parent, mergedTree);
       } else {
         RemoteFileArtifactValue cachedMetadata = entry.getOutputFile(artifact);
-        if (cachedMetadata == null || !cachedMetadata.isAlive(now)) {
+        if (cachedMetadata == null) {
           continue;
         }
 
@@ -412,6 +421,10 @@ public class ActionCacheChecker {
 
         // Only inject remote metadata if the corresponding local one is missing.
         if (localMetadata == null) {
+          if (!remoteArtifactChecker.shouldTrustRemoteArtifact(artifact, cachedMetadata)) {
+            continue;
+          }
+
           remoteFileMetadata.put(artifact, cachedMetadata);
         }
       }
@@ -444,7 +457,7 @@ public class ActionCacheChecker {
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean loadCachedOutputMetadata)
+      @Nullable RemoteArtifactChecker remoteArtifactChecker)
       throws InterruptedException {
     // TODO(bazel-team): (2010) For RunfilesAction/SymlinkAction and similar actions that
     // produce only symlinks we should not check whether inputs are valid at all - all that matters
@@ -489,9 +502,10 @@ public class ActionCacheChecker {
     if (entry != null
         && !entry.isCorrupted()
         && cacheConfig.storeOutputMetadata()
-        && loadCachedOutputMetadata) {
+        && remoteArtifactChecker != null) {
       // load remote metadata from action cache
-      cachedOutputMetadata = loadCachedOutputMetadata(action, entry, outputMetadataStore);
+      cachedOutputMetadata =
+          loadCachedOutputMetadata(action, entry, outputMetadataStore, remoteArtifactChecker);
     }
 
     if (mustExecute(
@@ -837,7 +851,7 @@ public class ActionCacheChecker {
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
       Map<String, String> remoteDefaultPlatformProperties,
-      boolean loadCachedOutputMetadata)
+      @Nullable RemoteArtifactChecker remoteArtifactChecker)
       throws InterruptedException {
     if (action != null) {
       removeCacheEntry(action);
@@ -852,7 +866,7 @@ public class ActionCacheChecker {
         outputMetadataStore,
         artifactExpander,
         remoteDefaultPlatformProperties,
-        loadCachedOutputMetadata);
+        remoteArtifactChecker);
   }
 
   /** Returns an action key. It is always set to the first output exec path string. */

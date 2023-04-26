@@ -33,6 +33,7 @@ java_library(
             "RemoteRetrier.java",
             "RemoteRetrierUtils.java",
             "Retrier.java",
+            "RemoteOutputChecker.java",
             "AbstractActionInputPrefetcher.java",
             "ToplevelArtifactsDownloader.java",
             "LeaseService.java",
@@ -49,6 +50,7 @@ java_library(
         ":Retrier",
         ":abstract_action_input_prefetcher",
         ":lease_service",
+        ":remote_output_checker",
         ":toplevel_artifacts_downloader",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -178,6 +180,16 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
+    ],
+)
+
+java_library(
+    name = "remote_output_checker",
+    srcs = ["RemoteOutputChecker.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/clock",
     ],
 )
 
