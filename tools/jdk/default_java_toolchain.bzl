@@ -38,6 +38,11 @@ BASE_JDK9_JVM_OPTS = [
     # TODO(b/64485048): Disable this option in persistent worker mode only.
     # Disable symlinks resolution cache since symlinks in exec root change
     "-Dsun.io.useCanonCaches=false",
+
+    # Since https://bugs.openjdk.org/browse/JDK-8153723, JVM logging goes to stdout. This
+    # makes it go to stderr instead.
+    "-Xlog:disable",
+    "-Xlog:all=warning:stderr:uptime,level,tags",
 ]
 
 JDK9_JVM_OPTS = BASE_JDK9_JVM_OPTS
@@ -49,7 +54,11 @@ DEFAULT_JAVACOPTS = [
     "-parameters",
     # https://github.com/bazelbuild/bazel/issues/15219
     "-Xep:ReturnValueIgnored:OFF",
+    # https://github.com/bazelbuild/bazel/issues/16996
+    "-Xep:IgnoredPureGetter:OFF",
     "-Xep:EmptyTopLevelDeclaration:OFF",
+    "-Xep:LenientFormatStringValidation:OFF",
+    "-Xep:ReturnMissingNullable:OFF",
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
