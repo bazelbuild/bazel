@@ -79,7 +79,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   public final void setup() throws Exception {
     scratch.file("test_starlark/BUILD");
     RepositoryName toolsRepo = TestConstants.TOOLS_REPOSITORY;
-    String toolsLoc = toolsRepo + "//tools/objc";
 
     scratch.file(
         "test_starlark/apple_static_library.bzl",
@@ -134,10 +133,6 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "        '_xcode_config': attr.label(",
         "            default=configuration_field(",
         "                fragment='apple', name='xcode_config_label'),),",
-        "        '_xcrunwrapper': attr.label(",
-        "            executable=True,",
-        "            cfg='exec',",
-        "            default=Label('" + toolsLoc + ":xcrunwrapper')),",
         "        'additional_linker_inputs': attr.label_list(",
         "            allow_files = True,",
         "        ),",
