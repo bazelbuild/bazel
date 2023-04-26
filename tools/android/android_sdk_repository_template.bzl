@@ -76,8 +76,8 @@ def create_android_sdk_rules(
         "platform-tools/adb",
     ] + native.glob(
         ["extras", "build-tools/%s/aapt2" % build_tools_directory],
-        exclude_directories = 0,
         allow_empty = True,
+        exclude_directories = 0,
     )
 
     # This filegroup is used to pass the minimal contents of the SDK to the
@@ -125,8 +125,6 @@ def create_android_sdk_rules(
 
         native.android_sdk(
             name = "sdk-%d" % api_level,
-            build_tools_version = build_tools_version,
-            proguard = "@bazel_tools//tools/jdk:proguard",
             aapt = select({
                 ":windows": "build-tools/%s/aapt.exe" % build_tools_directory,
                 "//conditions:default": ":aapt_binary",
@@ -135,41 +133,43 @@ def create_android_sdk_rules(
                 ":windows": "build-tools/%s/aapt2.exe" % build_tools_directory,
                 "//conditions:default": ":aapt2_binary",
             }),
-            dx = select({
-                "d8_standalone_dexer": ":d8_compat_dx",
-                "dx_standalone_dexer": ":dx_binary",
-                "//conditions:default": ":d8_compat_dx",
-            }),
-            legacy_main_dex_list_generator = ":generate_main_dex_list",
             adb = select({
                 ":windows": "platform-tools/adb.exe",
                 "//conditions:default": "platform-tools/adb",
             }),
-            framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
             aidl = select({
                 ":windows": "build-tools/%s/aidl.exe" % build_tools_directory,
                 "//conditions:default": ":aidl_binary",
             }),
             android_jar = "platforms/android-%d/android.jar" % api_level,
-            shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
-            main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
             apksigner = ":apksigner",
+            build_tools_version = build_tools_version,
+            dx = select({
+                "d8_standalone_dexer": ":d8_compat_dx",
+                "dx_standalone_dexer": ":dx_binary",
+                "//conditions:default": ":d8_compat_dx",
+            }),
+            framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
+            legacy_main_dex_list_generator = ":generate_main_dex_list",
+            main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+            proguard = "@bazel_tools//tools/jdk:proguard",
+            shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
+            # See https://github.com/bazelbuild/bazel/issues/8757
+            tags = ["__ANDROID_RULES_MIGRATION__"],
             zipalign = select({
                 ":windows": "build-tools/%s/zipalign.exe" % build_tools_directory,
                 "//conditions:default": ":zipalign_binary",
             }),
-            # See https://github.com/bazelbuild/bazel/issues/8757
-            tags = ["__ANDROID_RULES_MIGRATION__"],
         )
 
         native.toolchain(
             name = "sdk-%d-toolchain" % api_level,
-            toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
             exec_compatible_with = HOST_CONSTRAINTS,
             target_compatible_with = [
                 "@platforms//os:android",
             ],
             toolchain = ":sdk-%d" % api_level,
+            toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
         )
 
     create_dummy_sdk_toolchain()
@@ -201,8 +201,8 @@ def create_android_sdk_rules(
     for tool in ["aapt", "aapt2", "aidl", "zipalign"]:
         native.genrule(
             name = tool + "_runner",
-            outs = [tool + "_runner.sh"],
             srcs = [],
+            outs = [tool + "_runner.sh"],
             cmd = "\n".join([
                 "cat > $@ << 'EOF'",
                 "#!/bin/bash",
@@ -246,16 +246,16 @@ def create_android_sdk_rules(
 
     native.genrule(
         name = "generate_fail_sh",
-        executable = 1,
         outs = ["fail.sh"],
         cmd = "echo -e '#!/bin/bash\\nexit 1' >> $@; chmod +x $@",
+        executable = 1,
     )
 
     native.genrule(
         name = "generate_fail_cmd",
-        executable = 1,
         outs = ["fail.cmd"],
         cmd = "echo @exit /b 1 > $@",
+        executable = 1,
     )
 
     native.genrule(
@@ -313,7 +313,7 @@ def create_android_sdk_rules(
         name = "d8_compat_dx",
         main_class = "com.google.devtools.build.android.r8.CompatDx",
         runtime_deps = [
-            "@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8:r8",
+            "@bazel_tools//src/tools/android/java/com/google/devtools/build/android/r8",
         ],
     )
     native.alias(
@@ -339,8 +339,8 @@ ARCHDIR_TO_ARCH_MAP = {
 def create_dummy_sdk_toolchain():
     native.toolchain(
         name = "sdk-dummy-toolchain",
-        toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
         toolchain = ":sdk-dummy",
+        toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
     )
 
     native.filegroup(name = "jar-filegroup", srcs = ["dummy.jar"])
@@ -368,8 +368,8 @@ def create_dummy_sdk_toolchain():
         main_dex_list_creator = ":empty-binary",
         proguard = ":empty-binary",
         shrinked_android_jar = "dummy.jar",
-        zipalign = ":empty-binary",
         tags = ["__ANDROID_RULES_MIGRATION__"],
+        zipalign = ":empty-binary",
     )
 
 def create_system_images_filegroups(system_image_dirs):
