@@ -365,7 +365,10 @@ DIST_DEPS = {
     "rules_testing": {
         "sha256": "4e21f9aa7996944ce91431f27bca374bff56e680acfe497276074d56bc5d9af2",
         "strip_prefix": "rules_testing-0.0.4",
-        "urls": ["https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz"],
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz",
+            "https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz",
+        ],
         "archive": "rules_testing-v0.0.4.tar.gz",
         "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
         "package_version": "0.0.4",

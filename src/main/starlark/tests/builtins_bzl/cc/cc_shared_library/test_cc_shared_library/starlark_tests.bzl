@@ -155,14 +155,7 @@ def _paths_test_impl(ctx):
 
 paths_test = unittest.make(_paths_test_impl)
 
-def _debug_files_test_impl(ctx):
-    env = analysistest.begin(ctx)
-
-    target_under_test = analysistest.target_under_test(env)
-    actual_files = []
-    for debug_file in target_under_test[OutputGroupInfo].rule_impl_debug_files.to_list():
-        actual_files.append(debug_file.basename)
-
+def _debug_files_test_impl(env, target):
     expected_files = [
         "bar_so_exports.txt",
         "bar_so_link_once_static_libs.txt",
@@ -172,11 +165,14 @@ def _debug_files_test_impl(ctx):
         "foo_so_link_once_static_libs.txt",
         "binary_link_once_static_libs.txt",
     ]
-    asserts.equals(env, expected_files, actual_files)
 
-    return analysistest.end(env)
+    actual_files = []
+    for debug_file in target[OutputGroupInfo].rule_impl_debug_files.to_list():
+        actual_files.append(debug_file.basename)
 
-debug_files_test = analysistest.make(_debug_files_test_impl)
+    env.expect.that_collection(expected_files).contains_exactly(actual_files)
+
+debug_files_test = _debug_files_test_impl
 
 def _runfiles_test_impl(ctx):
     env = analysistest.begin(ctx)

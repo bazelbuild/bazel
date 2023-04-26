@@ -333,6 +333,7 @@ EOF
         "rules_proto"
         "rules_python"
         "rules_pkg"
+        "rules_testing"
     )
     for repo in "${repos[@]}"; do
       reponame="${repo%"_for_testing"}"
@@ -512,6 +513,8 @@ function setup_objc_test_support() {
 }
 
 function setup_skylib_support() {
+  mkdir -p rules/private
+  touch rules/private/BUILD
   cat >> WORKSPACE << EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -571,6 +574,8 @@ EOF
 }
 
 function add_rules_testing_to_workspace() {
+  mkdir lib
+  touch lib/BUILD
   cat >> "$1"<<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
