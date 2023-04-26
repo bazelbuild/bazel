@@ -247,12 +247,9 @@ public interface ActionAnalysisMetadata {
 
   static ImmutableMap<String, String> mergeMaps(
       ImmutableMap<String, String> first, ImmutableMap<String, String> second) {
-    // Use a different type to allow overriding keys.
-    // TODO(jcater): When ImmutableMap.Builder.buildKeepingLast is in released guava, upgrade and
-    // use that.
-    LinkedHashMap<String, String> result = new LinkedHashMap<>();
-    result.putAll(first);
-    result.putAll(second);
-    return ImmutableMap.copyOf(result);
+    return ImmutableMap.<String, String>builderWithExpectedSize(first.size() + second.size())
+        .putAll(first)
+        .putAll(second)
+        .buildKeepingLast();
   }
 }
