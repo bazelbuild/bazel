@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
@@ -46,8 +46,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected abstract void setDownloadAll();
 
-  protected abstract void assertOutputEquals(
-      String realContent, String expectedContent, boolean isLocal) throws Exception;
+  protected abstract void assertOutputEquals(Path path, String expectedContent, boolean isLocal)
+      throws Exception;
 
   protected abstract void assertOutputContains(String content, String contains) throws Exception;
 
@@ -133,6 +133,100 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
     assertValidOutputFile("out/foo.txt", "foo\n");
     assertOutputsDoNotExist("//:foobar");
+
+    // Assert that no actions have been executed for the next incremental build since nothing
+    // changed
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    // Override out/foo.txt with the same content
+    {
+      var path = getOutputPath("out/foo.txt");
+      var isWritable = path.isWritable();
+      if (!isWritable) {
+        path.setWritable(true);
+      }
+      writeContent(path, UTF_8, "foo\n");
+      if (!isWritable) {
+        path.setWritable(false);
+      }
+    }
+    buildTarget("//:foobar");
+    assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_deleteOutput_reDownload() throws Exception {
+    // Arrange: Do a clean build and download out/foo.txt
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+    addOptions("--experimental_remote_download_regex=.*foo\\.txt$");
+
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("out/foo.txt", "foo\n");
+    assertOutputsDoNotExist("//:foobar");
+
+    // Arrange: Delete out/foo.txt and do an incremental build
+    getOutputPath("out/foo.txt").delete();
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    // Assert: out/foo.txt is re-downloaded
+    assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(1);
+    assertValidOutputFile("out/foo.txt", "foo\n");
+  }
+
+  @Test
+  public void downloadOutputsWithRegex_changeRegex_downloadNewMatches() throws Exception {
+    // Arrange: Do a clean build
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['out/foobar.txt'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+
+    buildTarget("//:foobar");
+    // Add the new option here because waitDownloads below will internally create a new command
+    // which will parse the new option.
+    addOptions("--experimental_remote_download_regex=.*foobar\\.txt$");
+    waitDownloads();
+
+    assertOutputsDoNotExist("//:foo");
+    assertOutputsDoNotExist("//:foobar");
+
+    // Arrange: Change regex
+    ActionEventCollector actionEventCollector = new ActionEventCollector();
+    getRuntimeWrapper().registerSubscriber(actionEventCollector);
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    // Assert: out/foobar.txt is downloaded
+    assertThat(actionEventCollector.getActionExecutedEvents()).hasSize(1);
+    assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
   }
 
   @Test
@@ -1125,7 +1219,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     Artifact output = getOnlyElement(getArtifacts(target));
     assertThat(output.getFilename()).isEqualTo(filename);
     assertThat(output.getPath().exists()).isTrue();
-    assertOutputEquals(readContent(output.getPath(), UTF_8), content, /* isLocal= */ false);
+    assertOutputEquals(output.getPath(), content, /* isLocal= */ false);
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
@@ -1135,7 +1229,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   protected void assertValidOutputFile(String binRelativePath, String content, boolean isLocal)
       throws Exception {
     Path output = getOutputPath(binRelativePath);
-    assertOutputEquals(readContent(output, UTF_8), content, isLocal);
+    assertOutputEquals(getOutputPath(binRelativePath), content, isLocal);
     assertThat(output.isReadable()).isTrue();
     assertThat(output.isWritable()).isFalse();
     assertThat(output.isExecutable()).isTrue();

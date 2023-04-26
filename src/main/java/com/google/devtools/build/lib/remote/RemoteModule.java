@@ -965,7 +965,7 @@ public final class RemoteModule extends BlazeModule {
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(patternsToDownload, "patternsToDownload must not be null");
 
-      var remoteOutputChecker = new RemoteOutputChecker(new JavaClock());
+      var remoteOutputChecker = new RemoteOutputChecker(new JavaClock(), patternsToDownload);
 
       actionInputFetcher =
           new RemoteActionInputFetcher(
@@ -975,7 +975,7 @@ public final class RemoteModule extends BlazeModule {
               actionContextProvider.getRemoteCache(),
               env.getExecRoot(),
               tempPathGenerator,
-              patternsToDownload,
+              remoteOutputChecker,
               outputPermissions);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);

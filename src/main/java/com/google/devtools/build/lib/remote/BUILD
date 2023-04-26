@@ -190,6 +190,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:guava",
     ],
 )
 
@@ -197,6 +198,7 @@ java_library(
     name = "abstract_action_input_prefetcher",
     srcs = ["AbstractActionInputPrefetcher.java"],
     deps = [
+        ":remote_output_checker",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
