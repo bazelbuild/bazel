@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
@@ -164,9 +163,7 @@ final class SandboxedWorker extends SingleplexWorker {
       }
     }
     // TODO(larsrc): Handle hermetic tmp
-    for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      result.add(BindMount.of(bindMount.getKey(), bindMount.getValue()));
-    }
+    bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
     LinuxSandboxUtil.validateBindMounts(bindMounts);
     return result.build();
   }

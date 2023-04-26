@@ -302,8 +302,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.createDirectoryAndParents();
 
     if (useHermeticTmp) {
-      for (Map.Entry<Root, Path> root : inputs.getSourceRootBindMounts().entrySet()) {
-        createDirectoryWithinSandboxTmp(sandboxTmp, root.getKey().asPath());
+      for (Root root : inputs.getSourceRootBindMounts().keySet()) {
+        createDirectoryWithinSandboxTmp(sandboxTmp, root.asPath());
       }
 
       createDirectoryWithinSandboxTmp(sandboxTmp, withinSandboxExecRoot);
@@ -453,22 +453,20 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           BindMount.of(sandboxTmp.getRelative(BAZEL_WORKING_DIRECTORY), sandboxExecRootBase));
 
       // Then mount the individual package roots under $SANDBOX/_tmp/bazel-source-roots
-      for (Map.Entry<Root, Path> sourceRoot : inputs.getSourceRootBindMounts().entrySet()) {
-        Path realSourceRoot = sourceRoot.getValue();
-        Root withinSandboxSourceRoot = sourceRoot.getKey();
-        PathFragment sandboxTmpSourceRoot = withinSandboxSourceRoot.asPath().relativeTo(tmpPath);
-        result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), realSourceRoot));
-      }
+      inputs
+          .getSourceRootBindMounts()
+          .forEach(
+              (withinSandbox, real) -> {
+                PathFragment sandboxTmpSourceRoot = withinSandbox.asPath().relativeTo(tmpPath);
+                result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), real));
+              });
 
       // Then mount $SANDBOX/_tmp at /tmp. At this point, even if the output base (and execroot)
       // and individual source roots are under /tmp, they are accessible at /tmp/bazel-*
       result.add(BindMount.of(tmpPath, sandboxTmp));
     }
 
-    for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      result.add(BindMount.of(bindMount.getKey(), bindMount.getValue()));
-    }
-
+    bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
     return result.build();
   }
 
