@@ -325,7 +325,7 @@ sh_test(
 
 sh_test(
     name = "bazel_java_tools_test",
-    size = "medium",
+    size = "large",
     srcs = ["bazel_java_tools_test.sh"],
     data = [
         ":test-deps",
@@ -480,6 +480,7 @@ sh_test(
 
 sh_test(
     name = "bazel_coverage_java_test",
+    size = "large",
     srcs = ["bazel_coverage_java_test.sh"],
     args = [
         "released",

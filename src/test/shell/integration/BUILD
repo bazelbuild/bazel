@@ -606,6 +606,7 @@ sh_test(
 
 sh_test(
     name = "test_test",
+    size = "large",
     srcs = ["test_test.sh"],
     data = [
         ":test-deps",
