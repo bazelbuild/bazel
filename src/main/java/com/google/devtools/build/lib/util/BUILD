@@ -350,6 +350,7 @@ java_library(
     name = "ps_info_collector",
     srcs = ["PsInfoCollector.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
