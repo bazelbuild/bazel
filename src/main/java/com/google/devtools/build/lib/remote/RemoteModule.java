@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -232,7 +233,7 @@ public final class RemoteModule extends BlazeModule {
                   || status == HttpResponseStatus.SERVICE_UNAVAILABLE.code()
                   || status == HttpResponseStatus.GATEWAY_TIMEOUT.code();
         } else if (e instanceof IOException) {
-          String msg = e.getMessage().toLowerCase();
+          String msg = Ascii.toLowerCase(e.getMessage());
           if (msg.contains("connection reset by peer")) {
             retry = true;
           } else if (msg.contains("operation timed out")) {
@@ -963,6 +964,9 @@ public final class RemoteModule extends BlazeModule {
 
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(patternsToDownload, "patternsToDownload must not be null");
+
+      var remoteOutputChecker = new RemoteOutputChecker(new JavaClock(), patternsToDownload);
+
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getReporter(),
@@ -971,7 +975,7 @@ public final class RemoteModule extends BlazeModule {
               actionContextProvider.getRemoteCache(),
               env.getExecRoot(),
               tempPathGenerator,
-              patternsToDownload,
+              remoteOutputChecker,
               outputPermissions);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
@@ -999,6 +1003,7 @@ public final class RemoteModule extends BlazeModule {
               env.getSkyframeExecutor().getEvaluator(),
               env.getBlazeWorkspace().getPersistentActionCache());
 
+      remoteOutputService.setRemoteOutputChecker(remoteOutputChecker);
       remoteOutputService.setActionInputFetcher(actionInputFetcher);
       remoteOutputService.setLeaseService(leaseService);
       remoteOutputService.setFileCacheSupplier(env::getFileCache);

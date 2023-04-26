@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.util.TestType;
 import java.util.Objects;
 
 /**
@@ -32,7 +33,8 @@ import java.util.Objects;
 public final class UsePooledLabelInterningFlag {
 
   private static final boolean USE_POOLED_LABEL_INTERNER =
-      Objects.equals(System.getProperty("BAZEL_USE_POOLED_LABEL_INTERNER"), "1");
+      Objects.equals(System.getProperty("BAZEL_USE_POOLED_LABEL_INTERNER"), "1")
+          || TestType.isInTest();
 
   public static boolean usePooledLabelInterningFlag() {
     return USE_POOLED_LABEL_INTERNER;

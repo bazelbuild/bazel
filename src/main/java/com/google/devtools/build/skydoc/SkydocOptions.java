@@ -59,13 +59,4 @@ public class SkydocOptions extends OptionsBase {
               + " is empty, then documentation for all exported rule definitions will be"
               + " generated.")
   public List<String> symbolNames;
-
-  @Option(
-      name = "dep_roots",
-      allowMultiple = true,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = OptionEffectTag.UNKNOWN,
-      help = "File path roots to search when resolving transitive bzl dependencies")
-  public List<String> depRoots;
 }

@@ -10,6 +10,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/skyframe/actiongraph/v2:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/packages/testing:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/rewinding:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",

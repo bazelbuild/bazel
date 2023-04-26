@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit.ActionCachedContext;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
@@ -609,7 +610,7 @@ public final class SkyframeActionExecutor {
     RemoteOptions remoteOptions;
     SortedMap<String, String> remoteDefaultProperties;
     EventHandler handler;
-    boolean loadCachedOutputMetadata;
+    RemoteArtifactChecker remoteArtifactChecker = null;
 
     if (cacheHitSemaphore != null) {
       try (SilentCloseable c = profiler.profile(ProfilerTask.ACTION_CHECK, "acquiring semaphore")) {
@@ -622,9 +623,9 @@ public final class SkyframeActionExecutor {
           remoteOptions != null
               ? remoteOptions.getRemoteDefaultExecProperties()
               : ImmutableSortedMap.of();
-      loadCachedOutputMetadata =
-          outputService
-              != null; // Only load cached output metadata if remote output service is available
+      if (outputService != null) {
+        remoteArtifactChecker = outputService.getRemoteArtifactChecker();
+      }
       handler =
           options.getOptions(BuildRequestOptions.class).explanationPath != null ? reporter : null;
       token =
@@ -638,7 +639,7 @@ public final class SkyframeActionExecutor {
               outputMetadataStore,
               artifactExpander,
               remoteDefaultProperties,
-              loadCachedOutputMetadata);
+              remoteArtifactChecker);
 
       if (token == null) {
         boolean eventPosted = false;
@@ -681,7 +682,7 @@ public final class SkyframeActionExecutor {
                     outputMetadataStore,
                     artifactExpander,
                     remoteDefaultProperties,
-                    loadCachedOutputMetadata);
+                    remoteArtifactChecker);
           }
         }
 

@@ -39,18 +39,16 @@ java_library(
         "Runfiles.java",
         "Util.java",
     ],
-    exported_plugins = [":auto_bazel_repository_processor"],
-    visibility = ["//tools/java/runfiles/testing:__pkg__"],
-    exports = [":auto_bazel_repository"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/skydoc:__pkg__",
+        "//src/test/java/com/google/devtools/build/skydoc:__pkg__",
+        "//tools/java/runfiles/testing:__pkg__",
+    ],
 )
 
 java_library(
-    name = "auto_bazel_repository",
-    srcs = ["AutoBazelRepository.java"],
-)
-
-java_plugin(
-    name = "auto_bazel_repository_processor",
-    srcs = ["AutoBazelRepositoryProcessor.java"],
-    processor_class = "com.google.devtools.build.runfiles.AutoBazelRepositoryProcessor",
+    name = "runfiles_for_stardoc",
+    srcs = ["RunfilesForStardoc.java"],
+    visibility = ["//src/main/java/com/google/devtools/build/skydoc:__pkg__"],
+    deps = [":runfiles"],
 )

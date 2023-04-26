@@ -98,6 +98,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -117,6 +118,8 @@ import org.mockito.ArgumentCaptor;
 /** Tests for {@link FilesystemValueChecker}. */
 @RunWith(TestParameterInjector.class)
 public final class FilesystemValueCheckerTest {
+  private static final RemoteArtifactChecker CHECK_TTL =
+      (file, metadata) -> metadata.isAlive(Instant.now());
   private static final int FSVC_THREADS_FOR_TEST = 200;
   private static final ActionLookupKey ACTION_LOOKUP_KEY =
       new ActionLookupKey() {
@@ -1464,7 +1467,7 @@ public final class FilesystemValueCheckerTest {
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    RemoteArtifactChecker.TRUST_ALL,
+                    CHECK_TTL,
                     (ignored, ignored2) -> {}))
         .containsExactly(actionKey2);
   }
@@ -1612,7 +1615,7 @@ public final class FilesystemValueCheckerTest {
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    RemoteArtifactChecker.TRUST_ALL,
+                    CHECK_TTL,
                     (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
   }
@@ -1655,7 +1658,7 @@ public final class FilesystemValueCheckerTest {
                     evaluator.getValues(),
                     /* batchStatter= */ null,
                     ModifiedFileSet.EVERYTHING_MODIFIED,
-                    RemoteArtifactChecker.TRUST_ALL,
+                    CHECK_TTL,
                     (ignored, ignored2) -> {}))
         .containsExactly(actionKey);
   }

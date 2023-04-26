@@ -47,7 +47,8 @@ class BzlmodQueryTest(test_base.TestBase):
             'common --registry=https://bcr.bazel.build',
             # Disable yanked version check so we are not affected BCR changes.
             'common --allow_yanked_versions=all',
-        ])
+        ],
+    )
     self.ScratchFile('WORKSPACE')
     # The existence of WORKSPACE.bzlmod prevents WORKSPACE prefixes or suffixes
     # from being used; this allows us to test built-in modules actually work

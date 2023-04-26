@@ -60,7 +60,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -231,8 +230,6 @@ public class FilesystemValueChecker {
               }
             });
 
-    var now = Instant.now();
-
     boolean interrupted;
     try (SilentCloseable c = Profiler.instance().profile("getDirtyActionValues.stat_files")) {
       for (List<Pair<SkyKey, ActionExecutionValue>> shard : outputShards) {
@@ -244,8 +241,7 @@ public class FilesystemValueChecker {
                     knownModifiedOutputFiles,
                     sortedKnownModifiedOutputFiles,
                     remoteArtifactChecker,
-                    modifiedOutputsReceiver,
-                    now)
+                    modifiedOutputsReceiver)
                 : batchStatJob(
                     dirtyKeys,
                     shard,
@@ -253,8 +249,7 @@ public class FilesystemValueChecker {
                     knownModifiedOutputFiles,
                     sortedKnownModifiedOutputFiles,
                     remoteArtifactChecker,
-                    modifiedOutputsReceiver,
-                    now);
+                    modifiedOutputsReceiver);
         executor.execute(job);
       }
 
@@ -280,8 +275,7 @@ public class FilesystemValueChecker {
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
       RemoteArtifactChecker remoteArtifactChecker,
-      ModifiedOutputsReceiver modifiedOutputsReceiver,
-      Instant now) {
+      ModifiedOutputsReceiver modifiedOutputsReceiver) {
     return () -> {
       Map<Artifact, Pair<SkyKey, ActionExecutionValue>> fileToKeyAndValue = new HashMap<>();
       Map<Artifact, Pair<SkyKey, ActionExecutionValue>> treeArtifactsToKeyAndValue =
@@ -339,8 +333,7 @@ public class FilesystemValueChecker {
                 knownModifiedOutputFiles,
                 sortedKnownModifiedOutputFiles,
                 remoteArtifactChecker,
-                modifiedOutputsReceiver,
-                now)
+                modifiedOutputsReceiver)
             .run();
         return;
       } catch (InterruptedException e) {
@@ -410,8 +403,7 @@ public class FilesystemValueChecker {
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
       RemoteArtifactChecker remoteArtifactChecker,
-      ModifiedOutputsReceiver modifiedOutputsReceiver,
-      Instant now) {
+      ModifiedOutputsReceiver modifiedOutputsReceiver) {
     return new Runnable() {
       @Override
       public void run() {
@@ -424,8 +416,7 @@ public class FilesystemValueChecker {
                     knownModifiedOutputFiles,
                     sortedKnownModifiedOutputFiles,
                     remoteArtifactChecker,
-                    modifiedOutputsReceiver,
-                    now)) {
+                    modifiedOutputsReceiver)) {
               dirtyKeys.add(keyAndValue.getFirst());
             }
           }
@@ -470,8 +461,7 @@ public class FilesystemValueChecker {
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       RemoteArtifactChecker remoteArtifactChecker,
       Map.Entry<? extends Artifact, FileArtifactValue> entry,
-      ModifiedOutputsReceiver modifiedOutputsReceiver,
-      Instant now) {
+      ModifiedOutputsReceiver modifiedOutputsReceiver) {
     Artifact file = entry.getKey();
     FileArtifactValue lastKnownData = entry.getValue();
     if (file.isMiddlemanArtifact() || !shouldCheckFile(knownModifiedOutputFiles, file)) {
@@ -484,8 +474,7 @@ public class FilesystemValueChecker {
           fileMetadata.getType() == FileStateType.NONEXISTENT
               && lastKnownData.isRemote()
               && remoteArtifactChecker.shouldTrustRemoteArtifact(
-                  file, (RemoteFileArtifactValue) lastKnownData)
-              && ((RemoteFileArtifactValue) lastKnownData).isAlive(now);
+                  file, (RemoteFileArtifactValue) lastKnownData);
       if (!trustRemoteValue && fileMetadata.couldBeModifiedSince(lastKnownData)) {
         modifiedOutputsReceiver.reportModifiedOutputFile(
             fileMetadata.getType() != FileStateType.NONEXISTENT
@@ -507,13 +496,12 @@ public class FilesystemValueChecker {
       ImmutableSet<PathFragment> knownModifiedOutputFiles,
       Supplier<NavigableSet<PathFragment>> sortedKnownModifiedOutputFiles,
       RemoteArtifactChecker remoteArtifactChecker,
-      ModifiedOutputsReceiver modifiedOutputsReceiver,
-      Instant now)
+      ModifiedOutputsReceiver modifiedOutputsReceiver)
       throws InterruptedException {
     boolean isDirty = false;
     for (Map.Entry<Artifact, FileArtifactValue> entry : actionValue.getAllFileValues().entrySet()) {
       if (artifactIsDirtyWithDirectSystemCalls(
-          knownModifiedOutputFiles, remoteArtifactChecker, entry, modifiedOutputsReceiver, now)) {
+          knownModifiedOutputFiles, remoteArtifactChecker, entry, modifiedOutputsReceiver)) {
         isDirty = true;
       }
     }
@@ -525,11 +513,7 @@ public class FilesystemValueChecker {
       for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
           tree.getChildValues().entrySet()) {
         if (artifactIsDirtyWithDirectSystemCalls(
-            knownModifiedOutputFiles,
-            remoteArtifactChecker,
-            childEntry,
-            modifiedOutputsReceiver,
-            now)) {
+            knownModifiedOutputFiles, remoteArtifactChecker, childEntry, modifiedOutputsReceiver)) {
           isDirty = true;
         }
       }
@@ -544,8 +528,7 @@ public class FilesystemValueChecker {
                               Maps.immutableEntry(
                                   archivedRepresentation.archivedTreeFileArtifact(),
                                   archivedRepresentation.archivedFileValue()),
-                              modifiedOutputsReceiver,
-                              now))
+                              modifiedOutputsReceiver))
                   .orElse(false);
 
       Artifact treeArtifact = entry.getKey();

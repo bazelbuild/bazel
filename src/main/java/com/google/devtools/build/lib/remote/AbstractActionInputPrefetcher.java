@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfe
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -64,7 +63,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -81,7 +79,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   protected final Set<Artifact> outputsAreInputs = Sets.newConcurrentHashSet();
 
   protected final Path execRoot;
-  protected final ImmutableList<Pattern> patternsToDownload;
+  protected final RemoteOutputChecker remoteOutputChecker;
 
   private final Set<ActionInput> missingActionInputs = Sets.newConcurrentHashSet();
 
@@ -231,12 +229,12 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Reporter reporter,
       Path execRoot,
       TempPathGenerator tempPathGenerator,
-      ImmutableList<Pattern> patternsToDownload,
+      RemoteOutputChecker remoteOutputChecker,
       OutputPermissions outputPermissions) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
-    this.patternsToDownload = patternsToDownload;
+    this.remoteOutputChecker = remoteOutputChecker;
     this.outputPermissions = outputPermissions;
   }
 
@@ -605,11 +603,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } else if (output.isTreeArtifact()) {
         var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
         for (var file : children) {
-          if (outputMatchesPattern(file)) {
+          if (remoteOutputChecker.shouldDownloadFile(file)) {
             outputsToDownload.add(file);
           }
         }
-      } else if (outputMatchesPattern(output)) {
+      } else if (remoteOutputChecker.shouldDownloadFile(output)) {
         outputsToDownload.add(output);
       }
     }
@@ -656,15 +654,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
           },
           directExecutor());
     }
-  }
-
-  private boolean outputMatchesPattern(Artifact output) {
-    for (var pattern : patternsToDownload) {
-      if (pattern.matcher(output.getExecPathString()).matches()) {
-        return true;
-      }
-    }
-    return false;
   }
 
   public void flushOutputTree() throws InterruptedException {

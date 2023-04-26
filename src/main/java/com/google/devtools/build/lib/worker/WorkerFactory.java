@@ -111,7 +111,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
             worker.getLogFile());
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     if (eventBus != null) {
-      eventBus.post(new WorkerCreatedEvent(key.hashCode(), key.toString()));
+      eventBus.post(new WorkerCreatedEvent(key.hashCode(), key.getMnemonic()));
     }
     return worker;
   }
@@ -146,7 +146,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     p.getObject().destroy();
     if (eventBus != null) {
-      eventBus.post(new WorkerDestroyedEvent(key.hashCode(), key.toString()));
+      eventBus.post(new WorkerDestroyedEvent(key.hashCode(), key.getMnemonic()));
     }
   }
 
