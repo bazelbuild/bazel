@@ -16,6 +16,14 @@
 load("@rules_java//java:defs.bzl", "java_binary", "java_import")
 load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
 
+def _bool_flag_impl(_unused_ctx):
+    pass
+
+_bool_flag = rule(
+    implementation = _bool_flag_impl,
+    build_setting = config.bool(flag = True),
+)
+
 def create_config_setting_rule():
     """Create config_setting rule for windows.
 
@@ -36,6 +44,16 @@ def create_config_setting_rule():
     native.config_setting(
         name = "dx_standalone_dexer",
         values = {"define": "android_standalone_dexing_tool=dx_compat_dx"},
+    )
+
+    _bool_flag(
+        name = "allow_proguard",
+        build_setting_default = True,
+    )
+
+    native.config_setting(
+        name = "disallow_proguard",
+        flag_values = {":allow_proguard": "false"},
     )
 
 def create_android_sdk_rules(
@@ -152,7 +170,10 @@ def create_android_sdk_rules(
             framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
             legacy_main_dex_list_generator = ":generate_main_dex_list",
             main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-            proguard = "@bazel_tools//tools/jdk:proguard",
+            proguard = select({
+                ":disallow_proguard": ":fail",
+                "//conditions:default": "@bazel_tools//tools/jdk:proguard",
+            }),
             shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
             # See https://github.com/bazelbuild/bazel/issues/8757
             tags = ["__ANDROID_RULES_MIGRATION__"],
