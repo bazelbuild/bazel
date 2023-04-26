@@ -1351,10 +1351,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
 
     SkyKey skyKey =
-        PackageValue.key(
-            PackageIdentifier.create(
-                RepositoryName.createUnvalidated("_main~my_ext~candy1"),
-                PathFragment.EMPTY_FRAGMENT));
+        PackageIdentifier.create(
+            RepositoryName.createUnvalidated("_main~my_ext~candy1"), PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1398,10 +1396,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
 
     SkyKey skyKey =
-        PackageValue.key(
-            PackageIdentifier.create(
-                RepositoryName.createUnvalidated("_main~my_ext~candy1"),
-                PathFragment.create("data.bzl")));
+        PackageIdentifier.create(
+            RepositoryName.createUnvalidated("_main~my_ext~candy1"),
+            PathFragment.create("data.bzl"));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1438,10 +1435,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
 
     SkyKey skyKey =
-        PackageValue.key(
-            PackageIdentifier.create(
-                RepositoryName.createUnvalidated("_main~my_ext~candy1"),
-                PathFragment.create("data.bzl")));
+        PackageIdentifier.create(
+            RepositoryName.createUnvalidated("_main~my_ext~candy1"),
+            PathFragment.create("data.bzl"));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();

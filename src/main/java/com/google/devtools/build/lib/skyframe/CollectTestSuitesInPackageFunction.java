@@ -43,9 +43,7 @@ public class CollectTestSuitesInPackageFunction implements SkyFunction {
     PackageIdentifier packageId = (PackageIdentifier) skyKey.argument();
     PackageValue packageValue;
     try {
-      packageValue =
-          (PackageValue)
-              env.getValueOrThrow(PackageValue.key(packageId), NoSuchPackageException.class);
+      packageValue = (PackageValue) env.getValueOrThrow(packageId, NoSuchPackageException.class);
     } catch (NoSuchPackageException e) {
       // If the argument is a package that doesn't exist, the aggregator function can return
       // a success value immediately.

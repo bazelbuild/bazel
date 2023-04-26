@@ -94,10 +94,9 @@ public final class EnvironmentBackedRecursivePackageProvider
   @Override
   public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, MissingDepException, InterruptedException {
-    SkyKey pkgKey = PackageValue.key(packageName);
     PackageValue pkgValue;
     try {
-      pkgValue = (PackageValue) env.getValueOrThrow(pkgKey, NoSuchPackageException.class);
+      pkgValue = (PackageValue) env.getValueOrThrow(packageName, NoSuchPackageException.class);
       if (pkgValue == null) {
         throw new MissingDepException();
       }

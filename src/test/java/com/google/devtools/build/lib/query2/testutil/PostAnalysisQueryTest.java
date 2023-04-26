@@ -53,7 +53,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -148,15 +147,9 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     return false;
   }
 
-  @After
-  public void cleanUpHelper() {
-    getHelper().cleanUp();
-    helper = null;
-  }
-
   @Override
   @Test
-  public void testTargetLiteralWithMissingTargets() throws Exception {
+  public void testTargetLiteralWithMissingTargets() {
     getHelper().turnOffFailFast();
     TargetParsingException e =
         assertThrows(TargetParsingException.class, super::testTargetLiteralWithMissingTargets);

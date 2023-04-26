@@ -1778,7 +1778,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), configuredTargetKey));
         }
       }
-      skyKeys.add(PackageValue.key(key.getLabel().getPackageIdentifier()));
+      skyKeys.add(key.getLabel().getPackageIdentifier());
     }
 
     EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
@@ -1812,7 +1812,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           ConfiguredTarget configuredTarget =
               ((ConfiguredTargetValue) result.get(configuredTargetKey)).getConfiguredTarget();
           Label label = configuredTarget.getLabel();
-          SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
+          SkyKey packageKey = label.getPackageIdentifier();
           PackageValue packageValue;
           if (i == 0) {
             packageValue = (PackageValue) result.get(packageKey);
@@ -2682,8 +2682,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      */
     Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier pkgName)
         throws InterruptedException, NoSuchPackageException {
-      SkyKey key = PackageValue.key(pkgName);
-      ImmutableList<SkyKey> keys = ImmutableList.of(key);
+      ImmutableList<SkyKey> keys = ImmutableList.of(pkgName);
       EvaluationResult<PackageValue> result;
       synchronized (valueLookupLock) {
         // Loading a single package shouldn't be too bad to do in keep_going mode even if the build
@@ -2692,10 +2691,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         result =
             evaluate(keys, /*keepGoing=*/ true, /*numThreads=*/ DEFAULT_THREAD_COUNT, eventHandler);
       }
-      ErrorInfo error = result.getError(key);
+      ErrorInfo error = result.getError(pkgName);
       if (error != null) {
         if (!error.getCycleInfo().isEmpty()) {
-          cyclesReporter.reportCycles(result.getError().getCycleInfo(), key, eventHandler);
+          cyclesReporter.reportCycles(result.getError().getCycleInfo(), pkgName, eventHandler);
           // This can only happen if a package is freshly loaded outside of the target parsing or
           // loading phase
           throw new BuildFileContainsErrorsException(
@@ -2713,7 +2712,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                 + error,
             e);
       }
-      return result.get(key).getPackage();
+      return result.get(pkgName).getPackage();
     }
 
     /** Returns whether the given package should be consider deleted and thus should be ignored. */

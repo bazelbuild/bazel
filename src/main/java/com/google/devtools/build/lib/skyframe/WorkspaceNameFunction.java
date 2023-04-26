@@ -52,8 +52,8 @@ public class WorkspaceNameFunction implements SkyFunction {
       // danger (i.e. going through repo mapping is idempotent).
       return WorkspaceNameValue.withName("_main");
     }
-    SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+    PackageValue externalPackageValue =
+        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (externalPackageValue == null) {
       return null;
     }

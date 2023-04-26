@@ -540,7 +540,7 @@ public final class PrerequisiteProducer {
     Label label = configuredTargetKey.getLabel();
     BuildConfigurationValue configuration = null;
     ImmutableSet<SkyKey> packageAndMaybeConfiguration;
-    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
+    SkyKey packageKey = label.getPackageIdentifier();
     SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
     if (configurationKeyMaybe == null) {
       packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
@@ -909,8 +909,7 @@ public final class PrerequisiteProducer {
     // to do a potential second pass, in which we fetch all the Packages for AliasConfiguredTargets.
     ImmutableSet<SkyKey> packageKeys =
         ImmutableSet.copyOf(
-            Iterables.transform(
-                deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
+            Iterables.transform(deps, input -> input.getLabel().getPackageIdentifier()));
     Iterable<SkyKey> depKeys =
         Iterables.concat(
             Iterables.transform(deps, Dependency::getConfiguredTargetKey), packageKeys);
@@ -954,7 +953,7 @@ public final class PrerequisiteProducer {
 
         ConfiguredTarget depCt = depValue.getConfiguredTarget();
         Label depLabel = depCt.getLabel();
-        SkyKey packageKey = PackageValue.key(depLabel.getPackageIdentifier());
+        SkyKey packageKey = depLabel.getPackageIdentifier();
         PackageValue pkgValue;
         if (i == 0) {
           if (!packageKeys.contains(packageKey)) {

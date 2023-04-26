@@ -470,10 +470,9 @@ final class AspectFunction implements SkyFunction {
     ConfiguredAspectFactory aspectFactory = null;
     Aspect aspect = null;
 
-    SkyKey aspectPackageKey = PackageValue.key(key.getLabel().getPackageIdentifier());
+    SkyKey aspectPackageKey = key.getLabel().getPackageIdentifier();
     SkyKey baseConfiguredTargetKey = key.getBaseConfiguredTargetKey();
-    SkyKey basePackageKey =
-        PackageValue.key(key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier());
+    SkyKey basePackageKey = key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier();
     SkyKey configurationKey = key.getConfigurationKey();
     BzlLoadValue.Key bzlLoadKey;
 
@@ -793,8 +792,7 @@ final class AspectFunction implements SkyFunction {
   private static Target getTargetFromLabel(Environment env, Label aliasLabel)
       throws InterruptedException, NoSuchPackageException, NoSuchTargetException {
     SkyValue val =
-        env.getValueOrThrow(
-            PackageValue.key(aliasLabel.getPackageIdentifier()), NoSuchPackageException.class);
+        env.getValueOrThrow(aliasLabel.getPackageIdentifier(), NoSuchPackageException.class);
     if (val == null) {
       return null;
     }

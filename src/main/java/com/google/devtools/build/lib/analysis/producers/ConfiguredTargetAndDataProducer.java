@@ -124,7 +124,7 @@ final class ConfiguredTargetAndDataProducer
       // example, suppose that a configured target A has two children B and C. If B is dirty, it
       // causes A's re-evaluation, which causes this fetch to be performed for C. However, C has not
       // been evaluated this build.
-      tasks.lookUp(PackageValue.key(packageId), (Consumer<SkyValue>) this);
+      tasks.lookUp(packageId, (Consumer<SkyValue>) this);
     }
 
     return this::constructResult;

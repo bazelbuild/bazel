@@ -187,8 +187,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   @Override
   public Target getTarget(Label label) throws TargetNotFoundException, InterruptedException {
     try {
-      return ((PackageValue)
-              walkableGraphSupplier.get().getValue(PackageValue.key(label.getPackageIdentifier())))
+      return ((PackageValue) walkableGraphSupplier.get().getValue(label.getPackageIdentifier()))
           .getPackage()
           .getTarget(label.getName());
     } catch (NoSuchTargetException e) {

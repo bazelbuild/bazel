@@ -72,23 +72,21 @@ public class PlatformLookupUtil {
       ImmutableList<ConfiguredTargetKey> platformKeys, Environment env)
       throws InterruptedException, InvalidPlatformException {
     // Load the packages. This should already be in Skyframe and thus not require a restart.
-    ImmutableSet<PackageValue.Key> packageKeys =
+    ImmutableSet<PackageIdentifier> packageKeys =
         platformKeys.stream()
             .map(ConfiguredTargetKey::getLabel)
             .map(Label::getPackageIdentifier)
-            .distinct()
-            .map(PackageValue::key)
             .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(packageKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<PackageIdentifier, Package> packages = valuesMissing ? null : new HashMap<>();
-    for (PackageValue.Key packageKey : packageKeys) {
+    for (PackageIdentifier packageKey : packageKeys) {
       try {
         PackageValue packageValue =
             (PackageValue) values.getOrThrow(packageKey, NoSuchPackageException.class);
         if (!valuesMissing && packageValue != null) {
-          packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
+          packages.put(packageKey, packageValue.getPackage());
         }
       } catch (NoSuchPackageException e) {
         throw new InvalidPlatformException(e);

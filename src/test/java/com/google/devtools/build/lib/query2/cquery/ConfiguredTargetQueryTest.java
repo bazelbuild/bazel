@@ -42,11 +42,7 @@ public abstract class ConfiguredTargetQueryTest
 
   @Override
   protected QueryHelper<KeyedConfiguredTarget> createQueryHelper() {
-    if (helper != null) {
-      getHelper().cleanUp();
-    }
-    helper = new ConfiguredTargetQueryHelper();
-    return helper;
+    return new ConfiguredTargetQueryHelper();
   }
 
   @Override

@@ -342,7 +342,7 @@ public class BuildViewForTesting {
           config = (BuildConfigurationValue) graph.getValue(ct.getConfigurationKey());
         }
         PackageValue packageValue =
-            (PackageValue) graph.getValue(PackageValue.key(ct.getLabel().getPackageIdentifier()));
+            (PackageValue) graph.getValue(ct.getLabel().getPackageIdentifier());
         return new ConfiguredTargetAndData(
             ct,
             packageValue.getPackage().getTarget(ct.getLabel().getName()),

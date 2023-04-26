@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.After;
 import org.junit.Before;
 
 /**
@@ -116,6 +117,11 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     delegatingSyscallCache.setDelegate(SyscallCache.NO_CACHE);
     skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe();
+  }
+
+  @After
+  public final void cleanUpInterningPools() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
   }
 
   /** Allows subclasses to augment the {@link RuleDefinition}s available in this test. */
