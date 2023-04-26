@@ -65,7 +65,6 @@ py_test(
     name = "py_test",
     size = "large",
     srcs = ["py_test.py"],
-    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -151,7 +150,6 @@ py_test(
     name = "launcher_test",
     size = "large",
     srcs = ["launcher_test.py"],
-    shard_count = 5,
     deps = [":test_base"],
 )
 
