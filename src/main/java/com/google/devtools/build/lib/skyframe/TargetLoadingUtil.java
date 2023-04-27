@@ -85,7 +85,7 @@ public class TargetLoadingUtil {
       }
     }
 
-    SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
+    SkyKey packageKey = label.getPackageIdentifier();
     PackageValue packageValue =
         (PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class);
     if (packageValue == null) {

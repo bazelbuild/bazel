@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -52,7 +51,7 @@ final class TestExpansionFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey key, Environment env) throws InterruptedException {
     TestExpansionKey expansion = (TestExpansionKey) key.argument();
-    SkyKey packageKey = PackageValue.key(expansion.getLabel().getPackageIdentifier());
+    SkyKey packageKey = expansion.getLabel().getPackageIdentifier();
     PackageValue pkg = (PackageValue) env.getValue(packageKey);
     if (env.valuesMissing()) {
       return null;
@@ -157,17 +156,16 @@ final class TestExpansionFunction implements SkyFunction {
           labels.add(label);
           pkgIdentifiers.add(label.getPackageIdentifier());
         });
-    ImmutableList<SkyKey> skyKeys = PackageValue.keys(pkgIdentifiers);
-    SkyframeLookupResult packages = env.getValuesAndExceptions(skyKeys);
+    SkyframeLookupResult packages = env.getValuesAndExceptions(pkgIdentifiers);
     if (env.valuesMissing()) {
       return false;
     }
     boolean hasError = false;
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (SkyKey key : skyKeys) {
+    for (PackageIdentifier key : pkgIdentifiers) {
       try {
         packageMap.put(
-            (PackageIdentifier) key.argument(),
+            key,
             ((PackageValue) packages.getOrThrow(key, NoSuchPackageException.class)).getPackage());
       } catch (NoSuchPackageException e) {
         env.getListener().handle(Event.error(e.getMessage()));

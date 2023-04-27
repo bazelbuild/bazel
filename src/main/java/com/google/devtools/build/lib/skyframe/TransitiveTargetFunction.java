@@ -112,7 +112,7 @@ final class TransitiveTargetFunction
   @Override
   protected AdvertisedProviderSet getAdvertisedProviderSet(
       Label toLabel, SkyValue toVal, Environment env) throws InterruptedException {
-    SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
+    SkyKey packageKey = toLabel.getPackageIdentifier();
     Target toTarget;
     try {
       PackageValue pkgValue =

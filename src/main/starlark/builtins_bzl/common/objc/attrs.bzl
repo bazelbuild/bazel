@@ -82,19 +82,8 @@ _COPTS_RULE = {
     "copts": attr.string_list(),
 }
 
-_XCRUN_RULE = {
-    "_xcrunwrapper": attr.label(
-        cfg = "exec",
-        default = "@" + semantics.get_repo() + "//tools/objc:xcrunwrapper",
-        executable = True,
-    ),
+_ALWAYSLINK_RULE = {
     "alwayslink": attr.bool(),
-    "_xcode_config": attr.label(
-        default = configuration_field(
-            fragment = "apple",
-            name = "xcode_config_label",
-        ),
-    ),
 }
 
 def _union(*dictionaries):
@@ -105,12 +94,12 @@ def _union(*dictionaries):
 
 common_attrs = struct(
     union = _union,
+    ALWAYSLINK_RULE = _ALWAYSLINK_RULE,
     CC_TOOLCHAIN_RULE = _CC_TOOLCHAIN_RULE,
     COMPILING_RULE = _COMPILING_RULE,
     COMPILE_DEPENDENCY_RULE = _COMPILE_DEPENDENCY_RULE,
-    INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,
-    SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
     COPTS_RULE = _COPTS_RULE,
-    XCRUN_RULE = _XCRUN_RULE,
+    INCLUDE_SCANNING_RULE = _INCLUDE_SCANNING_RULE,
     LICENSES = semantics.get_licenses_attr(),
+    SDK_FRAMEWORK_DEPENDER_RULE = _SDK_FRAMEWORK_DEPENDER_RULE,
 )

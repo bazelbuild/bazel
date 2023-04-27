@@ -125,8 +125,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     buildTarget("//hello:foo");
 
     InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
-    PackageValue.Key packageKey =
-        PackageValue.key(PackageIdentifier.createInMainRepo(/* name= */ "hello"));
+    PackageIdentifier packageKey = PackageIdentifier.createInMainRepo(/* name= */ "hello");
     NodeEntry nodeEntry = graph.get(/* requestor= */ null, Reason.OTHER, packageKey);
     assertThat(nodeEntry).isNotNull();
 
@@ -152,8 +151,7 @@ public final class LabelInternerIntegrationTest extends SkyframeIntegrationTestB
     buildTarget("//hello:foo");
 
     InMemoryGraph graph = skyframeExecutor().getEvaluator().getInMemoryGraph();
-    PackageValue.Key packageKey =
-        PackageValue.key(PackageIdentifier.createInMainRepo(/* name= */ "hello"));
+    PackageIdentifier packageKey = PackageIdentifier.createInMainRepo(/* name= */ "hello");
     NodeEntry nodeEntry = graph.get(/* requestor= */ null, Reason.OTHER, packageKey);
     assertThat(nodeEntry).isNotNull();
 

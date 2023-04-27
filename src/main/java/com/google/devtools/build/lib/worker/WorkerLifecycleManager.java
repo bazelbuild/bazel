@@ -36,8 +36,6 @@ import org.apache.commons.pool2.impl.EvictionPolicy;
 final class WorkerLifecycleManager extends Thread {
 
   private static final Duration SLEEP_INTERVAL = Duration.ofSeconds(5);
-  // Collects metric not older than METRICS_MINIMAL_INTERVAL, to reduce calls of MetricsCollector.
-  private static final Duration METRICS_MINIMAL_INTERVAL = Duration.ofSeconds(1);
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private boolean isWorking = false;
@@ -72,7 +70,7 @@ final class WorkerLifecycleManager extends Thread {
       }
 
       ImmutableList<WorkerMetric> workerMetrics =
-          WorkerMetricsCollector.instance().collectMetrics(METRICS_MINIMAL_INTERVAL);
+          WorkerMetricsCollector.instance().collectMetrics();
 
       try {
         evictWorkers(workerMetrics);

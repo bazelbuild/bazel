@@ -146,9 +146,7 @@ final class DockerCommandLineBuilder {
     if (privileged) {
       dockerCmdLine.add("--privileged");
     }
-    for (Map.Entry<String, String> env : environmentVariables.entrySet()) {
-      dockerCmdLine.add("-e", env.getKey() + "=" + env.getValue());
-    }
+    environmentVariables.forEach((k, v) -> dockerCmdLine.add("-e", k + "=" + v));
     PathFragment execRootInsideDocker =
         PathFragment.create("/execroot/").getRelative(sandboxExecRoot.getBaseName());
     dockerCmdLine.add(

@@ -385,8 +385,7 @@ public class BuildDriverFunction implements SkyFunction {
   @Nullable
   private static Target getTarget(Environment env, Label label)
       throws InterruptedException, NoSuchTargetException {
-    PackageValue packageValue =
-        (PackageValue) env.getValue(PackageValue.key(label.getPackageIdentifier()));
+    PackageValue packageValue = (PackageValue) env.getValue(label.getPackageIdentifier());
     if (env.valuesMissing() || packageValue == null) {
       return null;
     }

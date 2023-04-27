@@ -318,7 +318,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
     pkgFactory = pkgFactoryBuilder.build(ruleClassProvider, fileSystem);
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    SequencedSkyframeExecutor.Builder builder =
+    if (skyframeExecutor != null) {
+      cleanupInterningPools();
+    }
+    skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
             .setPkgFactory(pkgFactory)
             .setFileSystem(fileSystem)
@@ -327,8 +330,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
-            .setDiffAwarenessFactories(diffAwarenessFactories);
-    skyframeExecutor = builder.build();
+            .setDiffAwarenessFactories(diffAwarenessFactories)
+            .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, pkgFactory, directories);
     }

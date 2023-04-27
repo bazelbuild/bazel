@@ -64,7 +64,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     // Create the GroupedDeps saying we had already requested two targets the last time we called
     // #compute.
     GroupedDeps groupedDeps = new GroupedDeps();
-    groupedDeps.appendSingleton(PackageValue.key(label.getPackageIdentifier()));
+    groupedDeps.appendSingleton(label.getPackageIdentifier());
     // Note that these targets don't actually exist in the package we created initially. It doesn't
     // matter for the purpose of this test, the original package was just to create some objects
     // that we needed.
@@ -224,13 +224,12 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
   /* Invokes the loading phase, using Skyframe. */
   private Package loadPackage(PackageIdentifier pkgid)
       throws InterruptedException, NoSuchPackageException {
-    SkyKey key = PackageValue.key(pkgid);
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), key, /* keepGoing= */ false, reporter);
+            getSkyframeExecutor(), pkgid, /* keepGoing= */ false, reporter);
     if (result.hasError()) {
-      throw (NoSuchPackageException) result.getError(key).getException();
+      throw (NoSuchPackageException) result.getError(pkgid).getException();
     }
-    return result.get(key).getPackage();
+    return result.get(pkgid).getPackage();
   }
 }

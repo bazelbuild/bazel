@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeTargetPatternEvaluator;
@@ -148,6 +147,11 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     performAdditionalClientSetup(mockToolsConfig);
 
     this.queryEnvironmentFactory = makeQueryEnvironmentFactory();
+  }
+
+  @Override
+  public final void cleanUp() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
   }
 
   protected abstract String getRootDirectoryNameForSetup();
@@ -313,6 +317,9 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   protected void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
+    if (skyframeExecutor != null) {
+      cleanUp();
+    }
     skyframeExecutor = createSkyframeExecutor(ruleClassProvider);
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
 
@@ -431,7 +438,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {
     MemoizingEvaluator evaluator = skyframeExecutor.getEvaluator();
-    SkyKey key = PackageValue.key(PackageIdentifier.createInMainRepo(packageName));
+    SkyKey key = PackageIdentifier.createInMainRepo(packageName);
     if (evaluator.getExistingValue(key) != null
         || evaluator.getExistingErrorForTesting(key) != null) {
       throw new IllegalStateException("Package was loaded: " + packageName);

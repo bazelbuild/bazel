@@ -56,7 +56,7 @@ py_test(
 
 py_test(
     name = "cc_import_test",
-    size = "medium",
+    size = "large",
     srcs = ["cc_import_test.py"],
     deps = [":test_base"],
 )
@@ -65,7 +65,6 @@ py_test(
     name = "py_test",
     size = "large",
     srcs = ["py_test.py"],
-    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -151,7 +150,6 @@ py_test(
     name = "launcher_test",
     size = "large",
     srcs = ["launcher_test.py"],
-    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -293,7 +291,7 @@ py_test(
 
 py_test(
     name = "bazel_overrides_test",
-    size = "medium",
+    size = "large",
     srcs = ["bzlmod/bazel_overrides_test.py"],
     tags = [
         "requires-network",
@@ -306,7 +304,7 @@ py_test(
 
 py_test(
     name = "bazel_repo_mapping_test",
-    size = "medium",
+    size = "large",
     srcs = ["bzlmod/bazel_repo_mapping_test.py"],
     tags = [
         "requires-network",
@@ -319,7 +317,7 @@ py_test(
 
 py_test(
     name = "bazel_yanked_versions_test",
-    size = "medium",
+    size = "large",
     srcs = ["bzlmod/bazel_yanked_versions_test.py"],
     tags = [
         "requires-network",

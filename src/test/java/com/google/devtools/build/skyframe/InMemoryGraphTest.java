@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import org.junit.Test;
@@ -133,22 +132,20 @@ public class InMemoryGraphTest extends GraphTest {
   @Test
   public void removePackageNode_notPresentInGraph() throws Exception {
     PackageIdentifier packageIdentifier = PackageIdentifier.createUnchecked("repo", "hello");
-    PackageValue.Key packageKey = PackageValue.key(packageIdentifier);
 
-    graph.remove(packageKey);
-    assertThat(graph.get(null, Reason.OTHER, packageKey)).isNull();
+    graph.remove(packageIdentifier);
+    assertThat(graph.get(null, Reason.OTHER, packageIdentifier)).isNull();
   }
 
   @Test
   public void removePackageNode_noValueWeakInternLabelsNoCrash() throws Exception {
     PackageIdentifier packageIdentifier = PackageIdentifier.createUnchecked("repo", "hello");
-    PackageValue.Key packageKey = PackageValue.key(packageIdentifier);
 
-    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(packageKey));
-    NodeEntry entry = graph.get(null, Reason.OTHER, packageKey);
+    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(packageIdentifier));
+    NodeEntry entry = graph.get(null, Reason.OTHER, packageIdentifier);
     assertThat(entry.toValue()).isNull();
 
-    graph.remove(packageKey);
-    assertThat(graph.get(null, Reason.OTHER, packageKey)).isNull();
+    graph.remove(packageIdentifier);
+    assertThat(graph.get(null, Reason.OTHER, packageIdentifier)).isNull();
   }
 }

@@ -120,6 +120,7 @@ sh_test(
 
 sh_test(
     name = "remote_build_event_uploader_test",
+    size = "large",
     srcs = ["remote_build_event_uploader_test.sh"],
     data = [
         ":remote_utils",
