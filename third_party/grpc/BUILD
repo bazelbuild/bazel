@@ -24,7 +24,7 @@ license(
         "@rules_license//licenses/spdx:Apache-2.0",
     ],
     license_text = "LICENSE",
-    package_version = "1.47",
+    package_version = "1.48",
 )
 
 exports_files([
