@@ -75,6 +75,9 @@ fi
 if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
   is_absolute "$TEST_SHARD_STATUS_FILE" || TEST_SHARD_STATUS_FILE="$PWD/$TEST_SHARD_STATUS_FILE"
   mkdir -p "$(dirname "$TEST_SHARD_STATUS_FILE")"
+  # Get the modification time in nano second granularity or record that it was missing.
+  TEST_SHARD_STATUS_FILE_MTIME_AT_START=$(stat -c '%.9Y' "$TEST_SHARD_STATUS_FILE" 2> /dev/null ||
+    echo "missing")
 fi
 
 is_absolute "$RUNFILES_DIR" || RUNFILES_DIR="$PWD/$RUNFILES_DIR"
@@ -367,6 +370,16 @@ exitCode=$?
 kill_group SIGKILL $childPid
 kill_group SIGKILL $cleanupPid &> /dev/null
 wait $cleanupPid
+
+# Sharding was requested, verify that the test runner actually supported it.
+if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
+  TEST_SHARD_STATUS_FILE_MTIME_AT_END=$(stat -c '%.9Y' "$TEST_SHARD_STATUS_FILE" 2> /dev/null ||
+    echo "missing")
+  if [[ "$TEST_SHARD_STATUS_FILE_MTIME_AT_START" = "$TEST_SHARD_STATUS_FILE_MTIME_AT_END" ]]; then
+    echo >&2 "FAILED: Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE. Either remove the 'shard_count' attribute or use a test runner that supports sharding."
+    exit 1
+  fi
+fi
 
 for signal in $signals; do
   trap - ${signal}

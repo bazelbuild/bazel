@@ -23,4 +23,9 @@ bazel_bin=$(rlocation io_bazel/src/bazel)
 unset RUNFILES_DIR
 unset RUNFILES_MANIFEST_FILE
 unset RUNFILES_MANIFEST_ONLY
+# Also unset sharding related environment variables so that tests executed with
+# bazel run do not inherit them from the integration test.
+unset TEST_TOTAL_SHARDS
+unset TEST_SHARD_INDEX
+unset TEST_SHARD_STATUS_FILE
 exec $bazel_bin --nohome_rc --nosystem_rc --bazelrc=$TEST_TMPDIR/bazelrc "$@"

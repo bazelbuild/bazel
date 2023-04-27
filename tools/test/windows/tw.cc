@@ -605,6 +605,42 @@ bool ExportShardStatusFile(const Path& cwd) {
          CreateDirectories(status_file.Dirname());
 }
 
+bool GetLenientShardStatusFileModificationTime(uint64_t* mtime) {
+  Path status_file;
+  if (!GetPathEnv(L"TEST_SHARD_STATUS_FILE", &status_file) ||
+      status_file.Get().empty()) {
+    return false;
+  }
+
+  bazel::windows::AutoHandle handle(CreateFileW(
+      AddUncPrefixMaybe(status_file).c_str(), GENERIC_READ,
+      FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL, nullptr));
+  if (!handle.IsValid()) {
+    DWORD err = GetLastError();
+    if (err != ERROR_FILE_NOT_FOUND) {
+      LogErrorWithArgAndValue(
+          __LINE__, "Failed to open shard status file", status_file.Get(), err);
+    }
+    *mtime = 0;
+    return true;
+  }
+
+  FILETIME lastWriteTime;
+  if (!GetFileTime(handle, nullptr, nullptr, &lastWriteTime)) {
+    DWORD err = GetLastError();
+    LogErrorWithArgAndValue(
+        __LINE__, "Failed to get file time of shard status file",
+        status_file.Get(), err);
+    *mtime = 0;
+    return true;
+  }
+
+  *mtime = ((uint64_t) lastWriteTime.dwHighDateTime << 32) |
+      lastWriteTime.dwLowDateTime;
+  return true;
+}
+
 bool ExportGtestVariables(const Path& test_tmpdir) {
   // # Tell googletest about Bazel sharding.
   std::wstring total_shards_str;
@@ -1925,6 +1961,7 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
   UndeclaredOutputs undecl;
   std::wstring args;
+  uint64_t shard_status_file_mtime_start, shard_status_file_mtime_end;
   if (!AddCurrentDirectoryToPATH() ||
       !ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
       !PrintTestLogStartMarker() || !GetCwd(&exec_root) || !ExportUserName() ||
@@ -1939,8 +1976,17 @@ int TestWrapperMain(int argc, wchar_t** argv) {
     return 1;
   }
 
+  GetLenientShardStatusFileModificationTime(&shard_status_file_mtime_start);
   Duration test_duration;
   int result = RunSubprocess(test_path, args, test_outerr, &test_duration);
+  if (GetLenientShardStatusFileModificationTime(&shard_status_file_mtime_end) &&
+      shard_status_file_mtime_start == shard_status_file_mtime_end) {
+    LogError(__LINE__, "Sharding requested, but the test runner did not"
+        " advertise support for it by touching TEST_SHARD_STATUS_FILE. Either"
+        " remove the 'shard_count' attribute or use a test runner that supports"
+        " sharding.");
+    return 1;
+  }
   if (!CreateXmlLog(xml_log, test_outerr, test_duration, result,
                     DeleteAfterwards::kEnabled, MainType::kTestWrapperMain) ||
       !ArchiveUndeclaredOutputs(undecl) ||
