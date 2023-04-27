@@ -225,6 +225,7 @@ public class RemoteExecutionService {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
+    ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
       if (output.isDirectory()) {
@@ -232,13 +233,14 @@ public class RemoteExecutionService {
       } else {
         outputFiles.add(pathString);
       }
+      outputPaths.add(pathString);
     }
     Collections.sort(outputFiles);
     Collections.sort(outputDirectories);
+    Collections.sort(outputPaths);
     command.addAllOutputFiles(outputFiles);
-    command.addAllOutputPaths(outputFiles);
     command.addAllOutputDirectories(outputDirectories);
-    command.addAllOutputPaths(outputDirectories);
+    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
