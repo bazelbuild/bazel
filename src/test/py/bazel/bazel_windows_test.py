@@ -463,16 +463,19 @@ class BazelWindowsTest(test_base.TestBase):
     )
     self.ScratchFile('foo.sh')
 
-    exit_code, _, stderr = self.RunBazel(['test', '//:foo_test'])
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--incompatible_check_sharding_support', '//:foo_test'])
     # Check for "tests failed" exit code
-    self.AssertExitCode(exit_code, 3, stderr)
-    self.assertIn("Sharding requested, but the test runner did not advertise "
-                  "support for it by touching TEST_SHARD_STATUS_FILE.", stderr)
+    self.AssertExitCode(exit_code, 3, stderr, stdout)
+    self.assertTrue(any(
+        "Sharding requested, but the test runner did not advertise support for"
+        " it by touching TEST_SHARD_STATUS_FILE." in line for line in stderr))
 
     self.ScratchFile('foo.sh', ['touch "$TEST_SHARD_STATUS_FILE"'])
 
-    exit_code, _, stderr = self.RunBazel(['test', '//:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--incompatible_check_sharding_support', '//:foo_test'])
+    self.AssertExitCode(exit_code, 0, stderr, stdout)
 
 
 if __name__ == '__main__':
