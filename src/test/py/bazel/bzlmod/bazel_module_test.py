@@ -111,7 +111,7 @@ class BazelModuleTest(test_base.TestBase):
         '    hello_aaa("main function");',
         '}',
     ])
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
 
   def testSimpleTransitive(self):
@@ -131,7 +131,7 @@ class BazelModuleTest(test_base.TestBase):
         '    hello_bbb("main function");',
         '}',
     ])
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => bbb@1.0', stdout)
     self.assertIn('bbb@1.0 => aaa@1.0', stdout)
 
@@ -144,7 +144,7 @@ class BazelModuleTest(test_base.TestBase):
             # bbb@1.0 has to depend on aaa@1.1 after MVS.
             'bazel_dep(name = "bbb", version = "1.0")',
         ])
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1', stdout)
     self.assertIn('main function => bbb@1.0', stdout)
     self.assertIn('bbb@1.0 => aaa@1.1', stdout)
@@ -180,7 +180,7 @@ class BazelModuleTest(test_base.TestBase):
         '    hello_aaa("main function");',
         '}',
     ])
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.1-1 (remotely patched)', stdout)
 
   def testRepoNameForBazelDep(self):
@@ -202,7 +202,7 @@ class BazelModuleTest(test_base.TestBase):
         '  ],',
         ')',
     ])
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
     self.assertIn('main function => bbb@1.0', stdout)
     self.assertIn('bbb@1.0 => aaa@1.0', stdout)
@@ -215,8 +215,8 @@ class BazelModuleTest(test_base.TestBase):
         'bazel_dep(name = "ccc", version = "1.1")',
     ])
     _, stdout, stderr = self.RunBazel(
-        ['run', '//:main', '--check_direct_dependencies=warning'],
-        allow_failure=False)
+        ['run', '//:main', '--check_direct_dependencies=warning']
+    )
     self.assertIn(
         'WARNING: For repository \'aaa\', the root module requires module version aaa@1.0, but got aaa@1.1 in the resolved dependency graph.',
         stderr)
@@ -290,7 +290,7 @@ class BazelModuleTest(test_base.TestBase):
         '  no_op(name="no_op")',
         'data_ext = module_extension(_data_ext_impl)',
     ])
-    self.RunBazel(['build', '@no_op//:no_op'], allow_failure=False)
+    self.RunBazel(['build', '@no_op//:no_op'])
 
   def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version):
     self.main_registry.generateCcSource(dep_name, dep_version)
@@ -318,13 +318,13 @@ class BazelModuleTest(test_base.TestBase):
   def testLocalRepoInSourceJsonAbsoluteBasePath(self):
     self.main_registry.setModuleBasePath(str(self.main_registry.projects))
     self.setUpProjectWithLocalRegistryModule('sss', '1.3')
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => sss@1.3', stdout)
 
   def testLocalRepoInSourceJsonRelativeBasePath(self):
     self.main_registry.setModuleBasePath('projects')
     self.setUpProjectWithLocalRegistryModule('sss', '1.3')
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => sss@1.3', stdout)
 
   def testNativePackageRelativeLabel(self):
@@ -372,9 +372,7 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
 
-    _, _, stderr = self.RunBazel(
-        ['build', '@bar//quux:book'], allow_failure=False
-    )
+    _, _, stderr = self.RunBazel(['build', '@bar//quux:book'])
     stderr = '\n'.join(stderr)
     self.assertIn('1st: @@bar~override//quux:bleb', stderr)
     self.assertIn('2nd: @@bar~override//bleb:bleb', stderr)
@@ -415,7 +413,7 @@ class BazelModuleTest(test_base.TestBase):
         ],
     )
 
-    _, _, stderr = self.RunBazel(['build', '@foo//:test'], allow_failure=False)
+    _, _, stderr = self.RunBazel(['build', '@foo//:test'])
     stderr = '\n'.join(stderr)
     # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
     self.assertIn('1st: @@baz//:z', stderr)
@@ -447,7 +445,7 @@ class BazelModuleTest(test_base.TestBase):
     self.ScratchFile('hello/MODULE.bazel', ['module(name="hello")'])
     self.ScratchFile('hello/world.bzl', ['message="I LUV U!"'])
 
-    _, _, stderr = self.RunBazel(['build', ':a'], allow_failure=False)
+    _, _, stderr = self.RunBazel(['build', ':a'])
     self.assertIn('I LUV U!', '\n'.join(stderr))
 
   def testArchiveWithArchiveType(self):
@@ -481,7 +479,7 @@ class BazelModuleTest(test_base.TestBase):
             '}',
         ],
     )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.2', stdout)
 
   def testNativeModuleNameAndVersion(self):
@@ -580,7 +578,6 @@ class BazelModuleTest(test_base.TestBase):
             '@bar//:a',
             '@quux//:a',
         ],
-        allow_failure=False,
     )
     stderr = '\n'.join(stderr)
     self.assertIn('@@ reporting in: root@0.1', stderr)

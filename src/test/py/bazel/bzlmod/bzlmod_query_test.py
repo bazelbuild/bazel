@@ -59,8 +59,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
-    _, stdout, _ = self.RunBazel(['query', '@my_repo//...'],
-                                 allow_failure=False)
+    _, stdout, _ = self.RunBazel(['query', '@my_repo//...'])
     self.assertListEqual(['@my_repo//:lib_aaa'], stdout)
 
   def testQueryModuleRepoTransitiveDeps(self):
@@ -79,8 +78,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'kind("cc_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
-    ],
-                                 allow_failure=False)
+    ])
     self.assertListEqual(
         ['//:main', '@my_repo//:lib_aaa', '@@ccc~1.2//:lib_ccc'], stdout)
 
@@ -89,8 +87,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
-    _, stdout, _ = self.RunBazel(['aquery', '@my_repo//...'],
-                                 allow_failure=False)
+    _, stdout, _ = self.RunBazel(['aquery', '@my_repo//...'])
     # This label is stringified into a "purpose" in some action before it
     # reaches aquery code, so can't decanonicalize it.
     self.assertIn('Target: @my_repo//:lib_aaa', stdout)
@@ -111,8 +108,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'kind("cc_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
-    ],
-                                 allow_failure=False)
+    ])
     self.assertIn('Target: //:main', stdout)
     self.assertIn('Target: @my_repo//:lib_aaa', stdout)
     self.assertIn('Target: @@ccc~1.2//:lib_ccc', stdout)
@@ -122,8 +118,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
-    _, stdout, _ = self.RunBazel(['cquery', '@my_repo//...'],
-                                 allow_failure=False)
+    _, stdout, _ = self.RunBazel(['cquery', '@my_repo//...'])
     self.assertRegex(stdout[0], r'@my_repo//:lib_aaa \([\w\d]+\)')
 
   def testCqueryModuleRepoTransitiveDeps(self):
@@ -142,8 +137,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'kind("cc_.* rule", deps(//:main))',
         '--noimplicit_deps',
         '--notool_deps',
-    ],
-                                 allow_failure=False)
+    ])
     self.assertRegex(stdout[0], r'^//:main \([\w\d]+\)$')
     self.assertRegex(stdout[1], r'^@my_repo//:lib_aaa \([\w\d]+\)$')
     self.assertRegex(stdout[2], r'^@@ccc~1.2//:lib_ccc \([\w\d]+\)$')
@@ -154,7 +148,7 @@ class BzlmodQueryTest(test_base.TestBase):
         'bazel_dep(name = "aaa", version = "1.0", repo_name = "my_repo")',
         'bazel_dep(name = "bbb", version = "1.0")',
     ])
-    self.RunBazel(['fetch', '@my_repo//...'], allow_failure=False)
+    self.RunBazel(['fetch', '@my_repo//...'])
 
   def testGenQueryTargetLiteralInGenRule(self):
     self.ScratchFile('MODULE.bazel', [
@@ -167,7 +161,7 @@ class BzlmodQueryTest(test_base.TestBase):
         "srcs = [':rinne'],", "outs = ['gen_rinne.txt'],",
         "cmd = 'cat $(SRCS) > $@')"
     ])
-    self.RunBazel(['build', '//:gen_rinne'], allow_failure=False)
+    self.RunBazel(['build', '//:gen_rinne'])
     output_file = open('bazel-bin/gen_rinne.txt', 'r')
     self.assertIsNotNone(output_file)
     output = output_file.readlines()

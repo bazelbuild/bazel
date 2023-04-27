@@ -68,17 +68,15 @@ class RunfilesSandboxedTest(test_base.TestBase):
             ")"
         ])
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-genfiles"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-genfiles"])
     bazel_genfiles = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel([
+    self.RunBazel([
         "build",
         "--verbose_failures",
         "//foo:gen",
         "--genrule_strategy=sandboxed",
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
 
     stdout_txt = os.path.join(bazel_genfiles, "foo/stdout.txt")
     self.assertTrue(os.path.isfile(stdout_txt))
