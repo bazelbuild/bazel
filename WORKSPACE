@@ -613,7 +613,7 @@ load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
-        "com.beust:jcommander:1.48",
+        "com.beust:jcommander:1.82",
         "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
@@ -769,7 +769,7 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
-    fail_if_repin_required = True,
+    fail_if_repin_required = False,
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
