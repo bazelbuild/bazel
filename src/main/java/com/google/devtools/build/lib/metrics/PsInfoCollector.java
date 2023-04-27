@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.util;
+package com.google.devtools.build.lib.metrics;
 
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static java.nio.charset.StandardCharsets.UTF_8;

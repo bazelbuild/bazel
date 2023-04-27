@@ -52,7 +52,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe_graph_stats_event",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:auto_value",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -78,4 +80,15 @@ java_library(
 java_library(
     name = "garbage-collection-metrics-util",
     srcs = ["GarbageCollectionMetricsUtils.java"],
+)
+
+java_library(
+    name = "ps_info_collector",
+    srcs = ["PsInfoCollector.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
 )

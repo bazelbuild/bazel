@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.util.PsInfoCollector;
+import com.google.devtools.build.lib.metrics.PsInfoCollector;
 import java.time.Instant;
 import org.junit.Before;
 import org.junit.Test;
