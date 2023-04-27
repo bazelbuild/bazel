@@ -309,16 +309,19 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     CppLinkAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+    String rootExecPath = linkAction.getPrimaryOutput().getRoot().getExecPathString();
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
+            getPredecessorByInputName(
+                linkAction, "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
+                backendAction,
+                "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLineForTesting().getBuildVariables();
 
     String interfaceLibraryBuilder =
@@ -435,16 +438,19 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     CppLinkAction linkAction = getCppLinkAction(target, LinkTargetType.NODEPS_DYNAMIC_LIBRARY);
+    String rootExecPath = linkAction.getPrimaryOutput().getRoot().getExecPathString();
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o");
+            getPredecessorByInputName(
+                linkAction, "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o");
     assertThat(backendAction.getMnemonic()).isEqualTo("CcLtoBackendCompile");
 
     CppLinkAction indexAction =
         (CppLinkAction)
             getPredecessorByInputName(
-                backendAction, "x/libfoo.so.lto/x/_objs/foo/a.pic.o.thinlto.bc");
+                backendAction,
+                "x/libfoo.so.lto/" + rootExecPath + "/x/_objs/foo/a.pic.o.thinlto.bc");
     CcToolchainVariables variables = indexAction.getLinkCommandLineForTesting().getBuildVariables();
 
     assertThat(variables.isAvailable(LinkBuildVariables.OUTPUT_EXECPATH.getVariableName()))

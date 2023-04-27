@@ -187,11 +187,13 @@ public enum LinkBuildVariables {
         // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
         buildVariables.addStringVariable("thinlto_optional_params_file", "");
       }
+      // Given "fullbitcode_prefix;thinlto_index_prefix", replaces fullbitcode_prefix with
+      // thinlto_index_prefix to generate the index and imports files.
+      // fullbitcode_prefix is the empty string because we are appending a prefix to the fullbitcode
+      // instead of replacing it. This argument is passed to the linker.
       buildVariables.addStringVariable(
           THINLTO_PREFIX_REPLACE.getVariableName(),
-          binDirectoryPath.getSafePathString()
-              + ";"
-              + binDirectoryPath.getRelative(ltoOutputRootPrefix));
+          ";" + binDirectoryPath.getRelative(ltoOutputRootPrefix) + '/');
       String objectFileExtension =
           ccToolchainProvider
               .getFeatures()
