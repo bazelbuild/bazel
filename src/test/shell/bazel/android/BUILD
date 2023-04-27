@@ -107,7 +107,7 @@ android_sh_test(
 
 android_sh_test(
     name = "android_sdk_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["android_sdk_integration_test.sh"],
     data = [
         ":android_helper",
