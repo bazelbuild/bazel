@@ -342,6 +342,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setValue("value")
                     .build())
             .addAllOutputFiles(ImmutableList.of("bar", "foo"))
+            .addAllOutputPaths(ImmutableList.of("bar", "foo"))
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
     channel.release();
