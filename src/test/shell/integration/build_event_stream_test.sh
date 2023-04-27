@@ -579,7 +579,7 @@ function test_test_runtime() {
 function test_test_start_times() {
   # Verify that the start time of a test is reported, regardless whether
   # it was cached or not.
-  bazel clean --expunge
+  bazel clean
   bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'test_attempt_start_millis_epoch.*[1-9]'
@@ -617,7 +617,7 @@ function test_test_attempts_multi_runs_flake_detection() {
 function test_cached_test_results() {
   # Verify that both, clean and cached test results are reported correctly,
   # including the appropriate reference to log files.
-  bazel clean --expunge
+  bazel clean
   bazel test --build_event_text_file=$TEST_log pkg:true \
     || fail "Clean testing pkg:true failed"
   expect_log '^test_result'
@@ -1077,7 +1077,7 @@ function test_stdout_stderr_reported() {
   # Verify that bazel's stdout/stderr is included in the build event stream.
 
   # Make sure we generate enough output on stderr
-  bazel clean --expunge
+  bazel clean
   bazel test --build_event_text_file=$TEST_log --curses=no \
         pkg:slow 2>stderr.log || fail "slowtest failed"
   # Take a line that is likely not the output of an action (possibly reported
@@ -1092,7 +1092,7 @@ function test_stdout_stderr_reported() {
 function test_unbuffered_stdout_stderr() {
    # Verify that the option --bes_outerr_buffer_size ensures that messages are
    # flushed out to the BEP immediately
-  bazel clean --expunge
+  bazel clean
   bazel build --build_event_text_file="${TEST_log}" \
         --bes_outerr_buffer_size=1 chain:entry10
   progress_count=$(grep '^progress' "${TEST_log}" | wc -l )
