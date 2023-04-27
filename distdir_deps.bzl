@@ -122,23 +122,23 @@ DIST_DEPS = {
         "package_version": "3.19.6",
     },
     "com_github_grpc_grpc": {
-        "archive": "v1.47.0.tar.gz",
-        "sha256": "271bdc890bf329a8de5b65819f0f9590a5381402429bca37625b63546ed19e54",
-        "strip_prefix": "grpc-1.47.0",
+        "archive": "v1.48.1.tar.gz",
+        "sha256": "320366665d19027cda87b2368c03939006a37e0388bfd1091c8d2a96fbc93bd8",
+        "strip_prefix": "grpc-1.48.1",
         "urls": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.47.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.47.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.48.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.48.1.tar.gz",
         ],
         "patch_args": ["-p1"],
         "patches": [
-            "//third_party/grpc:grpc_1.47.0.patch",
-            "//third_party/grpc:grpc_1.47.0.win_arm64.patch",
+            "//third_party/grpc:grpc_1.48.1.patch",
+            "//third_party/grpc:grpc_1.48.1.win_arm64.patch",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "package_version": "1.47.0",
+        "package_version": "1.48.1",
     },
     "com_github_cncf_udpa": {
         "archive": "cb28da3451f158a947dfc45090fe92b07b243bc1.tar.gz",
@@ -246,22 +246,22 @@ DIST_DEPS = {
         ],
     },
     "com_google_absl": {
-        "archive": "20211102.0.tar.gz",
-        "sha256": "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
+        "archive": "20220623.1.tar.gz",
+        "sha256": "91ac87d30cc6d79f9ab974c51874a704de9c2647c40f6932597329a282217ba8",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "strip_prefix": "abseil-cpp-20211102.0",
+        "strip_prefix": "abseil-cpp-20220623.1",
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
         ],
         "license_text": "LICENSE",
-        "package_version": "2021-11-02.0",
+        "package_version": "20220623.1",
     },
     "zstd-jni": {
         "archive": "v1.5.2-3.zip",
