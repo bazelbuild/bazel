@@ -347,13 +347,27 @@ public class ModuleFileGlobals {
               + " selected. Should be absolute target patterns (ie. beginning with either"
               + " <code>@</code> or <code>//</code>). See <a href=\"${link toolchains}\">toolchain"
               + " resolution</a> for more information.",
+      parameters = {
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, the execution platforms will not be registered if the current module is"
+                    + " not the root module or `--ignore_dev_dependency` is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
+      },
       extraPositionals =
           @Param(
               name = "platform_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the platforms to register."))
-  public void registerExecutionPlatforms(Sequence<?> platformLabels) throws EvalException {
+  public void registerExecutionPlatforms(boolean devDependency, Sequence<?> platformLabels)
+      throws EvalException {
     hadNonModuleCall = true;
+    if (ignoreDevDeps && devDependency) {
+      return;
+    }
     module.addExecutionPlatformsToRegister(
         checkAllAbsolutePatterns(platformLabels, "register_execution_platforms"));
   }
@@ -365,13 +379,27 @@ public class ModuleFileGlobals {
               + " Should be absolute target patterns (ie. beginning with either <code>@</code> or"
               + " <code>//</code>). See <a href=\"${link toolchains}\">toolchain resolution</a> for"
               + " more information.",
+      parameters = {
+        @Param(
+            name = "dev_dependency",
+            doc =
+                "If true, the toolchains will not be registered if the current module is not the"
+                    + " root module or `--ignore_dev_dependency` is enabled.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
+      },
       extraPositionals =
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
               doc = "The labels of the toolchains to register."))
-  public void registerToolchains(Sequence<?> toolchainLabels) throws EvalException {
+  public void registerToolchains(boolean devDependency, Sequence<?> toolchainLabels)
+      throws EvalException {
     hadNonModuleCall = true;
+    if (ignoreDevDeps && devDependency) {
+      return;
+    }
     module.addToolchainsToRegister(
         checkAllAbsolutePatterns(toolchainLabels, "register_toolchains"));
   }
