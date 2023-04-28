@@ -409,6 +409,7 @@ public class UploadManifestTest {
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
+    expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("target");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -435,6 +436,7 @@ public class UploadManifestTest {
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputDirectorySymlinksBuilder().setPath("link").setTarget("dir");
+    expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("dir");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -505,6 +507,7 @@ public class UploadManifestTest {
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("/execroot/target");
+    expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("/execroot/target");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 
@@ -551,6 +554,7 @@ public class UploadManifestTest {
 
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult.addOutputFileSymlinksBuilder().setPath("link").setTarget("target");
+    expectedResult.addOutputSymlinksBuilder().setPath("link").setTarget("target");
     assertThat(result.build()).isEqualTo(expectedResult.build());
   }
 

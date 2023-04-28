@@ -1612,6 +1612,10 @@ public class RemoteExecutionServiceTest {
         .addOutputFileSymlinksBuilder()
         .setPath("outputs/link")
         .setTarget(targetPath.toString());
+    expectedResult
+        .addOutputSymlinksBuilder()
+        .setPath("outputs/link")
+        .setTarget(targetPath.toString());
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());
   }
 

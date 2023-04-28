@@ -26,6 +26,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.annotations.VisibleForTesting;
@@ -283,17 +284,23 @@ public class UploadManifest {
   }
 
   private void addFileSymbolicLink(Path file, PathFragment target) {
-    result
-        .addOutputFileSymlinksBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(file))
-        .setTarget(target.toString());
+    OutputSymlink outputSymlink =
+        OutputSymlink.newBuilder()
+            .setPath(remotePathResolver.localPathToOutputPath(file))
+            .setTarget(target.toString())
+            .build();
+    result.addOutputFileSymlinks(outputSymlink);
+    result.addOutputSymlinks(outputSymlink);
   }
 
   private void addDirectorySymbolicLink(Path file, PathFragment target) {
-    result
-        .addOutputDirectorySymlinksBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(file))
-        .setTarget(target.toString());
+    OutputSymlink outputSymlink =
+        OutputSymlink.newBuilder()
+            .setPath(remotePathResolver.localPathToOutputPath(file))
+            .setTarget(target.toString())
+            .build();
+    result.addOutputDirectorySymlinks(outputSymlink);
+    result.addOutputSymlinks(outputSymlink);
   }
 
   private void addFile(Digest digest, Path file) throws IOException {
