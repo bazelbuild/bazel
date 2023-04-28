@@ -307,6 +307,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     scratch.overwriteFile(
         "MODULE.bazel",
         "register_toolchains('//:tool')",
+        "register_toolchains('//:dev_tool',dev_dependency=True)",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='1.1')",
         "bazel_dep(name='toolchain_def',version='1.0')");
@@ -315,12 +316,14 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             createModuleKey("bbb", "1.0"),
             "module(name='bbb',version='1.0')",
             "register_toolchains('//:tool')",
+            "register_toolchains('//:dev_tool',dev_dependency=True)",
             "bazel_dep(name='ddd',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
             createModuleKey("ccc", "1.1"),
             "module(name='ccc',version='1.1')",
             "register_toolchains('//:tool')",
+            "register_toolchains('//:dev_tool',dev_dependency=True)",
             "bazel_dep(name='ddd',version='1.1')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         // ddd@1.0 is not selected
@@ -328,11 +331,13 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
             createModuleKey("ddd", "1.0"),
             "module(name='ddd',version='1.0')",
             "register_toolchains('//:tool')",
+            "register_toolchains('//:dev_tool',dev_dependency=True)",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
             createModuleKey("ddd", "1.1"),
             "module(name='ddd',version='1.1')",
             "register_toolchains('@eee//:tool', '//:tool')",
+            "register_toolchains('@eee//:dev_tool',dev_dependency=True)",
             "bazel_dep(name='eee',version='1.0')",
             "bazel_dep(name='toolchain_def',version='1.0')")
         .addModule(
@@ -369,11 +374,13 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
           "load('@toolchain_def//:toolchain_def.bzl', 'declare_toolchain')",
-          "declare_toolchain(name='tool')");
+          "declare_toolchain(name='tool')",
+          "declare_toolchain(name='dev_tool')");
     }
     scratch.overwriteFile(
         "BUILD",
         "load('@toolchain_def//:toolchain_def.bzl', 'declare_toolchain')",
+        "declare_toolchain(name='dev_tool')",
         "declare_toolchain(name='tool')",
         "declare_toolchain(name='wstool')");
     rewriteWorkspace("register_toolchains('//:wstool')");
@@ -391,6 +398,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     assertToolchainLabels(result.get(toolchainsKey))
         .containsAtLeast(
             Label.parseCanonical("//:tool_impl"),
+            Label.parseCanonical("//:dev_tool_impl"),
             Label.parseCanonical("@@bbb~1.0//:tool_impl"),
             Label.parseCanonical("@@ccc~1.1//:tool_impl"),
             Label.parseCanonical("@@eee~1.0//:tool_impl"),
