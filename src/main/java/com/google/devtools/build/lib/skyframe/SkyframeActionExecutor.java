@@ -1676,7 +1676,11 @@ public final class SkyframeActionExecutor {
     } else {
       ex = new ActionExecutionException(message, cause, action, false, code);
     }
-    printError(ex.getMessage(), action, actionOutput);
+    String reportMessage = ex.getMessage();
+    if (cause != null && cause.getMessage() != null) {
+      reportMessage += ": " + cause.getMessage();
+    }
+    printError(reportMessage, action, actionOutput);
     return ex;
   }
 
