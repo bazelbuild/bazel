@@ -856,6 +856,10 @@ def _impl(ctx):
                                 flags = ["-Wl,-whole-archive"],
                                 expand_if_true =
                                     "libraries_to_link.is_whole_archive",
+                                expand_if_equal = variable_with_value(
+                                    name = "libraries_to_link.type",
+                                    value = "static_library",
+                                ),
                             ),
                             flag_group(
                                 flags = ["%{libraries_to_link.object_files}"],
@@ -903,6 +907,10 @@ def _impl(ctx):
                             flag_group(
                                 flags = ["-Wl,-no-whole-archive"],
                                 expand_if_true = "libraries_to_link.is_whole_archive",
+                                expand_if_equal = variable_with_value(
+                                    name = "libraries_to_link.type",
+                                    value = "static_library",
+                                ),
                             ),
                             flag_group(
                                 flags = ["-Wl,--end-lib"],
