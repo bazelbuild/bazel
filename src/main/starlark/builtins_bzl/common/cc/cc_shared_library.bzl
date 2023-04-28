@@ -311,12 +311,14 @@ def _filter_inputs(
     curr_link_once_static_libs_set = {}
 
     graph_structure_aspect_nodes = []
-    dependency_linker_inputs = []
+    dependency_linker_inputs_sets = []
     direct_deps_set = {}
     for dep in deps:
         direct_deps_set[str(dep.label)] = True
-        dependency_linker_inputs.extend(dep[CcInfo].linking_context.linker_inputs.to_list())
+        dependency_linker_inputs_sets.append(dep[CcInfo].linking_context.linker_inputs)
         graph_structure_aspect_nodes.append(dep[GraphNodeInfo])
+
+    dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
 
     can_be_linked_dynamically = {}
     for linker_input in dependency_linker_inputs:

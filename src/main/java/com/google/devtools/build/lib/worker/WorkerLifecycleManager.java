@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import java.time.Duration;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -35,9 +34,6 @@ import org.apache.commons.pool2.impl.EvictionPolicy;
  */
 final class WorkerLifecycleManager extends Thread {
 
-  private static final Duration SLEEP_INTERVAL = Duration.ofSeconds(5);
-  // Collects metric not older than METRICS_MINIMAL_INTERVAL, to reduce calls of MetricsCollector.
-  private static final Duration METRICS_MINIMAL_INTERVAL = Duration.ofSeconds(1);
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private boolean isWorking = false;
@@ -66,14 +62,13 @@ final class WorkerLifecycleManager extends Thread {
     // This loop works until method stopProcessing() called by WorkerModule.
     while (isWorking) {
       try {
-        Thread.sleep(SLEEP_INTERVAL.toMillis());
+        Thread.sleep(options.workerMetricsPollInterval.toMillis());
       } catch (InterruptedException e) {
         break;
       }
 
       ImmutableList<WorkerMetric> workerMetrics =
-          WorkerMetricsCollector.instance().collectMetrics(METRICS_MINIMAL_INTERVAL);
-
+          WorkerMetricsCollector.instance().collectMetrics();
       try {
         evictWorkers(workerMetrics);
       } catch (InterruptedException e) {

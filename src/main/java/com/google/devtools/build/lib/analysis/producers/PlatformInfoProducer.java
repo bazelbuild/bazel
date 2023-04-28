@@ -70,7 +70,7 @@ final class PlatformInfoProducer
     //
     // In distributed analysis, these packages will be duplicated across shards.
     tasks.lookUp(
-        PackageValue.key(platformKey.getLabel().getPackageIdentifier()),
+        platformKey.getLabel().getPackageIdentifier(),
         NoSuchPackageException.class,
         (StateMachine.ValueOrExceptionSink<NoSuchPackageException>) this);
     return this::lookupPlatform;

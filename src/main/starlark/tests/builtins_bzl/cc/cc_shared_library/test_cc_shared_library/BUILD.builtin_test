@@ -4,7 +4,7 @@ load(
     "build_failure_test",
     "debug_files_test",
     "interface_library_output_group_test",
-    "linking_suffix_test",
+    "linking_order_test",
     "paths_test",
     "runfiles_test",
     "check_linking_action_lib_parameters_test",
@@ -12,6 +12,7 @@ load(
     "nocode_cc_lib",
     "wrapped_cc_lib",
 )
+load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 
 LINKABLE_MORE_THAN_ONCE = "LINKABLE_MORE_THAN_ONCE"
 
@@ -344,7 +345,7 @@ filegroup(
     output_group = "rule_impl_debug_files",
 )
 
-linking_suffix_test(
+linking_order_test(
     name = "linking_action_test",
     # TODO(bazel-team): Support this test on Windows and Mac.
     is_linux = select({
@@ -456,9 +457,10 @@ build_failure_test(
     target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
 )
 
-debug_files_test(
+analysis_test(
     name = "debug_files_test",
-    target_under_test = ":binary",
+    impl = debug_files_test,
+    target = ":binary",
 )
 
 interface_library_output_group_test(

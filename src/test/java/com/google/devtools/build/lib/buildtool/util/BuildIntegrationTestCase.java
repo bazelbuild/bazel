@@ -303,6 +303,9 @@ public abstract class BuildIntegrationTestCase {
   }
 
   protected void createRuntimeWrapper() throws Exception {
+    if (runtimeWrapper != null) {
+      cleanupInterningPools();
+    }
     runtimeWrapper =
         new BlazeRuntimeWrapper(
             events,
@@ -349,6 +352,11 @@ public abstract class BuildIntegrationTestCase {
   protected void runPriorToBeforeMethods() throws Exception {
     // Allows tests such as SkyframeIntegrationInvalidationTest to execute code before all @Before
     // methods are being run.
+  }
+
+  @After
+  public final void cleanupInterningPools() {
+    getSkyframeExecutor().getEvaluator().cleanupInterningPools();
   }
 
   @After

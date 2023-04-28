@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.SignedTargetPattern;
@@ -158,8 +159,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
 
   private static TargetParsingException wrapException(
       Exception exception, @Nullable SkyKey key, Object debugging) {
-    if ((key == null || (key instanceof PackageValue.Key))
-        && (exception instanceof NoSuchPackageException)) {
+    if ((key == null || key instanceof PackageIdentifier)
+        && exception instanceof NoSuchPackageException) {
       // A "simple" target pattern (like "//pkg:t") doesn't have a TargetPatternKey, just a Package
       // key, so it results in NoSuchPackageException that we transform here.
       return new TargetParsingException(
@@ -177,7 +178,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
   }
 
   @Nullable
-  private PatternLookup createPatternLookup(
+  private static PatternLookup createPatternLookup(
       TargetPattern.Parser mainRepoTargetParser,
       ExtendedEventHandler eventHandler,
       String targetPattern,
@@ -268,11 +269,10 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
     private final TargetPattern targetPattern;
 
     private SimpleLookup(String pattern, TargetPatternKey key) {
-      this(
-          pattern, PackageValue.key(key.getParsedPattern().getDirectory()), key.getParsedPattern());
+      this(pattern, key.getParsedPattern().getDirectory(), key.getParsedPattern());
     }
 
-    private SimpleLookup(String pattern, PackageValue.Key key, TargetPattern targetPattern) {
+    private SimpleLookup(String pattern, PackageIdentifier key, TargetPattern targetPattern) {
       super(pattern, key);
       this.targetPattern = targetPattern;
     }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -443,7 +444,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
 
     // Check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -471,7 +472,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
 
     if (expectActionIs.dirtied()) {
       assertThat(progressReceiver.wasInvalidated(actionKey)).isTrue();
@@ -882,6 +883,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         options,
         null,
         null,
-        /* trustRemoteArtifacts= */ false);
+        RemoteArtifactChecker.IGNORE_ALL);
   }
 }

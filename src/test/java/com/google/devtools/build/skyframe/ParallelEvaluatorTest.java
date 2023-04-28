@@ -28,6 +28,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -386,7 +387,7 @@ public class ParallelEvaluatorTest {
     // thread, aka the main Skyframe evaluation thread),
     CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
     CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
-    InMemoryNodeEntry nodeEntryB = mock(InMemoryNodeEntry.class);
+    InMemoryNodeEntry nodeEntryB = spy(new InMemoryNodeEntry(keyB));
     AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
     doAnswer(
             invocation -> {
@@ -2735,7 +2736,7 @@ public class ParallelEvaluatorTest {
                 // 'otherParentKey'. This test case is testing for a real race condition and the
                 // 10ms time was chosen experimentally to give a true positive rate of 99.8%
                 // (without a sleep it has a 1% true positive rate). There's no good way to do
-                // this without sleeping. We *could* introspect ParallelEvaulator's
+                // this without sleeping. We *could* introspect ParallelEvaluator's
                 // AbstractQueueVisitor to see if the re-evaluation has been enqueued, but that's
                 // relying on pretty low-level implementation details.
                 Uninterruptibles.sleepUninterruptibly(10, TimeUnit.MILLISECONDS);

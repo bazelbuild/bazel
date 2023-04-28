@@ -863,6 +863,11 @@ message BuildMetrics {
       // When the last action of this type ended being executed, in
       // milliseconds from the epoch.
       int64 last_ended_ms = 4;
+
+      // Accumulated CPU time of all spawned actions of this type.
+      // This is only set if all the actions reported a time
+      google.protobuf.Duration system_time = 5;
+      google.protobuf.Duration user_time = 6;
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;
@@ -1102,6 +1107,27 @@ message BuildMetrics {
   }
 
   NetworkMetrics network_metrics = 10;
+
+  // Information about worker pool actions.
+  message WorkerPoolMetrics {
+    // Statistics of worker pool per worker pool hash. Basically it's a map from
+    // worker pool hash to statistics.
+    repeated WorkerPoolStats worker_pool_stats = 1;
+
+    message WorkerPoolStats {
+      // Hash of worker pool these stats are for. Contains information about
+      // startup flags.
+      int32 hash = 1;
+      // Mnemonic of workers these stats are for.
+      string mnemonic = 2;
+      // Number of workers created during a build.
+      int64 created_count = 3;
+      // Number of workers destroyed during a build.
+      int64 destroyed_count = 4;
+    }
+  }
+
+  WorkerPoolMetrics worker_pool_metrics = 11;
 }
 
 // Event providing additional statistics/logs after completion of the build.

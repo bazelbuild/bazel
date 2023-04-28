@@ -728,4 +728,34 @@ EOF
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
+function test_worker_metrics_collection() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid", "--write_counter", "--work_time=1s"],
+) for idx in range(10)]
+EOF
+
+  bazel build \
+      --build_event_text_file="${TEST_log}".build.json \
+      --profile="${TEST_log}".profile \
+      --experimental_worker_metrics_poll_interval=400ms \
+      --experimental_collect_worker_data_in_profiler \
+      :hello_world_1 &> "$TEST_log" \
+    || fail "build failed"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+  # Now see that we have metrics in the build event log.
+  mv "${TEST_log}".build.json "${TEST_log}"
+  expect_log "mnemonic: \"Work\""
+  expect_log "worker_memory_in_kb: [0-9][0-9]*"
+  # And see that we collected metrics several times
+  mv "${TEST_log}".profile "${TEST_log}"
+  local metric_events=$(grep -sc -- "Workers memory usage" $TEST_log)
+  (( metric_events >= 2 )) || fail "Expected at least 2 worker metric collections"
+}
+
+
 run_suite "Worker integration tests"

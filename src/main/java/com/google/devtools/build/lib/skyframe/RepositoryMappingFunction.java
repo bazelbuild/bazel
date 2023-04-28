@@ -90,8 +90,8 @@ public class RepositoryMappingFunction implements SkyFunction {
           && ((RepositoryMappingValue.Key) skyKey).rootModuleShouldSeeWorkspaceRepos()) {
         // The root module should be able to see repos defined in WORKSPACE. Therefore, we find all
         // workspace repos and add them as extra visible repos in root module's repo mappings.
-        SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-        PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+        PackageValue externalPackageValue =
+            (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
         if (env.valuesMissing()) {
           return null;
         }
@@ -137,8 +137,8 @@ public class RepositoryMappingFunction implements SkyFunction {
       }
     }
 
-    SkyKey externalPackageKey = PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
+    PackageValue externalPackageValue =
+        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     RepositoryMappingValue rootModuleRepoMappingValue =
         enableBzlmod
             ? (RepositoryMappingValue)

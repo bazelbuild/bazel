@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -39,6 +40,8 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
@@ -165,6 +168,41 @@ public class DirtinessCheckerUtilsTest {
             underTest.applies(
                 RootedPath.toRootedPath(Root.absoluteRoot(fs), PathFragment.create("/file"))))
         .isFalse();
+  }
+
+  @Test
+  public void missingDiffDirtinessCheckers_nullMaxTransitiveSourceVersionForNewValue() {
+    SkyKey key = mock(SkyKey.class);
+    SkyValue value = mock(SkyValue.class);
+    DirtinessCheckerUtils.MissingDiffDirtinessChecker underTest = createMissingDiffChecker();
+
+    assertThat(underTest.getMaxTransitiveSourceVersionForNewValue(key, value)).isNull();
+  }
+
+  @Test
+  public void externalDirtinessCheckers_nullMaxTransitiveSourceVersionForNewValue() {
+    SkyKey key = mock(SkyKey.class);
+    SkyValue value = mock(SkyValue.class);
+    DirtinessCheckerUtils.ExternalDirtinessChecker underTest =
+        new DirtinessCheckerUtils.ExternalDirtinessChecker(
+            externalFilesHelper, EnumSet.of(ExternalFilesHelper.FileType.EXTERNAL_REPO));
+
+    assertThat(underTest.getMaxTransitiveSourceVersionForNewValue(key, value)).isNull();
+  }
+
+  @Test
+  public void unionDirtinessChecker_nullMaxTransitiveSourceVersionForNewValue() throws Exception {
+    RootedPath rootedPath = makeInternalRootedPath();
+    SkyKey key = FileStateValue.key(rootedPath);
+    SkyValue value = FileStateValue.create(rootedPath, SyscallCache.NO_CACHE, /* tsgm= */ null);
+    UnionDirtinessChecker underTest =
+        new UnionDirtinessChecker(
+            ImmutableList.of(
+                createMissingDiffChecker(),
+                new DirtinessCheckerUtils.ExternalDirtinessChecker(
+                    externalFilesHelper, EnumSet.of(ExternalFilesHelper.FileType.EXTERNAL_REPO))));
+
+    assertThat(underTest.getMaxTransitiveSourceVersionForNewValue(key, value)).isNull();
   }
 
   private DirtinessCheckerUtils.MissingDiffDirtinessChecker createMissingDiffChecker() {

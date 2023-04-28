@@ -325,7 +325,7 @@ sh_test(
 
 sh_test(
     name = "bazel_java_tools_test",
-    size = "medium",
+    size = "large",
     srcs = ["bazel_java_tools_test.sh"],
     data = [
         ":test-deps",
@@ -337,7 +337,6 @@ sh_test(
 
 sh_test(
     name = "bazel_java_tools_dist_test",
-    size = "small",
     srcs = ["bazel_java_tools_dist_test.sh"],
     data = [
         ":test-deps",
@@ -480,6 +479,7 @@ sh_test(
 
 sh_test(
     name = "bazel_coverage_java_test",
+    size = "large",
     srcs = ["bazel_coverage_java_test.sh"],
     args = [
         "released",
@@ -626,6 +626,16 @@ sh_test(
         "no-sandbox",
         "no_windows",
     ],
+)
+
+sh_test(
+    name = "bazel_package_loader_test",
+    srcs = ["bazel_package_loader_test.sh"],
+    data = [
+        ":test-deps",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/packages/testing:BazelPackageLoaderTester",
+    ],
+    tags = ["no_windows"],
 )
 
 sh_test(
@@ -1359,6 +1369,7 @@ sh_test(
 
 sh_test(
     name = "check_external_files_test",
+    size = "large",
     srcs = ["check_external_files_test.sh"],
     data = [
         ":test-deps",

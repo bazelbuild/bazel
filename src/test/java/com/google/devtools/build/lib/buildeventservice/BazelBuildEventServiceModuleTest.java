@@ -610,9 +610,11 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
     runBuildWithOptions();
     BuildEventServiceOptions besOptions = new BuildEventServiceOptions();
     besOptions.besKeywords = ImmutableList.of("keyword0", "keyword1", "keyword0");
+    besOptions.besSystemKeywords = ImmutableList.of("sys_keyword0", "sys_keyword1", "sys_keyword0");
 
     assertThat(besModule.getBesKeywords(besOptions, null))
-        .containsExactly("user_keyword=keyword0", "user_keyword=keyword1");
+        .containsExactly(
+            "user_keyword=keyword0", "user_keyword=keyword1", "sys_keyword0", "sys_keyword1");
   }
 
   @Test

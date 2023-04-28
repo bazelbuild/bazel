@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.DependencyKind;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
@@ -92,12 +91,9 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException {
-    Map<PackageIdentifier, SkyKey> packageKeys = new HashMap<>(labelMap.size());
-    for (Label label : labelMap.values()) {
-      packageKeys.computeIfAbsent(label.getPackageIdentifier(), id -> PackageValue.key(id));
-    }
-
-    SkyframeLookupResult packages = env.getValuesAndExceptions(packageKeys.values());
+    SkyframeLookupResult packages =
+        env.getValuesAndExceptions(
+            Iterables.transform(labelMap.values(), Label::getPackageIdentifier));
 
     Target fromTarget = fromNode.getTarget();
 
@@ -117,8 +113,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       try {
         packageValue =
             (PackageValue)
-                packages.getOrThrow(
-                    PackageValue.key(label.getPackageIdentifier()), NoSuchPackageException.class);
+                packages.getOrThrow(label.getPackageIdentifier(), NoSuchPackageException.class);
         if (packageValue == null) {
           // Dependency has not been computed yet. There will be a next iteration.
           continue;

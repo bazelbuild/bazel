@@ -42,16 +42,16 @@ class BazelOverridesTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
-            'common --registry=' + self.main_registry.getURL(),
+            'build --enable_bzlmod',
+            'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'common --registry=https://bcr.bazel.build',
-            'common --verbose_failures',
+            'build --registry=https://bcr.bazel.build',
+            'build --verbose_failures',
             # Set an explicit Java language version
-            'common --java_language_version=8',
-            'common --tool_java_language_version=8',
-            'common --lockfile_mode=update',
+            'build --java_language_version=8',
+            'build --tool_java_language_version=8',
+            'build --lockfile_mode=update',
         ],
     )
     self.ScratchFile('WORKSPACE')
@@ -116,7 +116,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
@@ -139,7 +139,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 from another registry', stdout)
     self.assertIn('main function => bbb@1.0', stdout)
     self.assertIn('bbb@1.0 => aaa@1.0 from another registry', stdout)
@@ -160,7 +160,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
@@ -168,25 +168,22 @@ class BazelOverridesTest(test_base.TestBase):
   def testGitOverride(self):
     self.writeMainProjectFiles()
     src_aaa_1_0 = self.main_registry.projects.joinpath('aaa', '1.0')
-    self.RunProgram(['git', 'init'], cwd=src_aaa_1_0, allow_failure=False)
+    self.RunProgram(['git', 'init'], cwd=src_aaa_1_0)
     self.RunProgram(
         ['git', 'config', 'user.name', 'tester'],
         cwd=src_aaa_1_0,
-        allow_failure=False,
     )
     self.RunProgram(
         ['git', 'config', 'user.email', 'tester@foo.com'],
         cwd=src_aaa_1_0,
-        allow_failure=False,
     )
-    self.RunProgram(['git', 'add', './'], cwd=src_aaa_1_0, allow_failure=False)
+    self.RunProgram(['git', 'add', './'], cwd=src_aaa_1_0)
     self.RunProgram(
         ['git', 'commit', '-m', 'Initial commit.'],
         cwd=src_aaa_1_0,
-        allow_failure=False,
     )
     _, stdout, _ = self.RunProgram(
-        ['git', 'rev-parse', 'HEAD'], cwd=src_aaa_1_0, allow_failure=False
+        ['git', 'rev-parse', 'HEAD'], cwd=src_aaa_1_0
     )
     commit = stdout[0].strip()
 
@@ -204,7 +201,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0 (locally patched)', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0 (locally patched)', stdout)
@@ -223,7 +220,7 @@ class BazelOverridesTest(test_base.TestBase):
             ')',
         ],
     )
-    _, stdout, _ = self.RunBazel(['run', '//:main'], allow_failure=False)
+    _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
     self.assertIn('main function => bbb@1.1', stdout)
     self.assertIn('bbb@1.1 => aaa@1.0', stdout)
@@ -272,8 +269,7 @@ class BazelOverridesTest(test_base.TestBase):
     self.ScratchFile('bb/WORKSPACE')
 
     _, _, stderr = self.RunBazel(
-        ['build', '@ss//:all', '--override_module', 'ss=' + self.Path('bb')],
-        allow_failure=False,
+        ['build', '@ss//:all', '--override_module', 'ss=' + self.Path('bb')]
     )
     # module file override should be ignored, and bb directory should be used
     self.assertIn(
@@ -315,7 +311,6 @@ class BazelOverridesTest(test_base.TestBase):
             '--enable_bzlmod',
         ],
         cwd=self.Path('aa/cc'),
-        allow_failure=False,
     )
     self.assertIn(
         'Target @ss~override//:choose_me up-to-date (nothing to build)', stderr
@@ -353,7 +348,6 @@ class BazelOverridesTest(test_base.TestBase):
             'ss=%workspace%/bb',
         ],
         cwd=self.Path('aa'),
-        allow_failure=False,
     )
     self.assertIn(
         'Target @ss~override//:choose_me up-to-date (nothing to build)', stderr

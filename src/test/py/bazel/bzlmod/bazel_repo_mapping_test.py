@@ -43,16 +43,16 @@ class BazelRepoMappingTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
-            'common --registry=' + self.main_registry.getURL(),
+            'build --enable_bzlmod',
+            'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'common --registry=https://bcr.bazel.build',
-            'common --verbose_failures',
+            'build --registry=https://bcr.bazel.build',
+            'build --verbose_failures',
             # Set an explicit Java language version
-            'common --java_language_version=8',
-            'common --tool_java_language_version=8',
-            'common --lockfile_mode=update',
+            'build --java_language_version=8',
+            'build --tool_java_language_version=8',
+            'build --lockfile_mode=update',
         ],
     )
     self.ScratchFile('WORKSPACE')
@@ -155,10 +155,7 @@ class BazelRepoMappingTest(test_base.TestBase):
     bazel_command = 'build' if self.IsWindows() else 'test'
 
     # Finally we get to build stuff!
-    exit_code, stderr, stdout = self.RunBazel(
-        [bazel_command, '//:me', '--test_output=errors'], allow_failure=True
-    )
-    self.AssertExitCode(0, exit_code, stderr, stdout)
+    self.RunBazel([bazel_command, '//:me', '--test_output=errors'])
 
     paths = ['bazel-bin/me.repo_mapping']
     if not self.IsWindows():
@@ -177,11 +174,7 @@ quux~2.0,quux,quux~2.0""",
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
-    exit_code, stderr, stdout = self.RunBazel(
-        [bazel_command, '@bar//:bar', '--test_output=errors'],
-        allow_failure=True,
-    )
-    self.AssertExitCode(0, exit_code, stderr, stdout)
+    self.RunBazel([bazel_command, '@bar//:bar', '--test_output=errors'])
 
     paths = ['bazel-bin/external/bar~2.0/bar.repo_mapping']
     if not self.IsWindows():
@@ -252,23 +245,19 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.ScratchFile('WORKSPACE')
 
     # Run sandboxed on Linux and macOS.
-    exit_code, stderr, stdout = self.RunBazel(
+    self.RunBazel(
         [
             'test',
             '@test//:test',
             '--test_output=errors',
             '--test_env=RUNFILES_LIB_DEBUG=1',
         ],
-        allow_failure=True,
     )
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
     # Run unsandboxed on all platforms.
-    exit_code, stderr, stdout = self.RunBazel(
+    self.RunBazel(
         ['run', '@test//:test'],
-        allow_failure=True,
         env_add={'RUNFILES_LIB_DEBUG': '1'},
     )
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
 
   def testCppRunfilesLibraryRepoMapping(self):
     self.main_registry.setModuleBasePath('projects')
@@ -323,15 +312,9 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.ScratchFile('WORKSPACE')
 
     # Run sandboxed on Linux and macOS.
-    exit_code, stderr, stdout = self.RunBazel(
-        ['test', '@test//:test', '--test_output=errors'], allow_failure=True
-    )
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.RunBazel(['test', '@test//:test', '--test_output=errors'])
     # Run unsandboxed on all platforms.
-    exit_code, stderr, stdout = self.RunBazel(
-        ['run', '@test//:test'], allow_failure=True
-    )
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.RunBazel(['run', '@test//:test'])
 
   def testJavaRunfilesLibraryRepoMapping(self):
     self.main_registry.setModuleBasePath('projects')
@@ -397,23 +380,16 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
     self.ScratchFile('WORKSPACE')
 
     # Run sandboxed on Linux and macOS.
-    exit_code, stderr, stdout = self.RunBazel(
+    self.RunBazel(
         [
             'test',
             '@test//:test',
             '--test_output=errors',
             '--test_env=RUNFILES_LIB_DEBUG=1',
         ],
-        allow_failure=True,
     )
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
     # Run unsandboxed on all platforms.
-    exit_code, stderr, stdout = self.RunBazel(
-        ['run', '@test//:test'],
-        allow_failure=True,
-        env_add={'RUNFILES_LIB_DEBUG': '1'},
-    )
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.RunBazel(['run', '@test//:test'], env_add={'RUNFILES_LIB_DEBUG': '1'})
 
 
 if __name__ == '__main__':

@@ -101,9 +101,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       List<String> userCompileFlags)
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
-    PathFragment obj =
-        ltoOutputRootPrefix.getRelative(
-            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getExecPath());
 
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
@@ -157,9 +155,7 @@ public final class LtoBackendArtifacts implements LtoBackendArtifactsApi<Artifac
       throws RuleErrorException {
     this.bitcodeFile = bitcodeFile;
 
-    PathFragment obj =
-        ltoOutputRootPrefix.getRelative(
-            bitcodeFile.getOutputDirRelativePath(configuration.isSiblingRepositoryLayout()));
+    PathFragment obj = ltoOutputRootPrefix.getRelative(bitcodeFile.getExecPath());
     objectFile =
         linkArtifactFactory.create(actionConstructionContext, repositoryName, configuration, obj);
     imports = null;

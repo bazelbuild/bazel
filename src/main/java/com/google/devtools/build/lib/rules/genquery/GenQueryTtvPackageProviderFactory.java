@@ -78,7 +78,7 @@ public class GenQueryTtvPackageProviderFactory implements GenQueryPackageProvide
       }
       validTargets.addTransitive(transNode.getTransitiveTargets());
       for (Label transitiveLabel : transNode.getTransitiveTargets().toList()) {
-        successfulPackageKeys.add(PackageValue.key(transitiveLabel.getPackageIdentifier()));
+        successfulPackageKeys.add(transitiveLabel.getPackageIdentifier());
       }
     }
 

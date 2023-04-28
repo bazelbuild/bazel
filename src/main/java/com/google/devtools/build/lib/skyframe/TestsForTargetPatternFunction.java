@@ -87,8 +87,7 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     for (Label label : labels) {
       pkgIdentifiers.add(label.getPackageIdentifier());
     }
-    List<SkyKey> packagesKeys = PackageValue.keys(pkgIdentifiers);
-    SkyframeLookupResult packages = env.getValuesAndExceptions(packagesKeys);
+    SkyframeLookupResult packages = env.getValuesAndExceptions(pkgIdentifiers);
     if (env.valuesMissing()) {
       return null;
     }
@@ -96,7 +95,7 @@ final class TestsForTargetPatternFunction implements SkyFunction {
     ResolvedTargets.Builder<Target> builder = ResolvedTargets.builder();
     builder.mergeError(hasError);
     Map<PackageIdentifier, Package> packageMap = new HashMap<>();
-    for (SkyKey packagesKey : packagesKeys) {
+    for (SkyKey packagesKey : pkgIdentifiers) {
       // Don't bother to check for exceptions - the incoming list should only contain valid targets.
       PackageValue packagesValue = (PackageValue) packages.get(packagesKey);
       if (packagesValue == null) {

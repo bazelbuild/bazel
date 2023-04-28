@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -432,23 +431,21 @@ public class PackageGroupTest extends PackageLoadingTestCase {
                 pkgSpec(other, "//..."),
                 pkgSpec(main, "public"),
                 pkgSpec(main, "private")));
-    assertThat(
-            contents.streamPackageStrings(/*includeDoubleSlash=*/ false).collect(toImmutableList()))
+    assertThat(contents.packageStrings(/* includeDoubleSlash= */ false))
         .containsExactly(
             "a",
-            "a/b/...",
-            "-c",
-            "-c/d/...",
-            "//...",
-            "-//...",
             "",
-            "-",
             "@other//z",
+            "a/b/...",
+            "//...",
             "@other//...",
+            "-c",
+            "-",
+            "-c/d/...",
+            "-//...",
             "//...", // legacy syntax for public
             "private");
-    assertThat(
-            contents.streamPackageStrings(/*includeDoubleSlash=*/ true).collect(toImmutableList()))
+    assertThat(contents.packageStrings(/* includeDoubleSlash= */ true))
         .containsExactly(
             "//a",
             "//a/b/...",
@@ -462,7 +459,7 @@ public class PackageGroupTest extends PackageLoadingTestCase {
             "@other//...",
             "public",
             "private");
-    assertThat(contents.streamPackageStringsWithoutRepository().collect(toImmutableList()))
+    assertThat(contents.packageStringsWithDoubleSlashAndWithoutRepository())
         .containsExactly(
             "//a",
             "//a/b/...",

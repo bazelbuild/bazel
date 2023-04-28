@@ -529,9 +529,7 @@ public final class SandboxHelpers {
     }
 
     Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<>();
-    for (Map.Entry<Root, Root> entry : sourceRootToSandboxSourceRoot.entrySet()) {
-      sandboxRootToSourceRoot.put(entry.getValue(), entry.getKey().asPath());
-    }
+    sourceRootToSandboxSourceRoot.forEach((k, v) -> sandboxRootToSourceRoot.put(v, k.asPath()));
 
     return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sandboxRootToSourceRoot);
   }

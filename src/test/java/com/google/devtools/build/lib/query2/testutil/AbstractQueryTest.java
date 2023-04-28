@@ -66,6 +66,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -98,17 +99,17 @@ public abstract class AbstractQueryTest<T> {
 
   @Before
   public final void initializeQueryHelper() throws Exception {
-    QueryHelper<T> helper = createQueryHelper();
+    helper = createQueryHelper();
     helper.setUp();
-    setUpWithQueryHelper(helper);
-  }
-
-  protected final void setUpWithQueryHelper(QueryHelper<T> helper) throws Exception {
-    this.helper = helper;
     mockToolsConfig = new MockToolsConfig(helper.getRootDirectory());
     analysisMock = AnalysisMock.get();
     helper.setUniverseScope(getDefaultUniverseScope());
     helper.useRuleClassProvider(setRuleClassProviders().build());
+  }
+
+  @After
+  public final void cleanUpQueryHelper() {
+    helper.cleanUp();
   }
 
   /**
@@ -2236,8 +2237,9 @@ public abstract class AbstractQueryTest<T> {
   public interface QueryHelper<T> {
 
     /** Basic set-up; this is called once at the beginning of a test, before anything else. */
-    @Before
     void setUp() throws Exception;
+
+    void cleanUp();
 
     void setKeepGoing(boolean keepGoing);
 

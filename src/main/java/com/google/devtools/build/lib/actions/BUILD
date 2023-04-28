@@ -301,6 +301,7 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
+        "RemoteArtifactChecker.java",
         "RemoteFileStatus.java",
         "cache/MetadataDigestUtils.java",
     ],

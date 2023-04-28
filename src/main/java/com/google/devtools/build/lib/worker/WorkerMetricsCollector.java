@@ -17,17 +17,14 @@ package com.google.devtools.build.lib.worker;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.VerifyException;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerMetrics;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.metrics.PsInfoCollector;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.PsInfoCollector;
 import com.google.devtools.build.lib.worker.WorkerMetric.WorkerStat;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +48,6 @@ public class WorkerMetricsCollector {
 
   private final Map<Long, Instant> workerLastCallTime = new ConcurrentHashMap<>();
 
-  private MetricsCache metricsCache;
-
   private WorkerMetricsCollector() {}
 
   public static WorkerMetricsCollector instance() {
@@ -67,80 +62,28 @@ public class WorkerMetricsCollector {
    * Collects memory usage of all ancestors of processes by pid. If a pid does not allow collecting
    * memory usage, it is silently ignored.
    */
-  MemoryCollectionResult collectMemoryUsageByPid(OS os, ImmutableSet<Long> processIds) {
+  PsInfoCollector.ResourceSnapshot collectMemoryUsageByPid(OS os, ImmutableSet<Long> processIds) {
     // TODO(b/181317827): Support Windows.
     if (processIds.isEmpty() || (os != OS.LINUX && os != OS.DARWIN)) {
-      return new MemoryCollectionResult(
-          ImmutableMap.of(), Instant.ofEpochMilli(clock.currentTimeMillis()));
+      return PsInfoCollector.ResourceSnapshot.create(
+          /* pidToMemoryInKb= */ ImmutableMap.of(), /* collectionTime= */ Instant.now());
     }
 
-    ImmutableMap<Long, PsInfoCollector.PsInfo> psInfos;
-    try {
-      psInfos = PsInfoCollector.collectDataFromPs();
-    } catch (RuntimeException e) {
-      throw new VerifyException(
-          String.format("Could not collect data for pids: %s", processIds), e);
-    }
-
-    ImmutableMap<Long, Integer> pidToMemoryInKb = summarizeDescendantsMemory(psInfos, processIds);
-    return new MemoryCollectionResult(
-        pidToMemoryInKb, Instant.ofEpochMilli(clock.currentTimeMillis()));
+    return PsInfoCollector.instance().collectResourceUsage(processIds);
   }
 
-  /** Calculates summary memory usage of all descendata of processes */
-  ImmutableMap<Long, Integer> summarizeDescendantsMemory(
-      ImmutableMap<Long, PsInfoCollector.PsInfo> pidToPsInfo, ImmutableSet<Long> processIds) {
-
-    HashMultimap<Long, PsInfoCollector.PsInfo> parentPidToPsInfo = HashMultimap.create();
-    for (PsInfoCollector.PsInfo psInfo : pidToPsInfo.values()) {
-      parentPidToPsInfo.put(psInfo.getParentPid(), psInfo);
-    }
-
-    ImmutableMap.Builder<Long, Integer> pidToTotalMemoryInKb = ImmutableMap.builder();
-    for (Long pid : processIds) {
-      if (!pidToPsInfo.containsKey(pid)) {
-        continue;
-      }
-      PsInfoCollector.PsInfo psInfo = pidToPsInfo.get(pid);
-      pidToTotalMemoryInKb.put(pid, collectMemoryUsageOfDescendants(psInfo, parentPidToPsInfo));
-    }
-
-    return pidToTotalMemoryInKb.buildOrThrow();
-  }
-
-  /** Recurseviely collects total memory usage of all descendants of process. */
-  private int collectMemoryUsageOfDescendants(
-      PsInfoCollector.PsInfo psInfo, HashMultimap<Long, PsInfoCollector.PsInfo> parentPidToPsInfo) {
-    int currentMemoryInKb = psInfo.getMemoryInKb();
-    for (PsInfoCollector.PsInfo childrenPsInfo : parentPidToPsInfo.get(psInfo.getPid())) {
-      currentMemoryInKb += collectMemoryUsageOfDescendants(childrenPsInfo, parentPidToPsInfo);
-    }
-
-    return currentMemoryInKb;
-  }
-
-  /**
-   * Collect worker metrics. If last collected metrics weren't more than interval time ago, then
-   * returns previously collected metrics;
-   */
-  public ImmutableList<WorkerMetric> collectMetrics(Duration interval) {
-    Instant now = Instant.ofEpochMilli(clock.currentTimeMillis());
-    if (metricsCache != null
-        && Duration.between(metricsCache.cachedTime, now).compareTo(interval) < 0) {
-      return metricsCache.metrics;
-    }
-
-    return collectMetrics();
-  }
-
-  // TODO(wilwell): add exception if we couldn't collect the metrics.
   public ImmutableList<WorkerMetric> collectMetrics() {
-    MemoryCollectionResult memoryCollectionResult =
+    PsInfoCollector.ResourceSnapshot resourceSnapshot =
         collectMemoryUsageByPid(
             OS.getCurrent(), ImmutableSet.copyOf(processIdToWorkerProperties.keySet()));
 
-    ImmutableMap<Long, Integer> pidToMemoryInKb = memoryCollectionResult.pidToMemoryInKb;
-    Instant collectionTime = memoryCollectionResult.collectionTime;
+    return buildWorkerMetrics(resourceSnapshot);
+  }
+
+  private ImmutableList<WorkerMetric> buildWorkerMetrics(
+      PsInfoCollector.ResourceSnapshot resourceSnapshot) {
+    ImmutableMap<Long, Integer> pidToMemoryInKb = resourceSnapshot.getPidToMemoryInKb();
+    Instant collectionTime = resourceSnapshot.getCollectionTime();
 
     ImmutableList.Builder<WorkerMetric> workerMetrics = new ImmutableList.Builder<>();
     List<Long> nonMeasurableProcessIds = new ArrayList<>();
@@ -162,7 +105,7 @@ public class WorkerMetricsCollector {
 
     processIdToWorkerProperties.keySet().removeAll(nonMeasurableProcessIds);
 
-    return updateMetricsCache(workerMetrics.build(), collectionTime).metrics;
+    return workerMetrics.build();
   }
 
   public ImmutableList<WorkerMetrics> createWorkerMetricsProto() {
@@ -172,7 +115,6 @@ public class WorkerMetricsCollector {
   public void clear() {
     processIdToWorkerProperties.clear();
     workerLastCallTime.clear();
-    metricsCache = null;
   }
 
   @VisibleForTesting
@@ -218,33 +160,6 @@ public class WorkerMetricsCollector {
         WorkerMetric.WorkerProperties.create(
             updatedWorkerIds, processId, mnemonic, isMultiplex, isSandboxed);
     processIdToWorkerProperties.put(processId, updatedWorkerProperties);
-  }
-
-  private synchronized MetricsCache updateMetricsCache(
-      ImmutableList<WorkerMetric> metrics, Instant time) {
-    metricsCache = new MetricsCache(metrics, time);
-    return metricsCache;
-  }
-
-  private static class MetricsCache {
-    public final ImmutableList<WorkerMetric> metrics;
-    public final Instant cachedTime;
-
-    public MetricsCache(ImmutableList<WorkerMetric> metrics, Instant cachedTime) {
-      this.metrics = metrics;
-      this.cachedTime = cachedTime;
-    }
-  }
-
-  static class MemoryCollectionResult {
-    public final ImmutableMap<Long, Integer> pidToMemoryInKb;
-    public final Instant collectionTime;
-
-    public MemoryCollectionResult(
-        ImmutableMap<Long, Integer> pidToMemoryInKb, Instant collectionTime) {
-      this.pidToMemoryInKb = pidToMemoryInKb;
-      this.collectionTime = collectionTime;
-    }
   }
 
   // TODO(b/238416583) Add deregister function

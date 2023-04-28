@@ -153,8 +153,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/clock",
+        "//src/main/java/com/google/devtools/build/lib/metrics:ps_info_collector",
         "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:ps_info_collector",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -181,6 +181,7 @@ java_library(
         ":multiplex_worker",
         ":singleplex_worker",
         ":worker",
+        ":worker_events",
         ":worker_key",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -190,6 +191,15 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "worker_events",
+    srcs = [
+        "WorkerCreatedEvent.java",
+        "WorkerDestroyedEvent.java",
+    ],
+    deps = ["//src/main/java/com/google/devtools/build/lib/events"],
 )
 
 java_library(

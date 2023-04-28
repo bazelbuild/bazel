@@ -463,7 +463,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                 useConfiguration(
                     "-c",
                     "opt",
-                    "--fdo_optimize=a/profile.profdata",
+                    "--fdo_optimize=/a/profile.profdata",
                     "--cs_fdo_absolute_path=a/csprofile.profdata"));
     assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
   }

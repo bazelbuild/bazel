@@ -61,22 +61,22 @@ class BazelYankedVersionsTest(test_base.TestBase):
         [
             # In ipv6 only network, this has to be enabled.
             # 'startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true',
-            'common --enable_bzlmod',
-            'common --registry=' + self.main_registry.getURL(),
+            'build --enable_bzlmod',
+            'build --registry=' + self.main_registry.getURL(),
             # We need to have BCR here to make sure built-in modules like
             # bazel_tools can work.
-            'common --registry=https://bcr.bazel.build',
-            'common --verbose_failures',
+            'build --registry=https://bcr.bazel.build',
+            'build --verbose_failures',
             # Set an explicit Java language version
-            'common --java_language_version=8',
-            'common --tool_java_language_version=8',
-            'common --lockfile_mode=update',
+            'build --java_language_version=8',
+            'build --tool_java_language_version=8',
+            'build --lockfile_mode=update',
         ]
         + (
             [
                 # Disable yanked version check so we are not affected BCR
                 # changes.
-                'common --allow_yanked_versions=all',
+                'build --allow_yanked_versions=all',
             ]
             if allow_yanked_versions
             else []
@@ -107,7 +107,7 @@ class BazelYankedVersionsTest(test_base.TestBase):
             ')',
         ],
     )
-    self.RunBazel(['build', '--nobuild', '//:main'], allow_failure=False)
+    self.RunBazel(['build', '--nobuild', '//:main'])
 
   def testContainingYankedDepFails(self):
     self.writeBazelrcFile(allow_yanked_versions=False)
@@ -164,7 +164,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             '--allow_yanked_versions=yanked1@1.0,yanked2@1.0',
             '//:main',
         ],
-        allow_failure=False,
     )
 
   def testAllowedYankedDepsByEnvVar(self):
@@ -189,7 +188,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
     self.RunBazel(
         ['build', '--nobuild', '//:main'],
         env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked1@1.0,yanked2@1.0'},
-        allow_failure=False,
     )
 
     # Test changing the env var, the build should fail again.
@@ -232,7 +230,6 @@ class BazelYankedVersionsTest(test_base.TestBase):
             '//:main',
         ],
         env_add={'BZLMOD_ALLOW_YANKED_VERSIONS': 'yanked2@1.0'},
-        allow_failure=False,
     )
 
 

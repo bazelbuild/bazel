@@ -5950,7 +5950,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupTestTransitiveLink(scratch, "output_type = 'dynamic_library'", " main_output=None");
 
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
-    assertThat(e).hasMessageThat().contains("Rule in 'tools/build_defs' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -6906,7 +6906,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  },",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:b_lib"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -7153,13 +7153,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  implementation = _transitive_modules_impl",
         ")");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:m"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:p2"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:ai"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
     e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:tm"));
-    assertThat(e).hasMessageThat().contains("Rule in 'my_rules' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -7202,7 +7202,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       initializeSkyframeExecutor();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
@@ -7226,13 +7226,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
   @Test
   public void testExpandedLtoAndFdoApiRaisesError() throws Exception {
-    useConfiguration("--fdo_optimize=pkg/profile.afdo", "--compilation_mode=opt");
+    useConfiguration("--fdo_optimize=/pkg/profile.afdo", "--compilation_mode=opt");
     scratch.file(
         "bazel_internal/test_rules/cc/BUILD",
         "load(':lto_backend_artifacts.bzl', 'lto_backend_artifacts')",
@@ -7354,7 +7354,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
@@ -7437,7 +7437,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
           ")");
       invalidatePackages();
       AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//b:foo"));
-      assertThat(e).hasMessageThat().contains("Rule in 'b' cannot use private API");
+      assertThat(e).hasMessageThat().contains("cannot use private API");
     }
   }
 
@@ -8093,7 +8093,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test
@@ -8165,7 +8165,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:custom"));
 
-    assertThat(e).hasMessageThat().contains("Rule in 'foo' cannot use private API");
+    assertThat(e).hasMessageThat().contains("cannot use private API");
   }
 
   @Test

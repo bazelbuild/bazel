@@ -67,18 +67,19 @@ public class CcBinarySplitFunctionsTest extends BuildViewTestCase {
                     MockCcSupport.SPLIT_FUNCTIONS));
 
     List<String> testConfig =
-        Lists.newArrayList("--fdo_optimize=pkg/profile.zip", "--compilation_mode=opt");
+        Lists.newArrayList("--fdo_optimize=/pkg/profile.zip", "--compilation_mode=opt");
     Collections.addAll(testConfig, config);
     useConfiguration(Iterables.toArray(testConfig, String.class));
 
     Artifact binArtifact = getFilesToBuild(getConfiguredTarget("//pkg:bin")).getSingleton();
-
+    String rootExecPath = binArtifact.getRoot().getExecPathString();
     CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(binArtifact);
     assertThat(linkAction.getOutputs()).containsExactly(binArtifact);
 
     LtoBackendAction backendAction =
         (LtoBackendAction)
-            getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
+            getPredecessorByInputName(
+                linkAction, "pkg/bin.lto/" + rootExecPath + "/pkg/_objs/bin/binfile.o");
 
     // We should have a ThinLTO backend action.
     assertThat(backendAction).isNotNull();

@@ -93,7 +93,7 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
     args.add_all("--source_jars", source_jars)
     args.add_all("--bootclasspath", bootclasspath)
     args.add_all("--classpath", classpath)
-    args.add_all("--plugins", compilation_info.plugins.processor_jars)
+    args.add_all("--lint_rules", compilation_info.plugins.processor_jars)
     args.add("--target_label", ctx.label)
 
     javac_opts = compilation_info.javac_options

@@ -35,10 +35,7 @@ public class BazelJ2ObjcLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("j2objc_library")
         .factoryClass(BazelJ2ObjcLibrary.class)
-        .ancestors(
-            J2ObjcLibraryBaseRule.class,
-            ObjcRuleClasses.CrosstoolRule.class,
-            ObjcRuleClasses.XcrunRule.class)
+        .ancestors(J2ObjcLibraryBaseRule.class, ObjcRuleClasses.CrosstoolRule.class)
         .build();
   }
 }

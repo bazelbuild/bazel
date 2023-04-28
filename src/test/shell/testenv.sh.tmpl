@@ -333,6 +333,7 @@ EOF
         "rules_proto"
         "rules_python"
         "rules_pkg"
+        "rules_testing"
     )
     for repo in "${repos[@]}"; do
       reponame="${repo%"_for_testing"}"
@@ -512,18 +513,12 @@ function setup_objc_test_support() {
 }
 
 function setup_skylib_support() {
-  # Get skylib path portably by using rlocation to locate a top-level file in
-  # the repo. Use BUILD because it's in the //:test_deps target (unlike
-  # WORKSPACE).
-  local -r skylib_workspace="$(rlocation bazel_skylib/BUILD)"
-  [[ -n "$skylib_workspace" && -e "$skylib_workspace" ]] || fail "could not find Skylib"
-  local -r skylib_root="$(dirname "$skylib_workspace")"
+  mkdir -p rules/private
+  touch rules/private/BUILD
   cat >> WORKSPACE << EOF
-new_local_repository(
-    name = 'bazel_skylib',
-    build_file_content = '',
-    path='$skylib_root',
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{bazel_skylib}
 
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 bazel_skylib_workspace()
@@ -575,6 +570,16 @@ function add_rules_python_to_workspace() {
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 {rules_python}
+EOF
+}
+
+function add_rules_testing_to_workspace() {
+  mkdir lib
+  touch lib/BUILD
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_testing}
 EOF
 }
 

@@ -32,14 +32,12 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
-import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
@@ -427,7 +425,6 @@ public class ObjcRuleClasses {
               BaseRuleClasses.NativeActionCreatingRule.class,
               CompileDependencyRule.class,
               CoptsRule.class,
-              XcrunRule.class,
               CrosstoolRule.class)
           .build();
     }
@@ -467,26 +464,4 @@ public class ObjcRuleClasses {
 
   /** Attribute name for the minimum OS version (e.g. "7.3"). */
   static final String MINIMUM_OS_VERSION = "minimum_os_version";
-
-  /** Common attributes for {@code objc_*} rules that need to call xcrun. */
-  public static class XcrunRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(
-              attr("$xcrunwrapper", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel("//tools/objc:xcrunwrapper")))
-          .build();
-    }
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_xcrun_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(RequiresXcodeConfigRule.class)
-          .build();
-    }
-  }
 }

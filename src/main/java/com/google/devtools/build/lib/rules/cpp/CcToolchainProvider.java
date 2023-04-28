@@ -419,7 +419,7 @@ public final class CcToolchainProvider extends NativeInfo
    */
   @Nullable
   public PathFragment getToolPathFragmentOrNull(CppConfiguration.Tool tool) {
-    return CcToolchainProviderHelper.getToolPathFragment(toolPaths, tool);
+    return toolPaths.get(tool.getNamePart());
   }
 
   @Override

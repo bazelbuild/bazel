@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.DirectoryListingStateValue;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
-import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameValue;
 import com.google.devtools.build.lib.vfs.FileStateKey;
@@ -81,8 +80,7 @@ public class RBuildFilesVisitor extends ParallelQueryVisitor<SkyKey, PackageIden
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERNS);
 
-  private static final SkyKey EXTERNAL_PACKAGE_KEY =
-      PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
+  private static final SkyKey EXTERNAL_PACKAGE_KEY = LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
   private final SkyQueryEnvironment env;
   private final QueryExpressionContext<Target> context;
   private final Uniquifier<SkyKey> visitUniquifier;

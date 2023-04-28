@@ -124,8 +124,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile('main/main.cc', c_cc_content)
 
   def getBazelInfo(self, info_key):
-    exit_code, stdout, stderr = self.RunBazel(['info', info_key])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', info_key])
     return stdout[0]
 
   def testBuildDynamicLibraryWithUserExportedSymbol(self):
@@ -134,9 +133,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # //:A export symbols by itself using __declspec(dllexport), so it doesn't
     # need Bazel to export symbols using DEF file.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:A', '--output_groups=dynamic_library'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:A', '--output_groups=dynamic_library'])
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on Windows.
@@ -155,9 +152,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # //:B doesn't export symbols by itself, so it need Bazel to export symbols
     # using DEF file.
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:B', '--output_groups=dynamic_library'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:B', '--output_groups=dynamic_library'])
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on Windows.
@@ -171,11 +166,12 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Test build //:B if windows_export_all_symbols feature is disabled by
     # no_windows_export_all_symbols.
-    exit_code, _, stderr = self.RunBazel([
-        'build', '//:B', '--output_groups=dynamic_library',
-        '--features=no_windows_export_all_symbols'
+    self.RunBazel([
+        'build',
+        '//:B',
+        '--output_groups=dynamic_library',
+        '--features=no_windows_export_all_symbols',
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
     import_library = os.path.join(bazel_bin, 'B.if.lib')
     shared_library = os.path.join(bazel_bin, 'B_0.dll')
     empty_def_file = os.path.join(bazel_bin, 'B.gen.empty.def')
@@ -191,8 +187,7 @@ class BazelWindowsCppTest(test_base.TestBase):
 
     # Since linkstatic=0 is specified for //:C, it's dependencies should be
     # dynamically linked.
-    exit_code, _, stderr = self.RunBazel(['build', '//:C'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//:C'])
 
     # TODO(pcloudy): change suffixes to .lib and .dll after making DLL
     # extensions correct on
@@ -224,8 +219,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     bazel_bin = self.getBazelInfo('bazel-bin')
 
-    exit_code, _, stderr = self.RunBazel(['build', '//main:main'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:main'])
 
     # Test if A.dll and B.dll are copied to the directory of main.exe
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
@@ -234,8 +228,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'main/B_0.dll')))
 
     # Run the binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
 
   def testBuildCcBinaryDependsOnConflictDLLs(self):
@@ -253,13 +246,11 @@ class BazelWindowsCppTest(test_base.TestBase):
     bazel_bin = self.getBazelInfo('bazel-bin')
 
     # //main:main depends on both //lib:A and //:A
-    exit_code, _, stderr = self.RunBazel(['build', '//main:main'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build', '//main:main'])
 
     # Run the binary to see if it runs successfully
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
     # There are 2 A_{hash}.dll since //main:main depends on both //lib:A and
     # //:A
@@ -292,14 +283,13 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile('main/other_main.cc', ['int main() {return 0;}'])
 
     # Building //main:main should succeed
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//main:main', '--incompatible_avoid_conflict_dlls'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        ['build', '//main:main', '--incompatible_avoid_conflict_dlls']
+    )
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
 
     # Run the main_bin binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
     # There is only 1 A_{hash}.dll since //main:main depends transitively on
     # //:A
@@ -310,16 +300,16 @@ class BazelWindowsCppTest(test_base.TestBase):
         len(glob.glob(os.path.join(bazel_bin, 'main', 'B_*.dll'))), 1)
 
     # Building //main:other_main should succeed
-    exit_code, _, stderr = self.RunBazel([
-        'build', '//main:main', '//main:other_main',
-        '--incompatible_avoid_conflict_dlls'
+    self.RunBazel([
+        'build',
+        '//main:main',
+        '//main:other_main',
+        '--incompatible_avoid_conflict_dlls',
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
     other_main_bin = os.path.join(bazel_bin, 'main/other_main.exe')
 
     # Run the other_main_bin binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([other_main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunProgram([other_main_bin])
     # There are 2 A_{hash}.dll since //main:main depends on //:A
     # and //main:other_main depends on //lib:A
     self.assertEqual(
@@ -375,8 +365,7 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'A_9324b6d0.dll')))
 
     # Run the binary to see if it runs successfully
-    exit_code, stdout, stderr = self.RunProgram([main_bin])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram([main_bin])
     self.assertEqual(['Hello A'], stdout)
 
   def testDynamicLinkingMSVCRT(self):
@@ -752,7 +741,9 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  this_is_an_error();',
         '}',
     ])
-    exit_code, stdout, stderr = self.RunBazel(['build', '//:bad'])
+    exit_code, stdout, stderr = self.RunBazel(
+        ['build', '//:bad'], allow_failure=True
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn('this_is_an_error', ''.join(stdout))
 

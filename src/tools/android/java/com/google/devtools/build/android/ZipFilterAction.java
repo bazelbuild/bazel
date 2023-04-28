@@ -91,7 +91,7 @@ public class ZipFilterAction {
     ERROR
   }
 
-  @Parameters(optionPrefixes = "--")
+  @Parameters()
   static class Options {
     @Parameter(
       names = "--inputZip",

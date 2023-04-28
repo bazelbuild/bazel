@@ -96,7 +96,8 @@ def skydoc_test(
         input = input_file,
         deps = ["%s_lib" % name],
         renderer = Label("//src/main/java/com/google/devtools/build/skydoc/renderer:renderer"),
-        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc"),
+        stardoc = Label("//src/main/java/com/google/devtools/build/skydoc:skydoc_deploy.jar"),
         format = format,
+        testonly = True,
         **kwargs
     )

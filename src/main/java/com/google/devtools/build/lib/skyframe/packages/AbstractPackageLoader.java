@@ -347,11 +347,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
 
   @Override
   public Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
-    ArrayList<SkyKey> keys = new ArrayList<>();
-    for (PackageIdentifier pkgId : ImmutableSet.copyOf(pkgIds)) {
-      keys.add(PackageValue.key(pkgId));
-    }
-
     Reporter reporter = new Reporter(commonReporter);
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
@@ -361,16 +356,23 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             .setParallelism(skyframeThreads)
             .setEventHandler(reporter)
             .build();
-    return loadPackagesInternal(keys, evaluationContext, storedEventHandler);
+    return loadPackagesInternal(ImmutableSet.copyOf(pkgIds), evaluationContext, storedEventHandler);
   }
 
   private Result loadPackagesInternal(
-      Iterable<SkyKey> pkgKeys,
+      ImmutableSet<SkyKey> pkgKeys,
       EvaluationContext evaluationContext,
       StoredEventHandler storedEventHandler)
       throws InterruptedException {
-    EvaluationResult<PackageValue> evalResult =
-        makeFreshEvaluator().evaluate(pkgKeys, evaluationContext);
+    MemoizingEvaluator evaluator = makeFreshEvaluator();
+    EvaluationResult<PackageValue> evalResult;
+    try {
+      evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+    } finally {
+      if (usePooledInterning) {
+        evaluator.cleanupInterningPools();
+      }
+    }
     ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
         ImmutableMap.builder();
     for (SkyKey key : pkgKeys) {

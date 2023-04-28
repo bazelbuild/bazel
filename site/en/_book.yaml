@@ -338,6 +338,8 @@ upper_tabs:
         path: /contribute/codebase
       - title: Searching the codebase
         path: /contribute/search
+      - title: StateMachine Guide
+        path: /contribute/statemachine-guide
       - heading: Contribute documentation
       - title: Overview
         path: /contribute/docs

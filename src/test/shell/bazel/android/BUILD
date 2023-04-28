@@ -30,7 +30,7 @@ sh_library(
 
 android_sh_test(
     name = "android_integration_test",
-    size = "large",
+    size = "enormous",
     srcs = ["android_integration_test.sh"],
     data = [
         ":android_helper",
@@ -107,7 +107,7 @@ android_sh_test(
 
 android_sh_test(
     name = "android_sdk_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["android_sdk_integration_test.sh"],
     data = [
         ":android_helper",
@@ -156,7 +156,7 @@ android_sh_test(
 
 android_sh_test(
     name = "desugarer_integration_test",
-    size = "medium",
+    size = "large",
     srcs = ["desugarer_integration_test.sh"],
     data = [
         ":android_helper",

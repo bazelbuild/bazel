@@ -93,24 +93,22 @@ class CacheDecompressionTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:genrule.txt', '--remote_cache', self.url])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(
+        ['build', '//:genrule.txt', '--remote_cache', self.url]
+    )
     self.assertNotIn('INFO: 2 processes: 1 remote cache hit, 1 internal',
                      stderr)
     self.assertNotIn('HTTP version 1.1 is required', stderr)
 
-    exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['clean', '--expunge'])
 
-    exit_code, _, stderr = self.RunBazel(
-        ['build', '//:genrule.txt', '--remote_cache', self.url])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(
+        ['build', '//:genrule.txt', '--remote_cache', self.url]
+    )
     self.assertIn('INFO: 2 processes: 1 remote cache hit, 1 internal.', stderr)
     self.assertNotIn('HTTP version 1.1 is required', stderr)
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-genfiles'])
     bazel_genfiles = stdout[0]
 
     self.AssertFileContentEqual(

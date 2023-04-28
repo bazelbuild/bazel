@@ -23,12 +23,22 @@ EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE = [
     "echo 'exports_files([\"WORKSPACE\"], visibility = [\"//visibility:public\"])' >> BUILD.bazel",
 ]
 
+EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE = [
+    "test -f BUILD && chmod u+w BUILD || true",
+    "echo >> BUILD",
+    "echo 'exports_files([\"WORKSPACE.bazel\"], visibility = [\"//visibility:public\"])' >> BUILD",
+]
+
 EXPORT_WORKSPACE_IN_BUILD_FILE_WIN = [
     "Add-Content -Path BUILD -Value \"`nexports_files([`\"WORKSPACE`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
 ]
 
 EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN = [
     "Add-Content -Path BUILD.bazel -Value \"`nexports_files([`\"WORKSPACE`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
+]
+
+EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE_WIN = [
+    "Add-Content -Path BUILD -Value \"`nexports_files([`\"WORKSPACE.bazel`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
 ]
 
 # Protobuf expects an //external:python_headers label which would contain the
@@ -566,6 +576,12 @@ dist_http_archive(
     name = "rules_jvm_external",
 )
 
+dist_http_archive(
+    name = "rules_testing",
+    patch_cmds = EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE_WIN,
+)
+
 # Projects using gRPC as an external dependency must call both grpc_deps() and
 # grpc_extra_deps().
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
@@ -597,7 +613,7 @@ load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
-        "com.beust:jcommander:1.48",
+        "com.beust:jcommander:1.82",
         "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
@@ -753,7 +769,7 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
-    fail_if_repin_required = True,
+    fail_if_repin_required = False,
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",

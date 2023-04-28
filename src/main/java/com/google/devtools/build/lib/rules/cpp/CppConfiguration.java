@@ -211,6 +211,12 @@ public final class CppConfiguration extends Fragment
         }
       } else {
         fdoPath = PathFragment.create(cppOptions.getFdoOptimize());
+        if (!fdoPath.isAbsolute()) {
+          throw new InvalidConfigurationException(
+              "Path of '"
+                  + fdoPath.getPathString()
+                  + "' in --fdo_optimize has to be either an absolute path or a label.");
+        }
         try {
           // We don't check for file existence, but at least the filename should be well-formed.
           FileSystemUtils.checkBaseName(fdoPath.getBaseName());
@@ -315,16 +321,8 @@ public final class CppConfiguration extends Fragment
       doc = "The label of the target describing the C++ toolchain",
       defaultLabel = "//tools/cpp:toolchain",
       defaultInToolRepository = true)
-  @Nullable
   public Label getRuleProvidingCcToolchainProvider() {
-    if (cppOptions.enableCcToolchainResolution) {
-      // In case C++ toolchain resolution is enabled, crosstool_top flags are not used.
-      // Returning null prevents additional work on the flags values and makes it possible to
-      // remove `--crosstool_top` flags.
-      return null;
-    } else {
-      return cppOptions.crosstoolTop;
-    }
+    return cppOptions.crosstoolTop;
   }
 
   /** Returns the configured current compilation mode. */

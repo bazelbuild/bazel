@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -110,7 +111,7 @@ public class ConfiguredTargetAndData {
       ConfiguredTarget ct, SkyFunction.Environment env) throws InterruptedException {
     BuildConfigurationValue configuration = null;
     ImmutableSet<SkyKey> packageAndMaybeConfiguration;
-    PackageValue.Key packageKey = PackageValue.key(ct.getLabel().getPackageIdentifier());
+    PackageIdentifier packageKey = ct.getLabel().getPackageIdentifier();
     BuildConfigurationKey configurationKeyMaybe = ct.getConfigurationKey();
     if (configurationKeyMaybe == null) {
       packageAndMaybeConfiguration = ImmutableSet.of(packageKey);

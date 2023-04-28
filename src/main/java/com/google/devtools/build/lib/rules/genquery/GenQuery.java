@@ -468,7 +468,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
             for (Label label :
                 Iterables.concat(
                     resolvedLabels.getTargets(), resolvedLabels.getFilteredTargets())) {
-              packageKeys.add(PackageValue.key(label.getPackageIdentifier()));
+              packageKeys.add(label.getPackageIdentifier());
             }
           }
         }

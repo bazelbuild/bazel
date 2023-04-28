@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.time.Duration;
 
 /**
  * Options for the example worker itself.
@@ -89,6 +91,17 @@ public class ExampleWorkerOptions extends OptionsBase {
       help = "Prints a list of all environment variables."
     )
     public boolean printEnv;
+
+    @Option(
+        name = "work_time",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        converter = Converters.DurationConverter.class,
+        defaultValue = "0",
+        help =
+            "When the worker receives a work request, it will sleep for this long before "
+                + "responding.")
+    public Duration workTime;
   }
 
   @Option(

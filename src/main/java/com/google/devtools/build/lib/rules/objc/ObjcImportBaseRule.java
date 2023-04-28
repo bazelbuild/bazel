@@ -54,8 +54,7 @@ public class ObjcImportBaseRule implements RuleDefinition {
         .ancestors(
             BaseRuleClasses.NativeBuildRule.class,
             ObjcRuleClasses.AlwaysLinkRule.class,
-            ObjcRuleClasses.CrosstoolRule.class,
-            ObjcRuleClasses.XcrunRule.class)
+            ObjcRuleClasses.CrosstoolRule.class)
         .build();
   }
 }

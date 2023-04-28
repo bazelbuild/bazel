@@ -289,17 +289,17 @@ DIST_DEPS = {
     #
     ###################################################
     "bazel_skylib": {
-        "archive": "bazel-skylib-1.0.3.tar.gz",
-        "sha256": "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
+        "archive": "bazel-skylib-1.3.0.tar.gz",
+        "sha256": "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "package_version": "1.0.3",
+        "package_version": "1.3.0",
     },
     "io_bazel_skydoc": {
         "archive": "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
@@ -361,6 +361,17 @@ DIST_DEPS = {
         "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.19.0/rules_python-0.19.0.tar.gz"],
         "archive": "rules_python-0.19.0.tar.gz",
         "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
+    },
+    "rules_testing": {
+        "sha256": "4e21f9aa7996944ce91431f27bca374bff56e680acfe497276074d56bc5d9af2",
+        "strip_prefix": "rules_testing-0.0.4",
+        "urls": [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz",
+            "https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz",
+        ],
+        "archive": "rules_testing-v0.0.4.tar.gz",
+        "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
+        "package_version": "0.0.4",
     },
     "desugar_jdk_libs": {
         # Commit 5847d6a06302136d95a14b4cbd4b55a9c9f1436e of 2021-03-10

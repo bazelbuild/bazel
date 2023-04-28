@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.PackageMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TargetMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.TimingMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics;
 import com.google.devtools.build.lib.buildtool.BuildPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -52,11 +53,15 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
+import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
+import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.util.Durations;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,10 +71,13 @@ import java.util.concurrent.atomic.LongAccumulator;
 import java.util.stream.Stream;
 
 class MetricsCollector {
+
   private final CommandEnvironment env;
   private final boolean recordMetricsForAllMnemonics;
   // For ActionSummary.
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
+  // Mapping from worker pool hash, to statistics which we collect during a build.
+  private final HashMap<Integer, WorkerPoolStats> workerPoolStats = new HashMap<>();
 
   // For CumulativeMetrics.
   private final AtomicInteger numAnalyses;
@@ -155,6 +163,34 @@ class MetricsCollector {
     }
   }
 
+  @Subscribe
+  public void onWorkerDestroyedAction(WorkerDestroyedEvent event) {
+    synchronized (this) {
+      WorkerPoolStats stats =
+          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
+
+      stats.incrementDestroyedCount();
+    }
+  }
+
+  @Subscribe
+  public void onWorkerCreatedAction(WorkerCreatedEvent event) {
+    synchronized (this) {
+      WorkerPoolStats stats =
+          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
+
+      stats.incrementCreatedCount();
+    }
+  }
+
+  private WorkerPoolStats getWorkerPoolStatsOrInsert(int workerPoolHash, String mnemonic) {
+    WorkerPoolStats stats =
+        workerPoolStats.computeIfAbsent(
+            workerPoolHash, (Integer k) -> new WorkerPoolStats(mnemonic));
+
+    return stats;
+  }
+
   @SuppressWarnings("unused")
   @Subscribe
   @AllowConcurrentEvents
@@ -171,6 +207,16 @@ class MetricsCollector {
   @AllowConcurrentEvents
   public void actionResultReceived(ActionResultReceivedEvent event) {
     spawnStats.countActionResult(event.getActionResult());
+    ActionStats actionStats =
+        actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
+    int systemTime = event.getActionResult().cumulativeCommandExecutionSystemTimeInMs();
+    if (systemTime > 0) {
+      actionStats.systemTime.addAndGet(systemTime);
+    }
+    int userTime = event.getActionResult().cumulativeCommandExecutionUserTimeInMs();
+    if (userTime > 0) {
+      actionStats.userTime.addAndGet(userTime);
+    }
   }
 
   @SuppressWarnings("unused")
@@ -222,7 +268,8 @@ class MetricsCollector {
             .setCumulativeMetrics(createCumulativeMetrics())
             .setArtifactMetrics(artifactMetrics.build())
             .setBuildGraphMetrics(buildGraphMetrics.build())
-            .addAllWorkerMetrics(WorkerMetricsCollector.instance().createWorkerMetricsProto());
+            .addAllWorkerMetrics(WorkerMetricsCollector.instance().createWorkerMetricsProto())
+            .setWorkerPoolMetrics(createWorkerPoolMetrics());
 
     NetworkMetrics networkMetrics = NetworkMetricsCollector.instance().collectMetrics();
     if (networkMetrics != null) {
@@ -232,11 +279,32 @@ class MetricsCollector {
     return buildMetrics.build();
   }
 
+  private ActionData buildActionData(ActionStats actionStats) {
+    NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
+        BlazeClock.createNanosToMillisSinceEpochConverter();
+    ActionData.Builder builder =
+        ActionData.newBuilder()
+            .setMnemonic(actionStats.mnemonic)
+            .setFirstStartedMs(
+                nanosToMillisSinceEpochConverter.toEpochMillis(
+                    actionStats.firstStarted.longValue()))
+            .setLastEndedMs(
+                nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()))
+            .setActionsExecuted(actionStats.numActions.get());
+    long systemTime = actionStats.systemTime.get();
+    if (systemTime > 0) {
+      builder.setSystemTime(Durations.fromMillis(systemTime));
+    }
+    long userTime = actionStats.userTime.get();
+    if (userTime > 0) {
+      builder.setUserTime(Durations.fromMillis(userTime));
+    }
+    return builder.build();
+  }
+
   private static final int MAX_ACTION_DATA = 20;
 
   private ActionSummary finishActionSummary() {
-    NanosToMillisSinceEpochConverter nanosToMillisSinceEpochConverter =
-        BlazeClock.createNanosToMillisSinceEpochConverter();
     Stream<ActionStats> actionStatsStream = actionStatsMap.values().stream();
     if (!recordMetricsForAllMnemonics) {
       actionStatsStream =
@@ -244,19 +312,7 @@ class MetricsCollector {
               .sorted(Comparator.comparingLong(a -> -a.numActions.get()))
               .limit(MAX_ACTION_DATA);
     }
-    actionStatsStream.forEach(
-        action ->
-            actionSummary.addActionData(
-                ActionData.newBuilder()
-                    .setMnemonic(action.mnemonic)
-                    .setFirstStartedMs(
-                        nanosToMillisSinceEpochConverter.toEpochMillis(
-                            action.firstStarted.longValue()))
-                    .setLastEndedMs(
-                        nanosToMillisSinceEpochConverter.toEpochMillis(
-                            action.lastEnded.longValue()))
-                    .setActionsExecuted(action.numActions.get())
-                    .build()));
+    actionStatsStream.forEach(action -> actionSummary.addActionData(buildActionData(action)));
 
     ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
     actionSummary.setActionsExecuted(spawnSummary.getOrDefault("total", 0));
@@ -325,17 +381,68 @@ class MetricsCollector {
     return timingMetrics.build();
   }
 
+  private WorkerPoolMetrics createWorkerPoolMetrics() {
+    WorkerPoolMetrics.Builder metricsBuilder = WorkerPoolMetrics.newBuilder();
+
+    workerPoolStats.forEach(
+        (workerPoolHash, workerStats) ->
+            metricsBuilder.addWorkerPoolStats(
+                WorkerPoolMetrics.WorkerPoolStats.newBuilder()
+                    .setHash(workerPoolHash)
+                    .setMnemonic(workerStats.getMnemonic())
+                    .setCreatedCount(workerStats.getCreatedCount())
+                    .setDestroyedCount(workerStats.getDestroyedCount())
+                    .build()));
+
+    return metricsBuilder.build();
+  }
+
+  private static class WorkerPoolStats {
+    private int createdCount;
+    private int destroyedCount;
+    private final String mnemonic;
+
+    WorkerPoolStats(String mnemonic) {
+      this.mnemonic = mnemonic;
+    }
+
+    void incrementCreatedCount() {
+      createdCount++;
+    }
+
+    void incrementDestroyedCount() {
+      destroyedCount++;
+    }
+
+    public int getCreatedCount() {
+      return createdCount;
+    }
+
+    public int getDestroyedCount() {
+      return destroyedCount;
+    }
+
+    public String getMnemonic() {
+      return mnemonic;
+    }
+  }
+
   private static class ActionStats {
+
     final LongAccumulator firstStarted;
     final LongAccumulator lastEnded;
     final AtomicLong numActions;
     final String mnemonic;
+    final AtomicLong systemTime;
+    final AtomicLong userTime;
 
     ActionStats(String mnemonic) {
       this.mnemonic = mnemonic;
       firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
       lastEnded = new LongAccumulator(Math::max, 0);
       numActions = new AtomicLong();
+      systemTime = new AtomicLong();
+      userTime = new AtomicLong();
     }
   }
 }

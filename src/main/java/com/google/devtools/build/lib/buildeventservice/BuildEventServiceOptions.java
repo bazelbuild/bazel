@@ -100,6 +100,21 @@ public class BuildEventServiceOptions extends OptionsBase {
   public List<String> besKeywords;
 
   @Option(
+      name = "bes_system_keywords",
+      defaultValue = "null",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      allowMultiple = true,
+      help =
+          "Specifies a list of notification keywords to be included directly, without the "
+              + "\"user_keyword=\" prefix included for keywords supplied via --bes_keywords. "
+              + "Intended for Build service operators that set --bes_lifecycle_events=false and "
+              + "include keywords when calling PublishLifecycleEvent. Build service operators "
+              + "using this flag should prevent users from overriding the flag value.")
+  public List<String> besSystemKeywords;
+
+  @Option(
       name = "bes_outerr_buffer_size",
       defaultValue = "10240",
       documentationCategory = OptionDocumentationCategory.LOGGING,
