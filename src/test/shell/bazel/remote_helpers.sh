@@ -263,3 +263,34 @@ function shutdown_server() {
 function kill_nc() {
   shutdown_server
 }
+
+# Sets up a credential helper binary at ${TEST_TMPDIR}/credhelper and resets
+# the call counter.
+function setup_credential_helper() {
+  # Each call atomically writes one byte to this file.
+  # The file can be read later determine how many calls were made.
+  cat > "${TEST_TMPDIR}/credhelper.callcount"
+
+  cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
+#!/usr/bin/env python3
+import os
+
+path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper.callcount")
+fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
+os.write(fd, b"1")
+os.close(fd)
+
+# Must match //src/test/shell/bazel/testing_server.py.
+print("""{"headers":{"Authorization":["Bearer TOKEN"]}}""")
+EOF
+  chmod +x "${TEST_TMPDIR}/credhelper"
+}
+
+# Asserts how many times the credential helper was called.
+function expect_credential_helper_calls() {
+  local -r expected=$1
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper.callcount" | awk '{print $1}')
+  if [[ "$expected" != "$actual" ]]; then
+    fail "expected $expected instead of $actual credential helper calls"
+  fi
+}
