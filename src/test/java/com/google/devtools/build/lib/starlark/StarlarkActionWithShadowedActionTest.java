@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -58,8 +57,8 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
   private NestedSet<Artifact> starlarkActionInputs;
   private NestedSet<Artifact> shadowedActionInputs;
   private NestedSet<Artifact> discoveredInputs;
-  private Map<String, String> starlarkActionEnvironment;
-  private Map<String, String> shadowedActionEnvironment;
+  private ImmutableMap<String, String> starlarkActionEnvironment;
+  private ImmutableMap<String, String> shadowedActionEnvironment;
 
   private Artifact output;
   private PathFragment executable;
@@ -238,8 +237,6 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(starlarkActionInputs.toList());
     assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
-    assertThat(starlarkAction.getAllowedDerivedInputs().toList())
-        .containsExactlyElementsIn(starlarkActionInputs.toList());
     assertThat(starlarkAction.discoversInputs()).isFalse();
 
     // Test using Starlark actions's inputs with shadowed action's inputs

@@ -718,7 +718,9 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by {@link
    * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
-   * return true for {link #discoversInputs()}.
+   * return true for {link #discoversInputs}.
+   *
+   * <p>Returns null when a required value is missing and a Skyframe restart is required.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
    * @throws ActionExecutionException only when code called from this method throws that exception.
