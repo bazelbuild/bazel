@@ -382,7 +382,7 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .mandatoryProviders(CcInfo.PROVIDER.id())
                   .allowedFileTypes())
-          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(deps) -->
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(implementation_deps) -->
           The list of other libraries that the library target depends on. Unlike with
           <code>deps</code>, the headers and include paths of these libraries (and all their
           transitive deps) are only used for compilation of this library, and not libraries that
