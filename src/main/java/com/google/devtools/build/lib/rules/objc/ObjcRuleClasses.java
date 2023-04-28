@@ -389,7 +389,7 @@ public class ObjcRuleClasses {
           depend on it. Libraries specified with <code>implementation_deps</code> are still linked in
           binary targets that depend on this library.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .override(
+          .add(
               attr("implementation_deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .mandatoryProviders(CcInfo.PROVIDER.id())
