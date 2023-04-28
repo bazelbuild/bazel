@@ -2,6 +2,9 @@ name: release-helper
 on:
   issue_comment:
     types: [created, edited]
+permissions:
+  contents: read
+
 jobs:
   release-helper:
     if: startsWith(github.event.comment.body, '@bazel-io ')
@@ -9,7 +12,12 @@ jobs:
     permissions:
       issues: write
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+        with:
+          egress-policy: audit
+
       - name: Run helper
-        uses: bazelbuild/continuous-integration/actions/release-helper@master
+        uses: bazelbuild/continuous-integration/actions/release-helper@70ab2cc80222b90afde06fa0b3b7c067239777b4 # master
         with:
           token: ${{ secrets.BAZEL_IO_TOKEN }}
