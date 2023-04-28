@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -82,7 +81,6 @@ public final class LtoBackendAction extends SpawnAction {
       ImmutableSet<Artifact> outputs,
       ActionOwner owner,
       CommandLines argv,
-      CommandLineLimits commandLineLimits,
       ActionEnvironment env,
       Map<String, String> executionInfo,
       CharSequence progressMessage,
@@ -95,7 +93,6 @@ public final class LtoBackendAction extends SpawnAction {
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
-        commandLineLimits,
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
@@ -269,7 +266,6 @@ public final class LtoBackendAction extends SpawnAction {
         ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        CommandLineLimits commandLineLimits,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -283,7 +279,6 @@ public final class LtoBackendAction extends SpawnAction {
           outputs,
           owner,
           commandLines,
-          commandLineLimits,
           env,
           executionInfo,
           progressMessage,

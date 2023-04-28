@@ -684,6 +684,7 @@ public class BuildConfigurationValue
     return testEnv;
   }
 
+  @Override
   public CommandLineLimits getCommandLineLimits() {
     return commandLineLimits;
   }

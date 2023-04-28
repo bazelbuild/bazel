@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -88,7 +87,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
    * @param resourceSetOrBuilder the resources consumed by executing this Action
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
-   * @param commandLineLimits the command line limits, from the build configuration
    * @param env the action's environment
    * @param executionInfo out-of-band information for scheduling the spawn
    * @param progressMessage the message printed during the progression of the build
@@ -106,7 +104,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
       Iterable<Artifact> outputs,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      CommandLineLimits commandLineLimits,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
@@ -124,7 +121,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         outputs,
         resourceSetOrBuilder,
         commandLines,
-        commandLineLimits,
         env,
         executionInfo,
         progressMessage,
@@ -385,7 +381,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
         ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        CommandLineLimits commandLineLimits,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -409,7 +404,6 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           outputs,
           resourceSetOrBuilder,
           commandLines,
-          commandLineLimits,
           env,
           executionInfo,
           progressMessage,
