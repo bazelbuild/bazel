@@ -78,7 +78,8 @@ public class DynamicExecutionOptions extends OptionsBase {
               + "strategy is used. For example, `worker,sandboxed` runs actions that support "
               + "persistent workers using the worker strategy, and all others using the sandboxed "
               + "strategy. If no mnemonic is given, the list of strategies is used as the "
-              + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`. "
+              + "fallback for all mnemonics. The default fallback list is `worker,sandboxed`, or"
+              + "`worker,sandboxed,standalone` if `experimental_local_lockfree_output` is set. "
               + "Takes [mnemonic=]local_strategy[,local_strategy,...]")
   public List<Map.Entry<String, List<String>>> dynamicLocalStrategy;
 

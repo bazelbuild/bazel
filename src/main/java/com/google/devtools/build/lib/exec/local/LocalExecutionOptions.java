@@ -65,9 +65,9 @@ public class LocalExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "When true, the local spawn runner does lock the output tree during dynamic execution. "
-              + "Instead, spawns are allowed to execute until they are explicitly interrupted by a "
-              + "faster remote action.")
+          "When true, the local spawn runner doesn't lock the output tree during dynamic "
+              + "execution. Instead, spawns are allowed to execute until they are explicitly "
+              + "interrupted by a faster remote action.")
   public boolean localLockfreeOutput;
 
   @Option(
