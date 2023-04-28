@@ -84,7 +84,7 @@ py_test(
 
 py_test(
     name = "bazel_external_repository_test",
-    size = "medium",
+    size = "large",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
     tags = [

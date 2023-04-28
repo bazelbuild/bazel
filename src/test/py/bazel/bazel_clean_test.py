@@ -31,34 +31,28 @@ class BazelCleanTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-genfiles'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-genfiles'])
     bazel_genfiles = stdout[0]
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'output_base'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
     output_base = stdout[0]
 
     # Repeat 10 times to ensure flaky error like
     # https://github.com/bazelbuild/bazel/issues/5907 are caught.
     for _ in range(0, 10):
-      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-      self.AssertExitCode(exit_code, 0, stderr)
+      self.RunBazel(['build', '//foo:x'])
       self.assertTrue(os.path.exists(
           os.path.join(bazel_genfiles, 'foo/x.out')))
 
-      exit_code, _, stderr = self.RunBazel(['clean'])
-      self.AssertExitCode(exit_code, 0, stderr)
+      self.RunBazel(['clean'])
       self.assertFalse(os.path.exists(
           os.path.join(bazel_genfiles, 'foo/x.out')))
       self.assertTrue(os.path.exists(output_base))
 
-      exit_code, _, stderr = self.RunBazel(['build', '//foo:x'])
-      self.AssertExitCode(exit_code, 0, stderr)
+      self.RunBazel(['build', '//foo:x'])
       self.assertTrue(os.path.exists(os.path.join(bazel_genfiles, 'foo/x.out')))
 
-      exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
-      self.AssertExitCode(exit_code, 0, stderr)
+      self.RunBazel(['clean', '--expunge'])
       self.assertFalse(os.path.exists(
           os.path.join(bazel_genfiles, 'foo/x.out')))
       self.assertFalse(os.path.exists(output_base))
@@ -67,16 +61,14 @@ class BazelCleanTest(test_base.TestBase):
                    'Async clean only supported on Linux')
   def testBazelAsyncClean(self):
     self.ScratchFile('WORKSPACE')
-    exit_code, _, stderr = self.RunBazel(['clean', '--async'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(['clean', '--async'])
     matcher = self._findMatch(' moved to (.*) for deletion', stderr)
     self.assertTrue(matcher, stderr)
     first_temp = matcher.group(1)
     self.assertTrue(first_temp, stderr)
     # Now do it again (we need to build to recreate exec root).
     self.RunBazel(['build'])
-    exit_code, _, stderr = self.RunBazel(['clean', '--async'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, _, stderr = self.RunBazel(['clean', '--async'])
     matcher = self._findMatch(' moved to (.*) for deletion', stderr)
     self.assertTrue(matcher, stderr)
     second_temp = matcher.group(1)
@@ -88,16 +80,14 @@ class BazelCleanTest(test_base.TestBase):
                    'Async clean only supported on Linux')
   def testBazelAsyncCleanWithReadonlyDirectories(self):
     self.ScratchFile('WORKSPACE')
-    exit_code, _, stderr = self.RunBazel(['build'])
-    self.AssertExitCode(exit_code, 0, stderr)
-    exit_code, stdout, stderr = self.RunBazel(['info', 'execution_root'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(['build'])
+    _, stdout, _ = self.RunBazel(['info', 'execution_root'])
     execroot = stdout[0]
     readonly_dir = os.path.join(execroot, 'readonly')
     os.mkdir(readonly_dir)
     open(os.path.join(readonly_dir, 'somefile'), 'wb').close()
     os.chmod(readonly_dir, 0o555)
-    exit_code, _, stderr = self.RunBazel(['clean', '--async'])
+    _, _, stderr = self.RunBazel(['clean', '--async'])
     matcher = self._findMatch(' moved to (.*) for deletion', stderr)
     self.assertTrue(matcher, stderr)
     temp = matcher.group(1)

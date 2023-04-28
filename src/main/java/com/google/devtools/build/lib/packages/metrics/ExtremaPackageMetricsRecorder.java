@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Tracks per-invocation extreme package loading events. */
-class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
+public class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
   private final int currentNumPackagesToTrack;
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -67,7 +67,7 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
         Extrema.max(currentNumPackagesToTrack, PackageMetricsContainer.OVERHEAD_COMP);
   }
 
-  public int getNumPackageToTrack() {
+  public int getNumPackagesToTrack() {
     return currentNumPackagesToTrack;
   }
 

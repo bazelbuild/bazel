@@ -329,12 +329,9 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self,
-               args,
-               env_remove=None,
-               env_add=None,
-               cwd=None,
-               allow_failure=True):
+  def RunBazel(
+      self, args, env_remove=None, env_add=None, cwd=None, allow_failure=False
+  ):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -437,14 +434,16 @@ class TestBase(unittest.TestCase):
 
     shutil.rmtree(self._cas_path)
 
-  def RunProgram(self,
-                 args,
-                 env_remove=None,
-                 env_add=None,
-                 shell=False,
-                 cwd=None,
-                 allow_failure=True,
-                 executable=None):
+  def RunProgram(
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      shell=False,
+      cwd=None,
+      allow_failure=False,
+      executable=None,
+  ):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:

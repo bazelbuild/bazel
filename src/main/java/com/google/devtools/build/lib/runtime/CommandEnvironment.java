@@ -543,9 +543,11 @@ public class CommandEnvironment {
   /**
    * Returns the working directory of the server.
    *
-   * <p>This is often the first entry on the {@code --package_path}, but not always.
-   * Callers should certainly not make this assumption. The Path returned may be null.
+   * <p>This is often the first entry on the {@code --package_path}, but not always. Callers should
+   * certainly not make this assumption. The Path returned may be null; for example, when the
+   * command is invoked outside a workspace.
    */
+  @Nullable
   public Path getWorkspace() {
     return getDirectories().getWorkingDirectory();
   }

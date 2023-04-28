@@ -337,7 +337,6 @@ sh_test(
 
 sh_test(
     name = "bazel_java_tools_dist_test",
-    size = "small",
     srcs = ["bazel_java_tools_dist_test.sh"],
     data = [
         ":test-deps",
@@ -1370,6 +1369,7 @@ sh_test(
 
 sh_test(
     name = "check_external_files_test",
+    size = "large",
     srcs = ["check_external_files_test.sh"],
     data = [
         ":test-deps",

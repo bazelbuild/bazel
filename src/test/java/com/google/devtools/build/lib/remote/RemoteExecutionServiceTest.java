@@ -193,6 +193,7 @@ public class RemoteExecutionServiceTest {
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
     assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly(execPath.toString());
+    assertThat(remoteAction.getCommand().getOutputPathsList()).containsExactly(execPath.toString());
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
   }
 
@@ -228,6 +229,7 @@ public class RemoteExecutionServiceTest {
 
     assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/link");
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
+    assertThat(remoteAction.getCommand().getOutputPathsList()).containsExactly("path/to/link");
   }
 
   @Test

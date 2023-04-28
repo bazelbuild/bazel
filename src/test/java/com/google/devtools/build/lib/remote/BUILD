@@ -34,7 +34,6 @@ NATIVE_SSL_TEST_MAYBE = select({
 
 java_test(
     name = "remote",
-    size = "small",
     srcs = glob(
         ["**/*.java"],
         exclude = NATIVE_SSL_TEST + [

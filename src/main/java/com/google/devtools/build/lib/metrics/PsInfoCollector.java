@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.util;
+package com.google.devtools.build.lib.metrics;
 
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -49,7 +49,7 @@ public class PsInfoCollector {
     return instance;
   }
 
-  private PsSnapshot currenPsSnapshot;
+  private PsSnapshot currentPsSnapshot;
 
   // prevent construction
   private PsInfoCollector() {}
@@ -60,8 +60,8 @@ public class PsInfoCollector {
    */
   public synchronized ResourceSnapshot collectResourceUsage(ImmutableSet<Long> processIds) {
     Instant now = clock.now();
-    if (currenPsSnapshot == null
-        || Duration.between(currenPsSnapshot.getCollectionTime(), now)
+    if (currentPsSnapshot == null
+        || Duration.between(currentPsSnapshot.getCollectionTime(), now)
                 .compareTo(MIN_COLLECTION_INTERVAL)
             > 0) {
 
@@ -70,15 +70,15 @@ public class PsInfoCollector {
 
     ImmutableMap.Builder<Long, Integer> pidToMemoryInKb = ImmutableMap.builder();
     for (Long pid : processIds) {
-      PsInfo psInfo = currenPsSnapshot.getPidToPsInfo().get(pid);
+      PsInfo psInfo = currentPsSnapshot.getPidToPsInfo().get(pid);
       if (psInfo == null) {
         continue;
       }
-      pidToMemoryInKb.put(pid, collectMemoryUsageOfDescendants(psInfo, currenPsSnapshot));
+      pidToMemoryInKb.put(pid, collectMemoryUsageOfDescendants(psInfo, currentPsSnapshot));
     }
 
     return ResourceSnapshot.create(
-        pidToMemoryInKb.buildOrThrow(), currenPsSnapshot.getCollectionTime());
+        pidToMemoryInKb.buildOrThrow(), currentPsSnapshot.getCollectionTime());
   }
 
   /** Updates current snapshot of all processes state, using ps command. */
@@ -90,7 +90,7 @@ public class PsInfoCollector {
         pidToPsInfo.values().stream()
             .collect(toImmutableSetMultimap(PsInfo::getParentPid, Function.identity()));
 
-    currenPsSnapshot = PsSnapshot.create(pidToPsInfo, pidToChildrenPsInfo, clock.now());
+    currentPsSnapshot = PsSnapshot.create(pidToPsInfo, pidToChildrenPsInfo, clock.now());
   }
 
   /** Collects memory usage for every process. */

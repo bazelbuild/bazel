@@ -78,7 +78,6 @@ class BazelLockfileTest(test_base.TestBase):
             '--lockfile_mode=off',
             '//:all',
         ],
-        allow_failure=False,
     )
 
     # Change registry -> update 'sss' module file (corrupt it)
@@ -123,7 +122,6 @@ class BazelLockfileTest(test_base.TestBase):
             '--nobuild',
             '//:all',
         ],
-        allow_failure=False,
     )
 
     # Change registry -> update 'sss' module file (corrupt it)
@@ -134,7 +132,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.RunBazel(['shutdown'])
     # Running with the lockfile, should not recognize the registry changes
     # hence find no errors
-    self.RunBazel(['build', '--nobuild', '//:all'], allow_failure=False)
+    self.RunBazel(['build', '--nobuild', '//:all'])
 
   def testChangeFlagWithLockfile(self):
     # Add module 'sss' to the registry with dep on 'aaa'
@@ -149,7 +147,6 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile('BUILD', ['filegroup(name = "hello")'])
     self.RunBazel(
         ['build', '--nobuild', '//:all'],
-        allow_failure=False,
     )
 
     # Change registry -> update 'sss' module file (corrupt it)
@@ -183,7 +180,6 @@ class BazelLockfileTest(test_base.TestBase):
             '--check_direct_dependencies=warning',
             '//:all',
         ],
-        allow_failure=False,
     )
 
     # Run with updated module and a different flag
@@ -228,7 +224,6 @@ class BazelLockfileTest(test_base.TestBase):
             '--nobuild',
             '//:all',
         ],
-        allow_failure=False,
     )
 
     # Run with updated module and a different flag

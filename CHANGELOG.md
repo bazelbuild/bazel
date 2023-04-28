@@ -1,3 +1,22 @@
+## Release 7.0.0-pre.20230420.2 (2023-04-27)
+
+```
+Baseline: 7fb50baaa00f92c6f009dcf1684427fc8fa1f301
+
+Cherry picks:
+
+   + 0ebf7bc8376f8ca9e865b81658c2f2b29aaf7f4d:
+     Automated rollback of commit
+     1acc7a843bf0996c26a1e3d74bb64514395b7e7f.
+```
+
+Incompatible changes:
+
+  - Renamed PackageMetrics proto message to PackageLoadMetrics. The
+    formats should be wire compatible.
+
+This release contains contributions from many people at Google, as well as Ankit Agarwal, Benjamin Peterson, Fabian Meumertzheim, Jasper, Son Luong Ngoc, Xdng Yng.
+
 ## Release 7.0.0-pre.20230417.1 (2023-04-25)
 
 ```

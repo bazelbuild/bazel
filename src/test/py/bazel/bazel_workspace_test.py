@@ -29,13 +29,14 @@ class BazelWorkspaceTest(test_base.TestBase):
         ")",
     ])
     self.ScratchFile("bin.py")
-    exit_code, _, stderr = self.RunBazel(["build", "//:bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(["build", "//:bin"])
 
     # If WORKSPACE.bazel is deleted and no WORKSPACE exists,
     # the build should fail.
     os.remove(workspace_dot_bazel)
-    exit_code, _, stderr = self.RunBazel(["build", "//:bin"])
+    exit_code, _, stderr = self.RunBazel(
+        ["build", "//:bin"], allow_failure=True
+    )
     self.AssertExitCode(exit_code, 2, stderr)
 
   def testWorkspaceDotBazelFileWithExternalRepo(self):
@@ -62,12 +63,13 @@ class BazelWorkspaceTest(test_base.TestBase):
         "  deps = ['@A//:lib'],",
         ")",
     ])
-    exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(args=["build", ":bin"], cwd=work_dir)
 
     # Test WORKSPACE takes effect after deleting WORKSPACE.bazel
     os.remove(workspace_dot_bazel)
-    exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
+    exit_code, _, stderr = self.RunBazel(
+        args=["build", ":bin"], cwd=work_dir, allow_failure=True
+    )
     self.AssertExitCode(exit_code, 1, stderr)
     self.assertIn("no such package '@A//'", "".join(stderr))
 
@@ -75,8 +77,7 @@ class BazelWorkspaceTest(test_base.TestBase):
     self.ScratchFile("B/WORKSPACE",
                      ["local_repository(name = 'A', path='../A')"])
     self.ScratchDir("B/WORKSPACE.bazel")
-    exit_code, _, stderr = self.RunBazel(args=["build", ":bin"], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(args=["build", ":bin"], cwd=work_dir)
 
 
 if __name__ == "__main__":

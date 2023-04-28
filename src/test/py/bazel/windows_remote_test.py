@@ -68,19 +68,16 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
     self.ScratchFile('bar/bar.txt', ['hello'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
     # Build.
-    exit_code, stdout, stderr = self._RunRemoteBazel(['build', '//foo:foo'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['build', '//foo:foo'])
 
     # Run.
     foo_bin = os.path.join(bazel_bin, 'foo', 'foo.exe')
     self.assertTrue(os.path.exists(foo_bin))
-    exit_code, stdout, stderr = self.RunProgram([foo_bin])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    _, stdout, _ = self.RunProgram([foo_bin])
     self.assertEqual(stdout, ['hello shell'])
 
   def testShTestRunsLocally(self):
@@ -97,20 +94,16 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/BUILD', ['exports_files(["bar.txt"])'])
     self.ScratchFile('bar/bar.txt', ['hello'])
 
-    exit_code, stdout, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
 
     # Build.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['build', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['build', '--test_output=all', '//foo:foo_test'])
 
     # Test.
     foo_test_bin = os.path.join(bazel_bin, 'foo', 'foo_test.exe')
     self.assertTrue(os.path.exists(foo_test_bin))
-    exit_code, stdout, stderr = self.RunProgram([foo_test_bin])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self.RunProgram([foo_test_bin])
 
   # Remotely, the runfiles manifest does not exist.
   def testShTestRunsRemotely(self):
@@ -133,9 +126,9 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['test', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    _, stdout, _ = self._RunRemoteBazel(
+        ['test', '--test_output=all', '//foo:foo_test']
+    )
     self.assertIn('RUNFILES_MANIFEST_FILE: ""', stdout)
 
   # The Java launcher uses Rlocation which has differing behavior for local and
@@ -164,9 +157,7 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['test', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['test', '--test_output=all', '//foo:foo_test'])
 
   # Exercises absolute path handling in Rlocation.
   # This depends on there being a Java installation to c:\openjdk. If you have
@@ -197,9 +188,7 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Test.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['test', '--test_output=all', '//foo:foo_test'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['test', '--test_output=all', '//foo:foo_test'])
 
   # Genrules are notably different than tests because RUNFILES_DIR is not set
   # for genrule tool launchers, so the runfiles directory is discovered based on
@@ -247,9 +236,7 @@ class WindowsRemoteTest(test_base.TestBase):
     self.ScratchFile('bar/bar.txt', ['hello'])
 
     # Build.
-    exit_code, stdout, stderr = self._RunRemoteBazel(
-        ['build', '//foo:genrule'])
-    self.AssertExitCode(exit_code, 0, stderr, stdout)
+    self._RunRemoteBazel(['build', '//foo:genrule'])
 
   # TODO(jsharpe): Add a py_test example here. Blocked on
   # https://github.com/bazelbuild/bazel/issues/5087

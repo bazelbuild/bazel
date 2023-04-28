@@ -280,6 +280,15 @@ public final class ExampleWorker {
       }
     }
 
+    if (options.workTime != null) {
+      try {
+        Thread.sleep(options.workTime.toMillis());
+      } catch (InterruptedException e) {
+        System.err.printf(
+            "Interrupted while pretending to work for %d millis%n", options.workTime.toMillis());
+      }
+    }
+
     String outputStr = Joiner.on('\n').join(outputs);
     if (options.outputFile.isEmpty()) {
       System.out.println(outputStr);

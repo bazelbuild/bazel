@@ -320,6 +320,27 @@ public final class BazelRulesModule extends BlazeModule {
         help = "This option is deprecated and has no effect.")
     @Deprecated
     public boolean useWorkersWithDexbuilder;
+
+    @Option(
+        name = "target_platform_fallback",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
+        },
+        help = "This option is deprecated and has no effect.")
+    public String targetPlatformFallback;
+
+    @Option(
+        name = "incompatible_auto_configure_host_platform",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        help = "This option is deprecated and has no effect.")
+    public boolean autoConfigureHostPlatform;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

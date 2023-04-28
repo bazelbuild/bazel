@@ -291,8 +291,7 @@ public class FdoHelper {
             .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(
-                CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA))
+            .setExecutable(toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataMergeAction")
             .addCommandLine(
@@ -411,7 +410,7 @@ public class FdoHelper {
           "Symlinking LLVM Raw Profile " + fdoProfile.getBasename());
     }
 
-    if (CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA) == null) {
+    if (toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()) == null) {
       ruleContext.ruleError(
           "llvm-profdata not available with this crosstool, needed for profile conversion");
       return null;
@@ -424,8 +423,7 @@ public class FdoHelper {
             .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(
-                CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA))
+            .setExecutable(toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
             .addCommandLine(

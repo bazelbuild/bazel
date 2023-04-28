@@ -862,6 +862,11 @@ message BuildMetrics {
       // When the last action of this type ended being executed, in
       // milliseconds from the epoch.
       int64 last_ended_ms = 4;
+
+      // Accumulated CPU time of all spawned actions of this type.
+      // This is only set if all the actions reported a time
+      google.protobuf.Duration system_time = 5;
+      google.protobuf.Duration user_time = 6;
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;

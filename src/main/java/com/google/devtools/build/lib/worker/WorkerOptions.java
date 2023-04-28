@@ -18,12 +18,14 @@ import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -212,4 +214,15 @@ public class WorkerOptions extends OptionsBase {
           "If enabled, could shrink worker pool if worker memory pressure is high. This flag works"
               + " only when flag experimental_total_worker_memory_limit_mb is enabled.")
   public boolean shrinkWorkerPool;
+
+  @Option(
+      name = "experimental_worker_metrics_poll_interval",
+      converter = DurationConverter.class,
+      defaultValue = "5s",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "The interval between collecting worker metrics and possibly attempting evictions. "
+              + "Cannot effectively be less than 1s for performance reasons.")
+  public Duration workerMetricsPollInterval;
 }

@@ -489,7 +489,9 @@ public class BazelRepositoryModule extends BlazeModule {
    * @return Absolute Path
    */
   private String getAbsolutePath(String path, CommandEnvironment env) {
-    path = path.replace("%workspace%", env.getWorkspace().getPathString());
+    if (env.getWorkspace() != null) {
+      path = path.replace("%workspace%", env.getWorkspace().getPathString());
+    }
     if (!PathFragment.isAbsolute(path)) {
       path = env.getWorkingDirectory().getRelative(path).getPathString();
     }
