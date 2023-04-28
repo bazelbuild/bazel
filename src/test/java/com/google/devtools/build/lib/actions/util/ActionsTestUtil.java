@@ -366,16 +366,6 @@ public final class ActionsTestUtil {
       }
 
       @Override
-      public boolean isDirectory() {
-        return false;
-      }
-
-      @Override
-      public boolean isSymlink() {
-        return false;
-      }
-
-      @Override
       public void writeTo(OutputStream out) throws IOException {
         out.write(contents.getBytes(UTF_8));
       }

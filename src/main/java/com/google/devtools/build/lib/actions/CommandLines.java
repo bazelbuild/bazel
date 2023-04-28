@@ -289,16 +289,6 @@ public class CommandLines {
     }
 
     @Override
-    public boolean isDirectory() {
-      return false;
-    }
-
-    @Override
-    public boolean isSymlink() {
-      return false;
-    }
-
-    @Override
     public void writeTo(OutputStream out) throws IOException {
       ParameterFile.writeParameterFile(out, arguments, type, charset);
     }
