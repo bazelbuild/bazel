@@ -14,7 +14,7 @@ This makes it possible to:
 *   define custom flags for your project, obsoleting the need for
      [`--define`](/docs/configurable-attributes#custom-keys)
 *   write
-    [transitions](/rules/lib/transition#transition) to configure deps in
+    [transitions](/rules/lib/builtins/transition#transition) to configure deps in
     different configurations than their parents
     (such as `--compilation_mode=opt` or `--cpu=arm`)
 *   bake better defaults into rules (such as automatically build `//my:android_app`
@@ -50,7 +50,7 @@ set via [user-defined transitions](#user-defined-transitions).
 
 Build settings are rules like any other rule and are differentiated using the
 Starlark `rule()` function's `build_setting`
-[attribute](/rules/lib/globals#rule.build_setting).
+[attribute](/rules/lib/globals/bzl#rule.build_setting).
 
 ```python
 # example/buildsettings/build_settings.bzl
@@ -63,13 +63,13 @@ string_flag = rule(
 The `build_setting` attribute takes a function that designates the type of the
 build setting. The type is limited to a set of basic Starlark types like
 `bool` and `string`. See the `config` module
-[documentation](/rules/lib/config)  for details. More complicated typing can be
+[documentation](/rules/lib/toplevel/config)  for details. More complicated typing can be
 done in the rule's implementation function. More on this below.
 
 The `config` module's functions takes an optional boolean parameter, `flag`,
 which is set to false by default. if `flag` is set to true, the build setting
 can be set on the command line by users as well as internally by rule writers
-via default values and [transitions](/rules/lib/transition#transition).
+via default values and [transitions](/rules/lib/builtins/transition#transition).
 Not all settings should be settable by users. For example, if you as a rule
 writer have some debug mode that you'd like to turn on inside test rules,
 you don't want to give users the ability to indiscriminately turn on that
@@ -80,7 +80,7 @@ feature inside other non-test rules.
 Like all rules, build setting rules have [implementation functions](/extending/rules#implementation-function).
 The basic Starlark-type value of the build settings can be accessed via the
 `ctx.build_setting_value` method. This method is only available to
-[`ctx`](/rules/lib/ctx) objects of build setting rules. These implementation
+[`ctx`](/rules/lib/builtins/ctx) objects of build setting rules. These implementation
 methods can directly forward the build settings value or do additional work on
 it, like type checking or more complex struct creation. Here's how you would
 implement an `enum`-typed build setting:
@@ -328,7 +328,7 @@ can't customely defined.
 Label-typed settings will eventually replace the functionality of late-bound
 defaults. Late-bound default attributes are Label-typed attributes whose
 final values can be affected by configuration. In Starlark, this will replace
-the [`configuration_field`](/rules/lib/globals#configuration_field)
+the [`configuration_field`](/rules/lib/globals/bzl#configuration_field)
  API.
 
 ```python
@@ -388,7 +388,7 @@ config_setting(
 ## User-defined transitions {:#user-defined-transitions}
 
 A configuration
-[transition](/rules/lib/transition#transition)
+[transition](/rules/lib/builtins/transition#transition)
 maps the transformation from one configured target to another within the
 build graph.
 
@@ -423,7 +423,7 @@ with special restrictions.
 
 In Starlark, transitions are defined much like rules, with a defining
 `transition()`
-[function](/rules/lib/transition#transition)
+[function](/rules/lib/builtins/transition#transition)
 and an implementation function.
 
 ```python
@@ -565,11 +565,6 @@ for how to read these keys.
 ### Transitions on native options {:#transitions-native-options}
 
 [End to end example](https://github.com/bazelbuild/examples/tree/HEAD/configurations/transition_on_native_flag){: .external}
-
-Warning: Long term, the plan is to reimplement all native options as build
-settings. When that happens, this syntax will be deprecated. Currently other
-issues are blocking that migration but be aware you may have to migrate your
-transitions at some point in the future.
 
 Starlark transitions can also declare reads and writes on native build
 configuration options via a special prefix to the option name.

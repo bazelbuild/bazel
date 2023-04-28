@@ -66,6 +66,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Set;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -81,11 +82,6 @@ public abstract class AbstractQueryTest<T> {
   protected static final ImmutableSet<?> EMPTY = ImmutableSet.of();
 
   private static final String DEFAULT_UNIVERSE = "//...:*";
-
-  protected static final String BAD_PACKAGE_NAME =
-      "package names may contain "
-          + "A-Z, a-z, 0-9, or any of ' !\"#$%&'()*+,-./;<=>?[]^_`{|}~' "
-          + "(most 7-bit ascii characters except 0-31, 127, ':', or '\\')";
 
   protected MockToolsConfig mockToolsConfig;
   protected QueryHelper<T> helper;
@@ -103,17 +99,17 @@ public abstract class AbstractQueryTest<T> {
 
   @Before
   public final void initializeQueryHelper() throws Exception {
-    QueryHelper<T> helper = createQueryHelper();
+    helper = createQueryHelper();
     helper.setUp();
-    setUpWithQueryHelper(helper);
-  }
-
-  protected final void setUpWithQueryHelper(QueryHelper<T> helper) throws Exception {
-    this.helper = helper;
     mockToolsConfig = new MockToolsConfig(helper.getRootDirectory());
     analysisMock = AnalysisMock.get();
     helper.setUniverseScope(getDefaultUniverseScope());
     helper.useRuleClassProvider(setRuleClassProviders().build());
+  }
+
+  @After
+  public final void cleanUpQueryHelper() {
+    helper.cleanUp();
   }
 
   /**
@@ -323,7 +319,7 @@ public abstract class AbstractQueryTest<T> {
   protected final void checkResultofBadTargetLiterals(String message, FailureDetail failureDetail) {
     assertThat(failureDetail.getTargetPatterns().getCode())
         .isEqualTo(TargetPatterns.Code.LABEL_SYNTAX_ERROR);
-    assertThat(message).isEqualTo("Invalid package name 'bad:*': " + BAD_PACKAGE_NAME);
+    assertThat(message).isEqualTo("invalid target name '*:*': target names may not contain ':'");
   }
 
   @Test
@@ -2241,8 +2237,9 @@ public abstract class AbstractQueryTest<T> {
   public interface QueryHelper<T> {
 
     /** Basic set-up; this is called once at the beginning of a test, before anything else. */
-    @Before
     void setUp() throws Exception;
+
+    void cleanUp();
 
     void setKeepGoing(boolean keepGoing);
 

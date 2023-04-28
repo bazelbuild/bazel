@@ -62,7 +62,7 @@ public interface TemplateDictApi extends StarlarkValue {
             doc =
                 "A delimiter string used to join together the strings obtained from applying "
                     + "<code>map_each</code>, in the same manner as "
-                    + "<a href='string.html#join'><code>string.join()</code></a>."),
+                    + "<a href='../core/string.html#join'><code>string.join()</code></a>."),
         @Param(
             name = "map_each",
             allowedTypes = {

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
+import com.google.errorprone.annotations.concurrent.LazyInit;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -82,7 +83,7 @@ public class WorkerMultiplexer {
   /** The implementation of the worker protocol (JSON or Proto). */
   private WorkerProtocolImpl workerProtocol;
   /** InputStream from the worker process. */
-  private RecordingInputStream recordingStream;
+  @LazyInit private RecordingInputStream recordingStream;
   /** True if this multiplexer was explicitly destroyed. */
   private boolean wasDestroyed;
   /**
@@ -304,7 +305,7 @@ public class WorkerMultiplexer {
    * called on the thread of a {@code WorkerProxy}, and so is subject to interrupts by dynamic
    * execution.
    */
-  public WorkResponse getResponse(Integer requestId) throws InterruptedException {
+  public WorkResponse getResponse(Integer requestId) throws InterruptedException, IOException {
     try {
       if (!process.isAlive()) {
         // If the process has died, all we can do is return what may already have been returned.
@@ -320,10 +321,13 @@ public class WorkerMultiplexer {
         return workerProcessResponse.get(requestId);
       }
 
-      // Wait for the multiplexer to get our response and release this semaphore. The semaphore will
-      // throw {@code InterruptedException} when the multiplexer is terminated.
+      // Wait for the multiplexer to get our response and release this semaphore. If the multiplexer
+      // process dies, the semaphore gets released with no response available.
       waitForResponse.acquire();
 
+      if (workerProcessResponse.get(requestId) == null && !process.isAlive()) {
+        throw new IOException("Worker process for " + workerKey.getMnemonic() + " has died");
+      }
       return workerProcessResponse.get(requestId);
     } finally {
       responseChecker.remove(requestId);
@@ -415,9 +419,11 @@ public class WorkerMultiplexer {
   }
 
   String getRecordingStreamMessage() {
-    // Unlike SingleplexWorker, we don't want to read the remaining bytes, as those could contain
-    // many other responses. We just return what we actually read.
-    return recordingStream.getRecordedDataAsString();
+    // Once we read junk, we can't trust the rest of the stream
+    synchronized (recordingStream) {
+      recordingStream.readRemaining();
+      return recordingStream.getRecordedDataAsString();
+    }
   }
 
   /** Returns true if this process has died for other reasons than a call to {@code #destroy()}. */

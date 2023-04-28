@@ -304,16 +304,7 @@ public final class ProfilerTest {
                     /* isMultiplex= */ false,
                     /* isSandboxed= */ false),
                 WorkerMetric.WorkerStat.create(2048, Instant.now(), Instant.now()),
-                /* isMeasurable= */ true),
-            WorkerMetric.create(
-                WorkerMetric.WorkerProperties.create(
-                    /* workerIds= */ ImmutableList.of(1),
-                    /* processId= */ 1,
-                    /* mnemonic= */ "dummy2",
-                    /* isMultiplex= */ false,
-                    /* isSandboxed= */ false),
-                /* workerStat= */ null,
-                /* isMeasurable= */ false));
+                /* isMeasurable= */ true));
 
     WorkerMetricsCollector workerMetricsCollector = mock(WorkerMetricsCollector.class);
     when(workerMetricsCollector.collectMetrics()).thenReturn(workerMetrics);

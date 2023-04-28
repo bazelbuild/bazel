@@ -17,16 +17,40 @@ package com.google.devtools.build.lib.skyframe.serialization;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 
-/** {@link ObjectCodec} for {@link Object[]}. */
-class ArrayCodec implements ObjectCodec<Object[]> {
-  @Override
-  public Class<Object[]> getEncodedClass() {
-    return Object[].class;
+/** {@link ObjectCodec} for arrays of an arbitrary component type. */
+public class ArrayCodec<T> implements ObjectCodec<T[]> {
+
+  /** Creates a codec for arrays of the given component type. */
+  public static <T> ArrayCodec<T> forComponentType(Class<T> componentType) {
+    @SuppressWarnings("unchecked")
+    Class<T[]> arrayType = (Class<T[]>) Array.newInstance(componentType, 0).getClass();
+    return new ArrayCodec<>(componentType, arrayType);
+  }
+
+  /** Codec for {@code Object[]}. */
+  static final class ObjectArrayCodec extends ArrayCodec<Object> {
+    ObjectArrayCodec() {
+      super(Object.class, Object[].class);
+    }
+  }
+
+  private final Class<T> componentType;
+  private final Class<T[]> arrayType;
+
+  private ArrayCodec(Class<T> componentType, Class<T[]> arrayType) {
+    this.componentType = componentType;
+    this.arrayType = arrayType;
   }
 
   @Override
-  public void serialize(SerializationContext context, Object[] obj, CodedOutputStream codedOut)
+  public final Class<T[]> getEncodedClass() {
+    return arrayType;
+  }
+
+  @Override
+  public final void serialize(SerializationContext context, T[] obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(obj.length);
     try {
@@ -40,9 +64,10 @@ class ArrayCodec implements ObjectCodec<Object[]> {
   }
 
   @Override
-  public Object[] deserialize(DeserializationContext context, CodedInputStream codedIn)
+  public final T[] deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    Object[] result = new Object[codedIn.readInt32()];
+    @SuppressWarnings("unchecked")
+    T[] result = (T[]) Array.newInstance(componentType, codedIn.readInt32());
     try {
       for (int i = 0; i < result.length; i++) {
         result[i] = context.deserialize(codedIn);

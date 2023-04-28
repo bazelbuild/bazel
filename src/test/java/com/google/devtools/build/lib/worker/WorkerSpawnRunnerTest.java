@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -90,7 +90,7 @@ public class WorkerSpawnRunnerTest {
   @Mock SpawnMetrics.Builder spawnMetrics;
   @Mock Spawn spawn;
   @Mock SpawnExecutionContext context;
-  @Mock MetadataProvider inputFileCache;
+  @Mock InputMetadataProvider inputFileCache;
   @Mock Worker worker;
   @Mock WorkerOptions options;
   @Mock WorkerMetricsCollector metricsCollector;
@@ -122,7 +122,6 @@ public class WorkerSpawnRunnerTest {
                 return true;
               }
             },
-            ImmutableList.of(),
             ImmutableList.of(),
             ImmutableList.of()));
   }
@@ -225,7 +224,7 @@ public class WorkerSpawnRunnerTest {
     assertThat(response.getRequestId()).isEqualTo(0);
     assertThat(response.getOutput()).isEqualTo("out");
     assertThat(logFile.exists()).isFalse();
-    verify(inputFileCache, never()).getMetadata(virtualActionInput);
+    verify(inputFileCache, never()).getInputMetadata(virtualActionInput);
     verify(resourceHandle).close();
     verify(resourceHandle, times(0)).invalidateAndClose();
     verify(context).lockOutputFiles(eq(0), startsWith("out"), ArgumentMatchers.isNull());
@@ -512,7 +511,8 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExpandArgument_expandsArgumentsRecursively() throws IOException {
+  public void testExpandArgument_expandsArgumentsRecursively()
+      throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@file2\nmulti arg\n");
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file2"), "arg2\narg3");
@@ -522,7 +522,8 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExpandArgument_expandsOnlyProperArguments() throws IOException {
+  public void testExpandArgument_expandsOnlyProperArguments()
+      throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
     WorkerSpawnRunner.expandArgument(fs.getPath("/"), "@file", requestBuilder);

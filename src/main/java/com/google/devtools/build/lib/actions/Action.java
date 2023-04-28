@@ -156,10 +156,20 @@ public interface Action extends ActionExecutionMetadata {
   boolean isVolatile();
 
   /**
-   * Method used to find inputs before execution for an action that {@link
-   * ActionExecutionMetadata#discoversInputs}. Returns the set of discovered inputs (may be the
-   * empty set) or null if this action declared additional Skyframe dependencies that must be
-   * computed before it can make a decision.
+   * Runs input discovery on this action.
+   *
+   * <p>May only be called if {@link #discoversInputs} returns true. Returns the set of input
+   * artifacts that were not known at analysis time. May also call {@link #updateInputs}; if it
+   * doesn't, the action itself must arrange for the newly discovered artifacts to be available
+   * during action execution, probably by keeping state in the action instance and using a custom
+   * action execution context and for {@link #updateInputs} to be called during the execution of the
+   * action.
+   *
+   * <p>Since keeping state within an action is bad, don't do that unless there is a very good
+   * reason to do so.
+   *
+   * <p>May return {@code null} if more dependencies were requested from skyframe but were
+   * unavailable, meaning a restart is necessary.
    */
   @Nullable
   NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
@@ -179,11 +189,10 @@ public interface Action extends ActionExecutionMetadata {
 
   /**
    * Returns the set of artifacts that can possibly be inputs. It will be called iff {@link
-   * #inputsDiscovered()} is false for the given action instance and there is a related cache entry
-   * in the action cache.
+   * #inputsKnown} is false for the given action instance and there is a related cache entry in the
+   * action cache.
    *
-   * <p>Method must be redefined for any action for which {@link #inputsDiscovered()} may return
-   * false.
+   * <p>Method must be redefined for any action for which {@link #inputsKnown} may return false.
    *
    * <p>The method is allowed to return source artifacts. They are useless, though, since exec paths
    * in the action cache referring to source artifacts are always resolved.
@@ -191,9 +200,14 @@ public interface Action extends ActionExecutionMetadata {
   NestedSet<Artifact> getAllowedDerivedInputs();
 
   /**
-   * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
-   * only be called for actions that discover inputs. After this method is called, {@link
-   * ActionExecutionMetadata#inputsDiscovered} should return true.
+   * Called on {@linkplain #discoversInputs input-discovering} actions when the inputs of the action
+   * become known, either during {@link #discoverInputs} or during {@link #execute}.
+   *
+   * <p>When an action discovers inputs, this method must have been called by the time {@code
+   * #execute} returns.
+   *
+   * <p>In addition to being called from action implementations, it is also called by {@link
+   * ActionCacheChecker} when an action is loaded from the on-disk action cache.
    */
   void updateInputs(NestedSet<Artifact> inputs);
 
@@ -213,9 +227,8 @@ public interface Action extends ActionExecutionMetadata {
       throws CommandLineExpansionException, InterruptedException;
 
   /**
-   * Called by {@link com.google.devtools.build.lib.analysis.actions.StarlarkAction} in {@link
-   * #beginExecution} to use its shadowed action, if any, complete list of environment variables in
-   * the Starlark action Spawn.
+   * Called by {@link com.google.devtools.build.lib.analysis.actions.StarlarkAction} to use its
+   * shadowed action, if any, complete list of environment variables in the Starlark action Spawn.
    *
    * <p>As this method is called from the StarlarkAction, make sure it is ok to call it from a
    * different thread than the one this action is executed on. By definition, the method should not

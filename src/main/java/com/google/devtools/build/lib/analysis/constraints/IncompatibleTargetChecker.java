@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -98,21 +100,27 @@ public class IncompatibleTargetChecker {
    * </ul>
    */
   public static class IncompatibleTargetProducer implements StateMachine, Consumer<SkyValue> {
+
     private final Target target;
     @Nullable // Non-null when the target has an associated rule.
     private final BuildConfigurationValue configuration;
     private final ConfigConditions configConditions;
+    // Non-null when the target has an associated rule and does not opt out of toolchain resolution.
     @Nullable private final PlatformInfo platformInfo;
     @Nullable private final NestedSetBuilder<Package> transitivePackages;
 
     private final ResultSink sink;
+
+    private final StateMachine runAfter;
 
     private final ImmutableList.Builder<ConstraintValueInfo> invalidConstraintValuesBuilder =
         new ImmutableList.Builder<>();
 
     /** Sink for the output of this state machine. */
     public interface ResultSink {
-      void accept(Optional<RuleConfiguredTargetValue> incompatibleTarget);
+      void acceptIncompatibleTarget(Optional<RuleConfiguredTargetValue> incompatibleTarget);
+
+      void acceptValidationException(ValidationException e);
     }
 
     public IncompatibleTargetProducer(
@@ -121,34 +129,42 @@ public class IncompatibleTargetChecker {
         ConfigConditions configConditions,
         @Nullable PlatformInfo platformInfo,
         @Nullable NestedSetBuilder<Package> transitivePackages,
-        ResultSink sink) {
+        ResultSink sink,
+        StateMachine runAfter) {
       this.target = target;
       this.configuration = configuration;
       this.configConditions = configConditions;
       this.platformInfo = platformInfo;
       this.transitivePackages = transitivePackages;
       this.sink = sink;
+      this.runAfter = runAfter;
     }
 
     @Override
-    @Nullable
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
       Rule rule = target.getAssociatedRule();
-      if (rule == null || rule.getRuleClass().equals("toolchain") || platformInfo == null) {
-        sink.accept(Optional.empty());
-        return null;
+      if (rule == null || !rule.useToolchainResolution() || platformInfo == null) {
+        sink.acceptIncompatibleTarget(Optional.empty());
+        return runAfter;
       }
 
       // Retrieves the label list for the target_compatible_with attribute.
       ConfiguredAttributeMapper attrs =
           ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
       if (!attrs.has("target_compatible_with", BuildType.LABEL_LIST)) {
-        sink.accept(Optional.empty());
-        return null;
+        sink.acceptIncompatibleTarget(Optional.empty());
+        return runAfter;
       }
 
-      // Resolves the constraint labels.
-      for (Label label : attrs.get("target_compatible_with", BuildType.LABEL_LIST)) {
+      // Resolves the constraint labels, checking for invalid configured attributes.
+      List<Label> targetCompatibleWith;
+      try {
+        targetCompatibleWith = attrs.getAndValidate("target_compatible_with", BuildType.LABEL_LIST);
+      } catch (ValidationException e) {
+        sink.acceptValidationException(e);
+        return runAfter;
+      }
+      for (Label label : targetCompatibleWith) {
         tasks.lookUp(
             ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build(),
             this);
@@ -166,24 +182,23 @@ public class IncompatibleTargetChecker {
       invalidConstraintValuesBuilder.add(info);
     }
 
-    @Nullable
     private StateMachine processResult(Tasks tasks, ExtendedEventHandler listener) {
       var invalidConstraintValues = invalidConstraintValuesBuilder.build();
-      if (invalidConstraintValues.isEmpty()) {
-        sink.accept(Optional.empty());
-        return null;
+      if (!invalidConstraintValues.isEmpty()) {
+        sink.acceptIncompatibleTarget(
+            Optional.of(
+                createIncompatibleRuleConfiguredTarget(
+                    target,
+                    configuration,
+                    configConditions,
+                    IncompatiblePlatformProvider.incompatibleDueToConstraints(
+                        platformInfo.label(), invalidConstraintValues),
+                    target.getAssociatedRule().getRuleClass(),
+                    transitivePackages)));
+        return runAfter;
       }
-      sink.accept(
-          Optional.of(
-              createIncompatibleRuleConfiguredTarget(
-                  target,
-                  configuration,
-                  configConditions,
-                  IncompatiblePlatformProvider.incompatibleDueToConstraints(
-                      platformInfo.label(), invalidConstraintValues),
-                  target.getAssociatedRule().getRuleClass(),
-                  transitivePackages)));
-      return null;
+      sink.acceptIncompatibleTarget(Optional.empty());
+      return runAfter;
     }
   }
 
@@ -237,6 +252,19 @@ public class IncompatibleTargetChecker {
             IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
             rule.getRuleClass(),
             transitivePackages));
+  }
+
+  /** Thrown if this target is platform-incompatible with the current build. */
+  public static class IncompatibleTargetException extends Exception {
+    private final RuleConfiguredTargetValue target;
+
+    public IncompatibleTargetException(RuleConfiguredTargetValue target) {
+      this.target = target;
+    }
+
+    public RuleConfiguredTargetValue target() {
+      return target;
+    }
   }
 
   /** Creates an incompatible target. */

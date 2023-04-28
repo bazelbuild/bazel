@@ -20,6 +20,7 @@ bazel_dep(name = "rules_java", version = "5.5.0")
 bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
 bazel_dep(name = "rules_jvm_external", version = "4.5")
 bazel_dep(name = "rules_python", version = "0.19.0")
+bazel_dep(name = "rules_testing", version = "0.0.4")
 
 single_version_override(
     module_name = "rules_jvm_external",
@@ -53,4 +54,21 @@ local_path_override(
     path = "./third_party/googleapis",
 )
 
+bazel_internal_deps = use_extension("//:extensions.bzl", "bazel_internal_deps")
+use_repo(
+    bazel_internal_deps,
+    "openjdk_linux_vanilla",
+    "openjdk_linux_aarch64_vanilla",
+    "openjdk_linux_ppc64le_vanilla",
+    "openjdk_linux_s390x_vanilla",
+    "openjdk_macos_x86_64_vanilla",
+    "openjdk_macos_aarch64_vanilla",
+    "openjdk_win_vanilla",
+    "openjdk_win_arm64_vanilla",
+)
+
 register_toolchains("@bazel_tools//tools/python:autodetecting_toolchain")
+
+# Dev dependencies
+
+bazel_dep(name = "googletest", version = "1.12.1", repo_name = "com_google_googletest", dev_dependency = True)

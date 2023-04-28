@@ -17,10 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.PathStripper.CommandAdjuster;
+import com.google.devtools.build.lib.actions.PathStripper.PathMapper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +41,7 @@ public class CommandLinesTest {
             .build();
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
@@ -54,7 +53,7 @@ public class CommandLinesTest {
     CommandLines commandLines = CommandLines.of(ImmutableList.of("--foo", "--bar"));
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
@@ -69,7 +68,7 @@ public class CommandLinesTest {
             CommandLines.of(ImmutableList.of("--foo", "--bar")));
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--before", "--foo", "--bar");
     assertThat(expanded.arguments()).containsExactly("--before", "--foo", "--bar");
@@ -86,7 +85,7 @@ public class CommandLinesTest {
             .build();
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
@@ -107,7 +106,7 @@ public class CommandLinesTest {
 
     // Set max length to longer than command line, no param file needed
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(expanded.arguments()).containsExactly("--foo", "--bar").inOrder();
     assertThat(expanded.getParamFiles()).isEmpty();
@@ -125,7 +124,7 @@ public class CommandLinesTest {
     // Set max length to 0, spill to param file is forced
     ExpandedCommandLines expanded =
         commandLines.expand(
-            artifactExpander, execPath, new CommandLineLimits(0), CommandAdjuster.NOOP, 0);
+            artifactExpander, execPath, new CommandLineLimits(0), PathMapper.NOOP, 0);
 
     assertThat(expanded.arguments()).containsExactly("@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);
@@ -149,7 +148,7 @@ public class CommandLinesTest {
             .build();
 
     ExpandedCommandLines expanded =
-        commandLines.expand(artifactExpander, execPath, NO_LIMIT, CommandAdjuster.NOOP, 0);
+        commandLines.expand(artifactExpander, execPath, NO_LIMIT, PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d", "e", "f", "g", "h");
     assertThat(expanded.arguments())
@@ -178,7 +177,7 @@ public class CommandLinesTest {
 
     ExpandedCommandLines expanded =
         commandLines.expand(
-            artifactExpander, execPath, new CommandLineLimits(4), CommandAdjuster.NOOP, 0);
+            artifactExpander, execPath, new CommandLineLimits(4), PathMapper.NOOP, 0);
 
     assertThat(commandLines.allArguments()).containsExactly("a", "b", "c", "d").inOrder();
     assertThat(expanded.arguments()).containsExactly("a", "b", "@output.txt-0.params").inOrder();
@@ -201,7 +200,7 @@ public class CommandLinesTest {
 
     ExpandedCommandLines expanded =
         commandLines.expand(
-            artifactExpander, execPath, new CommandLineLimits(4), CommandAdjuster.NOOP, 0);
+            artifactExpander, execPath, new CommandLineLimits(4), PathMapper.NOOP, 0);
     assertThat(commandLines.allArguments()).containsExactly("--a", "1", "--b=c", "-2");
     assertThat(expanded.arguments()).containsExactly("1", "-2", "@output.txt-0.params");
     assertThat(expanded.getParamFiles()).hasSize(1);

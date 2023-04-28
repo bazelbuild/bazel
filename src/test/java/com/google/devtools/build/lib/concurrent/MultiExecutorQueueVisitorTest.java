@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor.ExceptionHandlingMode;
 import com.google.devtools.build.lib.concurrent.MultiThreadPoolsQuiescingExecutor.ThreadPoolType;
 import java.util.concurrent.ExecutorService;
 import org.junit.Test;
@@ -34,7 +35,7 @@ public class MultiExecutorQueueVisitorTest {
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.REGULAR))
         .isEqualTo(regular);
@@ -47,7 +48,7 @@ public class MultiExecutorQueueVisitorTest {
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.CPU_HEAVY))
         .isEqualTo(cpuHeavy);
@@ -60,7 +61,7 @@ public class MultiExecutorQueueVisitorTest {
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
     queueVisitor.shutdownExecutorService(/*catastrophe=*/ null);
 
     verify(regular).shutdown();
@@ -74,7 +75,7 @@ public class MultiExecutorQueueVisitorTest {
 
     MultiExecutorQueueVisitor queueVisitor =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
     RuntimeException toBeThrown = new RuntimeException();
 
     Throwable thrown =
@@ -95,7 +96,7 @@ public class MultiExecutorQueueVisitorTest {
             regular,
             cpuHeavy,
             executionPhase,
-            /*failFastOnException=*/ false,
+            ExceptionHandlingMode.KEEP_GOING,
             ErrorClassifier.DEFAULT);
 
     assertThat(queueVisitor.getExecutorServiceByThreadPoolType(ThreadPoolType.EXECUTION_PHASE))
@@ -109,7 +110,7 @@ public class MultiExecutorQueueVisitorTest {
 
     MultiExecutorQueueVisitor queueVisitorWithoutExecutionPhasePool =
         MultiExecutorQueueVisitor.createWithExecutorServices(
-            regular, cpuHeavy, /*failFastOnException=*/ false, ErrorClassifier.DEFAULT);
+            regular, cpuHeavy, ExceptionHandlingMode.KEEP_GOING, ErrorClassifier.DEFAULT);
 
     assertThrows(
         NullPointerException.class,

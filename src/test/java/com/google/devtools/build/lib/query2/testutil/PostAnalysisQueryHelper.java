@@ -89,7 +89,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     MockObjcSupport.setup(mockToolsConfig);
   }
 
-  public void cleanUp() {
+  @Override
+  public final void cleanUp() {
     for (Method method : getMethodsAnnotatedWith(AnalysisHelper.class, After.class)) {
       try {
         method.invoke(analysisHelper);

@@ -52,12 +52,12 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
       @Nullable ExecutorService executionPhaseExecutorService,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     super(
         regularPoolExecutorService,
-        /*shutdownOnCompletion=*/ true,
-        failFastOnException,
+        ExecutorOwnership.PRIVATE,
+        exceptionHandlingMode,
         errorClassifier);
     this.regularPoolExecutorService = super.getExecutorService();
     this.cpuHeavyPoolExecutorService = Preconditions.checkNotNull(cpuHeavyPoolExecutorService);
@@ -72,13 +72,13 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
   public static MultiExecutorQueueVisitor createWithExecutorServices(
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return createWithExecutorServices(
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
-        /*executionPhaseExecutorService=*/ null,
-        failFastOnException,
+        /* executionPhaseExecutorService= */ null,
+        exceptionHandlingMode,
         errorClassifier);
   }
 
@@ -86,13 +86,13 @@ public final class MultiExecutorQueueVisitor extends AbstractQueueVisitor
       ExecutorService regularPoolExecutorService,
       ExecutorService cpuHeavyPoolExecutorService,
       ExecutorService executionPhaseExecutorService,
-      boolean failFastOnException,
+      ExceptionHandlingMode exceptionHandlingMode,
       ErrorClassifier errorClassifier) {
     return new MultiExecutorQueueVisitor(
         regularPoolExecutorService,
         cpuHeavyPoolExecutorService,
         executionPhaseExecutorService,
-        failFastOnException,
+        exceptionHandlingMode,
         errorClassifier);
   }
 

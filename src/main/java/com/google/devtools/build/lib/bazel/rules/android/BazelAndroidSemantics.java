@@ -102,7 +102,8 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       NestedSetBuilder<Artifact> filesBuilder,
       Artifact classesDexZip,
       ProguardOutput proguardOutput,
-      Artifact proguardMapOutput)
+      Artifact proguardMapOutput,
+      Artifact mainDexList)
       throws InterruptedException {
     return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
   }

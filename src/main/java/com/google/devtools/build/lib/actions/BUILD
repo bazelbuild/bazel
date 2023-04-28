@@ -86,6 +86,7 @@ java_library(
         ":middleman_type",
         ":package_roots",
         ":thread_state_receiver",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -135,10 +136,20 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
+        "//third_party:checker_framework_annotations",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "action_environment",
+    srcs = ["ActionEnvironment.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//third_party:guava",
     ],
 )
 
@@ -164,14 +175,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "total_and_configured_target_only_metric",
-    srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
-    deps = [
-        "//third_party:auto_value",
     ],
 )
 
@@ -247,12 +250,36 @@ java_library(
 )
 
 java_library(
+    name = "build_configuration_event",
+    srcs = ["BuildConfigurationEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "commandline_item",
     srcs = [
         "CommandLineExpansionException.java",
         "CommandLineItem.java",
     ],
     deps = ["//third_party:jsr305"],
+)
+
+java_library(
+    name = "commandline_limits",
+    srcs = ["CommandLineLimits.java"],
+)
+
+java_library(
+    name = "exec_exception",
+    srcs = [
+        "ExecException.java",
+        "UserExecException.java",
+    ],
+    deps = ["//src/main/protobuf:failure_details_java_proto"],
 )
 
 java_library(
@@ -274,6 +301,7 @@ java_library(
         "FileStateType.java",
         "FileStateValue.java",
         "FileValue.java",
+        "RemoteArtifactChecker.java",
         "RemoteFileStatus.java",
         "cache/MetadataDigestUtils.java",
     ],
@@ -352,24 +380,6 @@ java_library(
 )
 
 java_library(
-    name = "thread_state_receiver",
-    srcs = ["ThreadStateReceiver.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//third_party:error_prone_annotations",
-    ],
-)
-
-java_library(
-    name = "exec_exception",
-    srcs = [
-        "ExecException.java",
-        "UserExecException.java",
-    ],
-    deps = ["//src/main/protobuf:failure_details_java_proto"],
-)
-
-java_library(
     name = "resource_manager",
     srcs = [
         "ResourceManager.java",
@@ -395,5 +405,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_value",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "thread_state_receiver",
+    srcs = ["ThreadStateReceiver.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//third_party:error_prone_annotations",
+    ],
+)
+
+java_library(
+    name = "total_and_configured_target_only_metric",
+    srcs = ["TotalAndConfiguredTargetOnlyMetric.java"],
+    deps = [
+        "//third_party:auto_value",
     ],
 )

@@ -78,6 +78,7 @@ public class CppCompileActionBuilder {
   private final boolean codeCoverageEnabled;
   @Nullable private String actionName;
   private ImmutableList<Artifact> builtinIncludeFiles;
+  private NestedSet<Artifact> cacheKeyInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> inputsForInvalidation = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> additionalPrunableHeaders =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -291,7 +292,12 @@ public class CppCompileActionBuilder {
       throw new UnconfiguredActionConfigException(actionName);
     }
 
-    NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
+    NestedSet<Artifact> realMandatorySpawnInputs = buildMandatoryInputs();
+    NestedSet<Artifact> realMandatoryInputs =
+        new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
+            .addTransitive(realMandatorySpawnInputs)
+            .addTransitive(cacheKeyInputs)
+            .build();
     NestedSet<Artifact> prunableHeaders = additionalPrunableHeaders;
 
     configuration.modifyExecutionInfo(
@@ -314,6 +320,7 @@ public class CppCompileActionBuilder {
             usePic,
             useHeaderModules,
             realMandatoryInputs,
+            realMandatorySpawnInputs,
             buildInputsForInvalidation(),
             getBuiltinIncludeFiles(),
             prunableHeaders,
@@ -618,6 +625,12 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setBuiltinIncludeFiles(
       ImmutableList<Artifact> builtinIncludeFiles) {
     this.builtinIncludeFiles = builtinIncludeFiles;
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CppCompileActionBuilder setCacheKeyInputs(NestedSet<Artifact> cacheKeyInputs) {
+    this.cacheKeyInputs = cacheKeyInputs;
     return this;
   }
 

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -66,7 +67,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     }
 
     try {
-      ImmutableMap<PackageValue.Key, PackageValue> buildSettingPackages =
+      ImmutableMap<PackageIdentifier, PackageValue> buildSettingPackages =
           getBuildSettingPackages(env, key.buildSettings());
       if (buildSettingPackages == null) {
         return null;
@@ -136,10 +137,10 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    *     state.
    */
   @Nullable
-  private static ImmutableMap<PackageValue.Key, PackageValue> getBuildSettingPackages(
+  private static ImmutableMap<PackageIdentifier, PackageValue> getBuildSettingPackages(
       SkyFunction.Environment env, ImmutableSet<Label> buildSettings)
       throws InterruptedException, TransitionException {
-    HashMap<PackageValue.Key, PackageValue> buildSettingPackages = new HashMap<>();
+    HashMap<PackageIdentifier, PackageValue> buildSettingPackages = new HashMap<>();
     // This happens before cycle detection so keep track of all seen build settings to ensure
     // we don't get stuck in endless loops (e.g. //alias1->//alias2 && //alias2->alias1)
     Set<Label> allSeenBuildSettings = new HashSet<>();
@@ -153,13 +154,13 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
                   buildSetting));
         }
       }
-      ImmutableSet<PackageValue.Key> packageKeys =
+      ImmutableSet<PackageIdentifier> packageKeys =
           getPackageKeysFromLabels(unverifiedBuildSettings);
       SkyframeLookupResult newlyLoaded = env.getValuesAndExceptions(packageKeys);
       if (env.valuesMissing()) {
         return null;
       }
-      for (PackageValue.Key packageKey : packageKeys) {
+      for (PackageIdentifier packageKey : packageKeys) {
         try {
           SkyValue skyValue = newlyLoaded.getOrThrow(packageKey, NoSuchPackageException.class);
           buildSettingPackages.put(packageKey, (PackageValue) skyValue);
@@ -173,11 +174,12 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
     return ImmutableMap.copyOf(buildSettingPackages);
   }
 
-  /** Given a set of labels, return a set of their package {@link PackageValue.Key}s. */
-  private static ImmutableSet<PackageValue.Key> getPackageKeysFromLabels(Set<Label> buildSettings) {
-    ImmutableSet.Builder<PackageValue.Key> keyBuilder = new ImmutableSet.Builder<>();
+  /** Given a set of labels, return a set of their package {@link PackageIdentifier} keys. */
+  private static ImmutableSet<PackageIdentifier> getPackageKeysFromLabels(
+      Set<Label> buildSettings) {
+    ImmutableSet.Builder<PackageIdentifier> keyBuilder = new ImmutableSet.Builder<>();
     for (Label setting : buildSettings) {
-      keyBuilder.add(PackageValue.key(setting.getPackageIdentifier()));
+      keyBuilder.add(setting.getPackageIdentifier());
     }
     return keyBuilder.build();
   }
@@ -199,14 +201,12 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    *     one link in the alias chain per call of this method)
    */
   private static ImmutableSet<Label> verifyBuildSettingsAndGetAliases(
-      Map<PackageValue.Key, PackageValue> buildSettingPackages, Set<Label> buildSettingsToVerify)
+      Map<PackageIdentifier, PackageValue> buildSettingPackages, Set<Label> buildSettingsToVerify)
       throws TransitionException {
     ImmutableSet.Builder<Label> actualSettingBuilder = new ImmutableSet.Builder<>();
     for (Label allegedBuildSetting : buildSettingsToVerify) {
       Package buildSettingPackage =
-          buildSettingPackages
-              .get(PackageValue.key(allegedBuildSetting.getPackageIdentifier()))
-              .getPackage();
+          buildSettingPackages.get(allegedBuildSetting.getPackageIdentifier()).getPackage();
       Preconditions.checkNotNull(
           buildSettingPackage, "Reading build setting for which we don't have a package");
       Target buildSettingTarget;
@@ -264,7 +264,7 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    * <p>This checking is likely done in {@link #verifyBuildSettingsAndGetAliases}.
    */
   private static Target getActual(
-      Map<PackageValue.Key, PackageValue> buildSettingPackages, Label setting) {
+      Map<PackageIdentifier, PackageValue> buildSettingPackages, Label setting) {
     Target target = getTarget(buildSettingPackages, setting);
     while (target.getAssociatedRule().getRuleClass().equals(ALIAS_RULE_NAME)) {
       target =
@@ -283,9 +283,9 @@ final class StarlarkBuildSettingsDetailsFunction implements SkyFunction {
    * @param buildSettingPackages packages that include {@code setting}'s package
    */
   private static Target getTarget(
-      Map<PackageValue.Key, PackageValue> buildSettingPackages, Label setting) {
+      Map<PackageIdentifier, PackageValue> buildSettingPackages, Label setting) {
     Package buildSettingPackage =
-        buildSettingPackages.get(PackageValue.key(setting.getPackageIdentifier())).getPackage();
+        buildSettingPackages.get(setting.getPackageIdentifier()).getPackage();
     Preconditions.checkNotNull(
         buildSettingPackage, "Reading build setting for which we don't have a package");
     Target target;

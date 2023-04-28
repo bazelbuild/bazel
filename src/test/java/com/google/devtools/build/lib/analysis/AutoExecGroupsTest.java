@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,8 +56,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
    * Sets up two toolchains types, each with a single toolchain implementation and a single
    * exec_compatible_with platform.
    *
-   * <p>toolchain_type_1 -> foo_toolchain -> exec_compatible_with platform_1 toolchain_type_2 ->
-   * bar_toolchain -> exec_compatible_with platform_2
+   * <p>toolchain_type_1 -> foo_toolchain -> exec_compatible_with platform_1; toolchain_type_1 ->
+   * baz_toolchain -> exec_compatible_with platform_2; toolchain_type_2 -> bar_toolchain ->
+   * exec_compatible_with platform_2
    */
   @Before
   public void createToolchainsAndPlatforms() throws Exception {
@@ -101,6 +101,13 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "    toolchain_type = '//rule:toolchain_type_1',",
         "    target_compatible_with = ['//platforms:constraint_1'],",
         "    exec_compatible_with = ['//platforms:constraint_1'],",
+        "    toolchain = ':foo',",
+        ")",
+        "toolchain(",
+        "    name = 'baz_toolchain',",
+        "    toolchain_type = '//rule:toolchain_type_1',",
+        "    target_compatible_with = ['//platforms:constraint_1'],",
+        "    exec_compatible_with = ['//platforms:constraint_2'],",
         "    toolchain = ':foo',",
         ")",
         "test_toolchain(",
@@ -147,7 +154,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   @Override
   public void useConfiguration(String... args) throws Exception {
     String[] flags = {
-      "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+      "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain,//toolchain:baz_toolchain",
       "--platforms=//platforms:platform_1",
       "--extra_execution_platforms=//platforms:platform_1,//platforms:platform_2"
     };
@@ -809,33 +816,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
   }
 
   @Test
-  @TestParameters({
-    "{action: ctx.actions.run}",
-    "{action: ctx.actions.run_shell}",
-  })
-  public void actionWithTwoToolchains_automaticExecGroupsDisabled_error(String action)
-      throws Exception {
-    createCustomRule(
-        /* action= */ action,
-        /* actionParameters= */ "",
-        /* extraAttributes= */ "",
-        /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
-        /* execGroups= */ "",
-        /* execCompatibleWith= */ "");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:custom_rule_name");
-
-    assertContainsEvent(
-        Pattern.compile(
-            "Unable to find an execution platform for toolchains \\[(//rule:toolchain_type_1,"
-                + " //rule:toolchain_type_2)|(//rule:toolchain_type_2, //rule:toolchain_type_1)\\]"
-                + " and target platform //platforms:platform_1 from available execution platforms"
-                + " \\[//platforms:platform_1, //platforms:platform_2,"
-                + " //third_party/local_config_platform:host\\]"));
-  }
-
-  @Test
   public void ctxToolchains_automaticExecGroupsEnabled() throws Exception {
     scratch.file(
         "test/defs.bzl",
@@ -1014,6 +994,35 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     assertThat(execGroups.get("custom_exec_group").execCompatibleWith())
         .isEqualTo(ImmutableSet.of(Label.parseCanonical("//platforms:constraint_1")));
     assertThat(ruleAction.getOwner().getExecProperties()).containsExactly("mem", "64");
+  }
+
+  @Test
+  @TestParameters({
+    "{action: ctx.actions.run}",
+    "{action: ctx.actions.run_shell}",
+  })
+  public void customRule_execCompatibleWith(String action) throws Exception {
+    createCustomRule(
+        /* action= */ action,
+        /* actionParameters= */ "toolchain = '//rule:toolchain_type_1',",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "['//rule:toolchain_type_1']",
+        /* execGroups= */ "",
+        /* execCompatibleWith= */ "");
+    scratch.overwriteFile(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'custom_rule')",
+        "custom_rule(",
+        "  name = 'custom_rule_name',",
+        "  exec_compatible_with = ['//platforms:constraint_2']",
+        ")");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
+    Action ruleAction = (Action) ((RuleConfiguredTarget) target).getActions().get(0);
+
+    assertThat(ruleAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
   }
 
   @Test

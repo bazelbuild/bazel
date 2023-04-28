@@ -9,7 +9,9 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["*"]),
+    srcs = glob(["*"]) + [
+        "//src/test/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -47,6 +49,19 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "PsInfoCollectorTest",
+    size = "small",
+    srcs = ["PsInfoCollectorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/metrics:ps_info_collector",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )

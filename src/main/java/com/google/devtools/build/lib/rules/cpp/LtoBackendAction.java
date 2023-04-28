@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -26,8 +30,8 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -44,12 +48,9 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -60,7 +61,7 @@ import javax.annotation.Nullable;
  * <p>See {@link LtoBackendArtifacts} for a high level description of the ThinLTO build process. The
  * LTO indexing step takes all bitcode .o files and decides which other .o file symbols can be
  * imported/inlined. The additional input files for each backend action are then written to an
- * imports file. Therefore these new inputs must be discovered here by subsetting the imports paths
+ * imports file. Therefore, these new inputs must be discovered here by subsetting the imports paths
  * from the set of all bitcode artifacts, before executing the backend action.
  *
  * <p>For more information on ThinLTO see
@@ -72,17 +73,16 @@ public final class LtoBackendAction extends SpawnAction {
   private final NestedSet<Artifact> mandatoryInputs;
   private final BitcodeFiles bitcodeFiles;
   private final Artifact imports;
+  private boolean inputsDiscovered = false;
 
   public LtoBackendAction(
       NestedSet<Artifact> inputs,
       @Nullable BitcodeFiles allBitcodeFiles,
       @Nullable Artifact importsFile,
-      Collection<Artifact> outputs,
-      Artifact primaryOutput,
+      ImmutableSet<Artifact> outputs,
       ActionOwner owner,
       CommandLines argv,
       CommandLineLimits commandLineLimits,
-      boolean isShellCommand,
       ActionEnvironment env,
       Map<String, String> executionInfo,
       CharSequence progressMessage,
@@ -93,19 +93,14 @@ public final class LtoBackendAction extends SpawnAction {
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         outputs,
-        primaryOutput,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
         commandLineLimits,
-        isShellCommand,
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         runfilesSupplier,
         mnemonic,
-        false,
-        null,
-        null,
         /*stripOutputPaths=*/ false);
     mandatoryInputs = inputs;
     Preconditions.checkState(
@@ -118,6 +113,16 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   public boolean discoversInputs() {
     return imports != null;
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   private NestedSet<Artifact> computeBitcodeInputs(HashSet<PathFragment> inputPaths) {
@@ -134,7 +139,7 @@ public final class LtoBackendAction extends SpawnAction {
   @Override
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    List<String> lines;
+    ImmutableList<String> lines;
     try {
       lines = FileSystemUtils.readLinesAsLatin1(actionExecutionContext.getInputPath(imports));
     } catch (IOException e) {
@@ -173,7 +178,7 @@ public final class LtoBackendAction extends SpawnAction {
               importSet,
               bitcodeInputSet.toList().stream()
                   .map(Artifact::getExecPath)
-                  .collect(Collectors.toSet()));
+                  .collect(toImmutableSet()));
       String message =
           String.format(
               "error computing inputs from imports file: %s, missing bitcode files (first 10): %s",
@@ -183,7 +188,7 @@ public final class LtoBackendAction extends SpawnAction {
                   .map(Object::toString)
                   .sorted()
                   .limit(10)
-                  .collect(Collectors.joining(", ")));
+                  .collect(joining(", ")));
       DetailedExitCode code = createDetailedExitCode(message, Code.MISSING_BITCODE_FILES);
       throw new ActionExecutionException(message, this, false, code);
     }
@@ -225,7 +230,7 @@ public final class LtoBackendAction extends SpawnAction {
     try {
       fp.addStrings(getArguments());
     } catch (CommandLineExpansionException e) {
-      throw new AssertionError("LtoBackendAction command line expansion cannot fail");
+      throw new AssertionError("LtoBackendAction command line expansion cannot fail", e);
     }
     fp.addString(getMnemonic());
     fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
@@ -240,7 +245,7 @@ public final class LtoBackendAction extends SpawnAction {
       bitcodeFiles.addToFingerprint(fp);
       fp.addPath(imports.getExecPath());
     }
-    env.addTo(fp);
+    getEnvironment().addTo(fp);
     fp.addStringMap(getExecutionInfo());
   }
 
@@ -261,12 +266,10 @@ public final class LtoBackendAction extends SpawnAction {
         ActionOwner owner,
         NestedSet<Artifact> tools,
         NestedSet<Artifact> inputsAndTools,
-        ImmutableList<Artifact> outputs,
-        Artifact primaryOutput,
+        ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
         CommandLineLimits commandLineLimits,
-        boolean isShellCommand,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -278,11 +281,9 @@ public final class LtoBackendAction extends SpawnAction {
           bitcodeFiles,
           imports,
           outputs,
-          primaryOutput,
           owner,
           commandLines,
           commandLineLimits,
-          isShellCommand,
           env,
           executionInfo,
           progressMessage,

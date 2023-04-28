@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.Set;
@@ -36,7 +37,8 @@ import javax.annotation.Nullable;
 public class DirtinessCheckerUtils {
   private DirtinessCheckerUtils() {}
 
-  private static class FileDirtinessChecker extends SkyValueDirtinessChecker {
+  /** Checks dirtiness of file keys in the graph. */
+  public static class FileDirtinessChecker extends SkyValueDirtinessChecker {
     @Override
     public boolean applies(SkyKey skyKey) {
       return skyKey.functionName().equals(FILE_STATE);
@@ -57,7 +59,8 @@ public class DirtinessCheckerUtils {
     }
   }
 
-  private static class DirectoryDirtinessChecker extends SkyValueDirtinessChecker {
+  /** Checks dirtiness of directory keys in the graph. */
+  public static class DirectoryDirtinessChecker extends SkyValueDirtinessChecker {
     @Override
     public boolean applies(SkyKey skyKey) {
       return skyKey.functionName().equals(DIRECTORY_LISTING_STATE);
@@ -76,9 +79,8 @@ public class DirtinessCheckerUtils {
     }
   }
 
-  // Visible for testing, referenced only from tests and
-  // SequencedSkyframeExecutor#invalidateFilesUnderPathForTestingImpl.
-  static class BasicFilesystemDirtinessChecker extends SkyValueDirtinessChecker {
+  /** Checks dirtiness of filesystem keys in the graph. */
+  public static class BasicFilesystemDirtinessChecker extends SkyValueDirtinessChecker {
     private final FileDirtinessChecker fdc = new FileDirtinessChecker();
     private final DirectoryDirtinessChecker ddc = new DirectoryDirtinessChecker();
     private final UnionDirtinessChecker checker =
@@ -179,10 +181,10 @@ public class DirtinessCheckerUtils {
   }
 
   /** {@link SkyValueDirtinessChecker} that encompasses a union of other dirtiness checkers. */
-  static final class UnionDirtinessChecker extends SkyValueDirtinessChecker {
+  public static final class UnionDirtinessChecker extends SkyValueDirtinessChecker {
     private final Iterable<SkyValueDirtinessChecker> dirtinessCheckers;
 
-    UnionDirtinessChecker(Iterable<SkyValueDirtinessChecker> dirtinessCheckers) {
+    public UnionDirtinessChecker(Iterable<SkyValueDirtinessChecker> dirtinessCheckers) {
       this.dirtinessCheckers = dirtinessCheckers;
     }
 
@@ -217,6 +219,13 @@ public class DirtinessCheckerUtils {
         @Nullable TimestampGranularityMonitor tsgm) {
       return Preconditions.checkNotNull(getChecker(key), key)
           .check(key, oldValue, syscallCache, tsgm);
+    }
+
+    @Override
+    @Nullable
+    public Version getMaxTransitiveSourceVersionForNewValue(SkyKey key, SkyValue value) {
+      return Preconditions.checkNotNull(getChecker(key), key)
+          .getMaxTransitiveSourceVersionForNewValue(key, value);
     }
   }
 }

@@ -228,29 +228,37 @@ class TestWrapperTest(test_base.TestBase):
         executable=True)
 
   def _AssertPassingTest(self, flags):
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:passing_test',
-        '-t-',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:passing_test',
+            '-t-',
+        ]
+        + flags
+    )
 
   def _AssertFailingTest(self, flags):
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:failing_test',
-        '-t-',
-    ] + flags)
+    exit_code, _, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:failing_test',
+            '-t-',
+        ]
+        + flags,
+        allow_failure=True,
+    )
     self.AssertExitCode(exit_code, 3, stderr)
 
   def _AssertPrintingTest(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:printing_test',
-        '-t-',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:printing_test',
+            '-t-',
+            '--test_output=all',
+        ]
+        + flags
+    )
     lorem = False
     for line in stderr + stdout:
       if line.startswith('lorem ipsum'):
@@ -283,15 +291,17 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertRunfiles(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:runfiles_test',
-        '-t-',
-        '--test_output=all',
-        # Ensure Bazel does not create a runfiles tree.
-        '--enable_runfiles=no',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:runfiles_test',
+            '-t-',
+            '--test_output=all',
+            # Ensure Bazel does not create a runfiles tree.
+            '--enable_runfiles=no',
+        ]
+        + flags
+    )
     mf = mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
       if line.startswith('MF='):
@@ -329,15 +339,17 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertRunfilesSymlinks(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:runfiles_test',
-        '-t-',
-        '--test_output=all',
-        # Ensure Bazel creates a runfiles tree.
-        '--enable_runfiles=yes',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:runfiles_test',
+            '-t-',
+            '--test_output=all',
+            # Ensure Bazel creates a runfiles tree.
+            '--enable_runfiles=yes',
+        ]
+        + flags
+    )
     mf_only = rf_dir = path = exists = None
     for line in stderr + stdout:
       if line.startswith('ONLY='):
@@ -364,13 +376,15 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertShardedTest(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:sharded_test',
-        '-t-',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:sharded_test',
+            '-t-',
+            '--test_output=all',
+        ]
+        + flags
+    )
     status = None
     index_lines = []
     for line in stderr + stdout:
@@ -388,13 +402,15 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertUnexportsEnvvars(self, flags):
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:unexported_test',
-        '-t-',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:unexported_test',
+            '-t-',
+            '--test_output=all',
+        ]
+        + flags
+    )
     good = bad = None
     for line in stderr + stdout:
       if line.startswith('GOOD='):
@@ -405,16 +421,17 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(stderr + stdout)
 
   def _AssertTestBinaryLocation(self, flags):
-    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_bin, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = bazel_bin[0].replace('/', '\\')
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:print_arg0_test',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:print_arg0_test',
+            '--test_output=all',
+        ]
+        + flags
+    )
 
     arg0 = None
     for line in stderr + stdout:
@@ -426,13 +443,15 @@ class TestWrapperTest(test_base.TestBase):
     # The test binary should located at the bazel bin folder
     self.assertEqual(arg0, os.path.join(bazel_bin, 'foo\\print_arg0_test.bat'))
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:print_arg0_test',
-        '--test_output=all',
-        '--enable_runfiles',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:print_arg0_test',
+            '--test_output=all',
+            '--enable_runfiles',
+        ]
+        + flags
+    )
 
     arg0 = None
     for line in stderr + stdout:
@@ -449,21 +468,22 @@ class TestWrapperTest(test_base.TestBase):
     )
 
   def _AssertTestArgs(self, flags):
-    exit_code, bazel_bin, stderr = self.RunBazel(['info', 'bazel-bin'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_bin, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = bazel_bin[0]
 
-    exit_code, stdout, stderr = self.RunBazel([
-        'test',
-        '//foo:testargs_test',
-        '-t-',
-        '--test_output=all',
-        '--test_arg=baz',
-        '--test_arg="x y"',
-        '--test_arg=""',
-        '--test_arg=qux',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(
+        [
+            'test',
+            '//foo:testargs_test',
+            '-t-',
+            '--test_output=all',
+            '--test_arg=baz',
+            '--test_arg="x y"',
+            '--test_arg=""',
+            '--test_arg=qux',
+        ]
+        + flags
+    )
 
     actual = []
     for line in stderr + stdout:
@@ -491,18 +511,18 @@ class TestWrapperTest(test_base.TestBase):
         actual)
 
   def _AssertUndeclaredOutputs(self, flags):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:undecl_test',
-        '-t-',
-        '--test_output=errors',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:undecl_test',
+            '-t-',
+            '--test_output=errors',
+        ]
+        + flags
+    )
 
     undecl_zip = os.path.join(bazel_testlogs, 'foo', 'undecl_test',
                               'test.outputs', 'outputs.zip')
@@ -547,18 +567,18 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(mf_content)
 
   def _AssertUndeclaredOutputsAnnotations(self, flags):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:annot_test',
-        '-t-',
-        '--test_output=errors',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:annot_test',
+            '-t-',
+            '--test_output=errors',
+        ]
+        + flags
+    )
 
     undecl_annot = os.path.join(bazel_testlogs, 'foo', 'annot_test',
                                 'test.outputs_manifest', 'ANNOTATIONS')
@@ -570,19 +590,20 @@ class TestWrapperTest(test_base.TestBase):
     self.assertListEqual(annot_content, ['Hello aHello c'])
 
   def _AssertXmlGeneration(self, flags, split_xml=False):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:xml_test',
-        '-t-',
-        '--test_output=errors',
-        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:xml_test',
+            '-t-',
+            '--test_output=errors',
+            '--%sexperimental_split_xml_generation'
+            % ('' if split_xml else 'no'),
+        ]
+        + flags
+    )
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml_test', 'test.xml')
     self.assertTrue(os.path.exists(test_xml))
@@ -619,19 +640,20 @@ class TestWrapperTest(test_base.TestBase):
       self._FailWithOutput(xml_contents)
 
   def _AssertXmlGeneratedByTestIsRetained(self, flags, split_xml=False):
-    exit_code, bazel_testlogs, stderr = self.RunBazel(
-        ['info', 'bazel-testlogs'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, bazel_testlogs, _ = self.RunBazel(['info', 'bazel-testlogs'])
     bazel_testlogs = bazel_testlogs[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:xml2_test',
-        '-t-',
-        '--test_output=errors',
-        '--%sexperimental_split_xml_generation' % ('' if split_xml else 'no'),
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:xml2_test',
+            '-t-',
+            '--test_output=errors',
+            '--%sexperimental_split_xml_generation'
+            % ('' if split_xml else 'no'),
+        ]
+        + flags
+    )
 
     test_xml = os.path.join(bazel_testlogs, 'foo', 'xml2_test', 'test.xml')
     self.assertTrue(os.path.exists(test_xml))
@@ -678,12 +700,14 @@ class TestWrapperTest(test_base.TestBase):
           ] + stderr)
 
   def _AssertAddCurrentDirectoryToPathTest(self, flags):
-    exit_code, _, stderr = self.RunBazel([
-        'test',
-        '//foo:add_cur_dir_to_path_test',
-        '--test_output=all',
-    ] + flags)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        [
+            'test',
+            '//foo:add_cur_dir_to_path_test',
+            '--test_output=all',
+        ]
+        + flags
+    )
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()

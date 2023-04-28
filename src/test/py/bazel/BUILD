@@ -56,7 +56,7 @@ py_test(
 
 py_test(
     name = "cc_import_test",
-    size = "medium",
+    size = "large",
     srcs = ["cc_import_test.py"],
     deps = [":test_base"],
 )
@@ -65,7 +65,6 @@ py_test(
     name = "py_test",
     size = "large",
     srcs = ["py_test.py"],
-    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -85,7 +84,7 @@ py_test(
 
 py_test(
     name = "bazel_external_repository_test",
-    size = "medium",
+    size = "large",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
     tags = [
@@ -151,7 +150,6 @@ py_test(
     name = "launcher_test",
     size = "large",
     srcs = ["launcher_test.py"],
-    shard_count = 5,
     deps = [":test_base"],
 )
 
@@ -269,7 +267,58 @@ py_test(
     size = "large",
     timeout = "eternal",
     srcs = ["bzlmod/bazel_module_test.py"],
-    shard_count = 5,
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_lockfile_test",
+    size = "medium",
+    srcs = ["bzlmod/bazel_lockfile_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_overrides_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_overrides_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_repo_mapping_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_repo_mapping_test.py"],
+    tags = [
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)
+
+py_test(
+    name = "bazel_yanked_versions_test",
+    size = "large",
+    srcs = ["bzlmod/bazel_yanked_versions_test.py"],
     tags = [
         "requires-network",
     ],

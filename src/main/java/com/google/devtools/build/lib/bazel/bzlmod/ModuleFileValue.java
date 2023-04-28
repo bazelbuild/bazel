@@ -36,14 +36,17 @@ public abstract class ModuleFileValue implements SkyValue {
    * module might not match the one in the requesting {@link SkyKey} in certain circumstances (for
    * example, for the root module, or when non-registry overrides are in play.
    */
-  public abstract Module getModule();
+  public abstract InterimModule getModule();
+
+  /** The hash string of Module.bazel (using SHA256) */
+  public abstract String getModuleFileHash();
 
   /** The {@link ModuleFileValue} for non-root modules. */
   @AutoValue
   public abstract static class NonRootModuleFileValue extends ModuleFileValue {
 
-    public static NonRootModuleFileValue create(Module module) {
-      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module);
+    public static NonRootModuleFileValue create(InterimModule module, String moduleFileHash) {
+      return new AutoValue_ModuleFileValue_NonRootModuleFileValue(module, moduleFileHash);
     }
   }
 
@@ -53,10 +56,6 @@ public abstract class ModuleFileValue implements SkyValue {
    */
   @AutoValue
   public abstract static class RootModuleFileValue extends ModuleFileValue {
-
-    /** The hash string of Module.bazel (using SHA256) */
-    public abstract String getModuleFileHash();
-
     /**
      * The overrides specified by the evaluated module file. The key is the module name and the
      * value is the override itself.
@@ -71,12 +70,12 @@ public abstract class ModuleFileValue implements SkyValue {
         getNonRegistryOverrideCanonicalRepoNameLookup();
 
     public static RootModuleFileValue create(
-        Module module,
-        String moduleHash,
+        InterimModule module,
+        String moduleFileHash,
         ImmutableMap<String, ModuleOverride> overrides,
         ImmutableMap<RepositoryName, String> nonRegistryOverrideCanonicalRepoNameLookup) {
       return new AutoValue_ModuleFileValue_RootModuleFileValue(
-          module, moduleHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
+          module, moduleFileHash, overrides, nonRegistryOverrideCanonicalRepoNameLookup);
     }
   }
 

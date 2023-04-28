@@ -14,10 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.extra;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -27,8 +25,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -55,9 +53,7 @@ public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
   private final NestedSet<Artifact> extraActionInputs;
-
-  public static final Function<ExtraAction, Action> GET_SHADOWED_ACTION =
-      e -> e != null ? e.getShadowedAction() : null;
+  private boolean inputsDiscovered = false;
 
   ExtraAction(
       NestedSet<Artifact> extraActionInputs,
@@ -78,19 +74,14 @@ public final class ExtraAction extends SpawnAction {
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             extraActionInputs),
         outputs,
-        Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
         CommandLines.of(argv),
         CommandLineLimits.UNLIMITED,
-        false,
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         CompositeRunfilesSupplier.of(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
-        false,
-        null,
-        null,
         /*stripOutputPaths=*/ false);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
@@ -105,6 +96,16 @@ public final class ExtraAction extends SpawnAction {
   @Override
   public boolean discoversInputs() {
     return shadowedAction.discoversInputs();
+  }
+
+  @Override
+  protected boolean inputsDiscovered() {
+    return inputsDiscovered;
+  }
+
+  @Override
+  protected void setInputsDiscovered(boolean inputsDiscovered) {
+    this.inputsDiscovered = inputsDiscovered;
   }
 
   /**
@@ -128,7 +129,7 @@ public final class ExtraAction extends SpawnAction {
     updateInputs(
         createInputs(shadowedAction.getInputs(), inputFilesForExtraAction, extraActionInputs));
     return NestedSetBuilder.wrap(
-        Order.STABLE_ORDER, Sets.<Artifact>difference(getInputs().toSet(), oldInputs.toSet()));
+        Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
   }
 
   private static NestedSet<Artifact> createInputs(

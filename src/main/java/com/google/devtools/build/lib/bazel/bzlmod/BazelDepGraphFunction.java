@@ -19,23 +19,22 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableTable;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BazelModuleResolutionFunctionException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.LabelConverter;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -43,8 +42,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
-import net.starlark.java.eval.StarlarkSemantics;
 
 /**
  * This function runs Bazel module resolution, extracts the dependency graph from it and creates a
@@ -54,34 +55,29 @@ import net.starlark.java.eval.StarlarkSemantics;
 public class BazelDepGraphFunction implements SkyFunction {
 
   private final Path rootDirectory;
-  private final RegistryFactory registryFactory;
 
-  public BazelDepGraphFunction(Path rootDirectory, RegistryFactory registryFactory) {
+  public BazelDepGraphFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
-    this.registryFactory = registryFactory;
   }
 
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
       return null;
     }
-    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    if (starlarkSemantics == null) {
-      return null;
-    }
+    LockfileMode lockfileMode = BazelLockFileFunction.LOCKFILE_MODE.get(env);
 
+    ImmutableMap<String, String> localOverrideHashes = null;
     ImmutableMap<ModuleKey, Module> depGraph = null;
     BzlmodFlagsAndEnvVars flags = null;
 
     // If the module has not changed (has the same contents and flags as the lockfile),
     // read the dependency graph from the lock file, else run resolution and update lockfile
-    if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_LOCKFILE)) {
+    if (!lockfileMode.equals(LockfileMode.OFF)) {
       BazelLockFileValue lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
       if (lockFile == null) {
         return null;
@@ -90,9 +86,24 @@ public class BazelDepGraphFunction implements SkyFunction {
       if (flags == null) { // unable to read environment variables
         return null;
       }
+      localOverrideHashes = getLocalOverridesHashes(root.getOverrides(), env);
+      if (localOverrideHashes == null) { // trying to read override module
+        return null;
+      }
+
       if (root.getModuleFileHash().equals(lockFile.getModuleFileHash())
-          && flags.equals(lockFile.getFlags())) {
+          && flags.equals(lockFile.getFlags())
+          && localOverrideHashes.equals(lockFile.getLocalOverrideHashes())) {
         depGraph = lockFile.getModuleDepGraph();
+      } else if (lockfileMode.equals(LockfileMode.ERROR)) {
+        List<String> diffLockfile =
+            lockFile.getDiffLockfile(root.getModuleFileHash(), localOverrideHashes, flags);
+        throw new BazelDepGraphFunctionException(
+            ExternalDepsException.withMessage(
+                Code.BAD_MODULE,
+                "Lock file is no longer up-to-date because: %s",
+                String.join(", ", diffLockfile)),
+            Transience.PERSISTENT);
       }
     }
 
@@ -103,9 +114,9 @@ public class BazelDepGraphFunction implements SkyFunction {
         return null;
       }
       depGraph = selectionResult.getResolvedDepGraph();
-      if (starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_LOCKFILE)) {
+      if (lockfileMode.equals(LockfileMode.UPDATE)) {
         BazelLockFileFunction.updateLockedModule(
-            root.getModuleFileHash(), depGraph, rootDirectory, registryFactory, flags);
+            rootDirectory, root.getModuleFileHash(), flags, localOverrideHashes, depGraph);
       }
     }
 
@@ -128,8 +139,29 @@ public class BazelDepGraphFunction implements SkyFunction {
   }
 
   @Nullable
-  public static BzlmodFlagsAndEnvVars getFlagsAndEnvVars(Environment env)
-      throws InterruptedException {
+  @VisibleForTesting
+  static ImmutableMap<String, String> getLocalOverridesHashes(
+      Map<String, ModuleOverride> overrides, Environment env) throws InterruptedException {
+    ImmutableMap.Builder<String, String> localOverrideHashes = new ImmutableMap.Builder<>();
+    for (Entry<String, ModuleOverride> entry : overrides.entrySet()) {
+      if (entry.getValue() instanceof LocalPathOverride) {
+        ModuleFileValue moduleValue =
+            (ModuleFileValue)
+                env.getValue(
+                    ModuleFileValue.key(
+                        ModuleKey.create(entry.getKey(), Version.EMPTY), entry.getValue()));
+        if (moduleValue == null) {
+          return null;
+        }
+        localOverrideHashes.put(entry.getKey(), moduleValue.getModuleFileHash());
+      }
+    }
+    return localOverrideHashes.buildOrThrow();
+  }
+
+  @VisibleForTesting
+  @Nullable
+  static BzlmodFlagsAndEnvVars getFlagsAndEnvVars(Environment env) throws InterruptedException {
     ClientEnvironmentValue allowedYankedVersionsFromEnv =
         (ClientEnvironmentValue)
             env.getValue(
@@ -169,7 +201,7 @@ public class BazelDepGraphFunction implements SkyFunction {
    * all usages by the label + name (the ModuleExtensionId).
    */
   private ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> getExtensionUsagesById(
-      ImmutableMap<ModuleKey, Module> depGraph) throws BazelModuleResolutionFunctionException {
+      ImmutableMap<ModuleKey, Module> depGraph) throws BazelDepGraphFunctionException {
     ImmutableTable.Builder<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
         extensionUsagesTableBuilder = ImmutableTable.builder();
     for (Module module : depGraph.values()) {
@@ -184,7 +216,7 @@ public class BazelDepGraphFunction implements SkyFunction {
               ModuleExtensionId.create(
                   labelConverter.convert(usage.getExtensionBzlFile()), usage.getExtensionName());
         } catch (LabelSyntaxException e) {
-          throw new BazelModuleResolutionFunctionException(
+          throw new BazelDepGraphFunctionException(
               ExternalDepsException.withCauseAndMessage(
                   Code.BAD_MODULE,
                   e,
@@ -193,7 +225,7 @@ public class BazelDepGraphFunction implements SkyFunction {
               Transience.PERSISTENT);
         }
         if (!moduleExtensionId.getBzlFileLabel().getRepository().isVisible()) {
-          throw new BazelModuleResolutionFunctionException(
+          throw new BazelDepGraphFunctionException(
               ExternalDepsException.withMessage(
                   Code.BAD_MODULE,
                   "invalid label for module extension found at %s: no repo visible as '@%s' here",
@@ -226,5 +258,11 @@ public class BazelDepGraphFunction implements SkyFunction {
       }
     }
     return ImmutableBiMap.copyOf(extensionUniqueNames);
+  }
+
+  static class BazelDepGraphFunctionException extends SkyFunctionException {
+    BazelDepGraphFunctionException(ExternalDepsException e, Transience transience) {
+      super(e, transience);
+    }
   }
 }

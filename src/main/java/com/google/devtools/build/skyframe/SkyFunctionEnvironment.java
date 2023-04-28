@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
@@ -757,6 +758,12 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment
 
   @Override
   public void handle(Event event) {
+    if (event.getKind() == EventKind.WARNING) {
+      event = event.withTag(getTagFromKey());
+      if (!evaluatorContext.getEmittedEventState().addWarning(event)) {
+        return; // Duplicate warning.
+      }
+    }
     reportEvent(event);
   }
 

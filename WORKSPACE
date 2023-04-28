@@ -1,8 +1,9 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
-load("//:distdir.bzl", "dist_http_archive", "dist_http_file", "distdir_tar")
+load("//:distdir.bzl", "dist_http_archive", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
+load("//:repositories.bzl", "embedded_jdk_repositories")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
 # of http_archive, in order to export the WORKSPACE file from the BUILD or
@@ -22,12 +23,22 @@ EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE = [
     "echo 'exports_files([\"WORKSPACE\"], visibility = [\"//visibility:public\"])' >> BUILD.bazel",
 ]
 
+EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE = [
+    "test -f BUILD && chmod u+w BUILD || true",
+    "echo >> BUILD",
+    "echo 'exports_files([\"WORKSPACE.bazel\"], visibility = [\"//visibility:public\"])' >> BUILD",
+]
+
 EXPORT_WORKSPACE_IN_BUILD_FILE_WIN = [
     "Add-Content -Path BUILD -Value \"`nexports_files([`\"WORKSPACE`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
 ]
 
 EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN = [
     "Add-Content -Path BUILD.bazel -Value \"`nexports_files([`\"WORKSPACE`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
+]
+
+EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE_WIN = [
+    "Add-Content -Path BUILD -Value \"`nexports_files([`\"WORKSPACE.bazel`\"], visibility = [`\"//visibility:public`\"])`n\" -Force",
 ]
 
 # Protobuf expects an //external:python_headers label which would contain the
@@ -134,46 +145,7 @@ distdir_tar(
     },
 )
 
-# OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK.
-dist_http_file(
-    name = "openjdk_linux_vanilla",
-    downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_linux_aarch64_vanilla",
-    downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_linux_ppc64le_vanilla",
-    downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_linux_s390x_vanilla",
-    downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_macos_x86_64_vanilla",
-    downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_macos_aarch64_vanilla",
-    downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-)
-
-dist_http_file(
-    name = "openjdk_win_vanilla",
-    downloaded_file_path = "zulu-win-vanilla.zip",
-)
-
-dist_http_file(
-    name = "openjdk_win_arm64_vanilla",
-    downloaded_file_path = "zulu-win-arm64.zip",
-)
+embedded_jdk_repositories()
 
 dist_http_archive(
     name = "bazelci_rules",
@@ -403,8 +375,8 @@ dist_http_archive(
         patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
         patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     )
-    for version in ("17", "19")
-    for os in ("linux", "linux_s390x", "macos", "macos_aarch64", "win") + (("win_arm64",) if version != "19" else ())
+    for version in ("17", "20")
+    for os in ("linux", "macos", "macos_aarch64", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
 ]
 
 # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -539,8 +511,8 @@ java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility
 exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     )
-    for version in ("17", "19")
-    for os in ("linux", "linux_s390x", "darwin", "darwin_aarch64", "windows") + (("windows_arm64",) if version != "19" else ())
+    for version in ("17", "20")
+    for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("linux_s390x", "windows_arm64",) if version != "20" else ())
 ]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
@@ -604,6 +576,12 @@ dist_http_archive(
     name = "rules_jvm_external",
 )
 
+dist_http_archive(
+    name = "rules_testing",
+    patch_cmds = EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_BAZEL_IN_BUILD_FILE_WIN,
+)
+
 # Projects using gRPC as an external dependency must call both grpc_deps() and
 # grpc_extra_deps().
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
@@ -635,7 +613,7 @@ load("@rules_jvm_external//:specs.bzl", "maven")
 
 maven_install(
     artifacts = [
-        "com.beust:jcommander:1.48",
+        "com.beust:jcommander:1.82",
         "com.github.ben-manes.caffeine:caffeine:3.0.5",
         "com.github.kevinstern:software-and-algorithms:1.0",
         "com.github.stephenc.jcip:jcip-annotations:1.0-1",
@@ -726,19 +704,60 @@ maven_install(
         "org.pcollections:pcollections:3.1.4",
         "org.threeten:threeten-extra:1.5.0",
         "org.tukaani:xz:1.9",
+        "tools.profiler:async-profiler:2.9",
         # The following jars are for testing.
         # junit is not test only due to //src/java_tools/junitrunner/java/com/google/testing/junit/junit4:runner,
         # and hamcrest is a dependency of junit.
         "junit:junit:4.13.2",
         "org.hamcrest:hamcrest-core:1.3",
-        maven.artifact("com.google.guava", "guava-testlib", "31.1-jre", testonly = True),
-        maven.artifact("com.google.jimfs", "jimfs", "1.2", testonly = True),
-        maven.artifact("com.google.testing.compile", "compile-testing", "0.18", testonly = True),
-        maven.artifact("com.google.truth", "truth", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-java8-extension", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-liteproto-extension", "1.1.3", testonly = True),
-        maven.artifact("com.google.truth.extensions", "truth-proto-extension", "1.1.3", testonly = True),
-        maven.artifact("org.mockito", "mockito-core", "3.12.4", testonly = True),
+        maven.artifact(
+            "com.google.guava",
+            "guava-testlib",
+            "31.1-jre",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.jimfs",
+            "jimfs",
+            "1.2",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.testing.compile",
+            "compile-testing",
+            "0.18",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth",
+            "truth",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-java8-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-liteproto-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "com.google.truth.extensions",
+            "truth-proto-extension",
+            "1.1.3",
+            testonly = True,
+        ),
+        maven.artifact(
+            "org.mockito",
+            "mockito-core",
+            "3.12.4",
+            testonly = True,
+        ),
     ],
     excluded_artifacts = [
         # org.apache.httpcomponents and org.eclipse.jgit:org.eclipse.jgit
@@ -750,7 +769,7 @@ maven_install(
         "com.google.protobuf:protobuf-java",
         "com.google.protobuf:protobuf-javalite",
     ],
-    fail_if_repin_required = True,
+    fail_if_repin_required = False,
     maven_install_json = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",

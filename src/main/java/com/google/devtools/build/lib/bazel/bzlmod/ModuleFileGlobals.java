@@ -24,7 +24,10 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
+import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileGlobals.ModuleExtensionUsageBuilder.ModuleExtensionProxy;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -51,7 +54,7 @@ import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.MODULE)
 public class ModuleFileGlobals {
 
   /* Valid bazel compatibility argument must 1) start with (<,<=,>,>=,-);
@@ -63,8 +66,8 @@ public class ModuleFileGlobals {
   private boolean moduleCalled = false;
   private boolean hadNonModuleCall = false;
   private final boolean ignoreDevDeps;
-  private final Module.Builder module;
-  private final Map<String, ModuleKey> deps = new LinkedHashMap<>();
+  private final InterimModule.Builder module;
+  private final Map<String, DepSpec> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
   private final Map<String, ModuleOverride> overrides = new HashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
@@ -74,7 +77,7 @@ public class ModuleFileGlobals {
       ModuleKey key,
       @Nullable Registry registry,
       boolean ignoreDevDeps) {
-    module = Module.builder().setKey(key).setRegistry(registry);
+    module = InterimModule.builder().setKey(key).setRegistry(registry);
     this.ignoreDevDeps = ignoreDevDeps;
     if (ModuleKey.ROOT.equals(key)) {
       overrides.putAll(builtinModules);
@@ -84,7 +87,7 @@ public class ModuleFileGlobals {
         // The built-in module does not depend on itself.
         continue;
       }
-      deps.put(builtinModule, ModuleKey.create(builtinModule, Version.EMPTY));
+      deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
       try {
         addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
       } catch (EvalException e) {
@@ -282,6 +285,16 @@ public class ModuleFileGlobals {
             positional = false,
             defaultValue = "''"),
         @Param(
+            name = "max_compatibility_level",
+            doc =
+                "The maximum <code>compatibility_level</code> supported for the module to be added"
+                    + " as a direct dependency. The version of the module implies the minimum"
+                    + " compatibility_level supported, as well as the maximum if this attribute is"
+                    + " not specified.",
+            named = true,
+            positional = false,
+            defaultValue = "-1"),
+        @Param(
             name = "repo_name",
             doc =
                 "The name of the external repo representing this dependency. This is by default the"
@@ -300,7 +313,12 @@ public class ModuleFileGlobals {
       },
       useStarlarkThread = true)
   public void bazelDep(
-      String name, String version, String repoName, boolean devDependency, StarlarkThread thread)
+      String name,
+      String version,
+      StarlarkInt maxCompatibilityLevel,
+      String repoName,
+      boolean devDependency,
+      StarlarkThread thread)
       throws EvalException {
     hadNonModuleCall = true;
     if (repoName.isEmpty()) {
@@ -316,7 +334,10 @@ public class ModuleFileGlobals {
     RepositoryName.validateUserProvidedRepoName(repoName);
 
     if (!(ignoreDevDeps && devDependency)) {
-      deps.put(repoName, ModuleKey.create(name, parsedVersion));
+      deps.put(
+          repoName,
+          DepSpec.create(
+              name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
     addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
@@ -434,6 +455,7 @@ public class ModuleFileGlobals {
     private final String extensionName;
     private final Location location;
     private final HashBiMap<String, String> imports;
+    private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(String extensionBzlFile, String extensionName, Location location) {
@@ -441,6 +463,7 @@ public class ModuleFileGlobals {
       this.extensionName = extensionName;
       this.location = location;
       this.imports = HashBiMap.create();
+      this.devImports = ImmutableSet.builder();
       this.tags = ImmutableList.builder();
     }
 
@@ -448,8 +471,10 @@ public class ModuleFileGlobals {
       return ModuleExtensionUsage.builder()
           .setExtensionBzlFile(extensionBzlFile)
           .setExtensionName(extensionName)
+          .setUsingModule(module.getKey())
           .setLocation(location)
           .setImports(ImmutableBiMap.copyOf(imports))
+          .setDevImports(devImports.build())
           .setTags(tags.build())
           .build();
     }
@@ -483,6 +508,9 @@ public class ModuleFileGlobals {
               exportedName, extensionName, repoNameUsages.get(collisionRepoName).getWhere());
         }
         imports.put(localRepoName, exportedName);
+        if (devDependency) {
+          devImports.add(exportedName);
+        }
       }
 
       @Nullable
@@ -499,7 +527,7 @@ public class ModuleFileGlobals {
             tags.add(
                 Tag.builder()
                     .setTagName(tagName)
-                    .setAttributeValues(kwargs)
+                    .setAttributeValues(AttributeValues.create(kwargs))
                     .setDevDependency(devDependency)
                     .setLocation(thread.getCallerLocation())
                     .build());
@@ -874,7 +902,7 @@ public class ModuleFileGlobals {
     addOverride(moduleName, LocalPathOverride.create(path));
   }
 
-  public Module buildModule() {
+  public InterimModule buildModule() {
     return module
         .setDeps(ImmutableMap.copyOf(deps))
         .setOriginalDeps(ImmutableMap.copyOf(deps))

@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -129,7 +129,7 @@ public class CommandEnvironment {
   private final Object fileCacheLock = new Object();
 
   @GuardedBy("fileCacheLock")
-  private MetadataProvider fileCache;
+  private InputMetadataProvider fileCache;
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -433,12 +433,15 @@ public class CommandEnvironment {
    * This should be the source of truth for whether this build should be run with merged analysis
    * and execution phases.
    */
-  public boolean withMergedAnalysisAndExecution() {
+  public boolean withMergedAnalysisAndExecutionSourceOfTruth() {
     return mergedAnalysisAndExecution;
   }
 
   public void setMergedAnalysisAndExecution(boolean value) {
     mergedAnalysisAndExecution = value;
+    getSkyframeExecutor()
+        .setMergedSkyframeAnalysisExecutionSupplier(
+            this::withMergedAnalysisAndExecutionSourceOfTruth);
   }
 
   private Map<String, String> filterClientEnv(Set<String> vars) {
@@ -540,9 +543,11 @@ public class CommandEnvironment {
   /**
    * Returns the working directory of the server.
    *
-   * <p>This is often the first entry on the {@code --package_path}, but not always.
-   * Callers should certainly not make this assumption. The Path returned may be null.
+   * <p>This is often the first entry on the {@code --package_path}, but not always. Callers should
+   * certainly not make this assumption. The Path returned may be null; for example, when the
+   * command is invoked outside a workspace.
    */
+  @Nullable
   public Path getWorkspace() {
     return getDirectories().getWorkingDirectory();
   }
@@ -812,7 +817,7 @@ public class CommandEnvironment {
   }
 
   /** Returns the file cache to use during this build. */
-  public MetadataProvider getFileCache() {
+  public InputMetadataProvider getFileCache() {
     synchronized (fileCacheLock) {
       if (fileCache == null) {
         fileCache =

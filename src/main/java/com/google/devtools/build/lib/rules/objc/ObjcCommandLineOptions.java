@@ -63,7 +63,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.TEST_RUNNER},
       help =
-          "The device to simulate when running an watchOS application in the simulator, e.g. "
+          "The device to simulate when running a watchOS application in the simulator, e.g. "
               + "'Apple Watch - 38mm'. You can get a list of devices by running 'xcrun simctl list "
               + "devicetypes' on the machine the simulator will be run on.")
   public String watchosSimulatorDevice;
@@ -83,7 +83,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.TEST_RUNNER},
       help =
-          "The device to simulate when running an tvOS application in the simulator, e.g. "
+          "The device to simulate when running a tvOS application in the simulator, e.g. "
               + "'Apple TV 1080p'. You can get a list of devices by running 'xcrun simctl list "
               + "devicetypes' on the machine the simulator will be run on.")
   public String tvosSimulatorDevice;

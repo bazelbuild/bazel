@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
+import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
-import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
@@ -69,13 +69,16 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -102,9 +105,9 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
-import com.google.devtools.build.lib.skyframe.PrerequisiteProducer.ComputedToolchainContexts;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -339,7 +342,7 @@ public class BuildViewForTesting {
           config = (BuildConfigurationValue) graph.getValue(ct.getConfigurationKey());
         }
         PackageValue packageValue =
-            (PackageValue) graph.getValue(PackageValue.key(ct.getLabel().getPackageIdentifier()));
+            (PackageValue) graph.getValue(ct.getLabel().getPackageIdentifier());
         return new ConfiguredTargetAndData(
             ct,
             packageValue.getPackage().getTarget(ct.getLabel().getName()),
@@ -637,17 +640,31 @@ public class BuildViewForTesting {
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
+    var state = new PrerequisiteProducer.State();
+    state.targetAndConfiguration =
+        new TargetAndConfiguration(target.getAssociatedRule(), targetConfig);
+    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
 
-    ComputedToolchainContexts result =
-        PrerequisiteProducer.computeUnloadedToolchainContexts(
-            skyfunctionEnvironment,
-            ruleClassProvider,
-            new TargetAndConfiguration(target.getAssociatedRule(), targetConfig),
-            null);
-
+    DependencyContext result;
+    try {
+      result =
+          getDependencyContext(
+              state,
+              /* parentExecutionPlatformLabel= */ null,
+              transitiveRootCauses,
+              /* transitivePackages= */ null,
+              ruleClassProvider,
+              skyfunctionEnvironment);
+    } catch (ConfiguredValueCreationException
+        | IncompatibleTargetException
+        | DependencyEvaluationException e) {
+      throw new IllegalStateException(e);
+    }
+    if (!transitiveRootCauses.isEmpty()) {
+      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+    }
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
-        result.toolchainCollection;
-    ExecGroupCollection.Builder execGroupCollectionBuilder = result.execGroupCollectionBuilder;
+        result.unloadedToolchainContexts();
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
@@ -668,7 +685,7 @@ public class BuildViewForTesting {
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 
-    return new RuleContext.Builder(env, target, /*aspects=*/ ImmutableList.of(), targetConfig)
+    return new RuleContext.Builder(env, target, /* aspects= */ ImmutableList.of(), targetConfig)
         .setRuleClassProvider(ruleClassProvider)
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
@@ -681,7 +698,7 @@ public class BuildViewForTesting {
         .setPrerequisites(ConfiguredTargetFactory.transformPrerequisiteMap(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())
-        .setExecGroupCollectionBuilder(execGroupCollectionBuilder)
+        .setExecGroupCollectionBuilder(state.execGroupCollectionBuilder)
         .unsafeBuild();
   }
 

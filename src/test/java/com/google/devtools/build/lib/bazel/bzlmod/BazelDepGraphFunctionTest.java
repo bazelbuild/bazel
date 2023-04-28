@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createRepositoryMapping;
 import static org.junit.Assert.fail;
@@ -25,12 +26,14 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -122,12 +125,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     SkyFunctions.MODULE_FILE,
                     new ModuleFileFunction(registryFactory, rootDirectory, ImmutableMap.of()))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(
-                    SkyFunctions.BAZEL_LOCK_FILE,
-                    new BazelLockFileFunction(rootDirectory, registryFactory))
-                .put(
-                    SkyFunctions.BAZEL_DEP_GRAPH,
-                    new BazelDepGraphFunction(rootDirectory, registryFactory))
+                .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
+                .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
                 .put(
                     SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
@@ -139,9 +138,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     PrecomputedValue.STARLARK_SEMANTICS.set(
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
-        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_LOCKFILE, true).build());
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.UPDATE);
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
@@ -149,6 +146,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         differencer, CheckDirectDepsMode.OFF);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
         differencer, BazelCompatibilityMode.ERROR);
+    BazelLockFileFunction.LOCKFILE_MODE.set(differencer, LockfileMode.OFF);
     BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
   }
 
@@ -165,9 +163,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         ImmutableMap.<ModuleKey, Module>builder()
             .put(
                 ModuleKey.ROOT,
-                Module.builder()
-                    .setName("my_root")
-                    .setVersion(Version.parse("1.0"))
+                buildModule("my_root", "1.0")
                     .setKey(ModuleKey.ROOT)
                     .addDep("my_dep_1", createModuleKey("dep", "1.0"))
                     .addDep("my_dep_2", createModuleKey("dep", "2.0"))
@@ -175,33 +171,14 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                     .build())
             .put(
                 createModuleKey("dep", "1.0"),
-                Module.builder()
-                    .setName("dep")
-                    .setVersion(Version.parse("1.0"))
-                    .setKey(createModuleKey("dep", "1.0"))
+                buildModule("dep", "1.0")
                     .addDep("rules_java", createModuleKey("rules_java", ""))
                     .build())
-            .put(
-                createModuleKey("dep", "2.0"),
-                Module.builder()
-                    .setName("dep")
-                    .setVersion(Version.parse("2.0"))
-                    .setKey(createModuleKey("dep", "2.0"))
-                    .build())
-            .put(
-                createModuleKey("rules_cc", "1.0"),
-                Module.builder()
-                    .setName("rules_cc")
-                    .setVersion(Version.parse("1.0"))
-                    .setKey(createModuleKey("rules_cc", "1.0"))
-                    .build())
+            .put(createModuleKey("dep", "2.0"), buildModule("dep", "2.0").build())
+            .put(createModuleKey("rules_cc", "1.0"), buildModule("rules_cc", "1.0").build())
             .put(
                 createModuleKey("rules_java", ""),
-                Module.builder()
-                    .setName("rules_java")
-                    .setVersion(Version.parse("1.0"))
-                    .setKey(createModuleKey("rules_java", ""))
-                    .build())
+                buildModule("rules_java", "1.0").setKey(createModuleKey("rules_java", "")).build())
             .buildOrThrow();
 
     resolutionFunctionMock.setDepGraph(depGraph);
@@ -238,6 +215,8 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
         .setImports(importsBuilder.buildOrThrow())
+        .setDevImports(ImmutableSet.of())
+        .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
         .build();
   }
@@ -249,9 +228,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         "module(name='my_root', version='1.0')");
 
     Module root =
-        Module.builder()
-            .setName("root")
-            .setVersion(Version.parse("1.0"))
+        buildModule("root", "1.0")
             .setKey(ModuleKey.ROOT)
             .addDep("rje", createModuleKey("rules_jvm_external", "1.0"))
             .addDep("rpy", createModuleKey("rules_python", "2.0"))
@@ -262,9 +239,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             .build();
     ModuleKey depKey = createModuleKey("dep", "2.0");
     Module dep =
-        Module.builder()
-            .setName("dep")
-            .setVersion(Version.parse("2.0"))
+        buildModule("dep", "2.0")
             .setKey(depKey)
             .addDep("rules_python", createModuleKey("rules_python", "2.0"))
             .addExtensionUsage(
@@ -353,7 +328,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         "module(name='module', version='1.0')");
 
     Module root =
-        Module.builder()
+        buildModule("module", "1.0")
             .addExtensionUsage(createModuleExtensionUsage("@foo//:defs.bzl", "bar"))
             .build();
     ImmutableMap<ModuleKey, Module> depGraph = ImmutableMap.of(ModuleKey.ROOT, root);

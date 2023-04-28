@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.DocCategory;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -25,12 +28,13 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.StarlarkValue;
 
 /**
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@DocumentMethods
+@GlobalMethods(environment = Environment.BZL)
 public interface RepositoryModuleApi {
 
   @StarlarkMethod(
@@ -43,8 +47,8 @@ public interface RepositoryModuleApi {
             name = "implementation",
             named = true,
             doc =
-                "the function that implements this rule. Must have a single parameter,"
-                    + " <code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The"
+                "the function that implements this rule. Must have a single parameter, <code><a"
+                    + " href=\"../builtins/repository_ctx.html\">repository_ctx</a></code>. The"
                     + " function is called during the loading phase for each instance of the"
                     + " rule."),
         @Param(
@@ -56,7 +60,7 @@ public interface RepositoryModuleApi {
             defaultValue = "None",
             doc =
                 "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                    + "name to an attribute object (see <a href=\"attr.html\">attr</a> "
+                    + "name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a> "
                     + "module). Attributes starting with <code>_</code> are private, and can be "
                     + "used to add an implicit dependency on a label to a file (a repository "
                     + "rule cannot depend on a generated artifact). The attribute "
@@ -117,6 +121,83 @@ public interface RepositoryModuleApi {
       String doc,
       StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "module_extension",
+      doc =
+          "Creates a new module extension. Store it in a global value, so that it can be exported"
+              + " and used in a MODULE.bazel file.",
+      parameters = {
+        @Param(
+            name = "implementation",
+            named = true,
+            doc =
+                "The function that implements this module extension. Must take a single parameter,"
+                    + " <code><a href=\"../builtins/module_ctx.html\">module_ctx</a></code>. The"
+                    + " function is called once at the beginning of a build to determine the set of"
+                    + " available repos."),
+        @Param(
+            name = "tag_classes",
+            defaultValue = "{}",
+            doc =
+                "A dictionary to declare all the tag classes used by the extension. It maps from"
+                    + " the name of the tag class to a <code><a"
+                    + " href=\"../builtins/tag_class.html\">tag_class</a></code> object.",
+            named = true,
+            positional = false),
+        @Param(
+            name = "doc",
+            defaultValue = "''",
+            doc =
+                "A description of the module extension that can be extracted by documentation"
+                    + " generating tools.",
+            named = true,
+            positional = false)
+      },
+      useStarlarkThread = true)
+  Object moduleExtension(
+      StarlarkCallable implementation,
+      Dict<?, ?> tagClasses, // Dict<String, TagClassApi>
+      String doc,
+      StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "tag_class",
+      doc =
+          "Creates a new tag_class object, which defines an attribute schema for a class of tags,"
+              + " which are data objects usable by a module extension.",
+      parameters = {
+        @Param(
+            name = "attrs",
+            defaultValue = "{}",
+            named = true,
+            doc =
+                "A dictionary to declare all the attributes of this tag class. It maps from an"
+                    + " attribute name to an attribute object (see <a"
+                    + " href=\"../toplevel/attr.html\">attr</a> module)."),
+        @Param(
+            name = "doc",
+            defaultValue = "''",
+            doc =
+                "A description of the tag class that can be extracted by documentation"
+                    + " generating tools.",
+            named = true,
+            positional = false)
+      },
+      useStarlarkThread = true)
+  TagClassApi tagClass(
+      Dict<?, ?> attrs, // Dict<String, StarlarkAttrModuleApi.Descriptor>
+      String doc,
+      StarlarkThread thread)
+      throws EvalException;
+
+  /** Represents a tag class, which is a "class" of tags that share the same attribute schema. */
+  @StarlarkBuiltin(
+      name = "tag_class",
+      category = DocCategory.BUILTIN,
+      doc = "Defines a schema of attributes for a tag.")
+  interface TagClassApi extends StarlarkValue {}
 
   @StarlarkMethod(
       name = "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc",

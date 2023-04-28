@@ -23,6 +23,12 @@ load(":common/paths.bzl", "paths")
 JavaInfo = _builtins.toplevel.JavaInfo
 
 def _bazel_java_binary_impl(ctx):
+    return _bazel_base_binary_impl(ctx, is_test_rule_class = False)
+
+def _bazel_java_test_impl(ctx):
+    return _bazel_base_binary_impl(ctx, is_test_rule_class = True) + helper.test_providers(ctx)
+
+def _bazel_base_binary_impl(ctx, is_test_rule_class):
     deps = _collect_all_targets_as_deps(ctx, classpath_type = "compile_only")
     runtime_deps = _collect_all_targets_as_deps(ctx)
 
@@ -51,6 +57,7 @@ def _bazel_java_binary_impl(ctx):
         executable,
         feature_config,
         strip_as_default,
+        is_test_rule_class = is_test_rule_class,
     )
 
     if ctx.attr.use_testrunner:
@@ -84,9 +91,6 @@ def _bazel_java_binary_impl(ctx):
     )
 
     return providers.values()
-
-def _bazel_java_test_impl(ctx):
-    return _bazel_java_binary_impl(ctx) + helper.test_providers(ctx)
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = helper.collect_all_targets_as_deps(ctx, classpath_type = classpath_type)

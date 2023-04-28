@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -100,9 +98,7 @@ public class PackageGroup implements Target {
 
   // See PackageSpecification#asString.
   public List<String> getContainedPackages(boolean includeDoubleSlash) {
-    return packageSpecifications
-        .streamPackageStrings(includeDoubleSlash)
-        .collect(toImmutableList());
+    return packageSpecifications.packageStrings(includeDoubleSlash);
   }
 
   @Override

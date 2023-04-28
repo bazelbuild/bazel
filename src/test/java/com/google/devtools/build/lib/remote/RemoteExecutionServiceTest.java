@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.actions.ActionUploadStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -192,6 +193,7 @@ public class RemoteExecutionServiceTest {
     RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
 
     assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly(execPath.toString());
+    assertThat(remoteAction.getCommand().getOutputPathsList()).containsExactly(execPath.toString());
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
   }
 
@@ -227,6 +229,7 @@ public class RemoteExecutionServiceTest {
 
     assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/link");
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
+    assertThat(remoteAction.getCommand().getOutputPathsList()).containsExactly("path/to/link");
   }
 
   @Test
@@ -590,6 +593,54 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
+  public void downloadOutputs_relativeOutputSymlinks_success() throws Exception {
+    // Test that download outputs works when the action result only contains output_symlinks
+    // and not output_file_symlinks or output_directory_symlinks, which are deprecated.
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputSymlinksBuilder().setPath("outputs/a/b/link").setTarget("../../foo");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // Doesn't check for dangling links, hence download succeeds.
+    service.downloadOutputs(action, result);
+
+    Path path = execRoot.getRelative("outputs/a/b/link");
+    assertThat(path.isSymbolicLink()).isTrue();
+    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("../../foo"));
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_outputSymlinksCompatibility_success() throws Exception {
+    // Test that download outputs works when the action result contains both output_symlinks
+    // and output_file_symlinks (or output_directory_symlinks).
+    //
+    // Remote Execution Server may set both fields to ensure backward compatibility with
+    // clients that don't support output_symlinks.
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputFileSymlinksBuilder().setPath("outputs/a/b/link").setTarget("foo");
+    builder.addOutputSymlinksBuilder().setPath("outputs/a/b/link").setTarget("foo");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    // Doesn't check for dangling links, hence download succeeds.
+    service.downloadOutputs(action, result);
+
+    Path path = execRoot.getRelative("outputs/a/b/link");
+    assertThat(path.isSymbolicLink()).isTrue();
+    assertThat(path.readSymbolicLink()).isEqualTo(PathFragment.create("foo"));
+    assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
   public void downloadOutputs_relativeSymlinkInDirectory_success() throws Exception {
     Tree tree =
         Tree.newBuilder()
@@ -678,6 +729,28 @@ public class RemoteExecutionServiceTest {
     assertThat(expected).hasMessageThat().contains("outputs/dir/link");
     assertThat(expected).hasMessageThat().contains("absolute symlink");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
+  }
+
+  @Test
+  public void downloadOutputs_symlinkCollision_error() throws Exception {
+    ActionResult.Builder builder = ActionResult.newBuilder();
+    builder.addOutputDirectorySymlinksBuilder().setPath("outputs/foo").setTarget("foo1");
+    builder.addOutputSymlinksBuilder().setPath("outputs/foo").setTarget("foo2");
+    RemoteActionResult result =
+        RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
+    Spawn spawn = newSpawnFromResult(result);
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteAction action = service.buildRemoteAction(spawn, context);
+
+    IOException expected =
+        assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
+
+    assertThat(expected.getSuppressed()).isEmpty();
+    assertThat(expected).hasMessageThat().contains("Symlink path collision");
+    assertThat(expected).hasMessageThat().contains("outputs/foo");
+    assertThat(expected).hasMessageThat().contains("foo1");
+    assertThat(expected).hasMessageThat().contains("foo2");
   }
 
   @Test
@@ -1808,8 +1881,10 @@ public class RemoteExecutionServiceTest {
 
     // arrange
     // Single node NestedSets are folded, so always add a dummy file everywhere.
-    ActionInput dummyFile = ActionInputHelper.fromPath("dummy");
-    fakeFileCache.createScratchInput(dummyFile, "dummy");
+    ActionInput dummyFile = ActionInputHelper.fromPath("file");
+    fakeFileCache.createScratchInput(dummyFile, "file");
+
+    ActionInput tree = ActionsTestUtil.createTreeArtifactWithGeneratingAction(artifactRoot, "tree");
 
     ActionInput barFile = ActionInputHelper.fromPath("bar/file");
     NestedSet<ActionInput> nodeBar =
@@ -1829,12 +1904,14 @@ public class RemoteExecutionServiceTest {
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo1)
             .build();
     NestedSet<ActionInput> nodeRoot2 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
+            .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo2)
             .build();
@@ -1869,15 +1946,31 @@ public class RemoteExecutionServiceTest {
     service.buildRemoteAction(spawn1, context1);
 
     // assert first time
-    // Called for: manifests, runfiles, nodeRoot1, nodeFoo1 and nodeBar.
-    verify(service, times(5)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    assertThat(service.getMerkleTreeCache().asMap().keySet())
+        .containsExactly(
+            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
+            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
 
     // act second time
     service.buildRemoteAction(spawn2, context2);
 
     // assert second time
-    // Called again for: manifests, runfiles, nodeRoot2 and nodeFoo2 but not nodeBar (cached).
-    verify(service, times(5 + 4)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    verify(service, times(6 + 2)).uncachedBuildMerkleTreeVisitor(any(), any(), any());
+    assertThat(service.getMerkleTreeCache().asMap().keySet())
+        .containsExactly(
+            ImmutableList.of(ImmutableMap.of(), PathFragment.EMPTY_FRAGMENT), // fileset mapping
+            ImmutableList.of(EmptyRunfilesSupplier.INSTANCE, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(tree, PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeRoot2.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo1.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeFoo2.toNode(), PathFragment.EMPTY_FRAGMENT),
+            ImmutableList.of(nodeBar.toNode(), PathFragment.EMPTY_FRAGMENT));
   }
 
   @Test
@@ -1990,6 +2083,12 @@ public class RemoteExecutionServiceTest {
       Artifact output =
           ActionsTestUtil.createTreeArtifactWithGeneratingAction(
               artifactRoot, path.relativeTo(execRoot));
+      outputs.add(output);
+    }
+
+    for (OutputSymlink symlink : result.getOutputSymlinks()) {
+      Path path = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
       outputs.add(output);
     }
 

@@ -54,6 +54,21 @@ java_library(
 )
 
 java_library(
+    name = "command_profiler_module",
+    srcs = ["CommandProfilerModule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@maven//:tools_profiler_async_profiler",
+    ],
+)
+
+java_library(
     name = "network_metrics_collector",
     srcs = ["NetworkMetricsCollector.java"],
     deps = [

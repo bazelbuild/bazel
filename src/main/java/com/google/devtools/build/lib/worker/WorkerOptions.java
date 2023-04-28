@@ -18,12 +18,14 @@ import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -109,17 +111,6 @@ public class WorkerOptions extends OptionsBase {
   public List<Map.Entry<String, Integer>> workerMaxMultiplexInstances;
 
   @Option(
-      name = "high_priority_workers",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "Mnemonics of workers to run with high priority. When high priority workers are running "
-              + "all other workers are throttled.",
-      allowMultiple = true)
-  public List<String> highPriorityWorkers;
-
-  @Option(
       name = "worker_quit_after_build",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -174,14 +165,6 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerCancellation;
 
   @Option(
-      name = "experimental_worker_as_resource",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.NO_OP},
-      help = "No-op, will be removed soon.")
-  public boolean workerAsResource;
-
-  @Option(
       name = "experimental_worker_multiplex_sandboxing",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
@@ -221,4 +204,25 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
   public boolean sandboxHardening;
+
+  @Option(
+      name = "experimental_shrink_worker_pool",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If enabled, could shrink worker pool if worker memory pressure is high. This flag works"
+              + " only when flag experimental_total_worker_memory_limit_mb is enabled.")
+  public boolean shrinkWorkerPool;
+
+  @Option(
+      name = "experimental_worker_metrics_poll_interval",
+      converter = DurationConverter.class,
+      defaultValue = "5s",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "The interval between collecting worker metrics and possibly attempting evictions. "
+              + "Cannot effectively be less than 1s for performance reasons.")
+  public Duration workerMetricsPollInterval;
 }

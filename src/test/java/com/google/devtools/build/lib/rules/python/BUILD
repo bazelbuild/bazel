@@ -59,7 +59,6 @@ java_test(
     name = "PyRuntimeConfiguredTargetTest",
     srcs = ["PyRuntimeConfiguredTargetTest.java"],
     deps = [
-        ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -215,10 +214,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/net/starlark/java/syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//third_party:junit4",
         "//third_party:truth",
     ],

@@ -29,13 +29,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -51,6 +49,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -99,7 +98,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -139,7 +137,11 @@ public final class RuleContext extends TargetContext
         Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
   }
 
-  private static final String TOOL_CONFIGURATION_PROGRESS_TAG = "for tool";
+  public static final String TOOLCHAIN_ATTR_NAME = "$toolchain";
+
+  /** A fake attribute to use for toolchain-related validation errors. */
+  private static final Attribute TOOLCHAIN_ATTRIBUTE =
+      new Attribute.Builder<>(TOOLCHAIN_ATTR_NAME, BuildType.LABEL_LIST).build();
 
   private final Rule rule;
   /**
@@ -154,8 +156,7 @@ public final class RuleContext extends TargetContext
   private final ListMultimap<String, ConfiguredTargetAndData> targetMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final AspectAwareAttributeMapper attributes;
-  private final ImmutableSet<String> enabledFeatures;
-  private final ImmutableSet<String> disabledFeatures;
+  private final FeatureSet features;
   private final String ruleClassNameForLogging;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ConfiguredRuleClassProvider ruleClassProvider;
@@ -209,11 +210,7 @@ public final class RuleContext extends TargetContext
     this.targetMap = targetMap;
     this.configConditions = builder.configConditions.asProviders();
     this.attributes = new AspectAwareAttributeMapper(attributes, builder.aspectAttributes);
-    Set<String> allEnabledFeatures = new HashSet<>();
-    Set<String> allDisabledFeatures = new HashSet<>();
-    getAllFeatures(allEnabledFeatures, allDisabledFeatures);
-    this.enabledFeatures = ImmutableSortedSet.copyOf(allEnabledFeatures);
-    this.disabledFeatures = ImmutableSortedSet.copyOf(allDisabledFeatures);
+    this.features = computeFeatures();
     this.ruleClassNameForLogging = builder.getRuleClassNameForLogging();
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(builder.actionOwnerSymbol);
     this.reporter = builder.reporter;
@@ -225,43 +222,14 @@ public final class RuleContext extends TargetContext
     this.starlarkThread = createStarlarkThread(builder.mutability); // uses above state
   }
 
-  private void getAllFeatures(Set<String> allEnabledFeatures, Set<String> allDisabledFeatures) {
-    Set<String> globallyEnabled = new HashSet<>();
-    Set<String> globallyDisabled = new HashSet<>();
-    parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
-    Set<String> packageEnabled = new HashSet<>();
-    Set<String> packageDisabled = new HashSet<>();
-    parseFeatures(rule.getPackage().getFeatures(), packageEnabled, packageDisabled);
-    Set<String> ruleEnabled = new HashSet<>();
-    Set<String> ruleDisabled = new HashSet<>();
-    if (attributes().has("features", Type.STRING_LIST)) {
-      parseFeatures(attributes().get("features", Type.STRING_LIST), ruleEnabled, ruleDisabled);
-    }
-
-    Set<String> ruleDisabledFeatures =
-        Sets.union(ruleDisabled, Sets.difference(packageDisabled, ruleEnabled));
-    allDisabledFeatures.addAll(Sets.union(ruleDisabledFeatures, globallyDisabled));
-
-    Set<String> packageFeatures =
-        Sets.difference(Sets.union(globallyEnabled, packageEnabled), packageDisabled);
-    Set<String> ruleFeatures =
-        Sets.difference(Sets.union(packageFeatures, ruleEnabled), ruleDisabled);
-    allEnabledFeatures.addAll(Sets.difference(ruleFeatures, globallyDisabled));
-  }
-
-  private static void parseFeatures(
-      Iterable<String> features, Set<String> enabled, Set<String> disabled) {
-    for (String feature : features) {
-      if (feature.startsWith("-")) {
-        disabled.add(feature.substring(1));
-      } else if (feature.equals("no_layering_check")) {
-        // TODO(bazel-team): Remove once we do not have BUILD files left that contain
-        // 'no_layering_check'.
-        disabled.add("layering_check");
-      } else {
-        enabled.add(feature);
-      }
-    }
+  private FeatureSet computeFeatures() {
+    FeatureSet pkg = rule.getPackage().getFeatures();
+    FeatureSet rule =
+        attributes().has("features", Type.STRING_LIST)
+            ? FeatureSet.parse(attributes().get("features", Type.STRING_LIST))
+            : FeatureSet.EMPTY;
+    return FeatureSet.mergeWithGlobalFeatures(
+        FeatureSet.merge(pkg, rule), getConfiguration().getDefaultFeatures());
   }
 
   public boolean isAllowTagsPropagation() {
@@ -499,13 +467,15 @@ public final class RuleContext extends TargetContext
       return null;
     }
     try {
-      return getFragment(
-          fragmentClass,
+      Preconditions.checkArgument(
+          isLegalFragment(fragmentClass),
+          "%s has to declare '%s' as a required fragment in order to access it."
+              + " Please update the 'fragments' argument of the rule definition "
+              + "(for example: fragments = [\"%s\"])",
+          ruleClassNameForLogging,
           name,
-          String.format(
-              " Please update the 'fragments' argument of the rule definition "
-                  + "(for example: fragments = [\"%1$s\"])",
-              name));
+          name);
+      return getConfiguration().getFragment(fragmentClass);
     } catch (IllegalArgumentException ex) { // fishy
       throw new EvalException(ex.getMessage());
     }
@@ -535,20 +505,17 @@ public final class RuleContext extends TargetContext
   public static ActionOwner createActionOwner(
       Rule rule,
       ImmutableList<AspectDescriptor> aspectDescriptors,
-      BuildConfigurationValue configuration,
+      BuildConfigurationValue buildConfigurationValue,
       ImmutableMap<String, String> execProperties,
       @Nullable PlatformInfo executionPlatform) {
     return ActionOwner.create(
         rule.getLabel(),
-        aspectDescriptors,
         rule.getLocation(),
-        configuration.getMnemonic(),
         rule.getTargetKind(),
-        configuration.checksum(),
-        configuration.toBuildEvent(),
-        configuration.isToolConfiguration() ? TOOL_CONFIGURATION_PROGRESS_TAG : null,
-        execProperties,
-        executionPlatform);
+        buildConfigurationValue,
+        executionPlatform,
+        aspectDescriptors,
+        execProperties);
   }
 
   @Override
@@ -1652,14 +1619,14 @@ public final class RuleContext extends TargetContext
    * @return the set of features applicable for the current rule.
    */
   public ImmutableSet<String> getFeatures() {
-    return enabledFeatures;
+    return features.on();
   }
 
   /**
    * @return the set of features that are disabled for the current rule.
    */
   public ImmutableSet<String> getDisabledFeatures() {
-    return disabledFeatures;
+    return features.off();
   }
 
   @Override
@@ -1749,53 +1716,7 @@ public final class RuleContext extends TargetContext
           ConfiguredAttributeMapper.of(
               target.getAssociatedRule(), configConditions.asProviders(), configuration);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
-      // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
-      // accessing attributes without a default condition.
-      // ConfigConditions.EMPTY is always true for non-rules:
-      // https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/skyframe/ConfiguredTargetFunction.java;l=943;drc=720dc5fd640de692db129777c7c7c32924627c43
-      // This can happen in BuildViewForTesting.getRuleContextForTesting as it specifies
-      // ConfigConditions.EMPTY.
-      if (attributeChecks && target instanceof Rule) {
-        checkAttributesNonEmpty(attributes);
-        checkAttributesForDuplicateLabels(attributes);
-      }
-      // This conditionally checks visibility on config_setting rules based on
-      // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
-      // to unconditionally check visibility. See
-      // https://github.com/bazelbuild/bazel/issues/12669.
-      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
-          target.getPackage().getConfigSettingVisibilityPolicy();
-      if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
-        Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
-        for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
-          validateDirectPrerequisite(
-              configSettingAttr,
-              // Another nuance: when both --incompatible_enforce_config_setting_visibility and
-              // --incompatible_config_setting_private_default_visibility are disabled, both of
-              // these are ignored:
-              //
-              //  - visibility settings on a select() -> config_setting dep
-              //  - visibility settings on a select() -> alias -> config_setting dep chain
-              //
-              // In that scenario, both are ignored because the logic here that checks the
-              // select() -> ??? edge is completely skipped.
-              //
-              // When just --incompatible_enforce_config_setting_visibility is on, that means
-              // "enforce config_setting visibility with public default". That's a temporary state
-              // to support depot migration. In that case, we continue to ignore the alias'
-              // visibility in preference for the config_setting. So skip select() -> alias as
-              // before, but now enforce select() -> config_setting_the_alias_refers_to.
-              //
-              // When we also turn on --incompatible_config_setting_private_default_visibility, we
-              // expect full standard visibility compliance. In that case we directly evaluate the
-              // alias visibility, as is usual semantics. So two the following two edges are
-              // checked: 1: select() -> alias and 2: alias -> config_setting.
-              configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
-                  ? condition.fromConfiguredTargetNoCheck(
-                      condition.getConfiguredTarget().getActual())
-                  : condition);
-        }
-      }
+      validateExtraPrerequisites(attributeChecks, attributes);
 
       return new RuleContext(
           this,
@@ -2281,6 +2202,73 @@ public final class RuleContext extends TargetContext
                   .getDescription()));
 
       return false;
+    }
+
+    /**
+     * Perform extra validation of prerequisites. Standard attribute-based dependencies are already
+     * validated as part of {@link #createTargetMap}.
+     */
+    private void validateExtraPrerequisites(
+        boolean attributeChecks, ConfiguredAttributeMapper attributes) {
+      // These checks can fail when ConfigConditions.EMPTY are empty, resulting in noMatchError
+      // accessing attributes without a default condition.
+      // ConfigConditions.EMPTY is always true for non-rules:
+      // https://cs.opensource.google/bazel/bazel/+/master:src/main/java/com/google/devtools/build/lib/skyframe/ConfiguredTargetFunction.java;l=943;drc=720dc5fd640de692db129777c7c7c32924627c43
+      // This can happen in BuildViewForTesting.getRuleContextForTesting as it specifies
+      // ConfigConditions.EMPTY.
+      if (attributeChecks && target instanceof Rule) {
+        checkAttributesNonEmpty(attributes);
+        checkAttributesForDuplicateLabels(attributes);
+      }
+
+      // This conditionally checks visibility on config_setting rules based on
+      // --config_setting_visibility_policy. This should be removed as soon as it's deemed safe
+      // to unconditionally check visibility. See
+      // https://github.com/bazelbuild/bazel/issues/12669.
+      ConfigSettingVisibilityPolicy configSettingVisibilityPolicy =
+          target.getPackage().getConfigSettingVisibilityPolicy();
+      if (configSettingVisibilityPolicy != ConfigSettingVisibilityPolicy.LEGACY_OFF) {
+
+        // Validate config conditions.
+        Attribute configSettingAttr = attributes.getAttributeDefinition("$config_dependencies");
+        for (ConfiguredTargetAndData condition : configConditions.asConfiguredTargets().values()) {
+          validateDirectPrerequisite(
+              configSettingAttr,
+              // Another nuance: when both --incompatible_enforce_config_setting_visibility and
+              // --incompatible_config_setting_private_default_visibility are disabled, both of
+              // these are ignored:
+              //
+              //  - visibility settings on a select() -> config_setting dep
+              //  - visibility settings on a select() -> alias -> config_setting dep chain
+              //
+              // In that scenario, both are ignored because the logic here that checks the
+              // select() -> ??? edge is completely skipped.
+              //
+              // When just --incompatible_enforce_config_setting_visibility is on, that means
+              // "enforce config_setting visibility with public default". That's a temporary state
+              // to support depot migration. In that case, we continue to ignore the alias'
+              // visibility in preference for the config_setting. So skip select() -> alias as
+              // before, but now enforce select() -> config_setting_the_alias_refers_to.
+              //
+              // When we also turn on --incompatible_config_setting_private_default_visibility, we
+              // expect full standard visibility compliance. In that case we directly evaluate the
+              // alias visibility, as is usual semantics. So two the following two edges are
+              // checked: 1: select() -> alias and 2: alias -> config_setting.
+              configSettingVisibilityPolicy == ConfigSettingVisibilityPolicy.DEFAULT_PUBLIC
+                  ? condition.fromConfiguredTargetNoCheck(
+                      condition.getConfiguredTarget().getActual())
+                  : condition);
+        }
+      }
+
+      // Validate toolchains.
+      if (toolchainContexts != null) {
+        for (var toolchainContext : toolchainContexts.getContextMap().values()) {
+          for (var prerequisite : toolchainContext.prerequisiteTargets()) {
+            validateDirectPrerequisite(TOOLCHAIN_ATTRIBUTE, prerequisite);
+          }
+        }
+      }
     }
 
     private void validateDirectPrerequisite(

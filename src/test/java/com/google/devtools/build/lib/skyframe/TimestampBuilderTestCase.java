@@ -46,8 +46,9 @@ import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -68,7 +69,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -101,6 +101,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -243,7 +244,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     skyframeActionExecutor.setActionLogBufferPathGenerator(
         new ActionLogBufferPathGenerator(actionOutputBase));
 
-    MetadataProvider cache =
+    InputMetadataProvider cache =
         new SingleBuildFileCache(
             rootDirectory.getPathString(), scratch.getFileSystem(), SyscallCache.NO_CACHE);
     skyframeActionExecutor.configure(
@@ -312,9 +313,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             evaluationProgressReceiver,
             graphInconsistencyReceiver,
             EventFilter.FULL_STORAGE,
-            new NestedSetVisitor.VisitedState(),
+            new EmittedEventState(),
             /* keepEdges= */ true,
-            /* usePooledSkyKeyInterning= */ true);
+            /* usePooledInterning= */ true);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.ACTION_ENV.set(differencer, ImmutableMap.of());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
@@ -357,7 +358,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           OptionsProvider options,
           Range<Long> lastExecutionTimeRange,
           TopLevelArtifactContext topLevelArtifactContext,
-          boolean trustRemoteArtifacts)
+          RemoteArtifactChecker remoteArtifactChecker)
           throws BuildFailedException, InterruptedException, TestExecException {
         latestResult = null;
         skyframeActionExecutor.prepareForExecution(
@@ -528,7 +529,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           options,
           null,
           null,
-          /* trustRemoteArtifacts= */ false);
+          RemoteArtifactChecker.IGNORE_ALL);
     } finally {
       tsgm.waitForTimestampGranularity(reporter.getOutErr());
     }

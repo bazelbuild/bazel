@@ -25,7 +25,7 @@ like linking in C++ builds without over-allocating to less demanding tasks.
 ## Defining execution groups {:#defining-exec-groups}
 
 During rule definition, rule authors can
-[declare](/rules/lib/globals#exec_group)
+[declare](/rules/lib/globals/bzl#exec_group)
 a set of execution groups. On each execution group, the rule author can specify
 everything needed to select an execution platform for that execution group,
 namely any constraints via `exec_compatible_with` and toolchain types via
@@ -52,9 +52,9 @@ my_rule = rule(
 
 In the code snippet above, you can see that tool dependencies can also specify
 transition for an exec group using the
-[`cfg`](/rules/lib/attr#label)
+[`cfg`](/rules/lib/toplevel/attr#label)
 attribute param and the
-[`config`](/rules/lib/config)
+[`config`](/rules/lib/toplevel/config)
 module. The module exposes an `exec` function which takes a single string
 parameter which is the name of the exec group for which the dependency should be
 built.
@@ -109,8 +109,8 @@ of:
 In the rule implementation, you can declare that actions should be run on the
 execution platform of an execution group. You can do this by using the `exec_group`
 param of action generating methods, specifically [`ctx.actions.run`]
-(/rules/lib/actions#run) and
-[`ctx.actions.run_shell`](/rules/lib/actions#run_shell).
+(/rules/lib/builtins/actions#run) and
+[`ctx.actions.run_shell`](/rules/lib/builtins/actions#run_shell).
 
 ```python
 # foo.bzl

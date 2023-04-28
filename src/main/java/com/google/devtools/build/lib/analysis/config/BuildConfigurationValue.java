@@ -24,7 +24,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
@@ -77,7 +77,8 @@ import net.starlark.java.eval.StarlarkThread;
  * <pre>{@code c1.equals(c2) <=> c1==c2.}</pre>
  */
 @AutoCodec
-public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue {
+public class BuildConfigurationValue
+    implements BuildConfigurationApi, SkyValue, BuildConfigurationInfo {
 
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
@@ -129,6 +130,8 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
   private final Supplier<BuildConfigurationEvent> buildEventSupplier;
 
   private final boolean siblingRepositoryLayout;
+
+  private final FeatureSet defaultFeatures;
 
   /**
    * Validates the options for this BuildConfigurationValue. Issues warnings for the use of
@@ -261,6 +264,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.buildEventSupplier = Suppliers.memoize(this::createBuildEvent);
     this.commandLineLimits = new CommandLineLimits(options.minParamFileSize);
+    this.defaultFeatures = FeatureSet.parse(options.defaultFeatures);
   }
 
   @Override
@@ -454,12 +458,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return mainRepositoryName.getName();
   }
 
-  /**
-   * Returns the configuration-dependent string for this configuration.
-   *
-   * <p>This is also the name of the configuration's base output directory. See also {@link
-   * #getOutputDirectoryName}.
-   */
+  @Override
   public String getMnemonic() {
     return outputDirectories.getMnemonic();
   }
@@ -703,7 +702,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.isExec;
   }
 
-  /** Returns true if this is a tool-related configuration. */
+  @Override
   public boolean isToolConfiguration() {
     return isExecConfiguration();
   }
@@ -770,7 +769,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.compilationMode;
   }
 
-  /** Returns the cache key of the build options used to create this configuration. */
+  @Override
   public String checksum() {
     return buildOptions.checksum();
   }
@@ -856,9 +855,9 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     options.executionInfoModifier.apply(mnemonic, executionInfo);
   }
 
-  /** @return the list of default features used for all packages. */
-  public List<String> getDefaultFeatures() {
-    return options.defaultFeatures;
+  /** Returns the list of default features used for all packages. */
+  public FeatureSet getDefaultFeatures() {
+    return defaultFeatures;
   }
 
   /**
@@ -890,6 +889,7 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return BuildEventIdUtil.configurationId(checksum());
   }
 
+  @Override
   public BuildConfigurationEvent toBuildEvent() {
     return buildEventSupplier.get();
   }

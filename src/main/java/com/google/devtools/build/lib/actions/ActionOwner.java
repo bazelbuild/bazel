@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -34,112 +33,121 @@ import net.starlark.java.syntax.Location;
  * but to avoid storing heavyweight analysis objects in actions, and to avoid coupling between the
  * analysis and actions packages, the RuleConfiguredTarget provides an instance of this class.
  */
-@AutoValue
 @Immutable
 public abstract class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
   @SerializationConstant
   public static final ActionOwner SYSTEM_ACTION_OWNER =
-      ActionOwner.createInternal(
-          null,
-          ImmutableList.of(),
+      createDummy(
+          /* label= */ null,
           Location.BUILTIN,
-          "system",
-          "empty target kind",
-          "system",
-          null,
-          null,
-          ImmutableMap.of(),
-          null);
+          /* targetKind= */ "empty target kind",
+          /* mnemonic= */ "system",
+          /* configurationChecksum= */ "system",
+          /* buildConfigurationEvent= */ null,
+          /* isToolConfiguration= */ false,
+          /* executionPlatform= */ null,
+          /* aspectDescriptors= */ ImmutableList.of(),
+          /* execProperties= */ ImmutableMap.of());
 
   public static ActionOwner create(
-      Label label,
-      ImmutableList<AspectDescriptor> aspectDescriptors,
-      Location location,
-      String mnemonic,
-      String targetKind,
-      String configurationChecksum,
-      BuildConfigurationEvent configuration,
-      @Nullable String additionalProgressInfo,
-      ImmutableMap<String, String> execProperties,
-      @Nullable PlatformInfo executionPlatform) {
-    return createInternal(
-        checkNotNull(label),
-        aspectDescriptors,
-        checkNotNull(location),
-        checkNotNull(mnemonic),
-        checkNotNull(targetKind),
-        checkNotNull(configurationChecksum),
-        checkNotNull(configuration),
-        additionalProgressInfo,
-        execProperties,
-        executionPlatform);
-  }
-
-  private static ActionOwner createInternal(
       @Nullable Label label,
-      ImmutableList<AspectDescriptor> aspectDescriptors,
       Location location,
-      String mnemonic,
       String targetKind,
-      String configurationChecksum,
-      @Nullable BuildConfigurationEvent configuration,
-      @Nullable String additionalProgressInfo,
-      ImmutableMap<String, String> execProperties,
-      @Nullable PlatformInfo executionPlatform) {
-    return new AutoValue_ActionOwner(
-        location,
-        label,
-        aspectDescriptors,
-        mnemonic,
-        checkNotNull(configurationChecksum),
-        configuration,
-        targetKind,
-        additionalProgressInfo,
-        execProperties,
-        executionPlatform);
+      BuildConfigurationInfo buildConfigurationValue,
+      @Nullable PlatformInfo executionPlatform,
+      ImmutableList<AspectDescriptor> aspectDescriptors,
+      ImmutableMap<String, String> execProperties) {
+    if (aspectDescriptors.isEmpty() && execProperties.isEmpty()) {
+      return LiteActionOwner.createInternal(
+          label, location, targetKind, buildConfigurationValue, executionPlatform);
+    } else {
+      return FullActionOwner.createInternal(
+          label,
+          location,
+          targetKind,
+          buildConfigurationValue,
+          executionPlatform,
+          aspectDescriptors,
+          execProperties);
+    }
   }
 
-  /** Returns the location of this ActionOwner. */
-  public abstract Location getLocation();
+  @VisibleForTesting
+  public static ActionOwner createDummy(
+      @Nullable Label label,
+      Location location,
+      String targetKind,
+      String mnemonic,
+      String configurationChecksum,
+      @Nullable BuildConfigurationEvent buildConfigurationEvent,
+      boolean isToolConfiguration,
+      @Nullable PlatformInfo executionPlatform,
+      ImmutableList<AspectDescriptor> aspectDescriptors,
+      ImmutableMap<String, String> execProperties) {
+    return FullActionOwner.createInternal(
+        label,
+        location,
+        targetKind,
+        BuildConfigurationInfo.AutoBuildConfigurationInfo.create(
+            mnemonic, configurationChecksum, buildConfigurationEvent, isToolConfiguration),
+        executionPlatform,
+        aspectDescriptors,
+        execProperties);
+  }
 
-  /** Returns the label for this ActionOwner, or null if the {@link #SYSTEM_ACTION_OWNER}. */
+  /**
+   * Returns the label for this {@link ActionOwner}, or null if the {@link #SYSTEM_ACTION_OWNER}.
+   */
   @Nullable
   public abstract Label getLabel();
 
-  public abstract ImmutableList<AspectDescriptor> getAspectDescriptors();
+  /** Returns the location for this {@link ActionOwner}. */
+  public abstract Location getLocation();
 
-  /** Returns the configuration's mnemonic. */
-  public abstract String getMnemonic();
+  /** Returns the target kind (rule class name) for this {@link ActionOwner}. */
+  public abstract String getTargetKind();
 
   /**
-   * Returns the short cache key for the configuration of the action owner.
+   * Returns {@link BuildConfigurationInfo} for this {@link ActionOwner}.
+   *
+   * <p>This method is kept solely for AutoValue class purpose, so call {@link #getMnemonic()},
+   * {@link #getConfigurationChecksum()}, {@link #getBuildConfigurationEvent()} and {@link
+   * #isBuildConfigurationForTool()} to access its fields instead.
+   */
+  abstract BuildConfigurationInfo getBuildConfigurationInfo();
+
+  /** Returns the mnemonic for the configuration for this {@link ActionOwner}. */
+  public final String getMnemonic() {
+    return getBuildConfigurationInfo().getMnemonic();
+  }
+
+  /**
+   * Returns the short cache key for the configuration for this {@link ActionOwner}.
    *
    * <p>Special action owners that are not targets can return any string here. If the underlying
    * configuration is null, this should return "null".
    */
-  public abstract String getConfigurationChecksum();
+  public final String getConfigurationChecksum() {
+    return getBuildConfigurationInfo().checksum();
+  }
 
   /**
-   * Return the {@link BuildConfigurationEvent} associated with the action owner, if any, as it
-   * should be reported in the build event protocol.
+   * Return the {@link BuildConfigurationEvent} for this {@link ActionOwner}, if any, as it should
+   * be reported in the build event protocol.
    */
   @Nullable
-  public abstract BuildConfigurationEvent getConfiguration();
-
-  /** Returns the target kind (rule class name) for this ActionOwner. */
-  public abstract String getTargetKind();
+  public final BuildConfigurationEvent getBuildConfigurationEvent() {
+    return getBuildConfigurationInfo().toBuildEvent();
+  }
 
   /**
-   * Returns additional information that should be displayed in progress messages, or {@code null}
-   * if nothing should be added.
+   * Returns true when the {@link BuildConfigurationInfo} for this {@link ActionOwner} is a
+   * tool-related configuration.
    */
-  @Nullable
-  abstract String getAdditionalProgressInfo();
-
-  /** Returns a String to String map containing the execution properties of this action. */
-  @VisibleForTesting
-  public abstract ImmutableMap<String, String> getExecProperties();
+  final boolean isBuildConfigurationForTool() {
+    return getBuildConfigurationInfo().isToolConfiguration();
+  }
 
   /**
    * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution
@@ -147,4 +155,62 @@ public abstract class ActionOwner {
    */
   @Nullable
   public abstract PlatformInfo getExecutionPlatform();
+
+  public abstract ImmutableList<AspectDescriptor> getAspectDescriptors();
+
+  /** Returns a String to String map containing the execution properties of this action. */
+  @VisibleForTesting
+  public abstract ImmutableMap<String, String> getExecProperties();
+
+  /**
+   * Created when {@code aspectDescriptors} and {@code execProperties} are both empty.
+   *
+   * <p>{@link LiteActionOwner} is more likely to be created since both fields above are usually
+   * empty. This will save 8 bytes of memory for each {@link ActionOwner} instance compared to
+   * keeping both empty fields.
+   */
+  @AutoValue
+  abstract static class LiteActionOwner extends ActionOwner {
+    static LiteActionOwner createInternal(
+        @Nullable Label label,
+        Location location,
+        String targetKind,
+        BuildConfigurationInfo buildConfigurationInfo,
+        @Nullable PlatformInfo executionPlatform) {
+      return new AutoValue_ActionOwner_LiteActionOwner(
+          label, location, targetKind, buildConfigurationInfo, executionPlatform);
+    }
+
+    @Override
+    public final ImmutableList<AspectDescriptor> getAspectDescriptors() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public final ImmutableMap<String, String> getExecProperties() {
+      return ImmutableMap.of();
+    }
+  }
+
+  /** Created when either {@code aspectDescriptors} or {@code execProperties} is not empty. */
+  @AutoValue
+  abstract static class FullActionOwner extends ActionOwner {
+    static FullActionOwner createInternal(
+        @Nullable Label label,
+        Location location,
+        String targetKind,
+        BuildConfigurationInfo buildConfigurationInfo,
+        @Nullable PlatformInfo executionPlatform,
+        ImmutableList<AspectDescriptor> aspectDescriptors,
+        ImmutableMap<String, String> execProperties) {
+      return new AutoValue_ActionOwner_FullActionOwner(
+          label,
+          location,
+          targetKind,
+          buildConfigurationInfo,
+          executionPlatform,
+          aspectDescriptors,
+          execProperties);
+    }
+  }
 }

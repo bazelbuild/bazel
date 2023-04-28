@@ -598,7 +598,7 @@ sh_test(
 
 sh_test(
     name = "client_test",
-    size = "medium",
+    size = "large",
     srcs = ["client_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
@@ -606,6 +606,7 @@ sh_test(
 
 sh_test(
     name = "test_test",
+    size = "large",
     srcs = ["test_test.sh"],
     data = [
         ":test-deps",

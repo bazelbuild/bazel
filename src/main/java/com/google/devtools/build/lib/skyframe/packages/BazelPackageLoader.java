@@ -141,7 +141,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
     }
 
     @CanIgnoreReturnValue
-    Builder setFetchForTesting() {
+    public Builder setFetchForTesting() {
       this.isFetch.set(true);
       return this;
     }

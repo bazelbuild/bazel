@@ -72,23 +72,21 @@ public class PlatformLookupUtil {
       ImmutableList<ConfiguredTargetKey> platformKeys, Environment env)
       throws InterruptedException, InvalidPlatformException {
     // Load the packages. This should already be in Skyframe and thus not require a restart.
-    ImmutableSet<PackageValue.Key> packageKeys =
+    ImmutableSet<PackageIdentifier> packageKeys =
         platformKeys.stream()
             .map(ConfiguredTargetKey::getLabel)
             .map(Label::getPackageIdentifier)
-            .distinct()
-            .map(PackageValue::key)
             .collect(toImmutableSet());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(packageKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<PackageIdentifier, Package> packages = valuesMissing ? null : new HashMap<>();
-    for (PackageValue.Key packageKey : packageKeys) {
+    for (PackageIdentifier packageKey : packageKeys) {
       try {
         PackageValue packageValue =
             (PackageValue) values.getOrThrow(packageKey, NoSuchPackageException.class);
         if (!valuesMissing && packageValue != null) {
-          packages.put(packageValue.getPackage().getPackageIdentifier(), packageValue.getPackage());
+          packages.put(packageKey, packageValue.getPackage());
         }
       } catch (NoSuchPackageException e) {
         throw new InvalidPlatformException(e);
@@ -156,7 +154,7 @@ public class PlatformLookupUtil {
     }
   }
 
-  static boolean hasPlatformInfo(Target target) {
+  public static boolean hasPlatformInfo(Target target) {
     Rule rule = target.getAssociatedRule();
     // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
     if (rule == null) {
@@ -175,11 +173,11 @@ public class PlatformLookupUtil {
   public static final class InvalidPlatformException extends ToolchainException {
     private static final String DEFAULT_ERROR = "does not provide PlatformInfo";
 
-    InvalidPlatformException(Label label) {
+    public InvalidPlatformException(Label label) {
       super(formatError(label, DEFAULT_ERROR));
     }
 
-    InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
+    public InvalidPlatformException(Label label, ConfiguredValueCreationException e) {
       super(formatError(label, DEFAULT_ERROR), e);
     }
 

@@ -55,7 +55,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   private final NestedSet<Artifact> allInputs;
 
   /**
-   * Creates an CppCompileActionTemplate.
+   * Creates a CppCompileActionTemplate.
    *
    * @param sourceTreeArtifact the TreeArtifact that contains source files to compile.
    * @param outputTreeArtifact the TreeArtifact that contains compilation outputs.
@@ -170,7 +170,6 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
             cppCompileActionBuilder.getCoptsFilter(),
             CppActionNames.CPP_COMPILE,
             dotdTreeArtifact,
-            diagnosticsTreeArtifact,
             cppCompileActionBuilder.getFeatureConfiguration(),
             cppCompileActionBuilder.getVariables());
     CppCompileAction.computeKey(
@@ -181,9 +180,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         commandLine.getEnvironment(),
         cppCompileActionBuilder.getExecutionInfo(),
         CppCompileAction.computeCommandLineKey(
-            commandLine.getCompilerOptions(/*overwrittenVariables=*/ null)),
+            commandLine.getCompilerOptions(/* overwrittenVariables= */ null)),
         cppCompileActionBuilder.getCcCompilationContext().getDeclaredIncludeSrcs(),
-        cppCompileActionBuilder.buildMandatoryInputs(),
+        mandatoryInputs,
+        mandatoryInputs,
         cppCompileActionBuilder.getPrunableHeaders(),
         cppCompileActionBuilder.getCcCompilationContext().getLooseHdrsDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
@@ -308,6 +308,11 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         .add(sourceTreeArtifact)
         .addTransitive(allInputs)
         .build();
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override

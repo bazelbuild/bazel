@@ -65,7 +65,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
   private PathFragment executable;
 
   @Before
-  public final void createArtifacts() throws Exception {
+  public void createArtifacts() throws Exception {
     collectingAnalysisEnvironment =
         new AnalysisTestUtil.CollectingAnalysisEnvironment(getTestAnalysisEnvironment());
     starlarkActionInputs =
@@ -101,25 +101,25 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
   }
 
   @Before
-  public final void createExecutorAndContext() throws Exception {
+  public void createExecutorAndContext() throws Exception {
     BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
     Executor executor = new TestExecutorBuilder(fileSystem, directories, binTools).build();
     executionContext =
         new ActionExecutionContext(
             executor,
-            /*actionInputFileCache=*/ null,
+            /* inputMetadataProvider= */ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            /*metadataHandler=*/ null,
-            /*rewindingEnabled=*/ false,
+            /* outputMetadataStore= */ null,
+            /* rewindingEnabled= */ false,
             LostInputsCheck.NONE,
-            /*fileOutErr=*/ null,
-            /*eventHandler=*/ null,
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*topLevelFilesets=*/ ImmutableMap.of(),
-            /*artifactExpander=*/ null,
-            /*actionFileSystem=*/ null,
-            /*skyframeDepsResult=*/ null,
+            /* fileOutErr= */ null,
+            /* eventHandler= */ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            /* topLevelFilesets= */ ImmutableMap.of(),
+            /* artifactExpander= */ null,
+            /* actionFileSystem= */ null,
+            /* skyframeDepsResult= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
@@ -189,7 +189,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     assertThat(starlarkAction.discoverInputs(executionContext).toList())
         .containsExactlyElementsIn(discoveredInputs.toList());
     // after discovering inputs, the starlark action inputs should be updated
-    assertThat(starlarkAction.inputsDiscovered()).isTrue();
+    assertThat(starlarkAction.inputsKnown()).isTrue();
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(discoveredInputs.toList());
 
@@ -213,13 +213,12 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     assertThat(starlarkAction.discoversInputs()).isTrue();
     assertThat(starlarkAction.discoverInputs(executionContext).toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>difference(discoveredInputs.toSet(), shadowedActionInputs.toSet())
-                .toArray());
+            Sets.difference(discoveredInputs.toSet(), shadowedActionInputs.toSet()));
     // after discovering inputs, the starlark action inputs should be updated
-    assertThat(starlarkAction.inputsDiscovered()).isTrue();
+    assertThat(starlarkAction.inputsKnown()).isTrue();
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>union(shadowedActionInputs.toSet(), discoveredInputs.toSet()).toArray());
+            Sets.union(shadowedActionInputs.toSet(), discoveredInputs.toSet()));
   }
 
   @Test
@@ -261,13 +260,11 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
 
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet())
-                .toArray());
+            Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
     assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet())
-                .toArray());
+            Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
     assertThat(starlarkAction.discoversInputs()).isFalse();
 
     // Test using Starlark actions's inputs with shadowed action's inputs and discovered inputs
@@ -286,28 +283,24 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
 
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet())
-                .toArray());
+            Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
     assertThat(starlarkAction.getUnusedInputsList()).isEmpty();
     assertThat(starlarkAction.getAllowedDerivedInputs().toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet())
-                .toArray());
+            Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()));
     assertThat(starlarkAction.discoversInputs()).isTrue();
     assertThat(starlarkAction.discoverInputs(executionContext).toList())
         .containsExactly(discoveredInputs.toList().get(2));
     // after discovering inputs, the starlark action inputs should be updated
-    assertThat(starlarkAction.inputsDiscovered()).isTrue();
+    assertThat(starlarkAction.inputsKnown()).isTrue();
     assertThat(starlarkAction.getInputs().toList())
         .containsExactlyElementsIn(
-            Sets.<Artifact>union(
-                    NestedSetBuilder.wrap(
-                            Order.STABLE_ORDER,
-                            Sets.<Artifact>union(
-                                shadowedActionInputs.toSet(), starlarkActionInputs.toSet()))
-                        .toSet(),
-                    discoveredInputs.toSet())
-                .toArray());
+            Sets.union(
+                NestedSetBuilder.wrap(
+                        Order.STABLE_ORDER,
+                        Sets.union(shadowedActionInputs.toSet(), starlarkActionInputs.toSet()))
+                    .toSet(),
+                discoveredInputs.toSet()));
   }
 
   @Test
@@ -377,7 +370,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     when(shadowedAction.getInputFilesForExtraAction(
             ArgumentMatchers.any(ActionExecutionContext.class)))
         .thenReturn(discoveredInputs);
-    when(shadowedAction.inputsDiscovered()).thenReturn(true);
+    when(shadowedAction.inputsKnown()).thenReturn(true);
     when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
     when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap()))
         .thenReturn(ImmutableMap.copyOf(shadowedActionEnvironment));

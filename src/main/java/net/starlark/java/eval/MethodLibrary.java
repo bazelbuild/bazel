@@ -479,7 +479,7 @@ class MethodLibrary {
   @StarlarkMethod(
       name = "dict",
       doc =
-          "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
+          "Creates a <a href=\"../core/dict.html\">dictionary</a> from an optional positional "
               + "argument and an optional set of keyword arguments. In the case where the same key "
               + "is given multiple times, the last value will be used. Entries supplied via "
               + "keyword arguments are considered to come after entries supplied via the "
@@ -804,9 +804,7 @@ class MethodLibrary {
       category = "core",
       doc =
           "A type to represent booleans. There are only two possible values: "
-              + "<a href=\"globals.html#True\">True</a> and "
-              + "<a href=\"globals.html#False\">False</a>. "
-              + "Any value can be converted to a boolean using the "
-              + "<a href=\"globals.html#bool\">bool</a> function.")
+              + "True and False. Any value can be converted to a boolean using the "
+              + "<a href=\"../globals/all.html#bool\">bool</a> function.")
   static final class BoolModule implements StarlarkValue {} // (documentation only)
 }

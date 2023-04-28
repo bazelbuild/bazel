@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /** Helper responsible for creating {@link FdoContext} */
@@ -82,18 +80,10 @@ public class FdoHelper {
 
       if (cppConfiguration.getFdoPath() != null) {
         PathFragment fdoZip = cppConfiguration.getFdoPath();
-        SkyKey fdoKey = CcSkyframeFdoSupportValue.key(fdoZip);
-        SkyFunction.Environment skyframeEnv = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
-        CcSkyframeFdoSupportValue ccSkyframeFdoSupportValue =
-            (CcSkyframeFdoSupportValue) skyframeEnv.getValue(fdoKey);
-        if (skyframeEnv.valuesMissing()) {
-          return null;
-        }
         // fdoZip should be set if the profile is a path, fdoInputFile if it is an artifact, but
         // never both
         Preconditions.checkState(fdoInputFile == null);
-        fdoInputFile =
-            FdoInputFile.fromAbsolutePath(ccSkyframeFdoSupportValue.getFdoZipPath().asFragment());
+        fdoInputFile = FdoInputFile.fromAbsolutePath(fdoZip);
       } else if (cppConfiguration.getFdoOptimizeLabel() != null) {
         FdoProfileProvider fdoProfileProvider = attributes.getFdoOptimizeProvider();
         if (fdoProfileProvider != null) {
@@ -301,8 +291,7 @@ public class FdoHelper {
             .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(
-                CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA))
+            .setExecutable(toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataMergeAction")
             .addCommandLine(
@@ -421,7 +410,7 @@ public class FdoHelper {
           "Symlinking LLVM Raw Profile " + fdoProfile.getBasename());
     }
 
-    if (CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA) == null) {
+    if (toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()) == null) {
       ruleContext.ruleError(
           "llvm-profdata not available with this crosstool, needed for profile conversion");
       return null;
@@ -434,8 +423,7 @@ public class FdoHelper {
             .addTransitiveInputs(attributes.getAllFiles())
             .addOutput(profileArtifact)
             .useDefaultShellEnvironment()
-            .setExecutable(
-                CcToolchainProviderHelper.getToolPathFragment(toolPaths, Tool.LLVM_PROFDATA))
+            .setExecutable(toolPaths.get(Tool.LLVM_PROFDATA.getNamePart()))
             .setProgressMessage("LLVMProfDataAction: Generating %s", profileArtifact.prettyPrint())
             .setMnemonic("LLVMProfDataAction")
             .addCommandLine(

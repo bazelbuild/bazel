@@ -19,6 +19,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.ArrayList;
 
 /** Stores the values of flags and environment variables that affect the resolution */
 @AutoValue
@@ -63,4 +64,31 @@ abstract class BzlmodFlagsAndEnvVars {
 
   /** Error level of bazel compatability check */
   public abstract String compatibilityMode();
+
+  public ArrayList<String> getDiffFlags(BzlmodFlagsAndEnvVars flags) {
+    ArrayList<String> diffFlags = new ArrayList<>();
+    if (!flags.cmdRegistries().equals(cmdRegistries())) {
+      diffFlags.add("the value of --registry flag has been modified");
+    }
+    if (!flags.cmdModuleOverrides().equals(cmdModuleOverrides())) {
+      diffFlags.add("the value of --override_module flag has been modified");
+    }
+    if (!flags.allowedYankedVersions().equals(allowedYankedVersions())) {
+      diffFlags.add("the value of --allow_yanked_versions flag has been modified");
+    }
+    if (!flags.envVarAllowedYankedVersions().equals(envVarAllowedYankedVersions())) {
+      diffFlags.add(
+          "the value of BZLMOD_ALLOW_YANKED_VERSIONS environment variable has been modified");
+    }
+    if (flags.ignoreDevDependency() != ignoreDevDependency()) {
+      diffFlags.add("the value of --ignore_dev_dependency flag has been modified");
+    }
+    if (!flags.directDependenciesMode().equals(directDependenciesMode())) {
+      diffFlags.add("the value of --check_direct_dependencies flag has been modified");
+    }
+    if (!flags.compatibilityMode().equals(compatibilityMode())) {
+      diffFlags.add("the value of --check_bazel_compatibility flag has been modified");
+    }
+    return diffFlags;
+  }
 }

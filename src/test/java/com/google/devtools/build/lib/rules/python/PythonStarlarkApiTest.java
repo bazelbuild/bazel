@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -100,13 +99,13 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//pkg:upperuserlib");
 
     PyInfo info = target.get(PyInfo.PROVIDER);
-    assertThat(info.getTransitiveSources().toList(Artifact.class))
+    assertThat(info.getTransitiveSourcesSet().toList())
         .containsExactly(
             getSourceArtifact("pkg/loweruserlib.py"),
             getSourceArtifact("pkg/pylib.py"),
             getSourceArtifact("pkg/upperuserlib.py"));
     assertThat(info.getUsesSharedLibraries()).isTrue();
-    assertThat(info.getImports().toList(String.class))
+    assertThat(info.getImportsSet().toList())
         .containsExactly("loweruserlib_path", "upperuserlib_path");
     assertThat(info.getHasPy2OnlySources()).isTrue();
     assertThat(info.getHasPy3OnlySources()).isTrue();
@@ -121,7 +120,8 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    return [PyRuntimeInfo(",
         "        interpreter = ctx.file.interpreter,",
         "        files = depset(direct = ctx.files.files, transitive=[info.files]),",
-        "        python_version = info.python_version)]",
+        "        python_version = info.python_version,",
+        "        bootstrap_template = ctx.file.bootstrap_template)]",
         "",
         "userruntime = rule(",
         "    implementation = _userruntime_impl,",
@@ -129,6 +129,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "        'runtime': attr.label(),",
         "        'interpreter': attr.label(allow_single_file=True),",
         "        'files': attr.label_list(allow_files=True),",
+        "        'bootstrap_template': attr.label(allow_single_file=True),",
         "    },",
         ")");
     scratch.file(
@@ -149,6 +150,7 @@ public class PythonStarlarkApiTest extends BuildViewTestCase {
         "    runtime = ':pyruntime',",
         "    interpreter = ':userintr',",
         "    files = ['userdata.txt'],",
+        "    bootstrap_template = 'bootstrap.txt',",
         ")",
         "py_runtime_pair(",
         "    name = 'userruntime_pair',",

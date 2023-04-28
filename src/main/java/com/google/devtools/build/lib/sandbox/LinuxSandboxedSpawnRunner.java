@@ -302,8 +302,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     sandboxExecRoot.createDirectoryAndParents();
 
     if (useHermeticTmp) {
-      for (Map.Entry<Root, Path> root : inputs.getSourceRootBindMounts().entrySet()) {
-        createDirectoryWithinSandboxTmp(sandboxTmp, root.getKey().asPath());
+      for (Root root : inputs.getSourceRootBindMounts().keySet()) {
+        createDirectoryWithinSandboxTmp(sandboxTmp, root.asPath());
       }
 
       createDirectoryWithinSandboxTmp(sandboxTmp, withinSandboxExecRoot);
@@ -453,22 +453,20 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           BindMount.of(sandboxTmp.getRelative(BAZEL_WORKING_DIRECTORY), sandboxExecRootBase));
 
       // Then mount the individual package roots under $SANDBOX/_tmp/bazel-source-roots
-      for (Map.Entry<Root, Path> sourceRoot : inputs.getSourceRootBindMounts().entrySet()) {
-        Path realSourceRoot = sourceRoot.getValue();
-        Root withinSandboxSourceRoot = sourceRoot.getKey();
-        PathFragment sandboxTmpSourceRoot = withinSandboxSourceRoot.asPath().relativeTo(tmpPath);
-        result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), realSourceRoot));
-      }
+      inputs
+          .getSourceRootBindMounts()
+          .forEach(
+              (withinSandbox, real) -> {
+                PathFragment sandboxTmpSourceRoot = withinSandbox.asPath().relativeTo(tmpPath);
+                result.add(BindMount.of(sandboxTmp.getRelative(sandboxTmpSourceRoot), real));
+              });
 
       // Then mount $SANDBOX/_tmp at /tmp. At this point, even if the output base (and execroot)
       // and individual source roots are under /tmp, they are accessible at /tmp/bazel-*
       result.add(BindMount.of(tmpPath, sandboxTmp));
     }
 
-    for (Map.Entry<Path, Path> bindMount : bindMounts.entrySet()) {
-      result.add(BindMount.of(bindMount.getKey(), bindMount.getValue()));
-    }
-
+    bindMounts.forEach((k, v) -> result.add(BindMount.of(k, v)));
     return result.build();
   }
 
@@ -493,7 +491,15 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         continue;
       }
 
-      FileArtifactValue metadata = context.getMetadataProvider().getMetadata(input);
+      FileArtifactValue metadata = context.getInputMetadataProvider().getInputMetadata(input);
+      if (metadata == null) {
+        // This can happen if we are executing a spawn in an action that has multiple spawns and
+        // the output of one is the input of another. In this case, we assume that no one modifies
+        // an output of the first spawn before the action is completed (which requires the
+        // the completion of the second spawn, which happens after this point is reached in the
+        // code)
+        continue;
+      }
       if (!metadata.getType().isFile()) {
         // The hermetic sandbox creates hardlinks from files inside sandbox to files outside
         // sandbox. The content of the files outside the sandbox could have been tampered with via

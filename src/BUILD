@@ -587,13 +587,14 @@ filegroup(
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",
+        "@rules_testing//:WORKSPACE.bazel",
     ] + [
         "@openjdk%s_%s_archive//:WORKSPACE" % (version, os)
-        for version in ("17", "19")
-        for os in ("darwin", "darwin_aarch64", "linux", "linux_s390x", "windows") + (("windows_arm64",) if version != "19" else ())
+        for version in ("17", "20")
+        for os in ("darwin", "darwin_aarch64", "linux", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
     ] + [
         "@remotejdk%s_%s_for_testing//:WORKSPACE" % (version, os)
-        for version in ("17", "19")
-        for os in ("macos", "macos_aarch64", "linux", "linux_s390x", "win") + (("win_arm64",) if version != "19" else ())
+        for version in ("17", "20")
+        for os in ("macos", "macos_aarch64", "linux", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
     ],
 )

@@ -23,8 +23,8 @@ jobs:
       uses: actions/stale@v5
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        days-before-issue-stale: 880
-        days-before-pr-stale: 880
+        days-before-issue-stale: 775
+        days-before-pr-stale: 775
         days-before-issue-close: 14
         days-before-pr-close: 14
         stale-issue-message: >

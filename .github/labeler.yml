@@ -22,9 +22,9 @@ team-Remote-Exec:
 - src/tools/remote/**/*
 - third_party/remoteapis/build/bazel/remote/**/*
 
-# team-Rules-Python:
-# - src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
-# - src/main/java/com/google/devtools/build/lib/rules/python/**/*
+team-Rules-Python:
+- src/main/java/com/google/devtools/build/lib/bazel/rules/python/**/*
+- src/main/java/com/google/devtools/build/lib/rules/python/**/*
 
 team-Rules-Java:
 - src/java_tools/**/*
@@ -38,24 +38,39 @@ team-Android:
 - src/tools/android/java/com/google/devtools/build/android/**/*
 - src/test/java/com/google/devtools/build/android/**/*
 
-# team-Configurability:
-# - src/main/java/com/google/devtools/build/lib/analysis/**/*
-# - src/test/java/com/google/devtools/build/lib/analysis/**/*
-# - src/main/java/com/google/devtools/build/lib/rules/platform/**/*
-# - src/test/java/com/google/devtools/build/lib/rules/platform/**/*
-# - tools/platforms/**/*
+team-Configurability:
+- src/main/java/com/google/devtools/build/lib/analysis/**/*
+- src/test/java/com/google/devtools/build/lib/analysis/**/*
+- src/main/java/com/google/devtools/build/lib/query2/cquery/**/*
+- src/test/java/com/google/devtools/build/lib/query2/cquery/**/*
+- src/main/java/com/google/devtools/build/lib/rules/platform/**/*
+- src/test/java/com/google/devtools/build/lib/rules/platform/**/*
+- tools/platforms/**/*
 
-# team-Rules-CPP:
-# - tools/cpp/**/*
-# - test/shell/bazel/cpp/**/*
-# - src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
-# - src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
+team-Performance:
+- src/main/java/com/google/devtools/build/lib/profiler/**/*
+- src/main/java/com/google/devtools/build/lib/query2/aquery/**/*
+- src/main/java/com/google/devtools/build/lib/query2/query/**/*
+- src/main/java/com/google/devtools/build/lib/metrics/**/*
+- src/main/java/com/google/devtools/build/lib/actions/**/*
+- src/main/protobuf/analysis_v2.proto
 
-# team-Performance
+team-CLI:
+- src/main/java/com/google/devtools/build/lib/runtime/UiStateTracker.java
+- src/main/java/com/google/devtools/build/lib/runtime/UiEventHandler.java
+- src/main/java/com/google/devtools/build/lib/runtime/SkymeldUiStateTracker.java
+
+team-Local-Exec:
+- src/main/java/com/google/devtools/build/lib/sandbox/**/*
+- src/main/java/com/google/devtools/build/lib/worker/**/*
+- src/main/java/com/google/devtools/build/lib/dynamic/**/*
+
+team-Rules-CPP:
+- tools/cpp/**/*
+- src/test/java/com/google/devtools/build/lib/rules/cpp/**/*
+- src/main/java/com/google/devtools/build/lib/rules/cpp/**/*
 
 # team-Bazel
-
-# team-Local-Exec
 
 # team-OSS
 
@@ -70,7 +85,5 @@ team-Android:
 # team-Loading-API
 
 # team-Rules-ObjC
-
-# team-CLI
 
 # team-Core

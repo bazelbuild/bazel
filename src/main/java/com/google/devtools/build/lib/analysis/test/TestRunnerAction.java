@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
-import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
@@ -189,7 +188,7 @@ public class TestRunnerAction extends AbstractAction
   TestRunnerAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      SingleRunfilesSupplier runfilesSupplier,
+      RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
@@ -485,11 +484,6 @@ public class TestRunnerAction extends AbstractAction
     return computeExecuteUnconditionallyFromTestStatus();
   }
 
-  @Override // Tighten return type.
-  public SingleRunfilesSupplier getRunfilesSupplier() {
-    return (SingleRunfilesSupplier) super.getRunfilesSupplier();
-  }
-
   @Override
   public boolean isVolatile() {
     return true;
@@ -676,7 +670,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("TEST_RANDOM_SEED", Integer.toString(getRunNumber() + 1));
     }
     // TODO(b/184206260): Actually set TEST_RANDOM_SEED with random seed.
-    // The above TEST_RANDOM_SEED has histroically been set with the run number, but we should
+    // The above TEST_RANDOM_SEED has historically been set with the run number, but we should
     // explicitly set TEST_RUN_NUMBER to indicate the run number and actually set TEST_RANDOM_SEED
     // with a random seed. However, much code has come to depend on it being set to the run number
     // and this is an externally documented behavior. Modifying TEST_RANDOM_SEED should be done
@@ -721,7 +715,7 @@ public class TestRunnerAction extends AbstractAction
     }
     env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
 
-    if (!isEnableRunfiles()) {
+    if (!configuration.runfilesEnabled()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
@@ -923,11 +917,6 @@ public class TestRunnerAction extends AbstractAction
     return workspaceName;
   }
 
-  @Override
-  public Artifact getPrimaryOutput() {
-    return testLog;
-  }
-
   public PackageSpecificationProvider getNetworkAllowlist() {
     return networkAllowlist;
   }
@@ -991,10 +980,10 @@ public class TestRunnerAction extends AbstractAction
 
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
-    return getOutputs();
+    return ImmutableSet.copyOf(getOutputs());
   }
 
-  public Artifact getTestSetupScript() {
+  Artifact getTestSetupScript() {
     return testSetupScript;
   }
 
@@ -1008,16 +997,8 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Nullable
-  public PathFragment getShExecutableMaybe() {
+  PathFragment getShExecutableMaybe() {
     return shExecutable;
-  }
-
-  public ImmutableMap<String, String> getLocalShellEnvironment() {
-    return configuration.getLocalShellEnvironment();
-  }
-
-  public boolean isEnableRunfiles() {
-    return configuration.runfilesEnabled();
   }
 
   @Override

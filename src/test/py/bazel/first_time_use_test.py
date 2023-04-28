@@ -25,8 +25,7 @@ class FirstTimeUseTest(test_base.TestBase):
   def testNoPythonRequirement(self):
     """Regression test for https://github.com/bazelbuild/bazel/issues/6463."""
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
-    exit_code, stdout, stderr = self.RunBazel(['info', 'release'])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, stderr = self.RunBazel(['info', 'release'])
     for line in stdout + stderr:
       if 'python' in line and 'not found on PATH' in line:
         self._FailWithOutput(stdout + stderr)
@@ -66,22 +65,27 @@ class FirstTimeUseTest(test_base.TestBase):
     ])
 
     if test_base.TestBase.IsWindows():
-      exit_code, stdout, stderr = self.RunBazel([
-          'run',
-          # "bazel run" needs no Bash on Windows, so this call should succeed.
-          '--shell_executable=',
-          '//foo:x',
-      ])
-
+      # "bazel run" needs no Bash on Windows, so this call should succeed.
+      exit_code, stdout, stderr = self.RunBazel(
+          [
+              'run',
+              '--shell_executable=',
+              '//foo:x',
+          ],
+          allow_failure=True,
+      )
       self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr)
     else:
-      exit_code, stdout, stderr = self.RunBazel([
-          'run',
-          # Run fails because we provide no shell. Platforms other than
-          # Windows always use Bash for "bazel run".
-          '--shell_executable=',
-          '//foo:x',
-      ])
+      exit_code, stdout, stderr = self.RunBazel(
+          [
+              'run',
+              # Run fails because we provide no shell. Platforms other than
+              # Windows always use Bash for "bazel run".
+              '--shell_executable=',
+              '//foo:x',
+          ],
+          allow_failure=True,
+      )
       self.AssertNotExitCode(exit_code, 0, stderr)
       found_error = False
       for line in stdout + stderr:
@@ -92,7 +96,9 @@ class FirstTimeUseTest(test_base.TestBase):
         self._FailWithOutput(stdout + stderr)
 
       # Run succeeds because there is a shell.
-      exit_code, stdout, stderr = self.RunBazel(['run', '//foo:x'])
+      exit_code, stdout, stderr = self.RunBazel(
+          ['run', '//foo:x'], allow_failure=True
+      )
       self._AssertBazelRunBinaryOutput(exit_code, stdout, stderr)
 
 

@@ -265,15 +265,14 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       deprecationWarning =
           "--incompatible_remote_build_event_upload_respect_no_cache has been deprecated in favor"
-              + " of --experimental_remote_build_event_upload=minimal.",
-      help =
-          "If set to true, outputs referenced by BEP are not uploaded to remote cache if the"
-              + " generating action cannot be cached remotely.")
+              + " of --remote_build_event_upload=minimal.",
+      help = "Deprecated. No-op. Use --remote_build_event_upload=minimal instead.")
   public boolean incompatibleRemoteBuildEventUploadRespectNoCache;
 
   @Option(
-      name = "experimental_remote_build_event_upload",
-      defaultValue = "all",
+      name = "remote_build_event_upload",
+      oldName = "experimental_remote_build_event_upload",
+      defaultValue = "minimal",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = RemoteBuildEventUploadModeConverter.class,
@@ -283,7 +282,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + " remote cache, except for files that are important to the consumers of BEP (e.g."
               + " test logs and timing profile). bytestream:// scheme is always used for the uri of"
               + " files even if they are missing from remote cache.\n"
-              + "Default to 'all'.")
+              + "Default to 'minimal'.")
   public RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
   /** Build event upload mode flag parser */
@@ -343,6 +342,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public int remoteMaxRetryAttempts;
 
   @Option(
+      name = "remote_retry_max_delay",
+      defaultValue = "5s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The maximum backoff delay between remote retry attempts. Following units can be used:"
+              + " Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). If"
+              + " the unit is omitted, the value is interpreted as seconds.")
+  public Duration remoteRetryMaxDelay;
+
+  @Option(
       name = "disk_cache",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -365,7 +376,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean experimentalGuardAgainstConcurrentChanges;
 
   @Option(
-      name = "experimental_remote_grpc_log",
+      name = "remote_grpc_log",
+      oldName = "experimental_remote_grpc_log",
       defaultValue = "null",
       category = "remote",
       documentationCategory = OptionDocumentationCategory.REMOTE,
@@ -378,7 +390,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "protobufs with each message prefixed by a varint denoting the size of the"
               + " following serialized protobuf message, as performed by the method "
               + "LogEntry.writeDelimitedTo(OutputStream).")
-  public PathFragment experimentalRemoteGrpcLog;
+  public PathFragment remoteGrpcLog;
 
   @Option(
       name = "incompatible_remote_symlinks",
@@ -406,7 +418,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean incompatibleRemoteDanglingSymlinks;
 
   @Option(
-      name = "experimental_remote_cache_compression",
+      name = "remote_cache_compression",
+      oldName = "experimental_remote_cache_compression",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
@@ -450,9 +463,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       defaultValue = "null",
       expansion = {
         "--nobuild_runfile_links",
+        "--action_cache_store_output_metadata",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
@@ -460,9 +473,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --experimental_inmemory_jdeps_files,"
-              + " --experimental_inmemory_dotd_files,"
-              + " --experimental_action_cache_store_output_metadata and "
+              + " for flags: --action_cache_store_output_metadata,"
+              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
               + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
@@ -471,9 +483,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
       expansion = {
+        "--action_cache_store_output_metadata",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_action_cache_store_output_metadata",
         "--remote_download_outputs=toplevel"
       },
       category = "remote",
@@ -481,9 +493,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --experimental_inmemory_jdeps_files,"
-              + " --experimental_inmemory_dotd_files,"
-              + " --experimental_action_cache_store_output_metadata and "
+              + " shortcut for flags: --action_cache_store_output_metadata,"
+              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
               + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 

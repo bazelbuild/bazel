@@ -56,11 +56,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<KeyedConfiguredT
 
   @Override
   protected QueryHelper<KeyedConfiguredTargetValue> createQueryHelper() {
-    if (helper != null) {
-      getHelper().cleanUp();
-    }
-    helper = new ActionGraphQueryHelper();
-    return helper;
+    return new ActionGraphQueryHelper();
   }
 
   @Override

@@ -52,6 +52,12 @@ import javax.annotation.Nullable;
  */
 @FunctionalInterface
 public interface StateMachine {
+  /** A sentinel value returned when a {@code StateMachine} is done. */
+  public static final StateMachine DONE =
+      (t, l) -> {
+        throw new IllegalStateException("Sentinel DONE state should not be executed.");
+      };
+
   /**
    * Step performs the next computation.
    *
@@ -68,9 +74,8 @@ public interface StateMachine {
    * @param tasks an interface for adding subtasks, which may be either {@link SkyKey} lookups or
    *     child state machines. The {@code tasks} handle is associated with this state machine and
    *     other state machines should not use it.
-   * @return an instance indicating the next computation or null on completion.
+   * @return an instance indicating the next computation or {@link #DONE} on completion.
    */
-  @Nullable
   StateMachine step(Tasks tasks, ExtendedEventHandler listener) throws InterruptedException;
 
   /**
@@ -138,7 +143,7 @@ public interface StateMachine {
    */
   @FunctionalInterface
   interface ValueOrExceptionSink<E extends Exception> {
-    void accept(@Nullable SkyValue value, @Nullable E exception);
+    void acceptValueOrException(@Nullable SkyValue value, @Nullable E exception);
   }
 
   /**
@@ -148,7 +153,7 @@ public interface StateMachine {
    */
   @FunctionalInterface
   interface ValueOrException2Sink<E1 extends Exception, E2 extends Exception> {
-    void accept(@Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2);
+    void acceptValueOrException2(@Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2);
   }
 
   /**
@@ -159,6 +164,7 @@ public interface StateMachine {
   @FunctionalInterface
   interface ValueOrException3Sink<
       E1 extends Exception, E2 extends Exception, E3 extends Exception> {
-    void accept(@Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2, @Nullable E3 e3);
+    void acceptValueOrException3(
+        @Nullable SkyValue value, @Nullable E1 e1, @Nullable E2 e2, @Nullable E3 e3);
   }
 }

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -34,30 +35,27 @@ import net.starlark.java.eval.StarlarkThread;
  * Interface for a global Starlark library containing rule-related helper and registration
  * functions.
  */
-@DocumentMethods
-public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
+@GlobalMethods(environment = Environment.BZL)
+public interface StarlarkRuleFunctionsApi {
 
   String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
   String TOOLCHAINS_PARAM = "toolchains";
 
   String PROVIDES_DOC =
-      "A list of providers that the implementation function must return."
-          + ""
-          + "<p>It is an error if the implementation function omits any of the types of providers "
-          + "listed here from its return value. However, the implementation function may return "
-          + "additional providers not listed here."
-          + ""
-          + "<p>Each element of the list is an <code>*Info</code> object returned by "
-          + "<a href='globals.html#provider'><code>provider()</code></a>, except that a legacy "
-          + "provider is represented by its string name instead."
-          + ""
-          + "When a target of the rule is used as a dependency for a target that declares a "
-          + "required provider, it is not necessary to specify that provider here. It is enough "
-          + "that the implementation function returns it. However, it is considered best "
-          + "practice to specify it, even though this is not required. The "
-          + "<a href='globals#aspect.required_providers'><code>required_providers</code></a> field "
-          + "of an <a href='globals.html#aspect'>aspect</a> does, however, require that providers "
-          + "are specified here.";
+      "A list of providers that the implementation function must return." //
+          + "<p>It is an error if the implementation function omits any of the types of providers"
+          + " listed here from its return value. However, the implementation function may return"
+          + " additional providers not listed here." //
+          + "<p>Each element of the list is an <code>*Info</code> object returned by <a"
+          + " href='../globals/bzl.html#provider'><code>provider()</code></a>, except that a legacy"
+          + " provider is represented by its string name instead.When a target of the rule is used"
+          + " as a dependency for a target that declares a required provider, it is not necessary"
+          + " to specify that provider here. It is enough that the implementation function returns"
+          + " it. However, it is considered best practice to specify it, even though this is not"
+          + " required. The <a"
+          + " href='../globals/bzl.html#aspect.required_providers'><code>required_providers</code></a>"
+          + " field of an <a href='../globals/bzl.html#aspect'>aspect</a> does, however, require"
+          + " that providers are specified here.";
 
   @StarlarkMethod(
       name = "provider",
@@ -75,10 +73,10 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               + "    ..." //
               + "</pre><p>See <a href='https://bazel.build/extending/rules#providers'>Rules"
               + " (Providers)</a> for a comprehensive guide on how to use providers." //
-              + "<p>Returns a <a href='Provider.html#Provider'><code>Provider</code></a> callable "
-              + "value if <code>init</code> is not specified." //
+              + "<p>Returns a <a href='../builtins/Provider.html'><code>Provider</code></a>"
+              + " callable value if <code>init</code> is not specified." //
               + "<p>If <code>init</code> is specified, returns a tuple of 2 elements: a <a"
-              + " href='Provider.html#Provider'><code>Provider</code></a> callable value and a"
+              + " href='../builtins/Provider.html'><code>Provider</code></a> callable value and a"
               + " <em>raw constructor</em> callable value. See <a"
               + " href='https://bazel.build/extending/rules#custom_initialization_of_providers'>"
               + " Rules (Custom initialization of custom providers)</a> and the discussion of the"
@@ -164,8 +162,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "<p>NB: the above steps imply that an error occurs if <code>*args</code> or"
                     + " <code>**kwargs</code> does not match <code>init</code>'s signature, or the"
                     + " evaluation of <code>init</code>'s body fails (perhaps intentionally via a"
-                    + " call to <a href=\"#fail\"><code>fail()</code></a>), or if the return value"
-                    + " of <code>init</code> is not a dictionary with the expected schema." //
+                    + " call to <a href=\"../globals/all.html#fail\"><code>fail()</code></a>), or"
+                    + " if the return value of <code>init</code> is not a dictionary with the"
+                    + " expected schema." //
                     + "<p>In this way, the <code>init</code> callback generalizes normal provider"
                     + " construction by allowing positional arguments and arbitrary logic for"
                     + " preprocessing and validation. It does <em>not</em> enable circumventing the"
@@ -206,10 +205,10 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "implementation",
             named = true,
             doc =
-                "the Starlark function implementing this rule, must have exactly one parameter: "
-                    + "<a href=\"ctx.html\">ctx</a>. The function is called during the analysis "
-                    + "phase for each instance of the rule. It can access the attributes "
-                    + "provided by the user. It must create actions to generate all the declared "
+                "the Starlark function implementing this rule, must have exactly one parameter: <a"
+                    + " href=\"../builtins/ctx.html\">ctx</a>. The function is called during the"
+                    + " analysis phase for each instance of the rule. It can access the attributes"
+                    + " provided by the user. It must create actions to generate all the declared "
                     + "outputs."),
         @Param(
             name = "test",
@@ -232,15 +231,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "None",
             doc =
-                "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                    + "name to an attribute object (see <a href=\"attr.html\">attr</a> module). "
-                    + "Attributes starting with <code>_</code> are private, and can be used to "
-                    + "add an implicit dependency on a label. The attribute <code>name</code> is "
-                    + "implicitly added and must not be specified. Attributes "
-                    + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
-                    + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                    + "cannot be overridden. Most rules need only a handful of attributes. To "
-                    + "limit memory usage, the rule function imposes a cap on the size of attrs."),
+                "dictionary to declare all the attributes of the rule. It maps from an attribute"
+                    + " name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a>"
+                    + " module). Attributes starting with <code>_</code> are private, and can be"
+                    + " used to add an implicit dependency on a label. The attribute"
+                    + " <code>name</code> is implicitly added and must not be specified. Attributes"
+                    + " <code>visibility</code>, <code>deprecation</code>, <code>tags</code>,"
+                    + " <code>testonly</code>, and <code>features</code> are implicitly added and"
+                    + " cannot be overridden. Most rules need only a handful of attributes. To"
+                    + " limit memory usage, the rule function imposes a cap on the size of attrs."),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
@@ -257,14 +256,14 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                 "This parameter has been deprecated. Migrate rules to use"
                     + " <code>OutputGroupInfo</code> or <code>attr.output</code> instead. <p>A"
                     + " schema for defining predeclared outputs. Unlike <a"
-                    + " href='attr.html#output'><code>output</code></a> and <a"
-                    + " href='attr.html#output_list'><code>output_list</code></a> attributes, the"
-                    + " user does not specify the labels for these files. See the <a"
-                    + " href='https://bazel.build/extending/rules#files'>Rules page</a> for more on"
-                    + " predeclared outputs.<p>The value of this argument is either a dictionary or"
-                    + " a callback function that produces a dictionary. The callback works similar"
-                    + " to computed dependency attributes: The function's parameter names are"
-                    + " matched against the rule's attributes, so for example if you pass"
+                    + " href='../toplevel/attr.html#output'><code>output</code></a> and <a"
+                    + " href='../toplevel/attr.html#output_list'><code>output_list</code></a>"
+                    + " attributes, the user does not specify the labels for these files. See the"
+                    + " <a href='https://bazel.build/extending/rules#files'>Rules page</a> for more"
+                    + " on predeclared outputs.<p>The value of this argument is either a dictionary"
+                    + " or a callback function that produces a dictionary. The callback works"
+                    + " similar to computed dependency attributes: The function's parameter names"
+                    + " are matched against the rule's attributes, so for example if you pass"
                     + " <code>outputs = _my_func</code> with the definition <code>def"
                     + " _my_func(srcs, deps): ...</code>, the function has access to the attributes"
                     + " <code>srcs</code> and <code>deps</code>. Whether the dictionary is"
@@ -273,10 +272,10 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " identifier and the value is a string template that determines the output's"
                     + " label. In the rule's implementation function, the identifier becomes the"
                     + " field name used to access the output's <a"
-                    + " href='File.html'><code>File</code></a> in <a"
-                    + " href='ctx.html#outputs'><code>ctx.outputs</code></a>. The output's label"
-                    + " has the same package as the rule, and the part after the package is"
-                    + " produced by substituting each placeholder of the form"
+                    + " href='../builtins/File.html'><code>File</code></a> in <a"
+                    + " href='../builtins/ctx.html#outputs'><code>ctx.outputs</code></a>. The"
+                    + " output's label has the same package as the rule, and the part after the"
+                    + " package is produced by substituting each placeholder of the form"
                     + " <code>\"%{ATTR}\"</code> with a string formed from the value of the"
                     + " attribute <code>ATTR</code>:<ul><li>String-typed attributes are substituted"
                     + " verbatim.<li>Label-typed attributes become the part of the label after the"
@@ -336,14 +335,12 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "False",
             doc =
-                "<i>(Experimental)</i><br/><br/>"
-                    + "If true, this rule will expose its actions for inspection by rules that "
-                    + "depend on it via an <a href=\"globals.html#Actions\">Actions</a> "
-                    + "provider. The provider is also available to the rule itself by calling "
-                    + "<a href=\"ctx.html#created_actions\">ctx.created_actions()</a>."
-                    + "<br/><br/>"
-                    + "This should only be used for testing the analysis-time behavior of "
-                    + "Starlark rules. This flag may be removed in the future."),
+                "<i>(Experimental)</i><br/><br/>If true, this rule will expose its actions for"
+                    + " inspection by rules that depend on it via an <code>Actions</code> provider."
+                    + " The provider is also available to the rule itself by calling <a"
+                    + " href=\"../builtins/ctx.html#created_actions\">ctx.created_actions()</a>."
+                    + "<br/><br/>This should only be used for testing the analysis-time behavior of"
+                    + " Starlark rules. This flag may be removed in the future."),
         @Param(
             name = TOOLCHAINS_PARAM,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
@@ -404,7 +401,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + " This supersedes the value of <code>test</code></li> <li>The rule"
                     + " implementation function may not register actions. Instead, it must register"
                     + " a pass/fail result via providing <a"
-                    + " href='AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>.</li></ul>"),
+                    + " href='../providers/AnalysisTestResultInfo.html'>AnalysisTestResultInfo</a>.</li></ul>"),
         @Param(
             name = "build_setting",
             allowedTypes = {
@@ -415,12 +412,12 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             positional = false,
             doc =
-                "If set, describes what kind of "
-                    + "<a href = '${link config#user-defined-build-settings}'><code>build "
-                    + "setting</code></a> this rule is. See the "
-                    + "<a href='config.html'><code>config</code></a> module. If this is "
-                    + "set, a mandatory attribute named \"build_setting_default\" is automatically "
-                    + "added to this rule, with a type corresponding to the value passed in here."),
+                "If set, describes what kind of <a href='${link"
+                    + " config#user-defined-build-settings}'><code>build setting</code></a> this"
+                    + " rule is. See the <a href='../toplevel/config.html'><code>config</code></a>"
+                    + " module. If this is set, a mandatory attribute named"
+                    + " \"build_setting_default\" is automatically added to this rule, with a type"
+                    + " corresponding to the value passed in here."),
         @Param(
             name = "cfg",
             defaultValue = "None",
@@ -440,22 +437,10 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             doc =
                 "Dict of execution group name (string) to <a"
-                    + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
+                    + " href='../globals/bzl.html#exec_group'><code>exec_group</code>s</a>. If set,"
                     + " allows rules to run actions on multiple execution platforms within a"
                     + " single target. See <a href='${link exec-groups}'>execution groups"
                     + " documentation</a> for more info."),
-        @Param(
-            name = "compile_one_filetype",
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = Sequence.class, generic1 = String.class),
-              @ParamType(type = NoneType.class),
-            },
-            named = true,
-            positional = false,
-            doc =
-                "Used by --compile_one_dependency: if multiple rules consume the specified file, "
-                    + "should we choose this rule over others."),
         @Param(
             name = "name",
             named = true,
@@ -498,7 +483,6 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException;
@@ -514,12 +498,12 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             name = "implementation",
             named = true,
             doc =
-                "A Starlark function that implements this aspect, with exactly two parameters: "
-                    + "<a href=\"Target.html\">Target</a> (the target to which the aspect is "
-                    + "applied) and <a href=\"ctx.html\">ctx</a> (the rule context which the "
-                    + "target is created from). Attributes of the target are available via the "
-                    + "<code>ctx.rule</code> field. This function is evaluated during the "
-                    + "analysis phase for each application of an aspect to a target."),
+                "A Starlark function that implements this aspect, with exactly two parameters: <a"
+                    + " href=\"../builtins/Target.html\">Target</a> (the target to which the aspect"
+                    + " is applied) and <a href=\"../builtins/ctx.html\">ctx</a> (the rule context"
+                    + " which the target is created from). Attributes of the target are available"
+                    + " via the <code>ctx.rule</code> field. This function is evaluated during the"
+                    + " analysis phase for each application of an aspect to a target."),
         @Param(
             name = "attr_aspects",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
@@ -540,19 +524,17 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             named = true,
             defaultValue = "None",
             doc =
-                "A dictionary declaring all the attributes of the aspect. It maps from an "
-                    + "attribute name to an attribute object, like `attr.label` or `attr.string` "
-                    + "(see <a href=\"attr.html\">attr</a> module). Aspect attributes are "
-                    + "available to implementation function as fields of <code>ctx</code> "
-                    + "parameter. "
-                    + ""
-                    + "<p>Implicit attributes starting with <code>_</code> must have default "
-                    + "values, and have type <code>label</code> or <code>label_list</code>. "
-                    + ""
-                    + "<p>Explicit attributes must have type <code>string</code>, and must use "
-                    + "the <code>values</code> restriction. Explicit attributes restrict the "
-                    + "aspect to only be used with rules that have attributes of the same "
-                    + "name, type, and valid values according to the restriction."),
+                "A dictionary declaring all the attributes of the aspect. It maps from an attribute"
+                    + " name to an attribute object, like `attr.label` or `attr.string` (see <a"
+                    + " href=\"../toplevel/attr.html\">attr</a> module). Aspect attributes are"
+                    + " available to implementation function as fields of <code>ctx</code>"
+                    + " parameter. <p>Implicit attributes starting with <code>_</code> must have"
+                    + " default values, and have type <code>label</code> or"
+                    + " <code>label_list</code>. <p>Explicit attributes must have type"
+                    + " <code>string</code>, and must use the <code>values</code> restriction."
+                    + " Explicit attributes restrict the aspect to only be used with rules that"
+                    + " have attributes of the same name, type, and valid values according to the"
+                    + " restriction."),
         @Param(
             name = "required_providers",
             named = true,
@@ -685,7 +667,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             doc =
                 "Dict of execution group name (string) to <a"
-                    + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
+                    + " href='../globals/bzl.html#exec_group'><code>exec_group</code>s</a>. If set,"
                     + " allows aspects to run actions on multiple execution platforms within a"
                     + " single instance. See <a href='${link exec-groups}'>execution groups"
                     + " documentation</a> for more info.")
@@ -715,10 +697,9 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       doc =
           "Converts a label string into a <code>Label</code> object, in the context of the package"
               + " where the calling <code>.bzl</code> source file lives. If the given value is"
-              + " already a <code>Label</code>, it is returned unchanged."
-              + "<p>For macros, a related function,"
-              + " <code><a"
-              + " href='native#package_relative_label'>native.package_relative_label()</a></code>,"
+              + " already a <code>Label</code>, it is returned unchanged.<p>For macros, a related"
+              + " function, <code><a"
+              + " href='../toplevel/native.html#package_relative_label'>native.package_relative_label()</a></code>,"
               + " converts the input into a <code>Label</code> in the context of the package"
               + " currently being constructed. Use that function to mimic the string-to-label"
               + " conversion that is automatically done by label-valued rule attributes.",

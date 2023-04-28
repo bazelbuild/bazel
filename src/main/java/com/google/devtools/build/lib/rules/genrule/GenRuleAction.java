@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -55,19 +54,14 @@ public final class GenRuleAction extends SpawnAction {
         tools,
         inputs,
         outputs,
-        Iterables.getFirst(outputs, null),
         AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
         CommandLineLimits.UNLIMITED,
-        false,
         env,
         executionInfo,
         progressMessage,
         runfilesSupplier,
         MNEMONIC,
-        false,
-        null,
-        null,
         /*stripOutputPaths=*/ false);
   }
 
@@ -75,13 +69,15 @@ public final class GenRuleAction extends SpawnAction {
   protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
     if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       checkInputsForDirectories(
-          actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());
+          actionExecutionContext.getEventHandler(),
+          actionExecutionContext.getInputMetadataProvider());
     }
   }
 
   @Override
   protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults) {
+      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
+      throws InterruptedException {
     checkOutputsForDirectories(actionExecutionContext);
   }
 }

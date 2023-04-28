@@ -137,7 +137,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
   @Override
   public Collection<BuildEvent> getConfigurations() {
     if (action.getOwner() != null) {
-      BuildEvent configuration = action.getOwner().getConfiguration();
+      BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
       if (configuration == null) {
         configuration = new NullConfiguration();
       }
@@ -216,7 +216,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
     }
     if (action.getOwner() != null) {
-      BuildEvent configuration = action.getOwner().getConfiguration();
+      BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
       if (configuration == null) {
         configuration = new NullConfiguration();
       }

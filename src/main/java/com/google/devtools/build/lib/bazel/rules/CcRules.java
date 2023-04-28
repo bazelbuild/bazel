@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.cpp.CcImportRule;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLibcTopAlias;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
+import com.google.devtools.build.lib.rules.cpp.CcSharedLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -82,6 +83,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new BazelCppRuleClasses.CcRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcBinaryBaseRule(graphNodeAspect));
     builder.addRuleDefinition(new BazelCcBinaryRule());
+    builder.addRuleDefinition(new CcSharedLibraryRule());
     builder.addRuleDefinition(new BazelCcTestRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLibraryBaseRule());
     builder.addRuleDefinition(new BazelCcLibraryRule());

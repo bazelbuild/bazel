@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -39,7 +40,10 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utilities for Java compilation support in Starlark. */
-@StarlarkBuiltin(name = "java_common", doc = "Utilities for Java compilation support in Starlark.")
+@StarlarkBuiltin(
+    name = "java_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
+    doc = "Utilities for Java compilation support in Starlark.")
 public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
@@ -317,7 +321,7 @@ public interface JavaCommonApi<
           "Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding "
               + "of dependent jars during any recompiles consisting only of simple changes to "
               + "method implementations. The return value is typically passed to "
-              + "<code><a class=\"anchor\" href=\"JavaInfo.html\">"
+              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
               + "JavaInfo</a>#compile_jar</code>.",
       parameters = {
         @Param(name = "actions", named = true, doc = "ctx.actions"),
@@ -362,10 +366,10 @@ public interface JavaCommonApi<
       doc =
           "Stamps a jar with a target label for <code>add_dep</code> support. "
               + "The return value is typically passed to "
-              + "<code><a class=\"anchor\" href=\"JavaInfo.html\">"
+              + "<code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
               + "JavaInfo</a>#compile_jar</code>. "
               + "Prefer to use "
-              + "<code><a class=\"anchor\" href=\"java_common.html#run_ijar\">run_ijar</a></code> "
+              + "<code><a class=\"anchor\" href=\"#run_ijar\">run_ijar</a></code> "
               + "when possible.",
       parameters = {
         @Param(name = "actions", named = true, doc = "ctx.actions"),
@@ -397,7 +401,7 @@ public interface JavaCommonApi<
       doc =
           "Packs sources and source jars into a single source jar file. "
               + "The return value is typically passed to"
-              + "<p><code><a class=\"anchor\" href=\"JavaInfo.html\">"
+              + "<p><code><a class=\"anchor\" href=\"../providers/JavaInfo.html\">"
               + "JavaInfo</a>#source_jar</code></p>."
               + "At least one of parameters output_jar or output_source_jar is required.",
       parameters = {

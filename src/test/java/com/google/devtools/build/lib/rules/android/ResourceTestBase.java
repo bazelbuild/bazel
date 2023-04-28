@@ -61,7 +61,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
           "static_aapt2_tool",
           "aapt2",
           "empty.sh",
-          "android_blaze.jar",
           "android.jar",
           "ResourceProcessorBusyBox_deploy.jar");
 

@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -39,7 +38,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -118,7 +116,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       throws CommandLineExpansionException, InterruptedException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ParameterFile.writeParameterFile(out, getArguments(), type, ISO_8859_1);
-    return new String(out.toByteArray(), ISO_8859_1);
+    return out.toString(ISO_8859_1);
   }
 
   @Nullable
@@ -151,11 +149,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
               .build());
     }
     return new ParamFileWriter(arguments, type);
-  }
-
-  @VisibleForSerialization
-  Artifact getOutput() {
-    return Iterables.getOnlyElement(outputs);
   }
 
   private static class ParamFileWriter implements DeterministicWriter {

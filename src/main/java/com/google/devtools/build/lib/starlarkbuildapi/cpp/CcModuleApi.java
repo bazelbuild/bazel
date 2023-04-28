@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -39,6 +40,7 @@ import net.starlark.java.eval.Tuple;
 /** Utilites related to C++ support. */
 @StarlarkBuiltin(
     name = "cc_common_internal_do_not_use",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
         StarlarkActionFactoryT extends StarlarkActionFactoryApi,
@@ -1239,6 +1241,12 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "unbound"),
+        @Param(
+            name = "module_map",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
       })
   CompilationContextT createCcCompilationContext(
       Object headers,
@@ -1252,6 +1260,7 @@ public interface CcModuleApi<
       Sequence<?> directPublicHdrs,
       Sequence<?> directPrivateHdrs,
       Object purpose,
+      Object moduleMap,
       StarlarkThread thread)
       throws EvalException;
 

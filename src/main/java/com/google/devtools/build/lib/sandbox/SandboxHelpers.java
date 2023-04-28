@@ -452,7 +452,7 @@ public final class SandboxHelpers {
       Path withinSandboxExecRootPath,
       ImmutableList<Root> packageRoots,
       Path sandboxSourceRoots)
-      throws IOException {
+      throws IOException, InterruptedException {
     Root withinSandboxExecRoot = Root.fromPath(withinSandboxExecRootPath);
     Root execRoot =
         withinSandboxExecRootPath.equals(execRootPath)
@@ -465,6 +465,9 @@ public final class SandboxHelpers {
     Map<Root, Root> sourceRootToSandboxSourceRoot = new TreeMap<>();
 
     for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException();
+      }
       PathFragment pathFragment = e.getKey();
       ActionInput actionInput = e.getValue();
       if (actionInput instanceof VirtualActionInput) {
@@ -526,9 +529,7 @@ public final class SandboxHelpers {
     }
 
     Map<Root, Path> sandboxRootToSourceRoot = new TreeMap<>();
-    for (Map.Entry<Root, Root> entry : sourceRootToSandboxSourceRoot.entrySet()) {
-      sandboxRootToSourceRoot.put(entry.getValue(), entry.getKey().asPath());
-    }
+    sourceRootToSandboxSourceRoot.forEach((k, v) -> sandboxRootToSourceRoot.put(v, k.asPath()));
 
     return new SandboxInputs(inputFiles, virtualInputs, inputSymlinks, sandboxRootToSourceRoot);
   }

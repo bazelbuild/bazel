@@ -68,6 +68,7 @@ public class WorkerModule extends BlazeModule {
     if (workerPool != null) {
       WorkerOptions options = event.getOptionsProvider().getOptions(WorkerOptions.class);
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
+      workerFactory.setEventBus(env.getEventBus());
       shutdownPool(
           "Clean command is running, shutting down worker pool...",
           /* alwaysLog= */ false,
@@ -85,6 +86,7 @@ public class WorkerModule extends BlazeModule {
     WorkerOptions options = checkNotNull(event.request().getOptions(WorkerOptions.class));
     if (workerFactory != null) {
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
+      workerFactory.setEventBus(env.getEventBus());
     }
     Path workerDir =
         env.getOutputBase().getRelative(env.getRuntime().getProductName() + "-workers");
@@ -141,14 +143,12 @@ public class WorkerModule extends BlazeModule {
           options.workerVerbose);
       workerFactory = newWorkerFactory;
       workerFactory.setReporter(options.workerVerbose ? env.getReporter() : null);
+      workerFactory.setEventBus(env.getEventBus());
     }
 
     WorkerPoolConfig newConfig =
         new WorkerPoolConfig(
-            workerFactory,
-            options.workerMaxInstances,
-            options.workerMaxMultiplexInstances,
-            options.highPriorityWorkers);
+            workerFactory, options.workerMaxInstances, options.workerMaxMultiplexInstances);
 
     // If the config changed compared to the last run, we have to create a new pool.
     if (workerPool == null || !newConfig.equals(workerPool.getWorkerPoolConfig())) {
@@ -162,12 +162,18 @@ public class WorkerModule extends BlazeModule {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
+
+      // Start collecting after a pool is defined
+      workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+      if (options.workerVerbose) {
+        workerLifecycleManager.setReporter(env.getReporter());
+      }
+      workerLifecycleManager.setDaemon(true);
+      workerLifecycleManager.start();
     }
 
-    // Start collecting after a pool is defined
-    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-    workerLifecycleManager.setDaemon(true);
-    workerLifecycleManager.start();
+    // Clean doomed workers on the beginning of a build.
+    workerPool.clearDoomedWorkers();
   }
 
   @Override
@@ -232,6 +238,7 @@ public class WorkerModule extends BlazeModule {
 
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
+      this.workerFactory.setEventBus(null);
     }
     WorkerMultiplexerManager.afterCommand();
   }

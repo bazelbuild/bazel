@@ -19,11 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import net.starlark.java.syntax.Location;
+import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,7 +30,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PyRuntimeInfoTest extends BuildViewTestCase {
 
-  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
+  // Copied from providers.bzl for ease of reference.
+  private static final String EXPECTED_DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
 
   private Artifact dummyInterpreter;
   private Artifact dummyFile;
@@ -42,9 +40,46 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
   public void setUp() throws Exception {
     dummyInterpreter = getSourceArtifact("dummy_interpreter");
     dummyFile = getSourceArtifact("dummy_file");
-    ev.update("PyRuntimeInfo", PyRuntimeInfo.PROVIDER);
-    ev.update("dummy_interpreter", dummyInterpreter);
-    ev.update("dummy_file", dummyFile);
+  }
+
+  private void writeCreatePyRuntimeInfo(String... lines) throws Exception {
+    var builder = new StringBuilder();
+    for (var line : lines) {
+      builder.append("    ").append(line).append(",\n");
+    }
+    scratch.overwriteFile(
+        "defs.bzl",
+        "def _impl(ctx):",
+        "    dummy_file = ctx.file.dummy_file",
+        "    dummy_interpreter = ctx.file.dummy_interpreter",
+        "    info = PyRuntimeInfo(",
+        builder.toString(),
+        "    )",
+        "    return [info]",
+        "create_py_runtime_info = rule(implementation=_impl, attrs={",
+        "  'dummy_file': attr.label(default='dummy_file', allow_single_file=True),",
+        "  'dummy_interpreter': attr.label(default='dummy_interpreter', allow_single_file=True),",
+        "})",
+        "");
+    scratch.overwriteFile(
+        "BUILD",
+        "load(':defs.bzl', 'create_py_runtime_info')",
+        "create_py_runtime_info(name='subject')");
+  }
+
+  private PyRuntimeInfo getPyRuntimeInfo() throws Exception {
+    return getConfiguredTarget("//:subject").get(PyRuntimeInfo.PROVIDER);
+  }
+
+  private void assertContainsError(String pattern) throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+
+    getConfiguredTarget("//:subject");
+
+    // The Starlark messages are within a long multi-line traceback string, so
+    // add the implicit .* for convenience.
+    // NOTE: failures and events are accumulated between getConfiguredTarget() calls.
+    assertContainsEvent(Pattern.compile(".*" + pattern));
   }
 
   /** We need this because {@code NestedSet}s don't have value equality. */
@@ -55,156 +90,114 @@ public class PyRuntimeInfoTest extends BuildViewTestCase {
   }
 
   @Test
-  public void factoryMethod_InBuildRuntime() throws Exception {
-    NestedSet<Artifact> files = NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile);
-    PyRuntimeInfo inBuildRuntime =
-        PyRuntimeInfo.createForInBuildRuntime(
-            dummyInterpreter, files, null, null, PythonVersion.PY2, null, dummyFile);
+  public void starlarkConstructor_inBuildRuntime() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter = dummy_interpreter",
+        "files = depset([dummy_file])",
+        "python_version = 'PY3'",
+        "bootstrap_template = dummy_file");
 
-    assertThat(inBuildRuntime.getCreationLocation()).isEqualTo(Location.BUILTIN);
-    assertThat(inBuildRuntime.getInterpreterPath()).isNull();
-    assertThat(inBuildRuntime.getInterpreterPathString()).isNull();
-    assertThat(inBuildRuntime.getInterpreter()).isEqualTo(dummyInterpreter);
-    assertThat(inBuildRuntime.getFiles()).isEqualTo(files);
-    assertThat(inBuildRuntime.getFilesForStarlark().getSet(Artifact.class)).isEqualTo(files);
-    assertThat(inBuildRuntime.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-    assertThat(inBuildRuntime.getPythonVersionForStarlark()).isEqualTo("PY2");
-    assertThat(inBuildRuntime.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
-  }
+    PyRuntimeInfo info = getPyRuntimeInfo();
 
-  @Test
-  public void factoryMethod_PlatformRuntime() {
-    PathFragment path = PathFragment.create("/system/interpreter");
-    PyRuntimeInfo platformRuntime =
-        PyRuntimeInfo.createForPlatformRuntime(
-            path, null, null, PythonVersion.PY2, null, dummyFile);
-
-    assertThat(platformRuntime.getCreationLocation()).isEqualTo(Location.BUILTIN);
-    assertThat(platformRuntime.getInterpreterPath()).isEqualTo(path);
-    assertThat(platformRuntime.getInterpreterPathString()).isEqualTo("/system/interpreter");
-    assertThat(platformRuntime.getInterpreter()).isNull();
-    assertThat(platformRuntime.getFiles()).isNull();
-    assertThat(platformRuntime.getFilesForStarlark()).isNull();
-    assertThat(platformRuntime.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-    assertThat(platformRuntime.getPythonVersionForStarlark()).isEqualTo("PY2");
-    assertThat(platformRuntime.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
-  }
-
-  @Test
-  public void starlarkConstructor_InBuildRuntime() throws Exception {
-    ev.exec(
-        "info = PyRuntimeInfo(",
-        "    interpreter = dummy_interpreter,",
-        "    files = depset([dummy_file]),",
-        "    python_version = 'PY2',",
-        "    bootstrap_template = dummy_file,",
-        ")");
-    PyRuntimeInfo info = (PyRuntimeInfo) ev.lookup("info");
-    assertThat(info.getCreationLocation().toString()).isEqualTo(":1:21");
-    assertThat(info.getInterpreterPath()).isNull();
+    assertThat(info.getInterpreterPathString()).isNull();
     assertThat(info.getInterpreter()).isEqualTo(dummyInterpreter);
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER, dummyFile);
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-    assertThat(info.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(info.getStubShebang()).isEqualTo(EXPECTED_DEFAULT_STUB_SHEBANG);
     assertThat(info.getBootstrapTemplate()).isEqualTo(dummyFile);
   }
 
   @Test
-  public void starlarkConstructor_PlatformRuntime() throws Exception {
-    ev.exec(
-        "info = PyRuntimeInfo(", //
-        "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
-        "    bootstrap_template = dummy_file,",
-        ")");
-    PyRuntimeInfo info = (PyRuntimeInfo) ev.lookup("info");
-    assertThat(info.getCreationLocation().toString()).isEqualTo(":1:21");
-    assertThat(info.getInterpreterPath()).isEqualTo(PathFragment.create("/system/interpreter"));
+  public void starlarkConstructor_platformRuntime() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter_path = '/system/interpreter'",
+        "python_version = 'PY3'",
+        "bootstrap_template = dummy_file");
+
+    PyRuntimeInfo info = getPyRuntimeInfo();
+
+    assertThat(info.getInterpreterPathString()).isEqualTo("/system/interpreter");
     assertThat(info.getInterpreter()).isNull();
     assertThat(info.getFiles()).isNull();
-    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY2);
-    assertThat(info.getStubShebang()).isEqualTo(PyRuntimeInfo.DEFAULT_STUB_SHEBANG);
+    assertThat(info.getPythonVersion()).isEqualTo(PythonVersion.PY3);
+    assertThat(info.getStubShebang()).isEqualTo(EXPECTED_DEFAULT_STUB_SHEBANG);
   }
 
   @Test
-  public void starlarkConstructor_CustomShebang() throws Exception {
-    ev.exec(
-        "info = PyRuntimeInfo(", //
-        "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'PY2',",
-        "    stub_shebang = '#!/usr/bin/custom',",
-        "    bootstrap_template = dummy_file,",
-        ")");
-    PyRuntimeInfo info = (PyRuntimeInfo) ev.lookup("info");
+  public void starlarkConstructor_customShebang() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter_path = '/system/interpreter'",
+        "python_version = 'PY2'",
+        "stub_shebang = '#!/usr/bin/custom'",
+        "bootstrap_template = dummy_file");
+
+    PyRuntimeInfo info = getPyRuntimeInfo();
+
     assertThat(info.getStubShebang()).isEqualTo("#!/usr/bin/custom");
   }
 
   @Test
-  public void starlarkConstructor_FilesDefaultsToEmpty() throws Exception {
-    ev.exec(
-        "info = PyRuntimeInfo(", //
-        "    interpreter = dummy_interpreter,",
-        "    python_version = 'PY2',",
-        "    bootstrap_template = dummy_file,",
-        ")");
-    PyRuntimeInfo info = (PyRuntimeInfo) ev.lookup("info");
+  public void starlarkConstructor_filesDefaultsToEmpty() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "    interpreter = dummy_interpreter",
+        "    python_version = 'PY2'",
+        "    bootstrap_template = dummy_file");
+
+    PyRuntimeInfo info = getPyRuntimeInfo();
+
     assertHasOrderAndContainsExactly(info.getFiles(), Order.STABLE_ORDER);
   }
 
   @Test
-  public void starlarkConstructorErrors_InBuildXorPlatform() throws Exception {
-    ev.checkEvalErrorContains(
-        "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified",
-        "PyRuntimeInfo(",
-        "    python_version = 'PY2',",
-        ")");
-    ev.checkEvalErrorContains(
-        "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified",
-        "PyRuntimeInfo(",
-        "    interpreter_path = '/system/interpreter',",
-        "    interpreter = dummy_interpreter,",
-        "    python_version = 'PY2',",
-        ")");
+  public void starlarkConstructorErrors_inBuildXorPlatform_noInterpreter() throws Exception {
+    writeCreatePyRuntimeInfo("python_version = 'PY3'");
+
+    assertContainsError("exactly one of.*interpreter.*interpreter_path.*must be specified");
   }
 
   @Test
-  public void starlarkConstructorErrors_Files() throws Exception {
-    ev.checkEvalErrorContains(
-        "got value of type 'string', want 'depset or NoneType'",
-        "PyRuntimeInfo(",
-        "    interpreter = dummy_interpreter,",
-        "    files = 'abc',",
-        "    python_version = 'PY2',",
-        ")");
-    ev.checkEvalErrorContains(
-        "got a depset of 'string', expected a depset of 'File'",
-        "PyRuntimeInfo(",
-        "    interpreter = dummy_interpreter,",
-        "    files = depset(['abc']),",
-        "    python_version = 'PY2',",
-        ")");
-    ev.checkEvalErrorContains(
-        "cannot specify 'files' if 'interpreter_path' is given",
-        "PyRuntimeInfo(",
-        "    interpreter_path = '/system/interpreter',",
-        "    files = depset([dummy_file]),",
-        "    python_version = 'PY2',",
-        ")");
+  public void starlarkConstructorErrors_inBuildXorPlatform_bothInterpreters() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter_path = '/system/interpreter'",
+        "interpreter = dummy_interpreter",
+        "python_version = 'PY2'");
+
+    assertContainsError("exactly one of.*interpreter.*interpreter_path.*must be specified");
   }
 
   @Test
-  public void starlarkConstructorErrors_PythonVersion() throws Exception {
-    ev.checkEvalErrorContains(
-        "missing 1 required named argument: python_version",
-        "PyRuntimeInfo(",
-        "    interpreter_path = '/system/interpreter',",
-        ")");
-    ev.checkEvalErrorContains(
-        "illegal value for 'python_version': 'not a Python version' is not a valid Python major "
-            + "version. Expected 'PY2' or 'PY3'.",
-        "PyRuntimeInfo(",
-        "    interpreter_path = '/system/interpreter',",
-        "    python_version = 'not a Python version',",
-        ")");
+  public void starlarkConstructorErrors_files_invalidValue() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter = dummy_interpreter", //
+        "files = 'abc'",
+        "python_version = 'PY2'");
+
+    assertContainsError("invalid files:.*got.*string.*want.*depset");
+  }
+
+  @Test
+  public void starlarkConstructorErrors_files_cannotSpecify() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter_path = '/system/interpreter'",
+        "files = depset([dummy_file])",
+        "python_version = 'PY2'");
+
+    assertContainsError("cannot specify 'files' if 'interpreter_path' is given");
+  }
+
+  @Test
+  public void starlarkConstructorErrors_pythonVersion_missingArg() throws Exception {
+    writeCreatePyRuntimeInfo("interpreter_path = '/system/interpreter'");
+
+    assertContainsError("missing.*argument: python_version");
+  }
+
+  @Test
+  public void starlarkConstructorErrors_pythonVersion_invalidValue() throws Exception {
+    writeCreatePyRuntimeInfo(
+        "interpreter_path = '/system/interpreter'", //
+        "python_version = 'not a Python version'");
+
+    assertContainsError("invalid python_version");
   }
 }

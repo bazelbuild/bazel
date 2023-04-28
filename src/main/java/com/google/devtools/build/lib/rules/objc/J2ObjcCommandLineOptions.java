@@ -38,15 +38,18 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to the J2ObjC tool.")
   public List<String> translationFlags;
 
+  /*
+   *@deprecated Use J2ObjC tree shaker instead.
+   */
+  @Deprecated
   @Option(
-    name = "j2objc_dead_code_removal",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help =
-        "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
-            + "bundle."
-  )
+      name = "j2objc_dead_code_removal",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to perform J2ObjC dead code removal to strip unused code from the final app "
+              + "bundle.")
   public boolean removeDeadCode;
 
   @Option(
@@ -78,4 +81,11 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
     help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\")."
   )
   public boolean experimentalShorterHeaderPath;
+
+  @Override
+  public FragmentOptions getExec() {
+    J2ObjcCommandLineOptions exec = (J2ObjcCommandLineOptions) super.getExec();
+    exec.translationFlags = this.translationFlags;
+    return exec;
+  }
 }

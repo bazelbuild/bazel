@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildModule;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.buildTag;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTagClass;
@@ -24,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -43,8 +45,10 @@ public class StarlarkBazelModuleTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
+        .setUsingModule(ModuleKey.ROOT)
         .setLocation(Location.BUILTIN)
-        .setImports(ImmutableBiMap.of());
+        .setImports(ImmutableBiMap.of())
+        .setDevImports(ImmutableSet.of());
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
@@ -79,9 +83,7 @@ public class StarlarkBazelModuleTest {
                                 .build())))
             .build();
     Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
+        buildModule("foo", "1.0")
             .setKey(createModuleKey("foo", ""))
             .addDep("bar", createModuleKey("bar", "2.0"))
             .build();
@@ -123,12 +125,7 @@ public class StarlarkBazelModuleTest {
     ModuleExtensionUsage usage = getBaseUsageBuilder().addTag(buildTag("blep").build()).build();
     ModuleExtension extension =
         getBaseExtensionBuilder().setTagClasses(ImmutableMap.of("dep", createTagClass())).build();
-    Module module =
-        Module.builder()
-            .setName("foo")
-            .setVersion(Version.parse("1.0"))
-            .setKey(createModuleKey("foo", ""))
-            .build();
+    Module module = buildModule("foo", "1.0").setKey(createModuleKey("foo", "")).build();
     AbridgedModule abridgedModule = AbridgedModule.from(module);
 
     ExternalDepsException e =

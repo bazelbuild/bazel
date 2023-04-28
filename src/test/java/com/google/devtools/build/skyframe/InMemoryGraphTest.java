@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.skyframe.InMemoryGraphImpl.EdgelessInMemoryGraphImpl;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import org.junit.Test;
@@ -53,7 +54,7 @@ public class InMemoryGraphTest extends GraphTest {
 
     @Override
     protected ProcessableGraph getGraph(Version version) {
-      return new EdgelessInMemoryGraphImpl(/* usePooledSkyKeyInterning= */ true);
+      return new EdgelessInMemoryGraphImpl(/* usePooledInterning= */ true);
     }
 
     @Override
@@ -126,5 +127,25 @@ public class InMemoryGraphTest extends GraphTest {
     // cleaning up re-interns the cat instance back to the weak interner, and thus, no new instance
     // is created.
     assertThat(SkyKeyWithSkyKeyInterner.create("cat")).isSameInstanceAs(cat);
+  }
+
+  @Test
+  public void removePackageNode_notPresentInGraph() throws Exception {
+    PackageIdentifier packageIdentifier = PackageIdentifier.createUnchecked("repo", "hello");
+
+    graph.remove(packageIdentifier);
+    assertThat(graph.get(null, Reason.OTHER, packageIdentifier)).isNull();
+  }
+
+  @Test
+  public void removePackageNode_noValueWeakInternLabelsNoCrash() throws Exception {
+    PackageIdentifier packageIdentifier = PackageIdentifier.createUnchecked("repo", "hello");
+
+    graph.createIfAbsentBatch(null, Reason.OTHER, ImmutableList.of(packageIdentifier));
+    NodeEntry entry = graph.get(null, Reason.OTHER, packageIdentifier);
+    assertThat(entry.toValue()).isNull();
+
+    graph.remove(packageIdentifier);
+    assertThat(graph.get(null, Reason.OTHER, packageIdentifier)).isNull();
   }
 }

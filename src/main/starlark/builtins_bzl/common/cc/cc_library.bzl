@@ -467,7 +467,7 @@ def _identifier_of_library(library):
     if library.dynamic_library != None:
         return _identifier_of_artifact(library.dynamic_library)
     if library.interface_library != None:
-        return _identifier_of_artifact(library.interface_libary)
+        return _identifier_of_artifact(library.interface_library)
 
     return None
 
@@ -615,5 +615,4 @@ cc_library = rule(
     exec_groups = {
         "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
     },
-    compile_one_filetype = [".cc", ".h", ".c"],
 )

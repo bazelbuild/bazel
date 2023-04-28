@@ -88,7 +88,7 @@ public class BzlCompileFunctionTest extends BuildViewTestCase {
     mockFS.throwIOExceptionFor = PathFragment.create("/workspace/foo/BUILD");
     invalidatePackages(/*alsoConfigs=*/ false); // We don't want to fail early on config creation.
 
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.createInMainRepo("foo"));
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);

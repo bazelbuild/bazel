@@ -68,7 +68,6 @@ public class ObjcRules implements RuleSet {
     builder.addRuleDefinition(new ObjcRuleClasses.AlwaysLinkRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SdkFrameworksDependerRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
     builder.addRuleDefinition(new XcodeConfigRule());
     builder.addRuleDefinition(new XcodeConfigAliasRule());

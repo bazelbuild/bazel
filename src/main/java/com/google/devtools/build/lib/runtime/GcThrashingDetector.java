@@ -20,8 +20,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
@@ -33,6 +31,7 @@ import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
+import javax.annotation.Nullable;
 
 /**
  * Listens for {@link MemoryPressureEvent} to detect GC thrashing.
@@ -64,21 +63,18 @@ final class GcThrashingDetector {
     }
   }
 
-  /**
-   * If enabled in {@link MemoryPressureOptions}, creates a {@link GcThrashingDetector} and
-   * registers it with the {@link EventBus}.
-   */
-  public static void configureForCommand(MemoryPressureOptions options, EventBus eventBus) {
+  /** If enabled in {@link MemoryPressureOptions}, creates a {@link GcThrashingDetector}. */
+  @Nullable
+  static GcThrashingDetector createForCommand(MemoryPressureOptions options) {
     if (options.gcThrashingLimits.isEmpty() || options.oomMoreEagerlyThreshold == 100) {
-      return;
+      return null;
     }
 
-    eventBus.register(
-        new GcThrashingDetector(
-            options.oomMoreEagerlyThreshold,
-            options.gcThrashingLimits,
-            BlazeClock.instance(),
-            BugReporter.defaultInstance()));
+    return new GcThrashingDetector(
+        options.oomMoreEagerlyThreshold,
+        options.gcThrashingLimits,
+        BlazeClock.instance(),
+        BugReporter.defaultInstance());
   }
 
   private final int threshold;
@@ -94,8 +90,9 @@ final class GcThrashingDetector {
     this.bugReporter = bugReporter;
   }
 
-  @Subscribe // EventBus synchronizes calls by default, making thread safety unnecessary.
-  void handle(MemoryPressureEvent event) {
+  // This is called from MemoryPressureListener on a GC notification thread, so it should never be
+  // called concurrently, but mark it synchronized for good measure.
+  synchronized void handle(MemoryPressureEvent event) {
     if (event.percentTenuredSpaceUsed() < threshold) {
       for (var tracker : trackers) {
         tracker.underThresholdGc();

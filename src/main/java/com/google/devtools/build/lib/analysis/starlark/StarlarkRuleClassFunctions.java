@@ -34,7 +34,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -92,7 +91,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleFunctionsApi;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
@@ -117,7 +115,7 @@ import net.starlark.java.syntax.Identifier;
 import net.starlark.java.syntax.Location;
 
 /** A helper class to provide an easier API for Starlark rule definitions. */
-public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Artifact> {
+public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
   // A cache for base rule classes (especially tests).
   private static final LoadingCache<String, Label> labelCache =
       Caffeine.newBuilder().build(Label::parseCanonical);
@@ -296,7 +294,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException {
@@ -317,7 +314,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         buildSetting,
         cfg,
         execGroups,
-        compileOneFiletype,
         name,
         thread);
   }
@@ -339,7 +335,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Object buildSetting,
       Object cfg,
       Object execGroups,
-      Object compileOneFiletype,
       Object name,
       StarlarkThread thread)
       throws EvalException {
@@ -490,17 +485,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
 
     if (!execCompatibleWith.isEmpty()) {
       builder.addExecutionPlatformConstraints(parseExecCompatibleWith(execCompatibleWith, thread));
-    }
-
-    if (compileOneFiletype instanceof Sequence) {
-      if (!bzlModule.label().getRepository().getNameWithAt().equals("@_builtins")) {
-        throw Starlark.errorf(
-            "Rule in '%s' cannot use private API", bzlModule.label().getPackageName());
-      }
-      ImmutableList<String> filesTypes =
-          Sequence.cast(compileOneFiletype, String.class, "compile_one_filetype")
-              .getImmutableList();
-      builder.setPreferredDependencyPredicate(FileType.of(filesTypes));
     }
 
     StarlarkRuleFunction starlarkRuleFunction =

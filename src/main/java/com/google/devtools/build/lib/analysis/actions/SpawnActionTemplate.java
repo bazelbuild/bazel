@@ -204,6 +204,11 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return getInputs();
   }

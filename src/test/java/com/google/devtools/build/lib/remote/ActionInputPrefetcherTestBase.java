@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -45,9 +46,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.remote.util.StaticMetadataProvider;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.testing.vfs.SpiedFileSystem;
@@ -61,6 +60,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -199,10 +199,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact a = createRemoteArtifact("file", "hello world", metadata, cas);
     FileSystemUtils.writeContent(a.getPath(), "hello world".getBytes(UTF_8));
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
 
     verify(prefetcher, never()).doDownloadFile(any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
@@ -216,10 +215,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact a = createRemoteArtifact("file", "hello world remote", metadata, cas);
     FileSystemUtils.writeContent(a.getPath(), "hello world local".getBytes(UTF_8));
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
 
     verify(prefetcher).doDownloadFile(any(), any(), eq(a.getExecPath()), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
@@ -233,10 +231,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
     Artifact a2 = createRemoteArtifact("file2", "fizz buzz", metadata, cas);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
 
     assertThat(FileSystemUtils.readContent(a1.getPath(), UTF_8)).isEqualTo("hello world");
     assertReadableNonWritableAndExecutable(a1.getPath());
@@ -252,10 +249,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<HashCode, byte[]> cas = new HashMap<>();
     PathFragment targetExecPath = artifactRoot.getExecPath().getChild("target");
     Artifact a = createRemoteArtifact("file", "hello world", targetExecPath, metadata, cas);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
 
     assertThat(a.getPath().isSymbolicLink()).isTrue();
     assertThat(a.getPath().readSymbolicLink())
@@ -283,10 +279,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
 
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(children, metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(children, metadata::get, Priority.MEDIUM));
 
     assertThat(FileSystemUtils.readContent(firstChild.getPath(), UTF_8)).isEqualTo("content1");
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
@@ -314,12 +309,11 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
 
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
     wait(
         prefetcher.prefetchFiles(
-            ImmutableList.of(firstChild, secondChild), metadataProvider, Priority.MEDIUM));
+            ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
 
     assertThat(firstChild.getPath().exists()).isFalse();
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
@@ -346,10 +340,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
 
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(children, metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(children, metadata::get, Priority.MEDIUM));
 
     assertThat(tree.getPath().isSymbolicLink()).isTrue();
     assertThat(tree.getPath().readSymbolicLink())
@@ -371,13 +364,11 @@ public abstract class ActionInputPrefetcherTestBase {
   public void prefetchFiles_missingFiles_fails() throws Exception {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Artifact a = createRemoteArtifact("file1", "hello world", metadata, /* cas= */ new HashMap<>());
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
 
     assertThrows(
         Exception.class,
-        () ->
-            wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider, Priority.MEDIUM)));
+        () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadata::get, Priority.MEDIUM)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
@@ -391,10 +382,10 @@ public abstract class ActionInputPrefetcherTestBase {
     FileSystemUtils.writeContent(p, UTF_8, "hello world");
     Artifact a = ActionsTestUtil.createArtifact(artifactRoot, p);
     FileArtifactValue f = FileArtifactValue.createForTesting(a);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(ImmutableMap.of(a, f));
+    ImmutableMap<ActionInput, FileArtifactValue> metadata = ImmutableMap.of(a, f);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
 
-    wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadata::get, Priority.MEDIUM));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
@@ -418,10 +409,9 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
 
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(children, metadataProvider, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(children, metadata::get, Priority.MEDIUM));
 
     assertThat(firstChild.getPath().exists()).isFalse();
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
@@ -445,12 +435,11 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact firstChild = children.get(0);
     Artifact secondChild = children.get(1);
 
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
     wait(
         prefetcher.prefetchFiles(
-            ImmutableList.of(firstChild, secondChild), metadataProvider, Priority.MEDIUM));
+            ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
 
     verify(fs, times(1)).createWritableDirectory(tree.getPath().asFragment());
     verify(fs, times(1)).createWritableDirectory(tree.getPath().getChild("subdir").asFragment());
@@ -464,7 +453,6 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact artifact = createRemoteArtifact("file1", "hello world", metadata, cas);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
 
     AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
     SettableFuture<Void> downloadThatNeverFinishes = SettableFuture.create();
@@ -476,7 +464,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadataProvider, Priority.MEDIUM));
+                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
@@ -488,7 +476,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadataProvider, Priority.MEDIUM));
+                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
@@ -517,7 +505,6 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact artifact = createRemoteArtifact("file1", "hello world", metadata, cas);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     SettableFuture<Void> download = SettableFuture.create();
     AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
     mockDownload(prefetcher, cas, () -> download);
@@ -527,7 +514,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadataProvider, Priority.MEDIUM));
+                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
@@ -540,7 +527,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadataProvider, Priority.MEDIUM));
+                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
                 successful.set(true);
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
@@ -571,6 +558,25 @@ public abstract class ActionInputPrefetcherTestBase {
   }
 
   @Test
+  public void prefetchFile_interruptingMetadataSupplier_interruptsDownload() throws Exception {
+    Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
+    Map<HashCode, byte[]> cas = new HashMap<>();
+    Artifact a1 = createRemoteArtifact("file1", "hello world", metadata, cas);
+    AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
+
+    MetadataSupplier interruptedMetadataSupplier =
+        unused -> {
+          throw new InterruptedException();
+        };
+
+    ListenableFuture<Void> future =
+        prefetcher.prefetchFiles(
+            ImmutableList.of(a1), interruptedMetadataSupplier, Priority.MEDIUM);
+
+    assertThrows(CancellationException.class, future::get);
+  }
+
+  @Test
   public void prefetchFiles_onInterrupt_deletePartialDownloadedFile() throws Exception {
     Semaphore startSemaphore = new Semaphore(0);
     Semaphore endSemaphore = new Semaphore(0);
@@ -592,10 +598,7 @@ public abstract class ActionInputPrefetcherTestBase {
             () -> {
               try {
                 getFromFuture(
-                    prefetcher.prefetchFiles(
-                        ImmutableList.of(a1),
-                        new StaticMetadataProvider(metadata),
-                        Priority.MEDIUM));
+                    prefetcher.prefetchFiles(ImmutableList.of(a1), metadata::get, Priority.MEDIUM));
               } catch (IOException ignored) {
                 // Intentionally left empty
               } catch (InterruptedException e) {
@@ -618,12 +621,11 @@ public abstract class ActionInputPrefetcherTestBase {
     Map<ActionInput, FileArtifactValue> metadata = new HashMap<>();
     Map<HashCode, byte[]> cas = new HashMap<>();
     Artifact a = createRemoteArtifact("file", "hello world", metadata, /* cas= */ null);
-    MetadataProvider metadataProvider = new StaticMetadataProvider(metadata);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
     assertThrows(
         Exception.class,
-        () -> wait(prefetcher.prefetchFiles(metadata.keySet(), metadataProvider, Priority.MEDIUM)));
+        () -> wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM)));
 
     assertThat(prefetcher.getMissingActionInputs()).contains(a);
   }

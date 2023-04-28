@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,9 +25,10 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.MetadataProvider;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -46,19 +48,24 @@ import javax.annotation.Nullable;
 /** Output service implementation for the remote module */
 public class RemoteOutputService implements OutputService {
 
+  @Nullable private RemoteOutputChecker remoteOutputChecker;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private LeaseService leaseService;
-  @Nullable private Supplier<MetadataProvider> fileCacheSupplier;
+  @Nullable private Supplier<InputMetadataProvider> fileCacheSupplier;
+
+  void setRemoteOutputChecker(RemoteOutputChecker remoteOutputChecker) {
+    this.remoteOutputChecker = remoteOutputChecker;
+  }
 
   void setActionInputFetcher(RemoteActionInputFetcher actionInputFetcher) {
-    this.actionInputFetcher = Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
+    this.actionInputFetcher = checkNotNull(actionInputFetcher, "actionInputFetcher");
   }
 
   void setLeaseService(LeaseService leaseService) {
     this.leaseService = leaseService;
   }
 
-  void setFileCacheSupplier(Supplier<MetadataProvider> fileCacheSupplier) {
+  void setFileCacheSupplier(Supplier<InputMetadataProvider> fileCacheSupplier) {
     this.fileCacheSupplier = fileCacheSupplier;
   }
 
@@ -79,7 +86,7 @@ public class RemoteOutputService implements OutputService {
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
       boolean rewindingEnabled) {
-    Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
+    checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
         delegateFileSystem,
         execRootFragment,
@@ -135,10 +142,15 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public void finalizeAction(Action action, MetadataHandler metadataHandler) {
+  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore) {
     if (actionInputFetcher != null) {
-      actionInputFetcher.finalizeAction(action, metadataHandler);
+      actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }
+  }
+
+  @Override
+  public RemoteArtifactChecker getRemoteArtifactChecker() {
+    return checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
   }
 
   @Nullable

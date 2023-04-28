@@ -135,7 +135,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   public static ImmutableList<TargetPattern> getWorkspaceToolchains(Environment env)
       throws InterruptedException {
     PackageValue externalPackageValue =
-        (PackageValue) env.getValue(PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
+        (PackageValue) env.getValue(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER);
     if (externalPackageValue == null) {
       return null;
     }

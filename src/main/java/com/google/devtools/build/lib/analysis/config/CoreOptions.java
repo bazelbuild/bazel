@@ -81,15 +81,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "If true, the target platform is used in the output directory name instead of the CPU.")
   public boolean platformInOutputDir;
 
-  @Option(
-      name = "incompatible_use_platforms_repo_for_constraints",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If true, constraint settings from @bazel_tools are removed.")
-  public boolean usePlatformsRepoForConstraints;
-
   // Note: This value may contain conflicting duplicate values for the same define.
   // Use `getNormalizedCommandLineBuildVariables` if you wish for these to be deduplicated
   // (last-wins).
@@ -348,7 +339,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_exec_configuration_distinguisher",
-      defaultValue = "legacy",
+      defaultValue = "off",
       converter = ExecConfigurationDistinguisherSchemeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -593,7 +584,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_output_directory_naming_scheme",
-      defaultValue = "legacy",
+      defaultValue = "diff_against_baseline",
       converter = OutputDirectoryNamingSchemeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -1046,8 +1037,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
     exec.enableAspectHints = enableAspectHints;
     exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
-
-    exec.usePlatformsRepoForConstraints = usePlatformsRepoForConstraints;
     return exec;
   }
 

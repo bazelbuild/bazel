@@ -48,6 +48,8 @@ function set_up_py_test_coverage() {
   cat <<EOF > BUILD
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
+package(default_visibility = ["//visibility:public"])
+
 py_runtime(
     name = "py3_runtime",
     coverage_tool = ":mock_coverage",

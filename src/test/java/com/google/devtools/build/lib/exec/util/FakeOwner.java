@@ -80,19 +80,19 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public ActionOwner getOwner() {
-    return ActionOwner.create(
+    return ActionOwner.createDummy(
         Label.parseCanonicalUnchecked(ownerLabel),
-        /* aspectDescriptors= */ ImmutableList.of(),
         new Location("dummy-file", 0, 0),
+        /* targetKind= */ "dummy-target-kind",
         mnemonic,
-        "dummy-target-kind",
-        "configurationChecksum",
+        /* configurationChecksum= */ "configurationChecksum",
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        "additionalProgressInfo",
-        /* execProperties= */ ImmutableMap.of(),
-        null);
+        /* isToolConfiguration= */ true,
+        /* executionPlatform= */ null,
+        /* aspectDescriptors= */ ImmutableList.of(),
+        /* execProperties= */ ImmutableMap.of());
   }
 
   @Override
@@ -111,7 +111,7 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
-  public boolean inputsDiscovered() {
+  public boolean inputsKnown() {
     throw new UnsupportedOperationException();
   }
 
@@ -127,6 +127,11 @@ public class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public NestedSet<Artifact> getInputs() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
     throw new UnsupportedOperationException();
   }
 

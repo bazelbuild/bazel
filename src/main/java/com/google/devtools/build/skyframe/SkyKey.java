@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.concurrent.PooledInterner;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Serializable;
 import javax.annotation.Nullable;
@@ -74,20 +76,26 @@ public interface SkyKey extends Serializable {
     return new SkyKeyInterner<>();
   }
 
-  /** {@link PooledInterner} for {@link SkyKey}s */
+  /** {@link PooledInterner} for {@link SkyKey}s. */
   final class SkyKeyInterner<T extends SkyKey> extends PooledInterner<T> {
     @Nullable static Pool<? extends SkyKey> globalPool = null;
 
     /**
      * Sets the {@link Pool} to be used for interning.
      *
-     * <p>The pool is strongly retained until another pool is set. {@code null} can be passed to
-     * clear the global pool.
+     * <p>The pool is strongly retained until it is cleared, which can be accomplished by passing
+     * {@code null} to this method.
      */
     @ThreadSafety.ThreadCompatible
-    public static void setGlobalPool(@Nullable Pool<SkyKey> pool) {
+    static void setGlobalPool(@Nullable Pool<SkyKey> pool) {
       // No synchronization is needed. Setting global pool is guaranteed to happen sequentially
       // since only one build can happen at the same time.
+      if (pool != null
+          && globalPool != null
+          && (!TestType.isInTest() || TestType.getTestType() == TestType.SHELL_INTEGRATION)) {
+        BugReport.sendNonFatalBugReport(
+            new IllegalStateException("Global SkyKey pool not cleared before setting another"));
+      }
       globalPool = pool;
     }
 
@@ -104,7 +112,7 @@ public interface SkyKey extends Serializable {
      */
     @CanIgnoreReturnValue
     @SuppressWarnings("unchecked")
-    public T weakInternUnchecked(SkyKey sample) {
+    T weakInternUnchecked(SkyKey sample) {
       return weakIntern((T) sample);
     }
   }

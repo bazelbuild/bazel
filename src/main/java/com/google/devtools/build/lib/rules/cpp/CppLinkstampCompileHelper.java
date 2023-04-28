@@ -88,12 +88,13 @@ public class CppLinkstampCompileHelper {
             .setFeatureConfiguration(featureConfiguration)
             .setSourceFile(sourceFile)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
-            .setInputsForInvalidation(inputsForInvalidation)
+            .setCacheKeyInputs(inputsForInvalidation)
             .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
             .setShareable(true)
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
+
     semantics.finalizeCompileActionBuilder(
         configuration, featureConfiguration, builder, ruleErrorConsumer);
     return builder.buildOrThrowIllegalStateException();

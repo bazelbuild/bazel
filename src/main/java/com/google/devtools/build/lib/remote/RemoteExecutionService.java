@@ -69,7 +69,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
-import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -99,7 +99,6 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -143,6 +142,8 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
@@ -168,7 +169,7 @@ public class RemoteExecutionService {
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
-  private final Cache<Object, MerkleTree> merkleTreeCache;
+  private final Cache<Object, CompletableFuture<MerkleTree>> merkleTreeCache;
   private final Set<String> reportedErrors = new HashSet<>();
   private final Phaser backgroundTaskPhaser = new Phaser(1);
 
@@ -212,7 +213,7 @@ public class RemoteExecutionService {
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
-    this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
+    this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
   }
 
   static Command buildCommand(
@@ -224,6 +225,7 @@ public class RemoteExecutionService {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
+    ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
       if (output.isDirectory()) {
@@ -231,11 +233,14 @@ public class RemoteExecutionService {
       } else {
         outputFiles.add(pathString);
       }
+      outputPaths.add(pathString);
     }
     Collections.sort(outputFiles);
     Collections.sort(outputDirectories);
+    Collections.sort(outputPaths);
     command.addAllOutputFiles(outputFiles);
     command.addAllOutputDirectories(outputDirectories);
+    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -343,6 +348,11 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  @VisibleForTesting
+  Cache<Object, CompletableFuture<MerkleTree>> getMerkleTreeCache() {
+    return merkleTreeCache;
+  }
+
   private SortedMap<PathFragment, ActionInput> buildOutputDirMap(Spawn spawn) {
     TreeMap<PathFragment, ActionInput> outputDirMap = new TreeMap<>();
     for (ActionInput output : spawn.getOutputFiles()) {
@@ -369,7 +379,7 @@ public class RemoteExecutionService {
       useMerkleTreeCache = false;
     }
     if (useMerkleTreeCache) {
-      MetadataProvider metadataProvider = context.getMetadataProvider();
+      InputMetadataProvider inputMetadataProvider = context.getInputMetadataProvider();
       ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
       remotePathResolver.walkInputs(
           spawn,
@@ -377,12 +387,16 @@ public class RemoteExecutionService {
           (Object nodeKey, InputWalker walker) -> {
             subMerkleTrees.add(
                 buildMerkleTreeVisitor(
-                    nodeKey, walker, metadataProvider, context.getPathResolver()));
+                    nodeKey, walker, inputMetadataProvider, context.getPathResolver()));
           });
       if (!outputDirMap.isEmpty()) {
         subMerkleTrees.add(
             MerkleTree.build(
-                outputDirMap, metadataProvider, execRoot, context.getPathResolver(), digestUtil));
+                outputDirMap,
+                inputMetadataProvider,
+                execRoot,
+                context.getPathResolver(),
+                digestUtil));
       }
       return MerkleTree.merge(subMerkleTrees, digestUtil);
     } else {
@@ -400,7 +414,7 @@ public class RemoteExecutionService {
       return MerkleTree.build(
           inputMap,
           toolSignature == null ? ImmutableSet.of() : toolSignature.toolInputs,
-          context.getMetadataProvider(),
+          context.getInputMetadataProvider(),
           execRoot,
           context.getPathResolver(),
           digestUtil);
@@ -410,28 +424,50 @@ public class RemoteExecutionService {
   private MerkleTree buildMerkleTreeVisitor(
       Object nodeKey,
       InputWalker walker,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
-    MerkleTree result = merkleTreeCache.getIfPresent(nodeKey);
-    if (result == null) {
-      result = uncachedBuildMerkleTreeVisitor(walker, metadataProvider, artifactPathResolver);
-      merkleTreeCache.put(nodeKey, result);
+    // Deduplicate concurrent computations for the same node. It's not possible to use
+    // MerkleTreeCache#get(key, loader) because the loading computation may cause other nodes to be
+    // recursively looked up, which is not allowed. Instead, use a future as described at
+    // https://github.com/ben-manes/caffeine/wiki/Faq#recursive-computations.
+    var freshFuture = new CompletableFuture<MerkleTree>();
+    var priorFuture = merkleTreeCache.asMap().putIfAbsent(nodeKey, freshFuture);
+    if (priorFuture == null) {
+      // No preexisting cache entry, so we must do the computation ourselves.
+      try {
+        freshFuture.complete(
+            uncachedBuildMerkleTreeVisitor(walker, inputMetadataProvider, artifactPathResolver));
+      } catch (Exception e) {
+        freshFuture.completeExceptionally(e);
+      }
     }
-    return result;
+    try {
+      return (priorFuture != null ? priorFuture : freshFuture).join();
+    } catch (CompletionException e) {
+      Throwable cause = checkNotNull(e.getCause());
+      if (cause instanceof IOException) {
+        throw (IOException) cause;
+      } else if (cause instanceof ForbiddenActionInputException) {
+        throw (ForbiddenActionInputException) cause;
+      } else {
+        checkState(cause instanceof RuntimeException);
+        throw (RuntimeException) cause;
+      }
+    }
   }
 
   @VisibleForTesting
   public MerkleTree uncachedBuildMerkleTreeVisitor(
       InputWalker walker,
-      MetadataProvider metadataProvider,
+      InputMetadataProvider inputMetadataProvider,
       ArtifactPathResolver artifactPathResolver)
       throws IOException, ForbiddenActionInputException {
     ConcurrentLinkedQueue<MerkleTree> subMerkleTrees = new ConcurrentLinkedQueue<>();
     subMerkleTrees.add(
         MerkleTree.build(
             walker.getLeavesInputMapping(),
-            metadataProvider,
+            inputMetadataProvider,
             execRoot,
             artifactPathResolver,
             digestUtil));
@@ -439,7 +475,7 @@ public class RemoteExecutionService {
         (Object subNodeKey, InputWalker subWalker) -> {
           subMerkleTrees.add(
               buildMerkleTreeVisitor(
-                  subNodeKey, subWalker, metadataProvider, artifactPathResolver));
+                  subNodeKey, subWalker, inputMetadataProvider, artifactPathResolver));
         });
     return MerkleTree.merge(subMerkleTrees, digestUtil);
   }
@@ -610,6 +646,10 @@ public class RemoteExecutionService {
 
     public List<OutputSymlink> getOutputDirectorySymlinks() {
       return actionResult.getOutputDirectorySymlinksList();
+    }
+
+    public List<OutputSymlink> getOutputSymlinks() {
+      return actionResult.getOutputSymlinksList();
     }
 
     /**
@@ -1032,7 +1072,7 @@ public class RemoteExecutionService {
               directExecutor()));
     }
 
-    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt=*/ true);
+    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt= */ true);
 
     ImmutableMap.Builder<Path, DirectoryMetadata> directories = ImmutableMap.builder();
     for (Map.Entry<Path, ListenableFuture<Tree>> metadataDownload :
@@ -1056,18 +1096,33 @@ public class RemoteExecutionService {
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
     }
 
-    ImmutableMap.Builder<Path, SymlinkMetadata> symlinks = ImmutableMap.builder();
-    Iterable<OutputSymlink> outputSymlinks =
-        Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
-    for (OutputSymlink symlink : outputSymlinks) {
-      Path localPath =
+    var symlinkMap = new HashMap<Path, SymlinkMetadata>();
+    var outputSymlinks =
+        Iterables.concat(
+            result.getOutputFileSymlinks(),
+            result.getOutputDirectorySymlinks(),
+            result.getOutputSymlinks());
+    for (var symlink : outputSymlinks) {
+      var localPath =
           remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
-      symlinks.put(
-          localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
+      var target = PathFragment.create(symlink.getTarget());
+      var existingMetadata = symlinkMap.get(localPath);
+      if (existingMetadata != null) {
+        if (!target.equals(existingMetadata.target())) {
+          throw new IOException(
+              String.format(
+                  "Symlink path collision: '%s' is mapped to both '%s' and '%s'. Action Result"
+                      + " should not contain multiple targets for the same symlink.",
+                  localPath, existingMetadata.target(), target));
+        }
+        continue;
+      }
+
+      symlinkMap.put(localPath, new SymlinkMetadata(localPath, target));
     }
 
     return new ActionResultMetadata(
-        files.buildOrThrow(), symlinks.buildOrThrow(), directories.buildOrThrow());
+        files.buildOrThrow(), ImmutableMap.copyOf(symlinkMap), directories.buildOrThrow());
   }
 
   /**
@@ -1103,13 +1158,7 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
-    RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    boolean downloadOutputs =
-        remoteOutputsMode.downloadAllOutputs()
-            ||
-            // In case the action failed, download all outputs. It might be helpful for debugging
-            // and there is no point in injecting output metadata of a failed action.
-            result.getExitCode() != 0;
+    boolean downloadOutputs = shouldDownloadOutputsFor(result, metadata);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1129,12 +1178,10 @@ public class RemoteExecutionService {
       checkState(
           result.getExitCode() == 0,
           "injecting remote metadata is only supported for successful actions (exit code 0).");
-
-      if (!metadata.symlinks().isEmpty()) {
-        throw new IOException(
-            "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_download_outputs=minimal");
-      }
+      checkState(
+          metadata.symlinks.isEmpty(),
+          "Symlinks in action outputs are not yet supported by"
+              + " --remote_download_outputs=minimal");
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
@@ -1220,7 +1267,7 @@ public class RemoteExecutionService {
           ListenableFuture<byte[]> inMemoryOutputDownload =
               remoteCache.downloadBlob(context, inMemoryOutputDigest);
           waitForBulkTransfer(
-              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
+              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
           byte[] data = getFromFuture(inMemoryOutputDownload);
           return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
         }
@@ -1265,6 +1312,29 @@ public class RemoteExecutionService {
     }
 
     return null;
+  }
+
+  private boolean shouldDownloadOutputsFor(
+      RemoteActionResult result, ActionResultMetadata metadata) {
+    if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+      return true;
+    }
+    // In case the action failed, download all outputs. It might be helpful for debugging and there
+    // is no point in injecting output metadata of a failed action.
+    if (result.getExitCode() != 0) {
+      return true;
+    }
+    // Symlinks in actions output are not yet supported with BwoB.
+    if (!metadata.symlinks().isEmpty()) {
+      report(
+          Event.warn(
+              String.format(
+                  "Symlinks in action outputs are not yet supported by --remote_download_minimal,"
+                      + " falling back to downloading all action outputs due to output symlink %s",
+                  Iterables.get(metadata.symlinks(), 0).path())));
+      return true;
+    }
+    return false;
   }
 
   private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(

@@ -48,11 +48,13 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -102,6 +104,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.After;
 import org.junit.Before;
 
 /**
@@ -209,7 +212,12 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     useRuleClassProvider(analysisMock.createRuleClassProvider());
   }
 
-  protected SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
+  @After
+  public final void cleanupInterningPools() {
+    skyframeExecutor.getEvaluator().cleanupInterningPools();
+  }
+
+  private SkyframeExecutor createSkyframeExecutor(PackageFactory pkgFactory) {
     return BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
         .setPkgFactory(pkgFactory)
         .setFileSystem(fileSystem)
@@ -242,7 +250,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                         BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                        BazelCompatibilityMode.ERROR)))
+                        BazelCompatibilityMode.ERROR),
+                    PrecomputedValue.injected(
+                        BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
             .build(ruleClassProvider, fileSystem);
     useConfiguration();
     skyframeExecutor = createSkyframeExecutor(pkgFactory);
@@ -259,7 +269,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     packageOptions.globbingThreads = 3;
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = true;
-    buildLanguageOptions.enableLockfile = false;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
@@ -292,7 +301,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                 BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
             PrecomputedValue.injected(
                 BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
-                BazelCompatibilityMode.WARNING)));
+                BazelCompatibilityMode.WARNING),
+            PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)));
   }
 
   /** Resets the SkyframeExecutor, as if a clean had been executed. */

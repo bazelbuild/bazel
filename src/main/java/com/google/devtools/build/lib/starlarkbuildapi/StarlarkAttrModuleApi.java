@@ -38,39 +38,40 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @StarlarkBuiltin(
     name = "attr",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc =
         "This is a top-level module for defining the attribute schemas of a rule or aspect. Each"
             + " function returns an object representing the schema of a single attribute. These"
             + " objects are used as the values of the <code>attrs</code> dictionary argument of <a"
-            + " href=\"globals.html#rule\"><code>rule()</code></a> and <a"
-            + " href=\"globals.html#aspect\"><code>aspect()</code></a>.<p>See the Rules page for"
-            + " more on <a href='https://bazel.build/extending/rules#attributes'>defining</a> and"
-            + " <a href='https://bazel.build/extending/rules#implementation_function'>using</a>"
+            + " href=\"../globals/bzl.html#rule\"><code>rule()</code></a> and <a"
+            + " href=\"../globals/bzl.html#aspect\"><code>aspect()</code></a>.<p>See the Rules page"
+            + " for more on <a href='https://bazel.build/extending/rules#attributes'>defining</a>"
+            + " and <a href='https://bazel.build/extending/rules#implementation_function'>using</a>"
             + " attributes.")
 public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   // dependency and output attributes
   String LABEL_PARAGRAPH =
-      "<p>This attribute contains unique <a href='Label.html'><code>Label</code></a> values. If a "
-          + "string is supplied in place of a <code>Label</code>, it will be converted using the "
-          + "<a href='Label.html#Label'>label constructor</a>. The relative parts of the label "
-          + "path, including the (possibly renamed) repository, are resolved with respect to the "
-          + "instantiated target's package.";
+      "<p>This attribute contains unique <a href='../builtins/Label.html'><code>Label</code></a>"
+          + " values. If a string is supplied in place of a <code>Label</code>, it will be"
+          + " converted using the <a href='../builtins/Label.html#Label'>label constructor</a>. The"
+          + " relative parts of the label path, including the (possibly renamed) repository, are"
+          + " resolved with respect to the instantiated target's package.";
 
   // attr.label, attr.label_list, attr.label_keyed_string_dict
   String DEPENDENCY_ATTR_TEXT =
       LABEL_PARAGRAPH
-          + "<p>At analysis time (within the rule's implementation function), when retrieving the "
-          + "attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding "
-          + "<a href='Target.html'><code>Target</code></a>s. This allows you to access the "
-          + "providers of the current target's dependencies.";
+          + "<p>At analysis time (within the rule's implementation function), when retrieving the"
+          + " attribute value from <code>ctx.attr</code>, labels are replaced by the corresponding"
+          + " <a href='../builtins/Target.html'><code>Target</code></a>s. This allows you to access"
+          + " the providers of the current target's dependencies.";
 
   // attr.output, attr.output_list
   String OUTPUT_ATTR_TEXT =
       LABEL_PARAGRAPH
-          + "<p>At analysis time, the corresponding <a href='File.html'><code>File</code></a> can "
-          + "be retrieved using <a href='ctx.html#outputs'><code>ctx.outputs</code></a>.";
+          + "<p>At analysis time, the corresponding <a"
+          + " href='../builtins/File.html'><code>File</code></a> can be retrieved using <a"
+          + " href='../builtins/ctx.html#outputs'><code>ctx.outputs</code></a>.";
 
   String ALLOW_FILES_ARG = "allow_files";
   String ALLOW_FILES_DOC =
@@ -127,17 +128,15 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   String PROVIDERS_ARG = "providers";
   String PROVIDERS_DOC =
-      "The providers that must be given by any dependency appearing in this attribute."
-          + ""
-          + "<p>The format of this argument is a list of lists of providers -- <code>*Info</code> "
-          + "objects returned by <a href='globals.html#provider'><code>provider()</code></a> (or "
-          + "in the case of a legacy provider, its string name). The dependency must return ALL "
-          + "providers mentioned in at least ONE of the inner lists. As a convenience, this "
-          + "argument may also be a single-level list of providers, in which case it is wrapped in "
-          + "an outer list with one element."
-          + ""
-          + "It is NOT required that the rule of the dependency advertises those providers "
-          + "in its <code>provides<code> parameter, however, it is considered best practice.";
+      "The providers that must be given by any dependency appearing in this attribute.<p>The format"
+          + " of this argument is a list of lists of providers -- <code>*Info</code> objects"
+          + " returned by <a href='../globals/bzl.html#provider'><code>provider()</code></a> (or in"
+          + " the case of a legacy provider, its string name). The dependency must return ALL"
+          + " providers mentioned in at least ONE of the inner lists. As a convenience, this"
+          + " argument may also be a single-level list of providers, in which case it is wrapped in"
+          + " an outer list with one element.It is NOT required that the rule of the dependency"
+          + " advertises those providers in its <code>provides<code> parameter, however, it is"
+          + " considered best practice.";
 
   String ALLOW_SINGLE_FILE_ARG = "allow_single_file";
 
@@ -149,10 +148,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   @StarlarkMethod(
       name = "int",
       doc =
-          "Creates a schema for an integer attribute. The value must be in the signed 32-bit"
-              + " range. The corresponding "
-              + "<a href='ctx.html#attr'><code>ctx.attr</code></a> attribute will be of "
-              + "type <a href='int.html'><code>int</code></a>.",
+          "Creates a schema for an integer attribute. The value must be in the signed 32-bit range."
+              + " The corresponding <a href='../builtins/ctx.html#attr'><code>ctx.attr</code></a>"
+              + " attribute will be of type <a href='../core/int.html'><code>int</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -192,7 +190,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   @StarlarkMethod(
       name = "string",
-      doc = "Creates a schema for a <a href='string.html#attr'>string</a> attribute.",
+      doc = "Creates a schema for a <a href='../core/string.html#attr'>string</a> attribute.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -268,9 +266,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use a string or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                    + "function to specify a default value, for example, "
-                    + "<code>attr.label(default = \"//a:b\")</code>."),
+                    + "Use a string or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify a default value, for example, <code>attr.label(default ="
+                    + " \"//a:b\")</code>."),
         @Param(
             name = DOC_ARG,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
@@ -302,7 +301,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 "This is similar to <code>allow_files</code>, with the restriction that the label "
-                    + "must correspond to a single <a href=\"File.html\">File</a>. "
+                    + "must correspond to a single <a href=\"../builtins/File.html\">File</a>. "
                     + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."),
         @Param(
             name = MANDATORY_ARG,
@@ -435,9 +434,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "label_list",
       doc =
           "<p>Creates a schema for a list-of-labels attribute. This is a dependency attribute. "
-              + "The corresponding <a href='ctx.html#attr'><code>ctx.attr</code></a> "
-              + "attribute will be of type <a href='list.html'>list</a> of "
-              + "<a href='Target.html'><code>Target</code>s</a>.</p>"
+              + "The corresponding <a href='../builtins/ctx.html#attr'><code>ctx.attr</code></a> "
+              + "attribute will be of type <a href='../core/list.html'>list</a> of "
+              + "<a href='../builtins/Target.html'><code>Target</code>s</a>.</p>"
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
@@ -452,9 +451,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                    + "function to specify default values, for example, "
-                    + "<code>attr.label_list(default = [\"//a:b\", \"//a:c\"])</code>."),
+                    + "Use strings or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify default values, for example, <code>attr.label_list(default ="
+                    + " [\"//a:b\", \"//a:c\"])</code>."),
         @Param(
             name = DOC_ARG,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
@@ -550,10 +550,11 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use strings or the <a href=\"globals.html#Label\"><code>Label</code></a> "
-                    + "function to specify default values, for example, "
-                    + "<code>attr.label_keyed_string_dict(default = "
-                    + "{\"//a:b\": \"value\", \"//a:c\": \"string\"})</code>."),
+                    + "Use strings or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify default values, for example,"
+                    + " <code>attr.label_keyed_string_dict(default = {\"//a:b\": \"value\","
+                    + " \"//a:c\": \"string\"})</code>."),
         @Param(
             name = DOC_ARG,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
@@ -634,8 +635,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "bool",
       doc =
           "Creates a schema for a boolean attribute. The corresponding <a"
-              + " href='ctx.html#attr'><code>ctx.attr</code></a> attribute will be of type"
-              + " <a href='bool.html'><code>bool</code></a>.",
+              + " href='../builtins/ctx.html#attr'><code>ctx.attr</code></a> attribute will be of"
+              + " type <a href='../core/bool.html'><code>bool</code></a>.",
       parameters = {
         @Param(
             name = DEFAULT_ARG,
@@ -829,9 +830,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "Attribute",
       category = DocCategory.BUILTIN,
       doc =
-          "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
-              + "module to create an Attribute. They are only for use with a "
-              + "<a href=\"globals.html#rule\">rule</a> or an "
-              + "<a href=\"globals.html#aspect\">aspect</a>.")
+          "Representation of a definition of an attribute. Use the <a"
+              + " href=\"../toplevel/attr.html\">attr</a> module to create an Attribute. They are"
+              + " only for use with a <a href=\"../globals/bzl.html#rule\">rule</a> or an <a"
+              + " href=\"../globals/bzl.html#aspect\">aspect</a>.")
   interface Descriptor extends StarlarkValue {}
 }

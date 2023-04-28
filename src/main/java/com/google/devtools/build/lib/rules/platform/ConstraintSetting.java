@@ -80,7 +80,7 @@ public class ConstraintSetting implements RuleConfiguredTargetFactory {
     // because it will cause a cycle.
     SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
     PackageValue packageNode =
-        (PackageValue) env.getValue(PackageValue.key(constraintSetting.getPackageIdentifier()));
+        (PackageValue) env.getValue(constraintSetting.getPackageIdentifier());
     Preconditions.checkNotNull(
         packageNode,
         "Package '%s' is the package for the current target, and so must have already been loaded.",

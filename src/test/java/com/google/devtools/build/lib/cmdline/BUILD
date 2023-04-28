@@ -15,7 +15,10 @@ filegroup(
 
 java_library(
     name = "CmdLineTests_lib",
-    srcs = glob(["*.java"]),
+    srcs = glob(
+        ["*.java"],
+        exclude = ["LabelInternerIntegrationTest.java"],
+    ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
@@ -41,5 +44,24 @@ java_test(
     runtime_deps = [
         ":CmdLineTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
+    ],
+)
+
+java_test(
+    name = "LabelInternerIntegrationTest",
+    srcs = ["LabelInternerIntegrationTest.java"],
+    jvm_flags = ["-DBAZEL_USE_POOLED_LABEL_INTERNER=1"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )

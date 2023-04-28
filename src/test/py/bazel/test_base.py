@@ -73,11 +73,10 @@ class TestBase(unittest.TestCase):
       'remotejdk17_macos_aarch64_for_testing',
       'remotejdk17_win_for_testing',
       'remotejdk17_win_arm64_for_testing',
-      'remotejdk19_linux_for_testing',
-      'remotejdk19_linux_s390x_for_testing',
-      'remotejdk19_macos_for_testing',
-      'remotejdk19_macos_aarch64_for_testing',
-      'remotejdk19_win_for_testing',
+      'remotejdk20_linux_for_testing',
+      'remotejdk20_macos_for_testing',
+      'remotejdk20_macos_aarch64_for_testing',
+      'remotejdk20_win_for_testing',
       'remote_java_tools_for_testing',
       'remote_java_tools_darwin_x86_64_for_testing',
       'remote_java_tools_darwin_arm64_for_testing',
@@ -330,12 +329,9 @@ class TestBase(unittest.TestCase):
       os.chmod(abspath, stat.S_IRWXU)
     return abspath
 
-  def RunBazel(self,
-               args,
-               env_remove=None,
-               env_add=None,
-               cwd=None,
-               allow_failure=True):
+  def RunBazel(
+      self, args, env_remove=None, env_add=None, cwd=None, allow_failure=False
+  ):
     """Runs "bazel <args>", waits for it to exit.
 
     Args:
@@ -438,14 +434,16 @@ class TestBase(unittest.TestCase):
 
     shutil.rmtree(self._cas_path)
 
-  def RunProgram(self,
-                 args,
-                 env_remove=None,
-                 env_add=None,
-                 shell=False,
-                 cwd=None,
-                 allow_failure=True,
-                 executable=None):
+  def RunProgram(
+      self,
+      args,
+      env_remove=None,
+      env_add=None,
+      shell=False,
+      cwd=None,
+      allow_failure=False,
+      executable=None,
+  ):
     """Runs a program (args[0]), waits for it to exit.
 
     Args:

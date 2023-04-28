@@ -92,19 +92,19 @@ public class LtoBackendActionTest extends BuildViewTestCase {
     context =
         new ActionExecutionContext(
             executor,
-            /*actionInputFileCache=*/ null,
+            /* inputMetadataProvider= */ null,
             ActionInputPrefetcher.NONE,
             actionKeyContext,
-            /*metadataHandler=*/ null,
-            /*rewindingEnabled=*/ false,
+            /* outputMetadataStore= */ null,
+            /* rewindingEnabled= */ false,
             LostInputsCheck.NONE,
             new FileOutErr(),
             new StoredEventHandler(),
-            /*clientEnv=*/ ImmutableMap.of(),
-            /*topLevelFilesets=*/ ImmutableMap.of(),
-            /*artifactExpander=*/ null,
-            /*actionFileSystem=*/ null,
-            /*skyframeDepsResult=*/ null,
+            /* clientEnv= */ ImmutableMap.of(),
+            /* topLevelFilesets= */ ImmutableMap.of(),
+            /* artifactExpander= */ null,
+            /* actionFileSystem= */ null,
+            /* skyframeDepsResult= */ null,
             DiscoveredModulesPruner.DEFAULT,
             SyscallCache.NO_CACHE,
             ThreadStateReceiver.NULL_INSTANCE);
@@ -131,11 +131,11 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("Test");
-    assertThat(action.inputsDiscovered()).isFalse();
+    assertThat(action.inputsKnown()).isFalse();
 
     // Discover inputs, which should not add any inputs since bitcode1.imports is empty.
     action.discoverInputs(context);
-    assertThat(action.inputsDiscovered()).isTrue();
+    assertThat(action.inputsKnown()).isTrue();
     assertThat(action.getInputs().toList()).containsExactly(bitcode1Artifact, index1Artifact);
   }
 
@@ -160,11 +160,11 @@ public class LtoBackendActionTest extends BuildViewTestCase {
         .isEqualTo(AbstractAction.DEFAULT_RESOURCE_SET);
     assertThat(action.getArguments()).containsExactly("/bin/clang");
     assertThat(action.getProgressMessage()).isEqualTo("Test");
-    assertThat(action.inputsDiscovered()).isFalse();
+    assertThat(action.inputsKnown()).isFalse();
 
     // Discover inputs, which should add bitcode1.o which is listed in bitcode2.imports.
     action.discoverInputs(context);
-    assertThat(action.inputsDiscovered()).isTrue();
+    assertThat(action.inputsKnown()).isTrue();
     assertThat(action.getInputs().toList())
         .containsExactly(bitcode1Artifact, bitcode2Artifact, index2Artifact);
   }

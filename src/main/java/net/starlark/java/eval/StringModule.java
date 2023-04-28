@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
 /**
  * Starlark String module.
  *
- * <p>This module has special treatment in Starlark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods present for
  * any 'string' objects in the language.
  *
  * <p>Methods of this class annotated with {@link StarlarkMethod} must have a positional-only
@@ -962,8 +962,8 @@ final class StringModule implements StarlarkValue {
               + " to include a brace character in the literal text, it can be escaped by doubling:"
               + " <code>&#123;&#123;</code> and <code>&#125;&#125;</code>A replacement field can be"
               + " either a name, a number, or empty. Values are converted to strings using the <a"
-              + " href=\"globals.html#str\">str</a> function.<pre class=\"language-python\">#"
-              + " Access in order:\n"
+              + " href=\"../globals/all.html#str\">str</a> function.<pre"
+              + " class=\"language-python\"># Access in order:\n"
               + "\"&#123;&#125; < &#123;&#125;\".format(4, 5) == \"4 < 5\"\n"
               + "# Access by position:\n"
               + "\"{1}, {0}\".format(2, 1) == \"1, 2\"\n"

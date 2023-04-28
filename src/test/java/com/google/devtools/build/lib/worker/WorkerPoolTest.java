@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.worker.TestUtils.createWorkerKey;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -23,7 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -31,8 +30,6 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
-import java.io.IOException;
-import java.lang.Thread.State;
 import java.util.Map.Entry;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.junit.Before;
@@ -78,8 +75,7 @@ public class WorkerPoolTest {
   public void testBorrow_createsWhenNeeded() throws Exception {
     WorkerPool workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
     Worker worker2 = workerPool.borrowObject(workerKey);
@@ -92,8 +88,7 @@ public class WorkerPoolTest {
   public void testBorrow_reusesWhenPossible() throws Exception {
     WorkerPool workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
     workerPool.returnObject(workerKey, worker1);
@@ -106,8 +101,7 @@ public class WorkerPoolTest {
   public void testBorrow_usesDefault() throws Exception {
     WorkerPool workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
     Worker worker1a = workerPool.borrowObject(workerKey1);
@@ -124,8 +118,7 @@ public class WorkerPoolTest {
   public void testBorrow_pooledByKey() throws Exception {
     WorkerPool workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock, entryList("mnem", 2, "", 1), entryList(), Lists.newArrayList()));
+            new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
     WorkerKey workerKey1 = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey1);
     Worker worker1a = workerPool.borrowObject(workerKey1);
@@ -143,10 +136,7 @@ public class WorkerPoolTest {
     WorkerPool workerPool =
         new WorkerPoolImpl(
             new WorkerPoolConfig(
-                factoryMock,
-                entryList("mnem", 1, "", 1),
-                entryList("mnem", 2, "", 1),
-                Lists.newArrayList()));
+                factoryMock, entryList("mnem", 1, "", 1), entryList("mnem", 2, "", 1)));
     WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
     Worker worker1 = workerPool.borrowObject(workerKey);
     assertThat(worker1.getWorkerId()).isEqualTo(1);
@@ -166,79 +156,23 @@ public class WorkerPoolTest {
   }
 
   @Test
-  public void testBorrow_allowsOneHiPrio() throws Exception {
+  public void testBorrow_doomedWorkers() throws Exception {
     WorkerPool workerPool =
         new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock,
-                entryList("loprio", 2, "hiprio", 2, "", 1),
-                entryList(),
-                ImmutableList.of("hiprio")));
-    WorkerKey workerKey1 = createWorkerKey(fileSystem, "hiprio", false);
-    Worker worker1 = workerPool.borrowObject(workerKey1);
-    assertThat(worker1.getWorkerId()).isEqualTo(1);
-    // A single hiprio worker should not block.
-    WorkerKey workerKey2 = createWorkerKey(fileSystem, "loprio", false);
-    Worker worker2 = workerPool.borrowObject(workerKey2);
-    assertThat(worker2.getWorkerId()).isEqualTo(2);
-    verify(factoryMock, times(1)).makeObject(workerKey1);
-    verify(factoryMock, times(1)).makeObject(workerKey2);
-  }
+            new WorkerPoolConfig(factoryMock, entryList("mnem", 2, "", 1), entryList()));
+    WorkerKey workerKey = createWorkerKey(fileSystem, "mnem", false);
+    Worker worker1 = workerPool.borrowObject(workerKey);
+    Worker worker2 = workerPool.borrowObject(workerKey);
 
-  @Test
-  public void testBorrow_twoHiPrioBlocks() throws Exception {
-    WorkerPool workerPool =
-        new WorkerPoolImpl(
-            new WorkerPoolConfig(
-                factoryMock,
-                entryList("loprio", 2, "hiprio", 2, "", 1),
-                entryList(),
-                ImmutableList.of("hiprio")));
-    WorkerKey workerKey1 = createWorkerKey(fileSystem, "hiprio", false);
-    Worker worker1 = workerPool.borrowObject(workerKey1);
-    Worker worker1a = workerPool.borrowObject(workerKey1);
-    assertThat(worker1.getWorkerId()).isEqualTo(1);
-    assertThat(worker1a.getWorkerId()).isEqualTo(2);
-    WorkerKey workerKey2 = createWorkerKey(fileSystem, "loprio", false);
-    assertWithMessage("Could not borrow low priority worker")
-        .that(workerPool.couldBeBorrowed(workerKey2))
-        .isFalse();
-    Thread t =
-        new Thread(
-            () -> {
-              try {
-                workerPool.borrowObject(workerKey2);
-              } catch (IOException | InterruptedException e) {
-                // Ignorable
-              }
-            });
-    t.start();
-    boolean waited = false;
-    for (int tries = 0; tries < 1000; tries++) {
-      if (t.getState() == State.WAITING) {
-        waited = true;
-        break;
-      }
-      Thread.sleep(1);
-    }
-    assertWithMessage("Expected low-priority worker to wait").that(waited).isTrue();
-    workerPool.returnObject(workerKey1, worker1);
-    assertWithMessage("Could not borrow low priority worker")
-        .that(workerPool.couldBeBorrowed(workerKey2))
-        .isTrue();
-    boolean continued = false;
-    for (int tries = 0; tries < 1000; tries++) {
-      if (t.getState() != State.WAITING) {
-        continued = true;
-        break;
-      }
-      Thread.sleep(1);
-    }
-    assertWithMessage("Expected low-priority worker to eventually continue")
-        .that(continued)
-        .isTrue();
-    verify(factoryMock, times(2)).makeObject(workerKey1);
-    verify(factoryMock, times(1)).makeObject(workerKey2);
+    workerPool.setDoomedWorkers(ImmutableSet.of(worker1.getWorkerId()));
+
+    assertThat(worker1.isDoomed()).isFalse();
+    assertThat(worker2.isDoomed()).isFalse();
+
+    workerPool.returnObject(workerKey, worker1);
+
+    assertThat(worker1.isDoomed()).isTrue();
+    assertThat(worker2.isDoomed()).isFalse();
   }
 
   private static ImmutableList<Entry<String, Integer>> entryList() {
@@ -250,11 +184,4 @@ public class WorkerPoolTest {
     return ImmutableList.of(Maps.immutableEntry(key1, value1), Maps.immutableEntry(key2, value2));
   }
 
-  private static ImmutableList<Entry<String, Integer>> entryList(
-      String key1, int value1, String key2, int value2, String key3, int value3) {
-    return ImmutableList.of(
-        Maps.immutableEntry(key1, value1),
-        Maps.immutableEntry(key2, value2),
-        Maps.immutableEntry(key3, value3));
-  }
 }

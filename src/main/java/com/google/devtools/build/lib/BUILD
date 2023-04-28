@@ -237,6 +237,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -348,7 +349,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/jni",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
-        "//src/main/java/com/google/devtools/build/lib/metrics:garage-collection-metrics-util",
+        "//src/main/java/com/google/devtools/build/lib/metrics:garbage-collection-metrics-util",
+        "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
@@ -524,7 +526,7 @@ genrule(
     outs = ["command-line-reference.html"],
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
-        "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
+        "TMP=$$(mktemp -d $${TMPDIR:-/tmp}/tmp.XXXXXXXXXX) && " +
         # TODO(#11179): Remove when the stub template fix is released.
         "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
@@ -550,7 +552,10 @@ genrule(
           " $(@D)/skylark-lib" +
           " --link_map_path=$(location //src/main/java/com/google/devtools/build/docgen:bazel_link_map)" +
           " --create_toc=true" +
-          " && zip -qj $@ $(@D)/skylark-lib/*",
+          " && OUTPUT=$$PWD/$@" +
+          " && pushd $(@D)/skylark-lib" +
+          " && zip -qr $$OUTPUT ." +
+          " && popd",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
 )

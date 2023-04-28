@@ -306,7 +306,7 @@ public class CcToolchainTest extends BuildViewTestCase {
   public void testInvalidIncludeDirectory() throws Exception {
     assertInvalidIncludeDirectoryMessage("%package(//a", "has an unrecognized %prefix%");
     assertInvalidIncludeDirectoryMessage(
-        "%package(//a:@@a)%", "The package '//a:@@a' is not valid");
+        "%package(//a:@@a)%", "invalid package identifier '//a:@@a': contains ':'");
     assertInvalidIncludeDirectoryMessage(
         "%package(//a)%foo", "The path in the package.*is not valid");
   }
@@ -463,7 +463,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                 useConfiguration(
                     "-c",
                     "opt",
-                    "--fdo_optimize=a/profile.profdata",
+                    "--fdo_optimize=/a/profile.profdata",
                     "--cs_fdo_absolute_path=a/csprofile.profdata"));
     assertThat(e).hasMessageThat().contains("in --cs_fdo_absolute_path is not an absolute path");
   }

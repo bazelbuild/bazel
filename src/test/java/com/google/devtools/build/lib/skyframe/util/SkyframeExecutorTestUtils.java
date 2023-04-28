@@ -149,8 +149,8 @@ public class SkyframeExecutorTestUtils {
   @Nullable
   public static Target getExistingTarget(SkyframeExecutor skyframeExecutor, Label label)
       throws InterruptedException {
-    PackageValue value = (PackageValue) getExistingValue(skyframeExecutor,
-        PackageValue.key(label.getPackageIdentifier()));
+    PackageValue value =
+        (PackageValue) getExistingValue(skyframeExecutor, label.getPackageIdentifier());
     if (value == null) {
       return null;
     }
@@ -170,7 +170,7 @@ public class SkyframeExecutorTestUtils {
   @Nullable
   public static ErrorInfo getExistingFailedPackage(SkyframeExecutor skyframeExecutor, Label label)
       throws InterruptedException {
-    SkyKey key = PackageValue.key(label.getPackageIdentifier());
+    SkyKey key = label.getPackageIdentifier();
     return getExistingError(skyframeExecutor, key);
   }
 }

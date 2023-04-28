@@ -370,7 +370,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
           .getEventBus()
           .register(
               new TargetSummaryPublisher(
-                  cmdEnv.getEventBus(), cmdEnv.withMergedAnalysisAndExecution()));
+                  cmdEnv.getEventBus(), cmdEnv::withMergedAnalysisAndExecutionSourceOfTruth));
     }
 
     streamer =
@@ -862,11 +862,17 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
 
   protected abstract Set<String> allowedCommands(OptionsT besOptions);
 
-  protected Set<String> getBesKeywords(
+  protected ImmutableSet<String> getBesKeywords(
       OptionsT besOptions, @Nullable OptionsParsingResult startupOptionsProvider) {
-    return besOptions.besKeywords.stream()
-        .map(keyword -> "user_keyword=" + keyword)
-        .collect(ImmutableSet.toImmutableSet());
+    List<String> userKeywords = besOptions.besKeywords;
+    List<String> systemKeywords = besOptions.besSystemKeywords;
+    ImmutableSet.Builder<String> keywords =
+        ImmutableSet.builderWithExpectedSize(userKeywords.size() + systemKeywords.size());
+    for (String userKeyword : userKeywords) {
+      keywords.add("user_keyword=" + userKeyword);
+    }
+    keywords.addAll(systemKeywords);
+    return keywords.build();
   }
 
   /** A prefix used when printing the invocation ID in the command line */

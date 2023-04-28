@@ -63,7 +63,7 @@ public class LinkBuildVariablesTestCase extends BuildViewTestCase {
   /** Returns active build variables for a link action of given type for given target. */
   protected CcToolchainVariables getLinkBuildVariables(
       ConfiguredTarget target, Link.LinkTargetType type) {
-    return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
+    return getCppLinkAction(target, type).getLinkCommandLineForTesting().getBuildVariables();
   }
 
   /** Creates a CcToolchainFeatures from features described in the given toolchain fragment. */

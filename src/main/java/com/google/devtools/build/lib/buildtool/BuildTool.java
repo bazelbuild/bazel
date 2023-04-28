@@ -173,9 +173,7 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
-      env.getSkyframeExecutor()
-          .setMergedSkyframeAnalysisExecution(env.withMergedAnalysisAndExecution());
-      if (env.withMergedAnalysisAndExecution()) {
+      if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
         return;
       }
@@ -464,7 +462,7 @@ public class BuildTool {
               /* includeFileWriteContents */ false,
               aqueryOutputHandler,
               getReporter());
-      ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
+      AqueryProcessor.dumpActionGraph(env, aqueryOutputHandler, actionGraphDump);
     }
   }
 

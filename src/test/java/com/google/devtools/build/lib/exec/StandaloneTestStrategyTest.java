@@ -28,6 +28,7 @@ import com.google.common.collect.MoreCollectors;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,7 +38,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.actions.cache.MetadataHandler;
+import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
@@ -137,13 +138,13 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     FakeActionExecutionContext(
         FileOutErr fileOutErr,
         ActionContext.ActionContextRegistry actionContextRegistry,
-        MetadataHandler metadataHandler) {
+        OutputMetadataStore outputMetadataStore) {
       super(
           /* executor= */ null,
-          /* actionInputFileCache= */ null,
+          /* inputMetadataProvider= */ null,
           ActionInputPrefetcher.NONE,
           new ActionKeyContext(),
-          /* metadataHandler= */ metadataHandler,
+          /* outputMetadataStore= */ outputMetadataStore,
           /* rewindingEnabled= */ false,
           LostInputsCheck.NONE,
           fileOutErr,
@@ -181,9 +182,14 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     }
 
     @Override
+    public ActionExecutionContext withOutputsAsInputs(Iterable<? extends ActionInput> inputs) {
+      return this;
+    }
+
+    @Override
     public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
       return new FakeActionExecutionContext(
-          fileOutErr, actionContextRegistry, getMetadataHandler());
+          fileOutErr, actionContextRegistry, getOutputMetadataStore());
     }
   }
 

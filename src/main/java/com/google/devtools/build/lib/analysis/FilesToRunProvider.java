@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -32,7 +34,7 @@ public final class FilesToRunProvider
   public static final String STARLARK_NAME = "files_to_run";
 
   public static final FilesToRunProvider EMPTY =
-      new FilesToRunProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), null, null);
+      new FilesToRunProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER), null, null);
 
   private final NestedSet<Artifact> filesToRun;
   @Nullable private final RunfilesSupport runfilesSupport;
@@ -66,9 +68,11 @@ public final class FilesToRunProvider
   }
 
   /**
-   * Returns the {@RunfilesSupport} object associated with the target or null if it does not exist.
+   * Returns the {@link RunfilesSupport} object associated with the target or null if it does not
+   * exist.
    */
-  @Nullable public RunfilesSupport getRunfilesSupport() {
+  @Nullable
+  public RunfilesSupport getRunfilesSupport() {
     return runfilesSupport;
   }
 
@@ -91,10 +95,6 @@ public final class FilesToRunProvider
 
   /** Return a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
   public RunfilesSupplier getRunfilesSupplier() {
-    if (runfilesSupport != null) {
-      return SingleRunfilesSupplier.create(runfilesSupport);
-    } else {
-      return EmptyRunfilesSupplier.INSTANCE;
-    }
+    return firstNonNull(runfilesSupport, EmptyRunfilesSupplier.INSTANCE);
   }
 }

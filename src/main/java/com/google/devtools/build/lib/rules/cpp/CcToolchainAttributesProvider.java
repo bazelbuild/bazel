@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -40,6 +41,9 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain.AdditionalBuildVariablesComputer;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * Provider encapsulating all the information from the cc_toolchain rule that affects creation of
@@ -231,6 +235,12 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return purposePrefix;
   }
 
+  @StarlarkMethod(name = "runtime_solib_dir_base", documented = false, useStarlarkThread = true)
+  public String getRuntimeSolibDirBaseForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getRuntimeSolibDirBase();
+  }
+
   public String getRuntimeSolibDirBase() {
     return runtimeSolibDirBase;
   }
@@ -251,6 +261,13 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return toolchainType;
   }
 
+  @StarlarkMethod(name = "cc_toolchain_config_info", documented = false, useStarlarkThread = true)
+  public CcToolchainConfigInfo getCcToolchainConfigInfoForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCcToolchainConfigInfo();
+  }
+
   public CcToolchainConfigInfo getCcToolchainConfigInfo() {
     return ccToolchainConfigInfo;
   }
@@ -263,8 +280,32 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return licensesProvider;
   }
 
+  @StarlarkMethod(
+      name = "static_runtime_lib",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public TransitiveInfoCollection getStaticRuntimeLibForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getStaticRuntimeLib();
+  }
+
   public TransitiveInfoCollection getStaticRuntimeLib() {
     return staticRuntimeLib;
+  }
+
+  @StarlarkMethod(
+      name = "dynamic_runtime_lib",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public TransitiveInfoCollection getDynamicRuntimeLibForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getDynamicRuntimeLib();
   }
 
   public TransitiveInfoCollection getDynamicRuntimeLib() {
@@ -303,6 +344,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return linkDynamicLibraryTool;
   }
 
+  @StarlarkMethod(
+      name = "module_map",
+      documented = false,
+      useStarlarkThread = true,
+      allowReturnNones = true)
+  @Nullable
+  public TransitiveInfoCollection getModuleMapForStarlark(StarlarkThread thread)
+      throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getModuleMap();
+  }
+
   public TransitiveInfoCollection getModuleMap() {
     return moduleMap;
   }
@@ -329,6 +382,12 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public FdoProfileProvider getFdoOptimizeProvider() {
     return fdoOptimizeProvider;
+  }
+
+  @StarlarkMethod(name = "module_map_artifact", documented = false, useStarlarkThread = true)
+  public Artifact getModuleMapArtifactForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getModuleMapArtifact();
   }
 
   public Artifact getModuleMapArtifact() {
@@ -359,6 +418,13 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return fullInputsForLink;
   }
 
+  @StarlarkMethod(name = "cc_toolchain_label", documented = false, useStarlarkThread = true)
+  public Label getCcToolchainLabelForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getCcToolchainLabel();
+  }
+
+  @Override
   public Label getCcToolchainLabel() {
     return ccToolchainLabel;
   }
@@ -369,6 +435,18 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
 
   public NestedSet<Artifact> getCompilerFilesWithoutIncludes() {
     return compilerFilesWithoutIncludes;
+  }
+
+  @StarlarkMethod(name = "libc", documented = false, useStarlarkThread = true)
+  public Depset getLibcForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, getLibc());
+  }
+
+  @StarlarkMethod(name = "target_libc", documented = false, useStarlarkThread = true)
+  public Depset getTargetLibcForstarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return Depset.of(Artifact.class, getTargetLibc());
   }
 
   public NestedSet<Artifact> getLibc() {
@@ -383,9 +461,31 @@ public class CcToolchainAttributesProvider extends NativeInfo implements HasCcTo
     return targetLibcTop;
   }
 
+  @StarlarkMethod(
+      name = "libc_top_label",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  public Label getLibcTopLabelForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getLibcTopLabel();
+  }
+
   @Nullable
   public Label getLibcTopLabel() {
     return getLibcTop() == null ? null : getLibcTop().getLabel();
+  }
+
+  @StarlarkMethod(
+      name = "target_libc_top_label",
+      documented = false,
+      allowReturnNones = true,
+      useStarlarkThread = true)
+  @Nullable
+  public Label getTargetLibcTopLabelForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return getTargetLibcTopLabel();
   }
 
   @Nullable

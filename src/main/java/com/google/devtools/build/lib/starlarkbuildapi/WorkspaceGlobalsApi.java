@@ -15,7 +15,8 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi;
 
-import com.google.devtools.build.docgen.annot.DocumentMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods;
+import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -25,7 +26,7 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
-@DocumentMethods
+@GlobalMethods(environment = Environment.WORKSPACE)
 public interface WorkspaceGlobalsApi {
 
   @StarlarkMethod(

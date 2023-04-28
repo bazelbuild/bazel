@@ -231,6 +231,45 @@ public final class RepositoryName {
   }
 
   /**
+   * Returns the repository part of a {@link Label}'s string representation suitable for display.
+   * The returned string is as simple as possible in the context of the main repo whose repository
+   * mapping is provided: an empty string for the main repo, or a string prefixed with a leading
+   * "{@literal @}" or "{@literal @@}" otherwise.
+   *
+   * @param mainRepositoryMapping the {@link RepositoryMapping} of the main repository
+   * @return
+   *     <dl>
+   *       <dt>the empty string
+   *       <dd>if this is the main repository
+   *       <dt><code>@protobuf</code>
+   *       <dd>if this repository is a WORKSPACE dependency and its <code>name</code> is "protobuf",
+   *           or if this repository is a Bzlmod dependency of the main module and its apparent name
+   *           is "protobuf"
+   *       <dt><code>@@protobuf~3.19.2</code>
+   *       <dd>only with Bzlmod, if this a repository that is not visible from the main module
+   */
+  public String getDisplayForm(RepositoryMapping mainRepositoryMapping) {
+    Preconditions.checkArgument(
+        mainRepositoryMapping.ownerRepo() == null || mainRepositoryMapping.ownerRepo().isMain());
+    if (isMain()) {
+      // Packages in the main repository can always use repo-relative form.
+      return "";
+    }
+    if (!mainRepositoryMapping.usesStrictDeps()) {
+      // If the main repository mapping is not using strict visibility, then Bzlmod is certainly
+      // disabled, which means that canonical and apparent names can be used interchangeably from
+      // the context of the main repository.
+      return getNameWithAt();
+    }
+    // If possible, represent the repository with a non-canonical label using the apparent name the
+    // main repository has for it, otherwise fall back to a canonical label.
+    return mainRepositoryMapping
+        .getInverse(this)
+        .map(apparentName -> "@" + apparentName)
+        .orElse("@" + getNameWithAt());
+  }
+
+  /**
    * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
    * (i.e., it is in the main repository), return an empty path fragment.
    *

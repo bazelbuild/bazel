@@ -93,7 +93,7 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
     mnemonicToCount.merge(action.getMnemonic(), 1, Integer::sum);
     ActionOwner actionOwner = action.getOwner();
     if (actionOwner != null) {
-      BuildEvent configuration = actionOwner.getConfiguration();
+      BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
           configuration.asStreamProto(/*context=*/ null).getConfiguration();
       configurationToCount.merge(configProto.getMnemonic(), 1, Integer::sum);

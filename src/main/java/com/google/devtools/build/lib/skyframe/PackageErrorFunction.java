@@ -76,10 +76,9 @@ public class PackageErrorFunction implements SkyFunction {
       throws PackageErrorFunctionException, InterruptedException {
     PackageIdentifier packageIdentifier = (PackageIdentifier) skyKey.argument();
     try {
-      SkyKey packageKey = PackageValue.key(packageIdentifier);
       // Callers must have tried to load the package already and gotten the package successfully.
       Package pkg =
-          ((PackageValue) env.getValueOrThrow(packageKey, NoSuchPackageException.class))
+          ((PackageValue) env.getValueOrThrow(packageIdentifier, NoSuchPackageException.class))
               .getPackage();
       Preconditions.checkState(pkg.containsErrors(), skyKey);
       throw new PackageErrorFunctionException(

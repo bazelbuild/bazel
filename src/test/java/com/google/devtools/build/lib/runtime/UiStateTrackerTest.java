@@ -203,19 +203,19 @@ public class UiStateTrackerTest extends FoundationTestCase {
   }
 
   private ActionOwner dummyActionOwner() throws LabelSyntaxException {
-    return ActionOwner.create(
+    return ActionOwner.createDummy(
         Label.parseCanonical("//foo:a"),
-        ImmutableList.of(),
         new Location("dummy-file", 0, 0),
-        /*mnemonic=*/ "",
-        /*targetKind=*/ "",
-        /*configurationChecksum=*/ "",
+        /* targetKind= */ "",
+        /* mnemonic= */ "",
+        /* configurationChecksum= */ "",
         new BuildConfigurationEvent(
             BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
             BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-        /*additionalProgressInfo=*/ "",
-        ImmutableMap.of(),
-        /*executionPlatform=*/ null);
+        /* isToolConfiguration= */ true,
+        /* executionPlatform= */ null,
+        /* aspectDescriptors= */ ImmutableList.of(),
+        /* execProperties= */ ImmutableMap.of());
   }
 
   private void simulateExecutionPhase(UiStateTracker uiStateTracker) {
@@ -636,19 +636,19 @@ public class UiStateTrackerTest extends FoundationTestCase {
     Label label =
         Label.parseCanonical("//some/very/very/long/path/for/some/library/directory:libfoo");
     ActionOwner owner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             label,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "dummy-mnemonic",
-            "dummy-target-kind",
-            "fedcba",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "dummy-mnemonic",
+            /* configurationChecksum= */ "fedcba",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
     when(action.getOwner()).thenReturn(owner);
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(3));
@@ -1182,55 +1182,55 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ConfiguredTarget targetFooTest = mock(ConfiguredTarget.class);
     when(targetFooTest.getLabel()).thenReturn(labelFooTest);
     ActionOwner fooOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             labelFooTest,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "TestRunner",
-            "dummy-target-kind",
-            "abcdef",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "TestRunner",
+            /* configurationChecksum= */ "abcdef",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
 
     Label labelBarTest = Label.parseCanonical("//baz:bartest");
     ConfiguredTarget targetBarTest = mock(ConfiguredTarget.class);
     when(targetBarTest.getLabel()).thenReturn(labelBarTest);
     ActionOwner barOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             labelBarTest,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "TestRunner",
-            "dummy-target-kind",
-            "fedcba",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "TestRunner",
+            /* configurationChecksum= */ "abcdef",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
 
     Label labelBazTest = Label.parseCanonical("//baz:baztest");
     ConfiguredTarget targetBazTest = mock(ConfiguredTarget.class);
     when(targetBazTest.getLabel()).thenReturn(labelBazTest);
     ActionOwner bazOwner =
-        ActionOwner.create(
+        ActionOwner.createDummy(
             labelBazTest,
-            ImmutableList.of(),
             new Location("dummy-file", 0, 0),
-            "NonTestAction",
-            "dummy-target-kind",
-            "fedcba",
+            /* targetKind= */ "dummy-target-kind",
+            /* mnemonic= */ "NonTestAction",
+            /* configurationChecksum= */ "fedcba",
             new BuildConfigurationEvent(
                 BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
                 BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
-            null,
-            ImmutableMap.of(),
-            null);
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
 
     TestFilteringCompleteEvent filteringComplete = mock(TestFilteringCompleteEvent.class);
     when(filteringComplete.getTestTargets())

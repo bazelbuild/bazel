@@ -276,6 +276,11 @@ EOF
         "bazel_skylib"
         "bazel_toolchains"
         "com_google_protobuf"
+        "openjdk_linux_aarch64_vanilla"
+        "openjdk_linux_vanilla"
+        "openjdk_macos_x86_64_vanilla"
+        "openjdk_macos_aarch64_vanilla"
+        "openjdk_win_vanilla"
         "openjdk11_darwin_archive"
         "openjdk11_darwin_aarch64_archive"
         "openjdk11_linux_archive"
@@ -288,11 +293,10 @@ EOF
         "openjdk17_linux_s390x_archive"
         "openjdk17_windows_archive"
         "openjdk17_windows_arm64_archive"
-        "openjdk19_darwin_archive"
-        "openjdk19_darwin_aarch64_archive"
-        "openjdk19_linux_archive"
-        "openjdk19_linux_s390x_archive"
-        "openjdk19_windows_archive"
+        "openjdk20_darwin_archive"
+        "openjdk20_darwin_aarch64_archive"
+        "openjdk20_linux_archive"
+        "openjdk20_windows_archive"
         "remote_coverage_tools"
         "remote_java_tools_for_testing"
         "remote_java_tools_darwin_x86_64_for_testing"
@@ -318,18 +322,18 @@ EOF
         "remotejdk17_macos_aarch64_for_testing"
         "remotejdk17_win_for_testing"
         "remotejdk17_win_arm64_for_testing"
-        "remotejdk19_linux_for_testing"
-        "remotejdk19_linux_s390x_for_testing"
-        "remotejdk19_macos_for_testing"
-        "remotejdk19_macos_aarch64_for_testing"
-        "remotejdk19_win_for_testing"
-        "remotejdk19_win_arm64_for_testing"
+        "remotejdk20_linux_for_testing"
+        "remotejdk20_macos_for_testing"
+        "remotejdk20_macos_aarch64_for_testing"
+        "remotejdk20_win_for_testing"
+        "remotejdk20_win_arm64_for_testing"
         "rules_cc"
         "rules_java"
         "rules_license"
         "rules_proto"
         "rules_python"
         "rules_pkg"
+        "rules_testing"
     )
     for repo in "${repos[@]}"; do
       reponame="${repo%"_for_testing"}"
@@ -380,6 +384,8 @@ function setup_android_platforms() {
   mkdir -p test_android_platforms
 
   cat > test_android_platforms/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+
 platform(
     name = "simple",
     constraint_values = [
@@ -465,6 +471,8 @@ function maybe_setup_python_windows_tools() {
   cat > tools/python/windows/BUILD << EOF
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
+package(default_visibility = ["//visibility:public"])
+
 py_runtime(
   name = "py3_runtime",
   interpreter_path = r"C:\Python3\python.exe",
@@ -505,18 +513,12 @@ function setup_objc_test_support() {
 }
 
 function setup_skylib_support() {
-  # Get skylib path portably by using rlocation to locate a top-level file in
-  # the repo. Use BUILD because it's in the //:test_deps target (unlike
-  # WORKSPACE).
-  local -r skylib_workspace="$(rlocation bazel_skylib/BUILD)"
-  [[ -n "$skylib_workspace" && -e "$skylib_workspace" ]] || fail "could not find Skylib"
-  local -r skylib_root="$(dirname "$skylib_workspace")"
+  mkdir -p rules/private
+  touch rules/private/BUILD
   cat >> WORKSPACE << EOF
-new_local_repository(
-    name = 'bazel_skylib',
-    build_file_content = '',
-    path='$skylib_root',
-)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{bazel_skylib}
 
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 bazel_skylib_workspace()
@@ -568,6 +570,16 @@ function add_rules_python_to_workspace() {
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 {rules_python}
+EOF
+}
+
+function add_rules_testing_to_workspace() {
+  mkdir lib
+  touch lib/BUILD
+  cat >> "$1"<<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+{rules_testing}
 EOF
 }
 

@@ -43,16 +43,10 @@ class RunfilesTest(test_base.TestBase):
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
                          s), t, exe)
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        "build",
-        "--verbose_failures",
-        "//foo:runfiles-" + family
-    ])
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(["build", "--verbose_failures", "//foo:runfiles-" + family])
 
     if test_base.TestBase.IsWindows():
       bin_path = os.path.join(bazel_bin, "foo/runfiles-%s.exe" % family)
@@ -61,9 +55,9 @@ class RunfilesTest(test_base.TestBase):
 
     self.assertTrue(os.path.exists(bin_path))
 
-    exit_code, stdout, stderr = self.RunProgram(
-        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"})
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunProgram(
+        [bin_path], env_add={"TEST_SRCDIR": "__ignore_me__"}
+    )
     # 10 output lines: 2 from foo-<family>, and 2 from each of bar-<lang>.
     if len(stdout) != 10:
       self.fail("stdout: %s" % stdout)
@@ -122,15 +116,17 @@ class RunfilesTest(test_base.TestBase):
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
                          s), t, exe)
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
     bazel_bin = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel([
-        "build", "--verbose_failures",
-        "//bar:bar-py", "//bar:bar-java", "//bar:bar-sh", "//bar:bar-cc"
+    self.RunBazel([
+        "build",
+        "--verbose_failures",
+        "//bar:bar-py",
+        "//bar:bar-java",
+        "//bar:bar-sh",
+        "//bar:bar-cc",
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
 
     for lang in [("py", "Python", "bar.py"), ("java", "Java", "Bar.java"),
                  ("sh", "Bash", "bar.sh"), ("cc", "C++", "bar.cc")]:
@@ -141,7 +137,7 @@ class RunfilesTest(test_base.TestBase):
 
       self.assertTrue(os.path.exists(bin_path))
 
-      exit_code, stdout, stderr = self.RunProgram(
+      _, stdout, _ = self.RunProgram(
           [bin_path],
           env_remove=set([
               "RUNFILES_MANIFEST_FILE",
@@ -149,8 +145,8 @@ class RunfilesTest(test_base.TestBase):
               "RUNFILES_DIR",
               "JAVA_RUNFILES",
           ]),
-          env_add={"TEST_SRCDIR": "__ignore_me__"})
-      self.AssertExitCode(exit_code, 0, stderr)
+          env_add={"TEST_SRCDIR": "__ignore_me__"},
+      )
       if len(stdout) < 2:
         self.fail("stdout(%s): %s" % (lang[0], stdout))
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
@@ -182,16 +178,16 @@ class RunfilesTest(test_base.TestBase):
           self.Rlocation("io_bazel/src/test/py/bazel/testdata/runfiles_test/" +
                          s), t, exe)
 
-    exit_code, stdout, stderr = self.RunBazel(["info", "bazel-bin"])
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(["info", "bazel-bin"])
     bazel_bin = stdout[0]
 
     for lang in [("java", "Java"), ("sh", "Bash"), ("cc", "C++")]:
-      exit_code, _, stderr = self.RunBazel([
-          "build", "--verbose_failures", "--enable_runfiles=no",
-          "//bar:bar-" + lang[0]
+      self.RunBazel([
+          "build",
+          "--verbose_failures",
+          "--enable_runfiles=no",
+          "//bar:bar-" + lang[0],
       ])
-      self.AssertExitCode(exit_code, 0, stderr)
 
       if test_base.TestBase.IsWindows():
         bin_path = os.path.join(bazel_bin, "bar/bar-%s.exe" % lang[0])
@@ -233,22 +229,22 @@ class RunfilesTest(test_base.TestBase):
       substitute_manifest = self.ScratchFile(
           "mock-%s.runfiles/MANIFEST" % lang[0], mock_manifest_data)
 
-      exit_code, stdout, stderr = self.RunProgram(
+      _, stdout, _ = self.RunProgram(
           [bin_path],
           env_remove=set(["RUNFILES_DIR"]),
           env_add={
               # On Linux/macOS, the Java launcher picks up JAVA_RUNFILES and
               # ignores RUNFILES_MANIFEST_FILE.
-              "JAVA_RUNFILES": substitute_manifest[:-len("/MANIFEST")],
+              "JAVA_RUNFILES": substitute_manifest[: -len("/MANIFEST")],
               # On Windows, the Java launcher picks up RUNFILES_MANIFEST_FILE.
               # The C++ runfiles library picks up RUNFILES_MANIFEST_FILE on all
               # platforms.
               "RUNFILES_MANIFEST_FILE": substitute_manifest,
               "RUNFILES_MANIFEST_ONLY": "1",
               "TEST_SRCDIR": "__ignore_me__",
-          })
+          },
+      )
 
-      self.AssertExitCode(exit_code, 0, stderr)
       if len(stdout) < 2:
         self.fail("stdout: %s" % stdout)
       self.assertEqual(stdout[0], "Hello %s Bar!" % lang[1])
@@ -291,14 +287,12 @@ class RunfilesTest(test_base.TestBase):
         ")",
     ])
 
-    exit_code, stdout, stderr = self.RunBazel(
-        args=["info", "output_path"], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    _, stdout, _ = self.RunBazel(args=["info", "output_path"], cwd=work_dir)
     bazel_output = stdout[0]
 
-    exit_code, _, stderr = self.RunBazel(
-        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir)
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.RunBazel(
+        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir
+    )
     [exec_dir] = [f for f in os.listdir(bazel_output) if "exec" in f]
     if self.IsWindows():
       manifest_path = os.path.join(bazel_output, exec_dir,
@@ -337,7 +331,7 @@ class RunfilesTest(test_base.TestBase):
         "for arg in sys.argv[1:]:",
         "  print(open(r.Rlocation(arg)).read().strip())",
     ])
-    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"])
+    _, stdout, _ = self.RunBazel(["run", "//pkg:bin"], allow_failure=True)
     if len(stdout) != 2:
       self.fail("stdout: %s" % stdout)
     self.assertEqual(stdout[0], "Hello, Bazel!")

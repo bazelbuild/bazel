@@ -215,7 +215,13 @@ def GetRepositoriesImports(module_space, import_all):
   return [os.path.join(module_space, '%workspace_name%')]
 
 def RunfilesEnvvar(module_space):
-  """Finds the runfiles manifest or the runfiles directory."""
+  """Finds the runfiles manifest or the runfiles directory.
+
+  Returns:
+    A tuple of (var_name, var_value) where var_name is either 'RUNFILES_DIR' or
+    'RUNFILES_MANIFEST_FILE' and var_value is the path to that directory or
+    file, or (None, None) if runfiles couldn't be found.
+  """
   # If this binary is the data-dependency of another one, the other sets
   # RUNFILES_MANIFEST_FILE or RUNFILES_DIR for our sake.
   runfiles = os.environ.get('RUNFILES_MANIFEST_FILE', None)
@@ -236,9 +242,12 @@ def RunfilesEnvvar(module_space):
     return ('RUNFILES_MANIFEST_FILE', runfiles)
 
   # Look for the runfiles "input" manifest, argv[0] + ".runfiles/MANIFEST"
+  # Normally .runfiles_manifest and MANIFEST are both present, but the
+  # former will be missing for zip-based builds or if someone copies the
+  # runfiles tree elsewhere.
   runfiles = os.path.join(module_space, 'MANIFEST')
   if os.path.exists(runfiles):
-    return ('RUNFILES_DIR', runfiles)
+    return ('RUNFILES_MANIFEST_FILE', runfiles)
 
   # If running in a sandbox and no environment variables are set, then
   # Look for the runfiles  next to the binary.

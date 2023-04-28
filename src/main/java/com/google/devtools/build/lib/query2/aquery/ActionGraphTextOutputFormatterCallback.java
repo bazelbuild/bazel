@@ -143,7 +143,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
         .append('\n');
 
     if (actionOwner != null) {
-      BuildEvent configuration = actionOwner.getConfiguration();
+      BuildEvent configuration = actionOwner.getBuildConfigurationEvent();
       BuildEventStreamProtos.Configuration configProto =
           configuration.asStreamProto(/*context=*/ null).getConfiguration();
 

@@ -18,7 +18,7 @@ specific to the host Bazel is running on.
 ## Repository rule creation
 
 In a `.bzl` file, use the
-[repository_rule](/rules/lib/globals#repository_rule) function to create a new
+[repository_rule](/rules/lib/globals/bzl#repository_rule) function to create a new
 repository rule and store it in a global variable.
 
 A custom repository rule can be used just like a native repository rule. It
@@ -71,7 +71,7 @@ specified.
 The input parameter `repository_ctx` can be used to
 access attribute values, and non-hermetic functions (finding a binary,
 executing a binary, creating a file in the repository or downloading a file
-from the Internet). See [the library](/rules/lib/repository_ctx) for more
+from the Internet). See [the library](/rules/lib/builtins/repository_ctx) for more
 context. Example:
 
 ```python
@@ -102,7 +102,7 @@ following things changes:
   `WORKSPACE` file.
 * The Starlark code comprising the implementation of the repository.
 * The value of any environment variable declared with the `environ`
-  attribute of the [`repository_rule`](/rules/lib/globals#repository_rule).
+  attribute of the [`repository_rule`](/rules/lib/globals/bzl#repository_rule).
   The values of these environment variables can be hard-wired on the command
   line with the
   [`--action_env`](/reference/command-line-reference#flag--action_env)

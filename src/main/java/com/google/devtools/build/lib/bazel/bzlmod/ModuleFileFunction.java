@@ -109,6 +109,8 @@ public class ModuleFileFunction implements SkyFunction {
     if (getModuleFileResult == null) {
       return null;
     }
+    String moduleFileHash =
+        new Fingerprint().addBytes(getModuleFileResult.moduleFileContents).hexDigestAndReset();
 
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
@@ -121,7 +123,7 @@ public class ModuleFileFunction implements SkyFunction {
             env);
 
     // Perform some sanity checks.
-    Module module = moduleFileGlobals.buildModule();
+    InterimModule module = moduleFileGlobals.buildModule();
     if (!module.getName().equals(moduleKey.getName())) {
       throw errorf(
           Code.BAD_MODULE,
@@ -140,7 +142,7 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "The MODULE.bazel file of %s declares overrides", moduleKey);
     }
 
-    return NonRootModuleFileValue.create(module);
+    return NonRootModuleFileValue.create(module, moduleFileHash);
   }
 
   @Nullable
@@ -157,12 +159,12 @@ public class ModuleFileFunction implements SkyFunction {
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
             moduleFile,
-            /*registry=*/ null,
+            /* registry= */ null,
             ModuleKey.ROOT,
             /* ignoreDevDeps= */ Objects.requireNonNull(IGNORE_DEV_DEPS.get(env)),
             starlarkSemantics,
             env);
-    Module module = moduleFileGlobals.buildModule();
+    InterimModule module = moduleFileGlobals.buildModule();
 
     ImmutableMap<String, ModuleOverride> moduleOverrides = moduleFileGlobals.buildOverrides();
     Map<String, ModuleOverride> commandOverrides = MODULE_OVERRIDES.get(env);

@@ -49,7 +49,7 @@ class StarlarkOptionsTest(test_base.TestBase):
         ")",
     ])
 
-    exit_code, _, stderr = self.RunBazel([
+    _, _, stderr = self.RunBazel([
         "--bazelrc=bazelrc",
         "build",
         "--nobuild",
@@ -57,13 +57,12 @@ class StarlarkOptionsTest(test_base.TestBase):
         "--config=red",
         "--//f:color=green",
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(
         any("/f/f.bzl:9:10: green" in line for line in stderr),
         "\n".join(stderr),
     )
 
-    exit_code, _, stderr = self.RunBazel([
+    _, _, stderr = self.RunBazel([
         "--bazelrc=bazelrc",
         "build",
         "--nobuild",
@@ -71,7 +70,6 @@ class StarlarkOptionsTest(test_base.TestBase):
         "--//f:color=green",
         "--config=red",
     ])
-    self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(
         any("/f/f.bzl:9:10: red" in line for line in stderr),
         "\n".join(stderr),

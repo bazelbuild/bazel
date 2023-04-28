@@ -129,7 +129,6 @@ public class TestConstants {
    */
   public static final ImmutableList<String> PRODUCT_SPECIFIC_FLAGS =
       ImmutableList.of(
-          "--target_platform_fallback=@local_config_platform//:host",
           "--platforms=@local_config_platform//:host",
           "--host_platform=@local_config_platform//:host",
           // TODO(#7849): Remove after flag flip.

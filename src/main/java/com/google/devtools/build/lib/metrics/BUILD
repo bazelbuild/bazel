@@ -7,7 +7,9 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]),
+    srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/metrics/criticalpath:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -46,10 +48,13 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler:network_metrics_collector",
         "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:top_level_status_events",
+        "//src/main/java/com/google/devtools/build/lib/worker:worker_events",
         "//src/main/java/com/google/devtools/build/lib/worker:worker_metric",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe_graph_stats_event",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:auto_value",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -58,7 +63,7 @@ java_library(
     name = "memory-use-recorder",
     srcs = ["PostGCMemoryUseRecorder.java"],
     deps = [
-        ":garage-collection-metrics-util",
+        ":garbage-collection-metrics-util",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -73,6 +78,17 @@ java_library(
 )
 
 java_library(
-    name = "garage-collection-metrics-util",
+    name = "garbage-collection-metrics-util",
     srcs = ["GarbageCollectionMetricsUtils.java"],
+)
+
+java_library(
+    name = "ps_info_collector",
+    srcs = ["PsInfoCollector.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/clock",
+        "//third_party:auto_value",
+        "//third_party:flogger",
+        "//third_party:guava",
+    ],
 )

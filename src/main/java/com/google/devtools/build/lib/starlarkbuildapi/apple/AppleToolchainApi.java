@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.apple;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -22,6 +23,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a utility module involving the Apple toolchain. */
 @StarlarkBuiltin(
     name = "apple_toolchain",
+    category = DocCategory.BUILTIN,
     doc = "Utilities for resolving items from the Apple toolchain.")
 public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>>
     extends StarlarkValue {

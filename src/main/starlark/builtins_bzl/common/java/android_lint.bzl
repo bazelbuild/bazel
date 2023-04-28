@@ -93,7 +93,7 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
     args.add_all("--source_jars", source_jars)
     args.add_all("--bootclasspath", bootclasspath)
     args.add_all("--classpath", classpath)
-    args.add_all("--plugins", compilation_info.plugins.processor_jars)
+    args.add_all("--lint_rules", compilation_info.plugins.processor_jars)
     args.add("--target_label", ctx.label)
 
     javac_opts = compilation_info.javac_options
@@ -128,5 +128,9 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
         arguments = args_list,
         execution_requirements = {"supports-workers": "1"},
         toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
+        env = {
+            # TODO(b/279025786): replace with setting -XskipJarVerification in AndroidLintRunner
+            "ANDROID_LINT_SKIP_BYTECODE_VERIFIER": "true",
+        },
     )
     return android_lint_out

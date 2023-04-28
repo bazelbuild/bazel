@@ -143,6 +143,12 @@ public class TestRuleClassProvider {
     }
 
     @Override
+    protected boolean checkVisibilityForToolchains(
+        RuleContext.Builder context, Label prerequisite) {
+      return true;
+    }
+
+    @Override
     protected boolean allowExperimentalDeps(RuleContext.Builder context) {
       // It does not matter whether we return true or false here if packageUnderExperimental always
       // returns false.

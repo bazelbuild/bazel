@@ -25,7 +25,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a module associated with creating efficient command lines. */
 @StarlarkBuiltin(
     name = "cmd_helper",
-    category = DocCategory.TOP_LEVEL_TYPE,
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
 public interface StarlarkCommandLineApi extends StarlarkValue {
 

@@ -31,8 +31,6 @@ import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportFunction;
-import com.google.devtools.build.lib.rules.cpp.CcSkyframeFdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -143,15 +141,13 @@ public abstract class AnalysisMock extends LoadingMock {
             directories.getWorkspace(),
             getBuiltinModules(directories)),
         SkyFunctions.BAZEL_DEP_GRAPH,
-        new BazelDepGraphFunction(directories.getWorkspace(), FakeRegistry.DEFAULT_FACTORY),
+        new BazelDepGraphFunction(directories.getWorkspace()),
         SkyFunctions.BAZEL_LOCK_FILE,
-        new BazelLockFileFunction(directories.getWorkspace(), FakeRegistry.DEFAULT_FACTORY),
+        new BazelLockFileFunction(directories.getWorkspace()),
         SkyFunctions.BAZEL_MODULE_RESOLUTION,
         new BazelModuleResolutionFunction(),
         SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE,
-        new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())),
-        CcSkyframeFdoSupportValue.SKYFUNCTION,
-        new CcSkyframeFdoSupportFunction(directories));
+        new ClientEnvironmentFunction(new AtomicReference<>(ImmutableMap.of())));
   }
 
   // Allow subclasses to add extra repository functions.

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -304,11 +305,12 @@ public abstract class ActionExecutionValue implements SkyValue {
       throws ActionTransformException {
     ImmutableMap<Artifact, FileArtifactValue> artifactData = getAllFileValues();
     ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData = getAllTreeArtifactValues();
-    if (action.getOutputs().size() != artifactData.size() + treeArtifactData.size()) {
+    Collection<Artifact> outputs = action.getOutputs();
+    if (outputs.size() != artifactData.size() + treeArtifactData.size()) {
       throw new ActionTransformException("Cannot share %s with %s", this, action);
     }
     ImmutableMap<OwnerlessArtifactWrapper, Artifact> newArtifactMap =
-        Maps.uniqueIndex(action.getOutputs(), OwnerlessArtifactWrapper::new);
+        Maps.uniqueIndex(outputs, OwnerlessArtifactWrapper::new);
     return create(
         transformMap(artifactData, newArtifactMap, action, (newArtifact, value) -> value),
         transformMap(

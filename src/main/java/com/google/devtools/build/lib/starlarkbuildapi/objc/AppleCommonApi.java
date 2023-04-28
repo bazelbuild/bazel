@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.starlarkbuildapi.objc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -44,6 +45,7 @@ import net.starlark.java.eval.StarlarkValue;
 /** Interface for a module with useful functions for creating apple-related rule implementations. */
 @StarlarkBuiltin(
     name = "apple_common",
+    category = DocCategory.TOP_LEVEL_MODULE,
     doc = "Functions for Starlark to access internals of the apple rule implementations.")
 public interface AppleCommonApi<
         FileApiT extends FileApi,
@@ -64,10 +66,15 @@ public interface AppleCommonApi<
       name = "platform_type",
       doc =
           "An enum-like struct that contains the following fields corresponding to Apple platform "
-              + "types:<br><ul><li><code>ios</code></li><li><code>macos</code></li>"
-              + "<li><code>tvos</code></li><li><code>watchos</code></li></ul><p>These values can"
-              + " be passed to methods that expect a platform type, like the 'apple' configuration"
-              + " fragment's <a href='apple.html#multi_arch_platform'>multi_arch_platform</a>"
+              + "types:<br><ul>" //
+              + "<li><code>ios</code></li>" //
+              + "<li><code>macos</code></li>" //
+              + "<li><code>tvos</code></li>" //
+              + "<li><code>watchos</code></li>" //
+              + "</ul><p>" //
+              + "These values can be passed to methods that expect a platform type, like the"
+              + " 'apple' configuration fragment's <a"
+              + " href='../fragments/apple.html#multi_arch_platform'>multi_arch_platform</a>"
               + " method.<p>Example:<p><pre class='language-python'>\n"
               + "ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)\n"
               + "</pre>",
@@ -85,17 +92,17 @@ public interface AppleCommonApi<
       name = "platform",
       doc =
           "An enum-like struct that contains the following fields corresponding to Apple "
-              + "platforms:<br><ul>"
-              + "<li><code>ios_device</code></li>"
-              + "<li><code>ios_simulator</code></li>"
-              + "<li><code>macos</code></li>"
-              + "<li><code>tvos_device</code></li>"
-              + "<li><code>tvos_simulator</code></li>"
-              + "<li><code>watchos_device</code></li>"
-              + "<li><code>watchos_simulator</code></li>"
-              + "</ul><p>"
+              + "platforms:<br><ul>" //
+              + "<li><code>ios_device</code></li>" //
+              + "<li><code>ios_simulator</code></li>" //
+              + "<li><code>macos</code></li>" //
+              + "<li><code>tvos_device</code></li>" //
+              + "<li><code>tvos_simulator</code></li>" //
+              + "<li><code>watchos_device</code></li>" //
+              + "<li><code>watchos_simulator</code></li>" //
+              + "</ul><p>" //
               + "These values can be passed to methods that expect a platform, like "
-              + "<a href='XcodeVersionConfig.html#sdk_version_for_platform'>"
+              + "<a href='../providers/XcodeVersionConfig.html#sdk_version_for_platform'>"
               + "XcodeVersionConfig.sdk_version_for_platform</a>.",
       structField = true)
   StructApi getPlatformStruct();
@@ -175,10 +182,10 @@ public interface AppleCommonApi<
   @StarlarkMethod(
       name = "apple_host_system_env",
       doc =
-          "Returns a <a href='dict.html'>dict</a> of environment variables that should be set "
-              + "for actions that need to run build tools on an Apple host system, such as the "
-              + " version of Xcode that should be used. The keys are variable names and the values "
-              + " are their corresponding values.",
+          "Returns a <a href='../core/dict.html'>dict</a> of environment variables that should be"
+              + " set for actions that need to run build tools on an Apple host system, such as the"
+              + "  version of Xcode that should be used. The keys are variable names and the values"
+              + "  are their corresponding values.",
       parameters = {
         @Param(
             name = "xcode_config",
@@ -425,7 +432,7 @@ public interface AppleCommonApi<
 
   @StarlarkMethod(
       name = "dotted_version",
-      doc = "Creates a new <a href=\"DottedVersion.html\">DottedVersion</a> instance.",
+      doc = "Creates a new <a href=\"../builtins/DottedVersion.html\">DottedVersion</a> instance.",
       parameters = {
         @Param(name = "version", doc = "The string representation of the DottedVersion.")
       })

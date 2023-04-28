@@ -41,6 +41,9 @@ Bazel supports the following build scenarios regarding platforms:
 *  **Multi-platform builds** - host, execution, and target platforms are all
    different.
 
+Tip: for detailed instructions on migrating your project to platforms, see
+[Migrating to Platforms](/concepts/platforms).
+
 ## Defining constraints and platforms {:#constraints-platforms}
 
 The space of possible choices for platforms is defined by using the
@@ -230,7 +233,7 @@ cc_library(
 ### Detecting incompatible targets using `bazel cquery` {:#cquery-incompatible-target-detection}
 
 You can use the
-[`IncompatiblePlatformProvider`](/rules/lib/IncompatiblePlatformProvider)
+[`IncompatiblePlatformProvider`](/rules/lib/providers/IncompatiblePlatformProvider)
 in `bazel cquery`'s [Starlark output
 format](/query/cquery#output-format-definition) to distinguish
 incompatible targets from compatible ones.

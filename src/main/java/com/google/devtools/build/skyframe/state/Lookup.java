@@ -127,13 +127,13 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
 
     @Override
     void acceptValue(SkyValue value) {
-      sink.accept(value, /* exception= */ null);
+      sink.acceptValueOrException(value, /* exception= */ null);
     }
 
     @Override
     boolean tryHandleException(Exception exception) {
       if (exceptionClass.isInstance(exception)) {
-        sink.accept(/* value= */ null, exceptionClass.cast(exception));
+        sink.acceptValueOrException(/* value= */ null, exceptionClass.cast(exception));
         return true;
       }
       return false;
@@ -179,17 +179,19 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
 
     @Override
     void acceptValue(SkyValue value) {
-      sink.accept(value, /* e1= */ null, /* e2= */ null);
+      sink.acceptValueOrException2(value, /* e1= */ null, /* e2= */ null);
     }
 
     @Override
     boolean tryHandleException(Exception exception) {
       if (exceptionClass1.isInstance(exception)) {
-        sink.accept(/* value= */ null, exceptionClass1.cast(exception), /* e2= */ null);
+        sink.acceptValueOrException2(
+            /* value= */ null, exceptionClass1.cast(exception), /* e2= */ null);
         return true;
       }
       if (exceptionClass2.isInstance(exception)) {
-        sink.accept(/* value= */ null, /* e1= */ null, exceptionClass2.cast(exception));
+        sink.acceptValueOrException2(
+            /* value= */ null, /* e1= */ null, exceptionClass2.cast(exception));
         return true;
       }
       return false;
@@ -240,23 +242,23 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
 
     @Override
     void acceptValue(SkyValue value) {
-      sink.accept(value, /* e1= */ null, /* e2= */ null, /* e3= */ null);
+      sink.acceptValueOrException3(value, /* e1= */ null, /* e2= */ null, /* e3= */ null);
     }
 
     @Override
     boolean tryHandleException(Exception exception) {
       if (exceptionClass1.isInstance(exception)) {
-        sink.accept(
+        sink.acceptValueOrException3(
             /* value= */ null, exceptionClass1.cast(exception), /* e2= */ null, /* e3= */ null);
         return true;
       }
       if (exceptionClass2.isInstance(exception)) {
-        sink.accept(
+        sink.acceptValueOrException3(
             /* value= */ null, /* e1= */ null, exceptionClass2.cast(exception), /* e3= */ null);
         return true;
       }
       if (exceptionClass3.isInstance(exception)) {
-        sink.accept(
+        sink.acceptValueOrException3(
             /* value= */ null, /* e1= */ null, /* e2= */ null, exceptionClass3.cast(exception));
         return true;
       }

@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -253,7 +254,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               toolchainContexts,
-              prereqs.getExecGroupCollectionsBuilder(),
+              state.computeDependenciesState.execGroupCollectionBuilder,
               state.transitivePackages);
       if (ans != null && configuredTargetProgress != null) {
         configuredTargetProgress.doneConfigureTarget();
@@ -266,7 +267,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           new EmptyConfiguredTarget(
               configuredTargetKey.getLabel(), configuredTargetKey.getConfigurationKey()),
           state.transitivePackages == null ? null : state.transitivePackages.build());
-    } catch (PrerequisiteProducer.IncompatibleTargetException e) {
+    } catch (IncompatibleTargetException e) {
       return e.target();
     } catch (ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
@@ -285,7 +286,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ReportedException(cvce);
     } finally {
       maybeReleaseSemaphore();
-      ;
     }
   }
 

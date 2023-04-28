@@ -9,7 +9,9 @@ tasks:
     build_flags:
       - "--config=bzlmod"
     build_targets:
-      - "//src:bazel_nojdk"
+      - "//src:bazel"
+    test_targets:
+      - "//src/test/cpp/..."
   centos7_java11_devtoolset10:
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
@@ -193,6 +195,8 @@ tasks:
       - "--test_env=TEST_REPOSITORY_HOME=$HOME/bazeltest/external"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
+      # Fine tune the number of test jobs running in parallel to avoid timeout
+      - "--local_test_jobs=8"
     test_targets:
       - "//scripts/..."
       - "//src/test/..."
@@ -343,7 +347,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
-      - "-//src/test/java/com/google/devtools/build/lib/rules/java/..."
       - "-//src/test/java/com/google/devtools/build/lib/worker/..."
       - "-//src/test/java/com/google/devtools/build/lib/remote:remote"
       - "-//src/test/shell/bazel/remote/..."
@@ -398,6 +401,10 @@ tasks:
       - "-//src/java_tools/import_deps_checker/..."
       # We hit connection timeout error when downloading multiple URLs on RBE, see b/217865760
       - "-//src/test/py/bazel:bazel_module_test"
+      - "-//src/test/py/bazel:bazel_lockfile_test"
+      - "-//src/test/py/bazel:bazel_overrides_test"
+      - "-//src/test/py/bazel:bazel_repo_mapping_test"
+      - "-//src/test/py/bazel:bazel_yanked_versions_test"
       - "-//src/test/shell/bazel:verify_workspace"
     include_json_profile:
       - build

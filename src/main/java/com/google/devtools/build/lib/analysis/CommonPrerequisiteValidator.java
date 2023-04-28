@@ -64,6 +64,9 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
   protected abstract boolean checkVisibilityForExperimental(RuleContext.Builder context);
 
+  protected abstract boolean checkVisibilityForToolchains(
+      RuleContext.Builder context, Label prerequisite);
+
   protected abstract boolean allowExperimentalDeps(RuleContext.Builder context);
 
   private void validateDirectPrerequisiteVisibility(
@@ -71,38 +74,56 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     String attrName = attribute.getName();
     Rule rule = context.getRule();
 
-    // We don't check the visibility of late-bound attributes, because it would break some
-    // features.
-    if (!isSameLogicalPackage(
-            rule.getLabel().getPackageIdentifier(),
-            AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
-                .getPackageIdentifier())
-        && !Attribute.isLateBound(attrName)) {
+    checkVisibilityAttributeContents(context, prerequisite, attribute, attrName, rule);
 
-      // Determine if we should use the new visibility rules for tools.
-      boolean toolCheckAtDefinition =
-          context
-              .getStarlarkSemantics()
-              .getBool(
-                  BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
-
-      if (!toolCheckAtDefinition
-          || !attribute.isImplicit()
-          || rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null) {
-        // Default check: The attribute must be visible from the target.
-        if (!context.isVisible(prerequisite.getConfiguredTarget())) {
-          handleVisibilityConflict(context, prerequisite, rule.getLabel());
-        }
-      } else {
-        // For implicit attributes, check if the prerequisite is visible from the location of the
-        // rule definition
-        Label implicitDefinition = rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel();
-        if (!RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())) {
-          handleVisibilityConflict(context, prerequisite, implicitDefinition);
-        }
-      }
+    if (isSameLogicalPackage(
+        rule.getLabel().getPackageIdentifier(),
+        AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
+            .getPackageIdentifier())) {
+      return;
     }
 
+    // We don't check the visibility of late-bound attributes, because it would break some
+    // features.
+    if (Attribute.isLateBound(attrName)) {
+      return;
+    }
+
+    // Determine whether we should check toolchain target visibility.
+    if (attrName.equals(RuleContext.TOOLCHAIN_ATTR_NAME)
+        && !checkVisibilityForToolchains(context, prerequisite.getTargetLabel())) {
+      return;
+    }
+
+    // Determine if we should use the new visibility rules for tools.
+    boolean toolCheckAtDefinition =
+        context
+            .getStarlarkSemantics()
+            .getBool(BuildLanguageOptions.INCOMPATIBLE_VISIBILITY_PRIVATE_ATTRIBUTES_AT_DEFINITION);
+
+    if (!toolCheckAtDefinition
+        || !attribute.isImplicit()
+        || rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() == null) {
+      // Default check: The attribute must be visible from the target.
+      if (!context.isVisible(prerequisite.getConfiguredTarget())) {
+        handleVisibilityConflict(context, prerequisite, rule.getLabel());
+      }
+    } else {
+      // For implicit attributes, check if the prerequisite is visible from the location of the
+      // rule definition
+      Label implicitDefinition = rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel();
+      if (!RuleContext.isVisible(implicitDefinition, prerequisite.getConfiguredTarget())) {
+        handleVisibilityConflict(context, prerequisite, implicitDefinition);
+      }
+    }
+  }
+
+  private void checkVisibilityAttributeContents(
+      RuleContext.Builder context,
+      ConfiguredTargetAndData prerequisite,
+      Attribute attribute,
+      String attrName,
+      Rule rule) {
     if (prerequisite.getConfiguredTarget().unwrapIfMerged()
         instanceof PackageGroupConfiguredTarget) {
       Attribute configuredAttribute = RawAttributeMapper.of(rule).getAttributeDefinition(attrName);

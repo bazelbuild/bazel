@@ -852,6 +852,6 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test:target");
 
-    assertContainsEvent("Rule in 'test' cannot use private API");
+    assertContainsEvent("cannot use private API");
   }
 }

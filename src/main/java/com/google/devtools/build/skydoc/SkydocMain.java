@@ -19,19 +19,21 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.runfiles.Runfiles;
+import com.google.devtools.build.runfiles.RunfilesForStardoc;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDeepStructure;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
@@ -48,6 +50,7 @@ import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -105,21 +108,12 @@ public class SkydocMain {
   private final EventHandler eventHandler = new SystemOutEventHandler();
   private final LinkedHashSet<Path> pending = new LinkedHashSet<>();
   private final Map<Path, Module> loaded = new HashMap<>();
-  private final StarlarkFileAccessor fileAccessor;
-  private final List<String> depRoots;
   private final String workspaceName;
+  private final Runfiles.Preloaded runfiles;
 
-  public SkydocMain(
-      StarlarkFileAccessor fileAccessor, String workspaceName, List<String> depRoots) {
-    this.fileAccessor = fileAccessor;
+  public SkydocMain(String workspaceName, Runfiles.Preloaded runfiles) {
     this.workspaceName = workspaceName;
-    if (depRoots.isEmpty()) {
-      // For backwards compatibility, if no dep_roots are specified, use the current
-      // directory as the only root.
-      this.depRoots = ImmutableList.of(".");
-    } else {
-      this.depRoots = depRoots;
-    }
+    this.runfiles = runfiles;
   }
 
   public static void main(String[] args)
@@ -135,7 +129,6 @@ public class SkydocMain {
 
     String targetFileLabelString;
     String outputPath;
-    ImmutableList<String> depRoots;
 
     if (Strings.isNullOrEmpty(skydocOptions.targetFileLabel)
         || Strings.isNullOrEmpty(skydocOptions.outputFilePath)) {
@@ -144,7 +137,6 @@ public class SkydocMain {
 
     targetFileLabelString = skydocOptions.targetFileLabel;
     outputPath = skydocOptions.outputFilePath;
-    depRoots = ImmutableList.copyOf(skydocOptions.depRoots);
 
     Label targetFileLabel = Label.parseCanonical(targetFileLabelString);
 
@@ -156,7 +148,7 @@ public class SkydocMain {
     Module module = null;
     try {
       module =
-          new SkydocMain(new FilesystemFileAccessor(), skydocOptions.workspaceName, depRoots)
+          new SkydocMain(skydocOptions.workspaceName, Runfiles.preload())
               .eval(
                   semanticsOptions.toStarlarkSemantics(),
                   targetFileLabel,
@@ -293,7 +285,17 @@ public class SkydocMain {
 
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
-    Module module = recursiveEval(semantics, label, ruleInfoList, providerInfoList, aspectInfoList);
+    // Resolve the label provided on the command line with the main repository's repository mapping.
+    // The stardoc rules always pass in a canonical label, so in this case the repository mapping
+    // is not used.
+    Module module =
+        recursiveEval(
+            semantics,
+            label,
+            RepositoryName.MAIN.getName(),
+            ruleInfoList,
+            providerInfoList,
+            aspectInfoList);
 
     Map<StarlarkCallable, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
@@ -387,6 +389,7 @@ public class SkydocMain {
    * those files.
    *
    * @param label the label of the Starlark file to evaluate
+   * @param parentSourceRepository the canonical name of the Bazel repository that loads label
    * @param ruleInfoList a collection of all rule definitions made so far (using rule()); this
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
@@ -394,15 +397,15 @@ public class SkydocMain {
   private Module recursiveEval(
       StarlarkSemantics semantics,
       Label label,
+      String parentSourceRepository,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
-      throws InterruptedException,
-          IOException,
-          LabelSyntaxException,
-          StarlarkEvaluationException,
-          EvalException {
-    Path path = pathOfLabel(label, semantics);
+      throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
+    Path path = pathOfLabel(label, parentSourceRepository);
+    String sourceRepository =
+        RunfilesForStardoc.getCanonicalRepositoryName(
+            runfiles.withSourceRepository(parentSourceRepository), label.getRepository().getName());
 
     if (pending.contains(path)) {
       throw new StarlarkEvaluationException("cycle with " + path);
@@ -436,7 +439,7 @@ public class SkydocMain {
         };
 
     // parse & compile (and get doc)
-    ParserInput input = getInputSource(path.toString());
+    ParserInput input = ParserInput.fromLatin1(Files.readAllBytes(path), path.toString());
     Program prog;
     try {
       StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
@@ -449,19 +452,25 @@ public class SkydocMain {
     // process loads
     Map<String, Module> imports = new HashMap<>();
     for (String load : prog.getLoads()) {
-      Label relativeLabel =
+      Label apparentLabel =
           Label.parseWithPackageContext(
               load,
               PackageContext.of(label.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
       try {
         Module loadedModule =
-            recursiveEval(semantics, relativeLabel, ruleInfoList, providerInfoList, aspectInfoList);
+            recursiveEval(
+                semantics,
+                apparentLabel,
+                sourceRepository,
+                ruleInfoList,
+                providerInfoList,
+                aspectInfoList);
         imports.put(load, loadedModule);
       } catch (NoSuchFileException noSuchFileException) {
         throw new StarlarkEvaluationException(
             String.format(
-                "File %s imported '%s', yet %s was not found, even at roots %s.",
-                path, load, pathOfLabel(relativeLabel, semantics), depRoots),
+                "File %s imported '%s', yet %s was not found.",
+                path, load, pathOfLabel(apparentLabel, sourceRepository)),
             noSuchFileException);
       }
     }
@@ -491,25 +500,11 @@ public class SkydocMain {
     return module;
   }
 
-  private Path pathOfLabel(Label label, StarlarkSemantics semantics) throws EvalException {
-    String workspacePrefix = "";
-    if (!label.getWorkspaceRootForStarlarkOnly(semantics).isEmpty()
-        && !label.getWorkspaceName().equals(workspaceName)) {
-      workspacePrefix = label.getWorkspaceRootForStarlarkOnly(semantics) + "/";
-    }
-
-    return Paths.get(workspacePrefix + label.toPathFragment());
-  }
-
-  private ParserInput getInputSource(String bzlWorkspacePath) throws IOException {
-    for (String rootPath : depRoots) {
-      if (fileAccessor.fileExists(rootPath + "/" + bzlWorkspacePath)) {
-        return fileAccessor.inputSource(rootPath + "/" + bzlWorkspacePath);
-      }
-    }
-
-    // All depRoots attempted and no valid file was found.
-    throw new NoSuchFileException(bzlWorkspacePath);
+  private Path pathOfLabel(Label label, String sourceRepository) {
+    String targetRepositoryApparentName =
+        label.getRepository().isMain() ? workspaceName : label.getRepository().getName();
+    String rlocationPath = targetRepositoryApparentName + "/" + label.toPathFragment();
+    return Paths.get(runfiles.withSourceRepository(sourceRepository).rlocation(rlocationPath));
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
@@ -555,7 +550,7 @@ public class SkydocMain {
         });
   }
 
-  @StarlarkBuiltin(name = "ProtoModule", doc = "")
+  @StarlarkBuiltin(name = "ProtoModule", documented = false)
   private static final class ProtoModule implements StarlarkValue {
     @StarlarkMethod(
         name = "encode_text",

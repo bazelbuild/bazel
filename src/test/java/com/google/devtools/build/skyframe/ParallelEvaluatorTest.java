@@ -28,6 +28,7 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -50,7 +51,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.bugreport.BugReporter;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
@@ -134,7 +134,7 @@ public class ParallelEvaluatorTest {
         Version.minimal(),
         builders,
         reportedEvents,
-        new NestedSetVisitor.VisitedState(),
+        new EmittedEventState(),
         storedEventFilter,
         ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
         keepGoing,
@@ -387,7 +387,7 @@ public class ParallelEvaluatorTest {
     // thread, aka the main Skyframe evaluation thread),
     CountDownLatch keyAStartedComputingLatch = new CountDownLatch(1);
     CountDownLatch keyBAddReverseDepAndCheckIfDoneLatch = new CountDownLatch(1);
-    InMemoryNodeEntry nodeEntryB = mock(InMemoryNodeEntry.class);
+    InMemoryNodeEntry nodeEntryB = spy(new InMemoryNodeEntry(keyB));
     AtomicBoolean keyBAddReverseDepAndCheckIfDoneInterrupted = new AtomicBoolean(false);
     doAnswer(
             invocation -> {
@@ -627,54 +627,6 @@ public class ParallelEvaluatorTest {
     assertThatEvents(reportedEvents.getEvents()).containsExactly("warning on 'a'");
   }
 
-  /** Regression test: events from already-done value not replayed. */
-  @Test
-  public void eventFromDoneChildRecorded() throws Exception {
-    graph = new InMemoryGraphImpl();
-    set("a", "a").setWarning("warning on 'a'");
-    SkyKey a = GraphTester.toSkyKey("a");
-    SkyKey top = GraphTester.toSkyKey("top");
-    tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
-    // Build a so that it is already in the graph.
-    eval(false, a);
-    assertThat(reportedEvents.getEvents()).hasSize(1);
-    reportedEvents.clear();
-    // Build top. The warning from a should be printed.
-    eval(false, top);
-    assertThat(reportedEvents.getEvents()).hasSize(1);
-    reportedEvents.clear();
-    // Build top again. The warning should have been stored in the value.
-    eval(false, top);
-    assertThat(reportedEvents.getEvents()).hasSize(1);
-  }
-
-  @Test
-  public void postableFromDoneChildRecorded() throws Exception {
-    graph = new InMemoryGraphImpl();
-    Postable post =
-        new Postable() {
-          @Override
-          public boolean storeForReplay() {
-            return true;
-          }
-        };
-    set("a", "a").setPostable(post);
-    SkyKey a = GraphTester.toSkyKey("a");
-    SkyKey top = GraphTester.toSkyKey("top");
-    tester.getOrCreate(top).addDependency(a).setComputedValue(CONCATENATE);
-    // Build a so that it is already in the graph.
-    eval(false, a);
-    assertThat(reportedEvents.getPosts()).containsExactly(post);
-    reportedEvents.clear();
-    // Build top. The post from a should be printed.
-    eval(false, top);
-    assertThat(reportedEvents.getPosts()).containsExactly(post);
-    reportedEvents.clear();
-    // Build top again. The post should have been stored in the value.
-    eval(false, top);
-    assertThat(reportedEvents.getPosts()).containsExactly(post);
-  }
-
   @Test
   public void errorOfTopLevelTargetReported() throws Exception {
     graph = new InMemoryGraphImpl();
@@ -728,7 +680,7 @@ public class ParallelEvaluatorTest {
 
       @Override
       Reportable createStored() {
-        return Event.warn("deprecated");
+        return Event.error("broken");
       }
 
       @Override
@@ -1006,8 +958,8 @@ public class ParallelEvaluatorTest {
 
     graph =
         keepEdges
-            ? InMemoryGraph.create(/* usePooledSkyKeyInterning= */ true)
-            : InMemoryGraph.createEdgeless(/* usePooledSkyKeyInterning= */ true);
+            ? InMemoryGraph.create(/* usePooledInterning= */ true)
+            : InMemoryGraph.createEdgeless(/* usePooledInterning= */ true);
 
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
@@ -2784,7 +2736,7 @@ public class ParallelEvaluatorTest {
                 // 'otherParentKey'. This test case is testing for a real race condition and the
                 // 10ms time was chosen experimentally to give a true positive rate of 99.8%
                 // (without a sleep it has a 1% true positive rate). There's no good way to do
-                // this without sleeping. We *could* introspect ParallelEvaulator's
+                // this without sleeping. We *could* introspect ParallelEvaluator's
                 // AbstractQueueVisitor to see if the re-evaluation has been enqueued, but that's
                 // relying on pretty low-level implementation details.
                 Uninterruptibles.sleepUninterruptibly(10, TimeUnit.MILLISECONDS);
@@ -3238,7 +3190,7 @@ public class ParallelEvaluatorTest {
             Version.minimal(),
             tester.getSkyFunctionMap(),
             reportedEvents,
-            new NestedSetVisitor.VisitedState(),
+            new EmittedEventState(),
             EventFilter.FULL_STORAGE,
             ErrorInfoManager.UseChildErrorInfoIfNecessary.INSTANCE,
             // Doesn't matter for this test case.

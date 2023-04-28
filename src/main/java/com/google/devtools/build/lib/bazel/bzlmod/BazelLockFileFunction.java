@@ -15,14 +15,17 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.bazel.bzlmod.GsonTypeAdapterUtil.LOCKFILE_GSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction.BazelModuleResolutionFunctionException;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction.BazelDepGraphFunctionException;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -32,7 +35,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.gson.Gson;
 import com.google.gson.JsonIOException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -41,8 +43,9 @@ import javax.annotation.Nullable;
 /** Reads the contents of the lock file into its value. */
 public class BazelLockFileFunction implements SkyFunction {
 
+  public static final Precomputed<LockfileMode> LOCKFILE_MODE = new Precomputed<>("lockfile_mode");
+
   private final Path rootDirectory;
-  private final RegistryFactory registryFactory;
 
   private static final BzlmodFlagsAndEnvVars EMPTY_FLAGS =
       BzlmodFlagsAndEnvVars.create(
@@ -50,11 +53,14 @@ public class BazelLockFileFunction implements SkyFunction {
 
   private static final BazelLockFileValue EMPTY_LOCKFILE =
       BazelLockFileValue.create(
-          BazelLockFileValue.LOCK_FILE_VERSION, "", EMPTY_FLAGS, ImmutableMap.of());
+          BazelLockFileValue.LOCK_FILE_VERSION,
+          "",
+          EMPTY_FLAGS,
+          ImmutableMap.of(),
+          ImmutableMap.of());
 
-  public BazelLockFileFunction(Path rootDirectory, RegistryFactory registryFactory) {
+  public BazelLockFileFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
-    this.registryFactory = registryFactory;
   }
 
   @Override
@@ -70,10 +76,9 @@ public class BazelLockFileFunction implements SkyFunction {
     }
 
     BazelLockFileValue bazelLockFileValue;
-    Gson gson = GsonTypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryFactory);
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
-      bazelLockFileValue = gson.fromJson(json, BazelLockFileValue.class);
+      bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
     } catch (FileNotFoundException e) {
       bazelLockFileValue = EMPTY_LOCKFILE;
     } catch (IOException ex) {
@@ -85,27 +90,30 @@ public class BazelLockFileFunction implements SkyFunction {
   /**
    * Updates the stored module in the lock file (ModuleHash, Flags & Dependency graph)
    *
-   * @param hashedModule The hash of the current module file
+   * @param moduleFileHash The hash of the current module file
    * @param resolvedDepGraph The resolved dependency graph from the module file
    */
   public static void updateLockedModule(
-      String hashedModule,
-      ImmutableMap<ModuleKey, Module> resolvedDepGraph,
       Path rootDirectory,
-      RegistryFactory registryFactory,
-      BzlmodFlagsAndEnvVars flags)
-      throws BazelModuleResolutionFunctionException {
+      String moduleFileHash,
+      BzlmodFlagsAndEnvVars flags,
+      ImmutableMap<String, String> localOverrideHashes,
+      ImmutableMap<ModuleKey, Module> resolvedDepGraph)
+      throws BazelDepGraphFunctionException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
 
     BazelLockFileValue value =
         BazelLockFileValue.create(
-            BazelLockFileValue.LOCK_FILE_VERSION, hashedModule, flags, resolvedDepGraph);
-    Gson gson = GsonTypeAdapterUtil.getLockfileGsonWithTypeAdapters(registryFactory);
+            BazelLockFileValue.LOCK_FILE_VERSION,
+            moduleFileHash,
+            flags,
+            localOverrideHashes,
+            resolvedDepGraph);
     try {
-      FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, gson.toJson(value));
+      FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(value));
     } catch (IOException e) {
-      throw new BazelModuleResolutionFunctionException(
+      throw new BazelDepGraphFunctionException(
           ExternalDepsException.withCauseAndMessage(
               Code.BAD_MODULE, e, "Unable to update module-lock file"),
           Transience.PERSISTENT);
