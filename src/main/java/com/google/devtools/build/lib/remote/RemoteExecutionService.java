@@ -47,6 +47,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -239,6 +240,7 @@ public class RemoteExecutionService {
   }
 
   private Command buildCommand(
+      boolean useOutputPaths,
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
@@ -246,24 +248,30 @@ public class RemoteExecutionService {
       RemotePathResolver remotePathResolver,
       @Nullable SpawnScrubber spawnScrubber) {
     Command.Builder command = Command.newBuilder();
-    ArrayList<String> outputFiles = new ArrayList<>();
-    ArrayList<String> outputDirectories = new ArrayList<>();
-    ArrayList<String> outputPaths = new ArrayList<>();
-    for (ActionInput output : outputs) {
-      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-      if (output.isDirectory()) {
-        outputDirectories.add(pathString);
-      } else {
-        outputFiles.add(pathString);
+    if (useOutputPaths) {
+      var outputPaths = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+        outputPaths.add(pathString);
       }
-      outputPaths.add(pathString);
+      Collections.sort(outputPaths);
+      command.addAllOutputPaths(outputPaths);
+    } else {
+      var outputFiles = new ArrayList<String>();
+      var outputDirectories = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+        if (output.isDirectory()) {
+          outputDirectories.add(pathString);
+        } else {
+          outputFiles.add(pathString);
+        }
+      }
+      Collections.sort(outputFiles);
+      Collections.sort(outputDirectories);
+      command.addAllOutputFiles(outputFiles);
+      command.addAllOutputDirectories(outputDirectories);
     }
-    Collections.sort(outputFiles);
-    Collections.sort(outputDirectories);
-    Collections.sort(outputPaths);
-    command.addAllOutputFiles(outputFiles);
-    command.addAllOutputDirectories(outputDirectories);
-    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -590,8 +598,23 @@ public class RemoteExecutionService {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
 
+      var readCachePolicy = getReadCachePolicy(spawn);
+      var writeCachePolicy = getWriteCachePolicy(spawn);
+      ServerCapabilities capabilities =
+          mayBeExecutedRemotely(spawn)
+              ? remoteExecutor.getServerCapabilities()
+              : writeCachePolicy.allowRemoteCache() ? remoteCache.getServerCapabilities : null;
+      var useOutputPaths = true;
+      if (capabilities != null) {
+        var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
+        if (supportStatus.isSupported()) {
+          useOutputPaths =
+              supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+        }
+      }
       Command command =
           buildCommand(
+              useOutputPaths,
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
@@ -615,7 +638,7 @@ public class RemoteExecutionService {
               buildRequestId, commandId, actionKey.getDigest().getHash(), spawn.getResourceOwner());
       RemoteActionExecutionContext remoteActionExecutionContext =
           RemoteActionExecutionContext.create(
-              spawn, context, metadata, getWriteCachePolicy(spawn), getReadCachePolicy(spawn));
+              spawn, context, metadata, writeCachePolicy, readCachePolicy);
 
       return new RemoteAction(
           spawn,

@@ -68,6 +68,15 @@ public class RemoteWorkerOptions extends OptionsBase {
   public boolean debug;
 
   @Option(
+      name = "legacy_api",
+      defaultValue = "false",
+      category = "build_worker",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Restrict worker to RemoteApi version 2.0 capabilities")
+  public boolean legacyApi;
+
+  @Option(
       name = "pid_file",
       defaultValue = "null",
       category = "build_worker",

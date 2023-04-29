@@ -188,7 +188,7 @@ public final class RemoteWorker {
     } else {
       execServer = null;
     }
-    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null);
+    this.capabilitiesServer = new CapabilitiesServer(digestUtil, execServer != null, workerOptions);
   }
 
   public Server startServer() throws IOException {
