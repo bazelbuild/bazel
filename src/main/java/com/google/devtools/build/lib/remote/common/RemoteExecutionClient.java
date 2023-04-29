@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import java.io.IOException;
 
 /**
@@ -23,6 +24,9 @@ import java.io.IOException;
  * <p>Implementations must be thread-safe.
  */
 public interface RemoteExecutionClient {
+
+  /** Returns the cache capabilities of the remote execution server */
+  ServerCapabilities getServerCapabilities();
 
   /** Execute an action remotely using Remote Execution API. */
   ExecuteResponse executeRemotely(
