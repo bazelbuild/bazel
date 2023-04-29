@@ -118,4 +118,11 @@ function test_bazelrc_after_devnull_ignored() {
   expect_not_log "--definitely_invalid_config"
 }
 
+function test_announce_rc_invocation_policy() {
+  echo "common --verbose_failures" > 1.rc
+  bazel --invocation_policy='flag_policies: { flag_name: "jobs" commands: "build" set_value: { flag_value: "10" behavior: ALLOW_OVERRIDES } }' build --announce_rc --color=no &> $TEST_log || fail "Should pass"
+  expect_log "INFO: Options provided by invocation policy:"
+  expect_log "  'build' options: --jobs=10"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"

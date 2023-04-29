@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionDocumentationCategory;
+import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -29,7 +32,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper class for setting up tests that make use of {@link BlazeOptionHandler}. */
-class BlazeOptionHandlerTestHelper {
+public class BlazeOptionHandlerTestHelper {
 
   private final Scratch scratch = new Scratch();
   private final StoredEventHandler eventHandler = new StoredEventHandler();
@@ -40,7 +43,8 @@ class BlazeOptionHandlerTestHelper {
       List<Class<? extends OptionsBase>> optionsClasses,
       boolean allowResidue,
       @Nullable String aliasFlag,
-      boolean skipStarlarkPrefixes)
+      boolean skipStarlarkPrefixes,
+      InvocationPolicy invocationPolicy)
       throws Exception {
     parser = createOptionsParser(optionsClasses, allowResidue, aliasFlag, skipStarlarkPrefixes);
 
@@ -58,7 +62,7 @@ class BlazeOptionHandlerTestHelper {
                 OptionsParser.builder().optionsClasses(BlazeServerStartupOptions.class).build())
             .addBlazeModule(new BazelRulesModule())
             .build();
-    runtime.overrideCommands(ImmutableList.of(new C0Command()));
+    runtime.overrideCommands(ImmutableList.of(new C0Command(), new ParentCommand()));
 
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -75,12 +79,7 @@ class BlazeOptionHandlerTestHelper {
             new C0Command(),
             C0Command.class.getAnnotation(Command.class),
             parser,
-            InvocationPolicy.getDefaultInstance());
-  }
-
-  public BlazeOptionHandlerTestHelper(
-      List<Class<? extends OptionsBase>> optionsClasses, boolean allowResidue) throws Exception {
-    this(optionsClasses, allowResidue, /* aliasFlag= */ null, /* skipStarlarkPrefixes= */ false);
+            invocationPolicy);
   }
 
   private static OptionsParser createOptionsParser(
@@ -119,7 +118,8 @@ class BlazeOptionHandlerTestHelper {
       name = "c0",
       shortDescription = "c0 desc",
       help = "c0 help",
-      options = {TestOptions.class})
+      options = {TestOptions.class},
+      inherits = ParentCommand.class)
   protected static class C0Command implements BlazeCommand {
     @Override
     public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
@@ -128,5 +128,41 @@ class BlazeOptionHandlerTestHelper {
 
     @Override
     public void editOptions(OptionsParser optionsParser) {}
+  }
+
+  /** Custom command for testing. */
+  @Command(
+      name = "parent",
+      shortDescription = "parent desc",
+      help = "parent help",
+      options = {ParentOptions.class})
+  public static class ParentCommand implements BlazeCommand {
+    @Override
+    public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void editOptions(OptionsParser optionsParser) {}
+  }
+
+  public static class ParentOptions extends OptionsBase {
+    public static final String TEST_STRING_DEFAULT = "parent test string default";
+
+    @Option(
+        name = "parent_test_string",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = TEST_STRING_DEFAULT,
+        help = "a string-valued option to test simple option operations")
+    public String testString;
+
+    @Option(
+        name = "parent_test_string2",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = TEST_STRING_DEFAULT,
+        help = "another string-valued option to test simple option operations")
+    public String testString2;
   }
 }

@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -53,15 +54,25 @@ public class BlazeOptionHandlerTest {
 
   @Before
   public void setUp() throws Exception {
+    setUp(InvocationPolicyOuterClass.InvocationPolicy.getDefaultInstance());
+  }
+
+  private void setUp(InvocationPolicyOuterClass.InvocationPolicy invocationPolicy)
+      throws Exception {
     ImmutableList<Class<? extends OptionsBase>> optionsClasses =
-        ImmutableList.of(TestOptions.class, CommonCommandOptions.class, ClientOptions.class);
+        ImmutableList.of(
+            TestOptions.class,
+            CommonCommandOptions.class,
+            ClientOptions.class,
+            BlazeOptionHandlerTestHelper.ParentOptions.class);
 
     BlazeOptionHandlerTestHelper helper =
         new BlazeOptionHandlerTestHelper(
             optionsClasses,
             /* allowResidue= */ true,
             /* aliasFlag= */ null,
-            /* skipStarlarkPrefixes= */ true);
+            /* skipStarlarkPrefixes= */ true,
+            invocationPolicy);
     eventHandler = helper.getEventHandler();
     parser = helper.getOptionsParser();
     optionHandler = helper.getOptionHandler();
@@ -447,7 +458,8 @@ public class BlazeOptionHandlerTest {
             optionsClasses,
             /* allowResidue= */ false,
             /* aliasFlag= */ null,
-            /* skipStarlarkPrefixes= */ true);
+            /* skipStarlarkPrefixes= */ true,
+            InvocationPolicyOuterClass.InvocationPolicy.getDefaultInstance());
     OptionsParser parser = helper.getOptionsParser();
 
     OptionsParsingException e =
@@ -1082,6 +1094,106 @@ public class BlazeOptionHandlerTest {
                 "The following configs were expanded more than once: [gamma, delta, epsilon, zeta, "
                     + "eta, theta, iota, kappa, lambda, mu]. For repeatable flags, repeats are "
                     + "counted twice and may lead to unexpected behavior."));
+  }
+
+  @Test
+  public void testParseOptions_invocationPolicy() throws Exception {
+    setUp(
+        InvocationPolicyOuterClass.InvocationPolicy.newBuilder()
+            .addFlagPolicies(
+                // Parent option applied directly to the parent command.
+                InvocationPolicyOuterClass.FlagPolicy.newBuilder()
+                    .addCommands("parent")
+                    .setFlagName("parent_test_string2")
+                    .setSetValue(
+                        InvocationPolicyOuterClass.SetValue.newBuilder()
+                            .addFlagValue("parent-for-parent")
+                            .setBehavior(
+                                InvocationPolicyOuterClass.SetValue.Behavior.ALLOW_OVERRIDES)
+                            .build())
+                    .build())
+            .addFlagPolicies(
+                // Parent option which is overridden later for the child command.
+                InvocationPolicyOuterClass.FlagPolicy.newBuilder()
+                    .setFlagName("parent_test_string")
+                    .addCommands("parent")
+                    .setSetValue(
+                        InvocationPolicyOuterClass.SetValue.newBuilder()
+                            .addFlagValue("parent-for-parent")
+                            .setBehavior(
+                                InvocationPolicyOuterClass.SetValue.Behavior.ALLOW_OVERRIDES)
+                            .build())
+                    .build())
+            .addFlagPolicies(
+                // Option which doesn't have any commands specified, so applies to all.
+                InvocationPolicyOuterClass.FlagPolicy.newBuilder()
+                    .setFlagName("test_string")
+                    .setSetValue(
+                        InvocationPolicyOuterClass.SetValue.newBuilder()
+                            .addFlagValue("hello")
+                            .setBehavior(
+                                InvocationPolicyOuterClass.SetValue.Behavior.ALLOW_OVERRIDES)
+                            .build())
+                    .build())
+            .addFlagPolicies(
+                // Simply setting a value.
+                InvocationPolicyOuterClass.FlagPolicy.newBuilder()
+                    .setFlagName("test_string_null_by_default")
+                    .addCommands("c0")
+                    .setSetValue(
+                        InvocationPolicyOuterClass.SetValue.newBuilder()
+                            .addFlagValue("also-just-c0")
+                            .setBehavior(
+                                InvocationPolicyOuterClass.SetValue.Behavior.ALLOW_OVERRIDES)
+                            .build())
+                    .build())
+            .addFlagPolicies(
+                // Policy should be ignored because its command isn't being run.
+                InvocationPolicyOuterClass.FlagPolicy.newBuilder()
+                    .setFlagName("test_string")
+                    .addCommands("unrelated")
+                    .setSetValue(
+                        InvocationPolicyOuterClass.SetValue.newBuilder()
+                            .addFlagValue("for-unrelated-command")
+                            .setBehavior(
+                                InvocationPolicyOuterClass.SetValue.Behavior.ALLOW_OVERRIDES)
+                            .build())
+                    .build())
+            .addFlagPolicies(
+                // Parent option, overriding an early set value on the parent command.
+                InvocationPolicyOuterClass.FlagPolicy.newBuilder()
+                    .setFlagName("parent_test_string")
+                    .addCommands("c0")
+                    .setSetValue(
+                        InvocationPolicyOuterClass.SetValue.newBuilder()
+                            .addFlagValue("parent-for-child")
+                            .setBehavior(
+                                InvocationPolicyOuterClass.SetValue.Behavior.ALLOW_OVERRIDES)
+                            .build())
+                    .build())
+            .build());
+
+    optionHandler.parseOptions(ImmutableList.of("c0"), eventHandler);
+    assertThat(eventHandler.getEvents()).isEmpty();
+    assertThat(parser.getResidue()).isEmpty();
+    assertThat(optionHandler.getRcfileNotes())
+        .containsExactly(
+            "Options provided by invocation policy:\n"
+                + "  Inherited 'parent' options: --parent_test_string2=parent-for-parent",
+            "Options provided by invocation policy:\n"
+                + "  Inherited '' options: --test_string=hello",
+            "Options provided by invocation policy:\n"
+                + "  'c0' options: --parent_test_string=parent-for-child"
+                + " --test_string_null_by_default=also-just-c0");
+    TestOptions options = parser.getOptions(TestOptions.class);
+    assertThat(options).isNotNull();
+    assertThat(options.testString).isEqualTo("hello");
+    assertThat(options.testStringNullByDefault).isEqualTo("also-just-c0");
+    assertThat(options.testMultipleString).containsExactly();
+    BlazeOptionHandlerTestHelper.ParentOptions parentOptions =
+        parser.getOptions(BlazeOptionHandlerTestHelper.ParentOptions.class);
+    assertThat(parentOptions.testString).isEqualTo("parent-for-child");
+    assertThat(parentOptions.testString2).isEqualTo("parent-for-parent");
   }
 
   @Test

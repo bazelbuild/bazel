@@ -23,6 +23,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
@@ -46,6 +47,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 /**
  * Handles parsing the blaze command arguments.
@@ -298,7 +300,27 @@ public final class BlazeOptionHandler {
       return earlyExitCode;
     }
 
+    // Merge the invocation policy that is user-supplied, from the command line, and any
+    // invocation policy that was added by a module. The module one goes 'first,' so the user
+    // one has priority.
+    InvocationPolicy combinedPolicy =
+        InvocationPolicy.newBuilder()
+            .mergeFrom(runtime.getModuleInvocationPolicy())
+            .mergeFrom(invocationPolicy)
+            .build();
+
+    InvocationPolicyEnforcer optionsPolicyEnforcer =
+        new InvocationPolicyEnforcer(
+            combinedPolicy, Level.INFO, optionsParser.getConversionContext());
+
     try {
+      parseInvocationPolicyToRcFileNotes(
+          combinedPolicy,
+          this.optionsParser,
+          optionsPolicyEnforcer,
+          this.commandAnnotation,
+          this.rcfileNotes);
+
       parseArgsAndConfigs(args, eventHandler);
       // Allow the command to edit the options.
       command.editOptions(optionsParser);
@@ -317,17 +339,6 @@ public final class BlazeOptionHandler {
           throw new IllegalStateException(e);
         }
       }
-      // Merge the invocation policy that is user-supplied, from the command line, and any
-      // invocation policy that was added by a module. The module one goes 'first,' so the user
-      // one has priority.
-      InvocationPolicy combinedPolicy =
-          InvocationPolicy.newBuilder()
-              .mergeFrom(runtime.getModuleInvocationPolicy())
-              .mergeFrom(invocationPolicy)
-              .build();
-      InvocationPolicyEnforcer optionsPolicyEnforcer =
-          new InvocationPolicyEnforcer(
-              combinedPolicy, Level.INFO, optionsParser.getConversionContext());
       // Enforce the invocation policy. It is intentional that this is the last step in preparing
       // the options. The invocation policy is used in security-critical contexts, and may be used
       // as a last resort to override flags. That means that the policy can override flags set in
@@ -359,6 +370,78 @@ public final class BlazeOptionHandler {
       return e.getDetailedExitCode();
     }
     return DetailedExitCode.success();
+  }
+
+  private static void parseInvocationPolicyToRcFileNotes(
+      InvocationPolicy invocationPolicy,
+      OptionsParser parser,
+      InvocationPolicyEnforcer enforcer,
+      Command commandAnnotation,
+      List<String> rcfileNotes)
+      throws OptionsParsingException {
+    List<AccumulatedFlagsFromInvocationPolicy> accumulator = new ArrayList<>();
+
+    ImmutableList<InvocationPolicyEnforcer.FlagPolicyWithContextAndCommand> policies =
+        enforcer.getEffectivePolicies(
+            invocationPolicy, parser, commandAnnotation.name(), Level.INFO);
+    for (InvocationPolicyEnforcer.FlagPolicyWithContextAndCommand flagPolicyWithContextAndCommand :
+        policies) {
+      InvocationPolicyEnforcer.FlagPolicyWithContext flagPolicyWithContext =
+          flagPolicyWithContextAndCommand.getFlagPolicyWithContext();
+      InvocationPolicyOuterClass.FlagPolicy flagPolicy = flagPolicyWithContext.getPolicy();
+      String flagValue;
+      if (flagPolicy.hasSetValue()) {
+        InvocationPolicyOuterClass.SetValue setValue = flagPolicy.getSetValue();
+        flagValue = Joiner.on(",").join(setValue.getFlagValueList());
+      } else if (flagPolicy.hasUseDefault()) {
+        flagValue = "";
+      } else {
+        continue;
+      }
+
+      if (accumulator.isEmpty()
+          || !flagPolicyWithContextAndCommand
+              .getCommand()
+              .equals(accumulator.get(accumulator.size() - 1).command)) {
+        accumulator.add(
+            new AccumulatedFlagsFromInvocationPolicy(flagPolicyWithContextAndCommand.getCommand()));
+      }
+      accumulator
+          .get(accumulator.size() - 1)
+          .flagsFromInvocationPolicy
+          .add(new FlagFromInvocationPolicy(flagPolicy.getFlagName(), flagValue));
+    }
+
+    for (AccumulatedFlagsFromInvocationPolicy chunk : accumulator) {
+      String inherited = chunk.command.equals(commandAnnotation.name()) ? "" : "Inherited ";
+      String flags =
+          chunk.flagsFromInvocationPolicy.stream()
+              .map(f -> String.format("--%s=%s", f.flagName, f.flagValue))
+              .collect(Collectors.joining(" "));
+      rcfileNotes.add(
+          String.format(
+              "Options provided by invocation policy:\n  %s'%s' options: %s",
+              inherited, chunk.command, flags));
+    }
+  }
+
+  private static class FlagFromInvocationPolicy {
+    public String flagName;
+    public String flagValue;
+
+    public FlagFromInvocationPolicy(String flagName, String flagValue) {
+      this.flagName = flagName;
+      this.flagValue = flagValue;
+    }
+  }
+
+  private static class AccumulatedFlagsFromInvocationPolicy {
+    public String command;
+    public List<FlagFromInvocationPolicy> flagsFromInvocationPolicy = new ArrayList<>();
+
+    public AccumulatedFlagsFromInvocationPolicy(String command) {
+      this.command = command;
+    }
   }
 
   /**
