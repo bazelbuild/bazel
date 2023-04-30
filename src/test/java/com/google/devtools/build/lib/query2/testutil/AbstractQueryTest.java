@@ -360,7 +360,8 @@ public abstract class AbstractQueryTest<T> {
     writeFile(
         "c/BUILD",
         "genrule(name='c', srcs=['p', 'q'], outs=['r', 's'], cmd=':')",
-        "cc_binary(name='d', srcs=['e.cc'], data=['r'])");
+        "cc_binary(name='d', srcs=['e.cc'], data=['r'])",
+        "cc_test(name='f', srcs=['g.cc'])");
   }
 
   @Test
@@ -368,19 +369,19 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFiles2();
     assertThat(evalToString("c:*"))
         .isEqualTo(
-            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
-    assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d");
+            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:f //c:f.dwp //c:f.stripped //c:g.cc //c:p //c:q //c:r //c:s");
+    assertThat(evalToString("kind(rule, c:*)")).isEqualTo("//c:c //c:d //c:f");
     assertThat(evalToString("kind(genrule, c:*)")).isEqualTo("//c:c");
-    assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("kind(cc.*, c:*)")).isEqualTo("//c:d //c:f");
     assertThat(evalToString("kind(file, c:*)"))
-        .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+        .isEqualTo("//c:BUILD //c:d.dwp //c:d.stripped //c:e.cc //c:f.dwp //c:f.stripped //c:g.cc //c:p //c:q //c:r //c:s");
     assertThat(evalToString("kind(gener.*, c:*)"))
-        .isEqualTo("//c:d.dwp //c:d.stripped //c:r //c:s");
+        .isEqualTo("//c:d.dwp //c:d.stripped //c:f.dwp //c:f.stripped //c:r //c:s");
     assertThat(evalToString("kind(gen.*, c:*)"))
-        .isEqualTo("//c:c //c:d.dwp //c:d.stripped //c:r //c:s");
-    assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+        .isEqualTo("//c:c //c:d.dwp //c:d.stripped //c:f.dwp //c:f.stripped //c:r //c:s");
+    assertThat(evalToString("kind(source, c:*)")).isEqualTo("//c:BUILD //c:e.cc //c:g.cc //c:p //c:q");
     assertThat(evalToString("kind('source file', c:*)"))
-        .isEqualTo("//c:BUILD //c:e.cc //c:p //c:q");
+        .isEqualTo("//c:BUILD //c:e.cc //c:g.cc //c:p //c:q");
   }
 
   @Test
@@ -388,11 +389,11 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFiles2();
     assertThat(evalToString("c:*"))
         .isEqualTo(
-            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:f //c:f.dwp //c:f.stripped //c:g.cc //c:p //c:q //c:r //c:s");
     assertThat(evalToString("filter(BUILD, c:*)")).isEqualTo("//c:BUILD");
-    assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc");
-    assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc");
-    assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:p //c:q //c:r //c:s");
+    assertThat(evalToString("filter('\\.cc$', c:*)")).isEqualTo("//c:e.cc //c:g.cc");
+    assertThat(evalToString("filter(//c.*cc$, c:*)")).isEqualTo("//c:e.cc //c:g.cc");
+    assertThat(evalToString("filter(:.$, c:*)")).isEqualTo("//c:c //c:d //c:f //c:p //c:q //c:r //c:s");
   }
 
   @Test
@@ -400,8 +401,8 @@ public abstract class AbstractQueryTest<T> {
     writeBuildFiles2();
     writeBuildFilesWithConfigurableAttributes();
 
-    assertThat(evalToString("attr(name, '.*', '//c:*')")).isEqualTo("//c:c //c:d");
-    assertThat(evalToString("attr(name, '.+', '//c:*')")).isEqualTo("//c:c //c:d");
+    assertThat(evalToString("attr(name, '.*', '//c:*')")).isEqualTo("//c:c //c:d //c:f");
+    assertThat(evalToString("attr(name, '.+', '//c:*')")).isEqualTo("//c:c //c:d //c:f");
     assertThat(evalToString("attr(name, '.*d.*', '//c:*')")).isEqualTo("//c:d");
 
     assertThat(evalToString("attr(name, '.*e.*', '//c:*')")).isEmpty();
@@ -414,17 +415,17 @@ public abstract class AbstractQueryTest<T> {
 
     assertThat(evalToString("c:*"))
         .isEqualTo(
-            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:p //c:q //c:r //c:s");
+            "//c:BUILD //c:c //c:d //c:d.dwp //c:d.stripped //c:e.cc //c:f //c:f.dwp //c:f.stripped //c:g.cc //c:p //c:q //c:r //c:s");
     assertThat(evalToString("attr(cmd,':', c:*)")).isEqualTo("//c:c");
     // Using "empty" pattern will just check existence of the attribute.
     assertThat(evalToString("attr(cmd,'', c:*)")).isEqualTo("//c:c");
-    assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("attr(linkshared, 0, c:*)")).isEqualTo("//c:d //c:f");
     assertThat(evalToString("attr('data', 'r', c:*)")).isEqualTo("//c:d");
     // Empty list attribute value always resolves to '[]'. If list attribute has
     // more than one value, the will be delimited with ','.
-    assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d");
-    assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d");
-    assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d");
+    assertThat(evalToString("attr('deps', '\\[\\]', c:*)")).isEqualTo("//c:d //c:f");
+    assertThat(evalToString("attr('deps', '^..$', c:*)")).isEqualTo("//c:d //c:f");
+    assertThat(evalToString("attr('srcs', '\\[[^,]+\\]', c:*)")).isEqualTo("//c:d //c:f");
 
     // Configurable attributes:
     if (testConfigurableAttributes()) {
