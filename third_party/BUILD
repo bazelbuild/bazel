@@ -478,12 +478,9 @@ filegroup(
 java_import(
     name = "guava",
     applicable_licenses = [":guava_license"],
-    enable_distributions = ["debian"],
     jars = [
         "@maven//:com_google_guava_guava_file",
         "@maven//:com_google_guava_failureaccess_file",
-        "guava/failureaccess-1.0.1.jar",
-        "guava/guava-31.1-jre.jar",
     ],
     exports = [
         ":error_prone_annotations",
