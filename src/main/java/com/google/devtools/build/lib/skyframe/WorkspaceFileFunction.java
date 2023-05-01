@@ -297,7 +297,8 @@ public class WorkspaceFileFunction implements SkyFunction {
     ImmutableList<Pair<String, Location>> programLoads =
         BzlLoadFunction.getLoadsFromStarlarkFiles(chunk);
     ImmutableList<Label> loadLabels =
-        BzlLoadFunction.getLoadLabels(env.getListener(), programLoads, rootPackage, repoMapping);
+        BzlLoadFunction.getLoadLabels(
+            env.getListener(), programLoads, rootPackage, repoMapping, starlarkSemantics);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()

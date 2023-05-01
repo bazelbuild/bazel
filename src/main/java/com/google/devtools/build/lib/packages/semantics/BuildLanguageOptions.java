@@ -197,6 +197,15 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalEnableAndroidMigrationApis;
 
   @Option(
+      name = "experimental_enable_scl_dialect",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
+      // TODO(brandjon): point to more extensive user documentation somewhere
+      help = "If set to true, .scl files may be used in load() statements.")
+  public boolean experimentalEnableSclDialect;
+
+  @Option(
       name = "enable_bzlmod",
       oldName = "experimental_enable_bzlmod",
       defaultValue = "false",
@@ -677,6 +686,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(CHECK_BZL_VISIBILITY, checkBzlVisibility)
             .setBool(
                 EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, experimentalEnableAndroidMigrationApis)
+            .setBool(EXPERIMENTAL_ENABLE_SCL_DIALECT, experimentalEnableSclDialect)
             .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(
                 EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES,
@@ -770,6 +780,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
       "-experimental_enable_android_migration_apis";
+  public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "-enable_bzlmod";
   public static final String EXPERIMENTAL_JAVA_PROTO_LIBRARY_DEFAULT_HAS_SERVICES =
       "+experimental_java_proto_library_default_has_services";

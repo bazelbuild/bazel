@@ -220,7 +220,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
             env.getListener(),
             programLoads,
             PackageIdentifier.EMPTY_PACKAGE_ID,
-            EMPTY_MAIN_REPO_MAPPING);
+            EMPTY_MAIN_REPO_MAPPING,
+            starlarkSemantics);
     if (loadLabels == null) {
       NoSuchPackageException e =
           PackageFunction.PackageFunctionException.builder()

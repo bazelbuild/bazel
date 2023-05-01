@@ -610,19 +610,21 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testTransitiveStarlarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD", "load('//bar:ext.bzl', 'a')");
     scratch.file("bar/BUILD");
-    scratch.file("bar/ext.bzl", "load('//baz:ext.bzl', 'b')", "a = b");
+    scratch.file("bar/ext.bzl", "load('//baz:ext.scl', 'b')", "a = b");
     scratch.file("baz/BUILD");
-    scratch.file("baz/ext.bzl", "b = 1");
+    scratch.file("baz/ext.scl", "b = 1");
     scratch.file("qux/BUILD");
     scratch.file("qux/ext.bzl", "c = 1");
 
     preparePackageLoading(rootDirectory);
+    // must be done after preparePackageLoading()
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
 
     SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
     Package pkg = validPackageWithoutErrors(skyKey);
     assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
-            Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//baz:ext.bzl"));
+            Label.parseCanonical("//bar:ext.bzl"), Label.parseCanonical("//baz:ext.scl"));
 
     scratch.overwriteFile("bar/ext.bzl", "load('//qux:ext.bzl', 'c')", "a = c");
     getSkyframeExecutor()
@@ -766,7 +768,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     SkyKey key = PackageIdentifier.createInMainRepo("p");
     SkyframeExecutorTestUtils.evaluate(skyframeExecutor, key, /*keepGoing=*/ false, reporter);
-    assertContainsEvent("The label must reference a file with extension '.bzl'");
+    assertContainsEvent("The label must reference a file with extension \".bzl\"");
   }
 
   @Test

@@ -86,7 +86,11 @@ import net.starlark.java.syntax.Statement;
 import net.starlark.java.syntax.StringLiteral;
 
 /**
- * A Skyframe function to look up and load a single .bzl module.
+ * A Skyframe function to look up and load a single .bzl (or .scl) module.
+ *
+ * <p>Note: Historically, all modules had the .bzl suffix, but this is no longer true now that Bazel
+ * supports the .scl dialect. In identifiers, code comments, and documentation, you should generally
+ * assume any "bzl" term could mean a .scl file as well.
  *
  * <p>Given a {@link Label} referencing a .bzl file, attempts to locate the file and load it. The
  * Label must be absolute, and must not reference the special {@code external} package. If loading
@@ -736,6 +740,14 @@ public class BzlLoadFunction implements SkyFunction {
     Label label = key.getLabel();
     PackageIdentifier pkg = label.getPackageIdentifier();
 
+    boolean isSclFlagEnabled =
+        builtins.starlarkSemantics.getBool(BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT);
+    if (key.isSclDialect() && !isSclFlagEnabled) {
+      throw new BzlLoadFailedException(
+          "loading .scl files requires setting --experimental_enable_scl_dialect",
+          Code.PARSE_ERROR);
+    }
+
     // Determine dependency BzlLoadValue keys for the load statements in this bzl.
     // Labels are resolved relative to the current repo mapping.
     RepositoryMapping repoMapping = getRepositoryMapping(key, builtins.starlarkSemantics, env);
@@ -744,7 +756,13 @@ public class BzlLoadFunction implements SkyFunction {
     }
     ImmutableList<Pair<String, Location>> programLoads = getLoadsFromProgram(prog);
     ImmutableList<Label> loadLabels =
-        getLoadLabels(env.getListener(), programLoads, pkg, repoMapping);
+        getLoadLabels(
+            env.getListener(),
+            programLoads,
+            pkg,
+            repoMapping,
+            key.isSclDialect(),
+            isSclFlagEnabled);
     if (loadLabels == null) {
       throw new BzlLoadFailedException(
           String.format(
@@ -933,11 +951,59 @@ public class BzlLoadFunction implements SkyFunction {
     return repositoryMappingValue.getRepositoryMapping();
   }
 
-  public static void checkValidLoadLabel(Label label, boolean fromBuiltinsRepo)
+  /**
+   * Validates a label appearing in a {@code load()} statement, throwing {@link
+   * LabelSyntaxException} on failure.
+   *
+   * <p>Different restrictions apply depending on what type of source file the load appears in. For
+   * all kinds of files, {@code label}:
+   *
+   * <ul>
+   *   <li>may not be within {@code @//external}.
+   *   <li>must end with either {@code .bzl} or {@code .scl}.
+   * </ul>
+   *
+   * <p>For source files appearing within {@code @_builtins}, {@code label} must also be within
+   * {@code @_builtins}. (The reverse, that those files may not be loaded by user-defined files, is
+   * enforced by the fact that the {@code @_builtins} pseudorepo cannot be resolved as an ordinary
+   * repo.)
+   *
+   * <p>For .scl files only, {@code label} must end with {@code .scl} (not {@code .bzl}). (Loads in
+   * .scl also should always begin with {@code //}, but that's syntactic and can't be enforced in
+   * this method.)
+   *
+   * @param label the label to validate
+   * @param fromBuiltinsRepo true if the file containing the load is within {@code @_builtins}
+   * @param withinSclDialect true if the file containing the load is a .scl file
+   * @param mentionSclInErrorMessage true if ".scl" should be advertised as a possible extension in
+   *     error messaging
+   */
+  private static void checkValidLoadLabel(
+      Label label,
+      boolean fromBuiltinsRepo,
+      boolean withinSclDialect,
+      boolean mentionSclInErrorMessage)
       throws LabelSyntaxException {
-    if (!label.getName().endsWith(".bzl")) {
-      throw new LabelSyntaxException("The label must reference a file with extension '.bzl'");
+    // Check file extension.
+    String baseName = label.getName();
+    if (withinSclDialect) {
+      if (!baseName.endsWith(".scl")) {
+        String msg = "The label must reference a file with extension \".scl\"";
+        if (baseName.endsWith(".bzl")) {
+          msg += " (.scl files cannot load .bzl files)";
+        }
+        throw new LabelSyntaxException(msg);
+      }
+    } else {
+      if (!(baseName.endsWith(".scl") || baseName.endsWith(".bzl"))) {
+        String msg = "The label must reference a file with extension \".bzl\"";
+        if (mentionSclInErrorMessage) {
+          msg += " or \".scl\"";
+        }
+        throw new LabelSyntaxException(msg);
+      }
     }
+
     if (label.getPackageIdentifier().equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new LabelSyntaxException(
           "Starlark files may not be loaded from the //external package");
@@ -946,6 +1012,66 @@ public class BzlLoadFunction implements SkyFunction {
       throw new LabelSyntaxException(
           ".bzl files in @_builtins cannot load from outside of @_builtins");
     }
+  }
+
+  /**
+   * Validates a label appearing in a {@code load()} statement, throwing {@link
+   * LabelSyntaxException} on failure.
+   */
+  public static void checkValidLoadLabel(Label label, StarlarkSemantics starlarkSemantics)
+      throws LabelSyntaxException {
+    checkValidLoadLabel(
+        label,
+        /* fromBuiltinsRepo= */ false,
+        /* withinSclDialect= */ false,
+        /* mentionSclInErrorMessage= */ starlarkSemantics.getBool(
+            BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT));
+  }
+
+  /**
+   * Given a list of {@code load("module")} strings and their locations, in source order, returns a
+   * corresponding list of Labels they each resolve to. Labels are resolved relative to {@code
+   * base}, the file's package. If any label is malformed, the function reports one or more errors
+   * to the handler and returns null.
+   *
+   * <p>If {@code withinSclDialect} is true, the labels are validated according to the rules of the
+   * .scl dialect: Only strings beginning with {@code //} are allowed (no repo syntax, no relative
+   * labels), and only .scl files may be loaded (not .bzl). If {@code isSclFlagEnabled} is true,
+   * then ".scl" is mentioned as a possible file extension in error messages.
+   */
+  @Nullable
+  private static ImmutableList<Label> getLoadLabels(
+      EventHandler handler,
+      ImmutableList<Pair<String, Location>> loads,
+      PackageIdentifier base,
+      RepositoryMapping repoMapping,
+      boolean withinSclDialect,
+      boolean isSclFlagEnabled) {
+    boolean ok = true;
+
+    ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
+    for (Pair<String, Location> load : loads) {
+      // Parse the load statement's module string as a label. Validate the unparsed string for
+      // syntax and the parsed label for structure.
+      String unparsedLabel = load.first;
+      try {
+        if (withinSclDialect && !unparsedLabel.startsWith("//")) {
+          throw new LabelSyntaxException("in .scl files, load labels must begin with \"//\"");
+        }
+        Label label =
+            Label.parseWithPackageContext(unparsedLabel, PackageContext.of(base, repoMapping));
+        checkValidLoadLabel(
+            label,
+            /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()),
+            /* withinSclDialect= */ withinSclDialect,
+            /* mentionSclInErrorMessage= */ isSclFlagEnabled);
+        loadLabels.add(label);
+      } catch (LabelSyntaxException ex) {
+        handler.handle(Event.error(load.second, "in load statement: " + ex.getMessage()));
+        ok = false;
+      }
+    }
+    return ok ? loadLabels.build() : null;
   }
 
   /**
@@ -959,31 +1085,16 @@ public class BzlLoadFunction implements SkyFunction {
       EventHandler handler,
       ImmutableList<Pair<String, Location>> loads,
       PackageIdentifier base,
-      RepositoryMapping repoMapping) {
-    // It's redundant that getRelativeWithRemapping needs a Label;
-    // a PackageIdentifier should suffice. Make one here.
-    Label buildLabel = getBUILDLabel(base);
-
-    boolean ok = true;
-
-    ImmutableList.Builder<Label> loadLabels = ImmutableList.builderWithExpectedSize(loads.size());
-    for (Pair<String, Location> load : loads) {
-      // Parse the load statement's module string as a label.
-      // It must end in .bzl and not be in package "//external".
-      try {
-        Label label =
-            Label.parseWithPackageContext(
-                load.first, PackageContext.of(buildLabel.getPackageIdentifier(), repoMapping));
-        checkValidLoadLabel(
-            label,
-            /* fromBuiltinsRepo= */ StarlarkBuiltinsValue.isBuiltinsRepo(base.getRepository()));
-        loadLabels.add(label);
-      } catch (LabelSyntaxException ex) {
-        handler.handle(Event.error(load.second, "in load statement: " + ex.getMessage()));
-        ok = false;
-      }
-    }
-    return ok ? loadLabels.build() : null;
+      RepositoryMapping repoMapping,
+      StarlarkSemantics starlarkSemantics) {
+    return getLoadLabels(
+        handler,
+        loads,
+        base,
+        repoMapping,
+        /* withinSclDialect= */ false,
+        /* isSclFlagEnabled= */ starlarkSemantics.getBool(
+            BuildLanguageOptions.EXPERIMENTAL_ENABLE_SCL_DIALECT));
   }
 
   /** Extracts load statements from compiled program (see {@link #getLoadLabels}). */
@@ -1008,15 +1119,6 @@ public class BzlLoadFunction implements SkyFunction {
       }
     }
     return loads.build();
-  }
-
-  private static Label getBUILDLabel(PackageIdentifier pkgid) {
-    try {
-      return Label.create(pkgid, "BUILD");
-    } catch (LabelSyntaxException e) {
-      // Shouldn't happen; the Label is well-formed by construction.
-      throw new IllegalStateException(e);
-    }
   }
 
   /**
