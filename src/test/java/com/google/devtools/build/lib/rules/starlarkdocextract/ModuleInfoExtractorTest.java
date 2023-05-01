@@ -261,18 +261,22 @@ public final class ModuleInfoExtractorTest {
   public void providerFields() throws Exception {
     Module module =
         exec(
-            "DocumentedInfo = provider(fields = {'a': 'A', 'b': 'B', '_hidden': 'Hidden'})",
-            "UndocumentedInfo = provider(fields = ['a', 'b', '_hidden'])");
+            // Note fields below are not alphabetized
+            "DocumentedInfo = provider(fields = {'c': 'C', 'a': 'A', 'b': 'B', '_hidden':"
+                + " 'Hidden'})",
+            "UndocumentedInfo = provider(fields = ['c', 'a', 'b', '_hidden'])");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
         .containsExactly(
             ProviderInfo.newBuilder()
                 .setProviderName("DocumentedInfo")
+                .addFieldInfo(ProviderFieldInfo.newBuilder().setName("c").setDocString("C"))
                 .addFieldInfo(ProviderFieldInfo.newBuilder().setName("a").setDocString("A"))
                 .addFieldInfo(ProviderFieldInfo.newBuilder().setName("b").setDocString("B"))
                 .build(),
             ProviderInfo.newBuilder()
                 .setProviderName("UndocumentedInfo")
+                .addFieldInfo(ProviderFieldInfo.newBuilder().setName("c"))
                 .addFieldInfo(ProviderFieldInfo.newBuilder().setName("a"))
                 .addFieldInfo(ProviderFieldInfo.newBuilder().setName("b"))
                 .build());

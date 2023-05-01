@@ -1788,8 +1788,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ev,
         "UndocumentedInfo = provider()",
         "DocumentedInfo = provider(doc = 'My documented provider')",
-        "SchemafulWithoutDocsInfo = provider(fields = ['a', 'b'])",
-        "SchemafulWithDocsInfo = provider(fields = {'a': 'Field a', 'b': 'Field b'})");
+        // Note fields below are not alphabetized
+        "SchemafulWithoutDocsInfo = provider(fields = ['b', 'a'])",
+        "SchemafulWithDocsInfo = provider(fields = {'b': 'Field b', 'a': 'Field a'})");
 
     StarlarkProvider undocumentedInfo = (StarlarkProvider) ev.lookup("UndocumentedInfo");
     StarlarkProvider documentedInfo = (StarlarkProvider) ev.lookup("DocumentedInfo");
@@ -1799,10 +1800,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
     assertThat(undocumentedInfo.getDocumentation()).isEmpty();
     assertThat(documentedInfo.getDocumentation()).hasValue("My documented provider");
-    assertThat(schemafulWithoutDocsInfo.getSchemaWithDocumentation())
-        .containsExactly("a", Optional.empty(), "b", Optional.empty());
-    assertThat(schemafulWithDocsInfo.getSchemaWithDocumentation())
-        .containsExactly("a", Optional.of("Field a"), "b", Optional.of("Field b"));
+    assertThat(schemafulWithoutDocsInfo.getSchema())
+        .containsExactly("b", Optional.empty(), "a", Optional.empty());
+    assertThat(schemafulWithDocsInfo.getSchema())
+        .containsExactly("b", Optional.of("Field b"), "a", Optional.of("Field a"));
   }
 
   @Test

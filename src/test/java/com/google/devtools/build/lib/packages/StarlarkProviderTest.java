@@ -274,54 +274,62 @@ public final class StarlarkProviderTest {
   }
 
   @Test
-  public void schemalessProvider_getSchemaWithDocumentation() throws Exception {
+  public void schemalessProvider_getSchema() throws Exception {
     StarlarkProvider provider = StarlarkProvider.builder(Location.BUILTIN).build();
-    assertThat(provider.getSchemaWithDocumentation()).isNull();
+    assertThat(provider.getSchema()).isNull();
   }
 
   @Test
   public void providerWithUndocumentedSchema_getFields() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
-            .setSchema(ImmutableList.of("a", "b", "c"))
+            // Note fields in setSchema() call below are not alphabetized to simulate
+            // non-alphabetized field order in a provider declaration in Starlark code.
+            .setSchema(ImmutableList.of("c", "a", "b"))
             .build();
     assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
   }
 
   @Test
-  public void providerWithUndocumentedSchema_getSchemaWithDocumentation() throws Exception {
+  public void providerWithUndocumentedSchema_getSchema() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
-            .setSchema(ImmutableList.of("a", "b", "c"))
+            // Note fields in setSchema() call below are not alphabetized to simulate
+            // non-alphabetized field order in a provider declaration in Starlark code.
+            .setSchema(ImmutableList.of("c", "a", "b"))
             .build();
-    assertThat(provider.getSchemaWithDocumentation().keySet())
-        .containsExactly("a", "b", "c")
+    assertThat(provider.getSchema())
+        .containsExactly("c", Optional.empty(), "a", Optional.empty(), "b", Optional.empty())
         .inOrder();
-    assertThat(provider.getSchemaWithDocumentation().values())
-        .containsExactly(Optional.empty(), Optional.empty(), Optional.empty());
   }
 
   @Test
   public void providerWithDocumentedSchema_getFields() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
-            .setSchema(ImmutableMap.of("a", "Parameter a", "b", "Parameter b", "c", "Parameter c"))
+            // Note fields in setSchema() call below are not alphabetized to simulate
+            // non-alphabetized field order in a provider declaration in Starlark code.
+            .setSchema(ImmutableMap.of("c", "Parameter c", "a", "Parameter a", "b", "Parameter b"))
             .build();
     assertThat(provider.getFields()).containsExactly("a", "b", "c").inOrder();
   }
 
   @Test
-  public void providerWithDocumentedSchema_getSchemaWithDocumentation() throws Exception {
+  public void providerWithDocumentedSchema_getSchema() throws Exception {
     StarlarkProvider provider =
         StarlarkProvider.builder(Location.BUILTIN)
-            .setSchema(ImmutableMap.of("a", "Parameter a", "b", "Parameter b", "c", "Parameter c"))
+            // Note fields in setSchema() call below are not alphabetized to simulate
+            // non-alphabetized field order in a provider declaration in Starlark code.
+            .setSchema(ImmutableMap.of("c", "Parameter c", "a", "Parameter a", "b", "Parameter b"))
             .build();
-    assertThat(provider.getSchemaWithDocumentation().keySet())
-        .containsExactly("a", "b", "c")
-        .inOrder();
-    assertThat(provider.getSchemaWithDocumentation().values())
+    assertThat(provider.getSchema())
         .containsExactly(
-            Optional.of("Parameter a"), Optional.of("Parameter b"), Optional.of("Parameter c"))
+            "c",
+            Optional.of("Parameter c"),
+            "a",
+            Optional.of("Parameter a"),
+            "b",
+            Optional.of("Parameter b"))
         .inOrder();
   }
 
