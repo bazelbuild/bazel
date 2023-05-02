@@ -724,6 +724,7 @@ java_library(
     deps = [
         ":configured_object_value",
         ":configured_target",
+        "//third_party:jsr305",
     ],
 )
 

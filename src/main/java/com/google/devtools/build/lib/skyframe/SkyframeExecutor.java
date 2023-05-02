@@ -1162,16 +1162,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
         // ctValue may be null if target was not successfully analyzed.
         if (ctValue != null) {
+          ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
+          if (configuredTarget == null) {
+            return false; // It was already cleared.
+          }
           if (!(ctValue instanceof ActionLookupValue)
               && discardType.discardsLoading()
-              && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+              && !topLevelTargets.contains(configuredTarget)) {
             // If loading nodes are already being removed, removing these nodes doesn't hurt.
             // Morally we should always be able to remove these, since they're not used for
             // execution, but it leaves the graph inconsistent, and the --discard_analysis_cache
             // with --track_incremental_state case isn't worth optimizing for.
             return true;
           } else {
-            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+            ctValue.clear(!topLevelTargets.contains(configuredTarget));
           }
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {

@@ -57,9 +57,9 @@ public final class RuleConfiguredTargetValue
     this.actions = configuredTarget.getActions();
   }
 
+  @Nullable // May be null after clearing.
   @Override
   public ConfiguredTarget getConfiguredTarget() {
-    Preconditions.checkNotNull(configuredTarget);
     return configuredTarget;
   }
 
@@ -76,7 +76,6 @@ public final class RuleConfiguredTargetValue
 
   @Override
   public void clear(boolean clearEverything) {
-    Preconditions.checkNotNull(configuredTarget);
     if (clearEverything) {
       configuredTarget = null;
     }
