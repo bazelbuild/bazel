@@ -17,26 +17,14 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
-import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import javax.annotation.Nullable;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -185,83 +173,5 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
                     .put(macCtkey, Label.parseCanonicalUnchecked("//test:toolchain_impl_1"))
                     .buildOrThrow()))
         .testEquals();
-  }
-
-  /** Use custom class instead of mock to make sure that the dynamic codecs lookup is correct. */
-  class SerializableConfiguredTarget implements ConfiguredTarget {
-
-    private final PlatformInfo platform;
-
-    SerializableConfiguredTarget(PlatformInfo platform) {
-      this.platform = platform;
-    }
-
-    @Override
-    public ImmutableCollection<String> getFieldNames() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public String getErrorMessageForUnknownField(String field) {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Object getValue(String name) {
-      return null;
-    }
-
-    @Override
-    public Label getLabel() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public BuildConfigurationKey getConfigurationKey() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Object get(String providerKey) {
-      return null;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends Info> T get(BuiltinProvider<T> provider) {
-      if (PlatformInfo.PROVIDER.equals(provider)) {
-        return (T) this.platform;
-      }
-      return provider.getValueClass().cast(get(provider.getKey()));
-    }
-
-    @Nullable
-    @Override
-    public Info get(Provider.Key providerKey) {
-      return null;
-    }
-
-    @Override
-    public void repr(Printer printer) {}
-
-    @Override
-    public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
-      throw Starlark.errorf("Unknown key '%s'", key);
-    }
-
-    @Override
-    public boolean containsKey(StarlarkSemantics semantics, Object key) {
-      return false;
-    }
   }
 }
