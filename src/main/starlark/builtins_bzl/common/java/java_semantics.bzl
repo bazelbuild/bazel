@@ -53,6 +53,17 @@ def _stamping_enabled(ctx, stamp):
 def _get_build_info(ctx, stamp):
     return java_common.get_build_info(ctx, _stamping_enabled(ctx, stamp))
 
+def _get_java_runtime_dependent_runfiles_and_symlinks(
+        ctx,
+        *,
+        executable,
+        feature_config,
+        is_absolute_path):
+    if not executable:
+        return [], {}
+    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
+    return [java_runtime_toolchain.files], {}
+
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
@@ -62,6 +73,7 @@ semantics = struct(
     JAVA_RUNTIME_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:runtime_toolchain_type",
     JAVA_RUNTIME_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:runtime_toolchain_type", mandatory = True),
     find_java_runtime_toolchain = _find_java_runtime_toolchain,
+    get_java_runtime_dependent_runfiles_and_symlinks = _get_java_runtime_dependent_runfiles_and_symlinks,
     JAVA_PLUGINS_FLAG_ALIAS_LABEL = "@bazel_tools//tools/jdk:java_plugins_flag_alias",
     EXTRA_SRCS_TYPES = [],
     ALLOWED_RULES_IN_DEPS = [

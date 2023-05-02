@@ -258,7 +258,9 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
         test = test,
         fragments = ["cpp", "java"],
         provides = [JavaInfo],
-        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain() + (
+            [semantics.JAVA_RUNTIME_TOOLCHAIN] if executable or test else []
+        ),
         # TODO(hvd): replace with filegroups?
         outputs = {
             "classjar": "%{name}.jar",
@@ -306,6 +308,7 @@ def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
                 "args": attr.string_list(),
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
             }),
+            remove_attrs = [] if executable else ["_java_runtime_toolchain_type"],
         ),
         executable = executable,
     )
