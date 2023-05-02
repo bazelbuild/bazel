@@ -140,6 +140,17 @@ public abstract class SkyValueDirtinessChecker {
       return newValue;
     }
 
+    /**
+     * Returns the max transitive source version for the new value or {@code null}.
+     *
+     * <p>Can only be called if the result {@code isDirty()}.
+     */
+    @Nullable
+    Version getNewMaxTransitiveSourceVersion() {
+      Preconditions.checkState(isDirty(), newValue);
+      return newMaxTransitiveSourceVersion;
+    }
+
     @Override
     public int hashCode() {
       return Objects.hashCode(newValue)

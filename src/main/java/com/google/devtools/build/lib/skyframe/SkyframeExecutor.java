@@ -329,7 +329,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
-  final SyscallCache syscallCache;
+  protected final SyscallCache syscallCache;
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -3528,8 +3528,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /**
    * Finds and invalidates changed files under path entries whose corresponding {@link
    * DiffAwareness} said all files may have been modified.
+   *
+   * <p>We need to manually check for changes to known files. This entails finding all dirty file
+   * system values under package roots for which we don't have diff information. If at least one
+   * path entry doesn't have diff information, then we're going to have to iterate over the skyframe
+   * values at least once no matter what.
    */
-  private void handleDiffsWithMissingDiffInformation(
+  protected void handleDiffsWithMissingDiffInformation(
       ExtendedEventHandler eventHandler,
       TimestampGranularityMonitor tsgm,
       Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
@@ -3551,27 +3556,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExternalFilesHelper tmpExternalFilesHelper =
           externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
 
-      // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
-      // have actually been invalidated (recall that invalidation happens at the beginning of the
-      // next evaluate() call), because checking those is a waste of time.
-      EvaluationContext evaluationContext =
-          newEvaluationContextBuilder()
-              .setKeepGoing(false)
-              .setParallelism(DEFAULT_THREAD_COUNT)
-              .setEventHandler(eventHandler)
-              .build();
-      memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
+      invalidateValuesMarkedForInvalidation(eventHandler);
 
       FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
-      // We need to manually check for changes to known files. This entails finding all dirty file
-      // system values under package roots for which we don't have diff information. If at least
-      // one path entry doesn't have diff information, then we're going to have to iterate over
-      // the skyframe values at least once no matter what.
-      Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
-      for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
-          pathEntriesWithoutDiffInformation) {
-        diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
-      }
+
+      Set<Root> diffPackageRootsUnderWhichToCheck =
+          getDiffPackageRootsUnderWhichToCheck(pathEntriesWithoutDiffInformation);
 
       EnumSet<FileType> fileTypesToCheck = EnumSet.noneOf(FileType.class);
       Iterable<SkyValueDirtinessChecker> dirtinessCheckers = ImmutableList.of();
@@ -3662,7 +3652,33 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  private void handleChangedFiles(
+  /**
+   * Before running the {@link FilesystemValueChecker} ensure that all values marked for
+   * invalidation have actually been invalidated (recall that invalidation happens at the beginning
+   * of the next evaluate() call), because checking those is a waste of time.
+   */
+  protected final void invalidateValuesMarkedForInvalidation(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    EvaluationContext evaluationContext =
+        newEvaluationContextBuilder()
+            .setKeepGoing(false)
+            .setParallelism(DEFAULT_THREAD_COUNT)
+            .setEventHandler(eventHandler)
+            .build();
+    memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
+  }
+
+  protected final Set<Root> getDiffPackageRootsUnderWhichToCheck(
+      Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation) {
+    Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
+    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
+        pathEntriesWithoutDiffInformation) {
+      diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
+    }
+    return diffPackageRootsUnderWhichToCheck;
+  }
+
+  protected void handleChangedFiles(
       Collection<Root> diffPackageRootsUnderWhichToCheck,
       Differencer.Diff diff,
       int numSourceFilesCheckedIfDiffWasMissing) {

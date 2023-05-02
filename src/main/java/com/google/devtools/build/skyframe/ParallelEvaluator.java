@@ -609,7 +609,10 @@ public class ParallelEvaluator extends AbstractParallelEvaluator {
             prevEntry.noDepsLastBuild(), "existing entry for %s has deps: %s", key, prevEntry);
       }
       prevEntry.markRebuilding();
-      prevEntry.setValue(value, version, /*maxTransitiveSourceVersion=*/ null);
+      @Nullable
+      Version maxTransitiveSourceVersion =
+          injectionEntry.getValue().newMaxTransitiveSourceVersion();
+      prevEntry.setValue(value, version, maxTransitiveSourceVersion);
       // Now that this key's injected value is set, it is no longer dirty.
       progressReceiver.injected(key);
     }

@@ -61,12 +61,23 @@ public interface Differencer {
       /** Returns the new value. */
       public abstract SkyValue newValue();
 
+      /** Returns the max transitive source version of the new value. */
+      @Nullable
+      public abstract Version newMaxTransitiveSourceVersion();
+
       public static Delta justNew(SkyValue newValue) {
-        return changed(/* oldValue= */ null, newValue);
+        return changed(/* oldValue= */ null, newValue, /* newMaxTransitiveSourceVersion= */ null);
       }
 
-      public static Delta changed(SkyValue oldValue, SkyValue newValue) {
-        return new AutoValue_Differencer_DiffWithDelta_Delta(oldValue, checkNotNull(newValue));
+      public static Delta justNew(
+          SkyValue newValue, @Nullable Version newMaxTransitiveSourceVersion) {
+        return changed(/* oldValue= */ null, newValue, newMaxTransitiveSourceVersion);
+      }
+
+      public static Delta changed(
+          SkyValue oldValue, SkyValue newValue, @Nullable Version newMaxTransitiveSourceVersion) {
+        return new AutoValue_Differencer_DiffWithDelta_Delta(
+            oldValue, checkNotNull(newValue), newMaxTransitiveSourceVersion);
       }
     }
   }
