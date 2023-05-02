@@ -2296,6 +2296,43 @@ function test_create_tree_artifact_outputs_remote_cache() {
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
 }
 
+function test_symlink_in_tree_artifact() {
+  mkdir -p pkg
+
+  cat > pkg/defs.bzl <<EOF
+def _impl(ctx):
+  d = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [d],
+    command = "cd %s && touch foo && ln -s foo sym" % d.path,
+  )
+  return DefaultInfo(files = depset([d]))
+
+tree = rule(implementation = _impl)
+EOF
+
+  cat > pkg/BUILD <<EOF
+load(":defs.bzl", "tree")
+
+tree(name = "tree")
+EOF
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //pkg:tree &>$TEST_log || fail "Expected build to succeed"
+
+  bazel clean
+
+  bazel build \
+      --incompatible_disallow_symlink_in_tree_artifact \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //pkg:tree &>$TEST_log && fail "Expected build to fail"
+
+  expect_log "Unsupported symlink 'sym' inside tree artifact"
+}
+
 # Runs coverage with `cc_test` and RE then checks the coverage file is returned.
 # Older versions of gcov are not supported with bazel coverage and so will be skipped.
 # See the above `test_java_rbe_coverage_produces_report` for more information.
