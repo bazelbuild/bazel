@@ -1184,7 +1184,7 @@ def _impl(ctx):
                         ACTION_NAMES.lto_backend,
                         ACTION_NAMES.clif_match,
                     ],
-                    flag_groups = [flag_group(flags = ["-std=gnu++0x"])],
+                    flag_groups = [flag_group(flags = ["-std=gnu++14"])],
                 ),
             ],
         )
