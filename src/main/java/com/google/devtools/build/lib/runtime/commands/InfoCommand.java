@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcIn
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkerMetricsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.LocalResourcesInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -293,7 +294,9 @@ public class InfoCommand implements BlazeCommand {
             new BuildLanguageInfoItem(),
             new DefaultPackagePathInfoItem(commandOptions),
             new StarlarkSemanticsInfoItem(commandOptions),
-            new WorkerMetricsInfoItem());
+            new WorkerMetricsInfoItem(),
+            new LocalResourcesInfoItem()
+            );
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
