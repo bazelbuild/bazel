@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -465,9 +464,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       @SuppressWarnings("unchecked")
       NestedSet<Object> nestedSet = (NestedSet<Object>) value;
       if (nestedSet.isEmpty()) {
-        // This matches empty depsets created in Starlark with `depset()`. For natively created
-        // empty depsets it may change elementClass to null.
-        return Depset.of(ElementType.EMPTY, nestedSet);
+        // This matches empty depsets created in Starlark with `depset()`.
+        return Depset.of(Object.class, nestedSet);
       }
       @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
       Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);

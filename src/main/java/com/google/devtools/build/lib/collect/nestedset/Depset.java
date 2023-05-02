@@ -138,32 +138,11 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   // One way to do that is to disallow constructing StarlarkTypes for classes
   // that would fail Starlark.valid; however remains the problem that
   // Object.class means "any Starlark value" but in fact allows any Java value.
-  //
-  // TODO(adonovan): it is possible to create an empty depset with a elemType (elemClass) other
-  // than EMPTY (null). The union operation will fail if it's combined with another depset of
-  // incompatible elemType.
-  // Options:
-  // - prohibit or ignore a non-EMPTY elemType when passed an empty NestedSet
-  // - continue to allow empty depsets to be distinguished by their nominal elemTypes for
-  //   union purposes, but allow casting them to NestedSet<T> for arbitrary T.
-  // - distinguish them for both union and casting, i.e. replace set.isEmpty() with a check for the
-  // empty type.
   public static <T> Depset of(Class<T> elemClass, NestedSet<T> set) {
-    return new Depset(ElementType.getTypeClass(elemClass), set);
-  }
-
-  /**
-   * Returns a Depset that wraps the specified NestedSet.
-   *
-   * <p>This operation is type-safe only if the specified element type is appropriate for every
-   * element of the set.
-   *
-   * <p>@Deprecated Use {@code #of} with the {@code elemClass} instead.
-   */
-  @Deprecated
-  public static <T> Depset of(ElementType elemType, NestedSet<T> set) {
-    Preconditions.checkNotNull(elemType, "element type cannot be null");
-    return new Depset(elemType.cls, set);
+    Preconditions.checkNotNull(elemClass, "elemClass cannot be null");
+    // Having a shared EMPTY_DEPSET instance, could reduce working heap. Empty depsets are not
+    // retained though, because of optimization in StarlarkProvider.optimizeField.
+    return new Depset(set.isEmpty() ? null : ElementType.getTypeClass(elemClass), set);
   }
 
   /**
