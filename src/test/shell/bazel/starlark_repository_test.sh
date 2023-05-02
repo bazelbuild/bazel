@@ -2145,7 +2145,7 @@ genrule(
 )
 EOF
 
-  bazel build --experimental_repository_disable_download //:it > "${TEST_log}" 2>&1 \
+  bazel build --repository_disable_download //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
   expect_log "Failed to download repository @ext: download is disabled"
 }
@@ -2177,7 +2177,7 @@ genrule(
 )
 EOF
 
-  bazel build --distdir="." --experimental_repository_disable_download //:it || fail "Failed to build"
+  bazel build --distdir="." --repository_disable_download //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2203,7 +2203,7 @@ genrule(
 )
 EOF
 
-  bazel build --experimental_repository_disable_download //:it || fail "Failed to build"
+  bazel build --repository_disable_download //:it || fail "Failed to build"
 }
 
 run_suite "local repository tests"

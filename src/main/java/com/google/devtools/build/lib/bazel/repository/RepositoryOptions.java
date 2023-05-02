@@ -86,12 +86,15 @@ public class RepositoryOptions extends OptionsBase {
   public boolean useHardlinks;
 
   @Option(
-      name = "experimental_repository_disable_download",
+      name = "repository_disable_download",
+      oldName = "experimental_repository_disable_download",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If set, downloading external repositories is not allowed.")
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, downloading using ctx.download{,_and_extract} is not allowed during repository"
+              + " fetching. Note that network access is not completely disabled; ctx.execute could"
+              + " still run an arbitrary executable that accesses the Internet.")
   public boolean disableDownload;
 
   @Option(
