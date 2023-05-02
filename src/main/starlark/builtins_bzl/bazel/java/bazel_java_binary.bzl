@@ -280,6 +280,7 @@ _BASE_BINARY_ATTRS = merge_attrs(
             executable = True,
             default = "@bazel_tools//tools/launcher:launcher",
         ),
+        "resource_strip_prefix": attr.string(),
         "_windows_launcher_maker": attr.label(
             default = "@bazel_tools//tools/launcher:launcher_maker",
             cfg = "exec",
@@ -294,7 +295,6 @@ def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
         merge_attrs(
             _BASE_BINARY_ATTRS,
             {
-                "resource_strip_prefix": attr.string(),
                 "_java_launcher": attr.label(
                     default = configuration_field(
                         fragment = "java",
