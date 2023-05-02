@@ -133,6 +133,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.DeterministicHelper;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.GraphTester;
@@ -341,7 +342,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         /* doPackageLoadingChecks= */ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor
         .injectable()
-        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /* tsgm= */ null));
+        .inject(
+            file,
+            Delta.justNew(FileStateValue.create(file, SyscallCache.NO_CACHE, /* tsgm= */ null)));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -361,7 +364,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         /* doPackageLoadingChecks= */ true, ImmutableList.of(nothingChangedDiffAwarenessFactory()));
     skyframeExecutor
         .injectable()
-        .inject(file, FileStateValue.create(file, SyscallCache.NO_CACHE, /* tsgm= */ null));
+        .inject(
+            file,
+            Delta.justNew(FileStateValue.create(file, SyscallCache.NO_CACHE, /* tsgm= */ null)));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(file);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -387,9 +392,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(
             ImmutableMap.of(
                 dir,
-                FileStateValue.create(dir, SyscallCache.NO_CACHE, /* tsgm= */ null),
+                Delta.justNew(FileStateValue.create(dir, SyscallCache.NO_CACHE, /* tsgm= */ null)),
                 dirListingKey,
-                value));
+                Delta.justNew(value)));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -418,9 +423,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .inject(
             ImmutableMap.of(
                 dir,
-                FileStateValue.create(dir, SyscallCache.NO_CACHE, /* tsgm= */ null),
+                Delta.justNew(FileStateValue.create(dir, SyscallCache.NO_CACHE, /* tsgm= */ null)),
                 dirListingKey,
-                value));
+                Delta.justNew(value)));
     skyframeExecutor.externalFilesHelper.getAndNoteFileType(dir);
     // Initial sync to establish the baseline DiffAwareness.View.
     skyframeExecutor.handleDiffsForTesting(NullEventHandler.INSTANCE);
@@ -827,7 +832,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+        .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -927,7 +932,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Inject the "configured targets" and artifact into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2, inputKey, ctBase));
+        .inject(
+            ImmutableMap.of(
+                lc1,
+                Delta.justNew(ctValue1),
+                lc2,
+                Delta.justNew(ctValue2),
+                inputKey,
+                Delta.justNew(ctBase)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1070,7 +1082,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Inject the "configured targets" and artifacts into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lcA, ctA, lcB, ctB, lcC, ctC));
+        .inject(
+            ImmutableMap.of(
+                lcA, Delta.justNew(ctA), lcB, Delta.justNew(ctB), lcC, Delta.justNew(ctC)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1154,7 +1168,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+        .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1262,7 +1276,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Inject the "configured targets" into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(baseKey, baseCt, shared1, shared1Ct, shared2, shared2Ct));
+        .inject(
+            ImmutableMap.of(
+                baseKey,
+                Delta.justNew(baseCt),
+                shared1,
+                Delta.justNew(shared1Ct),
+                shared2,
+                Delta.justNew(shared2Ct)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1478,7 +1499,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Inject the "configured targets" and artifact into the graph.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2, topLc, ctTop));
+        .inject(
+            ImmutableMap.of(
+                lc1,
+                Delta.justNew(ctValue1),
+                lc2,
+                Delta.justNew(ctValue2),
+                topLc,
+                Delta.justNew(ctTop)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1571,7 +1599,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 }));
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+        .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1685,7 +1713,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor.configureActionExecutor(/* fileCache= */ null, ActionInputPrefetcher.NONE);
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+        .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
     // Do a null build, so that the skyframe executor initializes the action executor properly.
     skyframeExecutor.setActionOutputRoot(getOutputPath());
     skyframeExecutor.setActionExecutionProgressReportingObjects(
@@ -1859,7 +1887,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Perform testing-related setup.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(lc1, ctValue1, lc2, ctValue2));
+        .inject(ImmutableMap.of(lc1, Delta.justNew(ctValue1), lc2, Delta.justNew(ctValue2)));
     TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
     skyframeExecutor.getEventBus().register(collector);
@@ -1986,9 +2014,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .getDifferencerForTesting()
         .inject(
             ImmutableMap.of(
-                catastropheCTK, catastropheALV,
-                failureCTK, failureALV,
-                topCTK, topALV));
+                catastropheCTK, Delta.justNew(catastropheALV),
+                failureCTK, Delta.justNew(failureALV),
+                topCTK, Delta.justNew(topALV)));
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -2109,7 +2137,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     // Perform testing-related setup.
     skyframeExecutor
         .getDifferencerForTesting()
-        .inject(ImmutableMap.of(configuredTargetKey, nonRuleActionLookupValue));
+        .inject(ImmutableMap.of(configuredTargetKey, Delta.justNew(nonRuleActionLookupValue)));
     skyframeExecutor
         .getEvaluator()
         .injectGraphTransformerForTesting(
@@ -2242,8 +2270,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .getDifferencerForTesting()
         .inject(
             ImmutableMap.of(
-                failedKey, failedTarget,
-                catastrophicKey, catastrophicTarget));
+                failedKey, Delta.justNew(failedTarget),
+                catastrophicKey, Delta.justNew(catastrophicTarget)));
     TopLevelTargetBuiltEventCollector collector = new TopLevelTargetBuiltEventCollector();
     skyframeExecutor.setEventBus(new EventBus());
     skyframeExecutor.getEventBus().register(collector);
@@ -2354,8 +2382,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         .getDifferencerForTesting()
         .inject(
             ImmutableMap.of(
-                succeededKey, succeededTarget,
-                failedKey, failedTarget));
+                succeededKey, Delta.justNew(succeededTarget),
+                failedKey, Delta.justNew(failedTarget)));
     skyframeExecutor.setEventBus(new EventBus());
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
@@ -2448,10 +2476,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     skyframeExecutor
         .getDifferencerForTesting()
         .inject(
-            ImmutableMap.<SkyKey, SkyValue>of(
-                succeededKey, succeededTarget,
-                failedKey1, failedTarget1,
-                failedKey2, failedTarget2));
+            ImmutableMap.of(
+                succeededKey, Delta.justNew(succeededTarget),
+                failedKey1, Delta.justNew(failedTarget1),
+                failedKey2, Delta.justNew(failedTarget2)));
     skyframeExecutor.setEventBus(new EventBus());
     setupEmbeddedArtifacts();
     skyframeExecutor.setActionOutputRoot(getOutputPath());
@@ -2534,7 +2562,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         };
 
     ActionLookupValue topTarget = createActionLookupValue(inputDiscoveringAction, topKey);
-    skyframeExecutor.getDifferencerForTesting().inject(ImmutableMap.of(topKey, topTarget));
+    skyframeExecutor
+        .getDifferencerForTesting()
+        .inject(ImmutableMap.of(topKey, Delta.justNew(topTarget)));
     // Collect all events.
     eventCollector = new EventCollector();
     reporter = new Reporter(eventBus, eventCollector);

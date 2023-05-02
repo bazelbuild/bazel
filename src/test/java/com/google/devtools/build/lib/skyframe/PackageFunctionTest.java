@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -342,7 +343,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     fs.stubStat(fooBuildFile, inconsistentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
     SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, SyscallCache.NO_CACHE, tsgm);
-    differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
+    differencer.inject(
+        ImmutableMap.of(FileStateValue.key(pkgRootedPath), Delta.justNew(fooDirValue)));
 
     Exception ex = evaluatePackageToException("foo");
     String msg = ex.getMessage();
@@ -377,8 +379,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     differencer.inject(
         ImmutableMap.of(
             DirectoryListingStateValue.key(barDirRootedPath),
-            DirectoryListingStateValue.create(
-                ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY)))));
+            Delta.justNew(
+                DirectoryListingStateValue.create(
+                    ImmutableList.of(new Dirent("baz", Dirent.Type.DIRECTORY))))));
 
     Exception ex = evaluatePackageToException("foo");
     String msg = ex.getMessage();

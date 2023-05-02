@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.Differencer.Diff;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -171,9 +172,9 @@ public final class FilesystemValueCheckerTest {
         derivedRoot.getExecPath().getRelative(derivedRoot.getRoot().relativize(outputPath)));
   }
 
-  private static ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents)
+  private static Delta actionValueWithTreeArtifacts(List<TreeFileArtifact> contents)
       throws IOException {
-    return actionValueWithTreeArtifacts(contents, ImmutableList.of());
+    return Delta.justNew(actionValueWithTreeArtifacts(contents, ImmutableList.of()));
   }
 
   private static ActionExecutionValue actionValueWithTreeArtifacts(
@@ -769,19 +770,21 @@ public final class FilesystemValueCheckerTest {
 
     tsgm.setCommandStartTime();
     differencer.inject(
-        ImmutableMap.<SkyKey, SkyValue>of(
+        ImmutableMap.of(
             actionKey1,
-                actionValue(
-                    new TestAction(
-                        Runnables.doNothing(),
-                        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-                        ImmutableSet.of(out1))),
+                Delta.justNew(
+                    actionValue(
+                        new TestAction(
+                            Runnables.doNothing(),
+                            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                            ImmutableSet.of(out1)))),
             actionKey2,
-                actionValue(
-                    new TestAction(
-                        Runnables.doNothing(),
-                        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-                        ImmutableSet.of(out2)))));
+                Delta.justNew(
+                    actionValue(
+                        new TestAction(
+                            Runnables.doNothing(),
+                            NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                            ImmutableSet.of(out2))))));
     assertThat(evaluator.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
     assertThat(
             new FilesystemValueChecker(
@@ -1297,15 +1300,16 @@ public final class FilesystemValueCheckerTest {
     return ActionsTestUtil.createActionExecutionValue(ImmutableMap.copyOf(artifactData));
   }
 
-  private static ActionExecutionValue actionValueWithTreeArtifact(
-      SpecialArtifact output, TreeArtifactValue tree) {
-    return ActionsTestUtil.createActionExecutionValue(
-        /* artifactData= */ ImmutableMap.of(), ImmutableMap.of(output, tree));
+  private static Delta actionValueWithTreeArtifact(SpecialArtifact output, TreeArtifactValue tree) {
+    return Delta.justNew(
+        ActionsTestUtil.createActionExecutionValue(
+            /* artifactData= */ ImmutableMap.of(), ImmutableMap.of(output, tree)));
   }
 
-  private static ActionExecutionValue actionValueWithRemoteArtifact(
+  private static Delta actionValueWithRemoteArtifact(
       Artifact output, RemoteFileArtifactValue value) {
-    return ActionsTestUtil.createActionExecutionValue(ImmutableMap.of(output, value));
+    return Delta.justNew(
+        ActionsTestUtil.createActionExecutionValue(ImmutableMap.of(output, value)));
   }
 
   private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents) {
@@ -1330,7 +1334,7 @@ public final class FilesystemValueCheckerTest {
 
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
-    Map<SkyKey, SkyValue> metadataToInject = new HashMap<>();
+    Map<SkyKey, Delta> metadataToInject = new HashMap<>();
     metadataToInject.put(
         actionKey1,
         actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));
@@ -1385,7 +1389,7 @@ public final class FilesystemValueCheckerTest {
 
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
-    Map<SkyKey, SkyValue> metadataToInject = new HashMap<>();
+    Map<SkyKey, Delta> metadataToInject = new HashMap<>();
     metadataToInject.put(
         actionKey1,
         actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));
@@ -1439,7 +1443,7 @@ public final class FilesystemValueCheckerTest {
 
     Artifact out1 = createDerivedArtifact("foo");
     Artifact out2 = createDerivedArtifact("bar");
-    Map<SkyKey, SkyValue> metadataToInject = new HashMap<>();
+    Map<SkyKey, Delta> metadataToInject = new HashMap<>();
     metadataToInject.put(
         actionKey1,
         actionValueWithRemoteArtifact(out1, createRemoteFileArtifactValue("foo-content")));

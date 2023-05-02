@@ -659,8 +659,8 @@ public class FilesystemValueChecker {
     }
 
     @Override
-    public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
-      return Delta.newValues(dirtyKeysWithNewAndOldValues);
+    public Map<SkyKey, Delta> changedKeysWithNewValues() {
+      return dirtyKeysWithNewAndOldValues;
     }
 
     int getNumKeysChecked() {
@@ -688,9 +688,9 @@ public class FilesystemValueChecker {
         concurrentDirtyKeysWithoutNewValues.add(key);
       } else {
         if (oldValue == null) {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.justNew(newValue));
         } else {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(oldValue, newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.changed(oldValue, newValue));
         }
       }
     }

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -235,12 +236,13 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       differencer.inject(
           ImmutableMap.of(
               ALL_OWNER,
-              new BasicActionLookupValue(
-                  Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                      actionKeyContext,
-                      ImmutableList.copyOf(actions),
-                      ALL_OWNER,
-                      /*outputFiles=*/ null))));
+              Delta.justNew(
+                  new BasicActionLookupValue(
+                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                          actionKeyContext,
+                          ImmutableList.copyOf(actions),
+                          ALL_OWNER,
+                          /* outputFiles= */ null)))));
     }
   }
 

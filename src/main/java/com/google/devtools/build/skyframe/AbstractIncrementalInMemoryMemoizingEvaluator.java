@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DeletingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.DirtyingInvalidationState;
 import com.google.devtools.build.skyframe.InvalidatingNodeVisitor.InvalidationState;
@@ -41,7 +42,7 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
   // State related to invalidation and deletion.
   protected Set<SkyKey> valuesToDelete = new LinkedHashSet<>();
   private Set<SkyKey> valuesToDirty = new LinkedHashSet<>();
-  protected Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
+  protected Map<SkyKey, Delta> valuesToInject = new HashMap<>();
   private final DeletingInvalidationState deleterState = new DeletingInvalidationState();
   protected final Differencer differencer;
   protected final GraphInconsistencyReceiver graphInconsistencyReceiver;
@@ -84,12 +85,11 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
    * Removes entries in {@code valuesToInject} whose values are equal to the present values in the
    * graph.
    */
-  protected void pruneInjectedValues(Map<SkyKey, SkyValue> valuesToInject) {
-    for (Iterator<Entry<SkyKey, SkyValue>> it = valuesToInject.entrySet().iterator();
-        it.hasNext(); ) {
-      Map.Entry<SkyKey, SkyValue> entry = it.next();
+  protected void pruneInjectedValues(Map<SkyKey, Delta> valuesToInject) {
+    for (Iterator<Entry<SkyKey, Delta>> it = valuesToInject.entrySet().iterator(); it.hasNext(); ) {
+      Map.Entry<SkyKey, Delta> entry = it.next();
       SkyKey key = entry.getKey();
-      SkyValue newValue = entry.getValue();
+      SkyValue newValue = entry.getValue().newValue();
       NodeEntry prevEntry = getInMemoryGraph().get(null, Reason.OTHER, key);
       if (prevEntry != null && prevEntry.isDone()) {
         if (keepEdges) {

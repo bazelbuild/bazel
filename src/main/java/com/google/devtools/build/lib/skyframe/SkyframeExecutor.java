@@ -216,6 +216,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -3492,11 +3493,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Inject current client environmental values. We can inject unconditionally without fearing
     // over-invalidation; skyframe will not invalidate an injected key if the key's new value is the
     // same as the old value.
-    ImmutableMap.Builder<SkyKey, SkyValue> newValuesBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, Delta> newValuesBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> entry : clientEnv.get().entrySet()) {
       newValuesBuilder.put(
           ClientEnvironmentFunction.key(entry.getKey()),
-          new ClientEnvironmentValue(entry.getValue()));
+          Delta.justNew(new ClientEnvironmentValue(entry.getValue())));
     }
     recordingDiffer.inject(newValuesBuilder.buildOrThrow());
   }
@@ -3667,13 +3668,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       int numSourceFilesCheckedIfDiffWasMissing) {
     int numWithoutNewValues = diff.changedKeysWithoutNewValues().size();
     Iterable<SkyKey> keysToBeChangedLaterInThisBuild = diff.changedKeysWithoutNewValues();
-    Map<SkyKey, SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
+    Map<SkyKey, Delta> changedKeysWithNewValues = diff.changedKeysWithNewValues();
 
     logDiffInfo(
         diffPackageRootsUnderWhichToCheck,
         keysToBeChangedLaterInThisBuild,
         numWithoutNewValues,
-        changedKeysWithNewValues);
+        changedKeysWithNewValues.keySet());
 
     recordingDiffer.invalidate(keysToBeChangedLaterInThisBuild);
     recordingDiffer.inject(changedKeysWithNewValues);
@@ -3691,7 +3692,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Iterable<Root> pathEntries,
       Iterable<SkyKey> changedWithoutNewValue,
       int numWithoutNewValues,
-      Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
+      Set<SkyKey> changedWithNewValue) {
     int numModified = changedWithNewValue.size() + numWithoutNewValues;
     StringBuilder result =
         new StringBuilder("DiffAwareness found ")
@@ -3704,7 +3705,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     if (numModified > 0) {
       Iterable<SkyKey> allModifiedKeys =
-          Iterables.concat(changedWithoutNewValue, changedWithNewValue.keySet());
+          Iterables.concat(changedWithoutNewValue, changedWithNewValue);
       Iterable<SkyKey> trimmed =
           Iterables.limit(allModifiedKeys, MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG);
 
