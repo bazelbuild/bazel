@@ -32,7 +32,9 @@ import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 
 /** Manages the various streamed output channels of aquery. This does not support JSON format. */
 public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHandler {
@@ -42,6 +44,8 @@ public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHand
   private final CodedOutputStream outputStream;
   private final PrintStream printStream;
 
+  private final Object exitLock = new Object();
+  private volatile boolean readyToExit = false;
   private final BlockingQueue<PrintTask> queue;
 
   public StreamedConsumingOutputHandler(
@@ -100,17 +104,32 @@ public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHand
   }
 
   @Override
-  public void startConsumer() {
-    new Thread(new AqueryOutputTaskConsumer(queue)).start();
+  public Callable<Void> startConsumer() {
+    return new AqueryOutputTaskConsumer(queue);
   }
 
   @Override
-  public void stopConsumer() throws InterruptedException {
-    queue.put(POISON_PILL);
+  public void stopConsumer(boolean discardRemainingTasks) throws InterruptedException {
+    if (discardRemainingTasks) {
+      queue.drainTo(new ArrayList<>());
+    }
+    // This lock ensures that the method actually waits until the consumer properly exits,
+    // which prevents a race condition with the #close() method below.
+    synchronized (exitLock) {
+      queue.put(POISON_PILL);
+      while (!readyToExit) {
+        exitLock.wait();
+      }
+    }
   }
 
   /** Construct the printing task and put it in the queue. */
   void addTaskToQueue(Message message, int fieldNumber, String messageLabel) {
+    // This means that there was an exception in the consumer.
+    if (readyToExit) {
+      return;
+    }
+
     try {
       queue.put(
           outputType == BINARY
@@ -127,7 +146,8 @@ public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHand
     printStream.flush();
   }
 
-  private class AqueryOutputTaskConsumer implements Runnable {
+  // Only runs on 1 single thread.
+  private class AqueryOutputTaskConsumer implements Callable<Void> {
     private final BlockingQueue<PrintTask> queue;
 
     AqueryOutputTaskConsumer(BlockingQueue<PrintTask> queue) {
@@ -135,13 +155,17 @@ public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHand
     }
 
     @Override
-    public void run() {
+    public Void call() throws InterruptedException, IOException {
       try {
         while (true) {
           PrintTask nextTask = queue.take();
 
           if (nextTask.equals(POISON_PILL)) {
-            return;
+            synchronized (exitLock) {
+              readyToExit = true;
+              exitLock.notify();
+            }
+            return null;
           }
           switch (outputType) {
             case BINARY:
@@ -160,10 +184,9 @@ public class StreamedConsumingOutputHandler implements AqueryConsumingOutputHand
               throw new IllegalStateException("Unknown outputType " + outputType.formatName());
           }
         }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-      } catch (IOException e) {
-        throw new IllegalStateException("Unexpected exception: ", e);
+      } finally {
+        // In case of an exception.
+        readyToExit = true;
       }
     }
   }

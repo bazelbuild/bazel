@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -60,6 +62,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
 import com.google.devtools.build.lib.skyframe.rewinding.RewindableGraphInconsistencyReceiver;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -93,6 +96,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -477,6 +484,67 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
     return new ArrayList<>(ruleStats.values());
+  }
+
+  public void dumpSkyframeStateInParallel(
+      ActionGraphDump actionGraphDump, AqueryConsumingOutputHandler aqueryConsumingOutputHandler)
+      throws CommandLineExpansionException, IOException, TemplateExpansionException {
+    ImmutableList.Builder<Callable<Void>> tasks = ImmutableList.builder();
+
+    try {
+      for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
+          memoizingEvaluator.getDoneValues().entrySet()) {
+        SkyKey key = skyKeyAndValue.getKey();
+        SkyValue skyValue = skyKeyAndValue.getValue();
+        if (skyValue == null) {
+          // The skyValue may be null in case analysis of the previous build failed.
+          continue;
+        }
+        if (skyValue instanceof RuleConfiguredTargetValue) {
+          tasks.add(
+              () -> {
+                actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) skyValue);
+                return null;
+              });
+        } else if (key.functionName().equals(SkyFunctions.ASPECT)) {
+          AspectValue aspectValue = (AspectValue) skyValue;
+          AspectKey aspectKey = (AspectKey) key;
+          ConfiguredTargetValue configuredTargetValue =
+              (ConfiguredTargetValue)
+                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+          tasks.add(
+              () -> {
+                actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
+                return null;
+              });
+        }
+      }
+      ForkJoinPool executor =
+          NamedForkJoinPool.newNamedPool(
+              "action-graph-dump", Runtime.getRuntime().availableProcessors());
+      try {
+        Future<Void> consumerFuture = executor.submit(aqueryConsumingOutputHandler.startConsumer());
+        List<Future<Void>> futures = executor.invokeAll(tasks.build());
+        for (Future<Void> future : futures) {
+          future.get();
+        }
+        aqueryConsumingOutputHandler.stopConsumer(/* discardRemainingTasks= */ false);
+        // Get any possible exception from the consumer.
+        consumerFuture.get();
+      } catch (ExecutionException e) {
+        aqueryConsumingOutputHandler.stopConsumer(/* discardRemainingTasks= */ true);
+        Throwable cause = Throwables.getRootCause(e);
+        Throwables.propagateIfPossible(cause, CommandLineExpansionException.class);
+        Throwables.propagateIfPossible(cause, TemplateExpansionException.class);
+        Throwables.propagateIfPossible(cause, IOException.class);
+        Throwables.propagateIfPossible(cause, InterruptedException.class);
+        throw new IllegalStateException("Unexpected exception type: ", e);
+      } finally {
+        executor.shutdown();
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   /** Support for aquery output. */

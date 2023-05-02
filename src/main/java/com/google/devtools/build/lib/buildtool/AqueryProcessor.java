@@ -80,7 +80,8 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
           ActionGraphProtoOutputFormatterCallback.constructAqueryOutputHandler(
               OutputType.fromString(aqueryOptions.outputFormat),
               queryRuntimeHelper.getOutputStreamForQueryOutput(),
-              printStream)) {
+              printStream,
+              aqueryOptions.parallelAqueryOutput)) {
         ActionGraphDump actionGraphDump =
             new ActionGraphDump(
                 aqueryOptions.includeCommandline,
@@ -125,18 +126,9 @@ public final class AqueryProcessor extends PostAnalysisQueryProcessor<KeyedConfi
       ActionGraphDump actionGraphDump)
       throws CommandLineExpansionException, TemplateExpansionException, IOException {
     if (aqueryOutputHandler instanceof AqueryConsumingOutputHandler) {
-      AqueryConsumingOutputHandler aqueryConsumingOutputHandler =
-          (AqueryConsumingOutputHandler) aqueryOutputHandler;
-      try {
-        aqueryConsumingOutputHandler.startConsumer();
-        ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
-      } finally {
-        try {
-          aqueryConsumingOutputHandler.stopConsumer();
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-        }
-      }
+      ((SequencedSkyframeExecutor) env.getSkyframeExecutor())
+          .dumpSkyframeStateInParallel(
+              actionGraphDump, (AqueryConsumingOutputHandler) aqueryOutputHandler);
     } else {
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
     }
