@@ -178,7 +178,8 @@ public class DownloadManager {
             new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
 
         String currentChecksum;
-        if (xattrProvider != null) {
+        if (xattrProvider != null
+            && destination.getFileSystem().getDigestFunction().getNames().contains(cacheKeyType.toString())) {
           currentChecksum = BaseEncoding.base16().lowerCase().encode(
             DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(destination, xattrProvider)
           );
@@ -239,7 +240,8 @@ public class DownloadManager {
                       mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
 
               String currentChecksum;
-              if (xattrProvider != null) {
+              if (xattrProvider != null
+                  && candidate.getFileSystem().getDigestFunction().getNames().contains(cacheKeyType.toString())) {
                 currentChecksum = BaseEncoding.base16().lowerCase().encode(
                   DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(candidate, xattrProvider)
                 );

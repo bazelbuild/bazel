@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -298,7 +299,8 @@ public class RepositoryCache {
 
     String actualChecksum;
     try {
-      if (xattrProvider != null) {
+      if (xattrProvider != null
+          && filePath.getFileSystem().getDigestFunction().getNames().contains(keyType.toString())) {
         actualChecksum = BaseEncoding.base16().lowerCase().encode(
           DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(filePath, xattrProvider)
         );
