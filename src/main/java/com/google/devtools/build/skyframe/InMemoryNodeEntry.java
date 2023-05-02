@@ -174,7 +174,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public SkyValue getValue() {
+  public synchronized SkyValue getValue() {
     checkState(isDone(), "no value until done. ValueEntry: %s", this);
     return ValueWithMetadata.justValue(value);
   }
@@ -187,7 +187,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Nullable
   @Override
-  public SkyValue toValue() {
+  public synchronized SkyValue toValue() {
     if (isDone()) {
       return getErrorInfo() == null ? getValue() : null;
     } else if (isChanged() || isDirty()) {
