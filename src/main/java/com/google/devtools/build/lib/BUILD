@@ -255,6 +255,23 @@ java_library(
 )
 
 java_library(
+    name = "starlark_options_parser",
+    srcs = ["runtime/StarlarkOptionsParser.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
@@ -274,6 +291,7 @@ java_library(
             "runtime/MemoryPressureEvent.java",
             "runtime/MemoryPressureOptions.java",
             "runtime/MemoryPressureStatCollector.java",
+            "runtime/StarlarkOptionsParser.java",
         ],
     ),
     deps = [
@@ -285,6 +303,7 @@ java_library(
         ":runtime/command_dispatcher",
         ":runtime/command_line_path_factory",
         ":runtime/memory_pressure",
+        ":starlark_options_parser",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",

@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code.DEPENDENCY_NOT_FOUND;
+import static com.google.devtools.common.options.OptionsParser.STARLARK_SKIPPED_PREFIXES;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -28,17 +30,25 @@ import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.PlatformMappingValue.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -103,7 +113,11 @@ final class PlatformMappingFunction implements SkyFunction {
         throw new PlatformMappingException(e, SkyFunctionException.Transience.TRANSIENT);
       }
 
-      return parse(lines).toPlatformMappingValue(optionsClasses);
+      Mappings parsed = parse(env, lines);
+      if (parsed == null) {
+        return null;
+      }
+      return parsed.toPlatformMappingValue(optionsClasses);
     }
 
     if (!platformMappingKey.wasExplicitlySetByUser()) {
@@ -138,8 +152,10 @@ final class PlatformMappingFunction implements SkyFunction {
     }
   }
 
+  /** Parses the given lines, returns null if not all Skyframe deps are ready. */
   @VisibleForTesting
-  static Mappings parse(List<String> lines) throws PlatformMappingException {
+  @Nullable
+  static Mappings parse(Environment env, List<String> lines) throws PlatformMappingException {
     PeekingIterator<String> it =
         Iterators.peekingIterator(
             lines.stream()
@@ -155,12 +171,17 @@ final class PlatformMappingFunction implements SkyFunction {
       throw parsingException("Expected 'platforms:' or 'flags:' but got " + it.peek());
     }
 
-    ImmutableMap<Label, ImmutableSet<String>> platformsToFlags = ImmutableMap.of();
+    ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
+    // Flags -> platform mapping doesn't support Starlark flags. If the need arises we could upgrade
+    // this to NativeAndStarlarkFlags like above.
     ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms = ImmutableMap.of();
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
-      platformsToFlags = readPlatformsToFlags(it);
+      platformsToFlags = readPlatformsToFlags(it, env);
+      if (platformsToFlags == null) {
+        return null;
+      }
     }
 
     if (it.hasNext()) {
@@ -177,13 +198,90 @@ final class PlatformMappingFunction implements SkyFunction {
     return new Mappings(platformsToFlags, flagsToPlatforms);
   }
 
-  private static ImmutableMap<Label, ImmutableSet<String>> readPlatformsToFlags(
-      PeekingIterator<String> it) throws PlatformMappingException {
-    ImmutableMap.Builder<Label, ImmutableSet<String>> platformsToFlags = ImmutableMap.builder();
+  /**
+   * Lets {@link StarlarkOptionsParser} convert flag names to {@link Target}s through a Skyframe
+   * {@link PackageFunction} lookup.
+   */
+  private static class SkyframeTargetLoader implements StarlarkOptionsParser.BuildSettingLoader {
+    private final Environment env;
+
+    public SkyframeTargetLoader(Environment env) {
+      this.env = env;
+    }
+
+    @Nullable
+    @Override
+    public Target loadBuildSetting(String name)
+        throws InterruptedException, TargetParsingException {
+      Label asLabel = Label.parseCanonicalUnchecked(name);
+      SkyKey pkgKey = asLabel.getPackageIdentifier();
+      PackageValue pkg = (PackageValue) env.getValue(pkgKey);
+      if (pkg == null) {
+        return null;
+      }
+      try {
+        return pkg.getPackage().getTarget(asLabel.getName());
+      } catch (NoSuchTargetException e) {
+        throw new TargetParsingException(
+            String.format("Failed to load %s", name), e, DEPENDENCY_NOT_FOUND);
+      }
+    }
+  }
+
+  /**
+   * Converts a set of native and Starlark flag settings to a {@link NativeAndStarlarkFlags}, or
+   * returns null if not all Skyframe deps are ready.
+   */
+  @Nullable
+  private static NativeAndStarlarkFlags parseStarlarkFlags(
+      ImmutableSet<String> rawFlags, Environment env) throws PlatformMappingException {
+    ImmutableSet.Builder<String> nativeFlags = ImmutableSet.builder();
+    ImmutableList.Builder<String> starlarkFlags = ImmutableList.builder();
+    for (String flagSetting : rawFlags) {
+      if (STARLARK_SKIPPED_PREFIXES.stream().noneMatch(flagSetting::startsWith)) {
+        nativeFlags.add(flagSetting);
+      } else {
+        starlarkFlags.add(flagSetting);
+      }
+    }
+    // The StarlarkOptionsParser needs a native options parser just to inject its Starlark flag
+    // values. It doesn't actually parse anything with the native parser.
+    OptionsParser fakeNativeParser = OptionsParser.builder().build();
+    StarlarkOptionsParser starlarkFlagParser =
+        StarlarkOptionsParser.newStarlarkOptionsParser(
+            new SkyframeTargetLoader(env), fakeNativeParser);
+    try {
+      if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
+        return null;
+      }
+      return NativeAndStarlarkFlags.create(
+          nativeFlags.build(), fakeNativeParser.getStarlarkOptions());
+    } catch (OptionsParsingException e) {
+      throw new PlatformMappingException(e, Transience.PERSISTENT);
+    }
+  }
+
+  /**
+   * Returns a parsed {@code platform -> flags setting}, or null if not all Skyframe deps are ready
+   */
+  @Nullable
+  private static ImmutableMap<Label, NativeAndStarlarkFlags> readPlatformsToFlags(
+      PeekingIterator<String> it, Environment env) throws PlatformMappingException {
+    ImmutableMap.Builder<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.builder();
+    boolean needSkyframeDeps = false;
     while (it.hasNext() && !it.peek().equalsIgnoreCase("flags:")) {
       Label platform = readPlatform(it);
       ImmutableSet<String> flags = readFlags(it);
-      platformsToFlags.put(platform, flags);
+      NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env);
+      if (parsedFlags == null) {
+        needSkyframeDeps = true;
+      } else {
+        platformsToFlags.put(platform, parsedFlags);
+      }
+    }
+
+    if (needSkyframeDeps) {
+      return null;
     }
 
     try {
@@ -257,11 +355,11 @@ final class PlatformMappingFunction implements SkyFunction {
    */
   @VisibleForTesting
   static final class Mappings {
-    final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
+    final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
     final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
 
     Mappings(
-        ImmutableMap<Label, ImmutableSet<String>> platformsToFlags,
+        ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
         ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms) {
       this.platformsToFlags = platformsToFlags;
       this.flagsToPlatforms = flagsToPlatforms;

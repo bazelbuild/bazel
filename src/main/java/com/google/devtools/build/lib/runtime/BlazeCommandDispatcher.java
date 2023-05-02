@@ -599,7 +599,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Parse starlark options.
-      earlyExitCode = optionHandler.parseStarlarkOptions(env, reporter);
+      earlyExitCode = optionHandler.parseStarlarkOptions(env);
       if (!earlyExitCode.isSuccess()) {
         reporter.post(
             new NoBuildEvent(

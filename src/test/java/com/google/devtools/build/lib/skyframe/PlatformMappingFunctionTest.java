@@ -232,6 +232,38 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         .isEqualTo("something_new");
   }
 
+  @Test
+  public void testStarlarkFlag() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag=True)",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_setting.bzl', 'string_flag')",
+        "string_flag(name = 'my_string_flag', build_setting_default = 'default value')");
+    scratch.file(
+        "my_mapping_file",
+        "platforms:", // Force line break
+        "  //platforms:one", // Force line break
+        "    --//test:my_string_flag=mapped_value");
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = defaultBuildOptions.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+
+    BuildConfigurationKey mapped = platformMappingValue.map(keyForOptions(modifiedOptions));
+
+    assertThat(mapped.getOptions().getStarlarkOptions())
+        .containsExactly(Label.parseCanonical("//test:my_string_flag"), "mapped_value");
+  }
+
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.injectExtraPrecomputedValues(
