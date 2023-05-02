@@ -106,9 +106,9 @@ DIST_DEPS = {
             "rules_java_builtin",
             "rules_java_builtin_for_testing",
         ],
-        "archive": "rules_java-6.3.1.tar.gz",
-        "sha256": "117a1227cdaf813a20a1bba78a9f2d8fb30841000c33e2f2d2a640bd224c9282",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.3.1/rules_java-6.3.1.tar.gz"],
+        "archive": "rules_java-6.5.1.tar.gz",
+        "sha256": "7b0d9ba216c821ee8697dedc0f9d0a705959ace462a3885fe9ba0347ba950111",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.5.1/rules_java-6.5.1.tar.gz"],
         "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
@@ -116,7 +116,7 @@ DIST_DEPS = {
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        "package_version": "6.1.1",
+        "package_version": "6.5.1",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
