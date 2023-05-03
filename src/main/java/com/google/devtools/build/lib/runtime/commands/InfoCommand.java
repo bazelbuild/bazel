@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.runtime.commands.info.InstallBaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaHomeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaRuntimeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.JavaVirtualMachineInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.LocalResourcesInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.MakeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.MaxHeapSizeInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.OutputBaseInfoItem;
@@ -293,7 +294,8 @@ public class InfoCommand implements BlazeCommand {
             new BuildLanguageInfoItem(),
             new DefaultPackagePathInfoItem(commandOptions),
             new StarlarkSemanticsInfoItem(commandOptions),
-            new WorkerMetricsInfoItem());
+            new WorkerMetricsInfoItem(),
+            new LocalResourcesInfoItem());
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
