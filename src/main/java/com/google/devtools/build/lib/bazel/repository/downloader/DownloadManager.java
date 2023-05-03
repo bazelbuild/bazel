@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.XattrProvider;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -65,7 +64,6 @@ public class DownloadManager {
   private int retries = 0;
   private boolean urlsAsDefaultCanonicalId;
   @Nullable private Credentials netrcCreds;
-  @Nullable private XattrProvider xattrProvider;
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -95,10 +93,6 @@ public class DownloadManager {
 
   public void setNetrcCreds(Credentials netrcCreds) {
     this.netrcCreds = netrcCreds;
-  }
-
-  public void setXattrProvider(XattrProvider xattrProvider) {
-    this.xattrProvider = xattrProvider;
   }
 
   /**

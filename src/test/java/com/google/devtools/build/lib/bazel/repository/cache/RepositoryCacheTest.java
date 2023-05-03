@@ -174,12 +174,7 @@ public class RepositoryCacheTest {
 
   @Test
   public void testAssertFileChecksumPass() throws Exception {
-    RepositoryCache.assertFileChecksum(null, downloadedFileSha256, downloadedFile, KeyType.SHA256);
-  }
-
-  @Test
-  public void testAssertFileChecksumPassWithXattrProvider() throws Exception {
-    RepositoryCache.assertFileChecksum(SyscallCache.NO_CACHE, downloadedFileSha256, downloadedFile, KeyType.SHA256);
+    RepositoryCache.assertFileChecksum(downloadedFileSha256, downloadedFile, KeyType.SHA256);
   }
 
   @Test
@@ -187,18 +182,6 @@ public class RepositoryCacheTest {
     thrown.expect(IOException.class);
     thrown.expectMessage("does not match expected");
     RepositoryCache.assertFileChecksum(
-        null,
-        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        downloadedFile,
-        KeyType.SHA256);
-  }
-
-  @Test
-  public void testAssertFileChecksumFailWithXattrProvider() throws Exception {
-    thrown.expect(IOException.class);
-    thrown.expectMessage("does not match expected");
-    RepositoryCache.assertFileChecksum(
-        SyscallCache.NO_CACHE,
         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         downloadedFile,
         KeyType.SHA256);

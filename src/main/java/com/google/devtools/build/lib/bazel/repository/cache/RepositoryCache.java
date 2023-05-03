@@ -26,7 +26,6 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.XattrProvider;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -93,7 +92,6 @@ public class RepositoryCache {
 
   @Nullable private Path repositoryCachePath;
   @Nullable private Path contentAddressablePath;
-  @Nullable private XattrProvider xattrProvider;
   private boolean useHardlinks;
 
   public void setRepositoryCachePath(@Nullable Path repositoryCachePath) {
@@ -104,10 +102,6 @@ public class RepositoryCache {
 
   public void setHardlink(boolean useHardlinks) {
     this.useHardlinks = useHardlinks;
-  }
-
-  public void setXattrProvider(XattrProvider xattrProvider) {
-    this.xattrProvider = xattrProvider;
   }
 
   /**
@@ -182,7 +176,7 @@ public class RepositoryCache {
     Path cacheValue = cacheEntry.getRelative(DEFAULT_CACHE_FILENAME);
 
     try {
-      assertFileChecksum(xattrProvider, cacheKey, cacheValue, keyType);
+      assertFileChecksum(cacheKey, cacheValue, keyType);
     } catch (IOException e) {
       // New lines because this error message gets large printing multiple absolute filepaths.
       throw new IOException(e.getMessage() + "\n\n"
@@ -286,14 +280,13 @@ public class RepositoryCache {
   /**
    * Assert that a file has an expected checksum.
    *
-   * @param xattrProvider The provider to use for extended attributes.
    * @param expectedChecksum The expected checksum of the file.
    * @param filePath The path to the file.
    * @param keyType The type of hash function. e.g. SHA-1, SHA-256
    * @throws IOException If the checksum does not match or the file cannot be hashed, an exception
    *     is thrown.
    */
-  public static void assertFileChecksum(XattrProvider xattrProvider, String expectedChecksum, Path filePath, KeyType keyType)
+  public static void assertFileChecksum(String expectedChecksum, Path filePath, KeyType keyType)
       throws IOException, InterruptedException {
     Preconditions.checkArgument(!expectedChecksum.isEmpty());
 
