@@ -177,16 +177,7 @@ public class DownloadManager {
         eventHandler.post(
             new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
 
-        String currentChecksum;
-        if (xattrProvider != null
-            && destination.getFileSystem().getDigestFunction().getHashFunction().equals(cacheKeyType.getHashFunction())) {
-          currentChecksum = BaseEncoding.base16().lowerCase().encode(
-            DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(destination, xattrProvider)
-          );
-        } else {
-          currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
-        }
-
+        String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
           return destination;
@@ -239,16 +230,7 @@ public class DownloadManager {
                   new CacheProgress(
                       mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
 
-              String currentChecksum;
-              if (xattrProvider != null
-                  && candidate.getFileSystem().getDigestFunction().getHashFunction().equals(cacheKeyType.getHashFunction())) {
-                currentChecksum = BaseEncoding.base16().lowerCase().encode(
-                  DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(candidate, xattrProvider)
-                );
-              } else {
-                currentChecksum = RepositoryCache.getChecksum(cacheKeyType, candidate);
-              }
-
+              String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, candidate);
               match = currentChecksum.equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely

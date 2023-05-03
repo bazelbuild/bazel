@@ -75,10 +75,6 @@ public class RepositoryCache {
       return hashName;
     }
 
-    public HashFunction getHashFunction() {
-      return hashFunction;
-    }
-
     @Override
     public String toString() {
       return stringRepr;
@@ -301,16 +297,9 @@ public class RepositoryCache {
       throws IOException, InterruptedException {
     Preconditions.checkArgument(!expectedChecksum.isEmpty());
 
-    String actualChecksum;
+    String actualChecksum = null;
     try {
-      if (xattrProvider != null
-          && filePath.getFileSystem().getDigestFunction().getHashFunction().equals(keyType.getHashFunction())) {
-        actualChecksum = BaseEncoding.base16().lowerCase().encode(
-          DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(filePath, xattrProvider)
-        );
-      } else {
-        actualChecksum = getChecksum(keyType, filePath);
-      }
+      actualChecksum = getChecksum(keyType, filePath);
     } catch (IOException e) {
       throw new IOException(
           "Could not hash file " + filePath + ": " + e.getMessage() + ", expected " + keyType
@@ -332,6 +321,15 @@ public class RepositoryCache {
    */
   public static String getChecksum(KeyType keyType, Path path)
       throws IOException, InterruptedException {
+    // Attempt to use the fast digest if the hash function matches of the
+    // filesystem matches and it's available.
+    if (path.getFileSystem().getDigestFunction().getHashFunction().equals(keyType.hashFunction)) {
+      byte[] digest = path.getFastDigest();
+      if (digest != null) {
+        return BaseEncoding.base16().lowerCase().encode(digest);
+      }
+    }
+
     Hasher hasher = keyType.newHasher();
     byte[] byteBuffer = new byte[BUFFER_SIZE];
     try (InputStream stream = path.getInputStream()) {
