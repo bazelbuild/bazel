@@ -45,6 +45,10 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.NanosToMillisSinceEpochConverter;
 import com.google.devtools.build.lib.metrics.MetricsModule.Options;
 import com.google.devtools.build.lib.metrics.PostGCMemoryUseRecorder.PeakHeap;
+import com.google.devtools.build.lib.packages.metrics.ExtremaPackageMetricsRecorder;
+import com.google.devtools.build.lib.packages.metrics.PackageLoadMetrics;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsPackageLoadingListener;
+import com.google.devtools.build.lib.packages.metrics.PackageMetricsRecorder;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.profiler.NetworkMetricsCollector;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -129,8 +133,26 @@ class MetricsCollector {
     targetMetrics
         .setTargetsConfigured(targetsConfigured.total())
         .setTargetsConfiguredNotIncludingAspects(targetsConfigured.configuredTargetsOnly());
-    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
     timingMetrics.setAnalysisPhaseTimeInMs(event.getTimeInMs());
+
+    packageMetrics.setPackagesLoaded(event.getPkgManagerStats().getPackagesSuccessfullyLoaded());
+
+    if (PackageMetricsPackageLoadingListener.getInstance().getPublishPackageMetricsInBep()) {
+      PackageMetricsRecorder recorder =
+          PackageMetricsPackageLoadingListener.getInstance().getPackageMetricsRecorder();
+      if (recorder != null) {
+        Stream<PackageLoadMetrics> metrics = recorder.getPackageLoadMetrics().stream();
+
+        if (recorder.getRecorderType() == PackageMetricsRecorder.Type.ONLY_EXTREMES) {
+          ExtremaPackageMetricsRecorder extremaPackageMetricsRecorder =
+              (ExtremaPackageMetricsRecorder) recorder;
+          // Safeguard: we have 5 metrics, so print at most 5 times the number of packages as being
+          // tracked per metric.
+          metrics = metrics.limit(5L * extremaPackageMetricsRecorder.getNumPackagesToTrack());
+        }
+        metrics.forEach(packageMetrics::addPackageLoadMetrics);
+      }
+    }
   }
 
   @SuppressWarnings("unused")
