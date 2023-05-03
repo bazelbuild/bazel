@@ -168,6 +168,8 @@ upper_tabs:
         path: /advanced/performance/json-trace-profile
       - title: Optimize memory
         path: /advanced/performance/memory
+      - title: Optimize build iteration speed
+        path: /advanced/performance/iteration-speed
     - name: Remote execution
       contents:
       - heading: Remote build execution (RBE)
