@@ -53,23 +53,6 @@ public class JavaRuleClasses {
         .build();
   }
 
-  /** Common attributes for rules that depend on ijar. */
-  public static final class IjarBaseRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE).build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$ijar_base_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaToolchainBaseRule.class)
-          .build();
-    }
-  }
-
   /** Common attributes for rules that use the Java toolchain. */
   public static final class JavaToolchainBaseRule implements RuleDefinition {
     @Override

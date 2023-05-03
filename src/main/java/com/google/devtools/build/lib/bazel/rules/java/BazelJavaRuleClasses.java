@@ -48,8 +48,8 @@ import com.google.devtools.build.lib.rules.cpp.CcLauncherInfo;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -107,7 +107,7 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$java_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(IjarBaseRule.class, JavaRuntimeBaseRule.class)
+          .ancestors(JavaToolchainBaseRule.class, JavaRuntimeBaseRule.class)
           .build();
     }
   }

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
-import com.google.devtools.build.lib.rules.java.JavaRuleClasses.IjarBaseRule;
+import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /**
@@ -77,7 +77,7 @@ public final class BazelJavaImportRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("java_import")
-        .ancestors(JavaImportBaseRule.class, IjarBaseRule.class)
+        .ancestors(JavaImportBaseRule.class, JavaToolchainBaseRule.class)
         .factoryClass(BaseRuleClasses.EmptyRuleConfiguredTargetFactory.class)
         .build();
   }
