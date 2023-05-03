@@ -83,7 +83,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.CompileTimeConstant;
-import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
@@ -606,9 +605,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private final List<Artifact> outputs = new ArrayList<>();
     private final List<RunfilesSupplier> inputRunfilesSuppliers = new ArrayList<>();
     private ResourceSetOrBuilder resourceSetOrBuilder = AbstractAction.DEFAULT_RESOURCE_SET;
-    private ActionEnvironment actionEnvironment = null;
     private ImmutableMap<String, String> environment = ImmutableMap.of();
-    private ImmutableSet<String> inheritedEnvironment = ImmutableSet.of();
     private ImmutableMap<String, String> executionInfo = ImmutableMap.of();
     private boolean useDefaultShellEnvironment = false;
     protected boolean executeUnconditionally;
@@ -631,7 +628,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.outputs.addAll(other.outputs);
       this.inputRunfilesSuppliers.addAll(other.inputRunfilesSuppliers);
       this.resourceSetOrBuilder = other.resourceSetOrBuilder;
-      this.actionEnvironment = other.actionEnvironment;
       this.environment = other.environment;
       this.executionInfo = other.executionInfo;
       this.useDefaultShellEnvironment = other.useDefaultShellEnvironment;
@@ -676,11 +672,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       }
       CommandLines commandLines = result.build();
       ActionEnvironment env =
-          actionEnvironment != null
-              ? actionEnvironment
-              : useDefaultShellEnvironment
-                  ? configuration.getActionEnvironment()
-                  : ActionEnvironment.create(environment, inheritedEnvironment);
+          useDefaultShellEnvironment
+              ? configuration.getActionEnvironment()
+              : ActionEnvironment.create(environment);
       return buildSpawnAction(owner, commandLines, configuration, env);
     }
 
@@ -695,11 +689,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       for (CommandLineAndParamFileInfo pair : commandLines) {
         result.addCommandLine(pair.commandLine);
       }
-      return buildSpawnAction(
-          owner,
-          result.build(),
-          null,
-          ActionEnvironment.create(environment, inheritedEnvironment));
+      return buildSpawnAction(owner, result.build(), null, ActionEnvironment.create(environment));
     }
 
     /**
@@ -820,19 +810,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
-    /**
-     * @deprecated Use {@link #addTransitiveInputs} to avoid excessive memory use.
-     */
-    @CanIgnoreReturnValue
-    @Deprecated
-    @DoNotCall
-    public final Builder addInputs(NestedSet<Artifact> artifacts) {
-      // Do not delete this method, or else addInputs(Iterable) calls with a NestedSet argument
-      // will not be flagged.
-      inputsBuilder.addAll(artifacts.toList());
-      return this;
-    }
-
     /** Adds transitive inputs to this action. */
     @CanIgnoreReturnValue
     public Builder addTransitiveInputs(NestedSet<Artifact> artifacts) {
@@ -868,13 +845,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
-    /** Sets the action environment. */
-    @CanIgnoreReturnValue
-    public Builder setEnvironment(ActionEnvironment actionEnvironment) {
-      this.actionEnvironment = actionEnvironment;
-      return this;
-    }
-
     /**
      * Sets the map of environment variables. Do not use! This makes the builder ignore the 'default
      * shell environment', which is computed from the --action_env command line option.
@@ -882,17 +852,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setEnvironment(Map<String, String> environment) {
       this.environment = ImmutableMap.copyOf(environment);
-      this.useDefaultShellEnvironment = false;
-      return this;
-    }
-
-    /**
-     * Sets the set of inherited environment variables. Do not use! This makes the builder ignore
-     * the 'default shell environment', which is computed from the --action_env command line option.
-     */
-    @CanIgnoreReturnValue
-    public Builder setInheritedEnvironment(Iterable<String> inheritedEnvironment) {
-      this.inheritedEnvironment = ImmutableSet.copyOf(inheritedEnvironment);
       this.useDefaultShellEnvironment = false;
       return this;
     }
@@ -938,7 +897,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
-      this.inheritedEnvironment = null;
       this.useDefaultShellEnvironment = true;
       return this;
     }
@@ -951,8 +909,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * relative to PATH. See https://github.com/bazelbuild/bazel/issues/13189 for details. To avoid
      * that, use {@link #setExecutable(Artifact)} instead.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(PathFragment executable) {
@@ -964,8 +922,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     /**
      * Sets the executable as an artifact.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(Artifact executable) {
@@ -979,8 +937,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * Sets the executable as a configured target. Automatically adds the files to run to the tools
      * and inputs and uses the executable of the target as the executable.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(TransitiveInfoCollection executable) {
@@ -992,8 +950,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * Sets the executable as a configured target. Automatically adds the files to run to the tools
      * and inputs and uses the executable of the target as the executable.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(FilesToRunProvider executableProvider) {
@@ -1013,8 +971,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * duplication when passing {@link PathFragment} to Starlark as a String and then executing with
      * it.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setExecutableAsString(String executable) {
@@ -1023,54 +981,27 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    private Builder setJavaExecutable(
-        PathFragment javaExecutable,
-        Artifact deployJar,
-        NestedSet<String> jvmArgs,
-        String... launchArgs) {
-      this.executableArgs =
-          CustomCommandLine.builder()
-              .addPath(javaExecutable)
-              .addAll(jvmArgs)
-              .addAll(ImmutableList.copyOf(launchArgs));
-      this.executableArg = null;
-      toolsBuilder.add(deployJar);
-      return this;
-    }
-
-    /**
-     * Sets the executable to be a java class executed from the given deploy jar. The deploy jar is
-     * automatically added to the action inputs.
-     *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
-     */
-    @CanIgnoreReturnValue
-    Builder setJavaExecutable(
-        PathFragment javaExecutable,
-        Artifact deployJar,
-        String javaMainClass,
-        NestedSet<String> jvmArgs) {
-      return setJavaExecutable(
-          javaExecutable, deployJar, jvmArgs, "-cp", deployJar.getExecPathString(), javaMainClass);
-    }
-
     /**
      * Sets the executable to be a jar executed from the given deploy jar. The deploy jar is
      * automatically added to the action inputs.
      *
-     * <p>This method is similar to {@link #setJavaExecutable} but it assumes that the Jar artifact
-     * declares a main class.
+     * <p>Assumes that the Jar artifact declares a main class.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setJarExecutable(
         PathFragment javaExecutable, Artifact deployJar, NestedSet<String> jvmArgs) {
-      return setJavaExecutable(javaExecutable, deployJar, jvmArgs, "-jar",
-          deployJar.getExecPathString());
+      this.executableArgs =
+          CustomCommandLine.builder()
+              .addPath(javaExecutable)
+              .addAll(jvmArgs)
+              .add("-jar")
+              .addExecPath(deployJar);
+      this.executableArg = null;
+      toolsBuilder.add(deployJar);
+      return this;
     }
 
     /**
@@ -1079,8 +1010,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * <p>Note that this will not clear the arguments, so any arguments will be passed in addition
      * to the command given here.
      *
-     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable},
-     * {@link #setJavaExecutable}, or {@link #setShellCommand}.
+     * <p>Calling this method overrides any previous values set via calls to {@link #setExecutable}
+     * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
     public Builder setShellCommand(PathFragment shExecutable, String command) {
@@ -1100,19 +1031,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArgs = CustomCommandLine.builder().addAll(ImmutableList.copyOf(command));
       this.executableArg = null;
       return this;
-    }
-
-    /** Returns a {@link CustomCommandLine.Builder} for executable arguments. */
-    CustomCommandLine.Builder executableArguments() {
-      if (executableArgs == null) {
-        if (executableArg != null) {
-          executableArgs = CustomCommandLine.builder().addObject(executableArg);
-          executableArg = null;
-        } else {
-          executableArgs = CustomCommandLine.builder();
-        }
-      }
-      return this.executableArgs;
     }
 
     /** Appends the arguments to the list of executable arguments. */
