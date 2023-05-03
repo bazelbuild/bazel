@@ -167,7 +167,7 @@ public abstract class StructImpl implements Info, Structure, StructApi {
 
   @Override
   public String toProto() throws EvalException {
-    return StarlarkLibrary.Proto.INSTANCE.encodeText(this);
+    return Proto.INSTANCE.encodeText(this);
   }
 
   /**

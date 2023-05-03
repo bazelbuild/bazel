@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.StarlarkLibrary.SelectLibrary;
 import java.util.List;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -34,7 +33,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests of @{code select} function and data type. */
+/** Tests of {@code select} function and data type. */
 @RunWith(JUnit4.class)
 public class SelectTest {
 
@@ -43,7 +42,7 @@ public class SelectTest {
     ParserInput input = ParserInput.fromLines(expr);
     ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
     predeclared.putAll(StarlarkLibrary.COMMON);
-    Starlark.addMethods(predeclared, new SelectLibrary());
+    Starlark.addMethods(predeclared, SelectorList.SelectLibrary.INSTANCE);
     Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, predeclared.buildOrThrow());
     try (Mutability mu = Mutability.create()) {
       StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);

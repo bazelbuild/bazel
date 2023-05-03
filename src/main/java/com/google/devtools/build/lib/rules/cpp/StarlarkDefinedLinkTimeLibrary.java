@@ -30,7 +30,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
@@ -200,11 +199,11 @@ public class StarlarkDefinedLinkTimeLibrary implements ExtraLinkTimeLibrary, Str
         try {
           builder.put(
               key,
-              Depset.depset(
-                  Order.LINK_ORDER.getStarlarkName(),
-                  StarlarkList.immutableOf(),
-                  StarlarkList.immutableCopyOf(depsetMapBuilder.get(key).build()),
-                  StarlarkSemantics.DEFAULT));
+              Depset.fromDirectAndTransitive(
+                  Order.LINK_ORDER,
+                  ImmutableList.of(),
+                  depsetMapBuilder.get(key).build(),
+                  /* strict= */ true));
         } catch (EvalException e) {
           // should never happen; exception comes from bad order argument.
           throw new IllegalStateException(e);
