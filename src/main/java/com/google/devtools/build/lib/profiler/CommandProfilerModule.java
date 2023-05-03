@@ -36,19 +36,6 @@ public class CommandProfilerModule extends BlazeModule {
 
   private static final Duration PROFILING_INTERVAL = Duration.ofMillis(10);
 
-  @Nullable private static final AsyncProfiler profiler;
-
-  static {
-    AsyncProfiler profilerInstance = null;
-    try {
-      profilerInstance = AsyncProfiler.getInstance();
-    } catch (Throwable t) {
-      // Loading the JNI must be allowed to fail, as we might be running on an unsupported platform.
-      logger.atWarning().withCause(t).log("Failed to load async_profiler JNI");
-    }
-    profiler = profilerInstance;
-  }
-
   /** CommandProfilerModule options. */
   public static final class Options extends OptionsBase {
     @Option(
@@ -80,7 +67,13 @@ public class CommandProfilerModule extends BlazeModule {
     outputBase = env.getBlazeWorkspace().getOutputBase();
     reporter = env.getReporter();
 
-    if (profiler == null || !captureCommandProfile) {
+    if (!captureCommandProfile) {
+      // Early exit so we don't attempt to load the JNI unless necessary.
+      return;
+    }
+
+    AsyncProfiler profiler = getProfiler();
+    if (profiler == null) {
       return;
     }
 
@@ -101,7 +94,13 @@ public class CommandProfilerModule extends BlazeModule {
 
   @Override
   public void afterCommand() {
-    if (profiler == null || !captureCommandProfile) {
+    if (!captureCommandProfile) {
+      // Early exit so we don't attempt to load the JNI unless necessary.
+      return;
+    }
+
+    AsyncProfiler profiler = getProfiler();
+    if (profiler == null) {
       return;
     }
 
@@ -111,6 +110,17 @@ public class CommandProfilerModule extends BlazeModule {
     outputBase = null;
     reporter = null;
     outputPath = null;
+  }
+
+  @Nullable
+  private static AsyncProfiler getProfiler() {
+    try {
+      return AsyncProfiler.getInstance();
+    } catch (Throwable t) {
+      // Loading the JNI must be allowed to fail, as we might be running on an unsupported platform.
+      logger.atWarning().withCause(t).log("Failed to load async_profiler JNI");
+    }
+    return null;
   }
 
   private static String getProfilerCommand(Path outputPath) {
