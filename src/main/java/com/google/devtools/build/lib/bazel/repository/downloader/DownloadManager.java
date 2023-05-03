@@ -179,7 +179,7 @@ public class DownloadManager {
 
         String currentChecksum;
         if (xattrProvider != null
-            && destination.getFileSystem().getDigestFunction().getNames().contains(cacheKeyType.toString())) {
+            && destination.getFileSystem().getDigestFunction().getHashFunction().equals(cacheKeyType.getHashFunction())) {
           currentChecksum = BaseEncoding.base16().lowerCase().encode(
             DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(destination, xattrProvider)
           );
@@ -241,7 +241,7 @@ public class DownloadManager {
 
               String currentChecksum;
               if (xattrProvider != null
-                  && candidate.getFileSystem().getDigestFunction().getNames().contains(cacheKeyType.toString())) {
+                  && candidate.getFileSystem().getDigestFunction().getHashFunction().equals(cacheKeyType.getHashFunction())) {
                 currentChecksum = BaseEncoding.base16().lowerCase().encode(
                   DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(candidate, xattrProvider)
                 );

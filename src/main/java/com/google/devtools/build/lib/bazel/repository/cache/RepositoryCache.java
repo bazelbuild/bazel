@@ -75,6 +75,10 @@ public class RepositoryCache {
       return hashName;
     }
 
+    public HashFunction getHashFunction() {
+      return hashFunction;
+    }
+
     @Override
     public String toString() {
       return stringRepr;
@@ -300,7 +304,7 @@ public class RepositoryCache {
     String actualChecksum;
     try {
       if (xattrProvider != null
-          && filePath.getFileSystem().getDigestFunction().getNames().contains(keyType.toString())) {
+          && filePath.getFileSystem().getDigestFunction().getHashFunction().equals(keyType.getHashFunction())) {
         actualChecksum = BaseEncoding.base16().lowerCase().encode(
           DigestUtils.getDigestWithManualFallbackWhenSizeUnknown(filePath, xattrProvider)
         );
