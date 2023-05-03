@@ -1,3 +1,21 @@
+## Release 7.0.0-pre.20230426.1 (2023-05-03)
+
+```
+Baseline: dc724e4e8041a9357c6b82af0749def4174f21f2
+```
+
+Important changes:
+
+  - Added a new `max_compatibility_level` attribute to the
+    `bazel_dep` directive, which allows version selection to upgrade
+    a dependency up to the specified compatibility level.
+  - `--experimental_remote_grpc_log` has been renamed to
+    `--remote_grpc_log`
+  - `--incompatible_remote_build_event_upload_respect_no_cache` is
+    now a no-op.
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Brentley Jones, Fabian Meumertzheim, George Gensure, Kai Zhang, Oscar Garzon.
+
 ## Release 7.0.0-pre.20230420.2 (2023-04-27)
 
 ```
