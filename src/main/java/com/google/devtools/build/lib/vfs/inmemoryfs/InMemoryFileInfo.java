@@ -39,6 +39,7 @@ public class InMemoryFileInfo extends FileInfo {
    */
   @GuardedBy("this")
   private byte[] content;
+  private byte[] fastDigest;
 
   InMemoryFileInfo(Clock clock) {
     super(clock);
@@ -57,12 +58,17 @@ public class InMemoryFileInfo extends FileInfo {
 
   @Override
   public byte[] getFastDigest() {
-    return null;
+    return fastDigest;
   }
 
   private synchronized void setContent(byte[] newContent) {
     content = newContent;
+    fastDigest = null; // assume that content has changed and the existing fastDigest is invalid
     markModificationTime();
+  }
+
+  public synchronized void setFastDigest(byte[] newDigest) {
+    fastDigest = newDigest;
   }
 
   @Override

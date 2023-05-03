@@ -16,9 +16,12 @@ package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileInfo;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -169,6 +172,18 @@ public class RepositoryCacheTest {
   public void testGetChecksum() throws Exception {
     String actualChecksum = RepositoryCache.getChecksum(KeyType.SHA256, downloadedFile);
     assertThat(actualChecksum).isEqualTo(downloadedFileSha256);
+  }
+
+  @Test
+  public void testGetChecksumWithFastDigest() throws Exception {
+    String fastDigestChecksum = "cfe5ed57e6e323555b379c660aa8d35b70c2f8f07cf03ad6747266495ac13be0";
+
+    FileStatus fileStatus = downloadedFile.stat();
+    assertThat(fileStatus).isInstanceOf(InMemoryFileInfo.class);
+    ((InMemoryFileInfo) fileStatus).setFastDigest(BaseEncoding.base16().lowerCase().decode(fastDigestChecksum));
+
+    String actualChecksum = RepositoryCache.getChecksum(KeyType.SHA256, downloadedFile);
+    assertThat(actualChecksum).isEqualTo(fastDigestChecksum);
   }
 
   @Test
