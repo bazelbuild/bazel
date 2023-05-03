@@ -170,7 +170,6 @@ public class DownloadManager {
       try {
         eventHandler.post(
             new CacheProgress(mainUrl.toString(), "Checking in " + cacheKeyType + " cache"));
-
         String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, destination);
         if (currentChecksum.equals(cacheKey)) {
           // No need to download.
