@@ -726,7 +726,12 @@ void ReleaseLock(BlazeLock* blaze_lock) {
 
 bool KillServerProcess(int pid, const blaze_util::Path& output_base) {
   // Kill the process and make sure it's dead before proceeding.
-  killpg(pid, SIGKILL);
+  errno = 0;
+  if (killpg(pid, SIGKILL) == -1) {
+    BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+        << "Attempted to kill stale server process (pid=" << pid
+        << ") using SIGKILL: " << GetLastErrorString();
+  }
   if (!AwaitServerProcessTermination(pid, output_base,
                                      kPostKillGracePeriodSeconds)) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
