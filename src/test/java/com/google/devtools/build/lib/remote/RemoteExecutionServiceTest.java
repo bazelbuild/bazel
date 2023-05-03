@@ -726,8 +726,9 @@ public class RemoteExecutionServiceTest {
         assertThrows(IOException.class, () -> service.downloadOutputs(action, result));
 
     assertThat(expected.getSuppressed()).isEmpty();
-    assertThat(expected).hasMessageThat().contains("outputs/dir/link");
-    assertThat(expected).hasMessageThat().contains("absolute symlink");
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo("Unsupported symlink 'link' inside tree artifact 'outputs/dir'");
     assertThat(context.isLockOutputFilesCalled()).isTrue();
   }
 
@@ -1610,6 +1611,10 @@ public class RemoteExecutionServiceTest {
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
     expectedResult
         .addOutputFileSymlinksBuilder()
+        .setPath("outputs/link")
+        .setTarget(targetPath.toString());
+    expectedResult
+        .addOutputSymlinksBuilder()
         .setPath("outputs/link")
         .setTarget(targetPath.toString());
     assertThat(manifest.getActionResult()).isEqualTo(expectedResult.build());

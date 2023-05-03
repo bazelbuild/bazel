@@ -241,7 +241,7 @@ EOF
     --genrule_strategy=remote \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_toplevel \
-    //a:foobar || fail "Failed to build //a:foobar"
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
   (! [[ -f bazel-bin/a/foo.txt ]]) \
   || fail "Expected intermediate output bazel-bin/a/foo.txt to not be downloaded"
@@ -249,6 +249,14 @@ EOF
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be downloaded"
 
+  bazel build \
+    --genrule_strategy=remote \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
+
+  # Nothing changed, no action is re-executed.
+  expect_log "1 process: 1 internal."
 
   # Delete the file to test that the toplevel output can be re-downloaded
   rm -f bazel-bin/a/foobar.txt
@@ -259,7 +267,8 @@ EOF
     --remote_download_toplevel \
     //a:foobar >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "1 process: 1 internal"
+  # Output of foobar is missing, the generating action is re-executed
+  expect_log "2 processes: 1 remote cache hit, 1 internal."
 
   [[ -f bazel-bin/a/foobar.txt ]] \
   || fail "Expected toplevel output bazel-bin/a/foobar.txt to be re-downloaded"
@@ -267,7 +276,7 @@ EOF
 
 function test_downloads_toplevel_change_toplevel_targets() {
   # Test that if a second invocation changes toplevel targets, the outputs of
-  # new target will be downloaded even if we hit a skyframe cache.
+  # new target will be downloaded.
   mkdir -p a
   cat > a/BUILD <<'EOF'
 genrule(
@@ -301,7 +310,8 @@ EOF
     --remote_download_toplevel \
     //a:foo >& $TEST_log || fail "Failed to build //a:foobar"
 
-  expect_log "1 process: 1 internal"
+  # Output of foo is missing, the generating action is re-executed
+  expect_log "2 processes: 1 remote cache hit, 1 internal."
 
   [[ -f bazel-bin/a/foo.txt ]] \
     || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
@@ -411,22 +421,46 @@ EOF
 
 function test_symlink_outputs_warning_with_minimal() {
   mkdir -p a
-  cat > a/input.txt <<'EOF'
-Input file
+  touch a/file1.txt a/file2.txt
+  cat > a/defs.bzl <<'EOF'
+def _impl(ctx):
+  commands = []
+  outputs = []
+  for target, name in ctx.attr.symlink_map.items():
+    sym = ctx.actions.declare_symlink(name)
+    file = target.files.to_list()[0]
+    outputs.append(sym)
+    commands.append("ln -s {} {}".format(file.path, sym.path))
+
+  ctx.actions.run_shell(
+    outputs = outputs,
+    command = " && ".join(commands),
+  )
+
+  return DefaultInfo(files = depset(outputs))
+
+symlinks = rule(
+  implementation = _impl,
+  attrs = {
+    "symlink_map": attr.label_keyed_string_dict(allow_files = True),
+  },
+)
 EOF
   cat > a/BUILD <<'EOF'
-genrule(
-  name = "foo",
-  srcs = ["input.txt"],
-  outs = ["output.txt", "output_symlink", "output_symlink_2"],
-  cmd = "cp $< $(location :output.txt) && ln -s output.txt $(location output_symlink) && ln -s output.txt $(location output_symlink_2)",
+load(":defs.bzl", "symlinks")
+symlinks(
+  name = "sym",
+  symlink_map = {
+    "file1.txt": "sym1",
+    "file2.txt": "sym2",
+  },
 )
 EOF
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    //a:foo >& $TEST_log || fail "Expected build of //a:foo to succeed"
+    //a:sym >& $TEST_log || fail "Expected build of //a:sym to succeed"
   expect_log "Symlinks in action outputs are not yet supported"
 }
 

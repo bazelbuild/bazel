@@ -56,13 +56,17 @@ public final class GenRuleAction extends SpawnAction {
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         commandLines,
-        CommandLineLimits.UNLIMITED,
         env,
         executionInfo,
         progressMessage,
         runfilesSupplier,
         MNEMONIC,
-        /*stripOutputPaths=*/ false);
+        /* stripOutputPaths= */ false);
+  }
+
+  @Override
+  protected CommandLineLimits getCommandLineLimits() {
+    return CommandLineLimits.UNLIMITED;
   }
 
   @Override

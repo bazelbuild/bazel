@@ -69,10 +69,6 @@ public final class AspectValue extends BasicActionLookupValue implements RuleCon
 
   @Override
   public void clear(boolean clearEverything) {
-    Preconditions.checkNotNull(aspect, this);
-    Preconditions.checkNotNull(location, this);
-    Preconditions.checkNotNull(key, this);
-    Preconditions.checkNotNull(configuredAspect, this);
     if (clearEverything) {
       aspect = null;
       location = null;

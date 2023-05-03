@@ -294,10 +294,9 @@ final class ModuleInfoExtractor {
     // Allow providers to be exported under a different name (e.g. in a struct).
     providerInfoBuilder.setProviderName(exportedName);
     provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
-    ImmutableMap<String, Optional<String>> schemaWithDocumentation =
-        provider.getSchemaWithDocumentation();
-    if (schemaWithDocumentation != null) {
-      for (Map.Entry<String, Optional<String>> entry : schemaWithDocumentation.entrySet()) {
+    ImmutableMap<String, Optional<String>> schema = provider.getSchema();
+    if (schema != null) {
+      for (Map.Entry<String, Optional<String>> entry : schema.entrySet()) {
         if (isExportableName(entry.getKey())) {
           ProviderFieldInfo.Builder fieldInfoBuilder = ProviderFieldInfo.newBuilder();
           fieldInfoBuilder.setName(entry.getKey());

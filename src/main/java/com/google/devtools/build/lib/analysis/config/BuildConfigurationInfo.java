@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.CommandLineLimits;
 import javax.annotation.Nullable;
 
 /**
@@ -49,6 +50,8 @@ public interface BuildConfigurationInfo {
   /** Returns true if this is a tool-related configuration. */
   boolean isToolConfiguration();
 
+  CommandLineLimits getCommandLineLimits();
+
   /**
    * An auto value class of {@link BuildConfigurationInfo}. This provides a convenient way for
    * creating {@link BuildConfigurationInfo} with only the four fields provided.
@@ -62,6 +65,11 @@ public interface BuildConfigurationInfo {
         boolean isToolConfiguration) {
       return new AutoValue_BuildConfigurationInfo_AutoBuildConfigurationInfo(
           mnemonic, checksum, buildConfigurationEvent, isToolConfiguration);
+    }
+
+    @Override
+    public final CommandLineLimits getCommandLineLimits() {
+      return CommandLineLimits.UNLIMITED;
     }
   }
 }

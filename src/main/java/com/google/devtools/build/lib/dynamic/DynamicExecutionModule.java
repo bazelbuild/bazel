@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -56,6 +57,7 @@ public class DynamicExecutionModule extends BlazeModule {
   Set<Integer> ignoreLocalSignals = ImmutableSet.of();
   protected Reporter reporter;
   protected boolean verboseFailures;
+  private LocalExecutionOptions localOptions;
 
   public DynamicExecutionModule() {}
 
@@ -82,6 +84,7 @@ public class DynamicExecutionModule extends BlazeModule {
     verboseFailures = executionOptions != null && executionOptions.verboseFailures;
     DynamicExecutionOptions dynamicOptions =
         env.getOptions().getOptions(DynamicExecutionOptions.class);
+    localOptions = env.getOptions().getOptions(LocalExecutionOptions.class);
     ignoreLocalSignals =
         dynamicOptions != null && dynamicOptions.ignoreLocalSignals != null
             ? dynamicOptions.ignoreLocalSignals
@@ -94,17 +97,19 @@ public class DynamicExecutionModule extends BlazeModule {
       throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
     // functionality here.
-    // ImmutableMap.Builder fails on duplicates, so we use a regular map first to remove dups.
-    Map<String, List<String>> localAndWorkerStrategies = new HashMap<>();
-    localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed"));
-
-    if (!options.dynamicLocalStrategy.isEmpty()) {
-      for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
-        localAndWorkerStrategies.put(entry.getKey(), entry.getValue());
-        throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
-      }
+    ImmutableMap.Builder<String, List<String>> localAndWorkerStrategies = ImmutableMap.builder();
+    if (localOptions != null && localOptions.localLockfreeOutput) {
+      localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed", "standalone"));
+    } else {
+      // Without local lock free, having standalone execution risks very bad performance.
+      localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed"));
     }
-    return ImmutableMap.copyOf(localAndWorkerStrategies);
+
+    for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
+      localAndWorkerStrategies.put(entry);
+      throwIfContainsDynamic(entry.getValue(), "--dynamic_local_strategy");
+    }
+    return localAndWorkerStrategies.buildKeepingLast();
   }
 
   private ImmutableMap<String, List<String>> getRemoteStrategies(DynamicExecutionOptions options)

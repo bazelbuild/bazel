@@ -122,23 +122,23 @@ DIST_DEPS = {
         "package_version": "3.19.6",
     },
     "com_github_grpc_grpc": {
-        "archive": "v1.47.0.tar.gz",
-        "sha256": "271bdc890bf329a8de5b65819f0f9590a5381402429bca37625b63546ed19e54",
-        "strip_prefix": "grpc-1.47.0",
+        "archive": "v1.48.1.tar.gz",
+        "sha256": "320366665d19027cda87b2368c03939006a37e0388bfd1091c8d2a96fbc93bd8",
+        "strip_prefix": "grpc-1.48.1",
         "urls": [
-            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.47.0.tar.gz",
-            "https://github.com/grpc/grpc/archive/v1.47.0.tar.gz",
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.48.1.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.48.1.tar.gz",
         ],
         "patch_args": ["-p1"],
         "patches": [
-            "//third_party/grpc:grpc_1.47.0.patch",
-            "//third_party/grpc:grpc_1.47.0.win_arm64.patch",
+            "//third_party/grpc:grpc_1.48.1.patch",
+            "//third_party/grpc:grpc_1.48.1.win_arm64.patch",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "package_version": "1.47.0",
+        "package_version": "1.48.1",
     },
     "com_github_cncf_udpa": {
         "archive": "cb28da3451f158a947dfc45090fe92b07b243bc1.tar.gz",
@@ -246,22 +246,22 @@ DIST_DEPS = {
         ],
     },
     "com_google_absl": {
-        "archive": "20211102.0.tar.gz",
-        "sha256": "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
+        "archive": "20220623.1.tar.gz",
+        "sha256": "91ac87d30cc6d79f9ab974c51874a704de9c2647c40f6932597329a282217ba8",
         "urls": [
-            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
-            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+            "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz",
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/20220623.1.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
             "test_WORKSPACE_files",
         ],
-        "strip_prefix": "abseil-cpp-20211102.0",
+        "strip_prefix": "abseil-cpp-20220623.1",
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
         ],
         "license_text": "LICENSE",
-        "package_version": "2021-11-02.0",
+        "package_version": "20220623.1",
     },
     "zstd-jni": {
         "archive": "v1.5.2-3.zip",
@@ -402,80 +402,80 @@ DIST_DEPS = {
             "remote_java_tools_test",
             "remote_java_tools_for_testing",
         ],
-        "archive": "java_tools-v12.1.zip",
-        "sha256": "0db35ec44745fd15b77d9df954e70a4fcf74554dd5bfe3f6e6cb6bbdc1f1c649",
+        "archive": "java_tools-v12.2.zip",
+        "sha256": "c284bcd37d27d2a83b14834811d5afb9a289ce4fcc27c91e49952f415d91424a",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools-v12.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools-v12.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.2/java_tools-v12.2.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.2/java_tools-v12.2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.1",
+        "package_version": "12.2",
     },
     "remote_java_tools_linux": {
         "aliases": [
             "remote_java_tools_test_linux",
             "remote_java_tools_linux_for_testing",
         ],
-        "archive": "java_tools_linux-v12.1.zip",
-        "sha256": "093ecac3b42fcbc3621d08edc3ae3c8b0bc2bf56a0d9a85ddcdb1e0bcf10cbc7",
+        "archive": "java_tools_linux-v12.2.zip",
+        "sha256": "49de7ee1167bf377ce594d3ac796579b831a5bbaa0224eaa42b9b99ef2e23d24",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_linux-v12.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_linux-v12.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.2/java_tools_linux-v12.2.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.2/java_tools_linux-v12.2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.1",
+        "package_version": "12.2",
     },
     "remote_java_tools_windows": {
         "aliases": [
             "remote_java_tools_test_windows",
             "remote_java_tools_windows_for_testing",
         ],
-        "archive": "java_tools_windows-v12.1.zip",
-        "sha256": "1df7cc7fac54f437f43c24c019462e13058f394fdba5a64f566b92e8af18d0cf",
+        "archive": "java_tools_windows-v12.2.zip",
+        "sha256": "7455d69d8156a0867a274e39e51e06dd4c25141096275d8def5e27db492ce1ae",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_windows-v12.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_windows-v12.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.2/java_tools_windows-v12.2.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.2/java_tools_windows-v12.2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.1",
+        "package_version": "12.2",
     },
     "remote_java_tools_darwin_x86_64": {
         "aliases": [
             "remote_java_tools_test_darwin_x86_64",
             "remote_java_tools_darwin_x86_64_for_testing",
         ],
-        "archive": "java_tools_darwin_x86_64-v12.1.zip",
-        "sha256": "16ca145203a62a1fcd6ae50513c0935d938591cb309b9b1172e257c57873f60d",
+        "archive": "java_tools_darwin_x86_64-v12.2.zip",
+        "sha256": "940e50ca43effa43e4008eb57b2a504f5593ec919e883a4cdc66bdc35989829b",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_darwin_x86_64-v12.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_darwin_x86_64-v12.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.2/java_tools_darwin_x86_64-v12.2.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.2/java_tools_darwin_x86_64-v12.2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.1",
+        "package_version": "12.2",
     },
     "remote_java_tools_darwin_arm64": {
         "aliases": [
             "remote_java_tools_test_darwin_arm64",
             "remote_java_tools_darwin_arm64_for_testing",
         ],
-        "archive": "java_tools_darwin_arm64-v12.1.zip",
-        "sha256": "1d8e575e558782c2ceec0940e424f0e2df56b0df3d7fae68333eaceef2c4e41c",
+        "archive": "java_tools_darwin_arm64-v12.2.zip",
+        "sha256": "d50209005c3bf1b7803be2ff47e56192836c4b0bdff20245456a2e0bd43a6914",
         "urls": [
-            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.1/java_tools_darwin_arm64-v12.1.zip",
-            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.1/java_tools_darwin_arm64-v12.1.zip",
+            "https://mirror.bazel.build/bazel_java_tools/releases/java/v12.2/java_tools_darwin_arm64-v12.2.zip",
+            "https://github.com/bazelbuild/java_tools/releases/download/java_v12.2/java_tools_darwin_arm64-v12.2.zip",
         ],
         "used_in": [
             "test_WORKSPACE_files",
         ],
-        "package_version": "12.1",
+        "package_version": "12.2",
     },
     "remotejdk11_linux": {
         "aliases": [

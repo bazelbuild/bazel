@@ -14,16 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.Verify.verify;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.Depset.ElementType;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -70,13 +67,13 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   // For schemaful providers, the sorted list of allowed field names.
   // The requirement for sortedness comes from StarlarkInfoWithSchema and lets us bisect the fields.
-  @Nullable private final ImmutableList<String> schema;
+  @Nullable private final ImmutableList<String> fields;
 
-  // For schemaful providers, an optional list of field documentation strings, of the same size and
-  // sorted in the same order as the schema. Null for schemaless providers and for providers whose
-  // schema is undocumented. In accordance with the provider() Starlark API, either all schema
-  // fields have documentation strings (possibly empty strings), or none do.
-  @Nullable private final ImmutableList<String> schemaDocumentation;
+  // For schemaful providers, an optional map from field names to documentation strings (if any). In
+  // accordance with the provider() Starlark API, either all schema fields have documentation
+  // strings (possibly empty strings), or none do. The iteration order is the order of fields in the
+  // provider() invocation in Starlark - thus, *not* the order of the `fields` list above.
+  @Nullable private final ImmutableMap<String, Optional<String>> schema;
 
   // Optional custom initializer callback. If present, it is invoked with the same positional and
   // keyword arguments as were passed to the provider constructor. The return value must be a
@@ -134,9 +131,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     @Nullable private String documentation;
 
-    @Nullable private ImmutableList<String> schema;
-
-    @Nullable private ImmutableList<String> schemaDocumentation;
+    @Nullable private ImmutableMap<String, Optional<String>> schema;
 
     @Nullable private StarlarkCallable init;
 
@@ -146,23 +141,31 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       this.location = location;
     }
 
-    /** Sets the schema (the list of allowed field names) for the provider built by this builder. */
+    /**
+     * Sets the list of allowed fields for the provider built by this builder, and marks the fields'
+     * documentation as empty.
+     */
     @CanIgnoreReturnValue
-    public Builder setSchema(Collection<String> schema) {
-      this.schema = ImmutableList.sortedCopyOf(schema);
+    public Builder setSchema(Collection<String> fields) {
+      ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
+      for (String field : fields) {
+        builder.put(field, Optional.empty());
+      }
+      this.schema = builder.buildOrThrow();
       return this;
     }
 
     /**
-     * Sets the schema and its documentation (meaning, the list of allowed field names and their
-     * corresponding documentation strings) for the provider built by this builder.
+     * Sets the list of allowed field names and their corresponding documentation strings for the
+     * provider built by this builder.
      */
     @CanIgnoreReturnValue
     public Builder setSchema(Map<String, String> schemaWithDocumentation) {
-      ImmutableSortedMap<String, String> sortedSchemaWithDocumentation =
-          ImmutableSortedMap.copyOf(schemaWithDocumentation);
-      this.schema = sortedSchemaWithDocumentation.keySet().asList();
-      this.schemaDocumentation = sortedSchemaWithDocumentation.values().asList();
+      ImmutableMap.Builder<String, Optional<String>> builder = ImmutableMap.builder();
+      for (Map.Entry<String, String> entry : schemaWithDocumentation.entrySet()) {
+        builder.put(entry.getKey(), Optional.of(entry.getValue()));
+      }
+      this.schema = builder.buildOrThrow();
       return this;
     }
 
@@ -201,7 +204,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
     /** Builds a StarlarkProvider. */
     public StarlarkProvider build() {
-      return new StarlarkProvider(location, documentation, schema, schemaDocumentation, init, key);
+      return new StarlarkProvider(location, documentation, schema, init, key);
     }
   }
 
@@ -215,14 +218,13 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   private StarlarkProvider(
       Location location,
       @Nullable String documentation,
-      @Nullable ImmutableList<String> schema,
-      @Nullable ImmutableList<String> schemaDocumentation,
+      @Nullable ImmutableMap<String, Optional<String>> schema,
       @Nullable StarlarkCallable init,
       @Nullable Key key) {
     this.location = location;
     this.documentation = documentation;
+    this.fields = schema != null ? ImmutableList.sortedCopyOf(schema.keySet()) : null;
     this.schema = schema;
-    this.schemaDocumentation = schemaDocumentation;
     this.init = init;
     this.key = key;
     if (schema != null) {
@@ -349,32 +351,20 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
    * schemaless.
    */
   @Nullable
-  // TODO(adonovan): rename getSchema.
   public ImmutableList<String> getFields() {
-    return schema;
+    return fields;
   }
 
   /**
    * Returns the map of fields allowed by this provider mapping to their corresponding documentation
    * strings (if any), or null if this provider is schemaless.
    *
-   * <p>The returned map is guaranteed to have a stable iteration order.
+   * <p>The returned map's iteration order matches the order of fields in the {@code provider()}
+   * invocation in Starlark - thus, different from the order of fields in {@link #getFields}.
    */
   @Nullable
-  public ImmutableMap<String, Optional<String>> getSchemaWithDocumentation() {
-    if (schema == null) {
-      verify(schemaDocumentation == null);
-      return null;
-    }
-    verify(schemaDocumentation == null || schemaDocumentation.size() == schema.size());
-    ImmutableMap.Builder<String, Optional<String>> builder =
-        ImmutableMap.builderWithExpectedSize(schema.size());
-    for (int i = 0; i < schema.size(); i++) {
-      builder.put(
-          schema.get(i),
-          schemaDocumentation == null ? Optional.empty() : Optional.of(schemaDocumentation.get(i)));
-    }
-    return builder.buildOrThrow();
+  public ImmutableMap<String, Optional<String>> getSchema() {
+    return schema;
   }
 
   @Override
@@ -474,9 +464,8 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
       @SuppressWarnings("unchecked")
       NestedSet<Object> nestedSet = (NestedSet<Object>) value;
       if (nestedSet.isEmpty()) {
-        // This matches empty depsets created in Starlark with `depset()`. For natively created
-        // empty depsets it may change elementClass to null.
-        return Depset.of(ElementType.EMPTY, nestedSet);
+        // This matches empty depsets created in Starlark with `depset()`.
+        return Depset.of(Object.class, nestedSet);
       }
       @SuppressWarnings("unchecked") // can't parametrize Class literal by a non-raw type
       Depset depset = Depset.of((Class<Object>) depsetTypePredictor.get(index), nestedSet);

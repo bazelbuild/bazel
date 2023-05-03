@@ -341,6 +341,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     scratch.overwriteFile(
         "MODULE.bazel",
         "register_execution_platforms('//:plat')",
+        "register_execution_platforms('//:dev_plat',dev_dependency=True)",
         "bazel_dep(name='bbb',version='1.0')",
         "bazel_dep(name='ccc',version='1.1')");
     registry
@@ -348,11 +349,13 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             createModuleKey("bbb", "1.0"),
             "module(name='bbb',version='1.0')",
             "register_execution_platforms('//:plat')",
+            "register_execution_platforms('//:dev_plat',dev_dependency=True)",
             "bazel_dep(name='ddd',version='1.0')")
         .addModule(
             createModuleKey("ccc", "1.1"),
             "module(name='ccc',version='1.1')",
             "register_execution_platforms('//:plat')",
+            "register_execution_platforms('//:dev_plat',dev_dependency=True)",
             "bazel_dep(name='ddd',version='1.1')")
         // ddd@1.0 is not selected
         .addModule(
@@ -371,7 +374,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
           "platform(name='plat')");
     }
-    scratch.overwriteFile("BUILD", "platform(name='plat');platform(name='wsplat')");
+    scratch.overwriteFile(
+        "BUILD", "platform(name='plat')", "platform(name='dev_plat')", "platform(name='wsplat')");
     rewriteWorkspace("register_execution_platforms('//:wsplat')");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
@@ -387,6 +391,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
     assertExecutionPlatformLabels(result.get(executionPlatformsKey))
         .containsExactly(
             Label.parseCanonical("//:plat"),
+            Label.parseCanonical("//:dev_plat"),
             Label.parseCanonical("@@bbb~1.0//:plat"),
             Label.parseCanonical("@@ccc~1.1//:plat"),
             Label.parseCanonical("@@eee~1.0//:plat"),

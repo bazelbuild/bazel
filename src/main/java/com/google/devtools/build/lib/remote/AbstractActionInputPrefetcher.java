@@ -588,11 +588,17 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   @SuppressWarnings({"CheckReturnValue", "FutureReturnValueIgnored"})
-  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore) {
+  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
+      throws IOException, InterruptedException {
     List<Artifact> inputsToDownload = new ArrayList<>();
     List<Artifact> outputsToDownload = new ArrayList<>();
 
     for (Artifact output : action.getOutputs()) {
+      var metadata = outputMetadataStore.getOutputMetadata(output);
+      if (!metadata.isRemote()) {
+        continue;
+      }
+
       if (outputsAreInputs.remove(output)) {
         if (output.isTreeArtifact()) {
           var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);

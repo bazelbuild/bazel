@@ -382,6 +382,18 @@ public class ObjcRuleClasses {
                   .direct_compile_time_input()
                   .mandatoryProviders(CcInfo.PROVIDER.id())
                   .allowedFileTypes())
+          /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(implementation_deps) -->
+          The list of other libraries that the library target depends on. Unlike with
+          <code>deps</code>, the headers and include paths of these libraries (and all their
+          transitive deps) are only used for compilation of this library, and not libraries that
+          depend on it. Libraries specified with <code>implementation_deps</code> are still linked
+          in binary targets that depend on this library.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("implementation_deps", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .mandatoryProviders(CcInfo.PROVIDER.id())
+                  .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
           Extra <code>-D</code> flags to pass to the compiler. They should be in
           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are

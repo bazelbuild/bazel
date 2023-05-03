@@ -58,6 +58,7 @@ import com.google.devtools.build.skyframe.FunctionHermeticity;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
 import java.util.Collection;
@@ -625,7 +626,8 @@ public class FilesystemValueChecker {
               numKeysChecked.incrementAndGet();
               DirtyResult result = checker.check(key, value, syscallCache, tsgm);
               if (result.isDirty()) {
-                batchResult.add(key, value, result.getNewValue());
+                batchResult.add(
+                    key, value, result.getNewValue(), result.getNewMaxTransitiveSourceVersion());
               }
             });
       }
@@ -639,7 +641,8 @@ public class FilesystemValueChecker {
     return batchResult.toImmutable();
   }
 
-  static class ImmutableBatchDirtyResult implements Differencer.DiffWithDelta {
+  /** An immutable {@link com.google.devtools.build.skyframe.Differencer.DiffWithDelta}. */
+  public static class ImmutableBatchDirtyResult implements Differencer.DiffWithDelta {
     private final Collection<SkyKey> dirtyKeysWithoutNewValues;
     private final Map<SkyKey, Delta> dirtyKeysWithNewAndOldValues;
     private final int numKeysChecked;
@@ -659,11 +662,11 @@ public class FilesystemValueChecker {
     }
 
     @Override
-    public Map<SkyKey, SkyValue> changedKeysWithNewValues() {
-      return Delta.newValues(dirtyKeysWithNewAndOldValues);
+    public Map<SkyKey, Delta> changedKeysWithNewValues() {
+      return dirtyKeysWithNewAndOldValues;
     }
 
-    int getNumKeysChecked() {
+    public int getNumKeysChecked() {
       return numKeysChecked;
     }
   }
@@ -683,14 +686,21 @@ public class FilesystemValueChecker {
       this.numChecked = numChecked;
     }
 
-    private void add(SkyKey key, @Nullable SkyValue oldValue, @Nullable SkyValue newValue) {
+    private void add(
+        SkyKey key,
+        @Nullable SkyValue oldValue,
+        @Nullable SkyValue newValue,
+        @Nullable Version newMaxTransitiveSourceVersion) {
       if (newValue == null) {
         concurrentDirtyKeysWithoutNewValues.add(key);
       } else {
+        // TODO(b/139545639) - handle old mtsv's and null mtsv's
         if (oldValue == null) {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(
+              key, Delta.justNew(newValue, newMaxTransitiveSourceVersion));
         } else {
-          concurrentDirtyKeysWithNewAndOldValues.put(key, Delta.create(oldValue, newValue));
+          concurrentDirtyKeysWithNewAndOldValues.put(
+              key, Delta.changed(oldValue, newValue, newMaxTransitiveSourceVersion));
         }
       }
     }

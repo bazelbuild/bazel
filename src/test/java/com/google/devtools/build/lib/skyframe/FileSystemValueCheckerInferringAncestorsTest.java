@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -61,6 +62,10 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link FileSystemValueCheckerInferringAncestors}. */
 @RunWith(TestParameterInjector.class)
 public final class FileSystemValueCheckerInferringAncestorsTest {
+  private static final Delta DIRECTORY_FILE_STATE_NODE_DELTA =
+      Delta.justNew(DIRECTORY_FILE_STATE_NODE);
+  private static final Delta NONEXISTENT_FILE_STATE_NODE_DELTA =
+      Delta.justNew(NONEXISTENT_FILE_STATE_NODE);
   private final Scratch scratch = new Scratch();
   private final List<String> statedPaths = new ArrayList<>();
   private final DefaultSyscallCache syscallCache = DefaultSyscallCache.newBuilder().build();
@@ -141,7 +146,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    FileStateValue newValue = fileStateValue("file");
+    Delta newValue = fileStateValueDelta("file");
     assertThat(diff.changedKeysWithNewValues()).containsExactly(key, newValue);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(statedPaths).containsExactly("file");
@@ -162,8 +167,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    FileStateValue value = fileStateValue("file");
-    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, value);
+    Delta delta = fileStateValueDelta("file");
+    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, delta);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey(""));
     assertThat(statedPaths).containsExactly("file");
@@ -192,15 +197,15 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    FileStateValue value = fileStateValue("a/b/file");
+    Delta delta = fileStateValueDelta("a/b/file");
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
             fileKey,
-            value,
+            delta,
             fileStateValueKey("a"),
-            DIRECTORY_FILE_STATE_NODE,
+            DIRECTORY_FILE_STATE_NODE_DELTA,
             fileStateValueKey("a/b"),
-            DIRECTORY_FILE_STATE_NODE);
+            DIRECTORY_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(
             directoryListingStateValueKey(""),
@@ -232,15 +237,15 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    FileStateValue newState = fileStateValue("a/b/file");
+    Delta newState = fileStateValueDelta("a/b/file");
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
             fileKey,
             newState,
             fileStateValueKey("a"),
-            DIRECTORY_FILE_STATE_NODE,
+            DIRECTORY_FILE_STATE_NODE_DELTA,
             fileStateValueKey("a/b"),
-            DIRECTORY_FILE_STATE_NODE);
+            DIRECTORY_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(
             directoryListingStateValueKey(""),
@@ -281,7 +286,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             directoryListingStateValueKey("a/b"),
             directoryListingStateValueKey("a/b/c"));
     assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(fileStateValueKey("a/b/c/d"), fileStateValue("a/b/c/d"));
+        .containsExactly(fileStateValueKey("a/b/c/d"), fileStateValueDelta("a/b/c/d"));
     assertThat(statedPaths).containsExactly("a/b/c/d");
   }
 
@@ -290,7 +295,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
       throws Exception {
     scratch.dir("dir");
     FileStateKey key = fileStateValueKey("dir");
-    FileStateValue value = fileStateValue("dir");
+    Delta delta = fileStateValueDelta("dir");
 
     ImmutableDiff diff =
         FileSystemValueCheckerInferringAncestors.getDiffWithInferredAncestors(
@@ -302,7 +307,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, value);
+    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, delta);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey(""));
     assertThat(statedPaths).containsExactly("dir");
@@ -326,7 +331,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, NONEXISTENT_FILE_STATE_NODE);
+    assertThat(diff.changedKeysWithNewValues())
+        .containsExactly(key, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey("dir"));
     assertThat(statedPaths).containsExactly("dir/file1", "dir");
@@ -352,7 +358,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, NONEXISTENT_FILE_STATE_NODE);
+    assertThat(diff.changedKeysWithNewValues())
+        .containsExactly(key, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey("dir"));
     assertThat(statedPaths).containsExactly("dir/file1");
@@ -381,7 +388,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    assertThat(diff.changedKeysWithNewValues()).containsExactly(key, NONEXISTENT_FILE_STATE_NODE);
+    assertThat(diff.changedKeysWithNewValues())
+        .containsExactly(key, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey("dir"));
     assertThat(statedPaths).containsExactly("dir/file1", "dir");
@@ -410,7 +418,10 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
-            fileKey, fileStateValue("dir/file"), symlinkKey, fileStateValue("dir/symlink"));
+            fileKey,
+            fileStateValueDelta("dir/file"),
+            symlinkKey,
+            fileStateValueDelta("dir/symlink"));
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(statedPaths).containsExactly("dir/file", "dir/symlink");
   }
@@ -436,8 +447,8 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
 
     assertIsSubsetOf(
         diff.changedKeysWithNewValues().entrySet(),
-        Maps.immutableEntry(file1Key, fileStateValue("dir/file1")),
-        Maps.immutableEntry(file2Key, fileStateValue("dir/file2")));
+        Maps.immutableEntry(file1Key, fileStateValueDelta("dir/file1")),
+        Maps.immutableEntry(file2Key, fileStateValueDelta("dir/file2")));
     assertThat(diff.changedKeysWithoutNewValues()).contains(dirKey);
     assertThat(
             Streams.concat(
@@ -490,9 +501,9 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
-            key1, NONEXISTENT_FILE_STATE_NODE,
-            key2, NONEXISTENT_FILE_STATE_NODE,
-            key3, NONEXISTENT_FILE_STATE_NODE);
+            key1, NONEXISTENT_FILE_STATE_NODE_DELTA,
+            key2, NONEXISTENT_FILE_STATE_NODE_DELTA,
+            key3, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey("dir"));
     assertThat(statedPaths).containsExactly("dir", "dir/file1", "dir/file2", "dir/file3");
@@ -529,9 +540,9 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
-            abKey, NONEXISTENT_FILE_STATE_NODE,
-            abcKey, NONEXISTENT_FILE_STATE_NODE,
-            abcFileKey, NONEXISTENT_FILE_STATE_NODE);
+            abKey, NONEXISTENT_FILE_STATE_NODE_DELTA,
+            abcKey, NONEXISTENT_FILE_STATE_NODE_DELTA,
+            abcFileKey, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(
             directoryListingStateValueKey("a"),
@@ -571,9 +582,9 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
 
     assertThat(diff.changedKeysWithNewValues())
         .containsExactly(
-            abKey, NONEXISTENT_FILE_STATE_NODE,
-            abcKey, NONEXISTENT_FILE_STATE_NODE,
-            abcFileKey, NONEXISTENT_FILE_STATE_NODE);
+            abKey, NONEXISTENT_FILE_STATE_NODE_DELTA,
+            abcKey, NONEXISTENT_FILE_STATE_NODE_DELTA,
+            abcFileKey, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(
             directoryListingStateValueKey("a"),
@@ -609,9 +620,9 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             fsvcThreads,
             syscallCache);
 
-    FileStateValue file2NewValue = fileStateValue("dir/file2");
+    Delta file2NewValue = fileStateValueDelta("dir/file2");
     assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(file1Key, NONEXISTENT_FILE_STATE_NODE, file2Key, file2NewValue);
+        .containsExactly(file1Key, NONEXISTENT_FILE_STATE_NODE_DELTA, file2Key, file2NewValue);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey("dir"));
     assertThat(statedPaths).containsExactly("dir/file1", "dir/file2");
@@ -647,7 +658,7 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             syscallCache);
 
     assertThat(diff.changedKeysWithNewValues())
-        .containsExactly(dirKey, NONEXISTENT_FILE_STATE_NODE);
+        .containsExactly(dirKey, NONEXISTENT_FILE_STATE_NODE_DELTA);
     assertThat(diff.changedKeysWithoutNewValues())
         .containsExactly(directoryListingStateValueKey(""));
     assertThat(statedPaths).containsExactly("dir", "");
@@ -742,5 +753,9 @@ public final class FileSystemValueCheckerInferringAncestorsTest {
             untrackedRoot, untrackedRoot.asPath().asFragment().getRelative(relativePath)),
         SyscallCache.NO_CACHE,
         /*tsgm=*/ null);
+  }
+
+  private Delta fileStateValueDelta(String relativePath) throws IOException {
+    return Delta.justNew(fileStateValue(relativePath));
   }
 }

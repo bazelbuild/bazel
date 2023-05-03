@@ -76,13 +76,12 @@ public final class ExtraAction extends SpawnAction {
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         CommandLines.of(argv),
-        CommandLineLimits.UNLIMITED,
         env,
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
         CompositeRunfilesSupplier.of(shadowedAction.getRunfilesSupplier(), runfilesSupplier),
         mnemonic,
-        /*stripOutputPaths=*/ false);
+        /* stripOutputPaths= */ false);
     this.shadowedAction = shadowedAction;
     this.createDummyOutput = createDummyOutput;
 
@@ -91,6 +90,11 @@ public final class ExtraAction extends SpawnAction {
       // Expecting just a single dummy file in the outputs.
       Preconditions.checkArgument(outputs.size() == 1, outputs);
     }
+  }
+
+  @Override
+  protected CommandLineLimits getCommandLineLimits() {
+    return CommandLineLimits.UNLIMITED;
   }
 
   @Override

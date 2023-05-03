@@ -10,6 +10,9 @@ on:
   schedule:
   - cron: '0 1 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   stale:
     permissions:
@@ -19,8 +22,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Harden Runner
+      uses: step-security/harden-runner@6b3083af2869dc3314a0257a42f4af696cc79ba3 # v2.3.1
+      with:
+        egress-policy: audit
+
     - name: Track and close stale issues/PRs
-      uses: actions/stale@v5
+      uses: actions/stale@f7176fd3007623b69d27091f9b9d4ab7995f0a06 # v5.2.1
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         days-before-issue-stale: 775

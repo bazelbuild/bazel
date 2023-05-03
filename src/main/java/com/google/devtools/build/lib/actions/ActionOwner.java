@@ -108,14 +108,8 @@ public abstract class ActionOwner {
   /** Returns the target kind (rule class name) for this {@link ActionOwner}. */
   public abstract String getTargetKind();
 
-  /**
-   * Returns {@link BuildConfigurationInfo} for this {@link ActionOwner}.
-   *
-   * <p>This method is kept solely for AutoValue class purpose, so call {@link #getMnemonic()},
-   * {@link #getConfigurationChecksum()}, {@link #getBuildConfigurationEvent()} and {@link
-   * #isBuildConfigurationForTool()} to access its fields instead.
-   */
-  abstract BuildConfigurationInfo getBuildConfigurationInfo();
+  /** Returns {@link BuildConfigurationInfo} for this {@link ActionOwner}. */
+  public abstract BuildConfigurationInfo getBuildConfigurationInfo();
 
   /** Returns the mnemonic for the configuration for this {@link ActionOwner}. */
   public final String getMnemonic() {

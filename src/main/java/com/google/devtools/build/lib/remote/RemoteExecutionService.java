@@ -1220,15 +1220,22 @@ public class RemoteExecutionService {
       for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
         for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
           // Symlinks should not be allowed inside directories because their semantics are unclear:
-          // tree artifacts are defined as a collection of regular files, and resolving the symlinks
-          // locally is asking for trouble. Sadly, we did start permitting relative symlinks at some
-          // point, so we can only ban the absolute ones.
-          // See https://github.com/bazelbuild/bazel/issues/16361.
-          if (symlink.target().isAbsolute()) {
+          // tree artifacts are defined as a collection of regular files, and resolving a remotely
+          // produced symlink against the local filesystem is asking for trouble.
+          //
+          // Sadly, we started permitting relative symlinks at some point, so we have to allow them
+          // for backwards compatibility unless the --incompatible_disallow_symlink_in_tree_artifact
+          // flag is set. Absolute symlinks, on the other hand, have never been allowed.
+          //
+          // See also https://github.com/bazelbuild/bazel/issues/16361 for potential future work
+          // to allow *unresolved* symlinks in a tree artifact.
+          boolean isAbsolute = symlink.target().isAbsolute();
+          if (remoteOptions.incompatibleDisallowSymlinkInTreeArtifact || isAbsolute) {
             throw new IOException(
                 String.format(
-                    "Unsupported absolute symlink '%s' inside tree artifact '%s'",
-                    symlink.path(), entry.getKey()));
+                    "Unsupported symlink '%s' inside tree artifact '%s'",
+                    symlink.path().relativeTo(entry.getKey()),
+                    entry.getKey().relativeTo(execRoot)));
           }
           symlinksInDirectories.add(symlink);
         }

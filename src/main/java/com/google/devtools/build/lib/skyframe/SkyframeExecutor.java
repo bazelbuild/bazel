@@ -216,6 +216,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -328,7 +329,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final AtomicInteger numPackagesSuccessfullyLoaded = new AtomicInteger(0);
   @Nullable private final PackageProgressReceiver packageProgress;
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
-  final SyscallCache syscallCache;
+  protected final SyscallCache syscallCache;
 
   private final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -1161,16 +1162,20 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
         // ctValue may be null if target was not successfully analyzed.
         if (ctValue != null) {
+          ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
+          if (configuredTarget == null) {
+            return false; // It was already cleared.
+          }
           if (!(ctValue instanceof ActionLookupValue)
               && discardType.discardsLoading()
-              && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
+              && !topLevelTargets.contains(configuredTarget)) {
             // If loading nodes are already being removed, removing these nodes doesn't hurt.
             // Morally we should always be able to remove these, since they're not used for
             // execution, but it leaves the graph inconsistent, and the --discard_analysis_cache
             // with --track_incremental_state case isn't worth optimizing for.
             return true;
           } else {
-            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+            ctValue.clear(!topLevelTargets.contains(configuredTarget));
           }
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
@@ -3492,11 +3497,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // Inject current client environmental values. We can inject unconditionally without fearing
     // over-invalidation; skyframe will not invalidate an injected key if the key's new value is the
     // same as the old value.
-    ImmutableMap.Builder<SkyKey, SkyValue> newValuesBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, Delta> newValuesBuilder = ImmutableMap.builder();
     for (Map.Entry<String, String> entry : clientEnv.get().entrySet()) {
       newValuesBuilder.put(
           ClientEnvironmentFunction.key(entry.getKey()),
-          new ClientEnvironmentValue(entry.getValue()));
+          Delta.justNew(new ClientEnvironmentValue(entry.getValue())));
     }
     recordingDiffer.inject(newValuesBuilder.buildOrThrow());
   }
@@ -3527,8 +3532,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /**
    * Finds and invalidates changed files under path entries whose corresponding {@link
    * DiffAwareness} said all files may have been modified.
+   *
+   * <p>We need to manually check for changes to known files. This entails finding all dirty file
+   * system values under package roots for which we don't have diff information. If at least one
+   * path entry doesn't have diff information, then we're going to have to iterate over the skyframe
+   * values at least once no matter what.
    */
-  private void handleDiffsWithMissingDiffInformation(
+  protected void handleDiffsWithMissingDiffInformation(
       ExtendedEventHandler eventHandler,
       TimestampGranularityMonitor tsgm,
       Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation,
@@ -3550,27 +3560,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExternalFilesHelper tmpExternalFilesHelper =
           externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
 
-      // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
-      // have actually been invalidated (recall that invalidation happens at the beginning of the
-      // next evaluate() call), because checking those is a waste of time.
-      EvaluationContext evaluationContext =
-          newEvaluationContextBuilder()
-              .setKeepGoing(false)
-              .setParallelism(DEFAULT_THREAD_COUNT)
-              .setEventHandler(eventHandler)
-              .build();
-      memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
+      invalidateValuesMarkedForInvalidation(eventHandler);
 
       FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, syscallCache, fsvcThreads);
-      // We need to manually check for changes to known files. This entails finding all dirty file
-      // system values under package roots for which we don't have diff information. If at least
-      // one path entry doesn't have diff information, then we're going to have to iterate over
-      // the skyframe values at least once no matter what.
-      Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
-      for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
-          pathEntriesWithoutDiffInformation) {
-        diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
-      }
+
+      Set<Root> diffPackageRootsUnderWhichToCheck =
+          getDiffPackageRootsUnderWhichToCheck(pathEntriesWithoutDiffInformation);
 
       EnumSet<FileType> fileTypesToCheck = EnumSet.noneOf(FileType.class);
       Iterable<SkyValueDirtinessChecker> dirtinessCheckers = ImmutableList.of();
@@ -3661,19 +3656,45 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  private void handleChangedFiles(
+  /**
+   * Before running the {@link FilesystemValueChecker} ensure that all values marked for
+   * invalidation have actually been invalidated (recall that invalidation happens at the beginning
+   * of the next evaluate() call), because checking those is a waste of time.
+   */
+  protected final void invalidateValuesMarkedForInvalidation(ExtendedEventHandler eventHandler)
+      throws InterruptedException {
+    EvaluationContext evaluationContext =
+        newEvaluationContextBuilder()
+            .setKeepGoing(false)
+            .setParallelism(DEFAULT_THREAD_COUNT)
+            .setEventHandler(eventHandler)
+            .build();
+    memoizingEvaluator.evaluate(ImmutableList.of(), evaluationContext);
+  }
+
+  protected final Set<Root> getDiffPackageRootsUnderWhichToCheck(
+      Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation) {
+    Set<Root> diffPackageRootsUnderWhichToCheck = new HashSet<>();
+    for (Pair<Root, DiffAwarenessManager.ProcessableModifiedFileSet> pair :
+        pathEntriesWithoutDiffInformation) {
+      diffPackageRootsUnderWhichToCheck.add(pair.getFirst());
+    }
+    return diffPackageRootsUnderWhichToCheck;
+  }
+
+  protected void handleChangedFiles(
       Collection<Root> diffPackageRootsUnderWhichToCheck,
       Differencer.Diff diff,
       int numSourceFilesCheckedIfDiffWasMissing) {
     int numWithoutNewValues = diff.changedKeysWithoutNewValues().size();
     Iterable<SkyKey> keysToBeChangedLaterInThisBuild = diff.changedKeysWithoutNewValues();
-    Map<SkyKey, SkyValue> changedKeysWithNewValues = diff.changedKeysWithNewValues();
+    Map<SkyKey, Delta> changedKeysWithNewValues = diff.changedKeysWithNewValues();
 
     logDiffInfo(
         diffPackageRootsUnderWhichToCheck,
         keysToBeChangedLaterInThisBuild,
         numWithoutNewValues,
-        changedKeysWithNewValues);
+        changedKeysWithNewValues.keySet());
 
     recordingDiffer.invalidate(keysToBeChangedLaterInThisBuild);
     recordingDiffer.inject(changedKeysWithNewValues);
@@ -3691,7 +3712,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Iterable<Root> pathEntries,
       Iterable<SkyKey> changedWithoutNewValue,
       int numWithoutNewValues,
-      Map<SkyKey, ? extends SkyValue> changedWithNewValue) {
+      Set<SkyKey> changedWithNewValue) {
     int numModified = changedWithNewValue.size() + numWithoutNewValues;
     StringBuilder result =
         new StringBuilder("DiffAwareness found ")
@@ -3704,7 +3725,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     if (numModified > 0) {
       Iterable<SkyKey> allModifiedKeys =
-          Iterables.concat(changedWithoutNewValue, changedWithNewValue.keySet());
+          Iterables.concat(changedWithoutNewValue, changedWithNewValue);
       Iterable<SkyKey> trimmed =
           Iterables.limit(allModifiedKeys, MAX_NUMBER_OF_CHANGED_KEYS_TO_LOG);
 

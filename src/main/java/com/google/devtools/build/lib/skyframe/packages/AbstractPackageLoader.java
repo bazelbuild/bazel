@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.Differencer;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -96,7 +97,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.Version;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -308,17 +308,17 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       StarlarkSemantics starlarkSemantics,
       PathPackageLocator pkgLocator,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues) {
-    final Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
+    final Map<SkyKey, Delta> valuesToInject = new HashMap<>();
     Injectable injectable =
         new Injectable() {
           @Override
-          public void inject(Map<SkyKey, ? extends SkyValue> values) {
-            valuesToInject.putAll(values);
+          public void inject(Map<SkyKey, Delta> deltas) {
+            valuesToInject.putAll(deltas);
           }
 
           @Override
-          public void inject(SkyKey key, SkyValue value) {
-            valuesToInject.put(key, value);
+          public void inject(SkyKey key, Delta delta) {
+            valuesToInject.put(key, delta);
           }
         };
     for (PrecomputedValue.Injected injected : extraPrecomputedValues) {

@@ -1288,7 +1288,11 @@ public class PackageFunction implements SkyFunction {
             BzlLoadFunction.getLoadsFromProgram(compiled.prog);
         ImmutableList<Label> loadLabels =
             BzlLoadFunction.getLoadLabels(
-                env.getListener(), programLoads, packageId, repositoryMapping);
+                env.getListener(),
+                programLoads,
+                packageId,
+                repositoryMapping,
+                starlarkBuiltinsValue.starlarkSemantics);
         if (loadLabels == null) {
           throw PackageFunctionException.builder()
               .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)

@@ -5,7 +5,7 @@ This directory contains the gRPC libraries needed by Bazel, sourced from
 
 | Repo             | Current   |
 | ---------------- | --------- |
-| `grpc/grpc`      | `v1.47.0` |
+| `grpc/grpc`      | `v1.48.1` |
 
 ## Updating `third_party/grpc`
 

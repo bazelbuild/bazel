@@ -13,10 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
+import java.util.concurrent.Callable;
+
 /** AqueryOutputHandler that receives and consumes tasks via a work queue. */
 public interface AqueryConsumingOutputHandler extends AqueryOutputHandler {
 
-  void startConsumer();
+  Callable<Void> startConsumer();
 
-  void stopConsumer() throws InterruptedException;
+  /**
+   * Stops the consumer thread.
+   *
+   * @param discardRemainingTasks true in case an error occurred with the producer
+   */
+  void stopConsumer(boolean discardRemainingTasks) throws InterruptedException;
 }

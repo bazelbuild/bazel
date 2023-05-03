@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOpti
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -54,6 +56,7 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -104,6 +107,14 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
   private static final Set<String> validResources =
       new HashSet<>(Arrays.asList("cpu", "memory", "local_test"));
+
+  // TODO(gnish): This is a temporary allowlist while new BuildInfo API becomes stable enough to
+  // become public.
+  // After at least some of the builtin rules have been switched to the new API delete this.
+  private static final ImmutableSet<PackageIdentifier> PRIVATE_BUILDINFO_API_ALLOWLIST =
+      ImmutableSet.of(
+          PackageIdentifier.createInMainRepo("test"), // for tests
+          PackageIdentifier.createInMainRepo("tools/build_defs/build_info"));
 
   public StarlarkActionFactory(StarlarkRuleContext context) {
     this.context = context;
@@ -432,6 +443,47 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         resourceSetUnchecked,
         toolchainUnchecked,
         builder);
+  }
+
+  @Override
+  public void transformVersionFile(
+      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
+    transformBuildInfoFile(transformFuncObject, templateObject, outputObject, true, thread);
+  }
+
+  @Override
+  public void transformInfoFile(
+      Object transformFuncObject, Object templateObject, Object outputObject, StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    checkPrivateAccess(PRIVATE_BUILDINFO_API_ALLOWLIST, thread);
+    transformBuildInfoFile(transformFuncObject, templateObject, outputObject, false, thread);
+  }
+
+  private void transformBuildInfoFile(
+      Object transformFuncObject,
+      Object templateObject,
+      Object outputObject,
+      boolean isVolatile,
+      StarlarkThread thread)
+      throws InterruptedException, EvalException {
+    RuleContext ruleContext = getRuleContext();
+    Artifact templateFile = (Artifact) templateObject;
+    Artifact buildInfoFile = (Artifact) outputObject;
+    StarlarkFunction translationFunc = (StarlarkFunction) transformFuncObject;
+    BuildInfoFileWriteAction action =
+        new BuildInfoFileWriteAction(
+            ruleContext.getActionOwner(),
+            isVolatile
+                ? ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact()
+                : ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact(),
+            buildInfoFile,
+            translationFunc,
+            templateFile,
+            isVolatile,
+            thread.getSemantics());
+    registerAction(action);
   }
 
   private void validateActionCreation() throws EvalException {

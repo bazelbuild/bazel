@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -57,7 +58,7 @@ public final class PrecomputedValue implements SkyValue {
     }
 
     public void inject(Injectable injectable) {
-      injectable.inject(precomputed.key, new PrecomputedValue(supplier.get()));
+      injectable.inject(precomputed.key, Delta.justNew(new PrecomputedValue(supplier.get())));
     }
 
     @Override
@@ -170,7 +171,7 @@ public final class PrecomputedValue implements SkyValue {
 
     /** Injects a new variable value. */
     public void set(Injectable injectable, T value) {
-      injectable.inject(key, new PrecomputedValue(value));
+      injectable.inject(key, Delta.justNew(new PrecomputedValue(value)));
     }
 
     @Override

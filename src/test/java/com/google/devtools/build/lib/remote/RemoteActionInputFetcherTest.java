@@ -51,7 +51,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
-      new RemoteOutputChecker(new JavaClock(), ImmutableList.of());
+      new RemoteOutputChecker(
+          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
 
   private RemoteOptions options;
   private DigestUtil digestUtil;

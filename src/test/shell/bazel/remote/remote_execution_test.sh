@@ -41,12 +41,13 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
+  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  start_worker \
-        --incompatible_remote_symlinks
+  start_worker
 }
 
 function tear_down() {
@@ -77,22 +78,7 @@ function has_utf8_locale() {
 }
 
 function setup_credential_helper_test() {
-  # Each helper call atomically writes one byte to this file.
-  # We can later read the file to determine how many calls were made.
-  cat > "${TEST_TMPDIR}/credhelper_log"
-
-  cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
-#!/usr/bin/env python3
-import os
-
-path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper_log")
-fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
-os.write(fd, b"1")
-os.close(fd)
-
-print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
-EOF
-  chmod +x "${TEST_TMPDIR}/credhelper"
+  setup_credential_helper
 
   mkdir -p a
 
@@ -105,15 +91,7 @@ EOF
 EOF
 
   stop_worker
-  start_worker --expected_authorization_token=secret_token
-}
-
-function expect_credential_helper_calls() {
-  local -r expected=$1
-  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
-  if [[ "$expected" != "$actual" ]]; then
-    fail "expected $expected instead of $actual credential helper calls"
-  fi
+  start_worker --expected_authorization_token=TOKEN
 }
 
 function test_credential_helper_remote_cache() {
@@ -2315,6 +2293,43 @@ function test_create_tree_artifact_outputs_remote_cache() {
   expect_log "2 remote cache hit"
   [[ -f bazel-bin/pkg/a/non_empty_dir/out ]] || fail "expected tree artifact to contain a file"
   [[ -d bazel-bin/pkg/a/empty_dir ]] || fail "expected directory to exist"
+}
+
+function test_symlink_in_tree_artifact() {
+  mkdir -p pkg
+
+  cat > pkg/defs.bzl <<EOF
+def _impl(ctx):
+  d = ctx.actions.declare_directory(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [d],
+    command = "cd %s && touch foo && ln -s foo sym" % d.path,
+  )
+  return DefaultInfo(files = depset([d]))
+
+tree = rule(implementation = _impl)
+EOF
+
+  cat > pkg/BUILD <<EOF
+load(":defs.bzl", "tree")
+
+tree(name = "tree")
+EOF
+
+  bazel build \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //pkg:tree &>$TEST_log || fail "Expected build to succeed"
+
+  bazel clean
+
+  bazel build \
+      --incompatible_disallow_symlink_in_tree_artifact \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //pkg:tree &>$TEST_log && fail "Expected build to fail"
+
+  expect_log "Unsupported symlink 'sym' inside tree artifact"
 }
 
 # Runs coverage with `cc_test` and RE then checks the coverage file is returned.

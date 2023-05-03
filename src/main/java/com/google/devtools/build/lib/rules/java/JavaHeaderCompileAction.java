@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -84,7 +83,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       Iterable<? extends Artifact> outputs,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      CommandLineLimits commandLineLimits,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
@@ -99,7 +97,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         outputs,
         resourceSetOrBuilder,
         commandLines,
-        commandLineLimits,
         env,
         executionInfo,
         progressMessage,
@@ -488,7 +485,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                     .addCommandLine(executableLine)
                     .addCommandLine(commandLine.build(), PARAM_FILE_INFO)
                     .build(),
-                /* commandLineLimits= */ ruleContext.getConfiguration().getCommandLineLimits(),
                 /* env= */ actionEnvironment,
                 /* executionInfo= */ ruleContext
                     .getConfiguration()

@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -729,7 +730,7 @@ public abstract class GlobFunctionTest {
             pkgDirFileStateValue,
             pkgRootedPath,
             pkgDirFileStateValue);
-    differencer.inject(ImmutableMap.of(FileValue.key(pkgRootedPath), pkgDirValue));
+    differencer.inject(ImmutableMap.of(FileValue.key(pkgRootedPath), Delta.justNew(pkgDirValue)));
     String expectedMessage = "/root/workspace/pkg is no longer an existing directory";
     SkyKey skyKey =
         GlobValue.key(
@@ -758,7 +759,8 @@ public abstract class GlobFunctionTest {
             ImmutableList.of(new Dirent("wiz", Dirent.Type.DIRECTORY)));
     differencer.inject(
         ImmutableMap.of(
-            DirectoryListingStateValue.key(fooBarDirRootedPath), fooBarDirListingValue));
+            DirectoryListingStateValue.key(fooBarDirRootedPath),
+            Delta.justNew(fooBarDirListingValue)));
     String expectedMessage = "/root/workspace/pkg/foo/bar/wiz is no longer an existing directory.";
     SkyKey skyKey =
         GlobValue.key(
@@ -832,7 +834,8 @@ public abstract class GlobFunctionTest {
         DirectoryListingStateValue.create(
             ImmutableList.of(new Dirent("file", Dirent.Type.SYMLINK)));
     differencer.inject(
-        ImmutableMap.of(DirectoryListingStateValue.key(wizRootedPath), wizDirListingValue));
+        ImmutableMap.of(
+            DirectoryListingStateValue.key(wizRootedPath), Delta.justNew(wizDirListingValue)));
     String expectedMessage =
         "readdir and stat disagree about whether " + fileRootedPath.asPath() + " is a symlink";
     SkyKey skyKey =

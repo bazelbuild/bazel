@@ -347,12 +347,7 @@ filegroup(
 
 linking_order_test(
     name = "linking_action_test",
-    # TODO(bazel-team): Support this test on Windows and Mac.
-    is_linux = select({
-        "//src/conditions:linux": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":foo_so",
+    target = ":foo_so",
 )
 
 additional_inputs_test(

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.util;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
@@ -47,33 +46,6 @@ public class VarInt {
       i >>>= 7;
     } while (i != 0);
     return result;
-  }
-
-  /**
-   * Reads a varint from src, places its values into the first element of dst and returns the offset
-   * in to src of the first byte after the varint.
-   *
-   * @param src source buffer to retrieve from
-   * @param offset offset within src
-   * @param dst the resulting int value
-   * @return the updated offset after reading the varint
-   */
-  public static int getVarInt(byte[] src, int offset, int[] dst) {
-    int result = 0;
-    int shift = 0;
-    int b;
-    do {
-      if (shift >= 32) {
-        // Out of range
-        throw new IndexOutOfBoundsException("varint too long");
-      }
-      // Get 7 bits from next byte
-      b = src[offset++];
-      result |= (b & 0x7F) << shift;
-      shift += 7;
-    } while ((b & 0x80) != 0);
-    dst[0] = result;
-    return offset;
   }
 
   /**
@@ -117,28 +89,6 @@ public class VarInt {
   }
 
   /**
-   * Reads a varint from the given InputStream and returns the decoded value as an int.
-   *
-   * @param inputStream the InputStream to read from
-   */
-  public static int getVarInt(InputStream inputStream) throws IOException {
-    int result = 0;
-    int shift = 0;
-    int b;
-    do {
-      if (shift >= 32) {
-        // Out of range
-        throw new IndexOutOfBoundsException("varint too long");
-      }
-      // Get 7 bits from next byte
-      b = inputStream.read();
-      result |= (b & 0x7F) << shift;
-      shift += 7;
-    } while ((b & 0x80) != 0);
-    return result;
-  }
-
-  /**
    * Encodes an integer in a variable-length encoding, 7 bits per byte, into a destination byte[],
    * following the protocol buffer convention.
    *
@@ -156,24 +106,6 @@ public class VarInt {
       sink[offset++] = b;
     } while (v != 0);
     return offset;
-  }
-
-  /**
-   * Encodes an integer in a variable-length encoding, 7 bits per byte, to a ByteBuffer sink.
-   *
-   * @param v the value to encode
-   * @param sink the ByteBuffer to add the encoded value
-   */
-  public static void putVarInt(int v, ByteBuffer sink) {
-    while (true) {
-      int bits = v & 0x7f;
-      v >>>= 7;
-      if (v == 0) {
-        sink.put((byte) bits);
-        return;
-      }
-      sink.put((byte) (bits | 0x80));
-    }
   }
 
   /**

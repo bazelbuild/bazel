@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -508,7 +507,6 @@ public final class AndroidBinaryMobileInstall {
         Iterable<? extends Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        CommandLineLimits commandLineLimits,
         ActionEnvironment env,
         ImmutableMap<String, String> executionInfo,
         CharSequence progressMessage,
@@ -521,7 +519,6 @@ public final class AndroidBinaryMobileInstall {
           outputs,
           resourceSetOrBuilder,
           commandLines,
-          commandLineLimits,
           env,
           executionInfo,
           progressMessage,
@@ -547,7 +544,6 @@ public final class AndroidBinaryMobileInstall {
         ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        CommandLineLimits commandLineLimits,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -561,7 +557,6 @@ public final class AndroidBinaryMobileInstall {
           outputs,
           resourceSetOrBuilder,
           commandLines,
-          commandLineLimits,
           env,
           executionInfo,
           progressMessage,

@@ -346,7 +346,8 @@ public class CustomCommandLine extends CommandLine {
     }
 
     private static final class VectorArgFragment implements ArgvFragment {
-      private static Interner<VectorArgFragment> interner = BlazeInterners.newStrongInterner();
+      private static final Interner<VectorArgFragment> interner =
+          BlazeInterners.newStrongInterner();
       private static final UUID FORMAT_EACH_UUID =
           UUID.fromString("f830781f-2e0d-4e3b-9b99-ece7f249e0f3");
       private static final UUID BEFORE_EACH_UUID =
@@ -1169,7 +1170,7 @@ public class CustomCommandLine extends CommandLine {
     @CanIgnoreReturnValue
     private Builder addCollectionInternal(@Nullable Collection<?> values) {
       if (values != null) {
-        addVectorArgInternal(VectorArg.of(values));
+        arguments.addAll(values);
       }
       return this;
     }

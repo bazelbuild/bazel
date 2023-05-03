@@ -174,7 +174,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public SkyValue getValue() {
+  public synchronized SkyValue getValue() {
     checkState(isDone(), "no value until done. ValueEntry: %s", this);
     return ValueWithMetadata.justValue(value);
   }
@@ -188,20 +188,24 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Nullable
   @Override
   public SkyValue toValue() {
-    if (isDone()) {
-      return getErrorInfo() == null ? getValue() : null;
-    } else if (isChanged() || isDirty()) {
-      SkyValue lastBuildValue;
-      try {
-        lastBuildValue = dirtyBuildingState.getLastBuildValue();
-      } catch (InterruptedException e) {
-        throw new IllegalStateException("Interruption unexpected: " + this, e);
+    SkyValue lastBuildValue = value;
+    if (lastBuildValue == null) {
+      synchronized (this) {
+        if (isDone()) {
+          lastBuildValue = value;
+        } else if (isChanged() || isDirty()) {
+          try {
+            lastBuildValue = dirtyBuildingState.getLastBuildValue();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("Interruption unexpected: " + this, e);
+          }
+        }
+        // If both if statements are escaped, value has not finished evaluating. It's probably about
+        // to be cleaned from the graph.
       }
-      return ValueWithMetadata.justValue(lastBuildValue);
-    } else {
-      // Value has not finished evaluating. It's probably about to be cleaned from the graph.
-      return null;
     }
+
+    return lastBuildValue != null ? ValueWithMetadata.justValue(lastBuildValue) : null;
   }
 
   @Override

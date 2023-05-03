@@ -268,6 +268,7 @@ java_library(
     ],
     deps = [
         ":actions/abstract_file_write_action",
+        ":actions/buildinfo_file_write_action",
         ":actions/compression",
         ":actions/custom_command_line",
         ":actions/deterministic_writer",
@@ -724,6 +725,7 @@ java_library(
     deps = [
         ":configured_object_value",
         ":configured_target",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1499,10 +1501,12 @@ java_library(
     deps = [
         ":actions/custom_command_line",
         ":analysis_cluster",
+        ":config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",

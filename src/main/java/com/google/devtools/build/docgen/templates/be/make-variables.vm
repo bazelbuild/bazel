@@ -393,9 +393,8 @@
 <p>
   The following are defined in C++ toolchain rules and available to any rule
   that sets <code>toolchains =
-  ["@bazel_tools//tools/cpp:current_cc_toolchain"]</code> (or
-  <code>"@bazel_tools//tools/cpp:current_cc_host_toolchain"</code>
-  for the host toolchain equivalent). Some rules, like <code><a
+  ["@bazel_tools//tools/cpp:current_cc_toolchain"]</code>
+  Some rules, like <code><a
   href="$expander.expandRef("java_binary")">java_binary</a></code>, implicitly
   include the C++ toolchain in their rule definition. They inherit these variables
   automatically.

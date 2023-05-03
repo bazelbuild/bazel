@@ -31,7 +31,11 @@ import java.util.Objects;
 import net.starlark.java.eval.Module;
 
 /**
- * A value that represents the .bzl module loaded by a Starlark {@code load()} statement.
+ * A value that represents the .bzl (or .scl) module loaded by a Starlark {@code load()} statement.
+ *
+ * <p>Note: Historically, all modules had the .bzl suffix, but this is no longer true now that Bazel
+ * supports the .scl dialect. In identifiers, code comments, and documentation, you should generally
+ * assume any "bzl" term could mean a .scl file as well.
  *
  * <p>The key consists of an absolute {@link Label} and the context in which the load occurs. The
  * Label should not reference the special {@code external} package.
@@ -93,6 +97,22 @@ public class BzlLoadValue implements SkyValue {
     /** Returns true if this is a request for a builtins bzl file. */
     boolean isBuiltins() {
       return false;
+    }
+
+    /** Returns true if the requested file follows the .scl dialect. */
+    // Note: Just as with .bzl, the same .scl file can be referred to from multiple key types, for
+    // instance if a BUILD file and a module rule both load foo.scl. Conceptually, .scl files
+    // shouldn't depend on what kind of top-level file caused them to load, but in practice, this
+    // implementation quirk means that the .scl file will be loaded twice as separate copies.
+    //
+    // This shouldn't matter except in rare edge cases, such as if a Starlark function is loaded
+    // from both copies and compared for equality. Performance wise, it also means that all
+    // transitive .scl files will be double-loaded, but we don't expect that to be significant.
+    //
+    // The alternative is to use a separate key type just for .scl, but that complicates repo logic;
+    // see BzlLoadFunction#getRepositoryMapping.
+    final boolean isSclDialect() {
+      return getLabel().getName().endsWith(".scl");
     }
 
     /**

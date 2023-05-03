@@ -15,6 +15,9 @@
 """Starlark tests for cc_shared_library"""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_testing//lib:truth.bzl", "matching")
+load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
 
 def _same_package_or_above(label_a, label_b):
     if label_a.workspace_name != label_b.workspace_name:
@@ -41,45 +44,36 @@ def _check_if_target_under_path(value, pattern):
 
     return pattern.package == value.package and pattern.name == value.name
 
-def _linking_order_test_impl(ctx):
-    env = analysistest.begin(ctx)
-
-    def _filename(path):
-        filename = None
-        for i in range(len(path) - 1, -1, -1):
-            if path[i] == "/":
-                filename = path[i + 1:]
-                break
-
-        asserts.true(env, filename != None, "the test assumes the argument is a file path")
-        return filename
-
-    if ctx.attr.is_linux:
-        target_under_test = analysistest.target_under_test(env)
-        actions = analysistest.target_actions(env)
-
+def _linking_order_test_impl(env, target):
+    if env.ctx.target_platform_has_constraint(env.ctx.attr._is_linux[platform_common.ConstraintValueInfo]):
         target_action = None
-        for action in actions:
+        for action in target.actions:
             if action.mnemonic == "FileWrite":
                 target_action = action
                 break
+
         args = target_action.content.split("\n")
-        user_libs = []
-        for arg in args:
-            if arg.endswith(".o"):
-                user_libs.append(_filename(arg))
+        user_libs = [paths.basename(arg) for arg in args if arg.endswith(".o")]
 
-        asserts.true(env, user_libs.index("foo.pic.o") < user_libs.index("baz.pic.o"), "'foo' should appear before 'bar' in command line")
-        asserts.true(env, user_libs[-1] == "a_suffix.pic.o", "liba_suffix.pic.o should be the last user library linked")
+        env.expect.that_collection(user_libs).contains_at_least_predicates([
+            matching.contains("foo.pic.o"),
+            matching.contains("baz.pic.o"),
+        ]).in_order()
+        env.expect.where(
+            detail = "liba_suffix.pic.o should be the last user library linked",
+        ).that_str(user_libs[-1]).equals("a_suffix.pic.o")
 
-    return analysistest.end(env)
+def _linking_order_test_macro(name, target):
+    analysis_test(
+        name = name,
+        impl = _linking_order_test_impl,
+        target = target,
+        attrs = {
+            "_is_linux": attr.label(default = "@platforms//os:linux"),
+        },
+    )
 
-linking_order_test = analysistest.make(
-    _linking_order_test_impl,
-    attrs = {
-        "is_linux": attr.bool(),
-    },
-)
+linking_order_test = _linking_order_test_macro
 
 def _additional_inputs_test_impl(ctx):
     env = analysistest.begin(ctx)

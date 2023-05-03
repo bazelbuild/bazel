@@ -476,6 +476,27 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   }
 
   @Test
+  public void testTagInJreDeps() throws Exception {
+    scratch.file(
+        "app/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "objc_library(",
+        "    name = 'no_tag_dep',",
+        ")",
+        "j2objc_library(",
+        "    name = 'test',",
+        "    jre_deps = ['no_tag_dep'],",
+        ")");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//app:test");
+
+    assertContainsEvent(
+        "in jre_deps attribute of j2objc_library rule //app:test: objc_library rule"
+            + " '//app:no_tag_dep' is misplaced here (Only J2ObjC JRE libraries are allowed)");
+  }
+
+  @Test
   public void testTranspilationActionTreeArtifactOutputsFromSourceJar() throws Exception {
     useConfiguration("--ios_minimum_os=1.0");
     scratch.file("java/com/google/transpile/dummy.java");

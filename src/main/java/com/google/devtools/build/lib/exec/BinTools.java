@@ -187,13 +187,6 @@ public final class BinTools {
     }
 
     @Override
-    public boolean isSymlink() {
-      // There are no unresolved symlinks embedded in the binary. We don't need them (embedded
-      // binaries are just a few simple tools) and zip doesn't support them anyway.
-      return false;
-    }
-
-    @Override
     @CanIgnoreReturnValue
     protected byte[] atomicallyWriteTo(Path outputPath, String uniqueSuffix) throws IOException {
       // The embedded tools do not change, but we need to be sure they're written out without race
@@ -207,11 +200,6 @@ public final class BinTools {
         }
       }
       return digest;
-    }
-
-    @Override
-    public boolean isDirectory() {
-      return false;
     }
 
     @Override

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
@@ -4156,98 +4157,98 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void valueInjection() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("new_value");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEntry() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingDirtyEntry() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     tester.eval(/*keepGoing=*/ false, new SkyKey[0]); // Create the value.
 
     tester.differencer.invalidate(ImmutableList.of(key));
     tester.eval(/*keepGoing=*/ false, new SkyKey[0]); // Mark value as dirty.
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     tester.eval(/*keepGoing=*/ false, new SkyKey[0]); // Inject again.
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEntryMarkedForInvalidation() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEntryMarkedForDeletion() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setConstantValue(new StringValue("old_val"));
     tester.evaluator.delete(Predicates.alwaysTrue());
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEqualEntryMarkedForInvalidation() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
 
     tester.differencer.invalidate(ImmutableList.of(key));
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEqualEntryMarkedForDeletion() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
 
     tester.evaluator.delete(Predicates.alwaysTrue());
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverValueWithDeps() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
     SkyKey otherKey = GraphTester.nonHermeticKey("other");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
     StringValue prevVal = new StringValue("foo");
 
     tester.getOrCreate(otherKey).setConstantValue(prevVal);
     tester.getOrCreate(key).addDependency(otherKey).setComputedValue(COPY);
     assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(prevVal);
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     StringValue depVal = new StringValue("newfoo");
     tester.getOrCreate(otherKey).setConstantValue(depVal);
     tester.differencer.invalidate(ImmutableList.of(otherKey));
@@ -4258,25 +4259,25 @@ public abstract class MemoizingEvaluatorTest {
   @Test
   public void valueInjectionOverEqualValueWithDeps() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.getOrCreate("other").setConstantValue(val);
+    tester.getOrCreate("other").setConstantValue(delta.newValue());
     tester.getOrCreate(key).addDependency("other").setComputedValue(COPY);
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, key)).isEqualTo(val);
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverValueWithErrors() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
     tester.getOrCreate(key).setHasError(true);
     tester.evalAndGetError(/*keepGoing=*/ true, key);
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
-    assertThat(tester.evalAndGet(false, key)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(key, delta));
+    assertThat(tester.evalAndGet(false, key)).isEqualTo(delta.newValue());
   }
 
   @Test
@@ -4292,44 +4293,44 @@ public abstract class MemoizingEvaluatorTest {
     assertThat(result.hasError()).isFalse();
     assertThat(result.get(parentKey)).isEqualTo(oldVal);
 
-    SkyValue val = new StringValue("val");
-    tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertThat(tester.evalAndGet(/*keepGoing=*/ false, childKey)).isEqualTo(val);
+    Delta delta = Delta.justNew(new StringValue("val"));
+    tester.differencer.inject(ImmutableMap.of(childKey, delta));
+    assertThat(tester.evalAndGet(/* keepGoing= */ false, childKey)).isEqualTo(delta.newValue());
     // Injecting a new child should have invalidated the parent.
     assertThat(tester.getExistingValue("parent")).isNull();
 
     tester.eval(false, childKey);
-    assertThat(tester.getExistingValue(childKey)).isEqualTo(val);
+    assertThat(tester.getExistingValue(childKey)).isEqualTo(delta.newValue());
     assertThat(tester.getExistingValue("parent")).isNull();
-    assertThat(tester.evalAndGet("parent")).isEqualTo(val);
+    assertThat(tester.evalAndGet("parent")).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionOverExistingEqualEntryDoesNotInvalidate() throws Exception {
     SkyKey childKey = GraphTester.nonHermeticKey("child");
     SkyKey parentKey = GraphTester.toSkyKey("parent");
-    SkyValue val = new StringValue("same_val");
+    Delta delta = Delta.justNew(new StringValue("same_val"));
 
     tester.getOrCreate(parentKey).addDependency(childKey).setComputedValue(COPY);
     tester.getOrCreate(childKey).setConstantValue(new StringValue("same_val"));
-    assertThat(tester.evalAndGet("parent")).isEqualTo(val);
+    assertThat(tester.evalAndGet("parent")).isEqualTo(delta.newValue());
 
-    tester.differencer.inject(ImmutableMap.of(childKey, val));
-    assertThat(tester.getExistingValue(childKey)).isEqualTo(val);
+    tester.differencer.inject(ImmutableMap.of(childKey, delta));
+    assertThat(tester.getExistingValue(childKey)).isEqualTo(delta.newValue());
     // Since we are injecting an equal value, the parent should not have been invalidated.
-    assertThat(tester.getExistingValue("parent")).isEqualTo(val);
+    assertThat(tester.getExistingValue("parent")).isEqualTo(delta.newValue());
   }
 
   @Test
   public void valueInjectionInterrupt() throws Exception {
     SkyKey key = GraphTester.nonHermeticKey("key");
-    SkyValue val = new StringValue("val");
+    Delta delta = Delta.justNew(new StringValue("val"));
 
-    tester.differencer.inject(ImmutableMap.of(key, val));
+    tester.differencer.inject(ImmutableMap.of(key, delta));
     Thread.currentThread().interrupt();
     assertThrows(InterruptedException.class, () -> tester.evalAndGet(/*keepGoing=*/ false, key));
     SkyValue newVal = tester.evalAndGet(/*keepGoing=*/ false, key);
-    assertThat(newVal).isEqualTo(val);
+    assertThat(newVal).isEqualTo(delta.newValue());
   }
 
   protected void runTestPersistentErrorsNotRerun(boolean includeTransientError) throws Exception {

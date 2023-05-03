@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.ErrorInfoSubject;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -1345,10 +1346,11 @@ public class FileFunctionTest {
     fs.stubbedStatErrors.remove(foo.asFragment());
     differencer.inject(
         fileStateSkyKey("foo"),
-        FileStateValue.create(
-            RootedPath.toRootedPath(pkgRoot, foo),
-            SyscallCache.NO_CACHE,
-            new TimestampGranularityMonitor(BlazeClock.instance())));
+        Delta.justNew(
+            FileStateValue.create(
+                RootedPath.toRootedPath(pkgRoot, foo),
+                SyscallCache.NO_CACHE,
+                new TimestampGranularityMonitor(BlazeClock.instance()))));
     result = evaluator.evaluate(ImmutableList.of(fooKey), evaluationContext);
     assertThatEvaluationResult(result).hasNoError();
     assertThat(result.get(fooKey).exists()).isTrue();

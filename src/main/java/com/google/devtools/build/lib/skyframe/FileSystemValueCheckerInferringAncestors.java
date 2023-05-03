@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.ImmutableDiff;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -68,7 +69,7 @@ final class FileSystemValueCheckerInferringAncestors {
   private final Map<RootedPath, NodeVisitState> nodeStates;
   private final SyscallCache syscallCache;
   private final Set<SkyKey> valuesToInvalidate = Sets.newConcurrentHashSet();
-  private final ConcurrentMap<SkyKey, SkyValue> valuesToInject = new ConcurrentHashMap<>();
+  private final ConcurrentMap<SkyKey, Delta> valuesToInject = new ConcurrentHashMap<>();
 
   private static final class NodeVisitState {
 
@@ -266,14 +267,14 @@ final class FileSystemValueCheckerInferringAncestors {
       if (fsv.getType().isDirectory()) {
         return false;
       }
-      valuesToInject.put(key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+      valuesToInject.put(key, Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE));
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
       return true;
     }
 
     FileStateValue newFsv = getNewFileStateValueFromFileSystem(path);
     if (!newFsv.equals(fsv)) {
-      valuesToInject.put(key, newFsv);
+      valuesToInject.put(key, Delta.justNew(newFsv));
     }
 
     if (newFsv.getType().exists()) {
@@ -319,7 +320,7 @@ final class FileSystemValueCheckerInferringAncestors {
     // descendant/done listing which normally cannot exist without having FileStateValue for
     // ancestors.
     FileStateValue value = getNewFileStateValueFromFileSystem(path);
-    valuesToInject.put(key, value);
+    valuesToInject.put(key, Delta.justNew(value));
     if (isInferredDirectory || value.getType().exists()) {
       parentState.markInferredDirectory();
     }

@@ -104,7 +104,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       BlazeInterners.newWeakInterner();
 
   private final CommandLines commandLines;
-  private final CommandLineLimits commandLineLimits;
 
   private final CharSequence progressMessage;
   private final String mnemonic;
@@ -127,7 +126,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param env the action environment
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
-   * @param commandLineLimits the command line limits, from the build configuration
    * @param progressMessage the message printed during the progression of the build.
    * @param mnemonic the mnemonic that is reported in the master log.
    */
@@ -138,7 +136,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Iterable<Artifact> outputs,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      CommandLineLimits commandLineLimits,
       ActionEnvironment env,
       CharSequence progressMessage,
       String mnemonic) {
@@ -149,7 +146,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         outputs,
         resourceSetOrBuilder,
         commandLines,
-        commandLineLimits,
         env,
         ImmutableMap.of(),
         progressMessage,
@@ -174,7 +170,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param executionInfo out-of-band information for scheduling the spawn
    * @param commandLines the command lines to execute. This includes the main argv vector and any
    *     param file-backed command lines.
-   * @param commandLineLimits the command line limits, from the build configuration
    * @param progressMessage the message printed during the progression of the build
    * @param runfilesSupplier {@link RunfilesSupplier}s describing the runfiles for the action
    * @param mnemonic the mnemonic that is reported in the master log
@@ -186,7 +181,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Iterable<? extends Artifact> outputs,
       ResourceSetOrBuilder resourceSetOrBuilder,
       CommandLines commandLines,
-      CommandLineLimits commandLineLimits,
       ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       CharSequence progressMessage,
@@ -200,7 +194,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
     this.commandLines = commandLines;
-    this.commandLineLimits = commandLineLimits;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
     this.stripOutputPaths = stripOutputPaths;
@@ -378,7 +371,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             artifactExpander,
             getPrimaryOutput().getExecPath(),
             getPathStripper(),
-            commandLineLimits);
+            getCommandLineLimits());
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
         this,
@@ -389,6 +382,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         filesetMappings,
         reportOutputs,
         stripOutputPaths);
+  }
+
+  @ForOverride
+  protected CommandLineLimits getCommandLineLimits() {
+    return getOwner().getBuildConfigurationInfo().getCommandLineLimits();
   }
 
   Spawn getSpawnForExtraAction() throws CommandLineExpansionException, InterruptedException {
@@ -623,15 +621,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
     private boolean stripOutputPaths = false;
 
-    /**
-     * Creates a SpawnAction builder.
-     */
+    /** Creates a SpawnAction builder. */
     public Builder() {}
 
-    /**
-     * Creates a builder that is a copy of another builder.
-     */
-    public Builder(Builder other) {
+    /** Creates a builder that is a copy of another builder. */
+    Builder(Builder other) {
       this.toolsBuilder.addTransitive(other.toolsBuilder.build());
       this.inputsBuilder.addTransitive(other.inputsBuilder.build());
       this.outputs.addAll(other.outputs);
@@ -687,8 +681,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               : useDefaultShellEnvironment
                   ? configuration.getActionEnvironment()
                   : ActionEnvironment.create(environment, inheritedEnvironment);
-      return buildSpawnAction(
-          owner, commandLines, configuration.getCommandLineLimits(), configuration, env);
+      return buildSpawnAction(owner, commandLines, configuration, env);
     }
 
     @CheckReturnValue
@@ -705,7 +698,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return buildSpawnAction(
           owner,
           result.build(),
-          CommandLineLimits.UNLIMITED,
           null,
           ActionEnvironment.create(environment, inheritedEnvironment));
     }
@@ -719,7 +711,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private SpawnAction buildSpawnAction(
         ActionOwner owner,
         CommandLines commandLines,
-        CommandLineLimits commandLineLimits,
         @Nullable BuildConfigurationValue configuration,
         ActionEnvironment env) {
       NestedSet<Artifact> tools = toolsBuilder.build();
@@ -745,7 +736,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           ImmutableSet.copyOf(outputs),
           resourceSetOrBuilder,
           commandLines,
-          commandLineLimits,
           env,
           configuration,
           configuration == null
@@ -764,7 +754,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         ImmutableSet<Artifact> outputs,
         ResourceSetOrBuilder resourceSetOrBuilder,
         CommandLines commandLines,
-        CommandLineLimits commandLineLimits,
         ActionEnvironment env,
         @Nullable BuildConfigurationValue configuration,
         ImmutableMap<String, String> executionInfo,
@@ -778,7 +767,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           outputs,
           resourceSetOrBuilder,
           commandLines,
-          commandLineLimits,
           env,
           executionInfo,
           progressMessage,

@@ -101,6 +101,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.CycleInfo;
+import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.EmittedEventState;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationContext;
@@ -336,12 +337,13 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
           differencer.inject(
               ImmutableMap.of(
                   ACTION_LOOKUP_KEY,
-                  new BasicActionLookupValue(
-                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                          actionKeyContext,
-                          ImmutableList.copyOf(actions),
-                          ACTION_LOOKUP_KEY,
-                          /* outputFiles= */ null))));
+                  Delta.justNew(
+                      new BasicActionLookupValue(
+                          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                              actionKeyContext,
+                              ImmutableList.copyOf(actions),
+                              ACTION_LOOKUP_KEY,
+                              /* outputFiles= */ null)))));
         }
       }
 

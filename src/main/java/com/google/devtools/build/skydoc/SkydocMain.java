@@ -518,8 +518,7 @@ public class SkydocMain {
           @Override
           public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
             // Accept any arguments, return empty Depset.
-            return Depset.of(
-                Depset.ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+            return Depset.of(Object.class, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
           }
 
           @Override

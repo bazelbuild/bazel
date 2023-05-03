@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.aquery;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -90,7 +91,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     return constructAqueryOutputHandler(outputType, out, printStream, /* parallelized= */ false);
   }
 
-  private static AqueryOutputHandler constructAqueryOutputHandler(
+  public static AqueryOutputHandler constructAqueryOutputHandler(
       OutputType outputType, OutputStream out, PrintStream printStream, boolean parallelized) {
     switch (outputType) {
       case BINARY:
@@ -172,32 +173,31 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     try (SilentCloseable c = Profiler.instance().profile("process partial result")) {
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
-      aqueryConsumingOutputHandler.startConsumer();
       ForkJoinPool executor =
           NamedForkJoinPool.newNamedPool("aquery", Runtime.getRuntime().availableProcessors());
 
       try {
+        Future<Void> consumerFuture = executor.submit(aqueryConsumingOutputHandler.startConsumer());
         List<Future<Void>> futures = executor.invokeAll(toTasks(partialResult));
         for (Future<Void> future : futures) {
           future.get();
         }
+        aqueryConsumingOutputHandler.stopConsumer(/* discardRemainingTasks= */ false);
+        // Get any possible exception from the consumer.
+        consumerFuture.get();
       } catch (ExecutionException e) {
-        Throwable cause = e.getCause();
+        aqueryConsumingOutputHandler.stopConsumer(/* discardRemainingTasks= */ true);
+        Throwable cause = Throwables.getRootCause(e);
         if (cause instanceof CommandLineExpansionException
             || cause instanceof TemplateExpansionException) {
           // This is kinda weird, but keeping it in line with the status quo for now.
           // TODO(b/266179316): Clean this up.
           throw new IOException(cause.getMessage());
         }
-        if (cause instanceof IOException) {
-          throw (IOException) cause;
-        }
-        if (cause instanceof InterruptedException) {
-          throw (InterruptedException) cause;
-        }
+        Throwables.propagateIfPossible(cause, IOException.class);
+        Throwables.propagateIfPossible(cause, InterruptedException.class);
         throw new IllegalStateException("Unexpected exception type: ", e);
       } finally {
-        aqueryConsumingOutputHandler.stopConsumer();
         executor.shutdown();
       }
     }
