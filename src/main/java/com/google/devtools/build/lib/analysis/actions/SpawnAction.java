@@ -617,7 +617,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     private CharSequence progressMessage;
     private String mnemonic = "Unknown";
-    private boolean disableSandboxing = false;
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
     private boolean stripOutputPaths = false;
 
@@ -721,13 +720,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
               .addTransitive(inputsBuilder.build())
               .addTransitive(tools)
               .build();
-
-      if (disableSandboxing) {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.putAll(executionInfo);
-        builder.put("nosandbox", "1");
-        executionInfo = builder.buildOrThrow();
-      }
 
       return createSpawnAction(
           owner,
@@ -1289,12 +1281,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder stripOutputPaths(boolean stripPaths) {
       this.stripOutputPaths = stripPaths;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder disableSandboxing() {
-      this.disableSandboxing = true;
       return this;
     }
 
