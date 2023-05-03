@@ -84,6 +84,16 @@ public class SkymeldModule extends BlazeModule {
                       + " and its value will be ignored."));
       effectiveValue = false;
     }
+    if (effectiveValue
+        && (buildRequestOptions.aqueryDumpAfterBuildFormat != null
+            || buildRequestOptions.aqueryDumpAfterBuildOutputFile != null)) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "--experimental_merged_skyframe_analysis_execution is incompatible with"
+                      + " generating an aquery dump after builds and its value will be ignored."));
+      effectiveValue = false;
+    }
 
     return effectiveValue;
   }
