@@ -27,7 +27,7 @@ import java.time.Duration;
 /** A module whose sole purpose is to hold the credential cache which is shared by other modules. */
 public class CredentialModule extends BlazeModule {
   private final Cache<URI, ImmutableMap<String, ImmutableList<String>>> credentialCache =
-      Caffeine.newBuilder().expireAfterWrite(Duration.ZERO).build();
+      Caffeine.newBuilder().expireAfterWrite(Duration.ZERO).ticker(SystemMillisTicker.INSTANCE).build();
 
   /** Returns the credential cache. */
   public Cache<URI, ImmutableMap<String, ImmutableList<String>>> getCredentialCache() {
