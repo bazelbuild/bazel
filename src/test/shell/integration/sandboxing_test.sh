@@ -870,4 +870,90 @@ EOF
   [[ -f "${temp_dir}/file" ]] || fail "Expected ${temp_dir}/file to exist"
 }
 
+function test_sandbox_reuse_stashes_sandbox() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+genrule(
+  name = "a",
+  srcs = [ "a.txt" ],
+  outs = [ "aout.txt" ],
+  cmd = "wc $(location :a.txt) > $@",
+)
+genrule(
+  name = "b",
+  srcs = [ "b.txt" ],
+  outs = [ "bout.txt" ],
+  cmd = "wc $(location :b.txt) > $@",
+)
+EOF
+  echo A > pkg/a.txt
+  echo BB > pkg/b.txt
+  local output_base="$(bazel info output_base)"
+  local execroot="$(bazel info execution_root)"
+  local execroot_reldir="${execroot#$output_base}"
+
+  bazel build --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+
+  local sandbox_stash="${output_base}/sandbox_stash"
+  [[ -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} not present"
+  [[ -d "${sandbox_stash}/_NoMnemonic_/3" ]] \
+    || fail "${sandbox_stash} did not stash anything"
+  [[ -L "${sandbox_stash}/_NoMnemonic_/3/$execroot_reldir/pkg/a.txt" ]] \
+    || fail "${sandbox_stash} did not have a link to a.txt"
+
+  bazel build --reuse_sandbox_directories //pkg:b >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+  ls -R "${sandbox_stash}/_NoMnemonic_/"
+  [[ ! -L "${sandbox_stash}/_NoMnemonic_/6/$execroot_reldir/pkg/a.txt" ]] \
+    || fail "${sandbox_stash} should no longer have a link to a.txt"
+  [[ -L "${sandbox_stash}/_NoMnemonic_/6/$execroot_reldir/pkg/b.txt" ]] \
+    || fail "${sandbox_stash} should now have a link to b.txt"
+
+  bazel clean
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} present after clean"
+
+  bazel build --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+}
+
+function test_sandbox_reuse_clean() {
+  mkdir pkg
+  cat >pkg/BUILD <<'EOF'
+genrule(
+  name = "a",
+  srcs = [ "a.txt" ],
+  outs = [ "aout.txt" ],
+  cmd = "wc $(location :a.txt) > $@",
+)
+EOF
+  echo A > pkg/a.txt
+  local output_base="$(bazel info output_base)"
+
+  bazel build --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+
+  local sandbox_stash="${output_base}/sandbox_stash"
+  [[ -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} not present"
+  [[ -d "${sandbox_stash}/_NoMnemonic_/3" ]] \
+    || fail "${sandbox_stash} did not stash anything"
+
+  bazel clean --reuse_sandbox_directories
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} present after clean"
+
+  bazel build --experimental_sandbox_async_tree_delete_idle_threads=2 \
+    --reuse_sandbox_directories //pkg:a >"${TEST_log}" 2>&1 \
+    || fail "Expected build to succeed"
+  [[ -d "${sandbox_stash}/_NoMnemonic_/6" ]] \
+    || fail "${sandbox_stash} did not stash anything"
+
+  bazel clean
+  [[ ! -d "${sandbox_stash}" ]] \
+    || fail "${sandbox_stash} present after non-reusing clean"
+}
+
 run_suite "sandboxing"

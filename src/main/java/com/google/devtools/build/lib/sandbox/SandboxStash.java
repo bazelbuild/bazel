@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -34,7 +35,7 @@ public class SandboxStash {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An incrementing count of stashes to avoid filename clashes. */
-  static AtomicInteger stash = new AtomicInteger(0);
+  static final AtomicInteger stash = new AtomicInteger(0);
 
   /** If true, we have already warned about an error causing us to turn off reuse. */
   private final AtomicBoolean warnedAboutTurningOffReuse = new AtomicBoolean();
@@ -47,11 +48,11 @@ public class SandboxStash {
 
   private static SandboxStash instance;
   private final String workspaceName;
-  private final Path sandboxBase;
+  private final Path outputBase;
 
-  public SandboxStash(String workspaceName, Path sandboxBase) {
+  public SandboxStash(String workspaceName, Path outputBase) {
     this.workspaceName = workspaceName;
-    this.sandboxBase = sandboxBase;
+    this.outputBase = outputBase;
   }
 
   static boolean takeStashedSandbox(Path sandboxPath, String mnemonic) {
@@ -128,7 +129,7 @@ public class SandboxStash {
    */
   @Nullable
   private Path getSandboxStashDir(String mnemonic) {
-    Path stashDir = getStashBase();
+    Path stashDir = getStashBase(this.outputBase);
     try {
       stashDir.createDirectory();
       if (!maybeClearExistingStash(stashDir)) {
@@ -150,8 +151,8 @@ public class SandboxStash {
     }
   }
 
-  private Path getStashBase() {
-    return this.sandboxBase.getChild("sandbox_stash");
+  private static Path getStashBase(Path outputBase1) {
+    return outputBase1.getChild("sandbox_stash");
   }
 
   /**
@@ -189,7 +190,7 @@ public class SandboxStash {
       if (instance == null) {
         instance = new SandboxStash(workspaceName, sandboxBase);
       } else if (!Objects.equals(workspaceName, instance.workspaceName)) {
-        Path stashBase = instance.getStashBase();
+        Path stashBase = getStashBase(instance.outputBase);
         try {
           for (Path directoryEntry : stashBase.getDirectoryEntries()) {
             directoryEntry.deleteTree();
@@ -202,6 +203,32 @@ public class SandboxStash {
       }
     } else {
       instance = null;
+    }
+  }
+
+  /** Cleans up the entire current stash, if any. Cleaning may be asynchronous. */
+  static void clean(TreeDeleter treeDeleter, Path outputBase) {
+    Path stashDir = getStashBase(outputBase);
+    if (!stashDir.isDirectory()) {
+      return;
+    }
+    Path stashTrashDir = stashDir.getChild("__trash");
+    try {
+      stashDir.renameTo(stashTrashDir);
+    } catch (IOException e) {
+      // If we couldn't move the stashdir away for deletion, we need to delete it synchronously
+      // in place, so we can't use the treeDeleter.
+      treeDeleter = null;
+      stashTrashDir = stashDir;
+    }
+    try {
+      if (treeDeleter != null) {
+        treeDeleter.deleteTree(stashTrashDir);
+      } else {
+        stashTrashDir.deleteTree();
+      }
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to clean sandbox stash %s", stashDir);
     }
   }
 }
