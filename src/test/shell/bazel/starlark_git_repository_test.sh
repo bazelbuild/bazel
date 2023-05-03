@@ -162,6 +162,9 @@ EOF
   bazel run //planets:planet-info >& $TEST_log \
     || echo "Expected build/run to succeed"
   expect_log "Pluto is a dwarf planet"
+
+  git_repos_count=$(find $(bazel info output_base)/external/pluto -type d -name .git | wc -l)
+  assert_equals $git_repos_count 0
 }
 
 function test_git_repository() {
@@ -290,6 +293,9 @@ EOF
   else
       expect_log "Pluto is a dwarf planet"
   fi
+
+  git_repos_count=$(find $(bazel info output_base)/external/pluto -type d -name .git | wc -l)
+  assert_equals $git_repos_count 0
 }
 
 # Test cloning a Git repository that has a submodule using the

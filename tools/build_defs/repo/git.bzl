@@ -173,7 +173,10 @@ def _git_repository_implementation(ctx):
     update = _clone_or_update_repo(ctx)
     workspace_and_buildfile(ctx)
     patch(ctx)
-    ctx.delete(ctx.path(".git"))
+    if ctx.attr.strip_prefix:
+        ctx.delete(ctx.path(".tmp_git_root/.git"))
+    else:
+        ctx.delete(ctx.path(".git"))
     return _update_git_attrs(ctx.attr, _common_attrs.keys(), update)
 
 git_repository = repository_rule(
