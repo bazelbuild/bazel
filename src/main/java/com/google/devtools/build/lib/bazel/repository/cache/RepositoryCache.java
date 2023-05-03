@@ -312,8 +312,8 @@ public class RepositoryCache {
    */
   public static String getChecksum(KeyType keyType, Path path)
       throws IOException, InterruptedException {
-    // Attempt to use the fast digest if the hash function matches of the
-    // filesystem matches and it's available.
+    // Attempt to use the fast digest if the hash function of the filesystem
+    // matches `keyType` and it's available.
     if (path.getFileSystem().getDigestFunction().getHashFunction().equals(keyType.hashFunction)) {
       byte[] digest = path.getFastDigest();
       if (digest != null) {

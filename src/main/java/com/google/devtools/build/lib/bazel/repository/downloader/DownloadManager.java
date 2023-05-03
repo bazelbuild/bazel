@@ -24,7 +24,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -32,11 +31,9 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCacheHitEv
 import com.google.devtools.build.lib.bazel.repository.downloader.UrlRewriter.RewrittenURL;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
@@ -222,9 +219,7 @@ public class DownloadManager {
               eventHandler.post(
                   new CacheProgress(
                       mainUrl.toString(), "Checking " + cacheKeyType + " of " + candidate));
-
-              String currentChecksum = RepositoryCache.getChecksum(cacheKeyType, candidate);
-              match = currentChecksum.equals(cacheKey);
+              match = RepositoryCache.getChecksum(cacheKeyType, candidate).equals(cacheKey);
             } catch (IOException e) {
               // Not finding anything in a distdir is a normal case, so handle it absolutely
               // quietly. In fact, it is common to specify a whole list of dist dirs,
