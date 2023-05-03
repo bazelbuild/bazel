@@ -732,8 +732,7 @@ public final class CcCommon implements StarlarkValue {
             .addAll(ImmutableSet.of(cppConfiguration.getCompilationMode().toString()))
             .addAll(DEFAULT_ACTION_CONFIGS)
             .addAll(requestedFeatures)
-            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs())
-            .addAll(cppConfiguration.getAppleBitcodeMode().getFeatureNames());
+            .addAll(toolchain.getFeatures().getDefaultFeaturesAndActionConfigs());
 
     if (language == Language.OBJC || language == Language.OBJCPP) {
       allFeatures.addAll(OBJC_ACTIONS);

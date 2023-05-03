@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -374,18 +373,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   public void testObjcLibraryLinkoptsArePropagatedToLinkActionPostMigration() throws Exception {
     checkObjcLibraryLinkoptsArePropagatedToLinkAction(
         getRuleType(), /* linkingInfoMigration= */ true);
-  }
-
-  /** Returns the bcsymbolmap artifact for given architecture and compilation mode. */
-  protected Artifact bitcodeSymbol(String arch, CompilationMode mode) throws Exception {
-    SpawnAction lipoAction = (SpawnAction) lipoBinAction("//examples/apple_starlark:bin");
-
-    String bin =
-        configurationBin(arch, ConfigurationDistinguisher.APPLEBIN_IOS, null, mode)
-            + "examples/apple_starlark/bin_bin";
-    Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), bin);
-    CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
-    return getFirstArtifactEndingWith(linkAction.getOutputs(), "bcsymbolmap");
   }
 
   /** Returns the path to the dSYM binary artifact for given architecture and compilation mode. */
@@ -827,18 +814,14 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
     assertThat(outputMap).containsKey("armv7");
 
     Map<String, Artifact> arm64 = outputMap.get("arm64");
-    assertThat(arm64).containsEntry("bitcode_symbols", bitcodeSymbol("arm64", compilationMode));
     String expectedArm64Path = dsymBinaryPath("arm64", compilationMode);
     assertThat(arm64.get("dsym_binary").getExecPathString()).isEqualTo(expectedArm64Path);
 
     Map<String, Artifact> armv7 = outputMap.get("armv7");
-    assertThat(armv7).containsEntry("bitcode_symbols", bitcodeSymbol("armv7", compilationMode));
     String expectedArmv7Path = dsymBinaryPath("armv7", compilationMode);
     assertThat(armv7.get("dsym_binary").getExecPathString()).isEqualTo(expectedArmv7Path);
 
     Map<String, Artifact> x8664 = outputMap.get("x86_64");
-    // Simulator build has bitcode disabled.
-    assertThat(x8664).doesNotContainKey("bitcode_symbols");
     String expectedx8664Path = dsymBinaryPath("x86_64", compilationMode);
     assertThat(x8664.get("dsym_binary").getExecPathString()).isEqualTo(expectedx8664Path);
   }
@@ -860,8 +843,7 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
 
   @Test
   public void testAppleDebugSymbolProviderWithDsymsExposedToStarlark() throws Exception {
-    useConfiguration(
-        "--apple_bitcode=embedded", "--apple_generate_dsym", "--ios_multi_cpus=armv7,arm64,x86_64");
+    useConfiguration("--apple_generate_dsym", "--ios_multi_cpus=armv7,arm64,x86_64");
     checkAppleDebugSymbolProviderDsymEntries(
         generateAppleDebugOutputsStarlarkProviderMap(), CompilationMode.FASTBUILD);
   }
@@ -870,7 +852,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   public void testAppleDebugSymbolProviderWithAutoDsymDbgAndDsymsExposedToStarlark()
       throws Exception {
     useConfiguration(
-        "--apple_bitcode=embedded",
         "--compilation_mode=dbg",
         "--apple_enable_auto_dsym_dbg",
         "--ios_multi_cpus=armv7,arm64,x86_64");
@@ -881,7 +862,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   @Test
   public void testAppleDebugSymbolProviderWithLinkMapsExposedToStarlark() throws Exception {
     useConfiguration(
-        "--apple_bitcode=embedded",
         "--objc_generate_linkmap",
         "--ios_multi_cpus=armv7,arm64,x86_64");
     checkAppleDebugSymbolProviderLinkMapEntries(generateAppleDebugOutputsStarlarkProviderMap());
@@ -890,7 +870,6 @@ public class AppleBinaryStarlarkApiTest extends ObjcRuleTestCase {
   @Test
   public void testAppleDebugSymbolProviderWithDsymsAndLinkMapsExposedToStarlark() throws Exception {
     useConfiguration(
-        "--apple_bitcode=embedded",
         "--objc_generate_linkmap",
         "--apple_generate_dsym",
         "--ios_multi_cpus=armv7,arm64,x86_64");

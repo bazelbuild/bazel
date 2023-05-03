@@ -425,8 +425,9 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(myInfo.getValue("single_arch_platform")).isEqualTo("IOS_SIMULATOR");
     assertThat(myInfo.getValue("single_arch_cpu")).isEqualTo("i386");
     assertThat(myInfo.getValue("platform_type")).isEqualTo("ios");
-    assertThat(myInfo.getValue("bitcode_mode")).isEqualTo("none");
     assertThat(myInfo.getValue("dead_code_report")).isEqualTo("None");
+    // bitcode_mode is deprecated, but ensure it still correctly returns none.
+    assertThat(myInfo.getValue("bitcode_mode")).isEqualTo("none");
   }
 
   @Test

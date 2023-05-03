@@ -34,10 +34,9 @@ import net.starlark.java.eval.Dict;
  * Artifact, output_type: Artifact, ... } }
  *
  * <p>Where {@code arch} is any Apple architecture such as "arm64" or "armv7", {@code output_type}
- * can currently be "bitcode_symbols" or "dsym_binary", and the artifact is an instance of the
- * {@link Artifact} class.
+ * can currently be "dsym_binary", and the artifact is an instance of the {@link Artifact} class.
  *
- * <p>Example: { "arm64": { "bitcode_symbols": Artifact, "dsym_binary": Artifact } }
+ * <p>Example: { "arm64": { "dsym_binary": Artifact } }
  */
 @Immutable
 public final class AppleDebugOutputsInfo extends NativeInfo
@@ -45,9 +44,6 @@ public final class AppleDebugOutputsInfo extends NativeInfo
 
   /** Expected types of debug outputs. */
   enum OutputType {
-
-    /** A Bitcode symbol map, per architecture. */
-    BITCODE_SYMBOLS,
 
     /** A single-architecture DWARF binary with debug symbols. */
     DSYM_BINARY,

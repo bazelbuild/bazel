@@ -30,15 +30,11 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
 import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
@@ -87,7 +83,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
 
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   private final AppleCpus appleCpus;
@@ -100,7 +95,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.applePlatformType =
         Preconditions.checkNotNull(options.applePlatformType, "applePlatformType");
     this.configurationDistinguisher = options.configurationDistinguisher;
-    this.platformBitcodeModes = collectBitcodeModes(options.appleBitcodeMode);
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.mandatoryMinimumVersion = options.mandatoryMinimumVersion;
@@ -364,35 +358,9 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     }
   }
 
-  /**
-   * Returns the bitcode mode to use for compilation steps. This should only be invoked in
-   * single-architecture contexts.
-   *
-   * <p>Users can control bitcode mode using the {@code apple_bitcode} build flag, but bitcode
-   * will be disabled for all simulator architectures regardless of this flag.
-   *
-   * @see AppleBitcodeMode
-   */
   @Override
-  public AppleBitcodeMode getBitcodeMode() {
-    return getAppleBitcodeMode(applePlatformType, appleCpus, platformBitcodeModes);
-  }
-
-  /** Returns the bitcode mode to use for compilation steps. */
-  public static AppleBitcodeMode getAppleBitcodeMode(
-      PlatformType applePlatformType,
-      AppleCpus appleCpus,
-      EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes) {
-    String architecture =
-        getSingleArchitecture(applePlatformType, appleCpus, /* removeEnvironmentPrefix= */ false);
-    String cpuString = ApplePlatform.cpuStringForTarget(applePlatformType, architecture);
-    if (ApplePlatform.isApplePlatform(cpuString)) {
-      ApplePlatform platform = ApplePlatform.forTarget(applePlatformType, architecture);
-      if (platform.isDevice()) {
-        return platformBitcodeModes.get(applePlatformType);
-      }
-    }
-    return AppleBitcodeMode.NONE;
+  public String getBitcodeMode() {
+    return "none";
   }
 
   /**
@@ -461,35 +429,6 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @Override
   public int hashCode() {
     return options.hashCode();
-  }
-
-  /**
-   * Compute the platform-type-to-bitcode-mode mapping from the pairs that were passed on the
-   * command line.
-   */
-  public static EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> collectBitcodeModes(
-      List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> platformModeMappings) {
-    EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> modes =
-        new EnumMap<>(ApplePlatform.PlatformType.class);
-    ApplePlatform.PlatformType[] allPlatforms = ApplePlatform.PlatformType.values();
-
-    // Seed the map with the default mode for every key so that there is a valid mode for every
-    // platform.
-    // TODO(blaze-team): Default to embedded_markers when fully implemented.
-    Arrays.stream(allPlatforms).forEach(platform -> modes.put(platform, AppleBitcodeMode.NONE));
-
-    // Process the entries in order. If we encounter one with a null key, apply the mode to all
-    // platforms; otherwise, apply it only to that specific platform. This ensures that the later
-    // options override the earlier options.
-    for (Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode> entry : platformModeMappings) {
-      if (entry.getKey() == null) {
-        Arrays.stream(allPlatforms).forEach(platform -> modes.put(platform, entry.getValue()));
-      } else {
-        modes.put(entry.getKey(), entry.getValue());
-      }
-    }
-
-    return modes;
   }
 
   /**

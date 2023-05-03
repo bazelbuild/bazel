@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBitcodeModeApi;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -151,11 +150,10 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
   @StarlarkMethod(
       name = "apple_bitcode_mode",
       doc =
-          "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"
-              + " Apple, and only for device builds; for simulator builds, it always returns "
-              + "<code>'none'</code>.",
+          "Deprecated: Returns the Bitcode mode to use for compilation steps. "
+              + "Always returns <code>'none'</code>.",
       structField = true)
-  AppleBitcodeModeApi getAppleBitcodeMode();
+  String getAppleBitcodeMode();
 
   @StarlarkMethod(
       name = "apple_generate_dsym",

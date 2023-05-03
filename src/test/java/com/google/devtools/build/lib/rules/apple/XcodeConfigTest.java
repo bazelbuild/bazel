@@ -1218,20 +1218,6 @@ public class XcodeConfigTest extends BuildViewTestCase {
     assertContainsEvent("must be contained in versions attribute");
   }
 
-  @Test
-  public void testInvalidBitcodeVersion() throws Exception {
-    new BuildFileBuilder()
-        .addExplicitVersion("version512", "5.1.2", true)
-        .write(scratch, "xcode/BUILD");
-
-    useConfiguration(
-        "--apple_platform_type=ios", "--apple_bitcode=embedded", "--apple_split_cpu=arm64");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//xcode:foo");
-    assertContainsEvent("apple_bitcode mode 'embedded' is unsupported");
-  }
-
   // Verifies that the --xcode_version_config configuration value can be accessed via the
   // configuration_field() Starlark method and used in a Starlark rule.
   @Test

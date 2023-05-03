@@ -351,7 +351,6 @@ public class AppleStarlarkCommon
                   .put("architecture", targetTriplet.architecture())
                   .put("environment", targetTriplet.environment())
                   .put("binary", linkingOutput.getBinary())
-                  .put("bitcode_symbols", valueOrNone(linkingOutput.getBitcodeSymbols()))
                   .put("dsym_binary", valueOrNone(linkingOutput.getDsymBinary()))
                   .put("linkmap", valueOrNone(linkingOutput.getLinkmap()))
                   .buildOrThrow(),
