@@ -723,7 +723,7 @@ cc_shared_library = rule(
         ),
     },
     toolchains = cc_helper.use_cpp_toolchain(),
-    fragments = ["google_cpp", "cpp"],
+    fragments = ["cpp"] + semantics.additional_fragments(),
     incompatible_use_toolchain_transition = True,
 )
 

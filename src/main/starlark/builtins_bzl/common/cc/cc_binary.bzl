@@ -902,7 +902,7 @@ def make_cc_binary(cc_binary_attrs, **kwargs):
             "stripped_binary": "%{name}.stripped",
             "dwp_file": "%{name}.dwp",
         },
-        fragments = ["google_cpp", "cpp"],
+        fragments = ["cpp"] + semantics.additional_fragments(),
         exec_groups = {
             "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
