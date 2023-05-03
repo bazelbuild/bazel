@@ -115,7 +115,6 @@ public final class BazelPyRuleClasses {
               attr("srcs_version", STRING)
                   .value(PythonVersion.DEFAULT_SRCS_VALUE.toString())
                   .allowedValues(new AllowedValueSet(PythonVersion.SRCS_STRINGS)))
-          .setPreferredDependencyPredicate(PyRuleClasses.PYTHON_SOURCE)
           .build();
     }
 

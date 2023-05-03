@@ -765,7 +765,6 @@ public class RuleClass {
     private TransitionFactory<RuleTransitionData> transitionFactory;
     private ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate = PredicatesWithMessage.alwaysTrue();
-    private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private final AdvertisedProviderSet.Builder advertisedProviders =
         AdvertisedProviderSet.builder();
     private StarlarkCallable configuredTargetFunction = null;
@@ -812,9 +811,6 @@ public class RuleClass {
       for (RuleClass parent : parents) {
         if (parent.getValidityPredicate() != PredicatesWithMessage.<Rule>alwaysTrue()) {
           setValidityPredicate(parent.getValidityPredicate());
-        }
-        if (parent.preferredDependencyPredicate != Predicates.<String>alwaysFalse()) {
-          setPreferredDependencyPredicate(parent.preferredDependencyPredicate);
         }
         configurationFragmentPolicy
             .includeConfigurationFragmentsFrom(parent.getConfigurationFragmentPolicy());
@@ -935,7 +931,6 @@ public class RuleClass {
           transitionFactory,
           configuredTargetFactory,
           validityPredicate,
-          preferredDependencyPredicate,
           advertisedProviders.build(),
           configuredTargetFunction,
           externalBindingsFunction,
@@ -1149,12 +1144,6 @@ public class RuleClass {
     @CanIgnoreReturnValue
     public Builder setValidityPredicate(PredicateWithMessage<Rule> predicate) {
       this.validityPredicate = predicate;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setPreferredDependencyPredicate(Predicate<String> predicate) {
-      this.preferredDependencyPredicate = predicate;
       return this;
     }
 
@@ -1616,11 +1605,6 @@ public class RuleClass {
   private final PredicateWithMessage<Rule> validityPredicate;
 
   /**
-   * See {@link #isPreferredDependency}.
-   */
-  private final Predicate<String> preferredDependencyPredicate;
-
-  /**
    * The list of transitive info providers this class advertises to aspects.
    */
   private final AdvertisedProviderSet advertisedProviders;
@@ -1716,7 +1700,6 @@ public class RuleClass {
       TransitionFactory<RuleTransitionData> transitionFactory,
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
-      Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
@@ -1746,7 +1729,6 @@ public class RuleClass {
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
-    this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
@@ -1943,13 +1925,6 @@ public class RuleClass {
    **/
   public AdvertisedProviderSet getAdvertisedProviders() {
     return advertisedProviders;
-  }
-  /**
-   * For --compile_one_dependency: if multiple rules consume the specified target,
-   * should we choose this one over the "unpreferred" options?
-   */
-  public boolean isPreferredDependency(String filename) {
-    return preferredDependencyPredicate.apply(filename);
   }
 
   /**
