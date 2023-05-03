@@ -470,6 +470,11 @@ public final class LocationExpander {
       Iterables.addAll(
           depsDataAndTools, ruleContext.getPrerequisitesIf("deps", FilesToRunProvider.class));
     }
+    if (ruleContext.getRule().isAttrDefined("implementation_deps", BuildType.LABEL_LIST)) {
+      Iterables.addAll(
+          depsDataAndTools,
+          ruleContext.getPrerequisitesIf("implementation_deps", FilesToRunProvider.class));
+    }
     if (allowDataAttributeEntriesInLabel
         && ruleContext.getRule().isAttrDefined("data", BuildType.LABEL_LIST)) {
       Iterables.addAll(

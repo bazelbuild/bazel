@@ -239,6 +239,11 @@ public class ObjcStarlarkInternal implements StarlarkValue {
             positional = false,
             defaultValue = "[]",
             named = true),
+        @Param(
+            name = "implementation_cc_compilation_contexts",
+            positional = false,
+            defaultValue = "[]",
+            named = true),
         @Param(name = "defines", positional = false, defaultValue = "[]", named = true),
         @Param(name = "includes", positional = false, defaultValue = "[]", named = true),
       })
@@ -249,6 +254,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
       Sequence<?> providers,
       Sequence<?> directCcCompilationContexts,
       Sequence<?> ccCompilationContexts,
+      Sequence<?> implementationCcCompilationContexts,
       Sequence<?> defines,
       Sequence<?> includes)
       throws InterruptedException, EvalException {
@@ -264,6 +270,11 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         .addCcCompilationContexts(
             Sequence.cast(
                 ccCompilationContexts, CcCompilationContext.class, "cc_compilation_contexts"))
+        .addImplementationCcCompilationContexts(
+            Sequence.cast(
+                implementationCcCompilationContexts,
+                CcCompilationContext.class,
+                "implementation_cc_compilation_contexts"))
         .addDefines(Sequence.cast(defines, String.class, "defines"))
         .addIncludes(
             Sequence.cast(includes, String.class, "includes").stream()
