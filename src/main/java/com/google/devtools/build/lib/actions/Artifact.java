@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -313,12 +314,13 @@ public abstract class Artifact
   private final int hashCode;
   private final PathFragment execPath;
 
-  private Artifact(ArtifactRoot root, PathFragment execPath) {
+  private Artifact(ArtifactRoot root, PathFragment execPath, int hashCodeWithOwner) {
     Preconditions.checkNotNull(root);
-    // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
-    // have the same execPath and different owners, so a collision is fine there. If this is
-    // changed, OwnerlessArtifactWrapper must also be changed.
-    this.hashCode = execPath.hashCode();
+    // Use a precomputed hashcode since there tends to be massive hash-based collections of
+    // artifacts. Importantly, the hashcode ought to incorporate the artifact's owner (not just the
+    // exec path) to prevent a hash collision on the same owner (this is the common case for
+    // multiple aspects that produce the same output file).
+    this.hashCode = hashCodeWithOwner;
     this.root = root;
     this.execPath = execPath;
   }
@@ -365,7 +367,7 @@ public abstract class Artifact
 
     private DerivedArtifact(
         ArtifactRoot root, PathFragment execPath, Object owner, boolean contentBasedPath) {
-      super(root, execPath);
+      super(root, execPath, HashCodes.hashObjects(execPath, getOwnerToUseForHashCode(owner)));
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
       this.owner = Preconditions.checkNotNull(owner);
@@ -413,6 +415,16 @@ public abstract class Artifact
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
           : (ActionLookupKey) owner;
+    }
+
+    /**
+     * Returns the object to use for the hash code for this artifact's owner, with the goal of being
+     * consistent across calls to {@link #setGeneratingActionKey} and also serialization.
+     */
+    private static Object getOwnerToUseForHashCode(Object owner) {
+      return owner instanceof ActionLookupData
+          ? ((ActionLookupData) owner).getActionLookupKey()
+          : owner;
     }
 
     @Override
@@ -861,17 +873,18 @@ public abstract class Artifact
     return equalsWithoutOwner(that) && ownersEqual(that);
   }
 
+  final int hashCodeWithoutOwner() {
+    return HashCodes.hashObjects(execPath, root);
+  }
+
   final boolean equalsWithoutOwner(Artifact other) {
-    return hashCode == other.hashCode && execPath.equals(other.execPath) && root.equals(other.root);
+    return execPath.equals(other.execPath) && root.equals(other.root);
   }
 
   abstract boolean ownersEqual(Artifact other);
 
   @Override
   public final int hashCode() {
-    // This is just execPath.hashCode() (along with the class). We cache a copy in the Artifact
-    // object to reduce LLC misses during operations which build a HashSet out of many Artifacts.
-    // This is a slight loss for memory but saves ~1% overall CPU in some real builds.
     return hashCode;
   }
 
@@ -918,7 +931,7 @@ public abstract class Artifact
 
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-      super(root, execPath);
+      super(root, execPath, execPath.hashCode());
       this.owner = owner;
     }
 
@@ -1599,15 +1612,16 @@ public abstract class Artifact
    */
   public static final class OwnerlessArtifactWrapper {
     private final Artifact artifact;
+    private final int hashCode;
 
     public OwnerlessArtifactWrapper(Artifact artifact) {
       this.artifact = artifact;
+      this.hashCode = artifact.hashCodeWithoutOwner();
     }
 
     @Override
     public int hashCode() {
-      // Depends on the fact that Artifact#hashCode does not use ArtifactOwner.
-      return artifact.hashCode();
+      return hashCode;
     }
 
     @Override
