@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -1445,7 +1446,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     if ((owner instanceof ActionLookupKey)) {
       SkyValue skyValue;
       try {
-        skyValue = skyframeExecutor.getEvaluator().getExistingValue((SkyKey) owner);
+        skyValue =
+            skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner).toKey());
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
@@ -1472,7 +1474,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ActionLookupKey actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
+    ActionLookupKeyOrProxy actionLookupKey = ConfiguredTargetKey.fromConfiguredTarget(owner);
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),

@@ -328,7 +328,7 @@ public final class CompletionFunction<
       Pair<ValueT, ArtifactsToBuild> getValueAndArtifactsToBuild(
           TopLevelActionLookupKeyWrapper key, Environment env) throws InterruptedException {
     @SuppressWarnings("unchecked")
-    ValueT value = (ValueT) env.getValue(key.actionLookupKey());
+    ValueT value = (ValueT) env.getValue(key.actionLookupKey().toKey());
     if (env.valuesMissing()) {
       return null;
     }

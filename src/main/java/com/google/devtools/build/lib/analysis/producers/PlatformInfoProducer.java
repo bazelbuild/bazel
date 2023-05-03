@@ -108,7 +108,9 @@ final class PlatformInfoProducer
     }
 
     tasks.lookUp(
-        platformKey, ConfiguredValueCreationException.class, this::acceptPlatformValueOrError);
+        platformKey.toKey(),
+        ConfiguredValueCreationException.class,
+        this::acceptPlatformValueOrError);
     return this::retrievePlatformInfo;
   }
 

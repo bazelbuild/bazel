@@ -74,22 +74,22 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
       return false;
     }
 
-    Function<SkyKey, String> printer =
+    Function<Object, String> printer =
         input -> {
-          if (input.argument() instanceof ConfiguredTargetKey) {
-            Label label = ((ConfiguredTargetKey) input.argument()).getLabel();
+          if (input instanceof ConfiguredTargetKey) {
+            Label label = ((ConfiguredTargetKey) input).getLabel();
             return label.toString();
           }
-          if (input.argument() instanceof RegisteredToolchainsValue.Key) {
+          if (input instanceof RegisteredToolchainsValue.Key) {
             return "RegisteredToolchains";
           }
-          if (input.argument() instanceof SingleToolchainResolutionKey) {
+          if (input instanceof SingleToolchainResolutionKey) {
             Label toolchainType =
-                ((SingleToolchainResolutionKey) input.argument()).toolchainType().toolchainType();
+                ((SingleToolchainResolutionKey) input).toolchainType().toolchainType();
             return String.format("toolchain type %s", toolchainType);
           }
-          if (input.argument() instanceof ToolchainContextKey) {
-            ToolchainContextKey toolchainContextKey = (ToolchainContextKey) input.argument();
+          if (input instanceof ToolchainContextKey) {
+            ToolchainContextKey toolchainContextKey = (ToolchainContextKey) input;
             String toolchainTypes =
                 toolchainContextKey.toolchainTypes().stream()
                     .map(ToolchainTypeRequirement::toolchainType)
@@ -98,7 +98,7 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
             return String.format("toolchain types %s", toolchainTypes);
           }
 
-          throw new UnsupportedOperationException();
+          throw new UnsupportedOperationException(input.toString());
         };
 
     StringBuilder cycleMessage =

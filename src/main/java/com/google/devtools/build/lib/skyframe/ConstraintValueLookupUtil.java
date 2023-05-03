@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -36,7 +37,9 @@ public class ConstraintValueLookupUtil {
       Iterable<ConfiguredTargetKey> constraintValueKeys, Environment env)
       throws InterruptedException, InvalidConstraintValueException {
 
-    SkyframeLookupResult values = env.getValuesAndExceptions(constraintValueKeys);
+    SkyframeLookupResult values =
+        env.getValuesAndExceptions(
+            Iterables.transform(constraintValueKeys, ConfiguredTargetKey::toKey));
     boolean valuesMissing = env.valuesMissing();
     List<ConstraintValueInfo> constraintValues = valuesMissing ? null : new ArrayList<>();
     for (ConfiguredTargetKey key : constraintValueKeys) {
@@ -64,7 +67,7 @@ public class ConstraintValueLookupUtil {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
               values.getOrThrow(
-                  key,
+                  key.toKey(),
                   ConfiguredValueCreationException.class,
                   NoSuchThingException.class,
                   ActionConflictException.class);

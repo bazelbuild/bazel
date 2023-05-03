@@ -155,7 +155,8 @@ public final class PrerequisiteProducer {
 
     /** Null if not yet computed or if {@link #computeDependenciesResult} is non-null. */
     @Nullable
-    private Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependenciesResult;
+    private Map<ConfiguredTargetKey, ConfiguredTargetAndData>
+        resolveConfiguredTargetDependenciesResult;
 
     /**
      * Non-null if all the work in {@link #computeDependencies} is already done. This field contains
@@ -726,7 +727,7 @@ public final class PrerequisiteProducer {
       }
 
       // Resolve configured target dependencies and handle errors.
-      Map<SkyKey, ConfiguredTargetAndData> depValues;
+      Map<ConfiguredTargetKey, ConfiguredTargetAndData> depValues;
       if (state.resolveConfiguredTargetDependenciesResult != null) {
         depValues = state.resolveConfiguredTargetDependenciesResult;
       } else {
@@ -892,13 +893,14 @@ public final class PrerequisiteProducer {
    * <p>Returns null if not all instances are available yet.
    */
   @Nullable
-  private static Map<SkyKey, ConfiguredTargetAndData> resolveConfiguredTargetDependencies(
-      Environment env,
-      TargetAndConfiguration ctgValue,
-      Collection<Dependency> deps,
-      @Nullable NestedSetBuilder<Package> transitivePackages,
-      NestedSetBuilder<Cause> transitiveRootCauses)
-      throws DependencyEvaluationException, InterruptedException {
+  private static Map<ConfiguredTargetKey, ConfiguredTargetAndData>
+      resolveConfiguredTargetDependencies(
+          Environment env,
+          TargetAndConfiguration ctgValue,
+          Collection<Dependency> deps,
+          @Nullable NestedSetBuilder<Package> transitivePackages,
+          NestedSetBuilder<Cause> transitiveRootCauses)
+          throws DependencyEvaluationException, InterruptedException {
     boolean missedValues = env.valuesMissing();
     ConfiguredValueCreationException rootError = null;
     DetailedExitCode detailedExitCode = null;
@@ -912,22 +914,24 @@ public final class PrerequisiteProducer {
             Iterables.transform(deps, input -> input.getLabel().getPackageIdentifier()));
     Iterable<SkyKey> depKeys =
         Iterables.concat(
-            Iterables.transform(deps, Dependency::getConfiguredTargetKey), packageKeys);
+            Iterables.transform(deps, dep -> dep.getConfiguredTargetKey().toKey()), packageKeys);
     SkyframeLookupResult depValuesOrExceptions = env.getValuesAndExceptions(depKeys);
     boolean depValuesMissingForDebugging = env.valuesMissing();
-    Map<SkyKey, ConfiguredTargetAndData> result = Maps.newHashMapWithExpectedSize(deps.size());
+    Map<ConfiguredTargetKey, ConfiguredTargetAndData> result =
+        Maps.newHashMapWithExpectedSize(deps.size());
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
     List<Dependency> aliasDepsToRedo = new ArrayList<>();
     SkyframeLookupResult aliasPackageValues = null;
     Collection<Dependency> depsToProcess = deps;
     for (int i = 0; i < 2; i++) {
       for (Dependency dep : depsToProcess) {
-        SkyKey key = dep.getConfiguredTargetKey();
+        ConfiguredTargetKey key = dep.getConfiguredTargetKey();
         ConfiguredTargetValue depValue;
         try {
           depValue =
               (ConfiguredTargetValue)
-                  depValuesOrExceptions.getOrThrow(key, ConfiguredValueCreationException.class);
+                  depValuesOrExceptions.getOrThrow(
+                      key.toKey(), ConfiguredValueCreationException.class);
         } catch (ConfiguredValueCreationException e) {
           transitiveRootCauses.addTransitive(e.getRootCauses());
           detailedExitCode =

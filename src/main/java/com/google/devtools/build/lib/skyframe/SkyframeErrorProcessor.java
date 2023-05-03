@@ -609,11 +609,11 @@ public final class SkyframeErrorProcessor {
   /** Peel away the wrapper layers to get to the ActionLookupKey of the top level target. */
   private static SkyKey getEffectiveErrorKey(Entry<SkyKey, ErrorInfo> errorEntry) {
     if (errorEntry.getKey().argument() instanceof BuildDriverKey) {
-      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey();
+      return ((BuildDriverKey) errorEntry.getKey().argument()).getActionLookupKey().toKey();
     }
     // For exclusive tests.
     if (errorEntry.getKey().argument() instanceof TestCompletionKey) {
-      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey();
+      return ((TestCompletionKey) errorEntry.getKey().argument()).configuredTargetKey().toKey();
     }
     return errorEntry.getKey();
   }

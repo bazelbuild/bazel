@@ -28,7 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -146,7 +146,7 @@ public class BuildDriverFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     BuildDriverKey buildDriverKey = (BuildDriverKey) skyKey;
-    ActionLookupKey actionLookupKey = buildDriverKey.getActionLookupKey();
+    ActionLookupKeyOrProxy actionLookupKey = buildDriverKey.getActionLookupKey();
     TopLevelArtifactContext topLevelArtifactContext = buildDriverKey.getTopLevelArtifactContext();
     State state = env.getState(State::new);
 
@@ -157,7 +157,7 @@ public class BuildDriverFunction implements SkyFunction {
     // Why SkyValue and not ActionLookupValue? The evaluation of some ActionLookupKey can result in
     // classes that don't implement ActionLookupValue
     // (e.g. ConfiguredTargetKey -> NonRuleConfiguredTargetValue).
-    SkyValue topLevelSkyValue = env.getValue(actionLookupKey);
+    SkyValue topLevelSkyValue = env.getValue(actionLookupKey.toKey());
 
     if (env.valuesMissing()) {
       return null;
@@ -396,7 +396,7 @@ public class BuildDriverFunction implements SkyFunction {
   private void requestConfiguredTargetExecution(
       ConfiguredTarget configuredTarget,
       BuildDriverKey buildDriverKey,
-      ActionLookupKey actionLookupKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       BuildConfigurationValue buildConfigurationValue,
       Environment env,
       TopLevelArtifactContext topLevelArtifactContext,
@@ -509,7 +509,8 @@ public class BuildDriverFunction implements SkyFunction {
 
   @VisibleForTesting
   ImmutableMap<ActionAnalysisMetadata, ConflictException> checkActionConflicts(
-      ActionLookupKey actionLookupKey, boolean strictConflictCheck) throws InterruptedException {
+      ActionLookupKeyOrProxy actionLookupKey, boolean strictConflictCheck)
+      throws InterruptedException {
     ActionLookupValuesCollectionResult transitiveValueCollectionResult =
         transitiveActionLookupValuesHelper.collect(actionLookupKey);
 
@@ -566,20 +567,22 @@ public class BuildDriverFunction implements SkyFunction {
      * Perform the traversal of the transitive closure of the {@code key} and collect the
      * corresponding ActionLookupValues.
      */
-    ActionLookupValuesCollectionResult collect(ActionLookupKey key) throws InterruptedException;
+    ActionLookupValuesCollectionResult collect(ActionLookupKeyOrProxy key)
+        throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
-    void registerConflictFreeKeys(ImmutableSet<SkyKey> keys);
+    void registerConflictFreeKeys(ImmutableSet<ActionLookupKeyOrProxy> keys);
   }
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
     abstract ImmutableCollection<SkyValue> collectedValues();
 
-    abstract ImmutableSet<SkyKey> visitedKeys();
+    abstract ImmutableSet<ActionLookupKeyOrProxy> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        ImmutableCollection<SkyValue> collectedValues, ImmutableSet<SkyKey> visitedKeys) {
+        ImmutableCollection<SkyValue> collectedValues,
+        ImmutableSet<ActionLookupKeyOrProxy> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }

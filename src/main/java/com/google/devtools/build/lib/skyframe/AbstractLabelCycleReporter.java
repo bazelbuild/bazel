@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
@@ -48,8 +49,11 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
   protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
 
   /** Returns the String representation of the {@code SkyKey}. */
-  protected String prettyPrint(SkyKey key) {
-    return getLabel(key).toString();
+  protected String prettyPrint(Object rawKey) {
+    if (rawKey instanceof ActionLookupKeyOrProxy) {
+      return ((ActionLookupKeyOrProxy) rawKey).getLabel().toString();
+    }
+    return getLabel((SkyKey) rawKey).toString();
   }
 
   /** Can be used to skip individual keys on the path to the cycle. */
@@ -130,14 +134,14 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
   static SkyKey printCycle(
       ImmutableList<SkyKey> cycle,
       StringBuilder cycleMessage,
-      Function<SkyKey, String> printFunction) {
+      Function<Object, String> printFunction) {
     return printCycle(cycle, cycleMessage, printFunction, Predicates.alwaysFalse());
   }
 
   private static SkyKey printCycle(
       ImmutableList<SkyKey> cycle,
       StringBuilder cycleMessage,
-      Function<SkyKey, String> printFunction,
+      Function<Object, String> printFunction,
       Predicate<SkyKey> shouldSkipIntermediateKey) {
     Preconditions.checkArgument(!cycle.isEmpty());
     SkyKey cycleValue = null;

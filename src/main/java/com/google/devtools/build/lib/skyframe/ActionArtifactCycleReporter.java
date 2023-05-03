@@ -44,7 +44,8 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
   }
 
   @Override
-  protected String prettyPrint(SkyKey key) {
+  protected String prettyPrint(Object untypedKey) {
+    SkyKey key = (SkyKey) untypedKey;
     return prettyPrint(key.functionName(), key.argument());
   }
 

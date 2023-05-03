@@ -100,8 +100,9 @@ public class BzlmodRepoCycleReporter implements CyclesReporter.SingleCycleReport
       Iterable<SkyKey> repos =
           Iterables.filter(
               cycle, Predicates.or(IS_REPOSITORY_DIRECTORY, IS_EXTENSION_IMPL, IS_BZL_LOAD));
-      Function<SkyKey, String> printer =
-          input -> {
+      Function<Object, String> printer =
+          rawInput -> {
+            SkyKey input = (SkyKey) rawInput;
             if (input instanceof RepositoryDirectoryValue.Key) {
               return ((RepositoryDirectoryValue.Key) input).argument().getNameWithAt();
             } else if (input.argument() instanceof ModuleExtensionId) {

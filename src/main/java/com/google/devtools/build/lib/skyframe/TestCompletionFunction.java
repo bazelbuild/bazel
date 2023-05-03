@@ -43,7 +43,7 @@ public final class TestCompletionFunction implements SkyFunction {
       return null;
     }
 
-    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(ctKey);
+    ConfiguredTargetValue ctValue = (ConfiguredTargetValue) env.getValue(ctKey.toKey());
     if (ctValue == null) {
       return null;
     }

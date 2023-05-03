@@ -51,7 +51,7 @@ public final class AspectResolver {
   @Nullable
   public static OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependencies(
       SkyFunction.Environment env,
-      Map<SkyKey, ConfiguredTargetAndData> configuredTargetMap,
+      Map<ConfiguredTargetKey, ConfiguredTargetAndData> configuredTargetMap,
       Iterable<Dependency> deps,
       @Nullable NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException, InterruptedException {
@@ -117,7 +117,7 @@ public final class AspectResolver {
    */
   public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> mergeAspects(
       OrderedSetMultimap<DependencyKind, Dependency> depValueNames,
-      Map<SkyKey, ConfiguredTargetAndData> depConfiguredTargetMap,
+      Map<ConfiguredTargetKey, ConfiguredTargetAndData> depConfiguredTargetMap,
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspectMap)
       throws DuplicateException {
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
@@ -125,7 +125,7 @@ public final class AspectResolver {
 
     for (Map.Entry<DependencyKind, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
-      SkyKey depKey = dep.getConfiguredTargetKey();
+      ConfiguredTargetKey depKey = dep.getConfiguredTargetKey();
       ConfiguredTargetAndData depConfiguredTarget = depConfiguredTargetMap.get(depKey);
 
       result.put(

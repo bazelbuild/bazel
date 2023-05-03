@@ -325,7 +325,11 @@ public class ConfiguredTargetQueryEnvironment
   private KeyedConfiguredTarget getConfiguredTarget(
       Label label, BuildConfigurationValue configuration) throws InterruptedException {
     return getValueFromKey(
-        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build());
+        ConfiguredTargetKey.builder()
+            .setLabel(label)
+            .setConfiguration(configuration)
+            .build()
+            .toKey());
   }
 
   @Override
@@ -515,7 +519,7 @@ public class ConfiguredTargetQueryEnvironment
   }
 
   @Override
-  protected ConfiguredTargetKey getSkyKey(KeyedConfiguredTarget target) {
+  protected ConfiguredTargetKey getConfiguredTargetKey(KeyedConfiguredTarget target) {
     return target.getConfiguredTargetKey();
   }
 

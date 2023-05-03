@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.skyframe.CPUHeavySkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -24,7 +25,7 @@ import java.util.Objects;
  * the {@link ActionLookupKey} and executing the associated actions.
  */
 public final class BuildDriverKey implements CPUHeavySkyKey {
-  private final ActionLookupKey actionLookupKey;
+  private final ActionLookupKeyOrProxy actionLookupKey;
   private final TopLevelArtifactContext topLevelArtifactContext;
   private final TestType testType;
   private final boolean strictActionConflictCheck;
@@ -33,7 +34,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   private final boolean isTopLevelAspectDriver;
 
   private BuildDriverKey(
-      ActionLookupKey actionLookupKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
@@ -66,7 +67,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
   }
 
   public static BuildDriverKey ofConfiguredTarget(
-      ActionLookupKey actionLookupKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       TopLevelArtifactContext topLevelArtifactContext,
       boolean strictActionConflictCheck,
       boolean explicitlyRequested,
@@ -86,7 +87,7 @@ public final class BuildDriverKey implements CPUHeavySkyKey {
     return topLevelArtifactContext;
   }
 
-  public ActionLookupKey getActionLookupKey() {
+  public ActionLookupKeyOrProxy getActionLookupKey() {
     return actionLookupKey;
   }
 

@@ -192,7 +192,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
                                 .getGeneratingRule()
                                 .getLabel())
                         .setConfiguration(queryEnvironment.getConfiguration(kct))
-                        .build()))
+                        .build()
+                        .toKey()))
             .getConfiguredTarget();
   }
 

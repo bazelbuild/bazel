@@ -32,7 +32,7 @@ public final class CoverageReportValue extends BasicActionLookupValue {
     super(generatingActions);
   }
 
-  private static final class CoverageReportKey extends ActionLookupKey {
+  private static final class CoverageReportKey implements ActionLookupKey {
     private CoverageReportKey() {}
 
     @Override

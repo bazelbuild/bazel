@@ -164,7 +164,7 @@ public class ConfiguredTargetValueAccessor implements TargetAccessor<KeyedConfig
   public Set<AspectValue> getAspectValues(KeyedConfiguredTargetValue keyedConfiguredTargetValue)
       throws InterruptedException {
     Set<AspectValue> result = new HashSet<>();
-    SkyKey skyKey = configuredTargetKeyExtractor.extractKey(keyedConfiguredTargetValue);
+    SkyKey skyKey = configuredTargetKeyExtractor.extractKey(keyedConfiguredTargetValue).toKey();
     Iterable<SkyKey> revDeps =
         Iterables.concat(walkableGraph.getReverseDeps(ImmutableList.of(skyKey)).values());
     Label label = keyedConfiguredTargetValue.getConfiguredTarget().getLabel();

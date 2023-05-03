@@ -61,7 +61,7 @@ public class SkyframeErrorProcessorTest {
             /*isTransitivelyTransient=*/ false);
 
     EvaluationResult<SkyValue> result =
-        EvaluationResult.builder().addError(analysisErrorKey, analysisErrorInfo).build();
+        EvaluationResult.builder().addError(analysisErrorKey.toKey(), analysisErrorInfo).build();
 
     ViewCreationFailedException thrown =
         assertThrows(

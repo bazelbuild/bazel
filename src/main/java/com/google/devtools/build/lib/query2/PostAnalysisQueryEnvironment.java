@@ -218,7 +218,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   }
 
   private boolean isAliasConfiguredTarget(ConfiguredTargetKey key) throws InterruptedException {
-    return AliasProvider.isAlias(getConfiguredTargetValue(key).getConfiguredTarget());
+    return AliasProvider.isAlias(getConfiguredTargetValue(key.toKey()).getConfiguredTarget());
   }
 
   public InterruptibleSupplier<ImmutableSet<PathFragment>>
@@ -248,7 +248,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   public ThreadSafeMutableSet<T> getFwdDeps(Iterable<T> targets) throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
-      targetsByKey.put(getSkyKey(target), target);
+      targetsByKey.put(getConfiguredTargetKey(target).toKey(), target);
     }
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> directDeps =
         targetifyValues(targetsByKey, graph.getDirectDeps(targetsByKey.keySet()));
@@ -285,7 +285,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       throws InterruptedException {
     Map<SkyKey, T> targetsByKey = Maps.newHashMapWithExpectedSize(Iterables.size(targets));
     for (T target : targets) {
-      targetsByKey.put(getSkyKey(target), target);
+      targetsByKey.put(getConfiguredTargetKey(target).toKey(), target);
     }
     Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> reverseDepsByKey =
         targetifyValues(targetsByKey, graph.getReverseDeps(targetsByKey.keySet()));
@@ -500,7 +500,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   @Nullable
   protected abstract BuildConfigurationValue getConfiguration(T target);
 
-  protected abstract ConfiguredTargetKey getSkyKey(T target);
+  protected abstract ConfiguredTargetKey getConfiguredTargetKey(T target);
 
   @Override
   public ThreadSafeMutableSet<T> getTransitiveClosure(

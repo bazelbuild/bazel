@@ -104,6 +104,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:detailed_exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_aware_action",
@@ -180,7 +181,10 @@ java_library(
 
 java_library(
     name = "action_lookup_key",
-    srcs = ["ActionLookupKey.java"],
+    srcs = [
+        "ActionLookupKey.java",
+        "ActionLookupKeyOrProxy.java",
+    ],
     deps = [
         ":artifact_owner",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",

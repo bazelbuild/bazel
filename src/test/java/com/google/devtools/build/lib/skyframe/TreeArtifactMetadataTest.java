@@ -265,7 +265,7 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         throws SkyFunctionException, InterruptedException {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
-          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey().toKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       SpecialArtifact output = (SpecialArtifact) Iterables.getOnlyElement(action.getOutputs());
       TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(output);

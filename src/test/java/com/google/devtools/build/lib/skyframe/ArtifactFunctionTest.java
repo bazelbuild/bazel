@@ -460,7 +460,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
-          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey().toKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
 

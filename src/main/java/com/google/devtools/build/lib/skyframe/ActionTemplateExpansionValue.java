@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,27 +31,29 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
     super(generatingActions);
   }
 
-  public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
+  public static ActionTemplateExpansionKey key(
+      ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
     return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 
   /** Key for {@link ActionTemplateExpansionValue} nodes. */
   @AutoCodec
-  public static final class ActionTemplateExpansionKey extends ActionLookupKey {
+  public static final class ActionTemplateExpansionKey implements ActionLookupKey {
     private static final Interner<ActionTemplateExpansionKey> interner =
         BlazeInterners.newWeakInterner();
 
-    private final ActionLookupKey actionLookupKey;
+    private final ActionLookupKeyOrProxy actionLookupKey;
     private final int actionIndex;
 
-    private ActionTemplateExpansionKey(ActionLookupKey actionLookupKey, int actionIndex) {
+    private ActionTemplateExpansionKey(ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
       this.actionLookupKey = actionLookupKey;
       this.actionIndex = actionIndex;
     }
 
     @VisibleForTesting
     @AutoCodec.Instantiator
-    public static ActionTemplateExpansionKey of(ActionLookupKey actionLookupKey, int actionIndex) {
+    public static ActionTemplateExpansionKey of(
+        ActionLookupKeyOrProxy actionLookupKey, int actionIndex) {
       return interner.intern(new ActionTemplateExpansionKey(actionLookupKey, actionIndex));
     }
 
@@ -69,7 +72,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
       return actionLookupKey.getConfigurationKey();
     }
 
-    public ActionLookupKey getActionLookupKey() {
+    public ActionLookupKeyOrProxy getActionLookupKey() {
       return actionLookupKey;
     }
 

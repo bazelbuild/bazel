@@ -311,7 +311,7 @@ public class BuildViewForTesting {
 
       // Load the keys of the dependencies of the target, based on data currently in skyframe.
       Iterable<SkyKey> directPrerequisites =
-          walkableGraph.getDirectDeps(ConfiguredTargetKey.fromConfiguredTarget(ct));
+          walkableGraph.getDirectDeps(ConfiguredTargetKey.fromConfiguredTarget(ct).toKey());
 
       // Turn the keys back into ConfiguredTarget instances, possibly merging in aspects that were
       // propagated from the original target.
@@ -334,7 +334,7 @@ public class BuildViewForTesting {
   private static ConfiguredTargetAndData getConfiguredTarget(
       WalkableGraph graph, ConfiguredTargetKey key) {
     try {
-      ConfiguredTargetValue value = (ConfiguredTargetValue) graph.getValue(key);
+      ConfiguredTargetValue value = (ConfiguredTargetValue) graph.getValue(key.toKey());
       if (value != null) {
         ConfiguredTarget ct = value.getConfiguredTarget();
         BuildConfigurationValue config = null;

@@ -31,7 +31,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -648,7 +648,9 @@ public class BuildView {
                 ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey();
             ActionLookupValue val;
             try {
-              val = (ActionLookupValue) graph.getValue(generatingActionKey.getActionLookupKey());
+              val =
+                  (ActionLookupValue)
+                      graph.getValue(generatingActionKey.getActionLookupKey().toKey());
             } catch (InterruptedException e) {
               throw new IllegalStateException(
                   "Interruption not expected from this graph: " + generatingActionKey, e);
@@ -813,7 +815,7 @@ public class BuildView {
     // might have injected.
     for (Artifact.DerivedArtifact artifact :
         provider.getTransitiveExtraActionArtifacts().toList()) {
-      ActionLookupKey owner = artifact.getArtifactOwner();
+      ActionLookupKeyOrProxy owner = artifact.getArtifactOwner();
       if (owner instanceof AspectKey) {
         if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
           artifacts.add(artifact);

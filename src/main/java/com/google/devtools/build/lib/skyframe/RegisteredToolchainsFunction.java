@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
@@ -179,22 +180,22 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   private static ImmutableList<DeclaredToolchainInfo> configureRegisteredToolchains(
       Environment env, BuildConfigurationValue configuration, List<Label> labels)
       throws InterruptedException, RegisteredToolchainsFunctionException {
-    ImmutableList<SkyKey> keys =
+    ImmutableList<ActionLookupKey> keys =
         labels.stream()
             .map(
                 label ->
                     ConfiguredTargetKey.builder()
                         .setLabel(label)
                         .setConfiguration(configuration)
-                        .build())
+                        .build()
+                        .toKey())
             .collect(toImmutableList());
 
     SkyframeLookupResult values = env.getValuesAndExceptions(keys);
     ImmutableList.Builder<DeclaredToolchainInfo> toolchains = new ImmutableList.Builder<>();
     boolean valuesMissing = false;
-    for (SkyKey key : keys) {
-      ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
-      Label toolchainLabel = configuredTargetKey.getLabel();
+    for (ActionLookupKey key : keys) {
+      Label toolchainLabel = key.getLabel();
       try {
         SkyValue value = values.getOrThrow(key, ConfiguredValueCreationException.class);
         if (value == null) {

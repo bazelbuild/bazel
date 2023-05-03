@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -51,7 +52,8 @@ public class PlatformLookupUtil {
       return null;
     }
 
-    SkyframeLookupResult values = env.getValuesAndExceptions(platformKeys);
+    SkyframeLookupResult values =
+        env.getValuesAndExceptions(Lists.transform(platformKeys, ConfiguredTargetKey::toKey));
     boolean valuesMissing = env.valuesMissing();
     Map<ConfiguredTargetKey, PlatformInfo> platforms = valuesMissing ? null : new HashMap<>();
     for (ConfiguredTargetKey key : platformKeys) {
@@ -130,7 +132,7 @@ public class PlatformLookupUtil {
       ConfiguredTargetValue ctv =
           (ConfiguredTargetValue)
               values.getOrThrow(
-                  key,
+                  key.toKey(),
                   ConfiguredValueCreationException.class,
                   NoSuchThingException.class,
                   ActionConflictException.class);

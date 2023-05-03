@@ -166,7 +166,11 @@ public class IncompatibleTargetChecker {
       }
       for (Label label : targetCompatibleWith) {
         tasks.lookUp(
-            ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build(),
+            ConfiguredTargetKey.builder()
+                .setLabel(label)
+                .setConfiguration(configuration)
+                .build()
+                .toKey(),
             this);
       }
       return this::processResult;

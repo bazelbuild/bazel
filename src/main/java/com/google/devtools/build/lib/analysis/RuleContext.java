@@ -36,7 +36,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -170,7 +170,7 @@ public final class RuleContext extends TargetContext
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
 
-  private final SymbolGenerator<ActionLookupKey> actionOwnerSymbolGenerator;
+  private final SymbolGenerator<ActionLookupKeyOrProxy> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -491,7 +491,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ActionLookupKey getOwner() {
+  public ActionLookupKeyOrProxy getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -1656,7 +1656,7 @@ public final class RuleContext extends TargetContext
     private final RuleErrorConsumer reporter;
     private ConfiguredRuleClassProvider ruleClassProvider;
     private ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ActionLookupKey actionOwnerSymbol;
+    private ActionLookupKeyOrProxy actionOwnerSymbol;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
     private ConfigConditions configConditions;
     private Mutability mutability;
@@ -1788,7 +1788,7 @@ public final class RuleContext extends TargetContext
     }
 
     @CanIgnoreReturnValue
-    public Builder setActionOwnerSymbol(ActionLookupKey actionOwnerSymbol) {
+    public Builder setActionOwnerSymbol(ActionLookupKeyOrProxy actionOwnerSymbol) {
       this.actionOwnerSymbol = actionOwnerSymbol;
       return this;
     }

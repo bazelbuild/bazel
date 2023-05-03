@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectResolver;
@@ -459,11 +460,11 @@ final class AspectFunction implements SkyFunction {
   private static InitialValues getInitialValues(
       PrerequisiteProducer.State state, AspectKey key, Environment env)
       throws AspectFunctionException, InterruptedException {
-    ConfiguredTargetKey baseConfiguredTargetKey = key.getBaseConfiguredTargetKey();
+    ActionLookupKey configuredTargetLookupKey = key.getBaseConfiguredTargetKey().toKey();
     PackageIdentifier basePackageKey =
         key.getBaseConfiguredTargetKey().getLabel().getPackageIdentifier();
     var initialKeys =
-        ImmutableSet.<SkyKey>builder().add(baseConfiguredTargetKey).add(basePackageKey);
+        ImmutableSet.<SkyKey>builder().add(configuredTargetLookupKey).add(basePackageKey);
 
     BuildConfigurationKey configurationKey = key.getConfigurationKey();
     if (configurationKey != null) {
@@ -492,10 +493,10 @@ final class AspectFunction implements SkyFunction {
       var baseConfiguredTargetValue =
           (ConfiguredTargetValue)
               initialValues.getOrThrow(
-                  baseConfiguredTargetKey, ConfiguredValueCreationException.class);
+                  configuredTargetLookupKey, ConfiguredValueCreationException.class);
       if (baseConfiguredTargetValue == null) {
         BugReport.logUnexpected(
-            "Unexpected exception with %s and AspectKey %s", baseConfiguredTargetKey, key);
+            "Unexpected exception with %s and AspectKey %s", key.getBaseConfiguredTargetKey(), key);
         return null;
       }
       baseConfiguredTarget = baseConfiguredTargetValue.getConfiguredTarget();

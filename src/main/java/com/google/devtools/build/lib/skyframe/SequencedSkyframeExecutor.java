@@ -511,7 +511,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+                  memoizingEvaluator.getExistingValue(
+                      aspectKey.getBaseConfiguredTargetKey().toKey());
           tasks.add(
               () -> {
                 actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
@@ -567,7 +568,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           AspectKey aspectKey = (AspectKey) key;
           ConfiguredTargetValue configuredTargetValue =
               (ConfiguredTargetValue)
-                  memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
+                  memoizingEvaluator.getExistingValue(
+                      aspectKey.getBaseConfiguredTargetKey().toKey());
           actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
         }
       } catch (InterruptedException e) {

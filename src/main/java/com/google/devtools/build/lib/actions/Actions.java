@@ -156,7 +156,7 @@ public final class Actions {
   public static GeneratingActions assignOwnersAndFindAndThrowActionConflict(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupKey actionLookupKey)
+      ActionLookupKeyOrProxy actionLookupKey)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext,
@@ -182,7 +182,7 @@ public final class Actions {
   public static GeneratingActions assignOwnersAndFilterSharedActionsAndThrowActionConflict(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupKey actionLookupKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       @Nullable Collection<OutputFile> outputFiles)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
@@ -232,7 +232,7 @@ public final class Actions {
   private static GeneratingActions assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupKey actionLookupKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       boolean allowSharedAction,
       @Nullable Collection<OutputFile> outputFiles)
       throws ActionConflictException, InterruptedException, ArtifactGeneratedByOtherRuleException {

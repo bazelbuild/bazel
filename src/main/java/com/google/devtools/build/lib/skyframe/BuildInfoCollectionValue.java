@@ -56,7 +56,7 @@ public class BuildInfoCollectionValue extends BasicActionLookupValue {
 
   /** Key for BuildInfoCollectionValues. */
   @AutoCodec
-  public static final class BuildInfoKeyAndConfig extends ActionLookupKey {
+  public static final class BuildInfoKeyAndConfig implements ActionLookupKey {
     private static final SkyKeyInterner<BuildInfoKeyAndConfig> keyInterner = SkyKey.newInterner();
 
     private final BuildInfoKey infoKey;

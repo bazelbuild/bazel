@@ -182,12 +182,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws ReportedException, UnreportedException, InterruptedException {
     State state = env.getState(() -> new State(storeTransitivePackages));
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
+    Preconditions.checkArgument(!configuredTargetKey.isProxy(), configuredTargetKey);
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     PrerequisiteProducer prereqs = new PrerequisiteProducer();
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
       // Fetching blocks on other resources, so we don't want to hold on to the semaphore meanwhile.
-      // TODO(b/194319860): remove this and DepedencyGraphBuilder.SemaphoreAcquirer when we no need
+      // TODO(b/194319860): remove this and PrerequisiteProducer.SemaphoreAcquirer when we no need
       // semaphore locking.
       env =
           new StateInformingSkyFunctionEnvironment(

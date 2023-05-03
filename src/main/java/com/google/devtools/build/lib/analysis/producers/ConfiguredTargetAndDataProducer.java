@@ -79,7 +79,7 @@ final class ConfiguredTargetAndDataProducer
   @Override
   public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
     tasks.lookUp(
-        key,
+        key.toKey(),
         ConfiguredValueCreationException.class,
         (ValueOrExceptionSink<ConfiguredValueCreationException>) this);
     return this::fetchConfigurationAndPackage;
