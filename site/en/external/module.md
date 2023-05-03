@@ -108,12 +108,12 @@ exist in the resolved dependency graph.
 ## Overrides
 
 Specify overrides in the `MODULE.bazel` file to alter the behavior of Bazel
-module resolution. Only the root module can specify overrides — Bazel throws an
-error for dependency modules with overrides.
+module resolution. Only the root module's overrides take effect — if a module is
+used as a dependency, its overrides are ignored.
 
 Each override is specified for a certain module name, affecting all of its
-versions in the dependency graph. Although only the root module can specify
-overrides, they can be for transitive dependencies that the root module does not
+versions in the dependency graph. Although only the root module's overrides take
+effect, they can be for transitive dependencies that the root module does not
 directly depend on.
 
 ### Single-version override

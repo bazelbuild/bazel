@@ -215,7 +215,10 @@ public class DiscoveryTest extends FoundationTestCase {
             .addModule(
                 createModuleKey("ccc", "2.0"),
                 "module(name='ccc', version='2.0');bazel_dep(name='ddd',version='3.0')")
-            .addModule(createModuleKey("ddd", "3.0"), "module(name='ddd', version='3.0')");
+            .addModule(
+                createModuleKey("ddd", "3.0"),
+                // Add a random override here; it should be ignored
+                "module(name='ddd', version='3.0');local_path_override(module_name='ff',path='f')");
     ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
 
     EvaluationResult<DiscoveryValue> result =

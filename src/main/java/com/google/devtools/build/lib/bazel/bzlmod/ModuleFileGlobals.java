@@ -626,8 +626,8 @@ public class ModuleFileGlobals {
       doc =
           "Specifies that a dependency should still come from a registry, but its version should"
               + " be pinned, or its registry overridden, or a list of patches applied. This"
-              + " directive can only be used by the root module; in other words, if a module"
-              + " specifies any overrides, it cannot be used as a dependency by others.",
+              + " directive only takes effect in the root module; in other words, if a module"
+              + " is used as a dependency by others, its own overrides are ignored.",
       parameters = {
         @Param(
             name = "module_name",
@@ -708,9 +708,9 @@ public class ModuleFileGlobals {
           "Specifies that a dependency should still come from a registry, but multiple versions of"
               + " it should be allowed to coexist. See <a"
               + " href=\"/external/module#multiple-version_override\">the documentation</a> for"
-              + " more details. This directive can only be used by the root module; in other words,"
-              + " if a module specifies any overrides, it cannot be used as a dependency by"
-              + " others.",
+              + " more details. This"
+              + " directive only takes effect in the root module; in other words, if a module"
+              + " is used as a dependency by others, its own overrides are ignored.",
       parameters = {
         @Param(
             name = "module_name",
@@ -760,9 +760,9 @@ public class ModuleFileGlobals {
       name = "archive_override",
       doc =
           "Specifies that this dependency should come from an archive file (zip, gzip, etc) at a"
-              + " certain location, instead of from a registry. This directive can only be used by"
-              + " the root module; in other words, if a module specifies any overrides, it cannot"
-              + " be used as a dependency by others.",
+              + " certain location, instead of from a registry. This"
+              + " directive only takes effect in the root module; in other words, if a module"
+              + " is used as a dependency by others, its own overrides are ignored.",
       parameters = {
         @Param(
             name = "module_name",
@@ -844,8 +844,8 @@ public class ModuleFileGlobals {
       name = "git_override",
       doc =
           "Specifies that a dependency should come from a certain commit of a Git repository. This"
-              + " directive can only be used by the root module; in other words, if a module"
-              + " specifies any overrides, it cannot be used as a dependency by others.",
+              + " directive only takes effect in the root module; in other words, if a module"
+              + " is used as a dependency by others, its own overrides are ignored.",
       parameters = {
         @Param(
             name = "module_name",
@@ -911,8 +911,8 @@ public class ModuleFileGlobals {
       name = "local_path_override",
       doc =
           "Specifies that a dependency should come from a certain directory on local disk. This"
-              + " directive can only be used by the root module; in other words, if a module"
-              + " specifies any overrides, it cannot be used as a dependency by others.",
+              + " directive only takes effect in the root module; in other words, if a module"
+              + " is used as a dependency by others, its own overrides are ignored.",
       parameters = {
         @Param(
             name = "module_name",
