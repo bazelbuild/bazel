@@ -46,13 +46,6 @@ import javax.annotation.Nullable;
  * to expand the command lines into a master argument list + any param files needed to be written.
  */
 public class CommandLines {
-  /**
-   * An object that can apply the {@code stripPaths} map to optionally strip config prefixes before
-   * returning output artifact exec paths
-   */
-  public interface PathStrippable {
-    String expand(Function<PathFragment, PathFragment> stripPaths);
-  }
 
   // A (hopefully) conservative estimate of how much long each param file arg would be
   // eg. the length of '@path/to/param_file'.

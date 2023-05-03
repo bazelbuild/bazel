@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
@@ -89,7 +91,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -969,8 +970,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     @CanIgnoreReturnValue
     public Builder setExecutable(Artifact executable) {
       addTool(executable);
-      this.executableArg =
-          new CallablePathFragment(executable.getExecPath(), executable.hasKnownGeneratingAction());
+      this.executableArg = ensureCallable(executable);
       this.executableArgs = null;
       return this;
     }
@@ -984,8 +984,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(TransitiveInfoCollection executable) {
-      FilesToRunProvider provider = executable.getProvider(FilesToRunProvider.class);
-      Preconditions.checkArgument(provider != null);
+      FilesToRunProvider provider = checkNotNull(executable.getProvider(FilesToRunProvider.class));
       return setExecutable(provider);
     }
 
@@ -998,12 +997,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @CanIgnoreReturnValue
     public Builder setExecutable(FilesToRunProvider executableProvider) {
-      Preconditions.checkArgument(
-          executableProvider.getExecutable() != null, "The target does not have an executable");
-      this.executableArg =
-          new CallablePathFragment(
-              executableProvider.getExecutable().getExecPath(),
-              executableProvider.getExecutable().hasKnownGeneratingAction());
+      Artifact executable =
+          checkNotNull(
+              executableProvider.getExecutable(), "The target does not have an executable");
+      this.executableArg = ensureCallable(executable);
       this.executableArgs = null;
       return addTool(executableProvider);
     }
@@ -1125,8 +1122,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         executableArgs = CustomCommandLine.builder().addObject(executableArg);
         executableArg = null;
       }
-      Preconditions.checkState(executableArgs != null);
-      this.executableArgs.addAll(ImmutableList.copyOf(arguments));
+      executableArgs.addAll(ImmutableList.copyOf(arguments));
       return this;
     }
 
@@ -1270,7 +1266,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     @CanIgnoreReturnValue
     public Builder setMnemonic(String mnemonic) {
-      Preconditions.checkArgument(
+      checkArgument(
           !mnemonic.isEmpty() && CharMatcher.javaLetterOrDigit().matchesAllOf(mnemonic),
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
@@ -1296,25 +1292,21 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
   }
 
-  /** A {@link PathFragment} that is expanded with {@link PathFragment#getCallablePathString()}. */
-  private static final class CallablePathFragment implements CommandLines.PathStrippable {
-
-    final PathFragment fragment;
-    private final boolean isDerived;
-
-    CallablePathFragment(PathFragment fragment, boolean isDerived) {
-      this.fragment = fragment;
-      this.isDerived = isDerived;
-    }
-
-    @Override
-    public String expand(Function<PathFragment, PathFragment> stripPaths) {
-      return isDerived ? stripPaths.apply(fragment).getCallablePathString() : toString();
-    }
-
-    @Override
-    public String toString() {
-      return fragment.getCallablePathString();
-    }
+  /**
+   * Returns a {@link CommandLineItem} for the given executable.
+   *
+   * <p>In the common case that the executable's exec path is already {@linkplain
+   * PathFragment#getCallablePathString callable} (contains {@link PathFragment#SEPARATOR_CHAR}),
+   * returns the executable as-is to avoid creating a new object.
+   *
+   * <p>The only time this method can't return {@code executable} as-is is for source artifacts in
+   * the root package, since their exec path contains no path separator. Note that derived artifacts
+   * are necessarily callable since they are always under an output directory.
+   */
+  private static CommandLineItem ensureCallable(Artifact executable) {
+    PathFragment execPath = executable.getExecPath();
+    return execPath.getCallablePathString().equals(executable.expandToCommandLine())
+        ? executable
+        : execPath::getCallablePathString;
   }
 }
