@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
@@ -58,6 +59,8 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -70,10 +73,9 @@ import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link StarlarkRuleContext}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
@@ -4061,5 +4063,85 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
 
     checkError("//test:testing", "must be declared by a top-level def statement");
+  }
+
+  @Test
+  public void transformFile_correctActionGenerated(
+      @TestParameter({"ctx.actions.transform_info_file", "ctx.actions.transform_version_file"})
+          String apiMethod)
+      throws Exception {
+    boolean volatileAndExcuteUnconditionally =
+        apiMethod.equals("ctx.actions.transform_version_file");
+    scratch.file(
+        "test/rules.bzl",
+        "def t(d):",
+        " r = {}",
+        " r['{NAME}'] = d['name'] + '_foo'",
+        " r['{CLIENT}'] = d['client'] + '_c'",
+        " return r",
+        "def _buildinfo_impl(ctx):",
+        "  output = ctx.actions.declare_file('buildinfo.h')",
+        String.format(
+            "  %s(transform_func = t, template = ctx.file.template, output = output)", apiMethod),
+        "  return DefaultInfo(files = depset([output]))",
+        "buildinfo_rule = rule(",
+        "  implementation = _buildinfo_impl,",
+        "  attrs = {'template': attr.label(allow_single_file=True)},",
+        ")",
+        testingRuleDefinition);
+    scratch.file("test/template.txt", "#define NAME {NAME}", "#define CLIENT {CLIENT}");
+    scratch.file(
+        "test/BUILD",
+        "load(':rules.bzl', 'buildinfo_rule')",
+        "buildinfo_rule(",
+        "    name = 'generating_target',",
+        "    template = ':template.txt',",
+        ")");
+
+    ConfiguredTarget buildInfo = getConfiguredTarget("//test:generating_target");
+    Artifact buildInfoArtifact = getFilesToBuild(buildInfo).getSingleton();
+    BuildInfoFileWriteAction buildInfoAction =
+        (BuildInfoFileWriteAction) getGeneratingAction(buildInfoArtifact);
+
+    assertThat(buildInfoAction).isNotNull();
+    assertThat(buildInfoArtifact).isNotNull();
+    assertThat(buildInfoArtifact.getFilename()).isEqualTo("buildinfo.h");
+    assertThat(buildInfoAction.getMnemonic()).isEqualTo("TranslateBuildInfo");
+    assertThat(buildInfoAction.executeUnconditionally())
+        .isEqualTo(volatileAndExcuteUnconditionally);
+    assertThat(buildInfoAction.isVolatile()).isEqualTo(volatileAndExcuteUnconditionally);
+    assertThat(artifactsToStrings(buildInfoAction.getInputs())).contains("src test/template.txt");
+  }
+
+  @Test
+  public void transformFile_cannotBeAccessedOutsideOfAllowlist(
+      @TestParameter({"ctx.actions.transform_version_file", "ctx.actions.transform_info_file"})
+          String apiMethod)
+      throws Exception {
+    scratch.file(
+        "some_dir/rules.bzl",
+        "def t(d):",
+        " pass",
+        "def _buildinfo_impl(ctx):",
+        "  output = ctx.actions.declare_file('buildinfo.h')",
+        String.format(
+            "  %s(transform_func = t, template = ctx.file.template, output = output)", apiMethod),
+        "  return DefaultInfo(files = depset([output]))",
+        "buildinfo_rule = rule(",
+        "  implementation = _buildinfo_impl,",
+        "  attrs = {'template': attr.label(allow_single_file=True)},",
+        ")",
+        testingRuleDefinition);
+    scratch.file("some_dir/template.txt", "");
+
+    checkError(
+        "some_dir",
+        "generating_target",
+        "Rule in 'some_dir' cannot use private API",
+        "load(':rules.bzl', 'buildinfo_rule')",
+        "buildinfo_rule(",
+        "    name = 'generating_target',",
+        "    template = ':template.txt',",
+        ")");
   }
 }

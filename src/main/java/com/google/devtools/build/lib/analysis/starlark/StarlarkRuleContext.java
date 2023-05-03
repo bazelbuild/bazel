@@ -960,17 +960,22 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     }
   }
 
-  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+  static void checkPrivateAccess(ImmutableSet<PackageIdentifier> allowlist, StarlarkThread thread)
+      throws EvalException {
     Label label =
         ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
             .label();
-    if (PRIVATE_STARLARKIFICATION_ALLOWLIST.stream()
+    if (allowlist.stream()
         .noneMatch(
             allowedPrefix ->
                 label.getRepository().equals(allowedPrefix.getRepository())
                     && label.getPackageFragment().startsWith(allowedPrefix.getPackageFragment()))) {
       throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
     }
+  }
+
+  static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(PRIVATE_STARLARKIFICATION_ALLOWLIST, thread);
   }
 
   @Override

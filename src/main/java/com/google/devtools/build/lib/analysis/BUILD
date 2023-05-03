@@ -268,6 +268,7 @@ java_library(
     ],
     deps = [
         ":actions/abstract_file_write_action",
+        ":actions/buildinfo_file_write_action",
         ":actions/compression",
         ":actions/custom_command_line",
         ":actions/deterministic_writer",
