@@ -138,9 +138,6 @@ public class ModuleFileFunction implements SkyFunction {
           moduleKey,
           module.getVersion());
     }
-    if (!moduleFileGlobals.buildOverrides().isEmpty()) {
-      throw errorf(Code.BAD_MODULE, "The MODULE.bazel file of %s declares overrides", moduleKey);
-    }
 
     return NonRootModuleFileValue.create(module, moduleFileHash);
   }
