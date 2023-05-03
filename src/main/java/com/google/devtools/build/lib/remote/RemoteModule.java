@@ -140,7 +140,7 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private RemoteOutputService remoteOutputService;
   @Nullable private TempPathGenerator tempPathGenerator;
   @Nullable private BlockWaitingModule blockWaitingModule;
-  @Nullable private ImmutableList<Pattern> patternsToDownload;
+  @Nullable private RemoteOutputChecker remoteOutputChecker;
 
   private ChannelFactory channelFactory =
       new ChannelFactory() {
@@ -287,7 +287,7 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(actionInputFetcher == null, "actionInputFetcher must be null");
     Preconditions.checkState(remoteOptions == null, "remoteOptions must be null");
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
-    Preconditions.checkState(patternsToDownload == null, "patternsToDownload must be null");
+    Preconditions.checkState(remoteOutputChecker == null, "remoteOutputChecker must be null");
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -344,7 +344,13 @@ public final class RemoteModule extends BlazeModule {
       for (String regex : remoteOptions.remoteDownloadRegex) {
         patternsToDownloadBuilder.add(Pattern.compile(regex));
       }
-      patternsToDownload = patternsToDownloadBuilder.build();
+
+      remoteOutputChecker =
+          new RemoteOutputChecker(
+              new JavaClock(),
+              env.getCommandName(),
+              remoteOptions.remoteOutputsMode.downloadToplevelOutputsOnly(),
+              patternsToDownloadBuilder.build());
     }
 
     env.getEventBus().register(this);
@@ -736,6 +742,19 @@ public final class RemoteModule extends BlazeModule {
       BuildRequest request,
       BuildOptions buildOptions,
       ConfiguredTarget configuredTarget) {
+    if (remoteOutputChecker != null) {
+      // remoteOutputChecker needs analysis result to determine whether an output is toplevel
+      // artifact. We could feed configuredTarget one by one for the clean build to work. However,
+      // for an incremental build, it needs *ALL* toplevel targets to check action dirtiness in
+      // {@link SequencedSkyframeExecutor#detectModifiedOutputFiles}.
+      //
+      // One way to make it work with skymeld is, instead of calling detectModifiedOutputFiles once
+      // in {@link ExecutionTool#prepareForExecution} after the first toplevel target is analyzed,
+      // we call detectModifiedOutputFiles for each toplevel target.
+      //
+      // TODO(chiwang): Make it work with skymeld.
+      throw new UnsupportedOperationException("BwoB currently doesn't support skymeld");
+    }
     if (shouldParseNoCacheOutputs()) {
       parseNoCacheOutputsFromSingleConfiguredTarget(
           Preconditions.checkNotNull(buildEventArtifactUploaderFactoryDelegate.get()),
@@ -749,6 +768,10 @@ public final class RemoteModule extends BlazeModule {
       BuildRequest request,
       BuildOptions buildOptions,
       AnalysisResult analysisResult) {
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.afterAnalysis(analysisResult);
+    }
+
     if (shouldParseNoCacheOutputs()) {
       parseNoCacheOutputs(analysisResult);
     }
@@ -854,7 +877,7 @@ public final class RemoteModule extends BlazeModule {
     remoteOutputService = null;
     tempPathGenerator = null;
     rpcLogFile = null;
-    patternsToDownload = null;
+    remoteOutputChecker = null;
   }
 
   private static void afterCommandTask(
@@ -963,9 +986,7 @@ public final class RemoteModule extends BlazeModule {
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
 
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
-      Preconditions.checkNotNull(patternsToDownload, "patternsToDownload must not be null");
-
-      var remoteOutputChecker = new RemoteOutputChecker(new JavaClock(), patternsToDownload);
+      Preconditions.checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
 
       actionInputFetcher =
           new RemoteActionInputFetcher(
@@ -983,9 +1004,6 @@ public final class RemoteModule extends BlazeModule {
 
       toplevelArtifactsDownloader =
           new ToplevelArtifactsDownloader(
-              env.getCommandName(),
-              remoteOutputsMode.downloadToplevelOutputsOnly(),
-              env.getSkyframeExecutor().getEvaluator(),
               actionInputFetcher,
               env.getExecRoot().asFragment(),
               (path) -> {

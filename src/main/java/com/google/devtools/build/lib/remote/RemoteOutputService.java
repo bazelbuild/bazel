@@ -142,7 +142,8 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore) {
+  public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
+      throws IOException, InterruptedException {
     if (actionInputFetcher != null) {
       actionInputFetcher.finalizeAction(action, outputMetadataStore);
     }

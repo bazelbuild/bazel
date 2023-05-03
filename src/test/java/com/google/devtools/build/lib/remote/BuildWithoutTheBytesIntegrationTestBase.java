@@ -644,6 +644,79 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_multipleToplevelTargets() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo1',",
+        "  srcs = [],",
+        "  outs = ['out/foo1.txt'],",
+        "  cmd = 'echo foo1 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo2',",
+        "  srcs = [],",
+        "  outs = ['out/foo2.txt'],",
+        "  cmd = 'echo foo2 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo3',",
+        "  srcs = [],",
+        "  outs = ['out/foo3.txt'],",
+        "  cmd = 'echo foo3 > $@',",
+        ")");
+    setDownloadToplevel();
+
+    buildTarget("//:foo1", "//:foo2", "//:foo3");
+    waitDownloads();
+
+    assertValidOutputFile("out/foo1.txt", "foo1\n");
+    assertValidOutputFile("out/foo2.txt", "foo2\n");
+    assertValidOutputFile("out/foo3.txt", "foo3\n");
+  }
+
+  @Test
+  public void downloadToplevel_incrementalBuild_multipleToplevelTargets() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo1',",
+        "  srcs = [],",
+        "  outs = ['out/foo1.txt'],",
+        "  cmd = 'echo foo1 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo2',",
+        "  srcs = [],",
+        "  outs = ['out/foo2.txt'],",
+        "  cmd = 'echo foo2 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo3',",
+        "  srcs = [],",
+        "  outs = ['out/foo3.txt'],",
+        "  cmd = 'echo foo3 > $@',",
+        ")");
+
+    buildTarget("//:foo1", "//:foo2", "//:foo3");
+    // Add the new option here because waitDownloads below will internally create a new command
+    // which will parse the new option.
+    setDownloadToplevel();
+    waitDownloads();
+
+    assertOutputsDoNotExist("//:foo1");
+    assertOutputsDoNotExist("//:foo2");
+    assertOutputsDoNotExist("//:foo3");
+
+    buildTarget("//:foo1", "//:foo2", "//:foo3");
+    waitDownloads();
+
+    assertValidOutputFile("out/foo1.txt", "foo1\n");
+    assertValidOutputFile("out/foo2.txt", "foo2\n");
+    assertValidOutputFile("out/foo3.txt", "foo3\n");
+  }
+
+  @Test
   public void treeOutputsFromLocalFileSystem_works() throws Exception {
     // Disable on Windows since it fails for unknown reasons.
     // TODO(chiwang): Enable it on windows.
