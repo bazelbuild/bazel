@@ -128,6 +128,9 @@ import org.mockito.MockitoAnnotations;
 /** Tests for {@link com.google.devtools.build.lib.remote.RemoteSpawnRunner} */
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerTest {
+  private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
+      new RemoteOutputChecker(
+          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
 
   private final Reporter reporter = new Reporter(new EventBus());
   private static final ImmutableMap<String, String> NO_CACHE =
@@ -1037,7 +1040,7 @@ public class RemoteSpawnRunnerTest {
         new RemoteExecutionService(
             directExecutor(),
             reporter,
-            /*verboseFailures=*/ true,
+            /* verboseFailures= */ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
@@ -1047,14 +1050,15 @@ public class RemoteSpawnRunnerTest {
             cache,
             executor,
             tempPathGenerator,
-            /* captureCorruptedOutputsDir= */ null);
+            /* captureCorruptedOutputsDir= */ null,
+            DUMMY_REMOTE_OUTPUT_CHECKER);
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
             remoteOptions,
             executionOptions,
             true,
-            /*cmdlineReporter=*/ null,
+            /* cmdlineReporter= */ null,
             retryService,
             logDir,
             remoteExecutionService);
@@ -1573,7 +1577,7 @@ public class RemoteSpawnRunnerTest {
             new RemoteExecutionService(
                 directExecutor(),
                 reporter,
-                /*verboseFailures=*/ true,
+                /* verboseFailures= */ true,
                 execRoot,
                 remotePathResolver,
                 "build-req-id",
@@ -1583,7 +1587,8 @@ public class RemoteSpawnRunnerTest {
                 cache,
                 executor,
                 tempPathGenerator,
-                /*captureCorruptedOutputsDir=*/ null));
+                /* captureCorruptedOutputsDir= */ null,
+                DUMMY_REMOTE_OUTPUT_CHECKER));
 
     return new RemoteSpawnRunner(
         execRoot,

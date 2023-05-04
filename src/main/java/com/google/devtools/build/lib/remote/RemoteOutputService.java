@@ -137,7 +137,8 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
-  public void flushActionFileSystem(FileSystem actionFileSystem) throws IOException {
+  public void flushActionFileSystem(FileSystem actionFileSystem)
+      throws InterruptedException, IOException {
     ((RemoteActionFileSystem) actionFileSystem).flush();
   }
 

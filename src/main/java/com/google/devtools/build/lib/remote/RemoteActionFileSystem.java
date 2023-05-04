@@ -133,20 +133,20 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     remoteOutputTree.injectRemoteFile(path, digest, size, expireAtEpochMilli);
   }
 
-  void flush() throws IOException {
+  void flush() throws IOException, InterruptedException {
     checkNotNull(metadataInjector, "metadataInjector is null");
 
     for (Map.Entry<PathFragment, Artifact> entry : outputMapping.entrySet()) {
       PathFragment path = execRoot.getRelative(entry.getKey());
       Artifact output = entry.getValue();
 
-      maybeInjectMetadataForSymlink(path, output);
+      maybeInjectMetadataForSymlinkOrDownload(path, output);
     }
   }
 
   /**
    * Inject metadata for non-symlink outputs that were materialized as a symlink to a remote
-   * artifact.
+   * artifact, and download the target artifact if required by the remote output mode.
    *
    * <p>If a non-symlink output is materialized as a symlink, the symlink has "copy" semantics,
    * i.e., the output metadata is identical to that of the symlink target. For these artifacts, we
@@ -162,8 +162,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    *       fetching multiple copies when multiple symlinks to the same artifact are created in the
    *       same build.
    */
-  private void maybeInjectMetadataForSymlink(PathFragment linkPath, Artifact output)
-      throws IOException {
+  private void maybeInjectMetadataForSymlinkOrDownload(PathFragment linkPath, Artifact output)
+      throws IOException, InterruptedException {
     if (output.isSymlink()) {
       return;
     }
@@ -184,6 +184,25 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     checkState(
         targetPath.isAbsolute(),
         "non-symlink artifact materialized as symlink must point to absolute path");
+
+    if (inputFetcher.getRemoteOutputChecker().shouldDownloadOutputDuringActionExecution(output)) {
+      var targetActionInput = getInput(targetPath.relativeTo(execRoot).getPathString());
+      if (targetActionInput != null) {
+        if (output.isTreeArtifact()) {
+          var metadata = getRemoteTreeMetadata(targetPath);
+          if (metadata != null) {
+            getFromFuture(
+                inputFetcher.prefetchFiles(
+                    metadata.getChildren(), this::getInputMetadata, Priority.LOW));
+          }
+        } else {
+          getFromFuture(
+              inputFetcher.prefetchFiles(
+                  ImmutableList.of(targetActionInput), this::getInputMetadata, Priority.LOW));
+        }
+      }
+      return;
+    }
 
     if (output.isTreeArtifact()) {
       TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);

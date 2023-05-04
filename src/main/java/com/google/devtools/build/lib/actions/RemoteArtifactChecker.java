@@ -24,5 +24,5 @@ public interface RemoteArtifactChecker {
    * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
    * remotely and do not exist locally.
    */
-  boolean shouldTrustRemoteArtifact(Artifact file, RemoteFileArtifactValue metadata);
+  boolean shouldTrustRemoteArtifact(ActionInput file, RemoteFileArtifactValue metadata);
 }

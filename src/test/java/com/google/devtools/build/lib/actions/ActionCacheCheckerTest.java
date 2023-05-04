@@ -1045,9 +1045,11 @@ public class ActionCacheCheckerTest {
             /* remoteDefaultPlatformProperties= */ ImmutableMap.of(),
             mockedRemoteArtifactChecker);
     verify(mockedRemoteArtifactChecker)
-        .shouldTrustRemoteArtifact(argThat(arg -> arg.getFilename().equals("file1")), any());
+        .shouldTrustRemoteArtifact(
+            argThat(arg -> arg.getExecPathString().endsWith("file1")), any());
     verify(mockedRemoteArtifactChecker, never())
-        .shouldTrustRemoteArtifact(argThat(arg -> arg.getFilename().equals("file2")), any());
+        .shouldTrustRemoteArtifact(
+            argThat(arg -> arg.getExecPathString().endsWith("file2")), any());
     // Not cached since local file changed
     runAction(
         action,

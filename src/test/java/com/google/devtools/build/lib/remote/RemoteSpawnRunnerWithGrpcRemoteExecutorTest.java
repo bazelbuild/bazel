@@ -126,6 +126,9 @@ import org.mockito.stubbing.Answer;
 /** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
+  private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
+      new RemoteOutputChecker(
+          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
 
@@ -309,7 +312,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         new RemoteExecutionService(
             directExecutor(),
             reporter,
-            /*verboseFailures=*/ true,
+            /* verboseFailures= */ true,
             execRoot,
             RemotePathResolver.createDefault(execRoot),
             "build-req-id",
@@ -319,7 +322,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteCache,
             executor,
             tempPathGenerator,
-            /* captureCorruptedOutputsDir= */ null);
+            /* captureCorruptedOutputsDir= */ null,
+            DUMMY_REMOTE_OUTPUT_CHECKER);
     client =
         new RemoteSpawnRunner(
             execRoot,

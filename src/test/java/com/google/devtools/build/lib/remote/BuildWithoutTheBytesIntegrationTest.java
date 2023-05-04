@@ -91,8 +91,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Override
-  protected void assertOutputEquals(Path path, String expectedContent, boolean isLocal)
-      throws Exception {
+  protected void assertOutputEquals(Path path, String expectedContent) throws Exception {
     assertThat(readContent(path, UTF_8)).isEqualTo(expectedContent);
   }
 
@@ -683,7 +682,90 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     waitDownloads();
 
     // Assert: target was successfully built
-    assertValidOutputFile(
-        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
+  }
+
+  @Test
+  public void downloadToplevel_symlinkFile() throws Exception {
+    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = [],",
+        "  outs = ['out/foo.txt'],",
+        "  cmd = 'echo foo > $@',",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target = ':foo'",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertValidOutputFile("foo-link", "foo\n");
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+
+    buildTarget("//:foo-link");
+
+    assertValidOutputFile("foo-link", "foo\n");
+
+    // Delete target, re-download it
+    getOutputPath("foo").delete();
+
+    assertValidOutputFile("foo-link", "foo\n");
+  }
+
+  @Test
+  public void downloadToplevel_symlinkTree() throws Exception {
+    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    writeOutputDirRule();
+    write(
+        "BUILD",
+        "load(':output_dir.bzl', 'output_dir')",
+        "load(':symlink.bzl', 'symlink')",
+        "output_dir(",
+        "  name = 'foo',",
+        "  content_map = {'file-1': '1', 'file-2': '2', 'file-3': '3'},",
+        ")",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target = ':foo'",
+        ")");
+
+    buildTarget("//:foo-link");
+
+    assertValidOutputFile("foo-link/file-1", "1");
+    assertValidOutputFile("foo-link/file-2", "2");
+    assertValidOutputFile("foo-link/file-3", "3");
+
+    getOutputPath("foo-link").deleteTree();
+
+    // Delete link, re-plant symlink
+    buildTarget("//:foo-link");
+
+    assertValidOutputFile("foo-link/file-1", "1");
+    assertValidOutputFile("foo-link/file-2", "2");
+    assertValidOutputFile("foo-link/file-3", "3");
+
+    // Delete target, re-download them
+    getOutputPath("foo").deleteTree();
+
+    buildTarget("//:foo-link");
+
+    assertValidOutputFile("foo-link/file-1", "1");
+    assertValidOutputFile("foo-link/file-2", "2");
+    assertValidOutputFile("foo-link/file-3", "3");
   }
 }

@@ -1468,7 +1468,7 @@ public final class SkyframeActionExecutor {
 
   private static void flushActionFileSystem(
       @Nullable FileSystem actionFileSystem, @Nullable OutputService outputService)
-      throws IOException {
+      throws IOException, InterruptedException {
     if (outputService != null && actionFileSystem != null) {
       outputService.flushActionFileSystem(actionFileSystem);
     }

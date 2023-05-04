@@ -128,6 +128,9 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link RemoteExecutionService}. */
 @RunWith(JUnit4.class)
 public class RemoteExecutionServiceTest {
+  private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
+      new RemoteOutputChecker(
+          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   private final DigestUtil digestUtil =
@@ -2157,6 +2160,7 @@ public class RemoteExecutionServiceTest {
         cache,
         executor,
         tempPathGenerator,
-        null);
+        null,
+        DUMMY_REMOTE_OUTPUT_CHECKER);
   }
 }

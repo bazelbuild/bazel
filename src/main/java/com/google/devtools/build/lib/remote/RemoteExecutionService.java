@@ -178,6 +178,8 @@ public class RemoteExecutionService {
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
+  @Nullable private final RemoteOutputChecker remoteOutputChecker;
+
   public RemoteExecutionService(
       Executor executor,
       Reporter reporter,
@@ -191,7 +193,8 @@ public class RemoteExecutionService {
       @Nullable RemoteCache remoteCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
-      @Nullable Path captureCorruptedOutputsDir) {
+      @Nullable Path captureCorruptedOutputsDir,
+      @Nullable RemoteOutputChecker remoteOutputChecker) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -214,6 +217,7 @@ public class RemoteExecutionService {
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
     this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
+    this.remoteOutputChecker = remoteOutputChecker;
   }
 
   static Command buildCommand(
@@ -1158,7 +1162,7 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
-    boolean downloadOutputs = shouldDownloadOutputsFor(result, metadata);
+    boolean downloadOutputs = shouldDownloadOutputsFor(action, result, metadata);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1322,7 +1326,7 @@ public class RemoteExecutionService {
   }
 
   private boolean shouldDownloadOutputsFor(
-      RemoteActionResult result, ActionResultMetadata metadata) {
+      RemoteAction action, RemoteActionResult result, ActionResultMetadata metadata) {
     if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       return true;
     }
@@ -1341,6 +1345,14 @@ public class RemoteExecutionService {
                   Iterables.get(metadata.symlinks(), 0).path())));
       return true;
     }
+
+    checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
+    for (var output : action.getSpawn().getOutputFiles()) {
+      if (remoteOutputChecker.shouldDownloadOutputDuringActionExecution(output)) {
+        return true;
+      }
+    }
+
     return false;
   }
 

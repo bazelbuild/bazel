@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -46,8 +46,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   protected abstract void setDownloadAll();
 
-  protected abstract void assertOutputEquals(Path path, String expectedContent, boolean isLocal)
-      throws Exception;
+  protected abstract void assertOutputEquals(Path path, String expectedContent) throws Exception;
 
   protected abstract void assertOutputContains(String content, String contains) throws Exception;
 
@@ -641,6 +640,8 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertValidOutputFile("foo/file-1", "1");
     assertValidOutputFile("foo/file-2", "2");
     assertValidOutputFile("foo/file-3", "3");
+    assertThat(getMetadata("//:foo").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
   }
 
   @Test
@@ -671,8 +672,14 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     assertValidOutputFile("out/foo1.txt", "foo1\n");
+    assertThat(getMetadata("//:foo1").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
     assertValidOutputFile("out/foo2.txt", "foo2\n");
+    assertThat(getMetadata("//:foo2").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
     assertValidOutputFile("out/foo3.txt", "foo3\n");
+    assertThat(getMetadata("//:foo3").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
   }
 
   @Test
@@ -705,15 +712,27 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     assertOutputsDoNotExist("//:foo1");
+    assertThat(getMetadata("//:foo1").values().stream().allMatch(FileArtifactValue::isRemote))
+        .isTrue();
     assertOutputsDoNotExist("//:foo2");
+    assertThat(getMetadata("//:foo2").values().stream().allMatch(FileArtifactValue::isRemote))
+        .isTrue();
     assertOutputsDoNotExist("//:foo3");
+    assertThat(getMetadata("//:foo3").values().stream().allMatch(FileArtifactValue::isRemote))
+        .isTrue();
 
     buildTarget("//:foo1", "//:foo2", "//:foo3");
     waitDownloads();
 
     assertValidOutputFile("out/foo1.txt", "foo1\n");
+    assertThat(getMetadata("//:foo1").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
     assertValidOutputFile("out/foo2.txt", "foo2\n");
+    assertThat(getMetadata("//:foo2").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
     assertValidOutputFile("out/foo3.txt", "foo3\n");
+    assertThat(getMetadata("//:foo3").values().stream().noneMatch(FileArtifactValue::isRemote))
+        .isTrue();
   }
 
   @Test
@@ -1003,7 +1022,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//:foobar");
     assertValidOutputFile("out/foo.txt", "foo\n");
     assertValidOutputFile("out/foobar.txt", "foo\nbar\n");
-    assertThat(getOnlyElement(getFileMetadata("//:foo").values()).isRemote()).isTrue();
+    assertThat(getOnlyElement(getMetadata("//:foo").values()).isRemote()).isTrue();
 
     // Act: Do an incremental build without any modifications
     ActionEventCollector actionEventCollector = new ActionEventCollector();
@@ -1016,19 +1035,32 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThat(actionEventCollector.getActionExecutedEvents()).isEmpty();
     // Two actions are invalidated but were able to hit the action cache
     assertThat(actionEventCollector.getCachedActionEvents()).hasSize(2);
-    assertThat(getOnlyElement(getFileMetadata("//:foo").values()).isRemote()).isFalse();
+    assertThat(getOnlyElement(getMetadata("//:foo").values()).isRemote()).isFalse();
   }
 
-  private ImmutableMap<Artifact, FileArtifactValue> getFileMetadata(String target)
-      throws Exception {
+  protected ImmutableMap<Artifact, FileArtifactValue> getMetadata(String target) throws Exception {
     var result = ImmutableMap.<Artifact, FileArtifactValue>builder();
     var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
     for (var artifact : getArtifacts(target)) {
       var value = evaluator.getExistingValue(Artifact.key(artifact));
-      Preconditions.checkState(value instanceof ActionExecutionValue);
-      result.putAll(((ActionExecutionValue) value).getAllFileValues());
+      if (value instanceof ActionExecutionValue) {
+        result.putAll(((ActionExecutionValue) value).getAllFileValues());
+      } else if (value instanceof TreeArtifactValue) {
+        result.putAll(((TreeArtifactValue) value).getChildValues());
+      }
     }
     return result.buildOrThrow();
+  }
+
+  protected FileArtifactValue getMetadata(Artifact output) throws Exception {
+    var evaluator = getRuntimeWrapper().getSkyframeExecutor().getEvaluator();
+    var value = evaluator.getExistingValue(Artifact.key(output));
+    if (value instanceof ActionExecutionValue) {
+      return ((ActionExecutionValue) value).getAllFileValues().get(output);
+    } else if (value instanceof TreeArtifactValue) {
+      return ((TreeArtifactValue) value).getChildValues().get(output);
+    }
+    return null;
   }
 
   @Test
@@ -1169,8 +1201,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     buildTarget("//a:bar");
 
     // Assert: target was successfully built
-    assertValidOutputFile(
-        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
   }
 
   @Test
@@ -1262,8 +1293,7 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     waitDownloads();
 
     // Assert: target was successfully built
-    assertValidOutputFile(
-        "a/bar.out", "file-inside\nupdated bar" + lineSeparator(), /* isLocal= */ true);
+    assertValidOutputFile("a/bar.out", "file-inside\nupdated bar" + lineSeparator());
   }
 
   protected void assertOutputsDoNotExist(String target) throws Exception {
@@ -1292,20 +1322,35 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     Artifact output = getOnlyElement(getArtifacts(target));
     assertThat(output.getFilename()).isEqualTo(filename);
     assertThat(output.getPath().exists()).isTrue();
-    assertOutputEquals(output.getPath(), content, /* isLocal= */ false);
+    assertOutputEquals(output.getPath(), content);
   }
 
   protected void assertValidOutputFile(String binRelativePath, String content) throws Exception {
-    assertValidOutputFile(binRelativePath, content, /* isLocal= */ false);
-  }
-
-  protected void assertValidOutputFile(String binRelativePath, String content, boolean isLocal)
-      throws Exception {
     Path output = getOutputPath(binRelativePath);
-    assertOutputEquals(getOutputPath(binRelativePath), content, isLocal);
+    assertOutputEquals(getOutputPath(binRelativePath), content);
     assertThat(output.isReadable()).isTrue();
     assertThat(output.isWritable()).isFalse();
     assertThat(output.isExecutable()).isTrue();
+  }
+
+  protected void writeSymlinkRule() throws IOException {
+    write(
+        "symlink.bzl",
+        "def _symlink_impl(ctx):",
+        "  target = ctx.file.target",
+        "  if target.is_directory:",
+        "    link = ctx.actions.declare_directory(ctx.attr.name)",
+        "  else:",
+        "    link = ctx.actions.declare_file(ctx.attr.name)",
+        "  ctx.actions.symlink(output = link, target_file = target)",
+        "  return DefaultInfo(files = depset([link]))",
+        "",
+        "symlink = rule(",
+        "  implementation = _symlink_impl,",
+        "  attrs = {",
+        "    'target': attr.label(mandatory = True, allow_single_file = True),",
+        "  }",
+        ")");
   }
 
   protected void writeOutputDirRule() throws IOException {
