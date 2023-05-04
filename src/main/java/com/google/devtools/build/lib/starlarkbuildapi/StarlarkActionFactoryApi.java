@@ -134,13 +134,10 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
   @StarlarkMethod(
       name = "declare_symlink",
       doc =
-          "<p>This parameter is experimental and may change at any "
-              + "time. It may be disabled by "
-              + "setting <code>--noexperimental_allow_unresolved_symlinks</code></p> <p>Declares "
-              + "that the rule or aspect creates a symlink with the given name in the current "
-              + "package. You must create an action that generates this symlink. Bazel will never "
-              + "dereference this symlink and will transfer it verbatim to sandboxes or remote "
-              + "executors. Symlinks inside tree artifacts are not currently supported.",
+          "Declares that the rule or aspect creates a symlink with the given name in the current"
+              + " package. You must create an action that generates this symlink. Bazel will never"
+              + " dereference this symlink and will transfer it verbatim to sandboxes or remote"
+              + " executors. Symlinks inside tree artifacts are not currently supported.",
       parameters = {
         @Param(
             name = "filename",

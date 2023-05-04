@@ -221,7 +221,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
       throw Starlark.errorf(
           "actions.declare_symlink() is not allowed; "
-              + "use the --experimental_allow_unresolved_symlinks command line option");
+              + "use the --allow_unresolved_symlinks command line option");
     }
 
     Artifact result;
