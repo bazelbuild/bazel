@@ -23,6 +23,7 @@ import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
 import com.google.testing.junit.runner.util.MemoizingSupplier;
 import java.io.PrintStream;
+import java.util.Collections;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.junit.runner.Request;
@@ -83,7 +84,7 @@ public final class JUnit4Bazel {
         stdoutStream,
         config,
         setOfRunListeners,
-        Set.of());
+        Collections.emptySet());
   }
 
   /** A builder for instantiating {@link JUnit4Bazel}. */
