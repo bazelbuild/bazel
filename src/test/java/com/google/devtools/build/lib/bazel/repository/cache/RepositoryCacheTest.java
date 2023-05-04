@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -177,10 +179,10 @@ public class RepositoryCacheTest {
   @Test
   public void testGetChecksumWithFastDigest() throws Exception {
     String fastDigestChecksum = "cfe5ed57e6e323555b379c660aa8d35b70c2f8f07cf03ad6747266495ac13be0";
-
-    FileStatus fileStatus = downloadedFile.stat();
-    assertThat(fileStatus).isInstanceOf(InMemoryFileInfo.class);
-    ((InMemoryFileInfo) fileStatus).setFastDigest(BaseEncoding.base16().lowerCase().decode(fastDigestChecksum));
+    downloadedFile = spy(downloadedFile);
+    doReturn(BaseEncoding.base16().lowerCase().decode(fastDigestChecksum))
+        .when(downloadedFile)
+        .getFastDigest();
 
     String actualChecksum = RepositoryCache.getChecksum(KeyType.SHA256, downloadedFile);
     assertThat(actualChecksum).isEqualTo(fastDigestChecksum);

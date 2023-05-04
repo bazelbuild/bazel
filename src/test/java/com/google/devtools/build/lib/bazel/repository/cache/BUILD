@@ -22,6 +22,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
         "@maven//:com_google_guava_guava",
     ],
