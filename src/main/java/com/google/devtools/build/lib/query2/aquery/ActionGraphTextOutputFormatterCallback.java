@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -70,11 +69,10 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters,
       RepositoryMapping mainRepoMapping) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, accessor);
     this.actionFilters = actionFilters;
     this.mainRepoMapping = mainRepoMapping;
   }

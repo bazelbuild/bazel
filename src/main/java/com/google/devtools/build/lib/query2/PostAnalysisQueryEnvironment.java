@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
@@ -524,11 +523,6 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         to,
         targets -> getFwdDeps(targets, context),
         getConfiguredTargetKeyExtractor()::extractKey);
-  }
-
-  @Override
-  public <V> MutableMap<T, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(getConfiguredTargetKeyExtractor());
   }
 
   @Override

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.query2.aquery;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
@@ -26,19 +25,16 @@ public abstract class AqueryThreadsafeCallback
   protected final ExtendedEventHandler eventHandler;
   protected final AqueryOptions options;
   protected final PrintStream printStream;
-  protected final SkyframeExecutor skyframeExecutor;
   protected final ConfiguredTargetValueAccessor accessor;
 
   AqueryThreadsafeCallback(
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTargetValue> accessor) {
     this.eventHandler = eventHandler;
     this.options = options;
     this.printStream = out == null ? null : new PrintStream(out);
-    this.skyframeExecutor = skyframeExecutor;
     this.accessor = (ConfiguredTargetValueAccessor) accessor;
   }
 }

@@ -84,7 +84,6 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionMapper;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.MinDepthUniquifierImpl;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.MutableKeyExtractorBackedMapImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.NonExceptionalUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
@@ -813,11 +812,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public ThreadSafeMutableSet<Target> createThreadSafeMutableSet() {
     return new ThreadSafeMutableKeyExtractorBackedSetImpl<>(
         TargetKeyExtractor.INSTANCE, Target.class, queryEvaluationParallelismLevel);
-  }
-
-  @Override
-  public <V> MutableMap<Target, V> createMutableMap() {
-    return new MutableKeyExtractorBackedMapImpl<>(TargetKeyExtractor.INSTANCE);
   }
 
   @ThreadSafe

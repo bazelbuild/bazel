@@ -37,8 +37,8 @@ import javax.annotation.Nullable;
  * However, query assumes a certain graph model, and the {@link TargetAccessor} class is used to
  * access properties of these nodes. Also, the query engine doesn't assume T's {@link
  * Object#hashCode} and {@link Object#equals} are meaningful and instead uses {@link
- * QueryEnvironment#createUniquifier}, {@link QueryEnvironment#createThreadSafeMutableSet()}, and
- * {@link QueryEnvironment#createMutableMap()} when appropriate.
+ * QueryEnvironment#createUniquifier} and {@link QueryEnvironment#createThreadSafeMutableSet()} when
+ * appropriate.
  *
  * @param <T> the node type of the dependency graph
  */
@@ -556,9 +556,6 @@ public interface QueryEnvironment<T> {
      */
     V put(K key, V value);
   }
-
-  /** Returns a fresh {@link MutableMap} instance with key type {@code T}. */
-  <V> MutableMap<T, V> createMutableMap();
 
   /**
    * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this

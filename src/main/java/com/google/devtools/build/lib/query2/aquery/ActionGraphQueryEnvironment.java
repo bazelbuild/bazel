@@ -144,7 +144,6 @@ public class ActionGraphQueryEnvironment
             eventHandler,
             aqueryOptions,
             out,
-            skyframeExecutor,
             accessor,
             StreamedOutputHandler.OutputType.BINARY,
             actionFilters),
@@ -152,7 +151,6 @@ public class ActionGraphQueryEnvironment
             eventHandler,
             aqueryOptions,
             out,
-            skyframeExecutor,
             accessor,
             StreamedOutputHandler.OutputType.TEXT,
             actionFilters),
@@ -160,20 +158,13 @@ public class ActionGraphQueryEnvironment
             eventHandler,
             aqueryOptions,
             out,
-            skyframeExecutor,
             accessor,
             StreamedOutputHandler.OutputType.JSON,
             actionFilters),
         new ActionGraphTextOutputFormatterCallback(
-            eventHandler,
-            aqueryOptions,
-            out,
-            skyframeExecutor,
-            accessor,
-            actionFilters,
-            getMainRepoMapping()),
+            eventHandler, aqueryOptions, out, accessor, actionFilters, getMainRepoMapping()),
         new ActionGraphSummaryOutputFormatterCallback(
-            eventHandler, aqueryOptions, out, skyframeExecutor, accessor, actionFilters));
+            eventHandler, aqueryOptions, out, accessor, actionFilters));
   }
 
   @Override

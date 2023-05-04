@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Comparator;
@@ -45,10 +44,9 @@ class ActionGraphSummaryOutputFormatterCallback extends AqueryThreadsafeCallback
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTargetValue> accessor,
       AqueryActionFilter actionFilters) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, accessor);
     this.actionFilters = actionFilters;
   }
 

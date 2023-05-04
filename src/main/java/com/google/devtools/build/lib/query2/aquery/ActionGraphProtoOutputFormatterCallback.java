@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryConsumingOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -65,11 +64,10 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      SkyframeExecutor skyframeExecutor,
       TargetAccessor<KeyedConfiguredTargetValue> accessor,
       OutputType outputType,
       AqueryActionFilter actionFilters) {
-    super(eventHandler, options, out, skyframeExecutor, accessor);
+    super(eventHandler, options, out, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
     this.aqueryOutputHandler =
