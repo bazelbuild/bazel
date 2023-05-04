@@ -230,7 +230,8 @@ public class StarlarkAction extends SpawnAction {
               "Jetify",
               "DeJetify",
               "JetifySrcs",
-              "DejetifySrcs");
+              "DejetifySrcs",
+              "DexBuilder");
       CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
       return coreOptions.outputPathsMode == OutputPathsMode.STRIP
           && qualifyingMnemonics.contains(mnemonic)
