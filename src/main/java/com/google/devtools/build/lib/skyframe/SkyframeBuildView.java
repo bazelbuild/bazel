@@ -875,6 +875,7 @@ public final class SkyframeBuildView {
       reportActionConflictErrors(
           topLevelActionConflictReport,
           effectiveTopLevelKeysForConflictReporting,
+          errorProcessingResult.actionConflicts(),
           eventHandler,
           eventBus,
           configurationLookupSupplier,
@@ -893,6 +894,7 @@ public final class SkyframeBuildView {
   private static void reportActionConflictErrors(
       TopLevelActionConflictReport topLevelActionConflictReport,
       Iterable<ActionLookupKeyOrProxy> effectiveTopLevelKeysForConflictReporting,
+      ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts,
       ExtendedEventHandler eventHandler,
       EventBus eventBus,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
@@ -902,6 +904,25 @@ public final class SkyframeBuildView {
     // ArtifactPrefixConflictExceptions come in pairs, and only one should be reported.
     Set<ArtifactPrefixConflictException> reportedExceptions = Sets.newHashSet();
 
+    // Sometimes a conflicting action can't be traced to a top level target via
+    // TopLevelActionConflictReport. We therefore need to print the errors from the conflicts
+    // themselves. See SkyframeIntegrationTest#topLevelAspectsAndExtraActionsWithConflict.
+    for (ConflictException e : actionConflicts.values()) {
+      try {
+        e.rethrowTyped();
+      } catch (ActionConflictException ace) {
+        ace.reportTo(eventHandler);
+        eventHandler.handle(
+            Event.warn(
+                String.format(
+                    "errors encountered while building target '%s'",
+                    ace.getArtifact().getOwnerLabel())));
+      } catch (ArtifactPrefixConflictException apce) {
+        if (reportedExceptions.add(apce)) {
+          eventHandler.handle(Event.error(apce.getMessage()));
+        }
+      }
+    }
     // Report an AnalysisFailureEvent to BEP for the top-level targets with discoverable action
     // conflicts, then finally throw.
     for (ActionLookupKeyOrProxy actionLookupKey : effectiveTopLevelKeysForConflictReporting) {
@@ -915,22 +936,8 @@ public final class SkyframeBuildView {
       }
 
       ConflictException conflictException = e.get();
-      try {
-        conflictException.rethrowTyped();
-      } catch (ActionConflictException ace) {
-        ace.reportTo(eventHandler);
-      } catch (ArtifactPrefixConflictException apce) {
-        if (reportedExceptions.add(apce)) {
-          eventHandler.handle(Event.error(apce.getMessage()));
-        }
-      }
-
       AnalysisFailedCause failedCause =
           makeArtifactConflictAnalysisFailedCause(configurationLookupSupplier, conflictException);
-      eventHandler.handle(
-          Event.warn(
-              String.format(
-                  "errors encountered while building target '%s'", actionLookupKey.getLabel())));
       BuildConfigurationKey configKey = actionLookupKey.getConfigurationKey();
       // TODO(b/210710338) Replace with a more appropriate event.
       eventBus.post(

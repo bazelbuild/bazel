@@ -162,6 +162,14 @@ public class BuildDriverFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
+    Set<TopLevelStatusEvents.Type> postedEventsTypes =
+        keyToPostedEvents.computeIfAbsent(buildDriverKey, (unused) -> new HashSet<>());
+
+    // At this point, the target is considered "analyzed". It's important that this event is sent
+    // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
+    // concluded, we need to have the complete list of analyzed targets ready in
+    // BuildResultListener.
+    announceTopLevelTargetOrAspectAnalyzed(env, topLevelSkyValue, postedEventsTypes);
 
     // We only check for action conflict once per BuildDriverKey.
     if (Preconditions.checkNotNull(shouldCheckForConflict).get()
@@ -180,21 +188,12 @@ public class BuildDriverFunction implements SkyFunction {
       }
     }
 
-    Set<TopLevelStatusEvents.Type> postedEventsTypes =
-        keyToPostedEvents.computeIfAbsent(buildDriverKey, (unused) -> new HashSet<>());
-
     Preconditions.checkState(
         topLevelSkyValue instanceof ConfiguredTargetValue
             || topLevelSkyValue instanceof TopLevelAspectsValue);
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
       ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
       ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-      // At this point, the target is considered "analyzed". It's important that this event is sent
-      // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
-      // concluded, we need to have the *complete* list of analyzed targets ready in
-      // BuildResultListener.
-      postEventIfNecessary(
-          postedEventsTypes, env, TopLevelTargetAnalyzedEvent.create(configuredTarget));
       // It's possible that this code path is triggered AFTER the analysis cache clean up and the
       // transitive packages for package root resolution is already cleared. In such a case, the
       // symlinks should have already been planted.
@@ -298,6 +297,34 @@ public class BuildDriverFunction implements SkyFunction {
 
     removeStatesForKey(buildDriverKey);
     return new BuildDriverValue(topLevelSkyValue, /*skipped=*/ false);
+  }
+
+  /**
+   * ConfiguredTarget/AspectAnalyzedEvents should be sent out before conflict checking to be
+   * consistent with the non-skymeld code path.
+   */
+  private static void announceTopLevelTargetOrAspectAnalyzed(
+      Environment env,
+      SkyValue topLevelSkyValue,
+      Set<TopLevelStatusEvents.Type> postedEventsTypes) {
+    if (topLevelSkyValue instanceof ConfiguredTargetValue) {
+      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
+      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+      postEventIfNecessary(
+          postedEventsTypes, env, TopLevelTargetAnalyzedEvent.create(configuredTarget));
+    } else {
+      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) topLevelSkyValue;
+
+      boolean aspectAnalyzedEventsSent =
+          !postedEventsTypes.add(TopLevelStatusEvents.Type.ASPECT_ANALYZED);
+      for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
+        AspectKey aspectKey = aspectValue.getKey();
+        ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
+        if (!aspectAnalyzedEventsSent) {
+          env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+        }
+      }
+    }
   }
 
   public void resetStates() {
@@ -451,15 +478,12 @@ public class BuildDriverFunction implements SkyFunction {
       Set<TopLevelStatusEvents.Type> postedEventsTypes)
       throws InterruptedException {
 
-    postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     List<SkyKey> aspectCompletionKeys = new ArrayList<>();
 
     boolean symlinkPlantingEventsSent =
         !postedEventsTypes.add(
             TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_READY_FOR_SYMLINK_PLANTING);
-    boolean aspectAnalyzedEventsSent =
-        !postedEventsTypes.add(TopLevelStatusEvents.Type.ASPECT_ANALYZED);
     for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
       AspectKey aspectKey = aspectValue.getKey();
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
@@ -474,9 +498,6 @@ public class BuildDriverFunction implements SkyFunction {
             .post(
                 TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
       }
-      if (!aspectAnalyzedEventsSent) {
-        env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
-      }
 
       aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
     }
@@ -485,6 +506,8 @@ public class BuildDriverFunction implements SkyFunction {
     // signaling that the analysis of this top level aspect has concluded.
     postEventIfNecessary(
         postedEventsTypes, env, TopLevelEntityAnalysisConcludedEvent.success(buildDriverKey));
+
+    postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
     declareDependenciesAndCheckValues(
         env, Iterables.concat(Artifact.keys(artifactsToBuild.build()), aspectCompletionKeys));
 
