@@ -209,8 +209,9 @@ genrule(
      cmd = "$(locations :tool) $&lt; >$@",
      tools = [":tool"],
 )
-cc_library(
+cc_binary(
     name = "tool",
+    srcs = ["tool.cpp"],
 )
 </pre>
 
