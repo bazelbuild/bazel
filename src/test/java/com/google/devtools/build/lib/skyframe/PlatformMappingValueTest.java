@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.PlatformMappingValue.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import org.junit.Test;
@@ -63,8 +64,11 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapPlatformToFlags() throws Exception {
-    ImmutableMap<Label, ImmutableSet<String>> platformsToFlags =
-        ImmutableMap.of(PLATFORM1, ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"));
+    ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags =
+        ImmutableMap.of(
+            PLATFORM1,
+            NativeAndStarlarkFlags.create(
+                ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"), ImmutableMap.of()));
 
     PlatformMappingValue mappingValue =
         new PlatformMappingValue(
@@ -149,8 +153,11 @@ public final class PlatformMappingValueTest {
 
   @Test
   public void testMapNoMappingIfPlatformIsSetButNotMatching() throws Exception {
-    ImmutableMap<Label, ImmutableSet<String>> platformsToFlags =
-        ImmutableMap.of(PLATFORM1, ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"));
+    ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags =
+        ImmutableMap.of(
+            PLATFORM1,
+            NativeAndStarlarkFlags.create(
+                ImmutableSet.of("--cpu=one", "--compilation_mode=dbg"), ImmutableMap.of()));
     ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms =
         ImmutableMap.of(ImmutableSet.of("--cpu=one"), PLATFORM1);
 

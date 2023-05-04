@@ -18,19 +18,26 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Command.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionDefinition;
@@ -40,6 +47,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -258,10 +266,87 @@ public final class BlazeOptionHandler {
   }
 
   /**
+   * {@link ExtendedEventHandler} override that passes through "normal" events but not events that
+   * would go to the build event proto.
+   *
+   * <p>Starlark flags are conceptually options but still need target pattern evaluation. If we pass
+   * {@link #post}able events from that evaluation, that would produce "target loaded" and "target
+   * configured" events in the build event proto output that consumers can confuse with actual
+   * targets requested by the build.
+   *
+   * <p>This is important because downstream services (like a continuous integration tool or build
+   * results dashboard) read these messages to reconcile which requested targets were built. If they
+   * determine Blaze tried to build {@code //foo //bar} then see a "target configured" message for
+   * some other target {@code //my_starlark_flag}, they might show misleading messages like "Built 3
+   * of 2 requested targets.".
+   *
+   * <p>Hence this class. By dropping those events, we restrict all info and error reporting logic
+   * to the options parsing pipeline.
+   */
+  private static class NonPostingEventHandler implements ExtendedEventHandler {
+    private final ExtendedEventHandler delegate;
+
+    NonPostingEventHandler(ExtendedEventHandler delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public void handle(Event e) {
+      delegate.handle(e);
+    }
+
+    @Override
+    public void post(ExtendedEventHandler.Postable e) {}
+  }
+
+  /**
+   * Lets {@link StarlarkOptionsParser} convert flag names to {@link Target}s through {@link
+   * TargetPatternPhaseValue}.
+   *
+   * <p>This is used for top-level flag parsing, outside any {@link SkyFunction}.
+   */
+  public static class SkyframeExecutorTargetLoader
+      implements StarlarkOptionsParser.BuildSettingLoader {
+    private final SkyframeExecutor skyframeExecutor;
+    private final PathFragment relativeWorkingDirectory;
+    private final ExtendedEventHandler reporter;
+
+    public SkyframeExecutorTargetLoader(CommandEnvironment env) {
+      this.skyframeExecutor = env.getSkyframeExecutor();
+      this.relativeWorkingDirectory = env.getRelativeWorkingDirectory();
+      this.reporter = new NonPostingEventHandler(env.getReporter());
+    }
+
+    @VisibleForTesting
+    public SkyframeExecutorTargetLoader(
+        SkyframeExecutor skyframeExecutor,
+        PathFragment relativeWorkingDirectory,
+        ExtendedEventHandler reporter) {
+      this.skyframeExecutor = skyframeExecutor;
+      this.relativeWorkingDirectory = relativeWorkingDirectory;
+      this.reporter = new NonPostingEventHandler(reporter);
+    }
+
+    @Override
+    public Target loadBuildSetting(String targetLabel)
+        throws InterruptedException, TargetParsingException {
+      TargetPatternPhaseValue result =
+          skyframeExecutor.loadTargetPatternsWithoutFilters(
+              reporter,
+              Collections.singletonList(targetLabel),
+              relativeWorkingDirectory,
+              SkyframeExecutor.DEFAULT_THREAD_COUNT,
+              /* keepGoing= */ false);
+      return Iterables.getOnlyElement(
+          result.getTargets(reporter, skyframeExecutor.getPackageManager()));
+    }
+  }
+
+  /**
    * TODO(bazel-team): When we move CoreOptions options to be defined in starlark, make sure they're
    * not passed in here during {@link #getOptionsResult}.
    */
-  DetailedExitCode parseStarlarkOptions(CommandEnvironment env, ExtendedEventHandler eventHandler) {
+  DetailedExitCode parseStarlarkOptions(CommandEnvironment env) {
     // For now, restrict starlark options to commands that already build to ensure that loading
     // will work. We may want to open this up to other commands in the future. The "info"
     // and "clean" commands have builds=true set in their annotation but don't actually do any
@@ -272,12 +357,14 @@ public final class BlazeOptionHandler {
       return DetailedExitCode.success();
     }
     try {
-      StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
+      StarlarkOptionsParser.newStarlarkOptionsParser(
+              new SkyframeExecutorTargetLoader(env), optionsParser)
+          .parse();
     } catch (OptionsParsingException e) {
       String logMessage = "Error parsing Starlark options";
       logger.atInfo().withCause(e).log("%s", logMessage);
       return processOptionsParsingException(
-          eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
+          env.getReporter(), e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
     return DetailedExitCode.success();
   }

@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.google.auto.value.AutoValue;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -139,10 +140,10 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private final ImmutableMap<Label, ImmutableSet<String>> platformsToFlags;
+  private final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
   private final ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
-  private final LoadingCache<ImmutableSet<String>, OptionsParsingResult> parserCache;
+  private final LoadingCache<NativeAndStarlarkFlags, OptionsParsingResult> parserCache;
   private final LoadingCache<BuildConfigurationKey, BuildConfigurationKey> mappingCache;
 
   /**
@@ -156,7 +157,7 @@ public final class PlatformMappingValue implements SkyValue {
    * @param optionsClasses default options classes that should be used for options parsing
    */
   PlatformMappingValue(
-      ImmutableMap<Label, ImmutableSet<String>> platformsToFlags,
+      ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
       ImmutableMap<ImmutableSet<String>, Label> flagsToPlatforms,
       ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
@@ -229,7 +230,9 @@ public final class PlatformMappingValue implements SkyValue {
     } else {
       boolean mappingFound = false;
       for (Map.Entry<ImmutableSet<String>, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        if (originalOptions.matches(parseWithCache(flagsToPlatform.getKey()))) {
+        if (originalOptions.matches(
+            parseWithCache(
+                NativeAndStarlarkFlags.create(flagsToPlatform.getKey(), ImmutableMap.of())))) {
           modifiedOptions = originalOptions.clone();
           modifiedOptions.get(PlatformOptions.class).platforms =
               ImmutableList.of(flagsToPlatform.getValue());
@@ -248,7 +251,7 @@ public final class PlatformMappingValue implements SkyValue {
     return BuildConfigurationKey.withoutPlatformMapping(modifiedOptions);
   }
 
-  private OptionsParsingResult parseWithCache(ImmutableSet<String> args)
+  private OptionsParsingResult parseWithCache(NativeAndStarlarkFlags args)
       throws OptionsParsingException {
     try {
       return parserCache.get(args);
@@ -258,15 +261,15 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private OptionsParsingResult parse(Iterable<String> args) throws OptionsParsingException {
+  private OptionsParsingResult parse(NativeAndStarlarkFlags args) throws OptionsParsingException {
     OptionsParser parser =
         OptionsParser.builder()
             .optionsClasses(optionsClasses)
             // We need the ability to re-map internal options in the mappings file.
             .ignoreInternalOptions(false)
             .build();
-    parser.parse(ImmutableList.copyOf(args));
-    // TODO(schmitt): Parse starlark options as well.
+    parser.parse(args.nativeFlags().asList());
+    parser.setStarlarkOptions(args.starlarkFlags());
     return parser;
   }
 
@@ -296,5 +299,23 @@ public final class PlatformMappingValue implements SkyValue {
         .add("platformsToFlags", platformsToFlags)
         .add("optionsClasses", optionsClasses)
         .toString();
+  }
+
+  /**
+   * Container for storing a {@code platform -> flags} native and Starlark flag settings in separate
+   * buckets.
+   *
+   * <p>This is necessary because native and Starlark flags are parsed with different logic.
+   */
+  @AutoValue
+  abstract static class NativeAndStarlarkFlags {
+    abstract ImmutableSet<String> nativeFlags();
+
+    abstract ImmutableMap<String, Object> starlarkFlags();
+
+    static NativeAndStarlarkFlags create(
+        ImmutableSet<String> nativeFlags, ImmutableMap<String, Object> starlarkFlags) {
+      return new AutoValue_PlatformMappingValue_NativeAndStarlarkFlags(nativeFlags, starlarkFlags);
+    }
   }
 }
