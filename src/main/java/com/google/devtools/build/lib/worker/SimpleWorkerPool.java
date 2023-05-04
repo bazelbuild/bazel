@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Throwables;
+import com.google.common.eventbus.EventBus;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -38,6 +39,8 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
    * size per worker key.
    */
   private Map<WorkerKey, Integer> shrunkBy = new HashMap<>();
+
+  private EventBus eventBus;
 
   public SimpleWorkerPool(WorkerFactory factory, int max) {
     super(factory, makeConfig(max));
@@ -73,6 +76,10 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     return config;
   }
 
+  void setEventBus(EventBus eventBus) {
+    this.eventBus = eventBus;
+  }
+
   @Override
   public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
     try {
@@ -88,6 +95,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
     try {
       super.invalidateObject(key, obj);
       if (obj.isDoomed()) {
+        if (eventBus != null) {
+          eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+        }
         updateShrunkBy(key);
       }
     } catch (Throwable t) {
@@ -100,6 +110,9 @@ final class SimpleWorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   public void returnObject(WorkerKey key, Worker obj) {
     super.returnObject(key, obj);
     if (obj.isDoomed()) {
+      if (eventBus != null) {
+        eventBus.post(new WorkerEvictedEvent(key.hashCode(), key.getMnemonic()));
+      }
       updateShrunkBy(key);
     }
   }

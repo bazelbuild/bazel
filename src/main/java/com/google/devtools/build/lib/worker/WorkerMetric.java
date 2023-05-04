@@ -64,14 +64,17 @@ public abstract class WorkerMetric {
 
     public abstract boolean isSandboxed();
 
+    public abstract int getWorkerKeylHash();
+
     public static WorkerProperties create(
         ImmutableList<Integer> workerIds,
         long processId,
         String mnemonic,
         boolean isMultiplex,
-        boolean isSandboxed) {
+        boolean isSandboxed,
+        int workerKeyHash) {
       return new AutoValue_WorkerMetric_WorkerProperties(
-          workerIds, processId, mnemonic, isMultiplex, isSandboxed);
+          workerIds, processId, mnemonic, isMultiplex, isSandboxed, workerKeyHash);
     }
   }
 

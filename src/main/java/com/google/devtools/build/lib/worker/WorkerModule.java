@@ -168,10 +168,12 @@ public class WorkerModule extends BlazeModule {
       if (options.workerVerbose) {
         workerLifecycleManager.setReporter(env.getReporter());
       }
+      workerLifecycleManager.setEventBus(env.getEventBus());
       workerLifecycleManager.setDaemon(true);
       workerLifecycleManager.start();
     }
 
+    workerPool.setEventBus(env.getEventBus());
     // Clean doomed workers on the beginning of a build.
     workerPool.clearDoomedWorkers();
   }
@@ -239,6 +241,9 @@ public class WorkerModule extends BlazeModule {
     if (this.workerFactory != null) {
       this.workerFactory.setReporter(null);
       this.workerFactory.setEventBus(null);
+    }
+    if (this.workerPool != null) {
+      this.workerPool.setEventBus(null);
     }
     WorkerMultiplexerManager.afterCommand();
   }

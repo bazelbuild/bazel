@@ -17,6 +17,7 @@ import com.google.common.base.Throwables;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -187,6 +188,16 @@ public class WorkerPoolImpl implements WorkerPool {
 
   ImmutableSet<Integer> getDoomedWorkers() {
     return doomedWorkers;
+  }
+
+  @Override
+  public void setEventBus(EventBus eventBus) {
+    for (SimpleWorkerPool pool : workerPools.values()) {
+      pool.setEventBus(eventBus);
+    }
+    for (SimpleWorkerPool pool : multiplexPools.values()) {
+      pool.setEventBus(eventBus);
+    }
   }
 
   /**

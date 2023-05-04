@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.worker.WorkerCreatedEvent;
 import com.google.devtools.build.lib.worker.WorkerDestroyedEvent;
+import com.google.devtools.build.lib.worker.WorkerEvictedEvent;
 import com.google.devtools.build.lib.worker.WorkerMetricsCollector;
 import com.google.devtools.build.skyframe.SkyframeGraphStatsEvent;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -185,7 +186,7 @@ class MetricsCollector {
   }
 
   @Subscribe
-  public void onWorkerDestroyedAction(WorkerDestroyedEvent event) {
+  public void onWorkerDestroyed(WorkerDestroyedEvent event) {
     synchronized (this) {
       WorkerPoolStats stats =
           getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
@@ -195,12 +196,22 @@ class MetricsCollector {
   }
 
   @Subscribe
-  public void onWorkerCreatedAction(WorkerCreatedEvent event) {
+  public void onWorkerCreated(WorkerCreatedEvent event) {
     synchronized (this) {
       WorkerPoolStats stats =
           getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
 
       stats.incrementCreatedCount();
+    }
+  }
+
+  @Subscribe
+  public void onWorkerEvicted(WorkerEvictedEvent event) {
+    synchronized (this) {
+      WorkerPoolStats stats =
+          getWorkerPoolStatsOrInsert(event.getWorkerPoolHash(), event.getMnemonic());
+
+      stats.incrementEvictedCount();
     }
   }
 
@@ -407,6 +418,7 @@ class MetricsCollector {
                     .setMnemonic(workerStats.getMnemonic())
                     .setCreatedCount(workerStats.getCreatedCount())
                     .setDestroyedCount(workerStats.getDestroyedCount())
+                    .setEvictedCount(workerStats.getEvictedCount())
                     .build()));
 
     return metricsBuilder.build();
@@ -415,6 +427,7 @@ class MetricsCollector {
   private static class WorkerPoolStats {
     private int createdCount;
     private int destroyedCount;
+    private int evictedCount;
     private final String mnemonic;
 
     WorkerPoolStats(String mnemonic) {
@@ -429,6 +442,10 @@ class MetricsCollector {
       destroyedCount++;
     }
 
+    void incrementEvictedCount() {
+      evictedCount++;
+    }
+
     public int getCreatedCount() {
       return createdCount;
     }
@@ -439,6 +456,10 @@ class MetricsCollector {
 
     public String getMnemonic() {
       return mnemonic;
+    }
+
+    public int getEvictedCount() {
+      return evictedCount;
     }
   }
 

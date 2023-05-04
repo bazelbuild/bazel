@@ -1126,6 +1126,8 @@ message BuildMetrics {
       int64 created_count = 3;
       // Number of workers destroyed during a build.
       int64 destroyed_count = 4;
+      // Number of workers evicted during a build.
+      int64 evicted_count = 5;
     }
   }
 

@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -43,7 +44,9 @@ final class WorkerLifecycleManager extends Thread {
   private boolean emptyEvictonWasLogged = false;
   private final WorkerPool workerPool;
   private final WorkerOptions options;
+
   private Reporter reporter;
+  private EventBus eventBus;
 
   public WorkerLifecycleManager(WorkerPool workerPool, WorkerOptions options) {
     this.workerPool = workerPool;
@@ -52,6 +55,10 @@ final class WorkerLifecycleManager extends Thread {
 
   public void setReporter(Reporter reporter) {
     this.reporter = reporter;
+  }
+
+  public void setEventBus(EventBus eventBus) {
+    this.eventBus = eventBus;
   }
 
   @Override
@@ -118,6 +125,12 @@ final class WorkerLifecycleManager extends Thread {
         if (reporter != null) {
           reporter.handle(Event.info(msg));
         }
+        if (eventBus != null) {
+          eventBus.post(
+              new WorkerEvictedEvent(
+                  l.getWorkerProperties().getWorkerKeylHash(),
+                  l.getWorkerProperties().getMnemonic()));
+        }
       }
     }
   }
@@ -176,6 +189,19 @@ final class WorkerLifecycleManager extends Thread {
         emptyEvictonWasLogged = true;
       } else {
         emptyEvictonWasLogged = false;
+      }
+    }
+
+    if (eventBus != null) {
+      for (WorkerMetric metric : workerMetrics) {
+        WorkerMetric.WorkerProperties properties = metric.getWorkerProperties();
+
+        for (Integer workerId : properties.getWorkerIds()) {
+          if (evictedWorkers.contains(workerId)) {
+            eventBus.post(
+                new WorkerEvictedEvent(properties.getWorkerKeylHash(), properties.getMnemonic()));
+          }
+        }
       }
     }
 

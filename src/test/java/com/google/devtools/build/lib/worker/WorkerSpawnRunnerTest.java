@@ -102,7 +102,7 @@ public class WorkerSpawnRunnerTest {
     when(context.getArtifactExpander()).thenReturn((artifact, output) -> {});
     doNothing()
         .when(metricsCollector)
-        .registerWorker(anyInt(), anyLong(), anyString(), anyBoolean(), anyBoolean());
+        .registerWorker(anyInt(), anyLong(), anyString(), anyBoolean(), anyBoolean(), anyInt());
     when(spawn.getLocalResources()).thenReturn(ResourceSet.createWithRamCpu(100, 1));
     when(resourceManager.acquireResources(any(), any(), any())).thenReturn(resourceHandle);
     when(resourceHandle.getWorker()).thenReturn(worker);
