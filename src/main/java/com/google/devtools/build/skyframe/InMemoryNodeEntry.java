@@ -150,10 +150,10 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized boolean isReadyToEvaluate() {
-    checkState(!isDone(), "can't be ready if done: %s", this);
-    checkState(isEvaluating(), this);
-    return dirtyBuildingState.isReady(getNumTemporaryDirectDeps())
-        || key.supportsPartialReevaluation();
+    return !isDone()
+        && isEvaluating()
+        && (dirtyBuildingState.isReady(getNumTemporaryDirectDeps())
+            || key.supportsPartialReevaluation());
   }
 
   @Override
