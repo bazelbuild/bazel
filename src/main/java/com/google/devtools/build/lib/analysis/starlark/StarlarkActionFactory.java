@@ -577,6 +577,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     StarlarkAction.Builder builder = new StarlarkAction.Builder();
     buildCommandLine(builder, arguments);
 
+    // When we use a shell command, add an empty argument before other arguments.
+    //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
+    // bash will use the empty argument as the value of $0 (which we don't care about).
+    // arg1 and arg2 will be $1 and $2, as a user expects.
+    boolean pad = !arguments.isEmpty();
+
     if (commandUnchecked instanceof String) {
       ImmutableMap<String, String> executionInfo =
           ImmutableMap.copyOf(TargetUtils.getExecutionInfo(ruleContext.getRule()));
@@ -592,9 +598,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       Artifact helperScript =
           CommandHelper.commandHelperScriptMaybe(ruleContext, command, constructor);
       if (helperScript == null) {
-        builder.setShellCommand(shExecutable, command);
+        builder.setShellCommand(shExecutable, command, pad);
       } else {
-        builder.setShellCommand(shExecutable, helperScript.getExecPathString());
+        builder.setShellCommand(shExecutable, helperScript.getExecPathString(), pad);
         builder.addInput(helperScript);
       }
     } else if (commandUnchecked instanceof Sequence) {
@@ -609,18 +615,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         throw Starlark.errorf("'arguments' must be empty if 'command' is a sequence of strings");
       }
       List<String> command = Sequence.cast(commandList, String.class, "command");
-      builder.setShellCommand(command);
+      builder.setShellCommand(command, pad);
     } else {
       throw Starlark.errorf(
           "expected string or list of strings for command instead of %s",
           Starlark.type(commandUnchecked));
-    }
-    if (!arguments.isEmpty()) {
-      // When we use a shell command, add an empty argument before other arguments.
-      //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
-      // bash will use the empty argument as the value of $0 (which we don't care about).
-      // arg1 and arg2 will be $1 and $2, as a user expects.
-      builder.addExecutableArguments("");
     }
     registerStarlarkAction(
         outputs,

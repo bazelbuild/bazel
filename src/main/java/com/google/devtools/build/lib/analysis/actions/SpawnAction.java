@@ -1014,11 +1014,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * or {@link #setShellCommand}.
      */
     @CanIgnoreReturnValue
-    public Builder setShellCommand(PathFragment shExecutable, String command) {
-      // 0=shell command switch, 1=command
-      this.executableArgs =
-          CustomCommandLine.builder().addPath(shExecutable).add("-c").addDynamicString(command);
-      this.executableArg = null;
+    public Builder setShellCommand(PathFragment shExecutable, String command, boolean pad) {
+      this.executableArg = new ShellCommand(shExecutable, command, pad);
+      this.executableArgs = null;
       return this;
     }
 
@@ -1027,8 +1025,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      * be executed.
      */
     @CanIgnoreReturnValue
-    public Builder setShellCommand(Iterable<String> command) {
+    public Builder setShellCommand(Iterable<String> command, boolean pad) {
       this.executableArgs = CustomCommandLine.builder().addAll(ImmutableList.copyOf(command));
+      if (pad) {
+        executableArgs.add("");
+      }
       this.executableArg = null;
       return this;
     }

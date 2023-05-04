@@ -215,6 +215,7 @@ java_library(
         "WindowsPowershellCommandConstructor.java",
         "actions/ActionConstructionContext.java",
         "actions/FileWriteAction.java",
+        "actions/ShellCommand.java",
         "actions/SpawnAction.java",
         "actions/StarlarkAction.java",
         "actions/SymlinkTreeAction.java",
