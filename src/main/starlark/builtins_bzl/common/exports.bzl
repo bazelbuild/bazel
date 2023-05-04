@@ -21,6 +21,7 @@ load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
 load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryHintInfo", "CcSharedLibraryInfo", "cc_shared_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
+load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
 load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
 load("@_builtins//:common/objc/linking_support.bzl", "linking_support")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
@@ -62,6 +63,7 @@ exported_rules = {
     "java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
+    "-j2objc_library": j2objc_library,
     "proto_library": proto_library,
     "cc_shared_library": cc_shared_library,
     "cc_binary": cc_binary,

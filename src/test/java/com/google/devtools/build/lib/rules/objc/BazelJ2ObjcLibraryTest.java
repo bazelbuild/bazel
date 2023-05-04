@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.ByteArrayOutputStream;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -492,8 +493,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     getConfiguredTarget("//app:test");
 
     assertContainsEvent(
-        "in jre_deps attribute of j2objc_library rule //app:test: objc_library rule"
-            + " '//app:no_tag_dep' is misplaced here (Only J2ObjC JRE libraries are allowed)");
+        Pattern.compile(
+            ".* objc_library rule \\'//app:no_tag_dep\\' is misplaced here \\(Only J2ObjC JRE"
+                + " libraries are allowed\\)"));
   }
 
   @Test
