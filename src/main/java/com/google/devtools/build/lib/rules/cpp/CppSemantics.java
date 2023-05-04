@@ -17,12 +17,10 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -52,9 +50,6 @@ public interface CppSemantics extends StarlarkValue {
       CppCompileActionBuilder actionBuilder,
       RuleErrorConsumer ruleErrorConsumer);
 
-  /** Determines the applicable mode of headers checking for the passed in ruleContext. */
-  HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
-
   /** Determines the applicable mode of headers checking in Starlark. */
   HeadersCheckingMode determineStarlarkHeadersCheckingMode(
       RuleContext ruleContext, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
@@ -76,9 +71,6 @@ public interface CppSemantics extends StarlarkValue {
   /** Returns true iff this build requires include validation. */
   boolean needsIncludeValidation();
 
-  /** Provider for cc_shared_libraries * */
-  StructImpl getCcSharedLibraryInfo(TransitiveInfoCollection dep);
-
   /** No-op in Bazel */
   void validateLayeringCheckFeatures(
       RuleContext ruleContext,
@@ -87,9 +79,6 @@ public interface CppSemantics extends StarlarkValue {
       ImmutableSet<String> unsupportedFeatures);
 
   boolean createEmptyArchive();
-
-  void checkCanUseImplementationDeps(RuleContext ruleContext);
-
   void validateStarlarkCompileApiCall(
       StarlarkActionFactory actionFactory,
       StarlarkThread thread,

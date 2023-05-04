@@ -446,9 +446,6 @@ public interface JavaSemantics {
   /** @return a list of extra arguments to appends to the runfiles support. */
   List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources);
 
-  /** @return main class (entry point) for the Java compiler. */
-  String getJavaBuilderMainClass();
-
   /**
    * @return An artifact representing the protobuf-format version of the proguard mapping, or null
    *     if the proguard version doesn't support this.

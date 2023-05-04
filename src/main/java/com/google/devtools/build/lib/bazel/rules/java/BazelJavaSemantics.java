@@ -88,9 +88,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       Template.forResource(BazelJavaSemantics.class, "java_stub_template.txt");
   private static final String CLASSPATH_PLACEHOLDER = "%classpath%";
 
-  private static final String JAVABUILDER_CLASS_NAME =
-      "com.google.devtools.build.buildjar.BazelJavaBuilder";
-
   private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
       "com.google.testing.coverage.JacocoCoverageRunner";
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
@@ -678,12 +675,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     return ImmutableList.<String>of();
   }
-
-  @Override
-  public String getJavaBuilderMainClass() {
-    return JAVABUILDER_CLASS_NAME;
-  }
-
   @Override
   public Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException {
     return null;

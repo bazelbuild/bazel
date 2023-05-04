@@ -1037,10 +1037,6 @@ public final class RuleContext extends TargetContext
             this, rule.getPackage(), getConfiguration(), makeVariableSuppliers);
   }
 
-  public void initConfigurationMakeVariableContext(MakeVariableSupplier... makeVariableSuppliers) {
-    initConfigurationMakeVariableContext(ImmutableList.copyOf(makeVariableSuppliers));
-  }
-
   public Expander getExpander(TemplateContext templateContext) {
     Expander expander = new Expander(this, templateContext);
     makeVariableExpanders.add(expander);
