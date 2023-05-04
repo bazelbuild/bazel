@@ -60,11 +60,11 @@ function test_jdeps() {
     platform="linux"
   fi
   cp $(rlocation io_bazel/src/allmodules_jdk.zip) .
-  unzip allmodules_jdk.zip || fail "Failed to extract JDK."
+  unzip -q allmodules_jdk.zip || fail "Failed to extract JDK."
   denylist=$(rlocation io_bazel/src/test/shell/bazel/jdeps_class_denylist.txt)
   deploy_jar=$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar)
   cd ../bazeljar
-  unzip "$deploy_jar" || fail "Failed to extract Bazel's server.jar"
+  unzip -q "$deploy_jar" || fail "Failed to extract Bazel's server.jar"
 
   # TODO(twerth): Replace --list-reduced-deps with --print-module-deps when
   # switching to JDK10.

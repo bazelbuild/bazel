@@ -1241,7 +1241,7 @@ sh_test(
 
 sh_test(
     name = "jdeps_test",
-    size = "large",
+    size = "enormous",
     srcs = ["jdeps_test.sh"],
     data = [
         ":jdeps_class_denylist.txt",
