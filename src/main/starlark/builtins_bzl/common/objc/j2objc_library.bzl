@@ -36,13 +36,11 @@ def _j2objc_library_impl(ctx):
 
 J2OBJC_ATTRS = {
     "deps": attr.label_list(
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
         allow_rules = ["j2objc_library", "java_library", "java_import", "java_proto_library"],
         # aspects = [j2objc_aspect],
     ),
     "entry_classes": attr.string_list(),
     "jre_deps": attr.label_list(
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
         allow_rules = ["objc_library"],
         aspects = [jre_deps_aspect],
     ),
