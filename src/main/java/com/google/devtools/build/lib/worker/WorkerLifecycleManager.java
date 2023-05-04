@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -22,6 +24,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.pool2.PooledObject;
@@ -53,7 +56,7 @@ final class WorkerLifecycleManager extends Thread {
 
   @Override
   public void run() {
-    if (options.totalWorkerMemoryLimitMb == 0) {
+    if (options.totalWorkerMemoryLimitMb == 0 && options.workerMemoryLimitMb == 0) {
       return;
     }
 
@@ -69,10 +72,17 @@ final class WorkerLifecycleManager extends Thread {
 
       ImmutableList<WorkerMetric> workerMetrics =
           WorkerMetricsCollector.instance().collectMetrics();
-      try {
-        evictWorkers(workerMetrics);
-      } catch (InterruptedException e) {
-        break;
+
+      if (options.totalWorkerMemoryLimitMb > 0) {
+        try {
+          evictWorkers(workerMetrics);
+        } catch (InterruptedException e) {
+          break;
+        }
+      }
+
+      if (options.workerMemoryLimitMb > 0) {
+        killLargeWorkers(workerMetrics, options.workerMemoryLimitMb);
       }
     }
 
@@ -81,6 +91,35 @@ final class WorkerLifecycleManager extends Thread {
 
   void stopProcessing() {
     isWorking = false;
+  }
+
+  /** Kills any worker that uses more than {@code limitMb} MB of memory. */
+  void killLargeWorkers(ImmutableList<WorkerMetric> workerMetrics, int limitMb) {
+    ImmutableList<WorkerMetric> large =
+        workerMetrics.stream()
+            .filter(m -> m.getWorkerStat().getUsedMemoryInKB() / 1000 > limitMb)
+            .collect(toImmutableList());
+
+    for (WorkerMetric l : large) {
+      String msg;
+
+      ImmutableList<Integer> workerIds = l.getWorkerProperties().getWorkerIds();
+      Optional<ProcessHandle> ph = ProcessHandle.of(l.getWorkerProperties().getProcessId());
+      if (ph.isPresent()) {
+        msg =
+            String.format(
+                "Killing %s worker %s (pid %d) taking %dMB",
+                l.getWorkerProperties().getMnemonic(),
+                workerIds.size() == 1 ? workerIds.get(0) : workerIds,
+                l.getWorkerProperties().getProcessId(),
+                l.getWorkerStat().getUsedMemoryInKB() / 1000);
+        ph.get().destroyForcibly();
+        logger.atInfo().log("%s", msg);
+        if (reporter != null) {
+          reporter.handle(Event.info(msg));
+        }
+      }
+    }
   }
 
   @VisibleForTesting // productionVisibility = Visibility.PRIVATE

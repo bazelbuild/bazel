@@ -728,6 +728,35 @@ EOF
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
+function test_worker_memory_limit() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  worker_args = [
+    "--worker_protocol=${WORKER_PROTOCOL}",
+  ],
+  args = [
+    "--work_time=3s",
+  ]
+)
+EOF
+
+  bazel build --experimental_worker_memory_limit_mb=1000 \
+    --experimental_worker_metrics_poll_interval=1s :hello_world &> "$TEST_log" \
+    || fail "build failed"
+  bazel clean
+  bazel build --experimental_worker_memory_limit_mb=1 \
+    --experimental_worker_metrics_poll_interval=1s :hello_world &> "$TEST_log" \
+    && fail "expected build to fail" || true
+
+  expect_log "^---8<---8<--- Start of log, file at /"
+  expect_log "Worker process did not return a WorkResponse:"
+  expect_log "Killing [a-zA-Z]\+ worker [0-9]\+ (pid [0-9]\+) taking [0-9]\+MB"
+  expect_log "^---8<---8<--- End of log ---8<---8<---"
+}
+
 function test_worker_metrics_collection() {
   prepare_example_worker
   cat >>BUILD <<EOF

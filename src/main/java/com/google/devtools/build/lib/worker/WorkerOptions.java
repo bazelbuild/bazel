@@ -225,4 +225,16 @@ public class WorkerOptions extends OptionsBase {
           "The interval between collecting worker metrics and possibly attempting evictions. "
               + "Cannot effectively be less than 1s for performance reasons.")
   public Duration workerMetricsPollInterval;
+
+  @Option(
+      name = "experimental_worker_memory_limit_mb",
+      converter = RamResourceConverter.class,
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If this limit is greater than zero, workers might be killed if the memory usage of the "
+              + "worker exceeds the limit. If not used together with dynamic execution and "
+              + "`--experimental_dynamic_ignore_local_signals=9`, this may crash your build.")
+  public int workerMemoryLimitMb;
 }
