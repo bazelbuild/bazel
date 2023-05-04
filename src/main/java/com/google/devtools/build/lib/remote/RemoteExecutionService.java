@@ -1224,13 +1224,13 @@ public class RemoteExecutionService {
           // produced symlink against the local filesystem is asking for trouble.
           //
           // Sadly, we started permitting relative symlinks at some point, so we have to allow them
-          // for backwards compatibility unless the --incompatible_disallow_symlink_in_tree_artifact
-          // flag is set. Absolute symlinks, on the other hand, have never been allowed.
+          // until the --incompatible_remote_disallow_symlink_in_tree_artifact flag is flipped.
+          // Absolute symlinks, on the other hand, have never been allowed.
           //
           // See also https://github.com/bazelbuild/bazel/issues/16361 for potential future work
           // to allow *unresolved* symlinks in a tree artifact.
           boolean isAbsolute = symlink.target().isAbsolute();
-          if (remoteOptions.incompatibleDisallowSymlinkInTreeArtifact || isAbsolute) {
+          if (remoteOptions.incompatibleRemoteDisallowSymlinkInTreeArtifact || isAbsolute) {
             throw new IOException(
                 String.format(
                     "Unsupported symlink '%s' inside tree artifact '%s'",

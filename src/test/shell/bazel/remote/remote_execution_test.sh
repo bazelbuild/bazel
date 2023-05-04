@@ -2324,7 +2324,7 @@ EOF
   bazel clean
 
   bazel build \
-      --incompatible_disallow_symlink_in_tree_artifact \
+      --incompatible_remote_disallow_symlink_in_tree_artifact \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:tree &>$TEST_log && fail "Expected build to fail"
