@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
@@ -27,6 +28,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.J2ObjcConfigurationApi;
 import java.util.Collections;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkThread;
 
 /**
  * A J2ObjC transpiler configuration fragment containing J2ObjC translation flags. This
@@ -122,6 +127,21 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
    * app bundle.
    */
   public boolean removeDeadCode() {
+    return removeDeadCode;
+  }
+
+  protected static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
+    Label label =
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label();
+    if (!label.getPackageIdentifier().getRepository().getName().equals("_builtins")) {
+      throw Starlark.errorf("Rule in '%s' cannot use private API", label.getPackageName());
+    }
+  }
+
+  @Override
+  public boolean getRemoveDeadCodeForStarlark(StarlarkThread thread) throws EvalException {
+    checkPrivateAccess(thread);
     return removeDeadCode;
   }
 
