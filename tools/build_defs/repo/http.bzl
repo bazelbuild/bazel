@@ -553,7 +553,7 @@ Examples:
   )
   ```
 
-  Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.
+  Targets would specify `@my_ssl//jar` as a dependency to depend on this jar.
 
   You may also reference files on the current system (localhost) by using "file:///path/to/file"
   if you are on Unix-based systems. If you're on Windows, use "file:///c:/path/to/file". In both
