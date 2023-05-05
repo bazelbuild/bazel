@@ -108,7 +108,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetBuiltEvent;
@@ -647,7 +646,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                 SyscallCache.NO_CACHE,
                 /* numThreads= */ 20)
             .getDirtyKeys(
-                skyframeExecutor.getEvaluator().getValues(), new BasicFilesystemDirtinessChecker());
+                skyframeExecutor.getEvaluator().getValues(),
+                DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker());
     return ImmutableList.<SkyKey>builder()
         .addAll(diff.changedKeysWithoutNewValues())
         .addAll(diff.changedKeysWithNewValues().keySet())

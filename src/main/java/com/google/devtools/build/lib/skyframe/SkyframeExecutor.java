@@ -183,7 +183,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKe
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
-import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
@@ -2246,7 +2245,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
           new FilesystemValueChecker(tsgm, syscallCache, /* numThreads= */ 200)
-              .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
+              .getDirtyKeys(
+                  memoizingEvaluator.getValues(),
+                  DirtinessCheckerUtils.createBasicFilesystemDirtinessChecker());
     } else {
       diff = getDiff(tsgm, modifiedFileSet, pathEntry, /* fsvcThreads= */ 200);
     }
