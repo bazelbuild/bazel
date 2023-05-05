@@ -325,7 +325,7 @@ public class BuildTool {
     Stopwatch executionTimer = Stopwatch.createUnstarted();
 
     // TODO(b/199053098): implement support for --nobuild.
-    AnalysisAndExecutionResult analysisAndExecutionResult;
+    AnalysisAndExecutionResult analysisAndExecutionResult = null;
     boolean buildCompleted = false;
     try {
       analysisAndExecutionResult =
@@ -360,7 +360,6 @@ public class BuildTool {
       if (analysisAndExecutionResult == null) {
         return;
       }
-      executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
     } catch (InvalidConfigurationException
         | RepositoryMappingResolutionException
         | ViewCreationFailedException
@@ -374,6 +373,11 @@ public class BuildTool {
       hasCatastrophe = true;
       throw e;
     } finally {
+      if (result.getBuildConfiguration() != null) {
+        // We still need to do this even in case of an exception.
+        executionTool.handleConvenienceSymlinks(
+            env.getBuildResultListener().getAnalyzedTargets(), result.getBuildConfiguration());
+      }
       executionTool.unconditionalExecutionPhaseFinalizations(
           executionTimer, env.getSkyframeExecutor());
 

@@ -396,7 +396,8 @@ public class ExecutionTool {
       createActionLogDirectory();
     }
 
-    handleConvenienceSymlinks(analysisResult);
+    handleConvenienceSymlinks(
+        analysisResult.getTargetsToBuild(), analysisResult.getConfiguration());
 
     BuildRequestOptions options = request.getBuildOptions();
     ActionCache actionCache = null;
@@ -702,13 +703,15 @@ public class ExecutionTool {
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
    */
-  public void handleConvenienceSymlinks(AnalysisResult analysisResult) {
+  public void handleConvenienceSymlinks(
+      ImmutableSet<ConfiguredTarget> targetsToBuild, BuildConfigurationValue configuration) {
     try (SilentCloseable c =
         Profiler.instance().profile("ExecutionTool.handleConvenienceSymlinks")) {
       ImmutableList<ConvenienceSymlink> convenienceSymlinks = ImmutableList.of();
       if (request.getBuildOptions().experimentalConvenienceSymlinks
           != ConvenienceSymlinksMode.IGNORE) {
-        convenienceSymlinks = createConvenienceSymlinks(request.getBuildOptions(), analysisResult);
+        convenienceSymlinks =
+            createConvenienceSymlinks(request.getBuildOptions(), targetsToBuild, configuration);
       }
       if (request.getBuildOptions().experimentalConvenienceSymlinksBepEvent) {
         env.getEventBus().post(new ConvenienceSymlinksIdentifiedEvent(convenienceSymlinks));
@@ -730,22 +733,23 @@ public class ExecutionTool {
    * in fact gets removed if it was already present from a previous invocation.
    */
   private ImmutableList<ConvenienceSymlink> createConvenienceSymlinks(
-      BuildRequestOptions buildRequestOptions, AnalysisResult analysisResult) {
+      BuildRequestOptions buildRequestOptions,
+      ImmutableSet<ConfiguredTarget> targetsToBuild,
+      BuildConfigurationValue configuration) {
     SkyframeExecutor executor = env.getSkyframeExecutor();
     Reporter reporter = env.getReporter();
 
     // Gather configurations to consider.
     Set<BuildConfigurationValue> targetConfigurations =
-        buildRequestOptions.useTopLevelTargetsForSymlinks()
-                && !analysisResult.getTargetsToBuild().isEmpty()
-            ? analysisResult.getTargetsToBuild().stream()
+        buildRequestOptions.useTopLevelTargetsForSymlinks() && !targetsToBuild.isEmpty()
+            ? targetsToBuild.stream()
                 .map(ConfiguredTarget::getActual)
                 .map(ConfiguredTarget::getConfigurationKey)
                 .filter(Objects::nonNull)
                 .distinct()
                 .map((key) -> executor.getConfiguration(reporter, key))
                 .collect(toImmutableSet())
-            : ImmutableSet.of(analysisResult.getConfiguration());
+            : ImmutableSet.of(configuration);
 
     String productName = runtime.getProductName();
     try (SilentCloseable c =
