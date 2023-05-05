@@ -49,7 +49,9 @@ import com.google.errorprone.annotations.ForOverride;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -302,10 +304,10 @@ public class CustomCommandLine extends CommandLine {
       }
     }
 
-    private static void push(ImmutableList.Builder<Object> arguments, VectorArg<?> vectorArg) {
+    private static void push(List<Object> arguments, VectorArg<?> vectorArg) {
       // This is either a Collection or a NestedSet.
-      final Object values;
-      final CommandLineItem.MapFn<?> mapFn;
+      Object values;
+      CommandLineItem.MapFn<?> mapFn;
       if (vectorArg instanceof SimpleVectorArg) {
         values = ((SimpleVectorArg<?>) vectorArg).values;
         mapFn = null;
@@ -518,12 +520,11 @@ public class CustomCommandLine extends CommandLine {
 
     private static final UUID FORMAT_UUID = UUID.fromString("377cee34-e947-49e0-94a2-6ab95b396ec4");
 
-    private static void push(
-        ImmutableList.Builder<Object> arguments, String formatStr, Object... args) {
+    private static void push(List<Object> arguments, String formatStr, Object[] args) {
       arguments.add(INSTANCE);
       arguments.add(args.length);
       arguments.add(formatStr);
-      arguments.add(args);
+      Collections.addAll(arguments, args);
     }
 
     @Override
@@ -565,7 +566,7 @@ public class CustomCommandLine extends CommandLine {
 
     private static final UUID PREFIX_UUID = UUID.fromString("a95eccdf-4f54-46fc-b925-c8c7e1f50c95");
 
-    private static void push(ImmutableList.Builder<Object> arguments, String before, Object arg) {
+    private static void push(List<Object> arguments, String before, Object arg) {
       arguments.add(INSTANCE);
       arguments.add(before);
       arguments.add(arg);
@@ -730,7 +731,7 @@ public class CustomCommandLine extends CommandLine {
     // In order to avoid unnecessary wrapping, we keep raw objects here, but these objects are
     // always either ArgvFragments or objects whose desired string representations are just their
     // toString() results.
-    private final ImmutableList.Builder<Object> arguments = ImmutableList.builder();
+    private final List<Object> arguments = new ArrayList<>();
 
     private boolean stripOutputPaths = false;
 
@@ -1110,13 +1111,14 @@ public class CustomCommandLine extends CommandLine {
     }
 
     public CustomCommandLine build() {
+      Object[] args = arguments.toArray();
       return stripOutputPaths
           ? new PathStrippingCustomCommandline(
-              arguments.build(),
+              args,
               Verify.verifyNotNull(
                   outputRoot,
                   "path stripping needs an output root ('bazel-out') to identify output paths"))
-          : new CustomCommandLine(arguments.build());
+          : new CustomCommandLine(args);
     }
 
     @CanIgnoreReturnValue
@@ -1208,10 +1210,19 @@ public class CustomCommandLine extends CommandLine {
     return new Builder();
   }
 
-  private final ImmutableList<Object> arguments;
+  /**
+   * Stored as an {@code Object[]} instead of an {@link ImmutableList} to save memory, but is never
+   * modified. Access via {@link #rawArgsAsList} for an unmodifiable {@link List} view.
+   */
+  private final Object[] arguments;
 
-  private CustomCommandLine(ImmutableList<Object> arguments) {
+  private CustomCommandLine(Object[] arguments) {
     this.arguments = arguments;
+  }
+
+  /** Wraps {@link #arguments} in an unmodifiable {@link List} view. */
+  private List<Object> rawArgsAsList() {
+    return Collections.unmodifiableList(Arrays.asList(arguments));
   }
 
   protected PathMapper getPathStripper() {
@@ -1229,8 +1240,7 @@ public class CustomCommandLine extends CommandLine {
   private static final class PathStrippingCustomCommandline extends CustomCommandLine {
     private final PathMapper pathMapper;
 
-    private PathStrippingCustomCommandline(
-        ImmutableList<Object> arguments, @Nullable PathFragment outputRoot) {
+    private PathStrippingCustomCommandline(Object[] arguments, PathFragment outputRoot) {
       super(arguments);
       // TODO(https://github.com/bazelbuild/bazel/issues/6526): outputRoot is just an indirect
       // reference to "bazel-out". Java-heavy builds keep enough CustomCommandLine objects in memory
@@ -1272,6 +1282,7 @@ public class CustomCommandLine extends CommandLine {
   private ImmutableList<String> argumentsInternal(@Nullable ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
+    List<Object> arguments = rawArgsAsList();
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
@@ -1325,6 +1336,7 @@ public class CustomCommandLine extends CommandLine {
       @Nullable ArtifactExpander artifactExpander,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
+    List<Object> arguments = rawArgsAsList();
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
@@ -1353,7 +1365,7 @@ public class CustomCommandLine extends CommandLine {
     private final ImmutableMap<Artifact, TreeFileArtifact> substitutionMap;
 
     private TreeArtifactSubstitutionCustomCommandLine(
-        ImmutableList<Object> arguments, ImmutableMap<Artifact, TreeFileArtifact> substitutionMap) {
+        Object[] arguments, ImmutableMap<Artifact, TreeFileArtifact> substitutionMap) {
       super(arguments);
       this.substitutionMap = substitutionMap;
     }
