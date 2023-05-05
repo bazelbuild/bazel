@@ -264,7 +264,7 @@ public final class BlazeOptionHandler {
         PriorityCategory.COMMAND_LINE,
         commandOptionSourceFunction,
         defaultOverridesAndRcSources.build(),
-        null);
+        /* fallbackData= */null);
 
     // Command-specific options from .blazerc passed in via --default_override and --rc_source.
     ClientOptions rcFileOptions = optionsParser.getOptions(ClientOptions.class);
@@ -278,7 +278,8 @@ public final class BlazeOptionHandler {
 
     // Parses the remaining command-line options.
     optionsParser.parseWithSourceFunction(
-        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build(), null);
+        PriorityCategory.COMMAND_LINE, commandOptionSourceFunction, remainingCmdLine.build(),
+        /* fallbackData= */null);
 
     if (commandAnnotation.builds()) {
       // splits project files from targets in the traditional sense

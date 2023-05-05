@@ -33,14 +33,17 @@ public class OptionsDataTest {
 
   private static IsolatedOptionsData construct(Class<? extends OptionsBase> optionsClass)
       throws OptionsParser.ConstructionException {
-    return IsolatedOptionsData.from(ImmutableList.of(optionsClass), false);
+    return IsolatedOptionsData.from(
+        ImmutableList.of(optionsClass), /* allowDuplicatesParsingEquivalently= */false);
   }
 
   private static IsolatedOptionsData construct(
       Class<? extends OptionsBase> optionsClass1,
       Class<? extends OptionsBase> optionsClass2)
       throws OptionsParser.ConstructionException {
-    return IsolatedOptionsData.from(ImmutableList.of(optionsClass1, optionsClass2), false);
+    return IsolatedOptionsData.from(
+        ImmutableList.of(optionsClass1, optionsClass2), /* allowDuplicatesParsingEquivalently= */
+        false);
   }
 
   private static IsolatedOptionsData construct(
@@ -49,7 +52,7 @@ public class OptionsDataTest {
       Class<? extends OptionsBase> optionsClass3)
       throws OptionsParser.ConstructionException {
     return IsolatedOptionsData.from(ImmutableList.of(optionsClass1, optionsClass2, optionsClass3),
-        false);
+        /* allowDuplicatesParsingEquivalently= */false);
   }
 
   /** Dummy options class. */
