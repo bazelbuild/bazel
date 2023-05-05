@@ -185,7 +185,10 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         targetPath.isAbsolute(),
         "non-symlink artifact materialized as symlink must point to absolute path");
 
-    if (inputFetcher.getRemoteOutputChecker().shouldDownloadOutputDuringActionExecution(output)) {
+    if (isOutput(targetPath)
+        && inputFetcher
+            .getRemoteOutputChecker()
+            .shouldDownloadOutputDuringActionExecution(output)) {
       var targetActionInput = getInput(targetPath.relativeTo(execRoot).getPathString());
       if (targetActionInput != null) {
         if (output.isTreeArtifact()) {

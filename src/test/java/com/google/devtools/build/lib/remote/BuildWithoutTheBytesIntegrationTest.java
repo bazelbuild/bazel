@@ -724,6 +724,34 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
   }
 
   @Test
+  public void downloadToplevel_symlinkSourceFile() throws Exception {
+    // TODO(chiwang): Make metadata for downloaded symlink non-remote.
+    assumeFalse(OS.getCurrent() == OS.WINDOWS);
+
+    setDownloadToplevel();
+    writeSymlinkRule();
+    write(
+        "BUILD",
+        "load(':symlink.bzl', 'symlink')",
+        "symlink(",
+        "  name = 'foo-link',",
+        "  target = ':foo.txt'",
+        ")");
+    write("foo.txt", "foo");
+
+    buildTarget("//:foo-link");
+
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+
+    // Delete link, re-plant symlink
+    getOutputPath("foo-link").delete();
+
+    buildTarget("//:foo-link");
+
+    assertOnlyOutputContent("//:foo-link", "foo-link", "foo" + lineSeparator());
+  }
+
+  @Test
   public void downloadToplevel_symlinkTree() throws Exception {
     // TODO(chiwang): Make metadata for downloaded symlink non-remote.
     assumeFalse(OS.getCurrent() == OS.WINDOWS);
