@@ -140,7 +140,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     if (internalRepo == null) {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
-    Package pkg = extensionEval.getGeneratedRepos().get(internalRepo);
+    RepoSpec extRepoSpec = extensionEval.getGeneratedRepoSpecs().get(internalRepo);
+    Package pkg = createRuleFromSpec(extRepoSpec, starlarkSemantics, env).getRule().getPackage();
     Preconditions.checkNotNull(pkg);
 
     return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
