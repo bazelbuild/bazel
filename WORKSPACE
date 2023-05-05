@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
-load("//:distdir.bzl", "dist_http_archive", "distdir_tar")
+load("//tools/build_defs/repo:http.bzl", "http_archive")
+load("//:distdir.bzl", "dist_http_archive", "distdir_tar", "dist_http_jar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
 
@@ -262,20 +262,15 @@ distdir_tar(
     name = "test_WORKSPACE_files",
     archives = [
         "android_tools_pkg-0.28.0.tar",
-        "r8-8.0.40.jar",
     ],
     dirname = "test_WORKSPACE/distdir",
     dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
     sha256 = {
         "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
-        "r8-8.0.40.jar": "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
     },
     urls = {
         "android_tools_pkg-0.28.0.tar": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
-        ],
-        "r8-8.0.40.jar": [
-            "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
         ],
     },
 )
@@ -298,12 +293,13 @@ http_archive(
     url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
 )
 
-# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
-# and tools/android/android_extensions.bzl
-http_jar(
-    name = "android_gmaven_r8_for_testing",
-    sha256 = "ab1379835c7d3e5f21f80347c3c81e2f762e0b9b02748ae5232c3afa14adf702",
-    url = "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
+# This is here to override the android_gmaven_r8 rule from
+# src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+# so that tests like src/test/java/com/google/devtools/build/android/r8:AllTests
+# use the most recent version of R8 rather than the one might be referenced in a released
+# version of bazel that might have an outdated android_remote_tools.WORKSPACE relative to the tests.
+dist_http_jar(
+    name = "android_gmaven_r8",
 )
 
 dist_http_archive(
