@@ -318,8 +318,8 @@ public abstract class Artifact
   private Artifact(ArtifactRoot root, PathFragment execPath, int hashCodeWithOwner) {
     Preconditions.checkNotNull(root);
     // Use a precomputed hashcode since there tends to be massive hash-based collections of
-    // artifacts. Importantly, the hashcode ought to incorporate the artifact's owner (not just the
-    // exec path) to prevent a hash collision on the same owner (this is the common case for
+    // artifacts. Importantly, the hashcode ought to incorporate the artifact's owner to prevent a
+    // hash collision on the same exec path but a different owner (this is the common case for
     // multiple aspects that produce the same output file).
     this.hashCode = hashCodeWithOwner;
     this.root = root;
