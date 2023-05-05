@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Intended drop-in replacement for AnalysisPhaseRunner after we're done with merging Skyframe's
@@ -71,6 +72,7 @@ public final class AnalysisAndExecutionPhaseRunner {
 
   private AnalysisAndExecutionPhaseRunner() {}
 
+  @Nullable
   static AnalysisAndExecutionResult execute(
       CommandEnvironment env,
       BuildRequest request,

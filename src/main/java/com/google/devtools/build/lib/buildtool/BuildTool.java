@@ -320,86 +320,89 @@ public class BuildTool {
     env.setWorkspaceName(loadingResult.getWorkspaceName());
     boolean hasCatastrophe = false;
 
-    if (request.getBuildOptions().performAnalysisPhase) {
-      ExecutionTool executionTool = new ExecutionTool(env, request);
-      // This timer measures time from the first execution activity to the last.
-      Stopwatch executionTimer = Stopwatch.createUnstarted();
+    ExecutionTool executionTool = new ExecutionTool(env, request);
+    // This timer measures time from the first execution activity to the last.
+    Stopwatch executionTimer = Stopwatch.createUnstarted();
 
-      // TODO(b/199053098): implement support for --nobuild.
-      AnalysisAndExecutionResult analysisAndExecutionResult;
-      boolean buildCompleted = false;
-      try {
-        analysisAndExecutionResult =
-            AnalysisAndExecutionPhaseRunner.execute(
-                env,
-                request,
-                buildOptions,
-                loadingResult,
-                () -> executionTool.prepareForExecution(request.getId(), executionTimer),
-                result::setBuildConfiguration,
-                new BuildDriverKeyTestContext() {
-                  @Override
-                  public String getTestStrategy() {
-                    return request.getOptions(ExecutionOptions.class).testStrategy;
-                  }
+    // TODO(b/199053098): implement support for --nobuild.
+    AnalysisAndExecutionResult analysisAndExecutionResult;
+    boolean buildCompleted = false;
+    try {
+      analysisAndExecutionResult =
+          AnalysisAndExecutionPhaseRunner.execute(
+              env,
+              request,
+              buildOptions,
+              loadingResult,
+              () -> executionTool.prepareForExecution(request.getId(), executionTimer),
+              result::setBuildConfiguration,
+              new BuildDriverKeyTestContext() {
+                @Override
+                public String getTestStrategy() {
+                  return request.getOptions(ExecutionOptions.class).testStrategy;
+                }
 
-                  @Override
-                  public boolean forceExclusiveTestsInParallel() {
-                    return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
-                  }
+                @Override
+                public boolean forceExclusiveTestsInParallel() {
+                  return executionTool.getTestActionContext().forceExclusiveTestsInParallel();
+                }
 
-                  @Override
-                  public boolean forceExclusiveIfLocalTestsInParallel() {
-                    return executionTool
-                        .getTestActionContext()
-                        .forceExclusiveIfLocalTestsInParallel();
-                  }
-                });
-        buildCompleted = true;
-        executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
-      } catch (InvalidConfigurationException
-          | RepositoryMappingResolutionException
-          | ViewCreationFailedException
-          | BuildFailedException
-          | TestExecException e) {
-        // These are non-catastrophic.
-        buildCompleted = true;
-        throw e;
-      } catch (Error | RuntimeException e) {
-        // These are catastrophic.
-        hasCatastrophe = true;
-        throw e;
-      } finally {
-        executionTool.unconditionalExecutionPhaseFinalizations(
-            executionTimer, env.getSkyframeExecutor());
+                @Override
+                public boolean forceExclusiveIfLocalTestsInParallel() {
+                  return executionTool
+                      .getTestActionContext()
+                      .forceExclusiveIfLocalTestsInParallel();
+                }
+              });
+      buildCompleted = true;
 
-        // For the --noskymeld code path, this is done after the analysis phase.
-        BuildResultListener buildResultListener = env.getBuildResultListener();
-        result.setActualTargets(buildResultListener.getAnalyzedTargets());
-        result.setTestTargets(buildResultListener.getAnalyzedTests());
-
-        if (!hasCatastrophe) {
-          executionTool.nonCatastrophicFinalizations(
-              result,
-              env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
-              /*explanationHandler=*/ null,
-              buildCompleted);
-        }
+      // This value is null when there's no analysis.
+      if (analysisAndExecutionResult == null) {
+        return;
       }
+      executionTool.handleConvenienceSymlinks(analysisAndExecutionResult);
+    } catch (InvalidConfigurationException
+        | RepositoryMappingResolutionException
+        | ViewCreationFailedException
+        | BuildFailedException
+        | TestExecException e) {
+      // These are non-catastrophic.
+      buildCompleted = true;
+      throw e;
+    } catch (Error | RuntimeException e) {
+      // These are catastrophic.
+      hasCatastrophe = true;
+      throw e;
+    } finally {
+      executionTool.unconditionalExecutionPhaseFinalizations(
+          executionTimer, env.getSkyframeExecutor());
 
-      // This is the --keep_going code path: Time to throw the delayed exceptions.
-      // Keeping legacy behavior: for execution errors, keep the message of the BuildFailedException
-      // empty.
-      if (analysisAndExecutionResult.getExecutionDetailedExitCode() != null) {
-        throw new BuildFailedException(
-            null, analysisAndExecutionResult.getExecutionDetailedExitCode());
-      }
+      // For the --noskymeld code path, this is done after the analysis phase.
+      BuildResultListener buildResultListener = env.getBuildResultListener();
+      result.setActualTargets(buildResultListener.getAnalyzedTargets());
+      result.setTestTargets(buildResultListener.getAnalyzedTests());
 
-      FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
-      if (delayedFailureDetail != null) {
-        throw new BuildFailedException(
-            delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
+      if (!hasCatastrophe) {
+        executionTool.nonCatastrophicFinalizations(
+            result,
+            env.getBlazeWorkspace().getInUseActionCacheWithoutFurtherLoading(),
+            /* explanationHandler= */ null,
+            buildCompleted);
       }
+    }
+
+    // This is the --keep_going code path: Time to throw the delayed exceptions.
+    // Keeping legacy behavior: for execution errors, keep the message of the BuildFailedException
+    // empty.
+    if (analysisAndExecutionResult.getExecutionDetailedExitCode() != null) {
+      throw new BuildFailedException(
+          null, analysisAndExecutionResult.getExecutionDetailedExitCode());
+    }
+
+    FailureDetail delayedFailureDetail = analysisAndExecutionResult.getFailureDetail();
+    if (delayedFailureDetail != null) {
+      throw new BuildFailedException(
+          delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
     }
   }
 
