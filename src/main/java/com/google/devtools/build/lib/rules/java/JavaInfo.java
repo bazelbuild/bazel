@@ -224,19 +224,6 @@ public final class JavaInfo extends NativeInfo
     return javaInfo.getProvider(providerClass);
   }
 
-  public static <T extends TransitiveInfoProvider> T getProvider(
-      Class<T> providerClass, TransitiveInfoProviderMap providerMap) {
-    T provider = providerMap.getProvider(providerClass);
-    if (provider != null) {
-      return provider;
-    }
-    JavaInfo javaInfo = (JavaInfo) providerMap.get(JavaInfo.PROVIDER.getKey());
-    if (javaInfo == null) {
-      return null;
-    }
-    return javaInfo.getProvider(providerClass);
-  }
-
   public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
     return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
   }

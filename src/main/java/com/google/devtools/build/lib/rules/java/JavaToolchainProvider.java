@@ -114,7 +114,6 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact depsChecker,
-      @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
@@ -142,7 +141,6 @@ public final class JavaToolchainProvider extends NativeInfo
         oneVersionAllowlist,
         genClass,
         depsChecker,
-        resourceJarBuilder,
         timezoneData,
         ijar,
         compatibleJavacOptions,
@@ -176,7 +174,6 @@ public final class JavaToolchainProvider extends NativeInfo
   @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
   @Nullable private final Artifact depsChecker;
-  @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
   private final FilesToRunProvider ijar;
   private final ImmutableListMultimap<String, String> compatibleJavacOptions;
@@ -210,7 +207,6 @@ public final class JavaToolchainProvider extends NativeInfo
       @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact depsChecker,
-      @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions,
@@ -243,7 +239,6 @@ public final class JavaToolchainProvider extends NativeInfo
     this.oneVersionAllowlist = oneVersionAllowlist;
     this.genClass = genClass;
     this.depsChecker = depsChecker;
-    this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
     this.ijar = ijar;
     this.compatibleJavacOptions = compatibleJavacOptions;
@@ -354,12 +349,6 @@ public final class JavaToolchainProvider extends NativeInfo
     return oneVersionAllowlist;
   }
 
-  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
-  @Nullable
-  public Artifact getOneVersionWhitelist() {
-    return oneVersionAllowlist;
-  }
-
   /** Returns the {@link Artifact} of the GenClass deploy jar */
   public Artifact getGenClass() {
     return genClass;
@@ -375,11 +364,6 @@ public final class JavaToolchainProvider extends NativeInfo
   public Artifact getDepsCheckerForStarlark(StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
     return depsChecker();
-  }
-
-  @Nullable
-  public Artifact getResourceJarBuilder() {
-    return resourceJarBuilder;
   }
 
   /**
@@ -449,6 +433,7 @@ public final class JavaToolchainProvider extends NativeInfo
     return jacocoRunner;
   }
 
+  @Override
   public FilesToRunProvider getProguardAllowlister() {
     return proguardAllowlister;
   }

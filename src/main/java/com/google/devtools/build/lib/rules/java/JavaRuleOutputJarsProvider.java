@@ -150,8 +150,6 @@ public final class JavaRuleOutputJarsProvider
 
       public abstract Builder setJdeps(Artifact value);
 
-      public abstract Builder setSourceJars(Iterable<Artifact> value);
-
       abstract ImmutableList.Builder<Artifact> sourceJarsBuilder();
 
       @CanIgnoreReturnValue

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 public class JavaRuleClasses {
 
   private static final String JAVA_TOOLCHAIN_ATTRIBUTE_NAME = "$java_toolchain";
-  @VisibleForTesting public static final String JAVA_RUNTIME_ATTRIBUTE_NAME = "$jvm";
 
   public static final String JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME = "$java_toolchain_type";
   public static final String JAVA_RUNTIME_TOOLCHAIN_TYPE_ATTRIBUTE_NAME =

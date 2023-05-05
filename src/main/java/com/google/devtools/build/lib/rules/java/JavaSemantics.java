@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -48,9 +47,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.File;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** Pluggable Java compilation semantics. */
@@ -90,8 +87,6 @@ public interface JavaSemantics {
 
   /** The java_toolchain.compatible_javacopts key for Android javacopts */
   public static final String ANDROID_JAVACOPTS_KEY = "android";
-  /** The java_toolchain.compatible_javacopts key for proto compilations. */
-  public static final String PROTO_JAVACOPTS_KEY = "proto";
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
@@ -186,29 +181,6 @@ public interface JavaSemantics {
   String JACOCO_MAIN_CLASS_PLACEHOLDER = "%set_jacoco_main_class%";
   String JACOCO_JAVA_RUNFILES_ROOT_PLACEHOLDER = "%set_jacoco_java_runfiles_root%";
 
-  /** Substitution for exporting the jars needed for jacoco coverage. */
-  class ComputedJacocoSubstitution extends ComputedSubstitution {
-    private final NestedSet<Artifact> jars;
-    private final String pathPrefix;
-
-    public ComputedJacocoSubstitution(NestedSet<Artifact> jars, String workspacePrefix) {
-      super(JACOCO_METADATA_PLACEHOLDER);
-      this.jars = jars;
-      this.pathPrefix = "${JAVA_RUNFILES}/" + workspacePrefix;
-    }
-
-    /**
-     * Concatenating the root relative paths of the artifacts. Each relative path entry is prepended
-     * with "${JAVA_RUNFILES}" and the workspace prefix.
-     */
-    @Override
-    public String getValue() {
-      return jars.toList().stream()
-          .map(artifact -> pathPrefix + "/" + artifact.getRootRelativePathString())
-          .collect(Collectors.joining(File.pathSeparator, "export JACOCO_METADATA_JARS=", ""));
-    }
-  }
-
   /**
    * Verifies if the rule contains any errors.
    *
@@ -288,18 +260,6 @@ public interface JavaSemantics {
    * <p>In Blaze, this method considers {@code javaExecutable} as a substitution that can be
    * directly used to replace %javabin% in stub script, but in Bazel this method considers {@code
    * javaExecutable} as a file path for the JVM binary (java).
-   */
-  Artifact createStubAction(
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      List<String> jvmFlags,
-      Artifact executable,
-      String javaStartClass,
-      String javaExecutable)
-      throws InterruptedException;
-
-  /**
-   * Same as {@link #createStubAction(RuleContext, JavaCommon, List, Artifact, String, String)}.
    *
    * <p>In *experimental* coverage mode creates a txt file containing the runtime jars names. {@code
    * JacocoCoverageRunner} will use it to retrieve the name of the jars considered for collecting

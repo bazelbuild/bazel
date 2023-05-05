@@ -31,7 +31,6 @@ java_library(
         "ProguardLibrary.java",
         "ProguardLibraryRule.java",
         "ProguardSpecProvider.java",
-        "proto/ProtoJavacOpts.java",
     ],
     deps = [
         ":java-compilation",
@@ -141,7 +140,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/substitution",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",

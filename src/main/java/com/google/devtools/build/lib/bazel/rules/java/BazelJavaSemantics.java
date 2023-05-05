@@ -256,26 +256,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
-      String javaExecutable) {
-    return createStubAction(
-        ruleContext,
-        javaCommon,
-        jvmFlags,
-        executable,
-        javaStartClass,
-        "",
-        NestedSetBuilder.<Artifact>stableOrder(),
-        javaExecutable,
-        /* createCoverageMetadataJar= */ true);
-  }
-
-  @Override
-  public Artifact createStubAction(
-      RuleContext ruleContext,
-      JavaCommon javaCommon,
-      List<String> jvmFlags,
-      Artifact executable,
-      String javaStartClass,
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,

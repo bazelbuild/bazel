@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathM
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -104,16 +103,18 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
+    checkNotNull(provider);
+    this.deps.add(provider);
+    return this;
+  }
+
   /** Adds the given source jars. Any .java files in these jars will be compiled. */
   @CanIgnoreReturnValue
   public JavaLibraryHelper addSourceJars(Iterable<Artifact> sourceJars) {
     Iterables.addAll(this.sourceJars, sourceJars);
     return this;
-  }
-
-  /** Adds the given source jars. Any .java files in these jars will be compiled. */
-  public JavaLibraryHelper addSourceJars(Artifact... sourceJars) {
-    return this.addSourceJars(Arrays.asList(sourceJars));
   }
 
   @CanIgnoreReturnValue
@@ -131,13 +132,6 @@ public final class JavaLibraryHelper {
   @CanIgnoreReturnValue
   public JavaLibraryHelper addClasspathResources(Iterable<Artifact> resources) {
     Iterables.addAll(this.classpathResources, resources);
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  public JavaLibraryHelper addDep(JavaCompilationArgsProvider provider) {
-    checkNotNull(provider);
-    this.deps.add(provider);
     return this;
   }
 
@@ -217,35 +211,6 @@ public final class JavaLibraryHelper {
   public JavaLibraryHelper setCompilationStrictDepsMode(StrictDepsMode strictDepsMode) {
     this.strictDepsMode = strictDepsMode;
     return this;
-  }
-
-  /**
-   * Creates the compile actions (including the ones for ijar and source jar). Also fills in the
-   * {@link JavaRuleOutputJarsProvider.Builder} with the corresponding compilation outputs.
-   *
-   * @param semantics implementation specific java rules semantics
-   * @param javaToolchainProvider used for retrieving misc java tools
-   * @param outputJarsBuilder populated with the outputs of the created actions
-   * @param outputSourceJar if not-null, the output of an source jar action that will be created
-   */
-  public JavaCompilationArtifacts build(
-      JavaSemantics semantics,
-      JavaToolchainProvider javaToolchainProvider,
-      JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
-      boolean createOutputSourceJar,
-      @Nullable Artifact outputSourceJar)
-      throws InterruptedException {
-    return build(
-        semantics,
-        javaToolchainProvider,
-        outputJarsBuilder,
-        createOutputSourceJar,
-        true,
-        outputSourceJar,
-        true,
-        /* javaInfoBuilder= */ null,
-        ImmutableList.of(), // ignored when javaInfoBuilder is null
-        ImmutableList.of());
   }
 
   public JavaCompilationArtifacts build(
