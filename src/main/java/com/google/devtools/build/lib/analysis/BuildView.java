@@ -150,6 +150,8 @@ import javax.annotation.Nullable;
  * </ul>
  *
  * <p>See also {@link ConfiguredTarget} which documents some important invariants.
+ *
+ * <p>Lifespan: 1 invocation.
  */
 public class BuildView {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -160,6 +162,8 @@ public class BuildView {
   private final SkyframeBuildView skyframeBuildView;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
+
+  @Nullable private ImmutableSet<Artifact> memoizedCoverageArtifacts;
 
   /** A factory class to create the coverage report action. May be null. */
   @Nullable private final CoverageReportActionFactory coverageReportActionFactory;
@@ -424,7 +428,7 @@ public class BuildView {
                 Preconditions.checkNotNull(resourceManager), // non-null for skymeld.
                 Preconditions.checkNotNull(buildResultListener), // non-null for skymeld.
                 (configuredTargets, allTargetsToTest) ->
-                    getCoverageArtifactsHelper(
+                    memoizedGetCoverageArtifactsHelper(
                         configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult),
                 keepGoing,
                 skipIncompatibleExplicitTargets,
@@ -578,7 +582,7 @@ public class BuildView {
 
     // Coverage
     artifactsToBuild.addAll(
-        getCoverageArtifactsHelper(
+        memoizedGetCoverageArtifactsHelper(
             configuredTargets, allTargetsToTest, eventHandler, eventBus, loadingResult));
 
     // TODO(cparsons): If extra actions are ever removed, this filtering step can probably be
@@ -887,13 +891,16 @@ public class BuildView {
     }
   }
 
-  private ImmutableSet<Artifact> getCoverageArtifactsHelper(
+  private ImmutableSet<Artifact> memoizedGetCoverageArtifactsHelper(
       Set<ConfiguredTarget> configuredTargets,
       Set<ConfiguredTarget> allTargetsToTest,
       EventHandler eventHandler,
       EventBus eventBus,
       TargetPatternPhaseValue loadingResult)
       throws InterruptedException {
+    if (memoizedCoverageArtifacts != null) {
+      return memoizedCoverageArtifacts;
+    }
     ImmutableSet.Builder<Artifact> resultBuilder = ImmutableSet.builder();
     // Coverage
     NestedSet<Artifact> baselineCoverageArtifacts = getBaselineCoverageArtifacts(configuredTargets);
@@ -917,6 +924,7 @@ public class BuildView {
         actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
       }
     }
-    return resultBuilder.build();
+    memoizedCoverageArtifacts = resultBuilder.build();
+    return memoizedCoverageArtifacts;
   }
 }
