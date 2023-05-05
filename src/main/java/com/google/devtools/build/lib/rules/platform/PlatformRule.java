@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -93,14 +92,6 @@ public class PlatformRule implements RuleDefinition {
         <code>remote_execution_properties</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr(EXEC_PROPS_ATTR, Type.STRING_DICT).value(ImmutableMap.of()))
-
-        .override(
-            // A platform is essentially a constant which is never linked into a target.
-            // This will, in a very hacky way, suppress picking up default_applicable_licenses
-            attr("applicable_licenses", BuildType.LABEL_LIST)
-                .value(ImmutableList.of())
-                .allowedFileTypes()
-                .nonconfigurable("fundamental constant, used in platform configuration"))
         .build();
   }
 
