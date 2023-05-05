@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -224,10 +225,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(
                     getProtoToolchainLabel(
                         toolsRepository + "//tools/j2objc:j2objc_proto_toolchain")))
-        .add(attr(":j2objc_cc_toolchain", LABEL).value(ccToolchain))
         .add(
             attr(JavaRuleClasses.JAVA_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)
                 .value(javaToolchainTypeRequirement.toolchainType()))
+        .add(
+            attr(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, LABEL)
+                .mandatoryProviders(CcToolchainProvider.PROVIDER.id())
+                .value(ccToolchain))
         .execGroups(
             ImmutableMap.of(
                 "proto_compiler",
@@ -303,7 +307,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
       try {
         CcToolchainProvider ccToolchain =
-            CppHelper.getToolchain(ruleContext, ":j2objc_cc_toolchain");
+            CppHelper.getToolchain(
+                ruleContext,
+                ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME),
+                ccToolchainType);
         ImmutableList<String> extraCompileArgs =
             j2objcCompileWithARC(ruleContext)
                 ? ImmutableList.of("-fno-strict-overflow", "-fobjc-arc-exceptions")

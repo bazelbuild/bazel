@@ -141,7 +141,6 @@ public class CppLinkActionBuilder {
   private final RuleErrorConsumer ruleErrorConsumer;
   private final RepositoryName repositoryName;
 
-  private Artifact grepIncludes;
   // TODO(plf): This is not exactly the same as `useTestOnlyFlags` but perhaps we can remove one
   //  of them.
   private boolean isTestOrTestOnlyTarget;
@@ -988,7 +987,6 @@ public class CppLinkActionBuilder {
             CppLinkstampCompileHelper.createLinkstampCompileAction(
                 ruleErrorConsumer,
                 actionConstructionContext,
-                grepIncludes,
                 configuration,
                 source,
                 linkstampEntry.getValue(),
@@ -1489,15 +1487,6 @@ public class CppLinkActionBuilder {
   @CanIgnoreReturnValue
   public CppLinkActionBuilder setTestOrTestOnlyTarget(boolean isTestOrTestOnlyTarget) {
     this.isTestOrTestOnlyTarget = isTestOrTestOnlyTarget;
-    return this;
-  }
-
-  /**
-   * Used to test the grep-includes tool. This is needing during linking because of linkstamping.
-   */
-  @CanIgnoreReturnValue
-  public CppLinkActionBuilder setGrepIncludes(Artifact grepIncludes) {
-    this.grepIncludes = grepIncludes;
     return this;
   }
 

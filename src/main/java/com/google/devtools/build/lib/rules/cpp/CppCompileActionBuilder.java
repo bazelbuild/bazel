@@ -73,7 +73,6 @@ public class CppCompileActionBuilder {
   private Map<String, String> executionInfo = new LinkedHashMap<>();
   private CppSemantics cppSemantics;
   private final CcToolchainProvider ccToolchain;
-  @Nullable private final Artifact grepIncludes;
   private ActionEnvironment env;
   private final boolean codeCoverageEnabled;
   @Nullable private String actionName;
@@ -89,7 +88,6 @@ public class CppCompileActionBuilder {
   /** Creates a builder from a rule and configuration. */
   public CppCompileActionBuilder(
       ActionConstructionContext actionConstructionContext,
-      @Nullable Artifact grepIncludes,
       CcToolchainProvider ccToolchain,
       BuildConfigurationValue configuration,
       CppSemantics cppSemantics) {
@@ -110,7 +108,6 @@ public class CppCompileActionBuilder {
     this.codeCoverageEnabled = configuration.isCodeCoverageEnabled();
     this.ccToolchain = ccToolchain;
     this.builtinIncludeDirectories = ccToolchain.getBuiltInIncludeDirectories();
-    this.grepIncludes = grepIncludes;
     this.cppSemantics = cppSemantics;
   }
 
@@ -147,7 +144,6 @@ public class CppCompileActionBuilder {
     this.cppSemantics = other.cppSemantics;
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
-    this.grepIncludes = other.grepIncludes;
     this.builtinIncludeDirectories = other.builtinIncludeDirectories;
     this.additionalOutputs = ImmutableList.copyOf(other.additionalOutputs);
   }
@@ -339,7 +335,7 @@ public class CppCompileActionBuilder {
             actionName,
             cppSemantics,
             builtinIncludeDirectories,
-            grepIncludes,
+            ccToolchain.getGrepIncludes(),
             additionalOutputs);
     return action;
   }
@@ -369,8 +365,8 @@ public class CppCompileActionBuilder {
     }
     ccCompilationContext.addAdditionalInputs(realMandatoryInputsBuilder);
     realMandatoryInputsBuilder.add(Preconditions.checkNotNull(sourceFile));
-    if (grepIncludes != null) {
-      realMandatoryInputsBuilder.add(grepIncludes);
+    if (ccToolchain.getGrepIncludes() != null) {
+      realMandatoryInputsBuilder.add(ccToolchain.getGrepIncludes());
     }
     if (!shouldScanIncludes && dotdFile == null && !shouldParseShowIncludes()) {
       realMandatoryInputsBuilder.addTransitive(ccCompilationContext.getDeclaredIncludeSrcs());
@@ -679,10 +675,5 @@ public class CppCompileActionBuilder {
   public boolean shouldCompileHeaders() {
     Preconditions.checkNotNull(featureConfiguration);
     return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
-  }
-
-  @Nullable
-  public Artifact getGrepIncludes() {
-    return grepIncludes;
   }
 }

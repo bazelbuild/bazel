@@ -245,7 +245,7 @@ public class CppHelper {
           ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, NODEP_LABEL);
     } else if (ruleContext.attributes().has(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL)) {
       toolchainType =
-          ruleContext.attributes().get(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME, LABEL);
+          ruleContext.getPrerequisite(CcToolchain.CC_TOOLCHAIN_TYPE_ATTRIBUTE_NAME).getLabel();
     } else {
       toolchainType = null;
     }
@@ -659,12 +659,5 @@ public class CppHelper {
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
 
     return cppOptions.enableCcToolchainResolution;
-  }
-
-  @Nullable
-  public static Artifact getGrepIncludes(RuleContext ruleContext) {
-    return ruleContext.attributes().has("$grep_includes")
-        ? ruleContext.getPrerequisiteArtifact("$grep_includes")
-        : null;
   }
 }
