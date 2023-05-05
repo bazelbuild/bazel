@@ -537,7 +537,7 @@ different niches. Consider the following to decide which is right for you:
     that `query` avoids. For example,
     if `"//foo"` exists in two configurations, which one
     should `cquery "deps(//foo)"` use?
-    The `[config](#config)`</code> function can help with this.
+    The [`config`](#config) function can help with this.
 *   As a newer tool, `cquery` lacks support for certain use
     cases. See [Known issues](#known-issues) for details.
 
