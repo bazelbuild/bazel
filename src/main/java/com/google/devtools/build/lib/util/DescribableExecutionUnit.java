@@ -47,4 +47,6 @@ public interface DescribableExecutionUnit {
   default String getConfigurationChecksum() {
     return null;
   }
+
+  String getMnemonic();
 }

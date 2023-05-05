@@ -284,6 +284,7 @@ final class DarwinSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
           treeDeleter,
+          spawn.getMnemonic(),
           statisticsPath) {
         @Override
         public void createFileSystem() throws IOException {

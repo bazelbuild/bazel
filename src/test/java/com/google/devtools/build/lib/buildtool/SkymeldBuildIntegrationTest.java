@@ -243,7 +243,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     addOptions("--aspects=//foo:aspect.bzl%execution_err_aspect", "--output_groups=files");
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing command");
+        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing Action command");
   }
 
   @Test
@@ -543,7 +543,7 @@ public class SkymeldBuildIntegrationTest extends BuildIntegrationTestCase {
     // Verify that the build did not crash.
     assertThrows(BuildFailedException.class, () -> buildTarget("//foo:foo"));
     events.assertContainsError(
-        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing command");
+        "Action foo/aspect_output failed: (Exit 1): bash failed: error executing Action command");
   }
 
   @Test

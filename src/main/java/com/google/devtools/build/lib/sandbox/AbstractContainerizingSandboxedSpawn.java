@@ -47,6 +47,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   private final Set<Path> writableDirs;
   private final TreeDeleter treeDeleter;
   private final Path statisticsPath;
+  private final String mnemonic;
 
   public AbstractContainerizingSandboxedSpawn(
       Path sandboxPath,
@@ -57,7 +58,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
-      @Nullable Path statisticsPath) {
+      @Nullable Path statisticsPath,
+      String mnemonic) {
     this.sandboxPath = sandboxPath;
     this.sandboxExecRoot = sandboxExecRoot;
     this.arguments = arguments;
@@ -67,6 +69,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     this.writableDirs = writableDirs;
     this.treeDeleter = treeDeleter;
     this.statisticsPath = statisticsPath;
+    this.mnemonic = mnemonic;
   }
 
   @Override
@@ -88,6 +91,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   @Nullable
   public Path getStatisticsPath() {
     return statisticsPath;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return mnemonic;
   }
 
   @Override

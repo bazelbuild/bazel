@@ -208,16 +208,16 @@ public class StandaloneSpawnStrategyTest {
             execRoot.getPathString(), execRoot.getFileSystem(), SyscallCache.NO_CACHE),
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
-        /*metadataHandler=*/ null,
-        /*rewindingEnabled=*/ false,
+        /* outputMetadataStore= */ null,
+        /* rewindingEnabled= */ false,
         LostInputsCheck.NONE,
         outErr,
         reporter,
-        /*clientEnv=*/ ImmutableMap.of(),
-        /*topLevelFilesets=*/ ImmutableMap.of(),
+        /* clientEnv= */ ImmutableMap.of(),
+        /* topLevelFilesets= */ ImmutableMap.of(),
         SIMPLE_ARTIFACT_EXPANDER,
-        /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null,
+        /* actionFileSystem= */ null,
+        /* skyframeDepsResult= */ null,
         DiscoveredModulesPruner.DEFAULT,
         SyscallCache.NO_CACHE,
         ThreadStateReceiver.NULL_INSTANCE);
@@ -227,7 +227,7 @@ public class StandaloneSpawnStrategyTest {
   public void testBinFalseYieldsException() {
     ExecException e = assertThrows(ExecException.class, () -> run(createSpawn(getFalseCommand())));
     assertWithMessage("got: " + e.getMessage())
-        .that(e.getMessage().contains("failed: error executing command"))
+        .that(e.getMessage().contains("failed: error executing Null command"))
         .isTrue();
   }
 
@@ -325,7 +325,8 @@ public class StandaloneSpawnStrategyTest {
     ActionExecutionException actionExecutionException =
         ActionExecutionException.fromExecException(e, new NullAction());
     assertWithMessage("got: " + actionExecutionException.getMessage())
-        .that(actionExecutionException.getMessage().contains("failed: error executing command"))
+        .that(
+            actionExecutionException.getMessage().contains("failed: error executing Null command"))
         .isTrue();
   }
 }

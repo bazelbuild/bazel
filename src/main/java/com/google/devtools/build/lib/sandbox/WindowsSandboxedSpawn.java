@@ -26,12 +26,17 @@ public class WindowsSandboxedSpawn implements SandboxedSpawn {
   private final Path execRoot;
   private final ImmutableMap<String, String> environment;
   private final ImmutableList<String> arguments;
+  private final String mnemonic;
 
   public WindowsSandboxedSpawn(
-      Path execRoot, ImmutableMap<String, String> environment, ImmutableList<String> arguments) {
+      Path execRoot,
+      ImmutableMap<String, String> environment,
+      ImmutableList<String> arguments,
+      String mnemonic) {
     this.execRoot = execRoot;
     this.environment = environment;
     this.arguments = arguments;
+    this.mnemonic = mnemonic;
   }
 
   @Override
@@ -54,6 +59,11 @@ public class WindowsSandboxedSpawn implements SandboxedSpawn {
   public Path getStatisticsPath() {
     // On Windows, Bazel currently does not support per-process statistics.
     return null;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return mnemonic;
   }
 
   @Override

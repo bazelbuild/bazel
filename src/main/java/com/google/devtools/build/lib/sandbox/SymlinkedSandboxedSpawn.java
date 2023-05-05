@@ -57,7 +57,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         outputs,
         writableDirs,
         treeDeleter,
-        statisticsPath);
+        statisticsPath,
+        mnemonic);
     this.mnemonic = isNullOrEmpty(mnemonic) ? mnemonic : "_NoMnemonic_";
   }
 

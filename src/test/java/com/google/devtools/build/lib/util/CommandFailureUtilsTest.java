@@ -45,6 +45,7 @@ public class CommandFailureUtilsTest {
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
@@ -53,7 +54,7 @@ public class CommandFailureUtilsTest {
             executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing command (from target //foo:bar) "
+            "sh failed: error executing Mnemonic command (from target //foo:bar) "
                 + "/bin/sh -c 'echo Some errors 1>&2; echo Some output; exit 42'");
   }
 
@@ -73,6 +74,7 @@ public class CommandFailureUtilsTest {
     String message =
         CommandFailureUtils.describeCommandFailure(
             true,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
@@ -81,7 +83,7 @@ public class CommandFailureUtilsTest {
             executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "sh failed: error executing command (from target //foo:bar) \n"
+            "sh failed: error executing Mnemonic command (from target //foo:bar) \n"
                 + "  (exec env - \\\n"
                 + "    FOO=foo \\\n"
                 + "    PATH=/usr/bin:/bin:/sbin \\\n"
@@ -109,6 +111,7 @@ public class CommandFailureUtilsTest {
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
@@ -117,7 +120,7 @@ public class CommandFailureUtilsTest {
             executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command (from target //foo:bar) "
+            "some_command failed: error executing Mnemonic command (from target //foo:bar) "
                 + "some_command arg1 arg2 arg3 arg4 arg5 arg6 'with spaces' arg8 '*' arg10 "
                 + "arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 "
                 + "arg19 arg20 arg21 arg22 arg23 arg24 arg25 arg26 "
@@ -144,6 +147,7 @@ public class CommandFailureUtilsTest {
     String message =
         CommandFailureUtils.describeCommandFailure(
             true,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
@@ -152,7 +156,7 @@ public class CommandFailureUtilsTest {
             executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command (from target //foo:bar) \n"
+            "some_command failed: error executing Mnemonic command (from target //foo:bar) \n"
                 + "  (cd /my/working/directory && \\\n"
                 + "  exec env - \\\n"
                 + "    FOO=foo \\\n"
@@ -181,6 +185,7 @@ public class CommandFailureUtilsTest {
     String message =
         CommandFailureUtils.describeCommandFailure(
             false,
+            "Mnemonic",
             Arrays.asList(args),
             env,
             cwd,
@@ -189,11 +194,11 @@ public class CommandFailureUtilsTest {
             executionPlatform.label().toString());
     assertThat(message)
         .isEqualTo(
-            "some_command failed: error executing command (from target //foo:bar) some_command"
-                + " arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9"
-                + " arg10 arg11 arg12 arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22"
-                + " arg23 arg24 arg25 arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ..."
-                + " (remaining 1 argument skipped)");
+            "some_command failed: error executing Mnemonic command (from target //foo:bar)"
+                + " some_command arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 arg11 arg12"
+                + " arg13 arg14 arg15 arg16 arg17 arg18 arg19 arg20 arg21 arg22 arg23 arg24 arg25"
+                + " arg26 arg27 arg28 arg29 arg30 arg31 arg32 arg33 ... (remaining 1 argument"
+                + " skipped)");
   }
 
   @Test

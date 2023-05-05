@@ -134,6 +134,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
           treeDeleter,
+          spawn.getMnemonic(),
           statisticsPath);
     } else {
       return new SymlinkedSandboxedSpawn(

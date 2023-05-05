@@ -372,6 +372,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
           treeDeleter,
+          spawn.getMnemonic(),
           statisticsPath);
     } else if (sandboxOptions.useHermetic) {
       commandLineBuilder.setHermeticSandboxPath(sandboxPath);
@@ -385,7 +386,8 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           writableDirs,
           treeDeleter,
           statisticsPath,
-          sandboxOptions.sandboxDebug);
+          sandboxOptions.sandboxDebug,
+          spawn.getMnemonic());
     } else {
       return new SymlinkedSandboxedSpawn(
           sandboxPath,

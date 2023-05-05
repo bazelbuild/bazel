@@ -348,13 +348,14 @@ public class AbstractContainerizingSandboxedSpawnTest {
     return new AbstractContainerizingSandboxedSpawn(
         sandboxPath,
         sandboxExecRoot,
-        /*arguments=*/ ImmutableList.of(),
-        /*environment=*/ ImmutableMap.of(),
+        /* arguments= */ ImmutableList.of(),
+        /* environment= */ ImmutableMap.of(),
         sandboxInputs,
         sandboxOutputs,
-        /*writableDirs=*/ ImmutableSet.of(),
+        /* writableDirs= */ ImmutableSet.of(),
         mock(TreeDeleter.class),
-        /*statisticsPath=*/ null) {
+        /* statisticsPath= */ null,
+        "Mnemonic") {
 
       @Override
       protected void copyFile(Path source, Path target) {

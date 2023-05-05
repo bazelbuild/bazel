@@ -84,6 +84,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableSet.of(PathFragment.create("wow/writable")),
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
+            "Mnemonic",
             /* statisticsPath= */ null);
 
     spawn.createFileSystem();
@@ -114,6 +115,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
+            "Mnemonic",
             /* statisticsPath= */ null);
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -144,6 +146,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableSet.of(PathFragment.create("wow/writable")),
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
+            "Mnemonic",
             /* statisticsPath= */ null);
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -177,6 +180,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
+            "Mnemonic",
             /* statisticsPath= */ null);
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -251,6 +255,7 @@ public class SandboxfsSandboxedSpawnTest {
             ImmutableSet.of(),
             mapSymlinkTargets,
             new SynchronousTreeDeleter(),
+            "Mnemonic",
             /* statisticsPath= */ null);
 
     spawn.createFileSystem();

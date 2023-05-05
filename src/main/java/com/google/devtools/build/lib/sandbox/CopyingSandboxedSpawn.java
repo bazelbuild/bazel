@@ -43,7 +43,8 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
       @Nullable Path statisticsPath,
-      Runnable successCallback) {
+      Runnable successCallback,
+      String mnemonic) {
     super(
         sandboxPath,
         sandboxExecRoot,
@@ -53,7 +54,8 @@ public class CopyingSandboxedSpawn extends AbstractContainerizingSandboxedSpawn 
         outputs,
         writableDirs,
         treeDeleter,
-        statisticsPath);
+        statisticsPath,
+        mnemonic);
     this.successCallback = successCallback;
   }
 

@@ -97,6 +97,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** Flag to track whether the sandbox needs to be unmapped. */
   private boolean sandboxIsMapped;
 
+  /** The mnemonic of this spawn. */
+  private final String mnemonic;
+
   @Nullable private final Path statisticsPath;
 
   /**
@@ -112,6 +115,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    *     dynamically-allocated execroot
    * @param mapSymlinkTargets map the targets of symlinks within the sandbox if true
    * @param treeDeleter scheduler for tree deletions
+   * @param mnemonic Mnemonic of this spawn.
    */
   SandboxfsSandboxedSpawn(
       SandboxfsProcess process,
@@ -124,6 +128,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       Set<PathFragment> writableDirs,
       boolean mapSymlinkTargets,
       TreeDeleter treeDeleter,
+      String mnemonic,
       @Nullable Path statisticsPath) {
     this.process = process;
     this.arguments = arguments;
@@ -142,6 +147,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     this.writableDirs = writableDirs;
     this.mapSymlinkTargets = mapSymlinkTargets;
     this.treeDeleter = treeDeleter;
+    this.mnemonic = mnemonic;
 
     this.sandboxPath = sandboxPath;
     this.sandboxScratchDir = sandboxPath.getRelative("scratch");
@@ -177,6 +183,11 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   @Override
   public Path getStatisticsPath() {
     return statisticsPath;
+  }
+
+  @Override
+  public String getMnemonic() {
+    return mnemonic;
   }
 
   @Override
