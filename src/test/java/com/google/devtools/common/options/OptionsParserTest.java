@@ -240,22 +240,22 @@ public final class OptionsParserTest {
     public String bar;
 
     @Option(
-        name = "not_foo",
+        name = "ignored_with_value",
         category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "differentDefault"
     )
-    public String notFoo;
+    public String ignoredWithValue;
 
     @Option(
-        name = "not_bar",
+        name = "ignored_without_value",
         category = "one",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "differentDefault"
+        defaultValue = "false"
     )
-    public String notBar;
+    public boolean ignoredWithoutValue;
   }
 
   public static class ExampleIncompatibleWithFoo extends OptionsBase {
@@ -2463,7 +2463,8 @@ public final class OptionsParserTest {
         ImmutableList.of(ExampleFoo.class, ExampleEquivalentWithFoo.class));
     OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
     parser.parseWithSourceFunction(PriorityCategory.RC_FILE, o -> ".bazelrc",
-        ImmutableList.of("--foo=bar", "--not_foo=baz", "--bar", "1", "--not_bar", "baz"),
+        ImmutableList.of("--ignored_with_value", "--foo", "--foo=bar", "--ignored_without_value",
+            "--bar", "1"),
         fallbackData);
 
     assertThat(parser.getOptions(ExampleFoo.class)).isNotNull();

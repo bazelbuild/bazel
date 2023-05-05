@@ -808,7 +808,8 @@ class OptionsParserImpl {
 
   /**
    * Two option definitions are considered equivalent for parsing if they result in the same control
-   * flow through {@link #identifyOptionAndPossibleArgument}.
+   * flow through {@link #identifyOptionAndPossibleArgument}. This is crucial to ensure that the
+   * beginning of the next option can be determined unambiguously when parsing with fallback data.
    *
    * <p>Examples:
    * <ul>
