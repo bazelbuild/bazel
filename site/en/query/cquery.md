@@ -324,7 +324,7 @@ outputs the same information without the options diff.
 
 This option causes the resulting targets to be printed in a binary protocol
 buffer form. The definition of the protocol buffer can be found at
-[src/main/protobuf/analysis.proto](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/analysis_v2.proto){: .external}.
+[src/main/protobuf/analysis_v2.proto](https://github.com/bazelbuild/bazel/blob/master/src/main/protobuf/analysis_v2.proto){: .external}.
 
 `CqueryResult` is the top level message containing the results of the cquery. It
 has a list of `ConfiguredTarget` messages and a list of `Configuration`
