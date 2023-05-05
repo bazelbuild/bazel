@@ -36,11 +36,11 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.DigestUtils;
@@ -682,8 +682,8 @@ final class ActionMetadataHandler implements InputMetadataProvider, OutputMetada
       return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
     }
 
-    if (stat instanceof RemoteFileStatus) {
-      return ((RemoteFileStatus) stat).getRemoteMetadata();
+    if (stat instanceof FileStatusWithMetadata) {
+      return ((FileStatusWithMetadata) stat).getMetadata();
     }
 
     FileStateValue fileStateValue =

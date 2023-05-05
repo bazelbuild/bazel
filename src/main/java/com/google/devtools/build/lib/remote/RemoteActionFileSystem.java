@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
+import com.google.devtools.build.lib.actions.FileStatusWithMetadata;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
-import com.google.devtools.build.lib.actions.RemoteFileStatus;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -245,14 +245,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
       metadataInjector.injectFile(output, injectedMetadata);
     }
-  }
-
-  private RemoteFileArtifactValue createRemoteMetadata(RemoteFileInfo remoteFile) {
-    return RemoteFileArtifactValue.create(
-        remoteFile.getFastDigest(),
-        remoteFile.getSize(),
-        /* locationIndex= */ 1,
-        remoteFile.getExpireAtEpochMilli());
   }
 
   @Override
@@ -520,7 +512,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   }
 
   private static FileStatus statFromRemoteMetadata(RemoteFileArtifactValue m) {
-    return new RemoteFileStatus() {
+    return new FileStatusWithMetadata() {
       @Override
       public byte[] getDigest() {
         return m.getDigest();
@@ -567,7 +559,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       @Override
-      public RemoteFileArtifactValue getRemoteMetadata() {
+      public RemoteFileArtifactValue getMetadata() {
         return m;
       }
     };
@@ -596,7 +588,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         remoteOutputTree.getRemoteFileInfo(
             execRoot.getRelative(input.getExecPath()), /* followSymlinks= */ true);
     if (remoteFile != null) {
-      return createRemoteMetadata(remoteFile);
+      return remoteFile.getMetadata();
     }
 
     // TODO(tjgq): This should not work.
@@ -627,7 +619,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
         remoteOutputTree.getRemoteFileInfo(
             execRoot.getRelative(execPath), /* followSymlinks= */ true);
     if (remoteFile != null) {
-      return createRemoteMetadata(remoteFile);
+      return remoteFile.getMetadata();
     }
 
     return null;
@@ -846,7 +838,10 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
 
       RemoteFileInfo remoteFileInfo = (RemoteFileInfo) node;
-      remoteFileInfo.set(digest, size, expireAtEpochMilli);
+
+      var metadata =
+          RemoteFileArtifactValue.create(digest, size, /* locationIndex= */ 1, expireAtEpochMilli);
+      remoteFileInfo.set(metadata);
     }
 
     @Nullable
@@ -859,21 +854,15 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     }
   }
 
-  static class RemoteFileInfo extends FileInfo {
-
-    private byte[] digest;
-    private long size;
-
-    private long expireAtEpochMilli;
+  static class RemoteFileInfo extends FileInfo implements FileStatusWithMetadata {
+    private RemoteFileArtifactValue metadata;
 
     RemoteFileInfo(Clock clock) {
       super(clock);
     }
 
-    private void set(byte[] digest, long size, long expireAtEpochMilli) {
-      this.digest = digest;
-      this.size = size;
-      this.expireAtEpochMilli = expireAtEpochMilli;
+    private void set(RemoteFileArtifactValue metadata) {
+      this.metadata = metadata;
     }
 
     @Override
@@ -893,16 +882,26 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
 
     @Override
     public byte[] getFastDigest() {
-      return digest;
+      return metadata.getDigest();
+    }
+
+    @Override
+    public byte[] getDigest() throws IOException {
+      return metadata.getDigest();
     }
 
     @Override
     public long getSize() {
-      return size;
+      return metadata.getSize();
     }
 
     public long getExpireAtEpochMilli() {
-      return expireAtEpochMilli;
+      return metadata.getExpireAtEpochMilli();
+    }
+
+    @Override
+    public RemoteFileArtifactValue getMetadata() {
+      return metadata;
     }
   }
 }

@@ -13,16 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 
 /**
- * A FileStatus that exists remotely and provides remote metadata.
+ * A FileStatus that provides metadata.
  *
- * <p>Filesystem may return implementation of this interface if the files are stored remotely. When
- * checking outputs of actions, Skyframe will inject the metadata returned by {@link
- * #getRemoteMetadata()} if the output file has {@link RemoteFileStatus}.
+ * <p>Filesystem may return implementation of this interface if the files are stored in the memory.
+ * When checking outputs of actions, Skyframe will inject the metadata returned by {@link
+ * #getMetadata()} instead of construct a new metadata from the status.
  */
-public interface RemoteFileStatus extends FileStatusWithDigest {
-  RemoteFileArtifactValue getRemoteMetadata();
+public interface FileStatusWithMetadata extends FileStatusWithDigest {
+  FileArtifactValue getMetadata();
 }
