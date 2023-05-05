@@ -21,6 +21,7 @@ import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -310,6 +311,15 @@ public class RepositoryCache {
    */
   public static String getChecksum(KeyType keyType, Path path)
       throws IOException, InterruptedException {
+    // Attempt to use the fast digest if the hash function of the filesystem
+    // matches `keyType` and it's available.
+    if (path.getFileSystem().getDigestFunction().getHashFunction().equals(keyType.hashFunction)) {
+      byte[] digest = path.getFastDigest();
+      if (digest != null) {
+        return BaseEncoding.base16().lowerCase().encode(digest);
+      }
+    }
+
     Hasher hasher = keyType.newHasher();
     byte[] byteBuffer = new byte[BUFFER_SIZE];
     try (InputStream stream = path.getInputStream()) {
