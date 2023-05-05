@@ -186,11 +186,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       return chunks.build();
     }
 
-    /** @return all variable names needed to expand this string. */
-    ImmutableSet<String> getUsedVariables() {
-      return usedVariables.build();
-    }
-
     /**
      * Parses the string.
      *
