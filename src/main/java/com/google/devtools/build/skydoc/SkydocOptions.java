@@ -28,7 +28,7 @@ public class SkydocOptions extends OptionsBase {
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = OptionEffectTag.UNKNOWN,
-      help = "The label of the target file for which to generate documentation")
+      help = "The canonical label of the target file for which to generate documentation")
   public String targetFileLabel;
 
   @Option(

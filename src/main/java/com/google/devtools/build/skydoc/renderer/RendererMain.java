@@ -26,6 +26,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -72,7 +73,13 @@ public class RendererMain {
             providerTemplatePath,
             funcTemplatePath,
             aspectTemplatePath);
-    try (PrintWriter printWriter = new PrintWriter(outputPath, "UTF-8")) {
+    try (PrintWriter printWriter = new PrintWriter(outputPath, StandardCharsets.UTF_8) {
+      // Use consistent line endings on all platforms.
+      @Override
+      public void println() {
+        write("\n");
+      }
+    }) {
       ModuleInfo moduleInfo = ModuleInfo.parseFrom(new FileInputStream(inputPath));
       printWriter.println(renderer.renderMarkdownHeader(moduleInfo));
       printRuleInfos(printWriter, renderer, moduleInfo.getRuleInfoList());
