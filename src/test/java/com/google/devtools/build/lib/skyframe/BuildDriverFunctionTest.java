@@ -43,11 +43,11 @@ public class BuildDriverFunctionTest {
           @Override
           public ActionLookupValuesCollectionResult collect(ActionLookupKeyOrProxy key) {
             return ActionLookupValuesCollectionResult.create(
-                ImmutableSet.of(), ImmutableSet.of(key));
+                ImmutableSet.of(), ImmutableSet.of(key.toKey()));
           }
 
           @Override
-          public void registerConflictFreeKeys(ImmutableSet<ActionLookupKeyOrProxy> keys) {
+          public void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys) {
             globalSet.addAll(keys);
           }
         };

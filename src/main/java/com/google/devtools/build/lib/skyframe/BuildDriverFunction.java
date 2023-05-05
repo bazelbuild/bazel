@@ -28,6 +28,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -594,18 +595,17 @@ public class BuildDriverFunction implements SkyFunction {
         throws InterruptedException;
 
     /** Register with the helper that the {@code keys} are conflict-free. */
-    void registerConflictFreeKeys(ImmutableSet<ActionLookupKeyOrProxy> keys);
+    void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
   }
 
   @AutoValue
   abstract static class ActionLookupValuesCollectionResult {
     abstract ImmutableCollection<SkyValue> collectedValues();
 
-    abstract ImmutableSet<ActionLookupKeyOrProxy> visitedKeys();
+    abstract ImmutableSet<ActionLookupKey> visitedKeys();
 
     static ActionLookupValuesCollectionResult create(
-        ImmutableCollection<SkyValue> collectedValues,
-        ImmutableSet<ActionLookupKeyOrProxy> visitedKeys) {
+        ImmutableCollection<SkyValue> collectedValues, ImmutableSet<ActionLookupKey> visitedKeys) {
       return new AutoValue_BuildDriverFunction_ActionLookupValuesCollectionResult(
           collectedValues, visitedKeys);
     }
