@@ -33,8 +33,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -61,7 +59,6 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
@@ -113,7 +110,6 @@ public final class PackageFactory {
     Iterable<PackageArgument<?>> getPackageArguments();
   }
 
-  private final RuleFactory ruleFactory;
   private final RuleClassProvider ruleClassProvider;
 
   private SyscallCache syscallCache;
@@ -196,7 +192,6 @@ public final class PackageFactory {
       PackageValidator packageValidator,
       PackageOverheadEstimator packageOverheadEstimator,
       PackageLoadingListener packageLoadingListener) {
-    this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
@@ -207,7 +202,6 @@ public final class PackageFactory {
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             ruleClassProvider,
-            buildRuleFunctions(ruleFactory),
             this.environmentExtensions,
             newPackageFunction(createPackageArguments(this.environmentExtensions)),
             version);
@@ -257,19 +251,6 @@ public final class PackageFactory {
   public void setMaxDirectoriesToEagerlyVisitInGlobbing(
       int maxDirectoriesToEagerlyVisitInGlobbing) {
     this.maxDirectoriesToEagerlyVisitInGlobbing = maxDirectoriesToEagerlyVisitInGlobbing;
-  }
-
-  /** Returns the immutable, unordered set of names of all the known rule classes. */
-  public Set<String> getRuleClassNames() {
-    return ruleFactory.getRuleClassNames();
-  }
-
-  /**
-   * Returns the {@link com.google.devtools.build.lib.packages.RuleClass} for the specified rule
-   * class name.
-   */
-  public RuleClass getRuleClass(String ruleClassName) {
-    return ruleFactory.getRuleClass(ruleClassName);
   }
 
   /** Returns the {@link RuleClassProvider} of this {@link PackageFactory}. */
@@ -373,76 +354,6 @@ public final class PackageFactory {
               + "Wrap the function in a macro and call it from a BUILD file");
     }
     return value;
-  }
-
-  private static ImmutableMap<String, BuiltinRuleFunction> buildRuleFunctions(
-      RuleFactory ruleFactory) {
-    ImmutableMap.Builder<String, BuiltinRuleFunction> result = ImmutableMap.builder();
-    for (String ruleClassName : ruleFactory.getRuleClassNames()) {
-      RuleClass cl = ruleFactory.getRuleClass(ruleClassName);
-      if (cl.getRuleClassType() == RuleClassType.NORMAL
-          || cl.getRuleClassType() == RuleClassType.TEST) {
-        result.put(ruleClassName, new BuiltinRuleFunction(cl));
-      }
-    }
-    return result.buildOrThrow();
-  }
-
-  /** A callable Starlark value that creates Rules for native RuleClasses. */
-  // TODO(adonovan): why is this distinct from RuleClass itself?
-  // Make RuleClass implement StarlarkCallable directly.
-  private static class BuiltinRuleFunction implements RuleFunction {
-    private final RuleClass ruleClass;
-
-    BuiltinRuleFunction(RuleClass ruleClass) {
-      this.ruleClass = Preconditions.checkNotNull(ruleClass);
-    }
-
-    @Override
-    public NoneType call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-        throws EvalException, InterruptedException {
-      if (!args.isEmpty()) {
-        throw Starlark.errorf("unexpected positional arguments");
-      }
-      BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase(ruleClass.getName());
-      try {
-        PackageContext context = getContext(thread);
-        RuleFactory.createAndAddRule(
-            context.pkgBuilder,
-            ruleClass,
-            new BuildLangTypedAttributeValuesMap(kwargs),
-            context.eventHandler,
-            thread.getCallStack());
-      } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
-        throw new EvalException(e);
-      }
-      return Starlark.NONE;
-    }
-
-    @Override
-    public RuleClass getRuleClass() {
-      return ruleClass;
-    }
-
-    @Override
-    public String getName() {
-      return ruleClass.getName();
-    }
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append("<built-in rule " + getName() + ">");
-    }
-
-    @Override
-    public String toString() {
-      return getName() + "(...)";
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
-    }
   }
 
   public Package.Builder newExternalPackageBuilder(

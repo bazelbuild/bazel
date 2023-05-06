@@ -42,11 +42,11 @@ import net.starlark.java.eval.StarlarkThread;
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   private final boolean allowOverride;
-  private final RuleFactory ruleFactory;
+  private final ImmutableMap<String, RuleClass> ruleClassMap;
 
-  public WorkspaceGlobals(boolean allowOverride, RuleFactory ruleFactory) {
+  public WorkspaceGlobals(boolean allowOverride, ImmutableMap<String, RuleClass> ruleClassMap) {
     this.allowOverride = allowOverride;
-    this.ruleFactory = ruleFactory;
+    this.ruleClassMap = ruleClassMap;
   }
 
   @Override
@@ -65,8 +65,8 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
     PackageFactory.getContext(thread).pkgBuilder.setWorkspaceName(name);
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-    RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
-    RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+    RuleClass localRepositoryRuleClass = ruleClassMap.get("local_repository");
+    RuleClass bindRuleClass = ruleClassMap.get("bind");
     ImmutableMap<String, Object> kwargs = ImmutableMap.of("name", name, "path", ".");
     try {
       // This effectively adds a "local_repository(name = "<ws>", path = ".")"
@@ -143,7 +143,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
     try {
       Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-      RuleClass ruleClass = ruleFactory.getRuleClass("bind");
+      RuleClass ruleClass = ruleClassMap.get("bind");
       WorkspaceFactoryHelper.addBindRule(
           builder,
           ruleClass,

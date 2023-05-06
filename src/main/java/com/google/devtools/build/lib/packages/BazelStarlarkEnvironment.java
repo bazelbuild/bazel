@@ -65,12 +65,11 @@ public final class BazelStarlarkEnvironment {
 
   BazelStarlarkEnvironment(
       RuleClassProvider ruleClassProvider,
-      ImmutableMap<String, ?> ruleFunctions,
       List<PackageFactory.EnvironmentExtension> environmentExtensions,
       Object packageFunction,
       String version) {
     this.ruleClassProvider = ruleClassProvider;
-    this.ruleFunctions = ruleFunctions;
+    this.ruleFunctions = ruleClassProvider.getRuleFunctionMap();
     this.uninjectedBuildBzlNativeBindings =
         createUninjectedBuildBzlNativeBindings(
             ruleFunctions, packageFunction, environmentExtensions);
@@ -187,7 +186,7 @@ public final class BazelStarlarkEnvironment {
       Object packageFunction,
       List<PackageFactory.EnvironmentExtension> environmentExtensions) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
+    env.putAll(StarlarkLibrary.BUILD); // e.g. select, depset
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.put("package", packageFunction);
     env.putAll(ruleFunctions);

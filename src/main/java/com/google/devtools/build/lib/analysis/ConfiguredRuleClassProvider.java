@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -644,6 +645,9 @@ public /*final*/ class ConfiguredRuleClassProvider
   /** Maps rule class name to the metaclass instance for that rule. */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
+  /** Maps rule class name to the Starlark callable that instantiates it. */
+  private final ImmutableMap<String, ?> ruleFunctionMap;
+
   /** Maps rule class name to the rule definition objects. */
   private final ImmutableMap<String, RuleDefinition> ruleDefinitionMap;
 
@@ -715,6 +719,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.bundledBuiltinsRoot = bundledBuiltinsRoot;
     this.builtinsBzlPackagePathInSource = builtinsBzlPackagePathInSource;
     this.ruleClassMap = ruleClassMap;
+    this.ruleFunctionMap = RuleFactory.buildRuleFunctions(ruleClassMap);
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
     this.fragmentRegistry = fragmentRegistry;
@@ -769,8 +774,13 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public Map<String, RuleClass> getRuleClassMap() {
+  public ImmutableMap<String, RuleClass> getRuleClassMap() {
     return ruleClassMap;
+  }
+
+  @Override
+  public ImmutableMap<String, ?> getRuleFunctionMap() {
+    return ruleFunctionMap;
   }
 
   @Override

@@ -90,12 +90,11 @@ public class WorkspaceFactory {
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
     this.environmentExtensions = environmentExtensions;
     this.starlarkSemantics = starlarkSemantics;
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceFunctions =
         createWorkspaceFunctions(
             allowOverride,
-            ruleFactory,
-            new WorkspaceGlobals(allowOverride, ruleFactory),
+            ruleClassProvider.getRuleClassMap(),
+            new WorkspaceGlobals(allowOverride, ruleClassProvider.getRuleClassMap()),
             starlarkSemantics);
   }
 
@@ -238,7 +237,9 @@ public class WorkspaceFactory {
    * cc_library) in the specified package context.
    */
   private static StarlarkCallable newRuleFunction(
-      final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
+      final ImmutableMap<String, RuleClass> ruleClassMap,
+      final String ruleClassName,
+      final boolean allowOverride) {
     return new StarlarkCallable() {
       @Override
       public String getName() {
@@ -283,8 +284,8 @@ public class WorkspaceFactory {
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName);
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
-          RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
-          RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+          RuleClass ruleClass = ruleClassMap.get(ruleClassName);
+          RuleClass bindRuleClass = ruleClassMap.get("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
                   builder,
@@ -305,18 +306,18 @@ public class WorkspaceFactory {
 
   private static ImmutableMap<String, Object> createWorkspaceFunctions(
       boolean allowOverride,
-      RuleFactory ruleFactory,
+      ImmutableMap<String, RuleClass> ruleClassMap,
       WorkspaceGlobals workspaceGlobals,
       StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     Starlark.addMethods(env, workspaceGlobals, starlarkSemantics);
 
-    for (String ruleClass : ruleFactory.getRuleClassNames()) {
+    for (String ruleClass : ruleClassMap.keySet()) {
       // There is both a "bind" WORKSPACE function and a "bind" rule. In workspace files,
       // the non-rule function takes precedence.
       // TODO(cparsons): Rule functions should not be added to WORKSPACE files.
       if (!ruleClass.equals("bind")) {
-        StarlarkCallable ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
+        StarlarkCallable ruleFunction = newRuleFunction(ruleClassMap, ruleClass, allowOverride);
         env.put(ruleClass, ruleFunction);
       }
     }
@@ -354,8 +355,8 @@ public class WorkspaceFactory {
   static ImmutableMap<String, Object> createNativeModuleBindings(
       RuleClassProvider ruleClassProvider, String version) {
     // Machinery to build the collection of workspace functions.
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(/*allowOverride=*/ false, ruleFactory);
+    WorkspaceGlobals workspaceGlobals =
+        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassProvider.getRuleClassMap());
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.
@@ -363,7 +364,10 @@ public class WorkspaceFactory {
     // of the particular semantics.]
     ImmutableMap<String, Object> workspaceFunctions =
         createWorkspaceFunctions(
-            /*allowOverride=*/ false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT);
+            /* allowOverride= */ false,
+            ruleClassProvider.getRuleClassMap(),
+            workspaceGlobals,
+            StarlarkSemantics.DEFAULT);
 
     // Determine the contents for native.
     ImmutableMap.Builder<String, Object> bindings = new ImmutableMap.Builder<>();

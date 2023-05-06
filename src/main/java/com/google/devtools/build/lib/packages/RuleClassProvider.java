@@ -51,7 +51,10 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   String getBuiltinsBzlPackagePathInSource();
 
   /** Returns a map from rule names to rule class objects. */
-  Map<String, RuleClass> getRuleClassMap();
+  ImmutableMap<String, RuleClass> getRuleClassMap();
+
+  /** Returns a map from rule names to the Starlark callables that instantiate them. */
+  ImmutableMap<String, ?> getRuleFunctionMap();
 
   /**
    * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
