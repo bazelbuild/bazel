@@ -121,10 +121,6 @@ public final class WorkerKey {
     return multiplex;
   }
 
-  public boolean isCancellable() {
-    return cancellable;
-  }
-
   /** Returns the format of the worker protocol. */
   public WorkerProtocolFormat getProtocolFormat() {
     return protocolFormat;
