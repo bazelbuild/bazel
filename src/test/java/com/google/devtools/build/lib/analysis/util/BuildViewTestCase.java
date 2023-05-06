@@ -849,7 +849,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Returns all arguments used by the action. */
   protected final ImmutableList<String> allArgsForAction(SpawnAction action) throws Exception {
     ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
-    List<CommandLineAndParamFileInfo> commandLines = action.getCommandLines().getCommandLines();
+    ImmutableList<CommandLineAndParamFileInfo> commandLines = action.getCommandLines().unpack();
     for (CommandLineAndParamFileInfo pair : commandLines.subList(1, commandLines.size())) {
       args.addAll(pair.commandLine.arguments());
     }
@@ -861,7 +861,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected final CommandLine paramFileCommandLineForAction(Action action) {
     if (action instanceof SpawnAction) {
       CommandLines commandLines = ((SpawnAction) action).getCommandLines();
-      for (CommandLineAndParamFileInfo pair : commandLines.getCommandLines()) {
+      for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           return pair.commandLine;
         }
@@ -897,7 +897,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws CommandLineExpansionException, InterruptedException, IOException {
     if (action instanceof SpawnAction) {
       CommandLines commandLines = ((SpawnAction) action).getCommandLines();
-      for (CommandLineAndParamFileInfo pair : commandLines.getCommandLines()) {
+      for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
           ParameterFile.writeParameterFile(

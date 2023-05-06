@@ -682,7 +682,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
     ImmutableSet<Artifact> directoryInputs =
         getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
-    for (CommandLineAndParamFileInfo commandLine : getCommandLines().getCommandLines()) {
+    for (CommandLineAndParamFileInfo commandLine : getCommandLines().unpack()) {
       result.add(Args.forRegisteredAction(commandLine, directoryInputs));
     }
     return StarlarkList.immutableCopyOf(result.build());

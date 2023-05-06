@@ -222,7 +222,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     ImmutableSet<Artifact> directoryInputs =
         getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
 
-    for (CommandLineAndParamFileInfo commandLine : commandLines.getCommandLines()) {
+    for (CommandLineAndParamFileInfo commandLine : commandLines.unpack()) {
       result.add(Args.forRegisteredAction(commandLine, directoryInputs));
     }
     return StarlarkList.immutableCopyOf(result.build());
