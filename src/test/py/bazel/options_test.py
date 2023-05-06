@@ -137,6 +137,39 @@ class OptionsTest(test_base.TestBase):
       "//pkg:main",
     ])
 
+  def testAllSupportedPseudoCommand_singleLineParsesUnambiguously(self):
+    self.ScratchFile("WORKSPACE.bazel")
+    self.ScratchFile(".bazelrc", [
+      # First and third option are ignored by build, but valid options for
+      # cquery. The first one expects no value, the third one does.
+      "all-supported --implicit_deps --copt=-Dfoo --output files --copt=-Dbar",
+    ])
+    self.ScratchFile("pkg/BUILD.bazel", [
+      "cc_binary(name='main',srcs=['main.cc'])",
+    ])
+    self.ScratchFile("pkg/main.cc", [
+      "#include <stdio.h>",
+      "int main() {",
+      "#ifdef foo",
+      "  printf(\"foo\\n\");",
+      "#endif",
+      "#ifdef bar",
+      "  printf(\"bar\\n\");",
+      "#endif",
+      "  return 0;",
+      "}",
+    ])
+
+    # Check that run honors the all-supported flags.
+    _, stdout, _ = self.RunBazel([
+      "run",
+      "//pkg:main",
+    ])
+    self.assertEquals(
+        ["foo", "bar"],
+        stdout,
+    )
+
   def testAllSupportedPseudoCommand_unsupportedOptionValue(self):
     self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile(".bazelrc", [
