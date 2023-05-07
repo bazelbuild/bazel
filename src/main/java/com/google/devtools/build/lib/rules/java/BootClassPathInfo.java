@@ -35,6 +35,7 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
@@ -74,6 +75,13 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
                   "The inputs to javac's --system flag, either a directory or a listing of files,"
                       + " which must contain at least 'release', 'lib/modules', and"
                       + " 'lib/jrt-fs.jar'"),
+          @Param(
+              name = "version",
+              positional = false,
+              named = true,
+              defaultValue = "0",
+              doc = "The major version of the runtime providing this bootclasspath."
+          ),
         },
         selfCall = true,
         useStarlarkThread = true)
@@ -81,15 +89,21 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
         Sequence<?> bootClassPathList,
         Sequence<?> auxiliaryList,
         Object systemOrNone,
+        StarlarkInt version,
         StarlarkThread thread)
         throws EvalException {
       NestedSet<Artifact> systemInputs = getSystemInputs(systemOrNone);
       Optional<PathFragment> systemPath = getSystemPath(systemInputs);
+      int versionChecked = version.toInt("version");
+      if (versionChecked < 0) {
+        throw Starlark.errorf("version must be non-negative, got %d", versionChecked);
+      }
       return new BootClassPathInfo(
           getBootClassPath(bootClassPathList),
           getAuxiliary(auxiliaryList),
           systemInputs,
           systemPath,
+          versionChecked,
           thread.getCallerLocation());
     }
 
@@ -150,18 +164,21 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
   private final NestedSet<Artifact> auxiliary;
   private final NestedSet<Artifact> systemInputs;
   private final Optional<PathFragment> systemPath;
+  private final int version;
 
   private BootClassPathInfo(
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> auxiliary,
       NestedSet<Artifact> systemInputs,
       Optional<PathFragment> systemPath,
+      int version,
       Location creationLocation) {
     super(creationLocation);
     this.bootclasspath = bootclasspath;
     this.auxiliary = auxiliary;
     this.systemInputs = systemInputs;
     this.systemPath = systemPath;
+    this.version = version;
   }
 
   @Override
@@ -175,6 +192,7 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         Optional.empty(),
+        0,
         null);
   }
 
@@ -184,6 +202,7 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER),
         Optional.empty(),
+        0,
         null);
   }
 
@@ -208,6 +227,11 @@ public final class BootClassPathInfo extends NativeInfo implements StarlarkValue
   /** Contents of the directory that is passed to the javac >= 9 {@code --system} flag. */
   public NestedSet<Artifact> systemInputs() {
     return systemInputs;
+  }
+
+  /** The major version of the runtime providing this bootclasspath. */
+  public int version() {
+    return version;
   }
 
   public boolean isEmpty() {

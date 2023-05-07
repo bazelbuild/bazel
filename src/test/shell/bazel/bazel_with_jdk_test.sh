@@ -289,4 +289,65 @@ function test_bazel_compiles_with_localjdk() {
   expect_not_log "exec external/remotejdk11_linux/bin/java"
 }
 
+function test_java_runtime_greater_than_java_toolchain_runtime_version() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build //pkg:Main \
+    --java_language_version=8 \
+    --java_runtime_version=remotejdk_20 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "The version of the Java compilation toolchain's java_runtime (17) must be at least as high as the version of the Java runtime that provides the bootclasspath (20). Either switch to a Java toolchain with a higher version of the Java runtime or lower the version of --java_runtime_version"
+}
+
+function test_tool_java_runtime_greater_than_java_toolchain_runtime_version() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    tools = [":Main"],
+    cmd = "$(location :Main) > $@",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build //pkg:gen \
+    --tool_java_language_version=8 \
+    --tool_java_runtime_version=remotejdk_20 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "The version of the Java compilation toolchain's java_runtime (17) must be at least as high as the version of the Java runtime that provides the bootclasspath (20). Either switch to a Java toolchain with a higher version of the Java runtime or lower the version of --tool_java_runtime_version"
+}
+
 run_suite "Tests detection of local JDK and that Bazel executes with a bundled JDK."

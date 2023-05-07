@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -159,6 +160,17 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     FilesToRunProvider jacocoRunner = ruleContext.getExecutablePrerequisite("jacocorunner");
 
     JavaRuntimeInfo javaRuntime = JavaRuntimeInfo.from(ruleContext, "java_runtime");
+
+    if (javaRuntime.version() != 0 && javaRuntime.version() < bootclasspath.version()) {
+      ruleContext.attributeError("java_runtime", String.format(
+          "The version of the Java compilation toolchain's java_runtime (%d) must be at least as"
+              + " high as the version of the Java runtime that provides the bootclasspath (%d)."
+              + " Either switch to a Java toolchain with a higher version of the Java runtime or"
+              + " lower the version of --%sjava_runtime_version",
+          javaRuntime.version(), bootclasspath.version(),
+          ruleContext.getConfiguration().getOptions().get(CoreOptions.class).isExec
+              ? "tool_" : ""));
+    }
 
     JavaToolchainProvider provider =
         JavaToolchainProvider.create(

@@ -241,9 +241,12 @@ def _bootclasspath_impl(ctx):
     system = [f for f in ctx.files.target_javabase if f.basename in system_files]
     if len(system) != len(system_files):
         system = None
+    version = 0
     if ctx.attr.target_javabase:
+        runtime_info = ctx.attr.target_javabase[java_common.JavaRuntimeInfo]
         inputs.extend(ctx.files.target_javabase)
-        args.add(ctx.attr.target_javabase[java_common.JavaRuntimeInfo].java_home)
+        args.add(runtime_info.java_home)
+        version = runtime_info.version
 
     ctx.actions.run(
         executable = str(host_javabase.java_executable_exec_path),
@@ -257,6 +260,7 @@ def _bootclasspath_impl(ctx):
         java_common.BootClassPathInfo(
             bootclasspath = [bootclasspath],
             system = system,
+            version = version,
         ),
         OutputGroupInfo(jar = [bootclasspath]),
     ]
