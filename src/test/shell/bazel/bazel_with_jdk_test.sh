@@ -289,4 +289,93 @@ function test_bazel_compiles_with_localjdk() {
   expect_not_log "exec external/remotejdk11_linux/bin/java"
 }
 
+function test_java_language_greater_than_runtime_version() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<EOF
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+EOF
+
+  cat >pkg/Main.java <<EOF
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build //pkg:Main \
+    --java_language_version=17 \
+    --java_runtime_version=remotejdk_11 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "--java_language_version=17 is incompatible with --java_runtime_version=remotejdk_11: The runtime version has to be at least as high as the language version."
+}
+
+function test_tool_java_language_greater_than_runtime_version() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+)
+
+genrule(
+    name = "gen",
+    outs = ["gen.txt"],
+    tools = [":Main"],
+    cmd = "$(location :Main) > $@",
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build //pkg:gen \
+    --tool_java_language_version=17 \
+    --tool_java_runtime_version=remotejdk_11 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "--tool_java_language_version=17 is incompatible with current Java runtime 'remotejdk_11': Both --tool_java_runtime_version and the 'java_runtime' attribute of the Java toolchain have to be set to versions at least as high as the language version."
+}
+
+function test_tool_java_language_greater_than_java_toolchain_runtime_version() {
+  mkdir -p pkg
+  cat >pkg/BUILD <<'EOF'
+java_binary(
+    name = "Main",
+    srcs = ["Main.java"],
+    main_class = "com.example.Main",
+    deps = ["@bazel_tools//tools/java/runfiles"],
+)
+EOF
+
+  cat >pkg/Main.java <<'EOF'
+package com.example;
+public class Main {
+  public static void main(String[] args) {
+    System.out.println("Hello World!");
+  }
+}
+EOF
+
+  bazel build //pkg:Main \
+    --tool_java_language_version=20 \
+    --tool_java_runtime_version=remotejdk_20 \
+    &>"${TEST_log}" && fail "Expected build to fail"
+
+  expect_log "--tool_java_language_version=20 is incompatible with current Java runtime 'remotejdk_17': Both --tool_java_runtime_version and the 'java_runtime' attribute of the Java toolchain have to be set to versions at least as high as the language version."
+}
+
 run_suite "Tests detection of local JDK and that Bazel executes with a bundled JDK."

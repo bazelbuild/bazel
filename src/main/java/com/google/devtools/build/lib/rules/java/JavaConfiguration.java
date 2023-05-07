@@ -18,11 +18,13 @@ import static com.google.devtools.build.lib.rules.java.JavaStarlarkCommon.checkP
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -207,6 +209,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
               + " --tool_java_runtime_version). This may result in incorrect toolchain selection "
               + "(see https://github.com/bazelbuild/bazel/issues/7849).");
     }
+
+    checkLanguageAndRuntimeVersion(javaOptions.javaLanguageVersion, javaOptions.javaRuntimeVersion,
+        buildOptions.get(CoreOptions.class).isExec);
   }
 
   private static void checkLegacyToolchainFlagIsUnset(String flag, Label label)
@@ -215,6 +220,58 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
       throw new InvalidConfigurationException(
           String.format(
               "--%s=%s is no longer supported, use --platforms instead (see #7849)", flag, label));
+    }
+  }
+
+  private static void checkLanguageAndRuntimeVersion(@Nullable String rawLanguageVersion,
+      @Nullable String rawRuntimeVersion, boolean isExec) throws InvalidConfigurationException {
+    int languageVersion;
+    if (Strings.isNullOrEmpty(rawLanguageVersion)) {
+      return;
+    }
+    try {
+      languageVersion = Integer.parseUnsignedInt(rawLanguageVersion);
+    } catch (NumberFormatException e) {
+      // This is unexpected, but for the sake of compatibility with unusual toolchains, we should
+      // not fail the build.
+      return;
+    }
+
+    int runtimeVersion;
+    if (Strings.isNullOrEmpty(rawRuntimeVersion)) {
+      return;
+    }
+    int lastUnderscore = rawRuntimeVersion.lastIndexOf('_');
+    String rawRuntimeVersionLastPart;
+    if (lastUnderscore == -1) {
+      rawRuntimeVersionLastPart = rawRuntimeVersion;
+    } else {
+      rawRuntimeVersionLastPart = rawRuntimeVersion.substring(lastUnderscore + 1);
+    }
+    try {
+      runtimeVersion = Integer.parseUnsignedInt(rawRuntimeVersionLastPart);
+    } catch (NumberFormatException ignored) {
+      // Could be e.g. the "jdk" part of "local_jdk" without a version number, which we can't
+      // check at this point.
+      return;
+    }
+
+    if (languageVersion > runtimeVersion) {
+      if (isExec) {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--tool_java_language_version=%s is incompatible with current Java runtime '%s':"
+                    + " Both --tool_java_runtime_version and the 'java_runtime' attribute of the"
+                    + " Java toolchain have to be set to versions at least as high as the language"
+                    + " version.",
+                rawLanguageVersion, rawRuntimeVersion));
+      } else {
+        throw new InvalidConfigurationException(
+            String.format(
+                "--java_language_version=%s is incompatible with --java_runtime_version=%s: The"
+                    + " runtime version has to be at least as high as the language version.",
+                rawLanguageVersion, rawRuntimeVersion));
+      }
     }
   }
 
