@@ -120,28 +120,6 @@ public class DynamicExecutionOptions extends OptionsBase {
   public boolean debugSpawnScheduler;
 
   @Option(
-      name = "experimental_require_availability_info",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "false",
-      help =
-          "If true, fail the build if there are actions that set requires-darwin but do not have"
-              + "Xcode availability-related execution requirements set.")
-  public boolean requireAvailabilityInfo;
-
-  @Option(
-      name = "experimental_availability_info_exempt",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "Genrule,TestRunner",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      help =
-          "A comma-separated list of mnemonics that are not required to have Xcode-related "
-              + "execution info if --experimental_require_availability_info=true. No-op if "
-              + "--experimental_require_availability_info=false.")
-  public List<String> availabilityInfoExempt;
-
-  @Option(
       name = "experimental_dynamic_slow_remote_time",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},

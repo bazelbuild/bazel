@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -341,6 +342,25 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "This option is deprecated and has no effect.")
     public boolean autoConfigureHostPlatform;
+
+    @Deprecated
+    @Option(
+        name = "experimental_require_availability_info",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "false",
+        help = "Deprecated no-op.")
+    public boolean requireAvailabilityInfo;
+
+    @Deprecated
+    @Option(
+        name = "experimental_availability_info_exempt",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        defaultValue = "Genrule,TestRunner",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        help = "Deprecated no-op.")
+    public List<String> availabilityInfoExempt;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
