@@ -62,10 +62,6 @@ public final class TargetSummaryPublisher {
   private final ListMultimap<ConfiguredTargetKey, AspectCompleteEvent> queuedAspectCompleteEvents =
       Multimaps.synchronizedListMultimap(ArrayListMultimap.create());
 
-  public TargetSummaryPublisher(EventBus eventBus) {
-    this(eventBus, /* mergedSkyframeAnalysisExecution= */ () -> false);
-  }
-
   public TargetSummaryPublisher(
       EventBus eventBus, Supplier<Boolean> mergedSkyframeAnalysisExecution) {
     this.eventBus = eventBus;
