@@ -58,7 +58,6 @@ ProtoSourceInfo = provider(
     fields = {
         "_source_file": """(File) The `.proto` file. Possibly virtual to handle additional/stripped
           path prefix.""" + _warning,
-        "_original_source_file": "(File) The original `.proto` file." + _warning,
         "_proto_path": "(str) The root of the virtual location." + _warning,
     },
 )

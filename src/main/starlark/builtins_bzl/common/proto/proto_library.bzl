@@ -113,7 +113,7 @@ def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
             else:
                 # source_root == ''|'bazel-out/foo/k8-fastbuild/bin' / 'external/repo'
                 source_root = _join(src.root.path, ctx.label.workspace_root)
-            direct_sources.append(ProtoSourceInfo(_source_file = src, _original_source_file = src, _proto_path = source_root))
+            direct_sources.append(ProtoSourceInfo(_source_file = src, _proto_path = source_root))
 
         return ctx.label.workspace_root if ctx.label.workspace_root else ".", direct_sources
 
@@ -156,7 +156,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
             target_file = src,
             progress_message = "Symlinking virtual .proto sources for %{label}",
         )
-        direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _original_source_file = src, _proto_path = proto_path))
+        direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _proto_path = proto_path))
     return proto_path, direct_sources
 
 def _create_proto_info(direct_sources, deps, proto_path, descriptor_set):

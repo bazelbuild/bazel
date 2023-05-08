@@ -131,7 +131,7 @@ def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
     provided_proto_sources = proto_lang_toolchain_info.provided_proto_sources
     provided_paths = {}
     for src in provided_proto_sources:
-        path = src._original_source_file.path
+        path = src._source_file.path
 
         # For listed protos bundled with the Bazel tools repository, their exec paths start
         # with external/bazel_tools/. This prefix needs to be removed first, because the protos in
@@ -142,7 +142,7 @@ def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
             provided_paths[path] = None
 
     # Filter proto files
-    proto_files = [src._original_source_file for src in proto_info._direct_proto_sources]
+    proto_files = [src._source_file for src in proto_info._direct_proto_sources]
     excluded = []
     included = []
     for proto_file in proto_files:

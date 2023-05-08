@@ -28,9 +28,6 @@ abstract class ProtoSource implements StarlarkValue {
   abstract Artifact getSourceFile();
 
   @VisibleForTesting
-  abstract Artifact getOriginalSourceFile();
-
-  @VisibleForTesting
   abstract PathFragment getSourceRoot();
 
   @VisibleForTesting
@@ -42,7 +39,6 @@ abstract class ProtoSource implements StarlarkValue {
   static ProtoSource create(StarlarkInfo protoSourceStruct) throws Exception {
     return new AutoValue_ProtoSource(
         protoSourceStruct.getValue("_source_file", Artifact.class),
-        protoSourceStruct.getValue("_original_source_file", Artifact.class),
         PathFragment.create(protoSourceStruct.getValue("_proto_path", String.class)));
   }
 }
