@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -45,11 +43,6 @@ public class FakeAttributeMapper implements AttributeMap {
   @Override
   public Label getLabel() {
     return Label.parseCanonicalUnchecked("//fake:rule");
-  }
-
-  @Override
-  public String getRuleClassName() {
-    return "fake_rule";
   }
 
   @Override
@@ -154,12 +147,6 @@ public class FakeAttributeMapper implements AttributeMap {
 
     private Builder() {}
 
-    @CanIgnoreReturnValue
-    public Builder withStringList(String attribute, List<String> value) {
-      mapBuilder.put(attribute, FakeAttributeMapperEntry.forStringList(value));
-      return this;
-    }
-
     public FakeAttributeMapper build() {
       return new FakeAttributeMapper(mapBuilder.buildOrThrow());
     }
@@ -172,10 +159,6 @@ public class FakeAttributeMapper implements AttributeMap {
     private FakeAttributeMapperEntry(Type<T> type, T value) {
       this.type = type;
       this.value = value;
-    }
-
-    private static FakeAttributeMapperEntry<List<String>> forStringList(List<String> list) {
-      return new FakeAttributeMapperEntry<>(Type.STRING_LIST, list);
     }
 
     private <U> U validateAndGet(Type<U> otherType) {

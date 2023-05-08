@@ -41,11 +41,6 @@ public class DelegatingAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getRuleClassName() {
-    return delegate.getRuleClassName();
-  }
-
-  @Override
   public <T> T get(String attributeName, Type<T> type) {
     return delegate.get(attributeName, type);
   }

@@ -51,11 +51,6 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     return ruleLabel;
   }
 
-  @Override
-  public String getRuleClassName() {
-    return ruleClass.getName();
-  }
-
   @Nullable
   @Override
   public <T> T get(String attributeName, Type<T> type) {

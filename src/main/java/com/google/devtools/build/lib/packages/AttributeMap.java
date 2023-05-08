@@ -39,11 +39,6 @@ public interface AttributeMap {
   Label getLabel();
 
   /**
-   * Returns the name of the rule class.
-   */
-  String getRuleClassName();
-
-  /**
    * Returns true if an attribute with the given name exists.
    */
   boolean has(String attrName);

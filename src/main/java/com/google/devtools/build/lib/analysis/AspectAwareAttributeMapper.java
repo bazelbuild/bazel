@@ -56,11 +56,6 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public String getRuleClassName() {
-    return ruleAttributes.getRuleClassName();
-  }
-
-  @Override
   public Label getLabel() {
     return ruleAttributes.getLabel();
   }
