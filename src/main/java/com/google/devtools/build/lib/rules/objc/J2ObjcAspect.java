@@ -212,7 +212,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             attr(XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, LABEL)
                 .allowedRuleClasses("xcode_config")
                 .checkConstraints()
-                .direct_compile_time_input()
                 .value(AppleToolchain.getXcodeConfigLabel(toolsRepository)))
         .add(
             attr("$zipper", LABEL)

@@ -82,7 +82,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         .add(
             attr("deps", LABEL_LIST)
                 .aspect(j2ObjcAspect)
-                .direct_compile_time_input()
                 .allowedRuleClasses(
                     "j2objc_library", "java_library", "java_import", "java_proto_library")
                 .allowedFileTypes())
@@ -103,7 +102,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("jre_deps", LABEL_LIST)
-                .direct_compile_time_input()
                 .allowedRuleClasses("objc_library")
                 .allowedFileTypes()
                 .validityPredicate(

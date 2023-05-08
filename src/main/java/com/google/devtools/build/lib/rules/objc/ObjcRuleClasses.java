@@ -378,10 +378,7 @@ public class ObjcRuleClasses {
           The list of targets that are linked together to form the final bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .override(
-              attr("deps", LABEL_LIST)
-                  .direct_compile_time_input()
-                  .mandatoryProviders(CcInfo.PROVIDER.id())
-                  .allowedFileTypes())
+              attr("deps", LABEL_LIST).mandatoryProviders(CcInfo.PROVIDER.id()).allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(implementation_deps) -->
           The list of other libraries that the library target depends on. Unlike with
           <code>deps</code>, the headers and include paths of these libraries (and all their
@@ -391,7 +388,6 @@ public class ObjcRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
               attr("implementation_deps", LABEL_LIST)
-                  .direct_compile_time_input()
                   .mandatoryProviders(CcInfo.PROVIDER.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->

@@ -59,7 +59,6 @@ _COMPILE_DEPENDENCY_RULE = {
     "sdk_includes": attr.string_list(),
     "deps": attr.label_list(
         providers = [CcInfo],
-        flags = ["DIRECT_COMPILE_TIME_INPUT"],
     ),
 }
 
