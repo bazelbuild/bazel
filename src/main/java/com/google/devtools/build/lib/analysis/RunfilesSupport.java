@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -25,17 +23,14 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.analysis.RepoMappingManifestAction.Entry;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -43,7 +38,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -558,46 +552,10 @@ public final class RunfilesSupport implements RunfilesSupplier {
             new RepoMappingManifestAction(
                 ruleContext.getActionOwner(),
                 repoMappingManifest,
-                collectRepoMappings(
-                    Preconditions.checkNotNull(
-                        ruleContext.getTransitivePackagesForRunfileRepoMappingManifest()),
-                    runfiles),
+                ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
+                runfiles.getAllArtifacts(),
                 ruleContext.getWorkspaceName()));
     return repoMappingManifest;
-  }
-
-  /** Returns the list of entries (unsorted) that should appear in the repo mapping manifest. */
-  private static ImmutableList<Entry> collectRepoMappings(
-      NestedSet<Package> transitivePackages, Runfiles runfiles) {
-    // NOTE: It might appear that the flattening of `transitivePackages` is better suited to the
-    // execution phase rather than here in the analysis phase, but we can't do that since it would
-    // necessitate storing `transitivePackages` in an action, which breaks skyframe serialization
-    // since packages cannot be serialized here.
-
-    ImmutableSet<RepositoryName> reposContributingRunfiles =
-        runfiles.getAllArtifacts().toList().stream()
-            .filter(a -> a.getOwner() != null)
-            .map(a -> a.getOwner().getRepository())
-            .collect(toImmutableSet());
-    Set<RepositoryName> seenRepos = new HashSet<>();
-    ImmutableList.Builder<Entry> entries = ImmutableList.builder();
-    for (Package pkg : transitivePackages.toList()) {
-      if (!seenRepos.add(pkg.getPackageIdentifier().getRepository())) {
-        // Any package from the same repo would have the same repo mapping.
-        continue;
-      }
-      for (Map.Entry<String, RepositoryName> repoMappingEntry :
-          pkg.getRepositoryMapping().entries().entrySet()) {
-        if (reposContributingRunfiles.contains(repoMappingEntry.getValue())) {
-          entries.add(
-              Entry.of(
-                  pkg.getPackageIdentifier().getRepository(),
-                  repoMappingEntry.getKey(),
-                  repoMappingEntry.getValue()));
-        }
-      }
-    }
-    return entries.build();
   }
 
   @Override
