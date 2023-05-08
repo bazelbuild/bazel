@@ -432,7 +432,9 @@ public class BuildDriverFunction implements SkyFunction {
       throws InterruptedException {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
-        configuredTarget.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+        configuredTarget.getProvider(ExtraActionArtifactsProvider.class),
+        artifactsToBuild,
+        buildDriverKey.isExtraActionTopLevelOnly());
     postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
     if (NOT_TEST.equals(buildDriverKey.getTestType())) {
       declareDependenciesAndCheckValues(
@@ -489,7 +491,9 @@ public class BuildDriverFunction implements SkyFunction {
       AspectKey aspectKey = aspectValue.getKey();
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       addExtraActionsIfRequested(
-          configuredAspect.getProvider(ExtraActionArtifactsProvider.class), artifactsToBuild);
+          configuredAspect.getProvider(ExtraActionArtifactsProvider.class),
+          artifactsToBuild,
+          buildDriverKey.isExtraActionTopLevelOnly());
 
       // It's possible that this code path is triggered AFTER the analysis cache clean up and the
       // transitive packages for package root resolution is already cleared. In such a case, the
@@ -552,10 +556,14 @@ public class BuildDriverFunction implements SkyFunction {
   }
 
   private void addExtraActionsIfRequested(
-      ExtraActionArtifactsProvider provider, ImmutableSet.Builder<Artifact> artifactsToBuild) {
+      ExtraActionArtifactsProvider provider,
+      ImmutableSet.Builder<Artifact> artifactsToBuild,
+      boolean extraActionTopLevelOnly) {
     if (provider != null) {
       addArtifactsToBuilder(
-          provider.getTransitiveExtraActionArtifacts().toList(),
+          extraActionTopLevelOnly
+              ? provider.getExtraActionArtifacts().toList()
+              : provider.getTransitiveExtraActionArtifacts().toList(),
           artifactsToBuild,
           extraActionFilterSupplier.get());
     }

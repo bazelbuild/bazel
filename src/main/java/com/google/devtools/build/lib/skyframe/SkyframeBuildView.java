@@ -545,6 +545,7 @@ public final class SkyframeBuildView {
       boolean skipIncompatibleExplicitTargets,
       boolean strictConflictCheck,
       boolean checkForActionConflicts,
+      boolean extraActionTopLevelOnly,
       QuiescingExecutors executors,
       boolean shouldDiscardAnalysisCache,
       BuildDriverKeyTestContext buildDriverKeyTestContext,
@@ -577,6 +578,7 @@ public final class SkyframeBuildView {
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
+                        extraActionTopLevelOnly,
                         determineTestType(
                             testsToRun,
                             labelTargetMap,
@@ -594,7 +596,8 @@ public final class SkyframeBuildView {
                         topLevelArtifactContext,
                         strictConflictCheck,
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(k.getLabel()),
-                        skipIncompatibleExplicitTargets))
+                        skipIncompatibleExplicitTargets,
+                        extraActionTopLevelOnly))
             .collect(ImmutableSet.toImmutableSet());
     List<DetailedExitCode> detailedExitCodes = new ArrayList<>();
     MultiThreadPoolsQuiescingExecutor executor =

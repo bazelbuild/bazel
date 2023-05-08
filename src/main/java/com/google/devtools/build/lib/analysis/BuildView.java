@@ -434,6 +434,7 @@ public class BuildView {
                 skipIncompatibleExplicitTargets,
                 targetOptions.get(CoreOptions.class).strictConflictChecks,
                 checkForActionConflicts,
+                viewOptions.extraActionTopLevelOnly,
                 executors,
                 /* shouldDiscardAnalysisCache= */ viewOptions.discardAnalysisCache
                     || !skyframeExecutor.tracksStateForIncrementality(),
