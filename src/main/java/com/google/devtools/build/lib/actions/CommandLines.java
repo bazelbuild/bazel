@@ -304,18 +304,14 @@ public abstract class CommandLines {
     return new Builder();
   }
 
-  public static Builder builder(Builder other) {
-    return new Builder(other);
-  }
-
   /** Returns an instance with a single command line. */
   public static CommandLines of(CommandLine commandLine) {
-    return new SinglePartCommandLines(commandLine);
+    return new OnePartCommandLines(commandLine);
   }
 
   /** Returns an instance with a single trivial command line. */
   public static CommandLines of(Iterable<String> args) {
-    return new SinglePartCommandLines(CommandLine.of(args));
+    return new OnePartCommandLines(CommandLine.of(args));
   }
 
   public static CommandLines concat(CommandLine commandLine, CommandLines commandLines) {
@@ -327,17 +323,23 @@ public abstract class CommandLines {
     return builder.build();
   }
 
-  /** Builder for {@link CommandLines}. */
+  /**
+   * Builder for {@link CommandLines}.
+   *
+   * <p>Attempts to build the most memory-efficient {@link CommandLines} instance possible. Most
+   * command lines are composed of 1-3 parts. Additionally, the first part is typically just an
+   * executable or shell command and does not have an associated params file. If both of these
+   * criteria are met, memory is saved by using one of the array-free subclasses. Otherwise, uses
+   * {@link NPartCommandLines} which handles any arbitrary case.
+   */
   public static class Builder {
-    private final List<Object> commandLines;
-
-    Builder() {
-      commandLines = new ArrayList<>();
-    }
-
-    Builder(Builder other) {
-      commandLines = new ArrayList<>(other.commandLines);
-    }
+    private Object part1; // Set to null when we need to use NPartCommandLines.
+    private Object part2;
+    private ParamFileInfo part2ParamFileInfo;
+    private Object part3;
+    private ParamFileInfo part3ParamFileInfo;
+    private int parts = 0;
+    private final List<Object> commandLines = new ArrayList<>();
 
     @CanIgnoreReturnValue
     public Builder addSingleArgument(Object argument) {
@@ -345,45 +347,72 @@ public abstract class CommandLines {
           !(argument instanceof ParamFileInfo)
               && !(argument instanceof CommandLineAndParamFileInfo),
           argument);
-      commandLines.add(argument);
-      return this;
+      return addInternal(argument, null);
     }
 
     @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine) {
-      commandLines.add(commandLine);
-      return this;
+      return addInternal(commandLine, null);
     }
 
     @CanIgnoreReturnValue
     public Builder addCommandLine(CommandLine commandLine, @Nullable ParamFileInfo paramFileInfo) {
-      commandLines.add(commandLine);
+      return addInternal(commandLine, paramFileInfo);
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addCommandLine(CommandLineAndParamFileInfo pair) {
+      return addInternal(pair.commandLine, pair.paramFileInfo);
+    }
+
+    private Builder addInternal(Object part, @Nullable ParamFileInfo paramFileInfo) {
+      parts++;
+      if (parts == 1) {
+        if (paramFileInfo == null) {
+          part1 = part;
+        }
+      } else if (parts == 2) {
+        part2 = part;
+        part2ParamFileInfo = paramFileInfo;
+      } else if (parts == 3) {
+        part3 = part;
+        part3ParamFileInfo = paramFileInfo;
+      } else if (parts == 4) {
+        part1 = null; // Destined to build an NPartCommandLines.
+      }
+      commandLines.add(part);
       if (paramFileInfo != null) {
         commandLines.add(paramFileInfo);
       }
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder addCommandLine(CommandLineAndParamFileInfo pair) {
-      return addCommandLine(pair.commandLine, pair.paramFileInfo);
-    }
-
     public CommandLines build() {
-      if (commandLines.size() == 1) {
-        Object obj = commandLines.get(0);
-        return new SinglePartCommandLines(
-            obj instanceof CommandLine ? (CommandLine) obj : new SingletonCommandLine(obj));
+      if (part1 == null) {
+        return new NPartCommandLines(commandLines.toArray());
       }
-      return new MultiPartCommandLines(commandLines.toArray());
+      if (parts == 1) {
+        return new OnePartCommandLines(part1);
+      }
+      if (parts == 2) {
+        return new TwoPartCommandLines(part1, part2, part2ParamFileInfo);
+      }
+      if (part2ParamFileInfo == null && part3ParamFileInfo == null) {
+        return new ThreePartCommandLinesWithoutParamsFiles(part1, part2, part3);
+      }
+      return new ThreePartCommandLines(part1, part2, part2ParamFileInfo, part3, part3ParamFileInfo);
     }
   }
 
-  private static final class SinglePartCommandLines extends CommandLines {
-    private final CommandLine commandLine;
+  private static CommandLine toCommandLine(Object obj) {
+    return obj instanceof CommandLine ? (CommandLine) obj : new SingletonCommandLine(obj);
+  }
 
-    SinglePartCommandLines(CommandLine commandLine) {
-      this.commandLine = commandLine;
+  private static final class OnePartCommandLines extends CommandLines {
+    private final Object part1;
+
+    OnePartCommandLines(Object part1) {
+      this.part1 = part1;
     }
 
     @Override
@@ -392,16 +421,84 @@ public abstract class CommandLines {
         @Nullable ArtifactExpander artifactExpander,
         Fingerprint fingerprint)
         throws CommandLineExpansionException, InterruptedException {
-      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+      toCommandLine(part1).addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
     }
 
     @Override
     public ImmutableList<CommandLineAndParamFileInfo> unpack() {
-      return ImmutableList.of(new CommandLineAndParamFileInfo(commandLine, null));
+      return ImmutableList.of(new CommandLineAndParamFileInfo(toCommandLine(part1), null));
     }
   }
 
-  private static final class MultiPartCommandLines extends CommandLines {
+  private static final class TwoPartCommandLines extends CommandLines {
+    private final Object part1;
+    private final Object part2;
+    @Nullable private final ParamFileInfo part2ParamFileInfo;
+
+    TwoPartCommandLines(Object part1, Object part2, @Nullable ParamFileInfo part2ParamFileInfo) {
+      this.part1 = part1;
+      this.part2 = part2;
+      this.part2ParamFileInfo = part2ParamFileInfo;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), part2ParamFileInfo));
+    }
+  }
+
+  private static final class ThreePartCommandLinesWithoutParamsFiles extends CommandLines {
+    private final Object part1;
+    private final Object part2;
+    private final Object part3;
+
+    ThreePartCommandLinesWithoutParamsFiles(Object part1, Object part2, Object part3) {
+      this.part1 = part1;
+      this.part2 = part2;
+      this.part3 = part3;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part3), null));
+    }
+  }
+
+  private static final class ThreePartCommandLines extends CommandLines {
+    private final Object part1;
+    private final Object part2;
+    @Nullable private final ParamFileInfo part2ParamFileInfo;
+    private final Object part3;
+    @Nullable private final ParamFileInfo part3ParamFileInfo;
+
+    ThreePartCommandLines(
+        Object part1,
+        Object part2,
+        @Nullable ParamFileInfo part2ParamFileInfo,
+        Object part3,
+        @Nullable ParamFileInfo part3ParamFileInfo) {
+      this.part1 = part1;
+      this.part2 = part2;
+      this.part2ParamFileInfo = part2ParamFileInfo;
+      this.part3 = part3;
+      this.part3ParamFileInfo = part3ParamFileInfo;
+    }
+
+    @Override
+    public ImmutableList<CommandLineAndParamFileInfo> unpack() {
+      return ImmutableList.of(
+          new CommandLineAndParamFileInfo(toCommandLine(part1), null),
+          new CommandLineAndParamFileInfo(toCommandLine(part2), part2ParamFileInfo),
+          new CommandLineAndParamFileInfo(toCommandLine(part3), part3ParamFileInfo));
+    }
+  }
+
+  private static final class NPartCommandLines extends CommandLines {
 
     /**
      * Stored as an {@code Object[]} to save memory. Elements in this array are either:
@@ -413,7 +510,7 @@ public abstract class CommandLines {
      */
     private final Object[] commandLines;
 
-    MultiPartCommandLines(Object[] commandLines) {
+    NPartCommandLines(Object[] commandLines) {
       this.commandLines = commandLines;
     }
 
