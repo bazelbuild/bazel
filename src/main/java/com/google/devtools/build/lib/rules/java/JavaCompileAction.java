@@ -123,6 +123,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
   }
 
+  private final NestedSet<Artifact> tools;
   private final CompilationType compilationType;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
@@ -160,7 +161,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       JavaClasspathMode classpathMode) {
     super(
         owner,
-        tools,
         allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts),
         runfilesSupplier,
         outputs,
@@ -175,6 +175,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
                   .collect(joining(",")),
               owner.getLabel()));
     }
+    this.tools = tools;
     this.compilationType = compilationType;
     // TODO(djasper): The only thing that is conveyed through the executionInfo is whether worker
     // mode is enabled or not. Investigate whether we can store just that.
@@ -207,6 +208,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
         .addTransitive(transitiveInputs)
         .addTransitive(dependencyArtifacts)
         .build();
+  }
+
+  @Override
+  public NestedSet<Artifact> getTools() {
+    return tools;
   }
 
   @Override

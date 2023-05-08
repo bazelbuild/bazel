@@ -102,6 +102,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
       BlazeInterners.newWeakInterner();
 
+  private final NestedSet<Artifact> tools;
   private final CommandLines commandLines;
 
   private final CharSequence progressMessage;
@@ -144,7 +145,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean stripOutputPaths) {
-    super(owner, tools, inputs, runfilesSupplier, outputs, env);
+    super(owner, inputs, runfilesSupplier, outputs, env);
+    this.tools = tools;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo =
         executionInfo.isEmpty()
@@ -154,6 +156,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
     this.stripOutputPaths = stripOutputPaths;
+  }
+
+  @Override
+  public final NestedSet<Artifact> getTools() {
+    return tools;
   }
 
   @VisibleForTesting

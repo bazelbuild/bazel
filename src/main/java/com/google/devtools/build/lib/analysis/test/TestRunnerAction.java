@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -211,7 +210,6 @@ public class TestRunnerAction extends AbstractAction
       PackageSpecificationProvider networkAllowlist) {
     super(
         owner,
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         inputs,
         runfilesSupplier,
         nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),

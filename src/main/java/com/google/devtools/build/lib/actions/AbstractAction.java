@@ -92,24 +92,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   private final ActionOwner owner;
 
-  /**
-   * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
-   * compiler has changed since the last time it was used. This should include all artifacts that
-   * the tool does not dynamically reload / check on each unit of work - e.g. its own binary, the
-   * JDK for Java binaries, shared libraries, ... but not a configuration file, if it reloads that
-   * when it has changed.
-   *
-   * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
-   * happen: If an artifact that should be included is missing, the tool might not be restarted when
-   * it should, and builds can become incorrect (example: The compiler binary is not part of this
-   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version). If
-   * an artifact that should *not* be included is accidentally part of this set, the worker process
-   * will be restarted more often that is necessary - e.g. if a file that is unique to each unit of
-   * work, e.g. the source code that a compiler should compile for a compile action, is part of this
-   * set, then the worker will never be reused and will be restarted for each unit of work.
-   */
-  private final NestedSet<Artifact> tools;
-
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   // Access through getInputs() in case it's overridden.
   @GuardedBy("this")
@@ -127,13 +109,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
       ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
-    this(
-        owner,
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        inputs,
-        EmptyRunfilesSupplier.INSTANCE,
-        outputs,
-        ActionEnvironment.EMPTY);
+    this(owner, inputs, outputs, ActionEnvironment.EMPTY);
   }
 
   protected AbstractAction(
@@ -141,24 +117,16 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       NestedSet<Artifact> inputs,
       Iterable<Artifact> outputs,
       ActionEnvironment env) {
-    this(
-        owner,
-        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        inputs,
-        EmptyRunfilesSupplier.INSTANCE,
-        outputs,
-        env);
+    this(owner, inputs, EmptyRunfilesSupplier.INSTANCE, outputs, env);
   }
 
   protected AbstractAction(
       ActionOwner owner,
-      NestedSet<Artifact> tools,
       NestedSet<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<? extends Artifact> outputs,
       ActionEnvironment env) {
     this.owner = checkNotNull(owner);
-    this.tools = checkNotNull(tools);
     this.inputs = checkNotNull(inputs);
     this.env = checkNotNull(env);
     this.runfilesSupplier = checkNotNull(runfilesSupplier);
@@ -288,7 +256,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
 
   @Override
   public NestedSet<Artifact> getTools() {
-    return tools;
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
