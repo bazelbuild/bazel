@@ -352,12 +352,7 @@ linking_order_test(
 
 additional_inputs_test(
     name = "additional_inputs_test",
-    # TODO(bazel-team): Support this test on Windows and Mac.
-    is_linux = select({
-        "//src/conditions:linux": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":foo_so",
+    target = ":foo_so",
 )
 
 build_failure_test(
@@ -365,7 +360,7 @@ build_failure_test(
     messages = [
         "cc_shared_library/test_cc_shared_library:barX\",",
     ],
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_binary",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_binary",
 )
 
 build_failure_test(
@@ -373,7 +368,7 @@ build_failure_test(
     messages = [
         "cc_shared_library/test_cc_shared_library:barX\",",
     ],
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_shared_lib",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:should_fail_shared_lib",
 )
 
 paths_test(
@@ -443,13 +438,13 @@ cc_library(
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_so_test",
     message = "Two shared libraries in dependencies export the same symbols",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_so",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_so",
 )
 
 build_failure_test(
     name = "two_dynamic_deps_same_export_in_binary_test",
     message = "Two shared libraries in dependencies link the same  library statically",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
 )
 
 analysis_test(
@@ -460,42 +455,34 @@ analysis_test(
 
 interface_library_output_group_test(
     name = "interface_library_output_group_test",
-    is_windows = select({
-        "//src/conditions:windows": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":foo_so",
+    target = ":foo_so",
 )
 
 runfiles_test(
     name = "runfiles_test",
-    is_linux = select({
-        "//src/conditions:linux": True,
-        "//conditions:default": False,
-    }),
-    target_under_test = ":python_test",
+    target = ":python_test",
 )
 
 check_linking_action_lib_parameters_test(
     name = "check_binary_doesnt_take_already_linked_in_libs",
-    target_under_test = ":binary",
+    target = ":binary",
     libs_that_shouldnt_be_present = ["foo", "bar"],
 )
 
 check_linking_action_lib_parameters_test(
     name = "check_shared_lib_doesnt_take_already_linked_in_libs",
-    target_under_test = ":foo_so",
+    target = ":foo_so",
     libs_that_shouldnt_be_present = ["bar"],
 )
 
 build_failure_test(
     name = "shared_library_without_deps",
     message = "'cc_shared_library' must have at least one dependency in 'deps' (or 'roots')",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_with_no_deps_so",
 )
 
 build_failure_test(
     name = "direct_dep_with_only_shared_lib_file",
     message = "Do not place libraries which only contain a precompiled dynamic library",
-    target_under_test = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_only_dynamic_lib",
+    target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:failing_only_dynamic_lib",
 )

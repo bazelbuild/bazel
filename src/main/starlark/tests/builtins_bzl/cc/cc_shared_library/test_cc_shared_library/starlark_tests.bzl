@@ -14,7 +14,6 @@
 
 """Starlark tests for cc_shared_library"""
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@rules_testing//lib:truth.bzl", "matching")
 load("@rules_testing//lib:analysis_test.bzl", "analysis_test")
@@ -75,79 +74,88 @@ def _linking_order_test_macro(name, target):
 
 linking_order_test = _linking_order_test_macro
 
-def _additional_inputs_test_impl(ctx):
-    env = analysistest.begin(ctx)
-
-    if ctx.attr.is_linux:
-        target_under_test = analysistest.target_under_test(env)
-        actions = analysistest.target_actions(env)
-
+def _additional_inputs_test_impl(env, target):
+    if env.ctx.target_platform_has_constraint(env.ctx.attr._is_linux[platform_common.ConstraintValueInfo]):
         found = False
         target_action = None
-        for action in actions:
+        for action in target.actions:
             if action.mnemonic == "CppLink":
                 target_action = action
                 break
         for arg in target_action.argv:
             if arg.find("-Wl,--script=") != -1:
-                asserts.equals(env, "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt", arg[13:])
+                env.expect.that_str(
+                    "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/additional_script.txt",
+                ).equals(arg[13:])
                 found = True
                 break
-        asserts.true(env, found, "Should have seen option --script=")
+        env.expect.where(
+            detail = "Should have seen option --script=",
+        ).that_bool(found).equals(True)
 
-    return analysistest.end(env)
+def _additional_inputs_test_macro(name, target):
+    analysis_test(
+        name = name,
+        impl = _additional_inputs_test_impl,
+        target = target,
+        attrs = {
+            "_is_linux": attr.label(default = "@platforms//os:linux"),
+        },
+    )
 
-additional_inputs_test = analysistest.make(
-    _additional_inputs_test_impl,
-    attrs = {
-        "is_linux": attr.bool(),
-    },
-)
+additional_inputs_test = _additional_inputs_test_macro
 
-def _build_failure_test_impl(ctx):
-    env = analysistest.begin(ctx)
+def _build_failure_test_impl(env, target):
+    if env.ctx.attr._message:
+        env.expect.that_target(target).failures().contains_predicate(matching.contains(env.ctx.attr._message))
 
-    if ctx.attr.message:
-        asserts.expect_failure(env, ctx.attr.message)
+    if env.ctx.attr._messages:
+        for message in env.ctx.attr._messages:
+            env.expect.that_target(target).failures().contains_predicate(matching.contains(message))
 
-    if ctx.attr.messages:
-        for message in ctx.attr.messages:
-            asserts.expect_failure(env, message)
+def _build_failure_test_macro(name, target, message = "", messages = []):
+    analysis_test(
+        name = name,
+        impl = _build_failure_test_impl,
+        target = target,
+        expect_failure = True,
+        attrs = {
+            "_message": attr.string(default = message),
+            "_messages": attr.string_list(default = messages),
+        },
+    )
 
-    return analysistest.end(env)
+build_failure_test = _build_failure_test_macro
 
-build_failure_test = analysistest.make(
-    _build_failure_test_impl,
-    expect_failure = True,
-    attrs = {
-        "message": attr.string(),
-        "messages": attr.string_list(),
-    },
-)
+def _paths_test_impl(env, _):
+    env.expect.that_bool(_check_if_target_under_path(Label("//foo"), Label("//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//foo"), Label("@bar//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("//bar"), Label("@foo//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar"), Label("@foo//bar"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar:bar"), Label("@foo//bar"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("//bar:bar"), Label("//bar"))).equals(True)
 
-def _paths_test_impl(ctx):
-    env = unittest.begin(ctx)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar:__pkg__"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar:__subpackages__"))).equals(True)
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar:qux"), Label("@foo//bar:__pkg__"))).equals(True)
 
-    asserts.false(env, _check_if_target_under_path(Label("//foo"), Label("//bar")))
-    asserts.false(env, _check_if_target_under_path(Label("@foo//foo"), Label("@bar//bar")))
-    asserts.false(env, _check_if_target_under_path(Label("//bar"), Label("@foo//bar")))
-    asserts.true(env, _check_if_target_under_path(Label("@foo//bar"), Label("@foo//bar")))
-    asserts.true(env, _check_if_target_under_path(Label("@foo//bar:bar"), Label("@foo//bar")))
-    asserts.true(env, _check_if_target_under_path(Label("//bar:bar"), Label("//bar")))
+    env.expect.that_bool(_check_if_target_under_path(Label("@foo//bar"), Label("@foo//bar/baz:__subpackages__"))).equals(False)
+    env.expect.that_bool(_check_if_target_under_path(Label("//bar"), Label("//bar/baz:__pkg__"))).equals(False)
 
-    asserts.false(env, _check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar")))
-    asserts.false(env, _check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar:__pkg__")))
-    asserts.true(env, _check_if_target_under_path(Label("@foo//bar/baz"), Label("@foo//bar:__subpackages__")))
-    asserts.true(env, _check_if_target_under_path(Label("@foo//bar:qux"), Label("@foo//bar:__pkg__")))
+    env.expect.that_bool(_check_if_target_under_path(Label("//foo/bar:baz"), Label("//:__subpackages__"))).equals(True)
 
-    asserts.false(env, _check_if_target_under_path(Label("@foo//bar"), Label("@foo//bar/baz:__subpackages__")))
-    asserts.false(env, _check_if_target_under_path(Label("//bar"), Label("//bar/baz:__pkg__")))
+def _paths_test_macro(name):
+    native.cc_library(
+        name = "dummy",
+    )
+    analysis_test(
+        name = name,
+        impl = _paths_test_impl,
+        target = ":dummy",
+    )
 
-    asserts.true(env, _check_if_target_under_path(Label("//foo/bar:baz"), Label("//:__subpackages__")))
-
-    return unittest.end(env)
-
-paths_test = unittest.make(_paths_test_impl)
+paths_test = _paths_test_macro
 
 def _debug_files_test_impl(env, target):
     expected_files = [
@@ -168,13 +176,11 @@ def _debug_files_test_impl(env, target):
 
 debug_files_test = _debug_files_test_impl
 
-def _runfiles_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    if not ctx.attr.is_linux:
-        return analysistest.end(env)
+def _runfiles_test_impl(env, target):
+    if not env.ctx.target_platform_has_constraint(env.ctx.attr._is_linux[platform_common.ConstraintValueInfo]):
+        return
 
-    target_under_test = analysistest.target_under_test(env)
-    expected_suffixes = [
+    expected_basenames = [
         "libfoo_so.so",
         "libbar_so.so",
         "libdiff_pkg_so.so",
@@ -184,70 +190,79 @@ def _runfiles_test_impl(ctx):
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/renamed_so_file_copy.so",
         "Smain_Sstarlark_Stests_Sbuiltins_Ubzl_Scc_Scc_Ushared_Ulibrary_Stest_Ucc_Ushared_Ulibrary/libdirect_so_file.so",
     ]
-    for runfile in target_under_test[DefaultInfo].default_runfiles.files.to_list():
+    for runfile in target[DefaultInfo].default_runfiles.files.to_list():
         # Ignore Python runfiles
         if "python" in runfile.path:
             continue
-        found_suffix = False
-        for expected_suffix in expected_suffixes:
-            if runfile.path.endswith(expected_suffix):
-                found_suffix = True
+
+        found_basename = False
+        for expected_basename in expected_basenames:
+            if runfile.path.endswith(expected_basename):
+                found_basename = True
                 break
-        asserts.true(env, found_suffix, runfile.path + " not found in expected suffixes:\n" + "\n".join(expected_suffixes))
 
-    return analysistest.end(env)
+        env.expect.where(
+            detail = runfile.path + " not found in expected basenames:\n" + "\n".join(expected_basenames),
+        ).that_bool(found_basename).equals(True)
 
-runfiles_test = analysistest.make(
-    _runfiles_test_impl,
-    attrs = {
-        "is_linux": attr.bool(),
-    },
-)
+def _runfiles_test_macro(name, target):
+    analysis_test(
+        name = name,
+        impl = _runfiles_test_impl,
+        target = target,
+        attrs = {
+            "_is_linux": attr.label(default = "@platforms//os:linux"),
+        },
+    )
 
-def _interface_library_output_group_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    if not ctx.attr.is_windows:
-        return analysistest.end(env)
+runfiles_test = _runfiles_test_macro
 
-    target_under_test = analysistest.target_under_test(env)
-    actual_files = []
-    for interface_library in target_under_test[OutputGroupInfo].interface_library.to_list():
-        actual_files.append(interface_library.basename)
-    expected_files = ["foo_so.if.lib"]
-    asserts.equals(env, expected_files, actual_files)
+def _interface_library_output_group_test_impl(env, target):
+    if not env.ctx.target_platform_has_constraint(env.ctx.attr._is_windows[platform_common.ConstraintValueInfo]):
+        return
 
-    return analysistest.end(env)
+    actual_files = [interface_library.basename for interface_library in target[OutputGroupInfo].interface_library.to_list()]
+    env.expect.that_collection(actual_files).contains_exactly_predicates([
+        matching.contains("foo_so.if.lib"),
+    ])
 
-interface_library_output_group_test = analysistest.make(
-    _interface_library_output_group_test_impl,
-    attrs = {
-        "is_windows": attr.bool(),
-    },
-)
+def _interface_library_output_group_test_macro(name, target):
+    analysis_test(
+        name = name,
+        impl = _interface_library_output_group_test_impl,
+        target = target,
+        attrs = {
+            "_is_windows": attr.label(default = "@platforms//os:windows"),
+        },
+    )
 
-def _check_linking_action_lib_parameters_test_impl(ctx):
-    env = analysistest.begin(ctx)
+interface_library_output_group_test = _interface_library_output_group_test_macro
 
-    actions = analysistest.target_actions(env)
-
+def _check_linking_action_lib_parameters_test_impl(env, target):
     target_action = None
-    for action in actions:
+    for action in target.actions:
         if action.mnemonic == "FileWrite":
             target_action = action
             break
+
     args = target_action.content.split("\n")
     for arg in args:
-        for bad_lib_entry in ctx.attr.libs_that_shouldnt_be_present:
-            asserts.true(env, arg.find("{}.".format(bad_lib_entry)) == -1, "Should not have seen library `{}` in command line".format(arg))
+        for bad_lib_entry in env.ctx.attr._libs_that_shouldnt_be_present:
+            env.expect.where(
+                detail = "Should not have seen library `{}` in command line".format(arg),
+            ).that_int(arg.find("{}.".format(bad_lib_entry))).equals(-1)
 
-    return analysistest.end(env)
+def _check_linking_action_lib_parameters_test_macro(name, target, libs_that_shouldnt_be_present):
+    analysis_test(
+        name = name,
+        impl = _check_linking_action_lib_parameters_test_impl,
+        target = target,
+        attrs = {
+            "_libs_that_shouldnt_be_present": attr.string_list(default = libs_that_shouldnt_be_present),
+        },
+    )
 
-check_linking_action_lib_parameters_test = analysistest.make(
-    _check_linking_action_lib_parameters_test_impl,
-    attrs = {
-        "libs_that_shouldnt_be_present": attr.string_list(),
-    },
-)
+check_linking_action_lib_parameters_test = _check_linking_action_lib_parameters_test_macro
 
 AspectCcInfo = provider("Takes a cc_info.", fields = {"cc_info": "cc_info"})
 WrappedCcInfo = provider("Takes a cc_info.", fields = {"cc_info": "cc_info"})
