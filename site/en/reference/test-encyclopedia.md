@@ -225,8 +225,9 @@ shard index, beginning at 0. Runners use this information to select which tests
 to run - for example, using a round-robin strategy. Not all test runners support
 sharding. If a runner supports sharding, it must create or update the last
 modified date of the file specified by
-[`TEST_SHARD_STATUS_FILE`](#initial-conditions). Otherwise, Bazel assumes it
-does not support sharding and will not launch additional runners.
+[`TEST_SHARD_STATUS_FILE`](#initial-conditions). Otherwise, if
+[`--incompatible_check_sharding_support`](/reference/command-line-reference#flag--incompatible_check_sharding_support)
+is enabled, Bazel will fail the test if it is sharded.
 
 ## Initial conditions {:#initial-conditions}
 
