@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -111,48 +110,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final ResourceSetOrBuilder resourceSetOrBuilder;
   private final ImmutableMap<String, String> executionInfo;
   protected final boolean stripOutputPaths;
-
-  /**
-   * Constructs a SpawnAction using direct initialization arguments.
-   *
-   * <p>All collections provided must not be subsequently modified.
-   *
-   * @param owner the owner of the Action.
-   * @param tools the set of files comprising the tool that does the work (e.g. compiler).
-   * @param inputs the set of all files potentially read by this action; must not be subsequently
-   *     modified.
-   * @param outputs the set of all files written by this action; must not be subsequently modified.
-   * @param resourceSetOrBuilder the resources consumed by executing this Action.
-   * @param env the action environment
-   * @param commandLines the command lines to execute. This includes the main argv vector and any
-   *     param file-backed command lines.
-   * @param progressMessage the message printed during the progression of the build.
-   * @param mnemonic the mnemonic that is reported in the master log.
-   */
-  public SpawnAction(
-      ActionOwner owner,
-      NestedSet<Artifact> tools,
-      NestedSet<Artifact> inputs,
-      Iterable<Artifact> outputs,
-      ResourceSetOrBuilder resourceSetOrBuilder,
-      CommandLines commandLines,
-      ActionEnvironment env,
-      CharSequence progressMessage,
-      String mnemonic) {
-    this(
-        owner,
-        tools,
-        inputs,
-        outputs,
-        resourceSetOrBuilder,
-        commandLines,
-        env,
-        ImmutableMap.of(),
-        progressMessage,
-        EmptyRunfilesSupplier.INSTANCE,
-        mnemonic,
-        /* stripOutputPaths= */ false);
-  }
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
