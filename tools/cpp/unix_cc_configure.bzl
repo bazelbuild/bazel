@@ -1,6 +1,6 @@
 # pylint: disable=g-bad-file-header
 # Copyright 2016 The Bazel Authors. All rights reserved.
-#
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -416,7 +416,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     cxx_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_CXXOPTS",
-        "-std=c++0x",
+        "-std=c++14",
         False,
     ), ":")
 
