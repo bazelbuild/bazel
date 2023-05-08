@@ -65,8 +65,8 @@ the [configuration](/reference/glossary#configuration) the
 target is built with.
 
 Since `cquery` runs over the configured target graph. it doesn't have insight
-into artifacts like build actions nor access to `[test_suite](/reference/be/general#test_suite)`
-rules as they are not configured targets. For the former, see `[aquery](/query/aquery)`.
+into artifacts like build actions nor access to [`test_suite`](/reference/be/general#test_suite)
+rules as they are not configured targets. For the former, see [`aquery`](/query/aquery).
 
 ## Basic syntax {:#basic-syntax}
 
