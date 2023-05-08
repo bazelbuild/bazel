@@ -107,7 +107,6 @@ import com.google.devtools.common.options.OptionDefinition;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -555,7 +554,7 @@ public final class SkyframeBuildView {
           BuildFailedException,
           TestExecException {
     Stopwatch analysisWorkTimer = Stopwatch.createStarted();
-    EvaluationResult<BuildDriverValue> evaluationResult;
+    EvaluationResult<SkyValue> evaluationResult;
 
     var newKeys =
         ImmutableSet.<ActionLookupKeyOrProxy>builderWithExpectedSize(
@@ -635,6 +634,7 @@ public final class SkyframeBuildView {
                   eventHandler,
                   buildDriverCTKeys,
                   buildDriverAspectKeys,
+                  workspaceStatusArtifacts,
                   keepGoing,
                   executors.executionParallelism(),
                   executor,
@@ -646,23 +646,15 @@ public final class SkyframeBuildView {
           skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
           skyframeExecutor.resetBuildDriverFunction();
 
-          Set<Artifact> additionalArtifacts = new HashSet<>();
-
-          // Unconditionally create build-info.txt and build-changelist.txt.
-          // No action conflict expected here.
-          additionalArtifacts.addAll(workspaceStatusArtifacts);
-          // Coverage.
-          additionalArtifacts.addAll(
-              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                  buildResultListener.getAnalyzedTargets(),
-                  buildResultListener.getAnalyzedTests()));
-          // This evaluation involves action executions, and hence has to be done after the first
-          // SomeExecutionStartedEvent (which is posted from BuildDriverFunction). The most
-          // straightforward solution is to perform this here, after
-          // SkyframeExecutor#evaluateBuildDriverKeys.
+          // Coverage needs to be done after the list of analyzed targets/tests is known.
           additionalArtifactsResult =
               skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(additionalArtifacts), keepGoing);
+                  eventHandler,
+                  Artifact.keys(
+                      coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                          buildResultListener.getAnalyzedTargets(),
+                          buildResultListener.getAnalyzedTests())),
+                  keepGoing);
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
@@ -956,9 +948,9 @@ public final class SkyframeBuildView {
   }
 
   private static ImmutableSet<ConfiguredTarget> getExclusiveTests(
-      EvaluationResult<BuildDriverValue> evaluationResult) {
+      EvaluationResult<SkyValue> evaluationResult) {
     ImmutableSet.Builder<ConfiguredTarget> exclusiveTests = ImmutableSet.builder();
-    for (BuildDriverValue value : evaluationResult.values()) {
+    for (SkyValue value : evaluationResult.values()) {
       if (value instanceof ExclusiveTestBuildDriverValue) {
         exclusiveTests.add(
             ((ExclusiveTestBuildDriverValue) value).getExclusiveTestConfiguredTarget());
@@ -1038,7 +1030,7 @@ public final class SkyframeBuildView {
 
   private static ImmutableSet<ConfiguredTarget> getSuccessfulConfiguredTargets(
       int expectedSize,
-      EvaluationResult<BuildDriverValue> evaluationResult,
+      EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverCTKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
     ImmutableSet.Builder<ConfiguredTarget> cts = ImmutableSet.builderWithExpectedSize(expectedSize);
@@ -1047,7 +1039,7 @@ public final class SkyframeBuildView {
           && !topLevelActionConflictReport.isErrorFree(bdCTKey.getActionLookupKey())) {
         continue;
       }
-      BuildDriverValue value = evaluationResult.get(bdCTKey);
+      BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdCTKey);
       if (value == null) {
         continue;
       }
@@ -1060,7 +1052,7 @@ public final class SkyframeBuildView {
 
   private static ImmutableMap<AspectKey, ConfiguredAspect> getSuccessfulAspectMap(
       int expectedSize,
-      EvaluationResult<BuildDriverValue> evaluationResult,
+      EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverAspectKeys,
       @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
     // There can't be duplicate Aspects after resolving --aspects, so this is safe.
@@ -1071,7 +1063,7 @@ public final class SkyframeBuildView {
           && !topLevelActionConflictReport.isErrorFree(bdAspectKey.getActionLookupKey())) {
         continue;
       }
-      BuildDriverValue value = evaluationResult.get(bdAspectKey);
+      BuildDriverValue value = (BuildDriverValue) evaluationResult.get(bdAspectKey);
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;

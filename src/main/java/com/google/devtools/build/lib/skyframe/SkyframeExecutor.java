@@ -2358,10 +2358,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Evaluates the given collections of CT/Aspect BuildDriverKeys. This is part of
    * https://github.com/bazelbuild/bazel/issues/14057, internal: b/147350683.
    */
-  EvaluationResult<BuildDriverValue> evaluateBuildDriverKeys(
+  EvaluationResult<SkyValue> evaluateBuildDriverKeys(
       ExtendedEventHandler eventHandler,
       Set<BuildDriverKey> buildDriverCTKeys,
       Set<BuildDriverKey> buildDriverAspectKeys,
+      ImmutableList<Artifact> workspaceStatusArtifacts,
       boolean keepGoing,
       int executionParallelism,
       QuiescingExecutor executor,
@@ -2380,7 +2381,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               .setMergingSkyframeAnalysisExecutionPhases(true)
               .build();
       return memoizingEvaluator.evaluate(
-          Iterables.concat(buildDriverCTKeys, buildDriverAspectKeys), evaluationContext);
+          Iterables.concat(
+              buildDriverCTKeys, buildDriverAspectKeys, Artifact.keys(workspaceStatusArtifacts)),
+          evaluationContext);
     } finally {
       clearSyscallCache();
     }
