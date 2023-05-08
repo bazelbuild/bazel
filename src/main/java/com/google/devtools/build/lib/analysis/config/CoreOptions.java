@@ -1050,6 +1050,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     return flagValueByName;
   }
 
+  // Normalizes list of map entries by keeping only the last entry for each key.
+  private static List<Map.Entry<String, String>> normalizeEntries(
+      List<Map.Entry<String, String>> entries) {
+    LinkedHashMap<String, String> normalizedEntries = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : entries) {
+      normalizedEntries.put(entry.getKey(), entry.getValue());
+    }
+    if (normalizedEntries.size() == entries.size()) {
+      return entries;
+    }
+    return normalizedEntries.entrySet().stream().map(SimpleEntry::new).collect(toImmutableList());
+  }
+
   /// Normalizes --features flags by sorting the values and having disables win over enables.
   private static List<String> getNormalizedFeatures(List<String> features) {
     // Parse out the features into a Map<String, boolean>, where the boolean represents whether
@@ -1103,6 +1116,11 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     }
     // Normalize features.
     result.defaultFeatures = getNormalizedFeatures(defaultFeatures);
+
+    result.actionEnvironment = normalizeEntries(actionEnvironment);
+    result.hostActionEnvironment = normalizeEntries(hostActionEnvironment);
+    result.testEnvironment = normalizeEntries(testEnvironment);
+    result.commandLineFlagAliases = normalizeEntries(commandLineFlagAliases);
 
     return result;
   }
