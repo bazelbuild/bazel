@@ -798,6 +798,24 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAbsoluteStripImportPrefixWithSlash() throws Exception {
+    scratch.file(
+        "third_party/a/b/BUILD",
+        "licenses(['unencumbered'])",
+        TestConstants.LOAD_PROTO_LIBRARY,
+        "proto_library(",
+        "    name = 'd',",
+        "    srcs = ['c/d.proto'],",
+        "    strip_import_prefix = '/third_party/a/')");
+
+    ImmutableList<String> commandLine =
+        allArgsForAction((SpawnAction) getDescriptorWriteAction("//third_party/a/b:d"));
+    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
+    assertThat(commandLine)
+        .contains("-Ib/c/d.proto=" + genfiles + "/third_party/a/b/_virtual_imports/d/b/c/d.proto");
+  }
+
+  @Test
   public void testStripImportPrefixAndImportPrefix() throws Exception {
     if (!isThisBazel()) {
       return;

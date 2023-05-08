@@ -56,7 +56,7 @@ def _get_strip_import_prefix(ctx):
     else:  # Relative to current package
         strip_import_prefix = _join(ctx.label.package, strip_import_prefix)
 
-    return strip_import_prefix
+    return strip_import_prefix.removesuffix("/")
 
 def _proto_library_impl(ctx):
     semantics.preprocess(ctx)
