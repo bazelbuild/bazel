@@ -598,6 +598,7 @@ attrs = {
     ),
     "_def_parser": semantics.get_def_parser(),
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
+    "_use_auto_exec_groups": attr.bool(default = True),
 }
 attrs.update(semantics.get_distribs_attr())
 attrs.update(semantics.get_loose_mode_in_hdrs_check_allowed_attr())

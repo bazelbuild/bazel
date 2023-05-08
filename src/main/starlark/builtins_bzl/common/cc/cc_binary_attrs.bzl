@@ -96,6 +96,7 @@ cc_binary_attrs_with_aspects = {
     "_cc_toolchain": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:current_cc_toolchain"),
     "_cc_toolchain_type": attr.label(default = "@" + semantics.get_repo() + "//tools/cpp:toolchain_type"),
     "_def_parser": semantics.get_def_parser(),
+    "_use_auto_exec_groups": attr.bool(default = True),
 }
 
 cc_binary_attrs_with_aspects.update(semantics.get_distribs_attr())

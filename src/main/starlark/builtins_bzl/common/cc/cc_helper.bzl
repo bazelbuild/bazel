@@ -152,6 +152,7 @@ def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_c
         outputs = [output],
         use_default_shell_env = True,
         executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
+        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
         execution_requirements = execution_info,
         progress_message = "Stripping {} for {}".format(output.short_path, ctx.label),
         mnemonic = "CcStrip",
@@ -359,6 +360,7 @@ def _generate_def_file(ctx, def_parser, object_files, dll_name):
     ctx.actions.run(
         mnemonic = "DefParser",
         executable = def_parser,
+        toolchain = None,
         arguments = [args, argv],
         inputs = object_files,
         outputs = [def_file],
@@ -1208,6 +1210,7 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
 cc_helper = struct(
+    CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
     is_code_coverage_enabled = _is_code_coverage_enabled,
     get_dynamic_libraries_for_runtime = _get_dynamic_libraries_for_runtime,
