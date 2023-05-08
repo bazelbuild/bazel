@@ -71,7 +71,8 @@ def _proto_library_impl(ctx):
 
     proto_path, direct_sources = _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
-    proto_info = _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set)
+    proto_info = _create_proto_info(direct_sources, deps, proto_path, descriptor_set)
+
     _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set)
 
     # We assume that the proto sources will not have conflicting artifacts
@@ -133,23 +134,23 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
         # Example: `bazel-out/target/bin / repo / pkg / _virtual_imports/name`
         proto_path = _join(ctx.genfiles_dir.path, ctx.label.workspace_root, ctx.label.package, virtual_imports)
 
+    if ctx.label.workspace_name == "":
+        full_strip_import_prefix = strip_import_prefix
+    else:
+        full_strip_import_prefix = _join("..", ctx.label.workspace_name, strip_import_prefix)
+    if full_strip_import_prefix:
+        full_strip_import_prefix += "/"
+
     direct_sources = []
     for src in srcs:
-        if ctx.label.workspace_name == "":
-            repository_relative_path = src.short_path
-        else:
-            # src.short_path = ../repo/pkg/a.proto
-            repository_relative_path = paths.relativize(src.short_path, "../" + ctx.label.workspace_name)
-
         # Remove strip_import_prefix
-        if not repository_relative_path.startswith(strip_import_prefix):
+        if not src.short_path.startswith(full_strip_import_prefix):
             fail(".proto file '%s' is not under the specified strip prefix '%s'" %
-                 (src.short_path, strip_import_prefix))
-        import_path = repository_relative_path[len(strip_import_prefix):]
+                 (src.short_path, full_strip_import_prefix))
+        import_path = src.short_path[len(full_strip_import_prefix):]
 
         # Add import_prefix
         virtual_src = ctx.actions.declare_file(_join(virtual_imports, import_prefix, import_path))
-
         ctx.actions.symlink(
             output = virtual_src,
             target_file = src,
@@ -158,7 +159,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
         direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _original_source_file = src, _proto_path = proto_path))
     return proto_path, direct_sources
 
-def _create_proto_info(ctx, direct_sources, deps, exports, proto_path, descriptor_set):
+def _create_proto_info(direct_sources, deps, proto_path, descriptor_set):
     """Constructs ProtoInfo."""
 
     # Construct ProtoInfo
