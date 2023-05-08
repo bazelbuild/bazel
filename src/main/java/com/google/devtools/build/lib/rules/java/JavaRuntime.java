@@ -120,6 +120,10 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
             .addTransitiveArtifacts(filesToBuild)
             .build();
 
+    if (ruleContext.attributes().get("version", INTEGER).toIntUnchecked() == 0) {
+      ruleContext.attributeError("version", "version must be set");
+    }
+
     JavaRuntimeInfo javaRuntime =
         JavaRuntimeInfo.create(
             filesToBuild,
