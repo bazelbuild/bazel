@@ -490,6 +490,8 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
   // aren't run would exhibit this behavior.
   @Test
   public void unusedActionsStillConflict() throws Exception {
+    // TODO(b/245923465) Limitation with Skymeld.
+    addOptions("--noexperimental_merged_skyframe_analysis_execution");
     write(
         "foo/aspect.bzl",
         "def _aspect1_impl(target, ctx):",
