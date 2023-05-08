@@ -132,8 +132,9 @@ genrule(
 )
 EOF
   touch pkg/pkg.txt
-  local dir="bazel-genfiles/pkg/dir"
-  local file="bazel-genfiles/pkg/file"
+  local genfiles_dir="$(bazel info $PRODUCT_NAME-genfiles)"
+  local dir="${genfiles_dir}/pkg/dir"
+  local file="${genfiles_dir}/pkg/file"
 
   build_and_interrupt "${dir}" "${file}" --noexperimental_local_lockfree_output
   [[ -d "${dir}" ]] || fail "Expected directory output to not exist"
@@ -176,8 +177,9 @@ EOF
 load(":rules.bzl", "test_tree_artifact")
 test_tree_artifact(name = "pkg")
 EOF
-  local dir="bazel-bin/pkg/pkg.dir"
-  local file="bazel-bin/pkg/pkg.dir/file"
+  local bin_dir="$(bazel info $PRODUCT_NAME-bin)"
+  local dir="${bin_dir}/pkg/pkg.dir"
+  local file="${bin_dir}/pkg/pkg.dir/file"
 
   build_and_interrupt "${dir}" "${file}" --noexperimental_local_lockfree_output
   [[ -d "${dir}" ]] || fail "Expected tree artifact root to exist"
