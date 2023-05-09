@@ -540,9 +540,10 @@ EOF
 function test_xml_fallback_for_sharded_test() {
   mkdir -p dir
 
-  cat <<EOF > dir/test.sh
+  cat <<'EOF' > dir/test.sh
 #!/bin/sh
-exit \$((TEST_SHARD_INDEX == 1))
+touch "$TEST_SHARD_STATUS_FILE"
+exit $((TEST_SHARD_INDEX == 1))
 EOF
 
   chmod +x dir/test.sh

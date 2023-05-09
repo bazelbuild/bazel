@@ -70,6 +70,7 @@ class TestWrapperTest(test_base.TestBase):
         'bat_test(',
         '    name = "sharded_test",',
         '    content = [',
+        '        "type nul > %TEST_SHARD_STATUS_FILE%",',
         '        "@echo STATUS=%TEST_SHARD_STATUS_FILE%",',
         '        "@echo INDEX=%TEST_SHARD_INDEX% TOTAL=%TEST_TOTAL_SHARDS%",',
         '    ],',
