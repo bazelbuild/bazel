@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * A policy for running tests. It currently only encompasses the environment computation for the
@@ -60,7 +61,7 @@ public class TestPolicy {
    */
   public Map<String, String> computeTestEnvironment(
       TestRunnerAction testAction,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       Duration timeout,
       PathFragment relativeRunfilesDir,
       PathFragment tmpDir) {
@@ -74,10 +75,11 @@ public class TestPolicy {
       String val = entry.getValue();
       if (val.contains("${")) {
         if (val.equals(INHERITED)) {
-          if (!clientEnv.containsKey(entry.getKey())) {
+          String clientEnvVal = clientEnv.apply(entry.getKey());
+          if (clientEnvVal == null) {
             continue;
           }
-          val = clientEnv.get(entry.getKey());
+          val = clientEnvVal;
         } else {
           val = val.replace(SYSTEM_USER_NAME, userProp);
           val = val.replace(TEST_TMP_DIR, tmpDirPath);

@@ -52,17 +52,20 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /**
@@ -258,7 +261,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+  public ImmutableMap<String, String> getEffectiveEnvironment(Function<String, String> clientEnv)
       throws CommandLineExpansionException {
     Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(effectiveEnvironment, clientEnv);
@@ -735,12 +738,32 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public Dict<String, String> getEnv(StarlarkSemantics semantics) throws EvalException {
     if (semantics.getBool(BuildLanguageOptions.EXPERIMENTAL_GET_FIXED_CONFIGURED_ACTION_ENV)) {
       try {
-        return Dict.immutableCopyOf(getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()));
+        return Dict.immutableCopyOf(getEffectiveEnvironment(/*clientEnv=*/ key -> null));
       } catch (CommandLineExpansionException ex) {
         throw new EvalException(ex);
       }
     } else {
       return Dict.immutableCopyOf(env.getFixedEnv());
+    }
+  }
+
+  @Override
+  public Sequence<String> getInheritedEnv() throws EvalException {
+    // Recognize inherited environment variables in the effective environment via this special
+    // value.
+    String inheritedValueSentinel = "f648736e-3068-40f9-b8ec-b1be3fd483dd";
+    Function<String, String> fakeClientEnv = key -> inheritedValueSentinel;
+    try {
+      var effectiveEnvironment = getEffectiveEnvironment(fakeClientEnv);
+      var inheritedEnv = ImmutableList.<String>builder();
+      for (String key : effectiveEnvironment.keySet()) {
+        if (inheritedValueSentinel.equals(effectiveEnvironment.get(key))) {
+          inheritedEnv.add(key);
+        }
+      }
+      return StarlarkList.immutableCopyOf(inheritedEnv.build());
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
     }
   }
 

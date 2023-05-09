@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Function;
 
 /**
  * Environment variables for build or test actions.
@@ -271,11 +272,11 @@ public final class ActionEnvironment {
    *
    * <p>We pass in a map to mutate to avoid creating and merging intermediate maps.
    */
-  public void resolve(Map<String, String> result, Map<String, String> clientEnv) {
+  public void resolve(Map<String, String> result, Function<String, String> clientEnv) {
     checkNotNull(clientEnv);
     result.putAll(vars.getFixedEnvironment());
     for (String var : vars.getInheritedEnvironment()) {
-      String value = clientEnv.get(var);
+      String value = clientEnv.apply(var);
       if (value != null) {
         result.put(var, value);
       }

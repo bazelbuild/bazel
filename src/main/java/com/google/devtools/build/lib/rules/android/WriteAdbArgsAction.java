@@ -129,7 +129,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     final String device = options.device;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
-    final String userHomeDirectory = ctx.getClientEnv().get("HOME");
+    final String userHomeDirectory = ctx.getClientEnv().apply("HOME");
 
     return new DeterministicWriter() {
       @Override

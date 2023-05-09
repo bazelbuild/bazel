@@ -68,6 +68,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 
 /** Runs TestRunnerAction actions. */
 // TODO(bazel-team): add tests for this strategy.
@@ -281,7 +282,7 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   private static Map<String, String> setupEnvironment(
       TestRunnerAction action,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       Path execRoot,
       Path runfilesDir,
       Path tmpDir) {

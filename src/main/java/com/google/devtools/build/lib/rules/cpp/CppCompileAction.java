@@ -109,6 +109,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -864,7 +865,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting()
       throws ActionExecutionException {
     try {
-      return getEffectiveEnvironment(ImmutableMap.of());
+      return getEffectiveEnvironment(key -> null);
     } catch (CommandLineExpansionException e) {
       String message =
           String.format(
@@ -875,8 +876,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  @Override()
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+  @Override
+  public ImmutableMap<String, String> getEffectiveEnvironment(Function<String, String> clientEnv)
       throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
     Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
@@ -953,7 +954,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
     // TODO(ulfjack): Extra actions currently ignore the client environment.
     for (Map.Entry<String, String> envVariable :
-        getEffectiveEnvironment(/*clientEnv=*/ ImmutableMap.of()).entrySet()) {
+        getEffectiveEnvironment(/*clientEnv=*/ key -> null).entrySet()) {
       info.addVariable(
           EnvironmentVariable.newBuilder()
               .setName(envVariable.getKey())
@@ -1630,7 +1631,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
-  Spawn createSpawn(Path execRoot, Map<String, String> clientEnv) throws ActionExecutionException {
+  Spawn createSpawn(Path execRoot, Function<String, String> clientEnv) throws ActionExecutionException {
     // Intentionally not adding {@link CppCompileAction#inputsForInvalidation}, those are not needed
     // for execution.
     NestedSetBuilder<ActionInput> inputsBuilder =

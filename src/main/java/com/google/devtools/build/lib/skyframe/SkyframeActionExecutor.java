@@ -604,7 +604,7 @@ public final class SkyframeActionExecutor {
       ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv)
+      Function<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     Token token;
     RemoteOptions remoteOptions;
@@ -714,7 +714,7 @@ public final class SkyframeActionExecutor {
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
       Token token,
-      Map<String, String> clientEnv)
+      Function<String, String> clientEnv)
       throws ActionExecutionException, InterruptedException {
     if (!actionCacheChecker.enabled()) {
       return;
@@ -916,7 +916,7 @@ public final class SkyframeActionExecutor {
         Environment env,
         Action action,
         ActionMetadataHandler metadataHandler,
-        Map<String, String> clientEnv)
+        Function<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException;
   }
 

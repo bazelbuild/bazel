@@ -87,6 +87,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -384,7 +385,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
+  public ImmutableMap<String, String> getEffectiveEnvironment(Function<String, String> clientEnv) {
     ActionEnvironment env = getEnvironment();
     LinkedHashMap<String, String> effectiveEnvironment =
         Maps.newLinkedHashMapWithExpectedSize(env.size());

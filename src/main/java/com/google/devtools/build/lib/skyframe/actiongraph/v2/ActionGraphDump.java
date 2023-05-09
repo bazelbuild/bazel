@@ -182,8 +182,8 @@ public class ActionGraphDump {
       // AbstractAction, we can call getEffectiveEnvironment here to handle these actions as well.
       // TODO(twerth): This handles the fixed environment. We probably want to output the inherited
       // environment as well.
-      ImmutableMap<String, String> fixedEnvironment =
-          spawnAction.getEffectiveEnvironment(ImmutableMap.of());
+      ImmutableMap<String, String> fixedEnvironment = spawnAction.getEffectiveEnvironment(
+          key -> null);
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
         actionBuilder.addEnvironmentVariables(
             AnalysisProtosV2.KeyValuePair.newBuilder()

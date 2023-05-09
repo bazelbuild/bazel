@@ -39,6 +39,7 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A class that groups services in the scope of the action. Like the FileOutErr object. */
@@ -349,8 +350,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     getEventHandler().handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 
-  public ImmutableMap<String, String> getClientEnv() {
-    return clientEnv;
+  public Function<String, String> getClientEnv() {
+    return clientEnv::get;
   }
 
   public ArtifactExpander getArtifactExpander() {

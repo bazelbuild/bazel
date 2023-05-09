@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -176,11 +177,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   @Override
   @VisibleForTesting
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
-    return getEffectiveEnvironment(ImmutableMap.of());
+    return getEffectiveEnvironment(key -> null);
   }
 
   @Override
-  public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
+  public ImmutableMap<String, String> getEffectiveEnvironment(Function<String, String> clientEnv) {
     ActionEnvironment env = getEnvironment();
     LinkedHashMap<String, String> result = Maps.newLinkedHashMapWithExpectedSize(env.size());
     env.resolve(result, clientEnv);

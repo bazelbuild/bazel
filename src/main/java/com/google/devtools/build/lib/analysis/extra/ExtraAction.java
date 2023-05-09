@@ -161,7 +161,7 @@ public final class ExtraAction extends SpawnAction {
     return getSpawn(
         actionExecutionContext.getArtifactExpander(),
         actionExecutionContext.getClientEnv(),
-        /*envResolved=*/ false,
+        /*envResolved=*/
         actionExecutionContext.getTopLevelFilesets(),
         /*reportOutputs=*/ false);
   }

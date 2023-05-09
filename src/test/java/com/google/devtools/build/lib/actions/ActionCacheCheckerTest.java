@@ -79,6 +79,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.junit.After;
@@ -146,7 +147,7 @@ public class ActionCacheCheckerTest {
 
   /** "Executes" the given action from the point of view of the cache's lifecycle. */
   private void runAction(Action action) throws Exception {
-    runAction(action, new HashMap<>());
+    runAction(action, key -> null);
   }
 
   private void runAction(
@@ -154,27 +155,26 @@ public class ActionCacheCheckerTest {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore)
       throws Exception {
-    runAction(
-        action, new HashMap<>(), ImmutableMap.of(), inputMetadataProvider, outputMetadataStore);
+    runAction(action, key -> null, ImmutableMap.of(), inputMetadataProvider, outputMetadataStore);
   }
 
   /**
    * "Executes" the given action from the point of view of the cache's lifecycle with a custom
    * client environment.
    */
-  private void runAction(Action action, Map<String, String> clientEnv) throws Exception {
+  private void runAction(Action action, Function<String, String> clientEnv) throws Exception {
     runAction(action, clientEnv, ImmutableMap.of());
   }
 
-  private void runAction(Action action, Map<String, String> clientEnv, Map<String, String> platform)
-      throws Exception {
+  private void runAction(Action action, Function<String, String> clientEnv,
+      Map<String, String> platform) throws Exception {
     FakeInputMetadataHandler metadataHandler = new FakeInputMetadataHandler();
     runAction(action, clientEnv, platform, metadataHandler, metadataHandler);
   }
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       Map<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore)
@@ -196,7 +196,7 @@ public class ActionCacheCheckerTest {
 
   private void runAction(
       Action action,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       Map<String, String> platform,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
@@ -333,12 +333,12 @@ public class ActionCacheCheckerTest {
         };
     Map<String, String> clientEnv = new HashMap<>();
     clientEnv.put("unused-var", "1");
-    runAction(action, clientEnv);  // Not cached.
+    runAction(action, clientEnv::get);  // Not cached.
     clientEnv.remove("unused-var");
-    runAction(action, clientEnv);  // Cache hit because we only modified uninteresting variables.
+    runAction(action, clientEnv::get);  // Cache hit because we only modified uninteresting variables.
     clientEnv.put("used-var", "2");
-    runAction(action, clientEnv);  // Cache miss because of different environment.
-    runAction(action, clientEnv);  // Cache hit because we did not change anything.
+    runAction(action, clientEnv::get);  // Cache miss because of different environment.
+    runAction(action, clientEnv::get);  // Cache hit because we did not change anything.
 
     assertStatistics(
         2,
@@ -351,8 +351,7 @@ public class ActionCacheCheckerTest {
   @Test
   public void testDifferentRemoteDefaultPlatform() throws Exception {
     Action action = new WriteEmptyOutputAction();
-    Map<String, String> env = new HashMap<>();
-    env.put("unused-var", "1");
+    Function<String, String> env = ImmutableMap.of("unused-var", "1")::get;
 
     Map<String, String> platform = new HashMap<>();
     platform.put("used-var", "1");
@@ -477,7 +476,7 @@ public class ActionCacheCheckerTest {
             cacheChecker.getTokenIfNeedToExecute(
                 action,
                 /* resolvedCacheArtifacts= */ null,
-                /* clientEnv= */ ImmutableMap.of(),
+                /* clientEnv= */ key -> null,
                 OutputPermissions.READONLY,
                 /* handler= */ null,
                 fakeMetadataHandler,
@@ -612,7 +611,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -647,7 +646,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -676,7 +675,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -739,7 +738,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -751,7 +750,7 @@ public class ActionCacheCheckerTest {
     // Not cached since local file changed
     runAction(
         action,
-        /* clientEnv= */ ImmutableMap.of(),
+        /* clientEnv= */ key -> null,
         /* platform= */ ImmutableMap.of(),
         metadataHandler,
         metadataHandler,
@@ -876,7 +875,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -976,7 +975,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -1036,7 +1035,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -1053,7 +1052,7 @@ public class ActionCacheCheckerTest {
     // Not cached since local file changed
     runAction(
         action,
-        /* clientEnv= */ ImmutableMap.of(),
+        /* clientEnv= */ key -> null,
         /* platform= */ ImmutableMap.of(),
         metadataHandler,
         metadataHandler,
@@ -1108,7 +1107,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -1120,7 +1119,7 @@ public class ActionCacheCheckerTest {
     // Not cached since local file changed
     runAction(
         action,
-        /* clientEnv= */ ImmutableMap.of(),
+        /* clientEnv= */ key -> null,
         /* platform= */ ImmutableMap.of(),
         metadataHandler,
         metadataHandler,
@@ -1172,7 +1171,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -1216,7 +1215,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,
@@ -1270,7 +1269,7 @@ public class ActionCacheCheckerTest {
         cacheChecker.getTokenIfNeedToExecute(
             action,
             /* resolvedCacheArtifacts= */ null,
-            /* clientEnv= */ ImmutableMap.of(),
+            /* clientEnv= */ key -> null,
             OutputPermissions.READONLY,
             /* handler= */ null,
             metadataHandler,

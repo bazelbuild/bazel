@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -235,6 +236,6 @@ public interface Action extends ActionExecutionMetadata {
    * mutate any of the called action data but if necessary, its implementation must synchronize any
    * accesses to mutable data.
    */
-  ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+  ImmutableMap<String, String> getEffectiveEnvironment(Function<String, String> clientEnv)
       throws CommandLineExpansionException;
 }

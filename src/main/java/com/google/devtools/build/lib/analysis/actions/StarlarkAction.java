@@ -60,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** A Starlark specific SpawnAction. */
@@ -457,14 +458,13 @@ public class StarlarkAction extends SpawnAction {
         throws CommandLineExpansionException, InterruptedException {
       return getSpawn(
           actionExecutionContext.getArtifactExpander(),
-          getEffectiveEnvironment(actionExecutionContext.getClientEnv()),
-          /* envResolved= */ true,
+          actionExecutionContext.getClientEnv(),
           actionExecutionContext.getTopLevelFilesets(),
           /* reportOutputs= */ true);
     }
 
     @Override
-    public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
+    public ImmutableMap<String, String> getEffectiveEnvironment(Function<String, String> clientEnv)
         throws CommandLineExpansionException {
       ActionEnvironment env = getEnvironment();
       Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());

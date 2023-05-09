@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.util.LinkedHashMap;
 import java.util.Optional;
+import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -313,7 +314,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
                 .build(NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(starlarkAction);
 
-    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of()))
+    assertThat(starlarkAction.getEffectiveEnvironment(key -> null))
         .containsExactlyEntriesIn(starlarkActionEnvironment);
 
     // Test using shadowed action's environment without Starlark actions's environment
@@ -330,7 +331,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
                 .build(NULL_ACTION_OWNER, targetConfig);
     collectingAnalysisEnvironment.registerAction(starlarkAction);
 
-    assertThat(starlarkAction.getEffectiveEnvironment(ImmutableMap.of()))
+    assertThat(starlarkAction.getEffectiveEnvironment(key -> null))
         .containsExactlyEntriesIn(shadowedActionEnvironment);
 
     // Test using Starlark actions's environment with shadowed action's environment
@@ -350,7 +351,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
     expectedEnvironment.putAll(starlarkActionEnvironment);
 
     ImmutableMap<String, String> actualEnvironment =
-        starlarkAction.getEffectiveEnvironment(ImmutableMap.of());
+        starlarkAction.getEffectiveEnvironment(key -> null);
     assertThat(actualEnvironment).hasSize(5);
     // Starlark action's env overwrites any repeated variable from the shadowed action env
     assertThat(actualEnvironment).containsEntry("repeated_var", "starlark_val");
@@ -369,7 +370,7 @@ public final class StarlarkActionWithShadowedActionTest extends BuildViewTestCas
         .thenReturn(discoveredInputs);
     when(shadowedAction.inputsKnown()).thenReturn(true);
     when(shadowedAction.getOwner()).thenReturn(NULL_ACTION_OWNER);
-    when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.anyMap()))
+    when(shadowedAction.getEffectiveEnvironment(ArgumentMatchers.any(Function.class)))
         .thenReturn(ImmutableMap.copyOf(shadowedActionEnvironment));
 
     return shadowedAction;

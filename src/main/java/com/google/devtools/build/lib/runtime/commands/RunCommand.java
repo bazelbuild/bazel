@@ -512,7 +512,7 @@ public class RunCommand implements BlazeCommand {
       runEnvironment.putAll(
           testPolicy.computeTestEnvironment(
               testAction,
-              env.getClientEnv(),
+              env.getClientEnv()::get,
               timeout,
               settings.getRunfilesDir().relativeTo(env.getExecRoot()),
               maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
@@ -570,7 +570,7 @@ public class RunCommand implements BlazeCommand {
                 environmentProvider.getEnvironment(),
                 ImmutableSet.copyOf(environmentProvider.getInheritedEnvironment()));
       }
-      actionEnvironment.resolve(runEnvironment, env.getClientEnv());
+      actionEnvironment.resolve(runEnvironment, env.getClientEnv()::get);
       try {
         List<String> args = computeArgs(builtTargets.targetToRun, commandLineArgs);
         constructCommandLine(

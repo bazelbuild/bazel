@@ -113,6 +113,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -184,7 +185,7 @@ public final class ActionExecutionFunction implements SkyFunction {
 
     // Look up the parts of the environment that influence the action.
     Collection<String> clientEnvironmentVariables = action.getClientEnvironmentVariables();
-    ImmutableMap<String, String> clientEnv;
+    Function<String, String> clientEnv;
     if (!clientEnvironmentVariables.isEmpty()) {
       ImmutableSet<String> clientEnvironmentVariablesSet =
           ImmutableSet.copyOf(clientEnvironmentVariables);
@@ -202,9 +203,9 @@ public final class ActionExecutionFunction implements SkyFunction {
           builder.put((String) depKey.argument(), envValue.getValue());
         }
       }
-      clientEnv = builder.buildOrThrow();
+      clientEnv = builder.buildOrThrow()::get;
     } else {
-      clientEnv = ImmutableMap.of();
+      clientEnv = key -> null;
     }
 
     // If two actions are shared and the first one executes, when the second one goes to execute, we
@@ -714,7 +715,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       Action action,
       InputDiscoveryState state,
       Environment env,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       ActionLookupData actionLookupData,
       @Nullable ActionExecutionState previousAction,
       Object skyframeDepsResult,
@@ -864,7 +865,7 @@ public final class ActionExecutionFunction implements SkyFunction {
         Environment env,
         Action action,
         ActionMetadataHandler metadataHandler,
-        Map<String, String> clientEnv)
+        Function<String, String> clientEnv)
         throws InterruptedException, ActionExecutionException {
       // TODO(b/160603797): For the sake of action key computation, we should not need
       //  state.filesetsInsideRunfiles. In fact, for the metadataHandler, we are guaranteed to not

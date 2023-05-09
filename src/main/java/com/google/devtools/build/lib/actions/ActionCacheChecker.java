@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -277,10 +278,10 @@ public class ActionCacheChecker {
   }
 
   private static Map<String, String> computeUsedClientEnv(
-      Action action, Map<String, String> clientEnv) {
+      Action action, Function<String, String> clientEnv) {
     Map<String, String> used = new HashMap<>();
     for (String var : action.getClientEnvironmentVariables()) {
-      String value = clientEnv.get(var);
+      String value = clientEnv.apply(var);
       if (value != null) {
         used.put(var, value);
       }
@@ -290,7 +291,7 @@ public class ActionCacheChecker {
 
   private static Map<String, String> computeUsedEnv(
       Action action,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       Map<String, String> remoteDefaultPlatformProperties) {
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     Map<String, String> usedExecProperties =
@@ -450,7 +451,7 @@ public class ActionCacheChecker {
   public Token getTokenIfNeedToExecute(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
@@ -547,7 +548,7 @@ public class ActionCacheChecker {
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
       NestedSet<Artifact> actionInputs,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties,
       @Nullable CachedOutputMetadata cachedOutputMetadata)
@@ -647,7 +648,7 @@ public class ActionCacheChecker {
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
       ArtifactExpander artifactExpander,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       OutputPermissions outputPermissions,
       Map<String, String> remoteDefaultPlatformProperties)
       throws IOException, InterruptedException {
@@ -844,7 +845,7 @@ public class ActionCacheChecker {
   public Token getTokenUnconditionallyAfterFailureToRecordActionCacheHit(
       Action action,
       List<Artifact> resolvedCacheArtifacts,
-      Map<String, String> clientEnv,
+      Function<String, String> clientEnv,
       OutputPermissions outputPermissions,
       EventHandler handler,
       InputMetadataProvider inputMetadataProvider,
