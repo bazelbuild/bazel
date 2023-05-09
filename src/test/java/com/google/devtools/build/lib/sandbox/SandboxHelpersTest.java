@@ -240,7 +240,7 @@ public class SandboxHelpersTest {
   }
 
   @Test
-  public void cleanExisting_updatesDirs() throws IOException {
+  public void cleanExisting_updatesDirs() throws IOException, InterruptedException {
     RootedPath inputTxt =
         RootedPath.toRootedPath(
             Root.fromPath(scratch.getFileSystem().getPath("/")), PathFragment.create("hello.txt"));

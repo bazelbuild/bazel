@@ -99,7 +99,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   }
 
   @Override
-  public void createFileSystem() throws IOException {
+  public void createFileSystem() throws IOException, InterruptedException {
     // First compute all the inputs and directories that we need. This is based only on
     // `workerFiles`, `inputs` and `outputs` and won't do any I/O.
     Set<PathFragment> inputsToCreate = new LinkedHashSet<>();
@@ -128,7 +128,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
 
   protected void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
-      throws IOException {}
+      throws IOException, InterruptedException {}
 
   /**
    * Creates all inputs needed for this spawn's sandbox.
@@ -138,8 +138,11 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
    * @param inputs All the inputs for this spawn.
    */
   void createInputs(Iterable<PathFragment> inputsToCreate, SandboxInputs inputs)
-      throws IOException {
+      throws IOException, InterruptedException {
     for (PathFragment fragment : inputsToCreate) {
+      if (Thread.interrupted()) {
+        throw new InterruptedException("Interrupted creating inputs");
+      }
       Path key = sandboxExecRoot.getRelative(fragment);
       if (inputs.getFiles().containsKey(fragment)) {
         RootedPath fileDest = inputs.getFiles().get(fragment);

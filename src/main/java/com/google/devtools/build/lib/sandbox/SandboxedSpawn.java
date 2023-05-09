@@ -41,12 +41,12 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
 
   /**
    * Creates the sandboxed execution root, making all {@code inputs} available for reading, making
-   * sure that the parent directories of all {@code outputs} and that all {@code writableDirs}
-   * exist and can be written into.
+   * sure that the parent directories of all {@code outputs} and that all {@code writableDirs} exist
+   * and can be written into.
    *
    * @throws IOException
    */
-  void createFileSystem() throws IOException;
+  void createFileSystem() throws IOException, InterruptedException;
 
   /**
    * Moves all {@code outputs} to {@code execRoot} while keeping the directory structure.

@@ -65,7 +65,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   @Override
   public void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, LinkedHashSet<PathFragment> dirsToCreate)
-      throws IOException {
+      throws IOException, InterruptedException {
     boolean gotStash = SandboxStash.takeStashedSandbox(sandboxPath, mnemonic);
     sandboxExecRoot.createDirectoryAndParents();
     if (gotStash) {
