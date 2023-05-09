@@ -105,6 +105,7 @@ public class TestRunnerAction extends AbstractAction
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  private final RunfilesSupplier runfilesSupplier;
   private final Artifact testSetupScript;
   private final Artifact testXmlGeneratorScript;
   private final Artifact collectCoverageScript;
@@ -211,10 +212,10 @@ public class TestRunnerAction extends AbstractAction
     super(
         owner,
         inputs,
-        runfilesSupplier,
         nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
+    this.runfilesSupplier = runfilesSupplier;
     this.testSetupScript = testSetupScript;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
@@ -299,6 +300,11 @@ public class TestRunnerAction extends AbstractAction
             undeclaredOutputsDir,
             undeclaredOutputsAnnotationsDir,
             baseDir.getRelative("test_attempts"));
+  }
+
+  @Override
+  public final RunfilesSupplier getRunfilesSupplier() {
+    return runfilesSupplier;
   }
 
   public RunfilesSupplier getLcovMergerRunfilesSupplier() {

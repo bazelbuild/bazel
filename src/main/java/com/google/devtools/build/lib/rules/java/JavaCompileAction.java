@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -145,7 +144,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ActionOwner owner,
       ActionEnvironment env,
       NestedSet<Artifact> tools,
-      RunfilesSupplier runfilesSupplier,
       OnDemandString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> transitiveInputs,
@@ -162,7 +160,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     super(
         owner,
         allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts),
-        runfilesSupplier,
         outputs,
         env);
     if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {

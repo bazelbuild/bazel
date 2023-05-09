@@ -26,7 +26,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -278,7 +277,6 @@ public final class JavaCompileActionBuilder {
         /* owner= */ ruleContext.getActionOwner(execGroup),
         /* env= */ actionEnvironment,
         /* tools= */ tools,
-        /* runfilesSupplier= */ EmptyRunfilesSupplier.INSTANCE,
         /* progressMessage= */ new ProgressMessage(
             /* prefix= */ "Building",
             /* output= */ outputs.output(),

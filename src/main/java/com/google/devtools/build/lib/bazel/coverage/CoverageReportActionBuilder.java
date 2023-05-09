@@ -118,7 +118,7 @@ public final class CoverageReportActionBuilder {
         String locationMessage,
         boolean remotable,
         RunfilesSupplier runfilesSupplier) {
-      super(owner, inputs, runfilesSupplier, outputs, ActionEnvironment.EMPTY);
+      super(owner, inputs, outputs, ActionEnvironment.EMPTY);
       this.command = command;
       this.remotable = remotable;
       this.locationMessage = locationMessage;
@@ -129,16 +129,11 @@ public final class CoverageReportActionBuilder {
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException, InterruptedException {
       try {
-        ImmutableMap<String, String> executionInfo = remotable
-            ? ImmutableMap.<String, String>of()
-            : ImmutableMap.<String, String>of("local", "");
-        Spawn spawn = new BaseSpawn(
-            command,
-            ImmutableMap.<String, String>of(),
-            executionInfo,
-            runfilesSupplier,
-            this,
-            LOCAL_RESOURCES);
+        ImmutableMap<String, String> executionInfo =
+            remotable ? ImmutableMap.of() : ImmutableMap.of("local", "");
+        Spawn spawn =
+            new BaseSpawn(
+                command, ImmutableMap.of(), executionInfo, runfilesSupplier, this, LOCAL_RESOURCES);
         ImmutableList<SpawnResult> spawnResults =
             actionExecutionContext
                 .getContext(SpawnStrategyResolver.class)
@@ -154,6 +149,11 @@ public final class CoverageReportActionBuilder {
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, this);
       }
+    }
+
+    @Override
+    public RunfilesSupplier getRunfilesSupplier() {
+      return runfilesSupplier;
     }
 
     @Override
@@ -203,7 +203,7 @@ public final class CoverageReportActionBuilder {
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;
     }
-    ImmutableList.Builder<Artifact> builder = ImmutableList.<Artifact>builder();
+    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     FilesToRunProvider reportGenerator = null;
     for (ConfiguredTarget target : targetsToTest) {
       // Skip incompatible tests.

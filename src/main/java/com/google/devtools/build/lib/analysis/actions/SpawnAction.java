@@ -103,6 +103,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       BlazeInterners.newWeakInterner();
 
   private final NestedSet<Artifact> tools;
+  private final RunfilesSupplier runfilesSupplier;
   private final CommandLines commandLines;
 
   private final CharSequence progressMessage;
@@ -145,8 +146,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean stripOutputPaths) {
-    super(owner, inputs, runfilesSupplier, outputs, env);
+    super(owner, inputs, outputs, env);
     this.tools = tools;
+    this.runfilesSupplier = runfilesSupplier;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
     this.executionInfo =
         executionInfo.isEmpty()
@@ -161,6 +163,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   public final NestedSet<Artifact> getTools() {
     return tools;
+  }
+
+  @Override
+  public final RunfilesSupplier getRunfilesSupplier() {
+    return runfilesSupplier;
   }
 
   @VisibleForTesting
@@ -369,8 +376,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a
     // tool or not.
-    fp.addPaths(getRunfilesSupplier().getRunfilesDirs());
-    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
+    fp.addPaths(runfilesSupplier.getRunfilesDirs());
+    ImmutableList<Artifact> runfilesManifests = runfilesSupplier.getManifests();
     fp.addInt(runfilesManifests.size());
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());

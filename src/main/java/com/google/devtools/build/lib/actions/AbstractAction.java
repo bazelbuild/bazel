@@ -75,11 +75,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
-  }
-
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
    * (i.e., uses one CPU core) and CPU-bound, and uses a small-ish amount of memory. In the past,
@@ -98,7 +93,6 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   private NestedSet<Artifact> inputs;
 
   private final ActionEnvironment env;
-  private final RunfilesSupplier runfilesSupplier;
 
   /**
    * To save memory, this is either an {@link Artifact} for actions with a single output, or a
@@ -115,21 +109,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   protected AbstractAction(
       ActionOwner owner,
       NestedSet<Artifact> inputs,
-      Iterable<Artifact> outputs,
-      ActionEnvironment env) {
-    this(owner, inputs, EmptyRunfilesSupplier.INSTANCE, outputs, env);
-  }
-
-  protected AbstractAction(
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      RunfilesSupplier runfilesSupplier,
       Iterable<? extends Artifact> outputs,
       ActionEnvironment env) {
     this.owner = checkNotNull(owner);
     this.inputs = checkNotNull(inputs);
     this.env = checkNotNull(env);
-    this.runfilesSupplier = checkNotNull(runfilesSupplier);
     this.outputs = singletonOrArray(outputs);
   }
 
@@ -137,6 +121,11 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     ImmutableSet<Artifact> set = ImmutableSet.copyOf(outputs);
     checkArgument(!set.isEmpty(), "Action outputs may not be empty");
     return set.size() == 1 ? Iterables.getOnlyElement(set) : set.toArray(Artifact[]::new);
+  }
+
+  @Override
+  public final boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override
@@ -282,8 +271,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   }
 
   @Override
-  public final RunfilesSupplier getRunfilesSupplier() {
-    return runfilesSupplier;
+  public RunfilesSupplier getRunfilesSupplier() {
+    return EmptyRunfilesSupplier.INSTANCE;
   }
 
   @Override
