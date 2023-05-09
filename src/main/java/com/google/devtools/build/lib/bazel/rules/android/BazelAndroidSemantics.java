@@ -40,7 +40,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   private static final ImmutableSet<PackageIdentifier> STARLARK_MIGRATION_NATIVE_USAGE_ALLOW_LIST =
       // Internal package identifiers that are allowed to use the native Android rules until they
-      // can be fully  moved into the rules_andorid Starlark implementation.
+      // can be fully moved into the rules_android Starlark implementation.
       ImmutableSet.<PackageIdentifier>builder()
           .add(
               PackageIdentifier.createUnchecked(
