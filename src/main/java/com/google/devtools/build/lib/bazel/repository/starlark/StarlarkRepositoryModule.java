@@ -220,6 +220,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
 
         // TODO(adonovan): is this cast safe? Check.
         String name = (String) kwargs.get("name");
+        if (name == null) {
+          throw Starlark.errorf("argument 'name' is required");
+        }
         WorkspaceFactoryHelper.addMainRepoEntry(packageBuilder, name);
         WorkspaceFactoryHelper.addRepoMappings(packageBuilder, kwargs, name);
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
