@@ -1191,7 +1191,8 @@ struct MethodParametersAttribute : Attribute {
     u1 parameters_count = get_u1(p);
     for (int ii = 0; ii < parameters_count; ++ii) {
       MethodParameter* parameter = new MethodParameter;
-      parameter->name_ = constant(get_u2be(p));
+      int name_id = get_u2be(p);
+      parameter->name_ = name_id == 0 ? NULL : constant(name_id);
       parameter->access_flags_ = get_u2be(p);
       attr->parameters_.push_back(parameter);
     }
@@ -1203,7 +1204,7 @@ struct MethodParametersAttribute : Attribute {
     u1 *payload_start = p - 4;
     put_u1(p, parameters_.size());
     for (MethodParameter* parameter : parameters_) {
-      put_u2be(p, parameter->name_->slot());
+      put_u2be(p, parameter->name_ == NULL ? 0 : parameter->name_->slot());
       put_u2be(p, parameter->access_flags_);
     }
     put_u4be(payload_start, p - 4 - payload_start);  // backpatch length
