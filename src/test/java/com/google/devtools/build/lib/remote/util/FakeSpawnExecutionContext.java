@@ -24,8 +24,6 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
@@ -149,11 +147,6 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   @Override
   public void report(ProgressStatus progress) {
     // Intentionally left empty.
-  }
-
-  @Override
-  public MetadataInjector getMetadataInjector() {
-    return ActionsTestUtil.THROWING_METADATA_HANDLER;
   }
 
   @Override

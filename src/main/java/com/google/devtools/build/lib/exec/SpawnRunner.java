@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -257,12 +256,6 @@ public interface SpawnRunner {
 
     /** Reports a progress update to the Spawn strategy. */
     void report(ProgressStatus progress);
-
-    /**
-     * Returns a {@link MetadataInjector} that allows a caller to inject metadata about spawn
-     * outputs that are stored remotely.
-     */
-    MetadataInjector getMetadataInjector();
 
     /**
      * Returns the context registered for the given identifying type or {@code null} if none was

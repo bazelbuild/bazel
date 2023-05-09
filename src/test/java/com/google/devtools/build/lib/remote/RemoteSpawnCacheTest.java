@@ -49,8 +49,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -189,11 +187,6 @@ public class RemoteSpawnCacheTest {
         @Override
         public void report(ProgressStatus progress) {
           progressUpdates.add(progress);
-        }
-
-        @Override
-        public MetadataInjector getMetadataInjector() {
-          return ActionsTestUtil.THROWING_METADATA_HANDLER;
         }
 
         @Override

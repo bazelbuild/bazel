@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
@@ -291,11 +290,6 @@ public class LocalSpawnRunnerTest {
     @Override
     public void report(ProgressStatus progress) {
       reportedStatus.add(progress);
-    }
-
-    @Override
-    public MetadataInjector getMetadataInjector() {
-      throw new UnsupportedOperationException();
     }
 
     @Override
