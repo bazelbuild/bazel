@@ -79,7 +79,7 @@ def create_deploy_archives(
 
     build_info_files = semantics.get_build_info(ctx, stamp)
 
-    _create_deploy_archive(
+    create_deploy_archive(
         ctx,
         launcher_info.launcher,
         runfiles,
@@ -103,7 +103,7 @@ def create_deploy_archives(
     )
 
     if strip_as_default:
-        _create_deploy_archive(
+        create_deploy_archive(
             ctx,
             launcher_info.unstripped_launcher,
             runfiles,
@@ -123,7 +123,7 @@ def create_deploy_archives(
     else:
         ctx.actions.write(ctx.outputs.unstrippeddeployjar, "")
 
-def _create_deploy_archive(
+def create_deploy_archive(
         ctx,
         launcher,
         runfiles,
@@ -144,6 +144,31 @@ def _create_deploy_archive(
         add_exports = [],
         add_opens = [],
         extra_args = []):
+    """ Creates a deploy jar
+
+    Args:
+        ctx: (RuleContext) The rule context
+        launcher: (File) the launcher artifact
+        runfiles: (Depset) the runfiles for the deploy jar
+        main_class: (String) FQN of the entry point for execution
+        coverage_main_class: (String) FQN of the entry point for coverage collection
+        resources: (Depset) resource inputs
+        classpath_resources: (Depset) classpath resource inputs
+        runtime_classpath: (Depset) source files to add to the jar
+        build_target: (String) Name of the build target for stamping
+        manifest_lines: (list[String]) Optional lines added to the jar manifest
+        build_info_files: (list[File]) build info files for stamping
+        build_target: (String) the owner build target label name string
+        output: (File) the output jar artifact
+        shared_archive: (File) Optional .jsa artifact
+        one_version_level: (String) Optional one version check level, default OFF
+        one_version_allowlist: (File) Optional allowlist for one version check
+        multi_release: (bool)
+        hermetic: (bool)
+        add_exports: (depset)
+        add_opens: (depset)
+        extra_args: (list[Args]) Optional arguments for the deploy jar action
+    """
     runtime = semantics.find_java_runtime_toolchain(ctx)
 
     input_files = []
@@ -223,7 +248,6 @@ def _create_deploy_archive(
         arguments = [args] + extra_args,
         use_default_shell_env = True,
     )
-    return output
 
 def _implicit_outputs(binary):
     binary_name = binary.name
