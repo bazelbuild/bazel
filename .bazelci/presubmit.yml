@@ -361,10 +361,11 @@ tasks:
       - test
   windows:
     shards: 4
-    batch_commands:
-      - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
+    setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
+    batch_commands:
+      - powershell -Command "(Get-Content WORKSPACE) -Replace '# android_', 'android_' | Set-Content WORKSPACE"
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
