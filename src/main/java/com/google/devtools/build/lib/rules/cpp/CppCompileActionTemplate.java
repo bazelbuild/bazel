@@ -89,7 +89,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
     this.allInputs =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
-            .addTransitive(cppCompileActionBuilder.buildInputsForInvalidation())
+            .addTransitive(cppCompileActionBuilder.getInputsForInvalidation())
             .build();
   }
 
@@ -175,7 +175,6 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     CppCompileAction.computeKey(
         actionKeyContext,
         fp,
-        cppCompileActionBuilder.getActionClassId(),
         cppCompileActionBuilder.getActionEnvironment(),
         commandLine.getEnvironment(),
         cppCompileActionBuilder.getExecutionInfo(),
@@ -187,7 +186,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
         cppCompileActionBuilder.getPrunableHeaders(),
         cppCompileActionBuilder.getCcCompilationContext().getLooseHdrsDirs(),
         cppCompileActionBuilder.getBuiltinIncludeDirectories(),
-        cppCompileActionBuilder.buildInputsForInvalidation(),
+        cppCompileActionBuilder.getInputsForInvalidation(),
         toolchain
             .getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas()
             .validateTopLevelHeaderInclusions());

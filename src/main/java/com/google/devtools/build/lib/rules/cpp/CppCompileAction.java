@@ -119,6 +119,8 @@ import net.starlark.java.eval.StarlarkList;
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction implements IncludeScannable, CommandAction {
 
+  private static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
+
   private static final PathFragment BUILD_PATH_FRAGMENT = PathFragment.create("BUILD");
 
   private static final boolean VALIDATION_DEBUG_WARN = false;
@@ -166,14 +168,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final String actionName;
 
   private final FeatureConfiguration featureConfiguration;
-
-  /**
-   * Identifier for the actual execution time behavior of the action.
-   *
-   * <p>Required because the behavior of this class can be modified by injecting code in the
-   * constructor or by inheritance, and we want to have different cache keys for those.
-   */
-  private final UUID actionClassId;
 
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
 
@@ -233,7 +227,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * @param ccCompilationContext the {@code CcCompilationContext}
    * @param coptsFilter regular expression to remove options from {@code copts}
    * @param additionalIncludeScanningRoots list of additional artifacts to include-scan
-   * @param actionClassId TODO(bazel-team): Add parameter description
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
    * @param cppSemantics C++ compilation semantics
@@ -264,7 +257,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
-      UUID actionClassId,
       ImmutableMap<String, String> executionInfo,
       String actionName,
       CppSemantics cppSemantics,
@@ -316,7 +308,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.actionName = actionName;
     this.featureConfiguration = featureConfiguration;
     this.needsIncludeValidation = cppSemantics.needsIncludeValidation();
-    this.actionClassId = actionClassId;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
     this.additionalInputs = null;
     this.usedModules = null;
@@ -1383,7 +1374,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     computeKey(
         actionKeyContext,
         fp,
-        actionClassId,
         getEnvironment(),
         compileCommandLine.getEnvironment(),
         executionInfo,
@@ -1402,7 +1392,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   static void computeKey(
       ActionKeyContext actionKeyContext,
       Fingerprint fp,
-      UUID actionClassId,
       ActionEnvironment env,
       Map<String, String> environmentVariables,
       Map<String, String> executionInfo,
@@ -1416,7 +1405,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSet<Artifact> inputsForInvalidation,
       boolean validateTopLevelHeaderInclusions)
       throws CommandLineExpansionException, InterruptedException {
-    fp.addUUID(actionClassId);
+    fp.addUUID(GUID);
     env.addTo(fp);
     fp.addStringMap(environmentVariables);
     fp.addStringMap(executionInfo);
