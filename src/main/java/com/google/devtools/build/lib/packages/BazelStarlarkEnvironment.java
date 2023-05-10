@@ -63,14 +63,13 @@ public final class BazelStarlarkEnvironment {
   /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
   private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
-  BazelStarlarkEnvironment(
-      RuleClassProvider ruleClassProvider, Object packageFunction, String version) {
+  BazelStarlarkEnvironment(RuleClassProvider ruleClassProvider, Object packageFunction) {
     this.ruleClassProvider = ruleClassProvider;
     this.ruleFunctions = ruleClassProvider.getRuleFunctionMap();
     this.uninjectedBuildBzlNativeBindings =
         createUninjectedBuildBzlNativeBindings(
             ruleFunctions, packageFunction, ruleClassProvider.getEnvironmentExtensions());
-    this.workspaceBzlNativeBindings = createWorkspaceBzlNativeBindings(ruleClassProvider, version);
+    this.workspaceBzlNativeBindings = createWorkspaceBzlNativeBindings(ruleClassProvider);
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
@@ -157,8 +156,8 @@ public final class BazelStarlarkEnvironment {
 
   /** Produces everything in the "native" object for WORKSPACE-loaded bzl files. */
   private static ImmutableMap<String, Object> createWorkspaceBzlNativeBindings(
-      RuleClassProvider ruleClassProvider, String version) {
-    return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider, version);
+      RuleClassProvider ruleClassProvider) {
+    return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider);
   }
 
   /** Constructs a "native" module object with the given contents. */

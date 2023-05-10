@@ -344,7 +344,7 @@ public class WorkspaceFactory {
 
   /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
   static ImmutableMap<String, Object> createNativeModuleBindings(
-      RuleClassProvider ruleClassProvider, String version) {
+      RuleClassProvider ruleClassProvider) {
     // Machinery to build the collection of workspace functions.
     WorkspaceGlobals workspaceGlobals =
         new WorkspaceGlobals(/* allowOverride= */ false, ruleClassProvider.getRuleClassMap());
@@ -377,7 +377,7 @@ public class WorkspaceFactory {
       }
       bindings.put(entry);
     }
-    bindings.put("bazel_version", version);
+    bindings.put("bazel_version", ruleClassProvider.getVersion());
 
     return bindings.buildOrThrow();
   }

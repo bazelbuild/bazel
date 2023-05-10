@@ -761,6 +761,13 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
+  public String getVersion() {
+    // If needed, we could allow this to be customized by the builder e.g. for unit testing, but at
+    // the moment it suffices to use the production value unconditionally.
+    return BlazeVersionInfo.instance().getVersion();
+  }
+
+  @Override
   public Label getPreludeLabel() {
     return preludeLabel;
   }

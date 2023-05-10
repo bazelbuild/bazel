@@ -28,6 +28,11 @@ import java.util.Map;
  */
 public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
+  /**
+   * Returns a version string, e.g. for use by {@code native.bazel_version} in WORKSPACE .bzl files.
+   */
+  String getVersion();
+
   /** Label referencing the prelude file. */
   Label getPreludeLabel();
 

@@ -125,7 +125,6 @@ public final class PackageFactory {
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
   public abstract static class BuilderForTesting {
-    protected static final String VERSION = "test";
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
     protected PackageOverheadEstimator packageOverheadEstimator =
         PackageOverheadEstimator.NOOP_ESTIMATOR;
@@ -174,7 +173,6 @@ public final class PackageFactory {
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,
-      String version,
       PackageSettings packageSettings,
       PackageValidator packageValidator,
       PackageOverheadEstimator packageOverheadEstimator,
@@ -190,8 +188,7 @@ public final class PackageFactory {
             ruleClassProvider,
             // TODO(b/280446865): move package function creation to ConfiguredRuleClassProvider
             newPackageFunction(
-                createPackageArguments(ruleClassProvider.getEnvironmentExtensions())),
-            version);
+                createPackageArguments(ruleClassProvider.getEnvironmentExtensions())));
   }
 
   /** Sets the syscalls cache used in filesystem access. */

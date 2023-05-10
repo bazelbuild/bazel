@@ -281,6 +281,7 @@ java_library(
         ":actions_provider",
         ":aspect_aware_attribute_mapper",
         ":aspect_collection",
+        ":blaze_version_info",
         ":build_setting_provider",
         ":buildinfo/build_info_collection",
         ":buildinfo/build_info_key",

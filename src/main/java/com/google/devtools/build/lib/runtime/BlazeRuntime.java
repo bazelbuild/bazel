@@ -1507,7 +1507,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           new PackageFactory(
               ruleClassProvider,
               PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
-              BlazeVersionInfo.instance().getVersion(),
               packageSettings,
               getPackageValidator(blazeModules),
               getPackageOverheadEstimator(blazeModules),
