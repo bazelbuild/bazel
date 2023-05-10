@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
@@ -512,12 +513,13 @@ public final class RemoteModule extends BlazeModule {
         GoogleAuthUtils.newCallCredentialsProvider(credentials);
     CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
 
+    Retrier.CircuitBreaker circuitBreaker = CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
             remoteOptions,
             RemoteRetrier.RETRIABLE_GRPC_ERRORS,
             retryScheduler,
-            Retrier.ALLOW_ALL_CALLS);
+            circuitBreaker);
 
     // We only check required capabilities for a given endpoint.
     //
@@ -636,7 +638,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
                 retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
+                circuitBreaker);
         remoteExecutor =
             new ExperimentalGrpcRemoteExecutor(
                 remoteOptions, execChannel.retain(), callCredentialsProvider, execRetrier);
@@ -646,7 +648,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
                 retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
+                circuitBreaker);
         remoteExecutor =
             new GrpcRemoteExecutor(execChannel.retain(), callCredentialsProvider, execRetrier);
       }
