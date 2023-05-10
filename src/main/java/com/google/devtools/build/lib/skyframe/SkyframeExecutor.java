@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
@@ -266,6 +267,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -3538,9 +3540,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     Set<Pair<Root, ProcessableModifiedFileSet>> pathEntriesWithoutDiffInformation =
         Sets.newHashSet();
     ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
+
+    Path workspacePath = directories.getWorkspace();
+    EvaluationResult<SkyValue> evaluationResult =
+      evaluateSkyKeys(eventHandler, ImmutableList.of(IgnoredPackagePrefixesValue.key()), false);
+    IgnoredPackagePrefixesValue ignoredPackagePrefixesValue = (IgnoredPackagePrefixesValue)
+      evaluationResult.get(IgnoredPackagePrefixesValue.key());
+
     for (Root pathEntry : pkgRoots) {
+      // Ignored package prefixes are specified relative to the workspace root
+      // by definition of .bazelignore. So, we only use ignored paths when the
+      // package root is equal to the workspace path.
+      ImmutableSet<Path> ignorePaths = ImmutableSet.of();
+      if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
+        ignorePaths = ignoredPackagePrefixesValue
+          .getPatterns()
+          .stream()
+          .map(pathEntry::getRelative)
+          .collect(toImmutableSet());
+      }
+
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
+          diffAwarenessManager.getDiff(eventHandler, pathEntry, ignorePaths, options);
       if (pkgRoots.size() == 1) {
         workspaceInfo = modifiedFileSet.getWorkspaceInfo();
         workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
