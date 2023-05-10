@@ -17,14 +17,12 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -47,16 +45,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test for {@link WorkspaceFileFunction}.
- */
+/** Test for {@link WorkspaceFileFunction}. */
 @RunWith(JUnit4.class)
 public class WorkspaceFileFunctionTest extends BuildViewTestCase {
-  @Override
-  protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.of();
-  }
-
   private static Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {
     return (Label) ((Rule) pkg.getTarget(name)).getAttr("actual");
   }

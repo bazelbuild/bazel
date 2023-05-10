@@ -126,19 +126,11 @@ public final class PackageFactory {
   @VisibleForTesting
   public abstract static class BuilderForTesting {
     protected static final String VERSION = "test";
-    protected Iterable<EnvironmentExtension> environmentExtensions = ImmutableList.of();
     protected PackageValidator packageValidator = PackageValidator.NOOP_VALIDATOR;
     protected PackageOverheadEstimator packageOverheadEstimator =
         PackageOverheadEstimator.NOOP_ESTIMATOR;
 
     protected boolean doChecksForTesting = true;
-
-    @CanIgnoreReturnValue
-    public BuilderForTesting setEnvironmentExtensions(
-        Iterable<EnvironmentExtension> environmentExtensions) {
-      this.environmentExtensions = environmentExtensions;
-      return this;
-    }
 
     @CanIgnoreReturnValue
     public BuilderForTesting disableChecks() {
@@ -182,9 +174,6 @@ public final class PackageFactory {
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,
-      // TODO(b/280446865): Delete this param and remove it from all callers; it is currently
-      // ignored.
-      Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       PackageSettings packageSettings,
       PackageValidator packageValidator,

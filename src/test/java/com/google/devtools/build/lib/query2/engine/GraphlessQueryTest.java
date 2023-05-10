@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -151,11 +150,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
 
       @Override
       protected Iterable<QueryFunction> getExtraQueryFunctions() {
-        return ImmutableList.of();
-      }
-
-      @Override
-      protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
         return ImmutableList.of();
       }
 

@@ -132,7 +132,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -311,7 +310,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         analysisMock
             .getPackageFactoryBuilderForTesting(directories)
             .setExtraPrecomputeValues(extraPrecomputedValues)
-            .setEnvironmentExtensions(getEnvironmentExtensions())
             .setPackageValidator(getPackageValidator())
             .setPackageOverheadEstimator(getPackageOverheadEstimator());
     if (!doPackageLoadingChecks) {
@@ -420,10 +418,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final PackageFactory getPackageFactory() {
     return pkgFactory;
-  }
-
-  protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.of();
   }
 
   protected StarlarkSemantics getStarlarkSemantics() {

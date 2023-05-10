@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -382,7 +381,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
                         BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
-            .setEnvironmentExtensions(getEnvironmentExtensions())
             .build(ruleClassProvider, fileSystem);
     SkyframeExecutor skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -429,8 +427,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
-
-  protected abstract Iterable<EnvironmentExtension> getEnvironmentExtensions();
 
   protected abstract BuildOptions getDefaultBuildOptions(
       ConfiguredRuleClassProvider ruleClassProvider);

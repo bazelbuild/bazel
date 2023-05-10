@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
 import com.google.devtools.build.lib.packages.PackageValidator;
@@ -296,7 +295,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new PackageFactory(
             ruleClassProvider,
             forkJoinPoolForNonSkyframeGlobbing,
-            getEnvironmentExtensions(),
             "PackageLoader",
             DefaultPackageSettings.INSTANCE,
             PackageValidator.NOOP_VALIDATOR,
@@ -422,8 +420,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         /* keepEdges= */ false,
         usePooledInterning);
   }
-
-  protected abstract ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
 
   protected abstract CrossRepositoryLabelViolationStrategy
       getCrossRepositoryLabelViolationStrategy();
