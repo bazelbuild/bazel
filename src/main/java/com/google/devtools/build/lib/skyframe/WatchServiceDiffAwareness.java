@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,8 +54,11 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
-  WatchServiceDiffAwareness(String watchRoot) {
+  private ImmutableSet<String> ignorePaths;
+
+  WatchServiceDiffAwareness(String watchRoot, ImmutableSet<String> ignorePaths) {
     super(watchRoot);
+    this.ignorePaths = ignorePaths;
   }
 
   private void init() {
@@ -258,7 +263,10 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Traverses directory tree to register subdirectories. */
   private void registerSubDirectories(Path rootDir) throws IOException {
     // Note that this does not follow symlinks.
-    Files.walkFileTree(rootDir, new WatcherFileVisitor());
+    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(
+      ignorePaths.stream().map(Path::of).collect(toImmutableSet())
+    );
+    Files.walkFileTree(rootDir, watcherFileVisitor);
   }
 
   /**
@@ -268,7 +276,11 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private Set<Path> registerSubDirectoriesAndReturnContents(Path rootDir) throws IOException {
     Set<Path> visitedAbsolutePaths = new HashSet<>();
     // Note that this does not follow symlinks.
-    Files.walkFileTree(rootDir, new WatcherFileVisitor(visitedAbsolutePaths));
+    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(
+      visitedAbsolutePaths,
+      ignorePaths.stream().map(Path::of).collect(toImmutableSet())
+    );
+    Files.walkFileTree(rootDir, watcherFileVisitor);
     return visitedAbsolutePaths;
   }
 
@@ -276,13 +288,16 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private class WatcherFileVisitor extends SimpleFileVisitor<Path> {
 
     private final Set<Path> visitedAbsolutePaths;
+    private final Set<Path> ignorePaths;
 
-    private WatcherFileVisitor(Set<Path> visitedPaths) {
+    private WatcherFileVisitor(Set<Path> visitedPaths, Set<Path> ignorePaths) {
       this.visitedAbsolutePaths = visitedPaths;
+      this.ignorePaths = ignorePaths;
     }
 
-    private WatcherFileVisitor() {
+    private WatcherFileVisitor(Set<Path> ignorePaths) {
       this.visitedAbsolutePaths = new HashSet<>();
+      this.ignorePaths = ignorePaths;
     }
 
     @Override
@@ -295,6 +310,10 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
+      if (ignorePaths.contains(path)) {
+        return FileVisitResult.SKIP_SUBTREE;
+      }
+
       // Do not traverse the bazel-* convenience symlinks. On windows these are created as
       // junctions.
       if (isWindows && attrs.isOther()) {

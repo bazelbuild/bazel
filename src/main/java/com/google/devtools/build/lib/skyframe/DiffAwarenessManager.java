@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.Map;
@@ -84,9 +86,9 @@ public final class DiffAwarenessManager {
    * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
   public ProcessableModifiedFileSet getDiff(
-      EventHandler eventHandler, Root pathEntry, OptionsProvider options)
+          EventHandler eventHandler, Root pathEntry, ImmutableSet<Path> ignorePaths, OptionsProvider options)
       throws InterruptedException {
-    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry);
+    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry, ignorePaths);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
@@ -136,13 +138,14 @@ public final class DiffAwarenessManager {
    * current one, or otherwise {@code null} if no factory could make a fresh one.
    */
   @Nullable
-  private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry) {
+  private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry, ImmutableSet<Path> ignorePaths) {
+    // TODO: Do we need to add `ignorePaths` to the key here?
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
     if (diffAwarenessState != null) {
       return diffAwarenessState;
     }
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignorePaths);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);
