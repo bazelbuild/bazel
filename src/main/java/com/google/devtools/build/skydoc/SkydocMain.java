@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -151,6 +150,7 @@ public class SkydocMain {
           new SkydocMain(skydocOptions.workspaceName, Runfiles.preload())
               .eval(
                   semanticsOptions.toStarlarkSemantics(),
+                  // The label passed on the command line is assumed to be canonical.
                   targetFileLabel,
                   ruleInfoMap,
                   providerInfoMap,
@@ -249,7 +249,7 @@ public class SkydocMain {
    * using a fake build API and collects information about all rule definitions made in the root
    * Starlark file.
    *
-   * @param label the label of the Starlark file to evaluate
+   * @param canonicalLabel the canonical label of the Starlark file to evaluate
    * @param ruleInfoMap a map builder to be populated with rule definition information for named
    *     rules. Keys are exported names of rules, and values are their {@link RuleInfo} rule
    *     descriptions. For example, 'my_rule = rule(...)' has key 'my_rule'
@@ -268,7 +268,7 @@ public class SkydocMain {
   @VisibleForTesting
   public Module eval(
       StarlarkSemantics semantics,
-      Label label,
+      Label canonicalLabel,
       ImmutableMap.Builder<String, RuleInfo> ruleInfoMap,
       ImmutableMap.Builder<String, ProviderInfo> providerInfoMap,
       ImmutableMap.Builder<String, StarlarkFunction> userDefinedFunctionMap,
@@ -285,17 +285,8 @@ public class SkydocMain {
 
     List<AspectInfoWrapper> aspectInfoList = new ArrayList<>();
 
-    // Resolve the label provided on the command line with the main repository's repository mapping.
-    // The stardoc rules always pass in a canonical label, so in this case the repository mapping
-    // is not used.
     Module module =
-        recursiveEval(
-            semantics,
-            label,
-            RepositoryName.MAIN.getName(),
-            ruleInfoList,
-            providerInfoList,
-            aspectInfoList);
+        recursiveEval(semantics, canonicalLabel, ruleInfoList, providerInfoList, aspectInfoList);
 
     Map<StarlarkCallable, RuleInfoWrapper> ruleFunctions =
         ruleInfoList.stream()
@@ -388,24 +379,20 @@ public class SkydocMain {
    * dependencies using a fake build API and collects information about all rule definitions made in
    * those files.
    *
-   * @param label the label of the Starlark file to evaluate
-   * @param parentSourceRepository the canonical name of the Bazel repository that loads label
+   * @param canonicalLabel the canonical label of the Starlark file to evaluate
    * @param ruleInfoList a collection of all rule definitions made so far (using rule()); this
    *     method will add to this list as it evaluates additional files
    * @throws InterruptedException if evaluation is interrupted
    */
   private Module recursiveEval(
       StarlarkSemantics semantics,
-      Label label,
-      String parentSourceRepository,
+      Label canonicalLabel,
       List<RuleInfoWrapper> ruleInfoList,
       List<ProviderInfoWrapper> providerInfoList,
       List<AspectInfoWrapper> aspectInfoList)
       throws InterruptedException, IOException, LabelSyntaxException, StarlarkEvaluationException {
-    Path path = pathOfLabel(label, parentSourceRepository);
-    String sourceRepository =
-        RunfilesForStardoc.getCanonicalRepositoryName(
-            runfiles.withSourceRepository(parentSourceRepository), label.getRepository().getName());
+    Path path = pathOfCanonicalLabel(canonicalLabel);
+    String sourceRepository = canonicalLabel.getRepository().getName();
 
     if (pending.contains(path)) {
       throw new StarlarkEvaluationException("cycle with " + path);
@@ -452,25 +439,21 @@ public class SkydocMain {
     // process loads
     Map<String, Module> imports = new HashMap<>();
     for (String load : prog.getLoads()) {
-      Label apparentLabel =
+      Label apparentLoad =
           Label.parseWithPackageContext(
               load,
-              PackageContext.of(label.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
+              PackageContext.of(
+                  canonicalLabel.getPackageIdentifier(), RepositoryMapping.ALWAYS_FALLBACK));
+      Label canonicalLoad = toCanonicalLabel(apparentLoad, sourceRepository);
       try {
         Module loadedModule =
-            recursiveEval(
-                semantics,
-                apparentLabel,
-                sourceRepository,
-                ruleInfoList,
-                providerInfoList,
-                aspectInfoList);
+            recursiveEval(semantics, canonicalLoad, ruleInfoList, providerInfoList, aspectInfoList);
         imports.put(load, loadedModule);
       } catch (NoSuchFileException noSuchFileException) {
         throw new StarlarkEvaluationException(
             String.format(
                 "File %s imported '%s', yet %s was not found.",
-                path, load, pathOfLabel(apparentLabel, sourceRepository)),
+                path, load, pathOfCanonicalLabel(canonicalLoad)),
             noSuchFileException);
       }
     }
@@ -500,11 +483,24 @@ public class SkydocMain {
     return module;
   }
 
-  private Path pathOfLabel(Label label, String sourceRepository) {
-    String targetRepositoryApparentName =
+  private Label toCanonicalLabel(Label apparentLabel, String sourceRepository) {
+    String canonicalRepositoryName =
+        RunfilesForStardoc.getCanonicalRepositoryName(
+            runfiles.withSourceRepository(sourceRepository),
+            apparentLabel.getRepository().getName());
+    return Label.parseCanonicalUnchecked(
+        String.format(
+            "@%s//%s:%s",
+            canonicalRepositoryName,
+            apparentLabel.getPackageIdentifier().getPackageFragment().getPathString(),
+            apparentLabel.getName()));
+  }
+
+  private Path pathOfCanonicalLabel(Label label) {
+    String runfilesDirName =
         label.getRepository().isMain() ? workspaceName : label.getRepository().getName();
-    String rlocationPath = targetRepositoryApparentName + "/" + label.toPathFragment();
-    return Paths.get(runfiles.withSourceRepository(sourceRepository).rlocation(rlocationPath));
+    String rlocationPath = runfilesDirName + "/" + label.toPathFragment();
+    return Paths.get(runfiles.unmapped().rlocation(rlocationPath));
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
