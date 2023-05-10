@@ -543,13 +543,13 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
   }
 
-  private void dependOnLabelIgnoringErrors(Label label) throws InterruptedException, EvalException {
+  private void dependOnLabelIgnoringErrors(Label label)
+      throws InterruptedException, NeedsSkyframeRestartException {
     try {
       getPathFromLabel(label);
+    } catch (NeedsSkyframeRestartException e) {
+      throw e;
     } catch (EvalException e) {
-      if (e instanceof NeedsSkyframeRestartException) {
-        throw e;
-      }
       // EvalExceptions indicate labels not referring to existing files. This is fine,
       // as long as they are never resolved to files in the execution of the rule; we allow
       // non-strict rules.
