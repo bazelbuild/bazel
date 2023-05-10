@@ -349,7 +349,6 @@ public class WorkspaceFileFunction implements SkyFunction {
           new WorkspaceFactory(
               builder,
               ruleClassProvider,
-              packageFactory.getEnvironmentExtensions(),
               mu,
               key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),

@@ -97,14 +97,11 @@ public final class PackageFactory {
   // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
   //  since really we're extending the Runtime with more classes.
   public interface EnvironmentExtension {
-    /** Update the predeclared environment with the identifiers this extension contributes. */
+    /**
+     * Updates the predeclared BUILD environment and {@code native} object with the symbols this
+     * extension contributes.
+     */
     void update(ImmutableMap.Builder<String, Object> env);
-
-    /** Update the predeclared environment of WORKSPACE files. */
-    void updateWorkspace(ImmutableMap.Builder<String, Object> env);
-
-    /** Update the environment of the native module. */
-    void updateNative(ImmutableMap.Builder<String, Object> env);
 
     /** Returns the extra arguments to the {@code package()} statement. */
     Iterable<PackageArgument<?>> getPackageArguments();
@@ -118,7 +115,6 @@ public final class PackageFactory {
 
   private int maxDirectoriesToEagerlyVisitInGlobbing;
 
-  private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final PackageSettings packageSettings;
   private final PackageValidator packageValidator;
   private final PackageOverheadEstimator packageOverheadEstimator;
@@ -194,7 +190,6 @@ public final class PackageFactory {
       PackageLoadingListener packageLoadingListener) {
     this.ruleClassProvider = ruleClassProvider;
     this.executor = executorForGlobbing;
-    this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
     this.packageOverheadEstimator = packageOverheadEstimator;
@@ -202,8 +197,8 @@ public final class PackageFactory {
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             ruleClassProvider,
-            this.environmentExtensions,
-            newPackageFunction(createPackageArguments(this.environmentExtensions)),
+            ImmutableList.copyOf(environmentExtensions),
+            newPackageFunction(createPackageArguments(ImmutableList.copyOf(environmentExtensions))),
             version);
   }
 
@@ -256,10 +251,6 @@ public final class PackageFactory {
   /** Returns the {@link RuleClassProvider} of this {@link PackageFactory}. */
   public RuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
-  }
-
-  public ImmutableList<EnvironmentExtension> getEnvironmentExtensions() {
-    return environmentExtensions;
   }
 
   public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {

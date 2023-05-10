@@ -152,7 +152,7 @@ public final class BazelStarlarkEnvironment {
     env.putAll(ruleFunctions);
     env.put("package", packageFunction);
     for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
-      ext.updateNative(env);
+      ext.update(env);
     }
     return env.buildOrThrow();
   }
