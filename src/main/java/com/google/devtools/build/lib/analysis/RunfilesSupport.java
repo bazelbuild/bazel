@@ -519,7 +519,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
         }
       }
     }
-    return ActionEnvironment.create(fixedEnv, ImmutableSet.copyOf(inheritedEnv));
+    return ActionEnvironment.create(
+        ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(inheritedEnv));
   }
 
   /** Returns the path of the input manifest of {@code runfilesDir}. */
