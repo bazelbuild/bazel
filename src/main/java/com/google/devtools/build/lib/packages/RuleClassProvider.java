@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 
@@ -55,6 +57,14 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
 
   /** Returns a map from rule names to the Starlark callables that instantiate them. */
   ImmutableMap<String, ?> getRuleFunctionMap();
+
+  /**
+   * Returns a list of environment extensions to use for customizing the available BUILD symbols and
+   * the arguments to the {@code package()} function.
+   */
+  // TODO(b/280446865): Eliminate this by breaking off the package() arg registration into its own
+  // API, and moving the top-level symbol customization into a Bootstrap like everything else.
+  ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
 
   /**
    * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,

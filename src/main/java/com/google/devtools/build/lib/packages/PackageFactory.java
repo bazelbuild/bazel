@@ -94,8 +94,8 @@ public final class PackageFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
-  // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
-  //  since really we're extending the Runtime with more classes.
+  // TODO(b/280446865): Eliminate this interface. Package args can be registered directly on the
+  // rule class provider. Top-level symbols can be registered using a Starlark Bootstrap.
   public interface EnvironmentExtension {
     /**
      * Updates the predeclared BUILD environment and {@code native} object with the symbols this
@@ -182,6 +182,8 @@ public final class PackageFactory {
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       ForkJoinPool executorForGlobbing,
+      // TODO(b/280446865): Delete this param and remove it from all callers; it is currently
+      // ignored.
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       PackageSettings packageSettings,
@@ -197,8 +199,9 @@ public final class PackageFactory {
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             ruleClassProvider,
-            ImmutableList.copyOf(environmentExtensions),
-            newPackageFunction(createPackageArguments(ImmutableList.copyOf(environmentExtensions))),
+            // TODO(b/280446865): move package function creation to ConfiguredRuleClassProvider
+            newPackageFunction(
+                createPackageArguments(ruleClassProvider.getEnvironmentExtensions())),
             version);
   }
 

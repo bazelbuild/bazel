@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -152,6 +153,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
     private final Map<String, NativeAspectClass> nativeAspectClassMap = new HashMap<>();
+    private final List<EnvironmentExtension> environmentExtensions = new ArrayList<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph = new Digraph<>();
     private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
@@ -296,6 +298,12 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder addNativeAspectClass(NativeAspectClass aspectFactoryClass) {
       nativeAspectClassMap.put(aspectFactoryClass.getName(), aspectFactoryClass);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addEnvironmentExtension(EnvironmentExtension environmentExtension) {
+      environmentExtensions.add(environmentExtension);
       return this;
     }
 
@@ -574,6 +582,7 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
+          ImmutableList.copyOf(environmentExtensions),
           FragmentRegistry.create(
               configurationFragmentClasses, universalFragments, configurationOptions),
           defaultWorkspaceFilePrefix.toString(),
@@ -654,6 +663,9 @@ public /*final*/ class ConfiguredRuleClassProvider
   /** Maps aspect name to the aspect factory meta class. */
   private final ImmutableMap<String, NativeAspectClass> nativeAspectClassMap;
 
+  /** List of environment extensions to apply. */
+  private final ImmutableList<EnvironmentExtension> environmentExtensions;
+
   private final FragmentRegistry fragmentRegistry;
 
   /** The transition factory used to produce the transition that will trim targets. */
@@ -697,6 +709,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
+      ImmutableList<EnvironmentExtension> environmentExtensions,
       FragmentRegistry fragmentRegistry,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
@@ -722,6 +735,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.ruleFunctionMap = RuleFactory.buildRuleFunctions(ruleClassMap);
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
+    this.environmentExtensions = environmentExtensions;
     this.fragmentRegistry = fragmentRegistry;
     this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
@@ -791,6 +805,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public NativeAspectClass getNativeAspectClass(String key) {
     return nativeAspectClassMap.get(key);
+  }
+
+  @Override
+  public ImmutableList<EnvironmentExtension> getEnvironmentExtensions() {
+    return environmentExtensions;
   }
 
   @Override
