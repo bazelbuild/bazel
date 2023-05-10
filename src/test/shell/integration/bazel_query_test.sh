@@ -668,7 +668,7 @@ genquery(name='q',
          opts = ["--output=blargh"],)
 EOF
 
-  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto"
+  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, jsonproto, xml, proto"
   bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
   expect_log "$expected_error_msg"
 }
@@ -1062,6 +1062,63 @@ EOF
     || fail "Expected success"
 
   expect_log "//${package}:hint"
+}
+
+function test_same_pkg_direct_rdeps_loads_only_inputs_packages() {
+  mkdir -p "pkg1"
+  mkdir -p "pkg2"
+  mkdir -p "pkg3"
+
+  cat > "pkg1/BUILD" <<EOF
+sh_library(name = "t1", deps = [":t2", "//pkg2:t3"])
+sh_library(name = "t2")
+EOF
+
+  cat > "pkg2/BUILD" <<EOF
+sh_library(name = "t3")
+EOF
+
+  cat > "pkg3/BUILD" <<EOF
+sh_library(name = "t4", deps = [":t5"])
+sh_library(name = "t5")
+EOF
+
+  bazel query --experimental_ui_debug_all_events \
+     "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"  >& $TEST_log \
+    || fail "Expected success"
+
+  expect_log "Loading package: pkg1"
+  expect_log "Loading package: pkg3"
+  # For graphless query mode, pkg2 should not be loaded because
+  # same_pkg_direct_rdeps only cares about the targets in the same package
+  # as its inputs.
+  expect_not_log "Loading package: pkg2"
+  # the result of "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"
+  expect_log "//pkg1:t1"
+  expect_log "//pkg3:t4"
+}
+
+function test_basic_query_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel query --output=jsonproto --noimplicit_deps "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify that the appropriate attributes were included.
+  assert_contains "\"ruleClass\": \"genrule\"" output
+  assert_contains "\"name\": \"//$pkg:bar\"" output
+  assert_contains "\"ruleInput\": \[\"//$pkg:dummy.txt\"\]" output
+  assert_contains "\"ruleOutput\": \[\"//$pkg:bar_out.txt\"\]" output
+  assert_contains "echo unused" output
 }
 
 run_suite "${PRODUCT_NAME} query tests"
