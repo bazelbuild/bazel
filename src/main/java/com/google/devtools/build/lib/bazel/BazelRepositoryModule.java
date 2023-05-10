@@ -299,6 +299,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
+      starlarkRepositoryFunction.setUseLoom(repoOptions.useLoomForRepoFetching);
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);

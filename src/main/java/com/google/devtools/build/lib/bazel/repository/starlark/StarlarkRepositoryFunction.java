@@ -23,8 +23,12 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.bazel.repository.starlark.RepoFetchingSkyKeyComputeState.Message;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
+import com.google.devtools.build.lib.events.Reportable;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
@@ -49,9 +53,12 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -61,11 +68,12 @@ import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
-public class StarlarkRepositoryFunction extends RepositoryFunction {
+public final class StarlarkRepositoryFunction extends RepositoryFunction {
   static final String SEMANTICS = "STARLARK_SEMANTICS";
 
   private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
+  private boolean useLoom = false;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private SyscallCache syscallCache;
@@ -84,6 +92,10 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
 
   public void setSyscallCache(SyscallCache syscallCache) {
     this.syscallCache = checkNotNull(syscallCache);
+  }
+
+  public void setUseLoom(boolean useLoom) {
+    this.useLoom = useLoom;
   }
 
   static String describeSemantics(StarlarkSemantics semantics) {
@@ -105,9 +117,123 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     return describeSemantics(starlarkSemantics).equals(markerData.get(SEMANTICS));
   }
 
+  @Override
+  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
+    // DON'T delete the repo root here if we're using loom, since when this skyfunction restarts,
+    // fetching is still happening inside the virtual thread.
+    if (!useLoom) {
+      setupRepoRoot(repoRoot);
+    }
+  }
+
+  @Override
+  public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
+    // DON'T report a "restaring." event if we're using loom, since the actual fetch function run by
+    // the worker thread never restarts.
+    if (!useLoom) {
+      super.reportSkyframeRestart(env, repoName);
+    }
+  }
+
   @Nullable
   @Override
   public RepositoryDirectoryValue.Builder fetch(
+      Rule rule,
+      Path outputDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      Map<String, String> markerData,
+      SkyKey key)
+      throws RepositoryFunctionException, InterruptedException {
+    if (!useLoom) {
+      return fetchInternal(rule, outputDirectory, directories, env, markerData, key);
+    }
+    var state = env.getState(RepoFetchingSkyKeyComputeState::new);
+    if (!state.isWorkerRunning()) {
+      setupRepoRoot(outputDirectory);
+      Environment workerEnv = new RepoFetchingWorkerSkyFunctionEnvironment(state);
+      state.startWorker(
+          () -> {
+            try {
+              try {
+                var result =
+                    fetchInternal(
+                        rule, outputDirectory, directories, workerEnv, markerData, key);
+                if (Thread.interrupted()) {
+                  return;
+                }
+                state.postMessage(new Message.Done(Objects.requireNonNull(result)));
+              } catch (RepositoryFunctionException e) {
+                state.postMessage(new Message.Error(e));
+              }
+            } catch (CancellationException | InterruptedException e) {
+              // Not much to do -- the state object was likely garbage collected. Bye!
+            }
+          });
+    }
+    try {
+      while (true) {
+        RepoFetchingSkyKeyComputeState.Message message = state.receiveMessage();
+        switch (message) {
+          case Message.Done(var result) -> {
+            state.close();
+            return result;
+          }
+          case Message.Error(RepositoryFunctionException ex) -> {
+            state.close();
+            throw ex;
+          }
+          case Message.NewSkyframeDependency(
+              SkyKey depKey, var e1, var e2, var e3, var e4, var valueFuture) -> {
+            try {
+              SkyValue v;
+              // god I wish this part wasn't so annoying
+              if (e1 == null) {
+                v = env.getValue(depKey);
+              } else if (e2 == null) {
+                v = env.getValueOrThrow(depKey, e1);
+              } else if (e3 == null) {
+                v = env.getValueOrThrow(depKey, e1, e2);
+              } else if (e4 == null) {
+                v = env.getValueOrThrow(depKey, e1, e2, e3);
+              } else {
+                v = env.getValueOrThrow(depKey, e1, e2, e3, e4);
+              }
+              if (v == null) {
+                // Put the request back onto the queue. We'll come back later.
+                state.postMessage(message);
+                return null;
+              }
+              valueFuture.set(v);
+            } catch (Exception e) {
+              valueFuture.setException(e);
+            }
+          }
+          case Message.Event(Reportable r) -> {
+            switch (r) {
+              case Postable p -> env.getListener().post(p);
+              case Event e -> env.getListener().handle(e);
+              default ->
+                  throw new IllegalStateException("unrecognized reportable type: " + r.getClass());
+            }
+          }
+          case null -> {
+            // No message yet. In order not to starve Skyframe of threads, we register a future on
+            // the message queue and leave.
+            state.registerMessageListener(env);
+            return null;
+          }
+        }
+      }
+    } catch (InterruptedException e) {
+      // Make sure we interrupt the loom thread too.
+      state.close();
+      throw e;
+    }
+  }
+
+  @Nullable
+  private RepositoryDirectoryValue.Builder fetchInternal(
       Rule rule,
       Path outputDirectory,
       BlazeDirectories directories,

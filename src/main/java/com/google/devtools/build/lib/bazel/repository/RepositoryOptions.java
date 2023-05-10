@@ -237,6 +237,14 @@ public class RepositoryOptions extends OptionsBase {
   public String downloaderConfig;
 
   @Option(
+      name = "use_loom_for_repo_fetching",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Whether to use Loom for repo fetching.")
+  public boolean useLoomForRepoFetching;
+
+  @Option(
       name = "ignore_dev_dependency",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.BZLMOD,
