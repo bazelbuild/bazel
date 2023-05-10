@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
+
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDexInfoApi;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
 /** A provider for Android Dex artifacts */
@@ -53,6 +56,7 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
   }
 
   @Override
+  @Nullable
   public Artifact getJavaResourceJar() {
     return javaResourceJar;
   }
@@ -71,10 +75,11 @@ public class AndroidDexInfo extends NativeInfo implements AndroidDexInfoApi<Arti
 
     @Override
     public AndroidDexInfo createInfo(
-        Artifact deployJar, Artifact finalClassesDexZip, Artifact javaResourceJar)
+        Artifact deployJar, Artifact finalClassesDexZip, Object javaResourceJar)
         throws EvalException {
 
-      return new AndroidDexInfo(deployJar, finalClassesDexZip, javaResourceJar);
+      return new AndroidDexInfo(
+          deployJar, finalClassesDexZip, fromNoneable(javaResourceJar, Artifact.class));
     }
   }
 }
