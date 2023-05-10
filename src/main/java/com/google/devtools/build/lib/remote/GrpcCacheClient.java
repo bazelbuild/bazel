@@ -500,4 +500,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         MoreExecutors.directExecutor());
     return f;
   }
+
+  Retrier getRetrier() {
+    return this.retrier;
+  }
 }
