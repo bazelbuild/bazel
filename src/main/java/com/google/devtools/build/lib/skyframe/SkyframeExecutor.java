@@ -197,6 +197,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -2372,6 +2373,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try {
       buildDriverFunction.setShouldCheckForConflict(shouldCheckForConflicts);
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
+      // For the workspace status actions.
+      eventHandler.post(SomeExecutionStartedEvent.create());
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)

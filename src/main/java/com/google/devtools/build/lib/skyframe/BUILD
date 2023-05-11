@@ -208,6 +208,7 @@ java_library(
         ":toolchain_exception",
         ":top_level_action_lookup_key_wrapper",
         ":top_level_aspects_value",
+        ":top_level_status_events",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",
