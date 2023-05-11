@@ -577,11 +577,11 @@ public final class SkyframeErrorProcessor {
   }
 
   private static void printWarningMessage(
-      boolean includeExecutionPhase,
+      boolean isExecutionException,
       @Nullable Label topLevelLabel,
       ExtendedEventHandler eventHandler) {
     String warningMsg =
-        includeExecutionPhase
+        isExecutionException
             ? String.format("errors encountered while building target '%s'", topLevelLabel)
             : String.format(
                 "errors encountered while analyzing target '%s': it will not be built",

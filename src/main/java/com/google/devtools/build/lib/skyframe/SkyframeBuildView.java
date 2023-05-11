@@ -907,11 +907,14 @@ public final class SkyframeBuildView {
         e.rethrowTyped();
       } catch (ActionConflictException ace) {
         ace.reportTo(eventHandler);
-        eventHandler.handle(
-            Event.warn(
-                String.format(
-                    "errors encountered while building target '%s'",
-                    ace.getArtifact().getOwnerLabel())));
+        if (keepGoing) {
+          eventHandler.handle(
+              Event.warn(
+                  String.format(
+                      "errors encountered while analyzing target '"
+                          + ace.getArtifact().getOwnerLabel()
+                          + "': it will not be built")));
+        }
       } catch (ArtifactPrefixConflictException apce) {
         if (reportedExceptions.add(apce)) {
           eventHandler.handle(Event.error(apce.getMessage()));

@@ -485,15 +485,10 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
       buildTarget("//nobuild:javalib");
       Assert.fail("expected failure");
     } catch (ViewCreationFailedException vcfe) {
-      String expectedAction =
-          getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()
-              ? "Build"
-              : "Analysis";
       assertThat(vcfe)
           .hasMessageThat()
           .contains(
-              String.format(
-                  "%s of target '%s' failed; build aborted", expectedAction, "//nobuild:javalib"));
+              String.format("Analysis of target '%s' failed; build aborted", "//nobuild:javalib"));
     }
   }
 
