@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.EvictionConfig;
@@ -74,6 +75,7 @@ final class WorkerLifecycleManager extends Thread {
       try {
         Thread.sleep(options.workerMetricsPollInterval.toMillis());
       } catch (InterruptedException e) {
+        logger.atInfo().withCause(e).log("received interrupt in worker life cycle manager");
         break;
       }
 
@@ -84,6 +86,7 @@ final class WorkerLifecycleManager extends Thread {
         try {
           evictWorkers(workerMetrics);
         } catch (InterruptedException e) {
+          logger.atInfo().withCause(e).log("received interrupt in worker life cycle manager");
           break;
         }
       }
@@ -146,6 +149,24 @@ final class WorkerLifecycleManager extends Thread {
         workerMetrics.stream()
             .mapToInt(metric -> metric.getWorkerStat().getUsedMemoryInKB() / 1000)
             .sum();
+
+    // TODO: Remove after b/274608075 is fixed.
+    if (!workerMetrics.isEmpty()) {
+      logger.atInfo().atMostEvery(1, TimeUnit.MINUTES).log(
+          "total worker memory %dMB below limit of %dMB - details: %s",
+          workerMemoryUsage,
+          options.totalWorkerMemoryLimitMb,
+          workerMetrics.stream()
+              .map(
+                  metric ->
+                      metric.getWorkerProperties().getWorkerIds()
+                          + " "
+                          + metric.getWorkerProperties().getMnemonic()
+                          + " "
+                          + metric.getWorkerStat().getUsedMemoryInKB()
+                          + "kB")
+              .collect(Collectors.joining(", ")));
+    }
 
     if (workerMemoryUsage <= options.totalWorkerMemoryLimitMb) {
       return;
