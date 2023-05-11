@@ -157,6 +157,8 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do one build of a target in a standalone package. Gets us a baseline for analysis/execution.
     buildTarget("//e:facade");
+    boolean skymeldWasInvolved =
+        getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth();
     BuildGraphMetrics buildGraphMetrics =
         buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
     int actionLookupValueCount = buildGraphMetrics.getActionLookupValueCount();
@@ -207,8 +209,6 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .build());
 
     int newGraphSize = buildGraphMetrics.getPostInvocationSkyframeNodeCount();
-    // The BuildDriverKey of //e:facade is gone.
-    newGraphSize = adjustIfSkymeld(newGraphSize, 1);
     assertThat(newGraphSize).isGreaterThan(graphSize);
 
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
@@ -227,6 +227,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Do a null build. No useful analysis stats.
     buildTarget("//a");
+    if (skymeldWasInvolved) {
+      // The BuildDriverKey of //e:facade is gone.
+      newGraphSize -= 1;
+    }
 
     // For null build, we don't do any conflict checking. As the metrics are collected during the
     // traversal that's part of conflict checking, these analysis-related numbers are 0.
@@ -299,9 +303,11 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
 
     // Null --nobuild.
     buildTarget("//a");
-    // When doing --nobuild, no new BuildDriverKey entry is put in the graph while the old one is
-    // deleted
-    newGraphSize = adjustIfSkymeld(newGraphSize, -1);
+    if (skymeldWasInvolved) {
+      // When doing --nobuild, no new BuildDriverKey entry is put in the graph while the old one is
+      // deleted.
+      newGraphSize -= 1;
+    }
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(
@@ -313,8 +319,10 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     // Do a null full build. Back to baseline.
     addOptions("--build");
     buildTarget("//a");
-    // Extra BuildDriverKey
-    newGraphSize = adjustIfSkymeld(newGraphSize, 1);
+    if (skymeldWasInvolved) {
+      // Extra BuildDriverKey
+      newGraphSize += 1;
+    }
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .ignoringFieldAbsence()
         .isEqualTo(
@@ -654,12 +662,5 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .comparingExpectedFieldsOnly()
         .isEqualTo(expectedNullBuild);
-  }
-
-  private int adjustIfSkymeld(int val, int adjustment) {
-    if (getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()) {
-      return val + adjustment;
-    }
-    return val;
   }
 }
