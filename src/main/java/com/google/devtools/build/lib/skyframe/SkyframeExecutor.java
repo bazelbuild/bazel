@@ -3941,6 +3941,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
         @Override
         public void onEvaluationFinished() {
+          // TODO(wyv): Consider calling dropper.drop() here. That would effectively cause us to
+          //   clear the SkyKeyComputeState cache at the end of an evaluation, potentially releasing
+          //   any hogged memory (for example, in case of an interrupted evaluation).
           SkyframeExecutor.this.dropper = NULL_UNNECESSARY_TEMPORARY_STATE_DROPPER;
         }
       };

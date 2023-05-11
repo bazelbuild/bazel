@@ -373,7 +373,20 @@ public interface SkyFunction {
      *
      * <p>See the javadoc of {@link #getState} for motivation and an example.
      */
-    interface SkyKeyComputeState {}
+    interface SkyKeyComputeState extends AutoCloseable {
+      /**
+       * {@inheritDoc}
+       *
+       * <p>Can be overridden to make sure {@link SkyKeyComputeState} objects are cleaned up. Note
+       * that, while this ostensibly opens up the possibility for {@link SkyKeyComputeState} to hold
+       * on to any kind of external resource, doing so might still be dangerous as we only actively
+       * drop {@link SkyKeyComputeState} objects on high memory pressure. If the external resource
+       * being held on to is approaching starvation, we currently don't do anything to alleviate
+       * that pressure. So think *hard* before you start doing that!
+       */
+      @Override
+      default void close() {}
+    }
 
     /**
      * Canonical type-safe heterogeneous container for use with {@link #getState} in SkyFunction
@@ -452,6 +465,9 @@ public interface SkyFunction {
      * exact instance used on the previous call to this method for the same {@link SkyKey}. The
      * above example was just illustrating the best-case outcome. Therefore, {@link SkyFunction}
      * implementations should make use of this feature only as a performance optimization.
+     *
+     * <p>Note that {@link SkyKeyComputeState#close()} allows us to hold on to other kinds of
+     * external resources and clean them up when necessary, but see the Javadoc there for caveats.
      *
      * <p>A notable example of the above note is that if {@link #compute} returns a {@link Restart}
      * then a call to {@link #getState} on the subsequent call to {@link #compute} will definitely
