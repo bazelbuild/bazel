@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Collections.emptyList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
-import com.google.devtools.common.options.OpaqueOptionsData;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsBase;
@@ -199,19 +199,7 @@ public final class BlazeOptionHandler {
     for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
       // Get all args defined for this command (or "common"), grouped by rc chunk.
       for (RcChunkOfArgs rcArgs : commandToRcArgs.get(commandToParse)) {
-        if (!rcArgs.getArgs().isEmpty()) {
-          String inherited = commandToParse.equals(commandAnnotation.name()) ? "" : "Inherited ";
-          String source =
-              rcArgs.getRcFile().equals("client")
-                  ? "Options provided by the client"
-                  : String.format(
-                      "Reading rc options for '%s' from %s",
-                      commandAnnotation.name(), rcArgs.getRcFile());
-          rcfileNotes.add(
-              String.format(
-                  "%s:\n  %s'%s' options: %s",
-                  source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.getArgs())));
-        }
+        List<String> ignoredArgs = emptyList();
         if (commandToParse.equals(ALL_SUPPORTED_PSEUDO_COMMAND)) {
           // Pass in options data for all commands supported by the runtime so that options that
           // apply to some but not the current command can be ignored.
@@ -223,10 +211,28 @@ public final class BlazeOptionHandler {
           // limit the options available on other commands even without command inheritance. This
           // restriction is necessary to ensure that the options specified on the "all-supported"
           // pseudo command can be parsed unambiguously.
-          optionsParser.parseWithSourceFunction(PriorityCategory.RC_FILE, o -> rcArgs.getRcFile(),
+          ignoredArgs = optionsParser.parseWithSourceFunction(PriorityCategory.RC_FILE,
+              o -> rcArgs.getRcFile(),
               rcArgs.getArgs(), OptionsParser.getFallbackOptionsData(allOptionsClasses));
         } else {
           optionsParser.parse(PriorityCategory.RC_FILE, rcArgs.getRcFile(), rcArgs.getArgs());
+        }
+        if (!rcArgs.getArgs().isEmpty()) {
+          String inherited = commandToParse.equals(commandAnnotation.name()) ? "" : "Inherited ";
+          String source =
+              rcArgs.getRcFile().equals("client")
+                  ? "Options provided by the client"
+                  : String.format(
+                      "Reading rc options for '%s' from %s",
+                      commandAnnotation.name(), rcArgs.getRcFile());
+          String rcFileNote = String.format(
+              "%s:\n  %s'%s' options: %s",
+              source, inherited, commandToParse, Joiner.on(' ').join(rcArgs.getArgs()));
+          if (!ignoredArgs.isEmpty()) {
+            rcFileNote += String.format("\n  Ignored as unsupported by '%s': %s",
+                commandAnnotation.name(), Joiner.on(' ').join(ignoredArgs));
+          }
+          rcfileNotes.add(rcFileNote.toString());
         }
       }
     }
@@ -489,6 +495,7 @@ public final class BlazeOptionHandler {
     ConfigExpander.expandConfigOptions(
         eventHandler,
         commandToRcArgs,
+        commandAnnotation.name(),
         getCommandNamesToParse(commandAnnotation),
         rcfileNotes::add,
         optionsParser,

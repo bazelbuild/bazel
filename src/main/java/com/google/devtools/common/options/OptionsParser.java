@@ -732,8 +732,11 @@ public class OptionsParser implements OptionsParsingResult {
    *     registered with this parser.
    * @param args the arg list to parse. Each element might be an option, a value linked to an
    *     option, or residue.
+   * @return a list of options and values that were parsed but ignored due to only resolving against
+   *     the fallback data
    */
-  public void parseWithSourceFunction(
+  @CanIgnoreReturnValue
+  public ImmutableList<String> parseWithSourceFunction(
       OptionPriority.PriorityCategory priority,
       Function<OptionDefinition, String> sourceFunction,
       List<String> args,
@@ -745,6 +748,7 @@ public class OptionsParser implements OptionsParsingResult {
         (OptionsData) fallbackData);
     addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
+    return optionsParserImplResult.ignoredArgs;
   }
 
   /**
@@ -759,8 +763,11 @@ public class OptionsParser implements OptionsParsingResult {
    * @param fallbackData if provided, the full collection of options that should be parsed and
    *     ignored without raising an error if they are not recognized by the options classes
    *     registered with this parser.
+   * @return a list of options and values that were parsed but ignored due to only resolving against
+   *     the fallback data
    */
-  public void parseArgsAsExpansionOfOption(
+  @CanIgnoreReturnValue
+  public ImmutableList<String> parseArgsAsExpansionOfOption(
       ParsedOptionDescription optionToExpand, String source, List<String> args,
       @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
@@ -774,6 +781,7 @@ public class OptionsParser implements OptionsParsingResult {
     OptionsParserImplResult optionsParserImplResult = impl.parseArgsAsExpansionOfOption(
         optionToExpand, o -> source, args, (OptionsData) fallbackData);
     addResidueFromResult(optionsParserImplResult);
+    return optionsParserImplResult.ignoredArgs;
   }
 
   private void addResidueFromResult(OptionsParserImplResult result) throws OptionsParsingException {

@@ -106,17 +106,23 @@ class OptionsTest(test_base.TestBase):
     ])
 
     # Check that run honors the all-supported flags.
-    _, stdout, _ = self.RunBazel([
+    _, stdout, stderr = self.RunBazel([
       "run",
+      "--announce_rc",
       "//pkg:main",
     ])
     self.assertEquals(
         ["foo", "bar"],
         stdout,
     )
+    self.assertNotRegex(
+        "\n".join(stderr),
+        "Ignored as unsupported",
+    )
 
-    _, stdout, _ = self.RunBazel([
+    _, stdout, stderr = self.RunBazel([
       "run",
+      "--announce_rc",
       "--config=my-config",
       "//pkg:main",
     ])
@@ -124,18 +130,40 @@ class OptionsTest(test_base.TestBase):
         ["foo", "bar", "baz", "quz"],
         stdout,
     )
+    self.assertNotRegex(
+        "\n".join(stderr),
+        "Ignored as unsupported",
+    )
 
     # Check that query ignores the unsupported all-supported flags.
-    _, stdout, _ = self.RunBazel([
+    _, stdout, stderr = self.RunBazel([
       "query",
+      "--announce_rc",
       "//pkg:main",
     ])
+    self.assertRegex(
+        "\n".join(stderr),
+        "Ignored as unsupported by 'query': --copt=-Dfoo --copt -Dbar",
+    )
+    self.assertNotRegex(
+        "\n".join(stderr),
+        "Ignored as unsupported by 'query': --copt=-Dbaz --copt -Dquz",
+    )
 
-    _, stdout, _ = self.RunBazel([
+    _, stdout, stderr = self.RunBazel([
       "query",
+      "--announce_rc",
       "--config=my-config",
       "//pkg:main",
     ])
+    self.assertRegex(
+        "\n".join(stderr),
+        "Ignored as unsupported by 'query': --copt=-Dfoo --copt -Dbar",
+    )
+    self.assertRegex(
+        "\n".join(stderr),
+        "Ignored as unsupported by 'query': --copt=-Dbaz --copt -Dquz",
+    )
 
   def testAllSupportedPseudoCommand_singleLineParsesUnambiguously(self):
     self.ScratchFile("WORKSPACE.bazel")

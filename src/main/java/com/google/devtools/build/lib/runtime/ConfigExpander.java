@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -87,6 +88,7 @@ final class ConfigExpander {
   static void expandConfigOptions(
       EventHandler eventHandler,
       ListMultimap<String, RcChunkOfArgs> commandToRcArgs,
+      String currentCommand,
       List<String> commandsToParse,
       Consumer<String> rcFileNotesConsumer,
       OptionsParser optionsParser,
@@ -112,11 +114,16 @@ final class ConfigExpander {
                 commandsToParse,
                 configValueToExpand,
                 rcFileNotesConsumer);
-        optionsParser.parseArgsAsExpansionOfOption(
+        var ignoredArgs = optionsParser.parseArgsAsExpansionOfOption(
             configInstance,
             String.format("expanded from --config=%s", configValueToExpand),
             expansion,
             fallbackData);
+        if (!ignoredArgs.isEmpty()) {
+          rcFileNotesConsumer.accept(
+              String.format("Ignored as unsupported by '%s': %s", currentCommand,
+                  Joiner.on(' ').join(ignoredArgs)));
+        }
       }
     }
 

@@ -416,6 +416,7 @@ class OptionsParserImpl {
           implicitDependent,
           expandedFrom,
           /* fallbackData */ null)
+          .parsedOptionDescription
           .ifPresent(builder::add);
       nextOptionPriority = OptionPriority.nextOptionPriority(nextOptionPriority);
     }
@@ -477,6 +478,7 @@ class OptionsParserImpl {
       throws OptionsParsingException {
     List<String> unparsedArgs = new ArrayList<>();
     List<String> unparsedPostDoubleDashArgs = new ArrayList<>();
+    List<String> ignoredArgs = new ArrayList<>();
 
     Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
@@ -524,8 +526,10 @@ class OptionsParserImpl {
                     expandedFrom),
                 conversionContext));
       } else {
-        parsedOption = identifyOptionAndPossibleArgument(arg, argsIterator, priority,
-            sourceFunction, implicitDependent, expandedFrom, fallbackData);
+        ParsedOptionDescriptionOrIgnoredArgs result = identifyOptionAndPossibleArgument(arg,
+            argsIterator, priority, sourceFunction, implicitDependent, expandedFrom, fallbackData);
+        result.ignoredArgs.ifPresent(ignoredArgs::add);
+        parsedOption = result.parsedOptionDescription;
       }
       if (parsedOption.isPresent()) {
         handleNewParsedOption(parsedOption.get());
@@ -541,23 +545,26 @@ class OptionsParserImpl {
     }
 
     return new OptionsParserImplResult(
-        unparsedArgs, unparsedPostDoubleDashArgs, priority, flagAliasMappings);
+        unparsedArgs, unparsedPostDoubleDashArgs, ignoredArgs, priority, flagAliasMappings);
   }
 
   /** A class that stores residue and priority information. */
   static final class OptionsParserImplResult {
     final List<String> postDoubleDashResidue;
     final List<String> preDoubleDashResidue;
+    final ImmutableList<String> ignoredArgs;
     final OptionPriority nextPriority;
     final ImmutableMap<String, String> aliases;
 
     OptionsParserImplResult(
         List<String> preDashResidue,
         List<String> postDashResidue,
+        List<String> ignoredArgs,
         OptionPriority nextPriority,
         Map<String, String> aliases) {
       this.preDoubleDashResidue = preDashResidue;
       this.postDoubleDashResidue = postDashResidue;
+      this.ignoredArgs = ImmutableList.copyOf(ignoredArgs);
       this.nextPriority = nextPriority;
       this.aliases = ImmutableMap.copyOf(aliases);
     }
@@ -703,13 +710,14 @@ class OptionsParserImpl {
   }
 
   /**
-   * Keep the properties of {@link OptionsData} used below in sync with {@link
-   * #equivalentForParsing}.
+   * Keep the properties of {@link OptionsData} used below in sync with
+   * {@link #equivalentForParsing}.
    *
    * <p>If an option is not found in the current {@link OptionsData}, but is found in the specified
-   * fallback data, an empty {@link Optional} is returned rather than throwing an exception.
+   * fallback data, a {@link ParsedOptionDescriptionOrIgnoredArgs} with no
+   * {@link ParsedOptionDescription}, but the ignored arguments is returned.
    */
-  private Optional<ParsedOptionDescription> identifyOptionAndPossibleArgument(
+  private ParsedOptionDescriptionOrIgnoredArgs identifyOptionAndPossibleArgument(
       String arg,
       Iterator<String> nextArgs,
       OptionPriority priority,
@@ -794,16 +802,19 @@ class OptionsParserImpl {
     if (lookupResult.fromFallback) {
       // The option was not found on the current command, but is a valid option for some other
       // command. Ignore it.
-      return Optional.empty();
+      return new ParsedOptionDescriptionOrIgnoredArgs(Optional.empty(),
+          Optional.of(commandLineForm.toString()));
     }
 
-    return Optional.of(ParsedOptionDescription.newParsedOptionDescription(
-        lookupResult.definition,
-        commandLineForm.toString(),
-        unconvertedValue,
-        new OptionInstanceOrigin(priority, sourceFunction.apply(lookupResult.definition),
-            implicitDependent, expandedFrom),
-        conversionContext));
+    return new ParsedOptionDescriptionOrIgnoredArgs(
+        Optional.of(ParsedOptionDescription.newParsedOptionDescription(
+            lookupResult.definition,
+            commandLineForm.toString(),
+            unconvertedValue,
+            new OptionInstanceOrigin(priority, sourceFunction.apply(lookupResult.definition),
+                implicitDependent, expandedFrom),
+            conversionContext)),
+        Optional.empty());
   }
 
   /**
@@ -836,6 +847,20 @@ class OptionsParserImpl {
         && (ImmutableList.copyOf(definition.getOptionMetadataTags())
         .contains(OptionMetadataTag.INTERNAL) == ImmutableList.copyOf(
         otherDefinition.getOptionMetadataTags()).contains(OptionMetadataTag.INTERNAL));
+  }
+
+  // TODO: Replace with a sealed interface unwrapped via pattern matching when available.
+  private static final class ParsedOptionDescriptionOrIgnoredArgs {
+
+    final Optional<ParsedOptionDescription> parsedOptionDescription;
+    final Optional<String> ignoredArgs;
+
+    private ParsedOptionDescriptionOrIgnoredArgs(
+        Optional<ParsedOptionDescription> parsedOptionDescription, Optional<String> ignoredArgs) {
+      Preconditions.checkArgument(parsedOptionDescription.isPresent() != ignoredArgs.isPresent());
+      this.parsedOptionDescription = parsedOptionDescription;
+      this.ignoredArgs = ignoredArgs;
+    }
   }
 
   private static final class OptionLookupResult {
