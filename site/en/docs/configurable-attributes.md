@@ -747,7 +747,7 @@ my_custom_bazel_rule(
     name = "happy_rule",
     my_config_string = select({
         "//tools/target_cpu:x86": "first string",
-        "//tools/target_cpu:ppc": "second string",
+        "//third_party/bazel_platforms/cpu:ppc": "second string",
     }),
 )
 
@@ -760,7 +760,7 @@ my_custom_bazel_macro(
     name = "sad_macro",
     my_config_string = select({
         "//tools/target_cpu:x86": "first string",
-        "//tools/target_cpu:ppc": "other string",
+        "//third_party/bazel_platforms/cpu:ppc": "other string",
     }),
 )
 ```
@@ -842,7 +842,7 @@ load("//myapp:defs.bzl", "my_boolean_macro")
 my_boolean_macro(
     boolval = select({
         "//tools/target_cpu:x86": True,
-        "//tools/target_cpu:ppc": False,
+        "//third_party/bazel_platforms/cpu:ppc": False,
     }),
 )
 
