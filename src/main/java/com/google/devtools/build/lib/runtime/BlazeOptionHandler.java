@@ -80,11 +80,11 @@ public final class BlazeOptionHandler {
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // resulting in an error.
-  private static final String ALL_OPTIONS_PSEUDO_COMMAND = "common";
+  private static final String ALL_OPTIONS_PSEUDO_COMMAND = "always";
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // being ignored.
-  private static final String SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND = "all-supported";
+  private static final String SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND = "common";
 
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
@@ -215,7 +215,7 @@ public final class BlazeOptionHandler {
           // all commands that have the same name but parse differently (e.g. because one accepts
           // a value and the other doesn't). This means that the options available on a command
           // limit the options available on other commands even without command inheritance. This
-          // restriction is necessary to ensure that the options specified on the "all-supported"
+          // restriction is necessary to ensure that the options specified on the "common"
           // pseudo command can be parsed unambiguously.
           ignoredArgs = optionsParser.parseWithSourceFunction(PriorityCategory.RC_FILE,
               o -> rcArgs.getRcFile(),

@@ -75,13 +75,13 @@ class OptionsTest(test_base.TestBase):
         "\n".join(stderr),
     )
 
-  def testAllSupportedPseudoCommand(self):
+  def testCommonPseudoCommand(self):
     self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile(".bazelrc", [
-      "all-supported --copt=-Dfoo",
-      "all-supported --copt -Dbar",
-      "all-supported:my-config --copt=-Dbaz",
-      "all-supported:my-config --copt -Dquz",
+      "common --copt=-Dfoo",
+      "common --copt -Dbar",
+      "common:my-config --copt=-Dbaz",
+      "common:my-config --copt -Dquz",
     ])
     self.ScratchFile("pkg/BUILD.bazel", [
       "cc_binary(name='main',srcs=['main.cc'])",
@@ -105,7 +105,7 @@ class OptionsTest(test_base.TestBase):
       "}",
     ])
 
-    # Check that run honors the all-supported flags.
+    # Check that run honors the common flags.
     _, stdout, stderr = self.RunBazel([
       "run",
       "--announce_rc",
@@ -135,7 +135,7 @@ class OptionsTest(test_base.TestBase):
         "Ignored as unsupported",
     )
 
-    # Check that query ignores the unsupported all-supported flags.
+    # Check that query ignores the unsupported common flags.
     _, stdout, stderr = self.RunBazel([
       "query",
       "--announce_rc",
@@ -165,12 +165,12 @@ class OptionsTest(test_base.TestBase):
         "Ignored as unsupported by 'query': --copt=-Dbaz --copt -Dquz",
     )
 
-  def testAllSupportedPseudoCommand_singleLineParsesUnambiguously(self):
+  def testCommonPseudoCommand_singleLineParsesUnambiguously(self):
     self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile(".bazelrc", [
       # First and third option are ignored by build, but valid options for
       # cquery. The first one expects no value, the third one does.
-      "all-supported --implicit_deps --copt=-Dfoo --output files --copt=-Dbar",
+      "common --implicit_deps --copt=-Dfoo --output files --copt=-Dbar",
     ])
     self.ScratchFile("pkg/BUILD.bazel", [
       "cc_binary(name='main',srcs=['main.cc'])",
@@ -188,7 +188,7 @@ class OptionsTest(test_base.TestBase):
       "}",
     ])
 
-    # Check that run honors the all-supported flags.
+    # Check that run honors the common flags.
     _, stdout, _ = self.RunBazel([
       "run",
       "//pkg:main",
@@ -198,16 +198,16 @@ class OptionsTest(test_base.TestBase):
         stdout,
     )
 
-  def testAllSupportedPseudoCommand_unsupportedOptionValue(self):
+  def testCommonPseudoCommand_unsupportedOptionValue(self):
     self.ScratchFile("WORKSPACE.bazel")
     self.ScratchFile(".bazelrc", [
-      "all-supported --output=starlark",
+      "common --output=starlark",
     ])
     self.ScratchFile("pkg/BUILD.bazel", [
       "cc_binary(name='main',srcs=['main.cc'])",
     ])
 
-    # Check that cquery honors the all-supported flag.
+    # Check that cquery honors the common flag.
     _, stdout, _ = self.RunBazel([
       "cquery",
       "--starlark:expr=target.label.name",
