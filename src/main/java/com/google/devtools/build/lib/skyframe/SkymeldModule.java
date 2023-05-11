@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -85,6 +86,7 @@ public class SkymeldModule extends BlazeModule {
                       + " and its value will be ignored."));
       effectiveValue = false;
     }
+
     if (effectiveValue
         && (buildRequestOptions.aqueryDumpAfterBuildFormat != null
             || buildRequestOptions.aqueryDumpAfterBuildOutputFile != null)) {
@@ -95,6 +97,7 @@ public class SkymeldModule extends BlazeModule {
                       + " generating an aquery dump after builds and its value will be ignored."));
       effectiveValue = false;
     }
+
     if (effectiveValue
         && env.getOptions().getOptions(RemoteOptions.class) != null
         && !env.getOptions()
@@ -107,6 +110,18 @@ public class SkymeldModule extends BlazeModule {
                   "--experimental_merged_skyframe_analysis_execution is incompatible with"
                       + " --remote_download_outputs=(minimal|toplevel) and its value will be"
                       + " ignored."));
+      effectiveValue = false;
+    }
+
+    // TODO(b/245873370) --check_licenses is going away.
+    if (effectiveValue
+        && env.getOptions().getOptions(CoreOptions.class) != null
+        && env.getOptions().getOptions(CoreOptions.class).checkLicenses) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "--experimental_merged_skyframe_analysis_execution is incompatible with"
+                      + " --check_licenses and its value will be ignored."));
       effectiveValue = false;
     }
 
