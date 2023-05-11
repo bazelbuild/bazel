@@ -78,7 +78,13 @@ public final class BlazeOptionHandler {
           "client_env",
           "client_cwd");
 
-  private static final String ALL_SUPPORTED_PSEUDO_COMMAND = "all-supported";
+  // All options set on this pseudo command are inherited by all commands, with unrecognized options
+  // resulting in an error.
+  private static final String ALL_OPTIONS_PSEUDO_COMMAND = "common";
+
+  // All options set on this pseudo command are inherited by all commands, with unrecognized options
+  // being ignored.
+  private static final String SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND = "all-supported";
 
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
@@ -200,7 +206,7 @@ public final class BlazeOptionHandler {
       // Get all args defined for this command (or "common"), grouped by rc chunk.
       for (RcChunkOfArgs rcArgs : commandToRcArgs.get(commandToParse)) {
         List<String> ignoredArgs = emptyList();
-        if (commandToParse.equals(ALL_SUPPORTED_PSEUDO_COMMAND)) {
+        if (commandToParse.equals(SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND)) {
           // Pass in options data for all commands supported by the runtime so that options that
           // apply to some but not the current command can be ignored.
           //
@@ -504,8 +510,8 @@ public final class BlazeOptionHandler {
 
   private static List<String> getCommandNamesToParse(Command commandAnnotation) {
     List<String> result = new ArrayList<>();
-    result.add("common");
-    result.add(ALL_SUPPORTED_PSEUDO_COMMAND);
+    result.add(ALL_OPTIONS_PSEUDO_COMMAND);
+    result.add(SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND);
     getCommandNamesToParseHelper(commandAnnotation, result);
     return result;
   }
@@ -596,8 +602,8 @@ public final class BlazeOptionHandler {
       if (index > 0) {
         command = command.substring(0, index);
       }
-      if (!validCommands.contains(command) && !command.equals("common") && !command.equals(
-          ALL_SUPPORTED_PSEUDO_COMMAND)) {
+      if (!validCommands.contains(command) && !command.equals(ALL_OPTIONS_PSEUDO_COMMAND)
+          && !command.equals(SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND)) {
         eventHandler.handle(
             Event.warn(
                 "while reading option defaults file '"
