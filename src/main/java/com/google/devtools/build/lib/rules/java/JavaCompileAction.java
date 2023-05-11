@@ -389,7 +389,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
     ActionEnvironment env = getEnvironment();
     LinkedHashMap<String, String> effectiveEnvironment =
-        Maps.newLinkedHashMapWithExpectedSize(env.size());
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }

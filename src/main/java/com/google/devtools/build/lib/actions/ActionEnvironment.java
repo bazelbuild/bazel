@@ -106,9 +106,7 @@ public abstract class ActionEnvironment {
    * {@link #resolve} may add fewer entries than this number if environment variables are contained
    * in both the fixed and the inherited environment.
    */
-  public final int size() {
-    return getFixedEnv().size() + getInheritedEnv().size();
-  }
+  public abstract int estimatedSize();
 
   /**
    * Resolves the action environment and adds the resulting entries to the given {@code result} map,
@@ -168,6 +166,11 @@ public abstract class ActionEnvironment {
     public ImmutableSet<String> getInheritedEnv() {
       return ImmutableSet.of();
     }
+
+    @Override
+    public int estimatedSize() {
+      return 0;
+    }
   }
 
   private static final class SimpleActionEnvironment extends ActionEnvironment {
@@ -188,6 +191,11 @@ public abstract class ActionEnvironment {
     @Override
     public ImmutableSet<String> getInheritedEnv() {
       return inheritedEnv;
+    }
+
+    @Override
+    public int estimatedSize() {
+      return fixedEnv.size() + inheritedEnv.size();
     }
   }
 
@@ -219,6 +227,11 @@ public abstract class ActionEnvironment {
           .addAll(base.getInheritedEnv())
           .addAll(inheritedVars)
           .build();
+    }
+
+    @Override
+    public int estimatedSize() {
+      return base.estimatedSize() + fixedVars.size() + inheritedVars.size();
     }
   }
 }

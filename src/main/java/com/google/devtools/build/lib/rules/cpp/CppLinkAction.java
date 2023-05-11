@@ -188,7 +188,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
-    LinkedHashMap<String, String> result = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    LinkedHashMap<String, String> result =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(result, clientEnv);
 
     result.putAll(toolchainEnv);

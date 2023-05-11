@@ -249,7 +249,8 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
     ActionEnvironment env = getEnvironment();
-    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    Map<String, String> effectiveEnvironment =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
