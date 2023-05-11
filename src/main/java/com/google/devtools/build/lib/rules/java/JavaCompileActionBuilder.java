@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathStripper;
@@ -205,12 +204,6 @@ public final class JavaCompileActionBuilder {
     javaBuilder.addInputs(toolchain, toolsBuilder);
     toolsBuilder.addTransitive(toolsJars);
 
-    ActionEnvironment actionEnvironment =
-        ruleContext
-            .getConfiguration()
-            .getActionEnvironment()
-            .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
-
     NestedSetBuilder<Artifact> mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     mandatoryInputsBuilder
         .addTransitive(plugins.processorClasspath())
@@ -275,7 +268,6 @@ public final class JavaCompileActionBuilder {
     return new JavaCompileAction(
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
         /* owner= */ ruleContext.getActionOwner(execGroup),
-        /* env= */ actionEnvironment,
         /* tools= */ tools,
         /* progressMessage= */ new ProgressMessage(
             /* prefix= */ "Building",

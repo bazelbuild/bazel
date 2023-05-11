@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -118,7 +117,7 @@ public final class CoverageReportActionBuilder {
         String locationMessage,
         boolean remotable,
         RunfilesSupplier runfilesSupplier) {
-      super(owner, inputs, outputs, ActionEnvironment.EMPTY);
+      super(owner, inputs, outputs);
       this.command = command;
       this.remotable = remotable;
       this.locationMessage = locationMessage;

@@ -545,7 +545,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           new JavaCompileAction(
               /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
               /* owner= */ ruleContext.getActionOwner(),
-              /* env= */ actionEnvironment,
               /* tools= */ toolsJars,
               /* progressMessage= */ progressMessage,
               /* mandatoryInputs= */ mandatoryInputs,

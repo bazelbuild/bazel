@@ -105,6 +105,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final NestedSet<Artifact> tools;
   private final RunfilesSupplier runfilesSupplier;
   private final CommandLines commandLines;
+  private final ActionEnvironment env;
 
   private final CharSequence progressMessage;
   private final String mnemonic;
@@ -146,7 +147,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean stripOutputPaths) {
-    super(owner, inputs, outputs, env);
+    super(owner, inputs, outputs);
     this.tools = tools;
     this.runfilesSupplier = runfilesSupplier;
     this.resourceSetOrBuilder = resourceSetOrBuilder;
@@ -155,6 +156,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
             ? ImmutableSortedMap.of()
             : executionInfoInterner.intern(ImmutableSortedMap.copyOf(executionInfo));
     this.commandLines = commandLines;
+    this.env = env;
     this.progressMessage = progressMessage;
     this.mnemonic = mnemonic;
     this.stripOutputPaths = stripOutputPaths;
@@ -168,6 +170,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   @Override
   public final RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
+  }
+
+  @Override
+  public final ActionEnvironment getEnvironment() {
+    return env;
   }
 
   @VisibleForTesting
@@ -382,7 +389,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     for (Artifact runfilesManifest : runfilesManifests) {
       fp.addPath(runfilesManifest.getExecPath());
     }
-    getEnvironment().addTo(fp);
+    env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
     fp.addBoolean(stripOutputPaths);
   }
@@ -392,7 +399,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    for (Map.Entry<String, String> entry : getEnvironment().getFixedEnv().entrySet()) {
+    for (Map.Entry<String, String> entry : env.getFixedEnv().entrySet()) {
       message.append("  Environment variable: ");
       message.append(ShellEscaper.escapeString(entry.getKey()));
       message.append('=');

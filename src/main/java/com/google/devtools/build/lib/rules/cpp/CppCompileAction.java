@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -130,7 +131,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Nullable private final Artifact gcnoFile;
   private final Artifact sourceFile;
-  private final CppConfiguration cppConfiguration;
+  private final BuildConfigurationValue configuration;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> mandatorySpawnInputs;
   private final NestedSet<Artifact> inputsForInvalidation;
@@ -237,7 +238,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       FeatureConfiguration featureConfiguration,
       CcToolchainVariables variables,
       Artifact sourceFile,
-      CppConfiguration cppConfiguration,
+      BuildConfigurationValue configuration,
       boolean shareable,
       boolean shouldScanIncludes,
       boolean usePic,
@@ -253,7 +254,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       @Nullable Artifact ltoIndexingFile,
-      ActionEnvironment env,
       CcCompilationContext ccCompilationContext,
       CoptsFilter coptsFilter,
       ImmutableList<Artifact> additionalIncludeScanningRoots,
@@ -265,7 +265,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       ImmutableList<Artifact> additionalOutputs) {
     super(
         owner,
-        cppConfiguration.useSchedulingMiddlemen()
+        configuration.getFragment(CppConfiguration.class).useSchedulingMiddlemen()
             ? NestedSetBuilder.fromNestedSet(mandatoryInputs)
                 .addTransitive(inputsForInvalidation)
                 .build()
@@ -277,12 +277,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             gcnoFile,
             dwoFile,
             ltoIndexingFile,
-            additionalOutputs),
-        env);
+            additionalOutputs));
     this.gcnoFile = gcnoFile;
     this.sourceFile = sourceFile;
     this.shareable = shareable;
-    this.cppConfiguration = cppConfiguration;
+    this.configuration = configuration;
     // We do not need to include the middleman artifact since it is a generated artifact and will
     // definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
@@ -396,11 +395,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   boolean useInMemoryDotdFiles() {
-    return cppConfiguration.getInmemoryDotdFiles();
+    return cppConfiguration().getInmemoryDotdFiles();
   }
 
-  boolean enabledCppCompileResourcesEstimation() {
-    return cppConfiguration.getExperimentalCppCompileResourcesEstimation();
+  private boolean enabledCppCompileResourcesEstimation() {
+    return cppConfiguration().getExperimentalCppCompileResourcesEstimation();
+  }
+
+  @Override
+  public ActionEnvironment getEnvironment() {
+    return configuration.getActionEnvironment();
   }
 
   @Override
@@ -627,7 +631,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   protected final NestedSet<Artifact> getOriginalInputs() {
-    if (cppConfiguration.useSchedulingMiddlemen()) {
+    if (cppConfiguration().useSchedulingMiddlemen()) {
       return NestedSetBuilder.fromNestedSet(mandatoryInputs)
           .addTransitive(inputsForInvalidation)
           .build();
@@ -640,9 +644,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private Predicate<Artifact> getValidUndeclaredHeaderPredicate(
       ActionExecutionContext actionExecutionContext) {
     if (getDotdFile() != null) {
-      // If we'll looking at .d files later, don't remove undeclared inputs now.
+      // If we'll be looking at .d files later, don't remove undeclared inputs now.
       return null;
     }
+
+    var cppConfiguration = cppConfiguration();
     Iterable<PathFragment> ignoreDirs =
         cppConfiguration.isStrictSystemIncludes()
             ? getBuiltInIncludeDirectories()
@@ -773,6 +779,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
     return result.build();
+  }
+
+  private CppConfiguration cppConfiguration() {
+    return configuration.getFragment(CppConfiguration.class);
   }
 
   private static final ImmutableList<CharMatcher> MSVC_CHARS =
@@ -916,7 +926,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     CommandLine commandLine = compileCommandLine.getFilteredFeatureConfigurationCommandLine(this);
     ParamFileInfo paramFileInfo = null;
-    if (cppConfiguration.useArgsParamsFile()) {
+    if (cppConfiguration().useArgsParamsFile()) {
       paramFileInfo =
           ParamFileInfo.builder(ParameterFileType.GCC_QUOTED)
               .setCharset(ISO_8859_1)
@@ -998,7 +1008,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         ||
         // Ignore headers from built-in include directories.
         FileSystemUtils.startsWithAny(include.getExecPath(), ignoreDirs)
-        || isDeclaredIn(cppConfiguration, actionExecutionContext, include, looseHdrsDirs);
+        || isDeclaredIn(cppConfiguration(), actionExecutionContext, include, looseHdrsDirs);
   }
 
   /**
@@ -1040,7 +1050,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     Iterable<PathFragment> ignoreDirs =
-        cppConfiguration.isStrictSystemIncludes()
+        cppConfiguration().isStrictSystemIncludes()
             ? getBuiltInIncludeDirectories()
             : getValidationIgnoredDirs();
 
@@ -1220,7 +1230,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         Profiler.instance().profile(ProfilerTask.ACTION_UPDATE, this::describe)) {
       NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(mandatoryInputs);
-      if (cppConfiguration.useSchedulingMiddlemen()) {
+      if (cppConfiguration().useSchedulingMiddlemen()) {
         inputsBuilder.addTransitive(inputsForInvalidation);
       }
       if (discoveredInputs != null) {
@@ -1269,7 +1279,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
-    return cppConfiguration.useSchedulingMiddlemen()
+    return cppConfiguration().useSchedulingMiddlemen()
         ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
         : inputsForInvalidation;
   }
@@ -1385,7 +1395,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         ccCompilationContext.getLooseHdrsDirs(),
         builtInIncludeDirectories,
         inputsForInvalidation,
-        cppConfiguration.validateTopLevelHeaderInclusions());
+        cppConfiguration().validateTopLevelHeaderInclusions());
   }
 
   // Separated into a helper method so that it can be called from CppCompileActionTemplate.
@@ -1626,7 +1636,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return null;
   }
 
-  boolean shouldParseShowIncludes() {
+  private boolean shouldParseShowIncludes() {
     return featureConfiguration.isEnabled(CppRuleClasses.PARSE_SHOWINCLUDES);
   }
 
@@ -1764,7 +1774,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throws ActionExecutionException {
     try {
       DependencySet depSet = new DependencySet(execRoot);
-      if (dotDContents != null && cppConfiguration.getInmemoryDotdFiles()) {
+      if (dotDContents != null && cppConfiguration().getInmemoryDotdFiles()) {
         return depSet.process(dotDContents);
       }
       return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
@@ -1892,7 +1902,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public String getMnemonic() {
     return actionNameToMnemonic(
-        actionName, featureConfiguration, cppConfiguration.useCppCompileHeaderMnemonic());
+        actionName, featureConfiguration, cppConfiguration().useCppCompileHeaderMnemonic());
   }
 
   @Override
