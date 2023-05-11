@@ -28,6 +28,7 @@ def _create_context_and_provider(
         extra_import_libraries,
         deps,
         runtime_deps,
+        implementation_deps,
         attr_linkopts):
     objc_providers = []
     cc_compilation_contexts = []
@@ -57,6 +58,31 @@ def _create_context_and_provider(
         if CcInfo in runtime_dep:
             cc_compilation_contexts.append(runtime_dep[CcInfo].compilation_context)
 
+    implementation_cc_compilation_contexts = []
+    for impl_dep in implementation_deps:
+        if apple_common.Objc in impl_dep:
+            # For implementation deps, we only need to propagate linker inputs
+            # with Objc provider, but no compilation artifacts
+            # (eg module_map, umbrella_header).
+            implementation_dep_objc_provider_kwargs = {
+                "force_load_library": impl_dep[apple_common.Objc].force_load_library,
+                "imported_library": impl_dep[apple_common.Objc].imported_library,
+                "library": impl_dep[apple_common.Objc].library,
+                "linkopt": impl_dep[apple_common.Objc].linkopt,
+                "sdk_dylib": impl_dep[apple_common.Objc].sdk_dylib,
+                "sdk_framework": impl_dep[apple_common.Objc].sdk_framework,
+                "source": impl_dep[apple_common.Objc].source,
+                "weak_sdk_framework": impl_dep[apple_common.Objc].weak_sdk_framework,
+            }
+            objc_provider = apple_common.new_objc_provider(**implementation_dep_objc_provider_kwargs)
+            objc_providers.append(objc_provider)
+        elif CcInfo in impl_dep:
+            cc_linking_contexts_for_merging.append(impl_dep[CcInfo].linking_context)
+
+        if CcInfo in impl_dep:
+            implementation_cc_compilation_contexts.append(impl_dep[CcInfo].compilation_context)
+            cc_linking_contexts.append(impl_dep[CcInfo].linking_context)
+
     link_order_keys = [
         "imported_library",
         "cc_library",
@@ -82,6 +108,7 @@ def _create_context_and_provider(
     objc_compilation_context_kwargs = {
         "providers": objc_providers + runtime_objc_providers,
         "cc_compilation_contexts": cc_compilation_contexts,
+        "implementation_cc_compilation_contexts": implementation_cc_compilation_contexts,
         "public_hdrs": [],
         "private_hdrs": [],
         "public_textual_hdrs": [],
