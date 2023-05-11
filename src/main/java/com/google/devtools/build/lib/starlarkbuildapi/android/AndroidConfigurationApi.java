@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.annot.DocCategory;
+import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.StarlarkValue;
@@ -67,7 +68,13 @@ public interface AndroidConfigurationApi extends StarlarkValue {
   @StarlarkMethod(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV2();
 
-  @StarlarkMethod(name = "apk_signing_method_v4", structField = true, doc = "", documented = false)
+  @StarlarkMethod(
+      name = "apk_signing_method_v4",
+      structField = true,
+      doc = "",
+      documented = false,
+      allowReturnNones = true)
+  @Nullable
   Boolean apkSigningMethodV4();
 
   @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
