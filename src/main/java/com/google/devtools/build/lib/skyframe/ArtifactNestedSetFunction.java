@@ -16,12 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Suppliers;
-import com.google.common.collect.MapMaker;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -81,17 +80,6 @@ final class ArtifactNestedSetFunction implements SkyFunction {
    * available in the map. TODO(leba): Make this weak-keyed.
    */
   private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue = new ConcurrentHashMap<>();
-
-  /**
-   * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
-   * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
-   *
-   * <p>The map weakly references its values: when the ArtifactNestedSetKey becomes otherwise
-   * unreachable, the entry is collected.
-   */
-  // Note: Not using a caffeine cache here because it used more memory (b/193294367).
-  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey> nestedSetToSkyKey =
-      new MapMaker().concurrencyLevel(BlazeInterners.concurrencyLevel()).weakValues().makeMap();
 
   private final Supplier<ArtifactNestedSetValue> valueSupplier;
 
@@ -162,17 +150,15 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   }
 
   private List<SkyKey> getDepSkyKeys(ArtifactNestedSetKey skyKey) {
-    List<Artifact> leaves = skyKey.getSet().getLeaves();
-    List<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
+    ImmutableList<Artifact> leaves = skyKey.getSet().getLeaves();
+    ImmutableList<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
 
     List<SkyKey> keys = new ArrayList<>(leaves.size() + nonLeaves.size());
     for (Artifact file : leaves) {
       keys.add(Artifact.key(file));
     }
     for (NestedSet<Artifact> nonLeaf : nonLeaves) {
-      keys.add(
-          nestedSetToSkyKey.computeIfAbsent(
-              nonLeaf.toNode(), node -> new ArtifactNestedSetKey(nonLeaf, node)));
+      keys.add(ArtifactNestedSetKey.create(nonLeaf));
     }
     return keys;
   }

@@ -18,26 +18,29 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
 public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
 
-  // TODO(jhorvitz): Consider sharing the nestedSetToSkyKey map in ArtifactNestedSetFunction.
+  private static final SkyKeyInterner<ArtifactNestedSetKey> interner = SkyKey.newInterner();
+
   public static ArtifactNestedSetKey create(NestedSet<Artifact> set) {
-    return new ArtifactNestedSetKey(set, set.toNode());
+    return interner.intern(new ArtifactNestedSetKey(set, set.toNode()));
   }
 
   private final NestedSet<Artifact> set;
   private final NestedSet.Node node;
 
+  private ArtifactNestedSetKey(NestedSet<Artifact> set, NestedSet.Node node) {
+    this.set = set;
+    this.node = node;
+  }
+
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.ARTIFACT_NESTED_SET;
-  }
-
-  ArtifactNestedSetKey(NestedSet<Artifact> set, NestedSet.Node node) {
-    this.set = set;
-    this.node = node;
   }
 
   /** Returns the set of artifacts that this key represents. */
@@ -50,6 +53,11 @@ public final class ArtifactNestedSetKey implements ExecutionPhaseSkyKey {
     // ArtifactNestedSetValue is just a promise that data is available in memory. Not meant for
     // cross-server sharing.
     return false;
+  }
+
+  @Override
+  public SkyKeyInterner<?> getSkyKeyInterner() {
+    return interner;
   }
 
   @Override
