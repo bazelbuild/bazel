@@ -140,7 +140,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final int nonSkyframeGlobbingThreads;
   @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
-  private final boolean usePooledInterning;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -157,7 +156,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
-    boolean usePooledInterning = true;
 
     protected Builder(
         Root workspaceDir,
@@ -243,12 +241,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder disablePooledSkyKeyInterning() {
-      this.usePooledInterning = false;
-      return this;
-    }
-
     /** Throws {@link IllegalArgumentException} if builder args are incomplete/inconsistent. */
     protected void validate() {
       if (starlarkSemantics == null) {
@@ -280,7 +272,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         NamedForkJoinPool.newNamedPool(
             "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
-    this.usePooledInterning = builder.usePooledInterning;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
@@ -362,14 +353,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       StoredEventHandler storedEventHandler)
       throws InterruptedException {
     MemoizingEvaluator evaluator = makeFreshEvaluator();
-    EvaluationResult<PackageValue> evalResult;
-    try {
-      evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
-    } finally {
-      if (usePooledInterning) {
-        evaluator.cleanupInterningPools();
-      }
-    }
+    EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+
     ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
         ImmutableMap.builder();
     for (SkyKey key : pkgKeys) {
@@ -417,7 +402,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         EventFilter.FULL_STORAGE,
         new EmittedEventState(),
         /* keepEdges= */ false,
-        usePooledInterning);
+        // Using pooled interner is unsound if there are multiple MemoizingEvaluators evaluating
+        // concurrently.
+        /* usePooledInterning= */ false);
   }
 
   protected abstract CrossRepositoryLabelViolationStrategy
