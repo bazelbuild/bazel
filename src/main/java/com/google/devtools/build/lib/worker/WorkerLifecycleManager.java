@@ -41,7 +41,7 @@ final class WorkerLifecycleManager extends Thread {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private boolean isWorking = false;
-  private boolean emptyEvictonWasLogged = false;
+  private boolean emptyEvictionWasLogged = false;
   private final WorkerPool workerPool;
   private final WorkerOptions options;
 
@@ -142,27 +142,27 @@ final class WorkerLifecycleManager extends Thread {
       return;
     }
 
-    int workerMemeoryUsage =
+    int workerMemoryUsage =
         workerMetrics.stream()
             .mapToInt(metric -> metric.getWorkerStat().getUsedMemoryInKB() / 1000)
             .sum();
 
-    if (workerMemeoryUsage <= options.totalWorkerMemoryLimitMb) {
+    if (workerMemoryUsage <= options.totalWorkerMemoryLimitMb) {
       return;
     }
 
     ImmutableSet<Integer> candidates =
         collectEvictionCandidates(
-            workerMetrics, options.totalWorkerMemoryLimitMb, workerMemeoryUsage);
+            workerMetrics, options.totalWorkerMemoryLimitMb, workerMemoryUsage);
 
-    if (!candidates.isEmpty() || !emptyEvictonWasLogged) {
+    if (!candidates.isEmpty() || !emptyEvictionWasLogged) {
       String msg;
       if (candidates.isEmpty()) {
         msg =
             String.format(
                 "Could not find any worker eviction candidates. Worker memory usage: %d MB, Memory"
                     + " limit: %d MB",
-                workerMemeoryUsage, options.totalWorkerMemoryLimitMb);
+                workerMemoryUsage, options.totalWorkerMemoryLimitMb);
       } else {
         msg =
             String.format("Going to evict %d workers with ids: %s", candidates.size(), candidates);
@@ -176,7 +176,7 @@ final class WorkerLifecycleManager extends Thread {
 
     ImmutableSet<Integer> evictedWorkers = evictCandidates(workerPool, candidates);
 
-    if (!evictedWorkers.isEmpty() || !emptyEvictonWasLogged) {
+    if (!evictedWorkers.isEmpty() || !emptyEvictionWasLogged) {
       String msg =
           String.format(
               "Total evicted idle workers %d. With ids: %s", evictedWorkers.size(), evictedWorkers);
@@ -185,11 +185,7 @@ final class WorkerLifecycleManager extends Thread {
         reporter.handle(Event.info(msg));
       }
 
-      if (candidates.isEmpty()) {
-        emptyEvictonWasLogged = true;
-      } else {
-        emptyEvictonWasLogged = false;
-      }
+      emptyEvictionWasLogged = candidates.isEmpty();
     }
 
     if (eventBus != null) {
@@ -213,24 +209,23 @@ final class WorkerLifecycleManager extends Thread {
                       !evictedWorkers.containsAll(metric.getWorkerProperties().getWorkerIds()))
               .collect(Collectors.toList());
 
-      int notEvictedWorkerMemeoryUsage =
+      int notEvictedWorkerMemoryUsage =
           notEvictedWorkerMetrics.stream()
               .mapToInt(metric -> metric.getWorkerStat().getUsedMemoryInKB() / 1000)
               .sum();
 
-      if (notEvictedWorkerMemeoryUsage <= options.totalWorkerMemoryLimitMb) {
+      if (notEvictedWorkerMemoryUsage <= options.totalWorkerMemoryLimitMb) {
         return;
       }
 
-      postponeInvalidation(notEvictedWorkerMetrics, notEvictedWorkerMemeoryUsage);
+      postponeInvalidation(notEvictedWorkerMetrics, notEvictedWorkerMemoryUsage);
     }
   }
 
   private void postponeInvalidation(
-      List<WorkerMetric> workerMetrics, int notEvictedWorkerMemeoryUsage) {
+      List<WorkerMetric> workerMetrics, int notEvictedWorkerMemoryUsage) {
     ImmutableSet<Integer> potentialCandidates =
-        getCandidates(
-            workerMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemeoryUsage);
+        getCandidates(workerMetrics, options.totalWorkerMemoryLimitMb, notEvictedWorkerMemoryUsage);
 
     if (!potentialCandidates.isEmpty()) {
       String msg = String.format("New doomed workers candidates %s", potentialCandidates);
@@ -244,7 +239,7 @@ final class WorkerLifecycleManager extends Thread {
 
   /**
    * Applies eviction police for candidates. Returns the worker ids of evicted workers. We don't
-   * garantee that every candidate is going to be evicted. Returns worker ids of evicted workers.
+   * guarantee that every candidate is going to be evicted. Returns worker ids of evicted workers.
    */
   private static ImmutableSet<Integer> evictCandidates(
       WorkerPool pool, ImmutableSet<Integer> candidates) throws InterruptedException {
@@ -253,10 +248,10 @@ final class WorkerLifecycleManager extends Thread {
     return policy.getEvictedWorkers();
   }
 
-  /** Collects worker candidates to evict. Choses workers with the largest memory consumption. */
+  /** Collects worker candidates to evict. Chooses workers with the largest memory consumption. */
   @SuppressWarnings("JdkCollectors")
   ImmutableSet<Integer> collectEvictionCandidates(
-      ImmutableList<WorkerMetric> workerMetrics, int memoryLimitMb, int workerMemeoryUsageMb)
+      ImmutableList<WorkerMetric> workerMetrics, int memoryLimitMb, int workerMemoryUsageMb)
       throws InterruptedException {
     Set<Integer> idleWorkers = getIdleWorkers();
 
@@ -265,7 +260,7 @@ final class WorkerLifecycleManager extends Thread {
             .filter(metric -> idleWorkers.containsAll(metric.getWorkerProperties().getWorkerIds()))
             .collect(Collectors.toList());
 
-    return getCandidates(idleWorkerMetrics, memoryLimitMb, workerMemeoryUsageMb);
+    return getCandidates(idleWorkerMetrics, memoryLimitMb, workerMemoryUsageMb);
   }
 
   /**
@@ -347,7 +342,7 @@ final class WorkerLifecycleManager extends Thread {
     }
   }
 
-  /** Compare worker metrics by memory consupmtion in descending order. */
+  /** Compare worker metrics by memory consumption in descending order. */
   private static class MemoryComparator implements Comparator<WorkerMetric> {
     @Override
     public int compare(WorkerMetric m1, WorkerMetric m2) {
