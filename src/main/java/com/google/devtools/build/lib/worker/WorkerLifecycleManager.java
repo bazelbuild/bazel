@@ -131,7 +131,7 @@ final class WorkerLifecycleManager extends Thread {
         if (eventBus != null) {
           eventBus.post(
               new WorkerEvictedEvent(
-                  l.getWorkerProperties().getWorkerKeylHash(),
+                  l.getWorkerProperties().getWorkerKeyHash(),
                   l.getWorkerProperties().getMnemonic()));
         }
       }
@@ -216,7 +216,7 @@ final class WorkerLifecycleManager extends Thread {
         for (Integer workerId : properties.getWorkerIds()) {
           if (evictedWorkers.contains(workerId)) {
             eventBus.post(
-                new WorkerEvictedEvent(properties.getWorkerKeylHash(), properties.getMnemonic()));
+                new WorkerEvictedEvent(properties.getWorkerKeyHash(), properties.getMnemonic()));
           }
         }
       }
