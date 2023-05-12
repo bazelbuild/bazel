@@ -930,6 +930,7 @@ function test_symlinks_in_directory() {
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
+          --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --remote_executor=grpc://localhost:${worker_port} \
           --spawn_strategy=remote \
           //:make-links &> $TEST_log \
@@ -950,6 +951,7 @@ function test_symlinks_in_directory_cache_only() {
     set_symlinks_in_directory_testfixtures
     bazel build \
           --incompatible_remote_symlinks \
+          --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --remote_cache=grpc://localhost:${worker_port} \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
@@ -958,6 +960,7 @@ function test_symlinks_in_directory_cache_only() {
     bazel clean # Get rid of local results, rely on remote cache.
     bazel build \
           --incompatible_remote_symlinks \
+          --noincompatible_remote_disallow_symlink_in_tree_artifact \
           --remote_cache=grpc://localhost:${worker_port} \
           --spawn_strategy=local \
           //:make-links &> $TEST_log \
@@ -2319,12 +2322,12 @@ EOF
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
+      --noincompatible_remote_disallow_symlink_in_tree_artifact \
       //pkg:tree &>$TEST_log || fail "Expected build to succeed"
 
   bazel clean
 
   bazel build \
-      --incompatible_remote_disallow_symlink_in_tree_artifact \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
       //pkg:tree &>$TEST_log && fail "Expected build to fail"
