@@ -38,9 +38,10 @@ def _Iimport_path_equals_fullpath(proto_source):
     return "-I%s=%s" % (_get_import_path(proto_source), proto_source._source_file.path)
 
 def _get_import_path(proto_source):
-    if proto_source._proto_path == "":
-        return proto_source._source_file.path
-    return proto_source._source_file.path[len(proto_source._proto_path) + 1:]
+    proto_path = proto_source._proto_path
+    if proto_path and not proto_source._source_file.path.startswith(proto_path + "/"):
+        fail("Bad proto_path %s for proto %s" % (proto_path, proto_source._source_file.path))
+    return proto_source._source_file.path.removeprefix(proto_path + "/")
 
 def _compile(
         actions,

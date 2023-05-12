@@ -449,7 +449,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       fooProtoRoot =
           genfiles + (siblingRepoLayout ? "" : "/external/foo") + "/x/_virtual_imports/x";
     } else {
-      fooProtoRoot = (siblingRepoLayout ? "../foo" : "external/foo");
+      fooProtoRoot = (siblingRepoLayout ? genfiles : genfiles + "/external/foo");
     }
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
