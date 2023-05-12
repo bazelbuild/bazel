@@ -343,11 +343,11 @@ public class WorkspaceFactory {
   }
 
   /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
-  static ImmutableMap<String, Object> createNativeModuleBindings(
-      RuleClassProvider ruleClassProvider) {
+  public static ImmutableMap<String, Object> createNativeModuleBindings(
+      ImmutableMap<String, RuleClass> ruleClassMap, String bazelVersion) {
     // Machinery to build the collection of workspace functions.
     WorkspaceGlobals workspaceGlobals =
-        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassProvider.getRuleClassMap());
+        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassMap);
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.
@@ -355,10 +355,7 @@ public class WorkspaceFactory {
     // of the particular semantics.]
     ImmutableMap<String, Object> workspaceFunctions =
         createWorkspaceFunctions(
-            /* allowOverride= */ false,
-            ruleClassProvider.getRuleClassMap(),
-            workspaceGlobals,
-            StarlarkSemantics.DEFAULT);
+            /* allowOverride= */ false, ruleClassMap, workspaceGlobals, StarlarkSemantics.DEFAULT);
 
     // Determine the contents for native.
     ImmutableMap.Builder<String, Object> bindings = new ImmutableMap.Builder<>();
@@ -377,7 +374,7 @@ public class WorkspaceFactory {
       }
       bindings.put(entry);
     }
-    bindings.put("bazel_version", ruleClassProvider.getVersion());
+    bindings.put("bazel_version", bazelVersion);
 
     return bindings.buildOrThrow();
   }
