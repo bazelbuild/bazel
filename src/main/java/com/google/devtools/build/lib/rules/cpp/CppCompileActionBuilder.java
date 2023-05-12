@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -73,7 +72,6 @@ public final class CppCompileActionBuilder {
   private NestedSet<Artifact> cacheKeyInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> additionalPrunableHeaders =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private ImmutableList<PathFragment> builtinIncludeDirectories;
   private ImmutableList<Artifact> additionalOutputs = ImmutableList.of();
   // New fields need to be added to the copy constructor.
 
@@ -97,7 +95,6 @@ public final class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.additionalIncludeScanningRoots = new ArrayList<>();
     this.ccToolchain = ccToolchain;
-    this.builtinIncludeDirectories = ccToolchain.getBuiltInIncludeDirectories();
     this.cppSemantics = cppSemantics;
   }
 
@@ -130,7 +127,6 @@ public final class CppCompileActionBuilder {
     this.cppSemantics = other.cppSemantics;
     this.ccToolchain = other.ccToolchain;
     this.actionName = other.actionName;
-    this.builtinIncludeDirectories = other.builtinIncludeDirectories;
     this.additionalOutputs = other.additionalOutputs;
   }
 
@@ -300,7 +296,6 @@ public final class CppCompileActionBuilder {
         useHeaderModules,
         realMandatoryInputs,
         realMandatorySpawnInputs,
-        getInputsForInvalidation(),
         getBuiltinIncludeFiles(),
         prunableHeaders,
         outputFile,
@@ -315,7 +310,7 @@ public final class CppCompileActionBuilder {
         ImmutableMap.copyOf(executionInfo),
         actionName,
         cppSemantics,
-        builtinIncludeDirectories,
+        getBuiltinIncludeDirectories(),
         ccToolchain.getGrepIncludes(),
         additionalOutputs);
   }
@@ -612,16 +607,8 @@ public final class CppCompileActionBuilder {
     return this;
   }
 
-  @CanIgnoreReturnValue
-  @VisibleForTesting
-  public CppCompileActionBuilder setBuiltinIncludeDirectories(
-      ImmutableList<PathFragment> builtinIncludeDirectories) {
-    this.builtinIncludeDirectories = builtinIncludeDirectories;
-    return this;
-  }
-
   ImmutableList<PathFragment> getBuiltinIncludeDirectories() {
-    return builtinIncludeDirectories;
+    return ccToolchain.getBuiltInIncludeDirectories();
   }
 
   public boolean shouldCompileHeaders() {
