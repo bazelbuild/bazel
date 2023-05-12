@@ -20,11 +20,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -116,6 +119,7 @@ public class CommandEnvironment {
   private OutputService outputService;
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
+  private boolean buildInfoPosted = false;
   @Nullable private WorkspaceInfoFromDiff workspaceInfoFromDiff;
 
   // This AtomicReference is set to:
@@ -233,6 +237,7 @@ public class CommandEnvironment {
       this.packageLocator = null;
     }
     workspace.getSkyframeExecutor().setEventBus(eventBus);
+    eventBus.register(this);
 
     ClientOptions clientOptions =
         Preconditions.checkNotNull(
@@ -873,5 +878,22 @@ public class CommandEnvironment {
 
   public CommandLinePathFactory getCommandLinePathFactory() {
     return commandLinePathFactory;
+  }
+
+  public void ensureBuildInfoPosted() {
+    if (buildInfoPosted) {
+      return;
+    }
+    ImmutableSortedMap<String, String> workspaceStatus =
+        workspace
+            .getWorkspaceStatusActionFactory()
+            .createDummyWorkspaceStatus(workspaceInfoFromDiff);
+    eventBus.post(new BuildInfoEvent(workspaceStatus));
+  }
+
+  @Subscribe
+  @SuppressWarnings("unused")
+  void gotBuildInfo(BuildInfoEvent event) {
+    buildInfoPosted = true;
   }
 }
