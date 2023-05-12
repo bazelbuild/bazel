@@ -459,19 +459,23 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.IGNORED_PACKAGE_PREFIXES,
             new IgnoredPackagePrefixesFunction(
-                /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-        .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(pkgFactory, hashFunction))
-        .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
+        .put(
+            SkyFunctions.BZL_COMPILE,
+            new BzlCompileFunction(ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction))
+        .put(
+            SkyFunctions.STARLARK_BUILTINS,
+            new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
-                pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
+                ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
-                ruleClassProvider, pkgFactory, directories, /*bzlLoadFunctionForInlining=*/ null))
+                ruleClassProvider, pkgFactory, directories, /* bzlLoadFunctionForInlining= */ null))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
@@ -482,10 +486,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new PackageFunction(
                 pkgFactory,
                 cachingPackageLocator,
-                /*showLoadingProgress=*/ new AtomicBoolean(false),
-                /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(0),
-                /*bzlLoadFunctionForInlining=*/ null,
-                /*packageProgress=*/ null,
+                /* showLoadingProgress= */ new AtomicBoolean(false),
+                /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(0),
+                /* bzlLoadFunctionForInlining= */ null,
+                /* packageProgress= */ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
                 GlobbingStrategy.NON_SKYFRAME,

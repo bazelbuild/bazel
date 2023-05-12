@@ -463,7 +463,7 @@ public class PackageFunction implements SkyFunction {
             StarlarkBuiltinsFunction.computeInline(
                 StarlarkBuiltinsValue.key(),
                 BzlLoadFunction.InliningState.create(env),
-                packageFactory,
+                packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);
       }
     } catch (BuiltinsFailedException e) {

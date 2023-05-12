@@ -575,9 +575,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(
         SkyFunctions.BZL_COMPILE, // TODO rename
-        new BzlCompileFunction(pkgFactory, getDigestFunction().getHashFunction()));
-    map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
-    map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
+        new BzlCompileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            getDigestFunction().getHashFunction()));
+    map.put(
+        SkyFunctions.STARLARK_BUILTINS,
+        new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
+    map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider));
     GlobFunction globFunction = newGlobFunction();
     map.put(SkyFunctions.GLOB, globFunction);
     this.globFunction = globFunction;
@@ -765,10 +769,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return null;
   }
 
-  protected SkyFunction newBzlLoadFunction(
-      RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
+  protected SkyFunction newBzlLoadFunction(RuleClassProvider ruleClassProvider) {
     return BzlLoadFunction.create(
-        this.pkgFactory, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
+        ruleClassProvider, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
   }
 
   @ThreadCompatible
