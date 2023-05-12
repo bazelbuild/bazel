@@ -15,21 +15,114 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Printer;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkCallable;
+import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Location;
 
-/** Encapsulates the core, default set of {@link PackageArgument}s. */
-final class DefaultPackageArguments {
+/**
+ * Utility class encapsulating the definition of the {@code package()} function of BUILD files.
+ *
+ * <p>Also includes the definitions of those arguments to {@code package()} that are available in
+ * all Bazel environments.
+ */
+public class PackageCallable {
 
-  private DefaultPackageArguments() {}
+  private PackageCallable() {}
 
-  /** Returns the default set of {@link PackageArgument}s. */
-  static ImmutableList<PackageArgument<?>> get() {
+  /**
+   * Returns a {@link StarlarkCallable} that implements the {@code package()} functionality.
+   *
+   * @param environmentExtensions a list of extensions that define additional arguments for {@code
+   *     package()}, beyond the standard ones included in every Bazel environment
+   */
+  // TODO(b/280446865): Consider eliminating the package() extensibility mechanism altogether.
+  // There is currently only one use case: distinguishing the set of package() arguments available
+  // in OSS Bazel vs internally to Google. Instead of registering these arguments and passing them
+  // to this factory method to obtain a package() callable, we could instead define two
+  // @StarlarkMethod-annotated Java functions implementing the two versions of package(), and
+  // register the appropriate one with the ConfiguredRuleClassProvider.Builder.
+  public static StarlarkCallable newPackageCallable(
+      List<EnvironmentExtension> environmentExtensions) {
+    // Construct a map of PackageArguments, which the returned callable closes over.
+    ImmutableMap.Builder<String, PackageArgument<?>> argsBuilder = ImmutableMap.builder();
+    for (PackageArgument<?> arg : getCommonArguments()) {
+      argsBuilder.put(arg.getName(), arg);
+    }
+    for (EnvironmentExtension ext : environmentExtensions) {
+      for (PackageArgument<?> arg : ext.getPackageArguments()) {
+        argsBuilder.put(arg.getName(), arg);
+      }
+    }
+    final ImmutableMap<String, PackageArgument<?>> packageArguments = argsBuilder.buildOrThrow();
+
+    return new StarlarkCallable() {
+      @Override
+      public String getName() {
+        return "package";
+      }
+
+      @Override
+      public String toString() {
+        return "package(...)";
+      }
+
+      @Override
+      public boolean isImmutable() {
+        return true;
+      }
+
+      @Override
+      public void repr(Printer printer) {
+        printer.append("<built-in function package>");
+      }
+
+      @Override
+      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
+          throws EvalException {
+        if (!args.isEmpty()) {
+          throw new EvalException("unexpected positional arguments");
+        }
+        Package.Builder pkgBuilder = PackageFactory.getContext(thread).pkgBuilder;
+
+        // Validate parameter list
+        if (pkgBuilder.isPackageFunctionUsed()) {
+          throw new EvalException("'package' can only be used once per BUILD file");
+        }
+        pkgBuilder.setPackageFunctionUsed();
+
+        // Each supplied argument must name a PackageArgument.
+        if (kwargs.isEmpty()) {
+          throw new EvalException("at least one argument must be given to the 'package' function");
+        }
+        Location loc = thread.getCallerLocation();
+        for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
+          String name = kwarg.getKey();
+          PackageArgument<?> pkgarg = packageArguments.get(name);
+          if (pkgarg == null) {
+            throw Starlark.errorf("unexpected keyword argument: %s", name);
+          }
+          pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
+        }
+        return Starlark.NONE;
+      }
+    };
+  }
+
+  /** Returns the basic set of {@link PackageArgument}s. */
+  private static ImmutableList<PackageArgument<?>> getCommonArguments() {
     return ImmutableList.of(
         new DefaultDeprecation(),
         new DefaultDistribs(),
@@ -61,8 +154,7 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        Boolean value) {
+    protected void process(Package.Builder pkgBuilder, Location location, Boolean value) {
       pkgBuilder.setDefaultTestonly(value);
     }
   }
@@ -73,8 +165,7 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        String value) {
+    protected void process(Package.Builder pkgBuilder, Location location, String value) {
       pkgBuilder.setDefaultDeprecation(value);
     }
   }
@@ -85,8 +176,7 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        List<String> value) {
+    protected void process(Package.Builder pkgBuilder, Location location, List<String> value) {
       pkgBuilder.addFeatures(value);
     }
   }
@@ -148,8 +238,7 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        License value) {
+    protected void process(Package.Builder pkgBuilder, Location location, License value) {
       pkgBuilder.setDefaultLicense(value);
     }
   }
@@ -160,8 +249,8 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        Set<DistributionType> value) {
+    protected void process(
+        Package.Builder pkgBuilder, Location location, Set<DistributionType> value) {
       pkgBuilder.setDefaultDistribs(value);
     }
   }
@@ -179,8 +268,7 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        List<Label> value) {
+    protected void process(Package.Builder pkgBuilder, Location location, List<Label> value) {
       pkgBuilder.setDefaultCompatibleWith(value, DEFAULT_COMPATIBLE_WITH_ATTRIBUTE, location);
     }
   }
@@ -198,8 +286,7 @@ final class DefaultPackageArguments {
     }
 
     @Override
-    protected void process(Package.Builder pkgBuilder, Location location,
-        List<Label> value) {
+    protected void process(Package.Builder pkgBuilder, Location location, List<Label> value) {
       pkgBuilder.setDefaultRestrictedTo(value, DEFAULT_RESTRICTED_TO_ATTRIBUTE, location);
     }
   }

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.PackageCallable;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -93,6 +94,7 @@ public /*final*/ class ConfiguredRuleClassProvider
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
+  // TODO(b/280446865): Consider merging Bootstrap and EnvironmentExtension into this interface.
   public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
@@ -666,6 +668,9 @@ public /*final*/ class ConfiguredRuleClassProvider
   /** List of environment extensions to apply. */
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
 
+  /** Implementation of the {@code package()} symbol in BUILD files. */
+  private final Object packageCallable;
+
   private final FragmentRegistry fragmentRegistry;
 
   /** The transition factory used to produce the transition that will trim targets. */
@@ -736,6 +741,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
     this.environmentExtensions = environmentExtensions;
+    this.packageCallable = PackageCallable.newPackageCallable(environmentExtensions);
     this.fragmentRegistry = fragmentRegistry;
     this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
@@ -814,9 +820,15 @@ public /*final*/ class ConfiguredRuleClassProvider
     return nativeAspectClassMap.get(key);
   }
 
+  // TODO(b/280446865): Eliminate this once EnvironmentExtensions are turned into Bootstraps.
   @Override
   public ImmutableList<EnvironmentExtension> getEnvironmentExtensions() {
     return environmentExtensions;
+  }
+
+  @Override
+  public Object getPackageCallable() {
+    return packageCallable;
   }
 
   @Override

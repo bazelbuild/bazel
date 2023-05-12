@@ -48,24 +48,20 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
-import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkCallable;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
-import net.starlark.java.eval.Tuple;
 import net.starlark.java.syntax.Argument;
 import net.starlark.java.syntax.CallExpression;
 import net.starlark.java.syntax.DefStatement;
@@ -183,12 +179,8 @@ public final class PackageFactory {
     this.packageValidator = packageValidator;
     this.packageOverheadEstimator = packageOverheadEstimator;
     this.packageLoadingListener = packageLoadingListener;
-    this.bazelStarlarkEnvironment =
-        new BazelStarlarkEnvironment(
-            ruleClassProvider,
-            // TODO(b/280446865): move package function creation to ConfiguredRuleClassProvider
-            newPackageFunction(
-                createPackageArguments(ruleClassProvider.getEnvironmentExtensions())));
+    // TODO(b/280446865): Consider creating this in the ConfiguredRuleClassProvider instead of here.
+    this.bazelStarlarkEnvironment = new BazelStarlarkEnvironment(ruleClassProvider);
   }
 
   /** Sets the syscalls cache used in filesystem access. */
@@ -244,83 +236,6 @@ public final class PackageFactory {
 
   public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
     return bazelStarlarkEnvironment;
-  }
-
-  /** Creates the map of arguments for the 'package' function. */
-  private static ImmutableMap<String, PackageArgument<?>> createPackageArguments(
-      List<EnvironmentExtension> environmentExtensions) {
-    ImmutableList.Builder<PackageArgument<?>> arguments =
-        ImmutableList.<PackageArgument<?>>builder().addAll(DefaultPackageArguments.get());
-
-    for (EnvironmentExtension extension : environmentExtensions) {
-      arguments.addAll(extension.getPackageArguments());
-    }
-
-    ImmutableMap.Builder<String, PackageArgument<?>> packageArguments = ImmutableMap.builder();
-    for (PackageArgument<?> argument : arguments.build()) {
-      packageArguments.put(argument.getName(), argument);
-    }
-    return packageArguments.buildOrThrow();
-  }
-
-  /** Returns a function-value implementing "package" in the specified package context. */
-  // TODO(cparsons): Migrate this function to be defined with @StarlarkMethod.
-  // TODO(adonovan): don't call this function twice (once for BUILD files and
-  // once for the native module) as it results in distinct objects. (Using
-  // @StarlarkMethod may accomplish that.)
-  private static StarlarkCallable newPackageFunction(
-      final Map<String, PackageArgument<?>> packageArguments) {
-    return new StarlarkCallable() {
-      @Override
-      public String getName() {
-        return "package";
-      }
-
-      @Override
-      public String toString() {
-        return "package(...)";
-      }
-
-      @Override
-      public boolean isImmutable() {
-        return true;
-      }
-
-      @Override
-      public void repr(Printer printer) {
-        printer.append("<built-in function package>");
-      }
-
-      @Override
-      public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
-          throws EvalException {
-        if (!args.isEmpty()) {
-          throw new EvalException("unexpected positional arguments");
-        }
-        Package.Builder pkgBuilder = getContext(thread).pkgBuilder;
-
-        // Validate parameter list
-        if (pkgBuilder.isPackageFunctionUsed()) {
-          throw new EvalException("'package' can only be used once per BUILD file");
-        }
-        pkgBuilder.setPackageFunctionUsed();
-
-        // Each supplied argument must name a PackageArgument.
-        if (kwargs.isEmpty()) {
-          throw new EvalException("at least one argument must be given to the 'package' function");
-        }
-        Location loc = thread.getCallerLocation();
-        for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
-          String name = kwarg.getKey();
-          PackageArgument<?> pkgarg = packageArguments.get(name);
-          if (pkgarg == null) {
-            throw Starlark.errorf("unexpected keyword argument: %s", name);
-          }
-          pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
-        }
-        return Starlark.NONE;
-      }
-    };
   }
 
   /** Get the PackageContext by looking up in the environment. */

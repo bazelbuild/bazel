@@ -71,6 +71,12 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   // API, and moving the top-level symbol customization into a Bootstrap like everything else.
   ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
 
+  /** Returns the callable symbol that implements the {@code package()} function in BUILD files. */
+  // TODO(b/280446865): Instead of exposing the {@code package()} symbol by itself, keep it
+  // hidden in this class and just export the overall BUILD / {@code native} environment. Requires
+  // migrating more business logic from BazelStarlarkEnvironment to ConfiguredRuleClassProvider.
+  Object getPackageCallable();
+
   /**
    * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
    * and hence are allowed to be overridden by builtins-injection.

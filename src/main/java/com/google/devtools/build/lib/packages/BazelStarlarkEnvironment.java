@@ -63,12 +63,14 @@ public final class BazelStarlarkEnvironment {
   /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
   private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
-  BazelStarlarkEnvironment(RuleClassProvider ruleClassProvider, Object packageFunction) {
+  BazelStarlarkEnvironment(RuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = ruleClassProvider;
     this.ruleFunctions = ruleClassProvider.getRuleFunctionMap();
     this.uninjectedBuildBzlNativeBindings =
         createUninjectedBuildBzlNativeBindings(
-            ruleFunctions, packageFunction, ruleClassProvider.getEnvironmentExtensions());
+            ruleFunctions,
+            ruleClassProvider.getPackageCallable(),
+            ruleClassProvider.getEnvironmentExtensions());
     this.workspaceBzlNativeBindings = createWorkspaceBzlNativeBindings(ruleClassProvider);
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
@@ -82,7 +84,9 @@ public final class BazelStarlarkEnvironment {
             ruleClassProvider, uninjectedBuildBzlNativeBindings, uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
         createUninjectedBuildEnv(
-            ruleFunctions, packageFunction, ruleClassProvider.getEnvironmentExtensions());
+            ruleFunctions,
+            ruleClassProvider.getPackageCallable(),
+            ruleClassProvider.getEnvironmentExtensions());
   }
 
   /**
