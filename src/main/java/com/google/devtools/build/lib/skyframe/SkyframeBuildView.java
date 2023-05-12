@@ -687,8 +687,12 @@ public final class SkyframeBuildView {
                   exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
           for (SkyKey testCompletionKey : testCompletionKeys) {
             EvaluationResult<SkyValue> testRunResult =
-                skyframeExecutor.evaluateSkyKeys(
-                    eventHandler, ImmutableSet.of(testCompletionKey), keepGoing);
+                skyframeExecutor.runExclusiveTestSkymeld(
+                    eventHandler,
+                    resourceManager,
+                    testCompletionKey,
+                    keepGoing,
+                    executors.executionParallelism());
             if (testRunResult.hasError()) {
               detailedExitCodes.add(
                   SkyframeErrorProcessor.processErrors(

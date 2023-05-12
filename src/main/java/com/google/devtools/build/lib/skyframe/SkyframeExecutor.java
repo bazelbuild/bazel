@@ -1626,6 +1626,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
+  public EvaluationResult<SkyValue> runExclusiveTestSkymeld(
+      ExtendedEventHandler eventHandler,
+      ResourceManager resourceManager,
+      SkyKey testCompletionKey,
+      boolean keepGoing,
+      int numThreads)
+      throws InterruptedException {
+    checkActive();
+    checkState(actionLogBufferPathGenerator != null);
+
+    resourceManager.resetResourceUsage();
+    try {
+      return evaluate(ImmutableSet.of(testCompletionKey), keepGoing, numThreads, eventHandler);
+    } finally {
+      resourceManager.resetResourceUsage();
+    }
+  }
+
   @VisibleForTesting
   public void prepareBuildingForTestingOnly(
       Reporter reporter, Executor executor, OptionsProvider options, ActionCacheChecker checker) {
