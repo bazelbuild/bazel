@@ -63,6 +63,9 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   /** Returns a map from rule names to the Starlark callables that instantiate them. */
   ImmutableMap<String, ?> getRuleFunctionMap();
 
+  /** Returns a map from aspect names to aspect factory objects. */
+  Map<String, NativeAspectClass> getNativeAspectClassMap();
+
   /**
    * Returns a list of environment extensions to use for customizing the available BUILD symbols and
    * the arguments to the {@code package()} function.
@@ -106,8 +109,11 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    */
   ImmutableMap<String, Object> getEnvironment();
 
-  /** Returns a map from aspect names to aspect factory objects. */
-  Map<String, NativeAspectClass> getNativeAspectClassMap();
+  /**
+   * Returns the {@link BazelStarlarkEnvironment}, which is the final determiner of the BUILD and
+   * .bzl environment (with and without builtins injection).
+   */
+  BazelStarlarkEnvironment getBazelStarlarkEnvironment();
 
   /**
    * Returns the default content that should be added at the beginning of the WORKSPACE file.

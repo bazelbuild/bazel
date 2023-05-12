@@ -32,11 +32,20 @@ import net.starlark.java.eval.Starlark;
  * and bzl file evaluation, including the top-level predeclared symbols, the {@code native} module,
  * and the special environment for {@code @_builtins} bzl evaluation.
  *
- * <p>The set of available symbols is determined by 1) gathering registered toplevels, rules,
- * extensions, etc., from the {@link ConfiguredRuleClassProvider} and {@link PackageFactory}, and
- * then 2) applying builtins injection (see {@link StarlarkBuiltinsFunction}, if applicable. The
- * result of (1) is cached by an instance of this class. (2) is obtained using helper methods on
- * this class, and cached in {@link StarlarkBuiltinsValue}.
+ * <p>The set of available symbols is determined by
+ *
+ * <ol>
+ *   <li>Gathering a fixed set of top-level symbols aggregated in {@link StarlarkLibrary}, which are
+ *       present in all versions of Bazel.
+ *   <li>Gathering additional toplevels, rules, extensions, etc., registered on the {@link
+ *       ConfiguredRuleClassProvider}.
+ *   <li>Applying builtins injection (see {@link StarlarkBuiltinsFunction}), if applicable.
+ * </ol>
+ *
+ * The end result of (1) and (2) is constant for any given Bazel binary and is cached by an instance
+ * of this class upon construction. The final environment, which takes into account builtins
+ * injection, is obtained by calling methods on this class during Skyframe evaluation; the result is
+ * cached in {@link StarlarkBuiltinsValue}.
  */
 public final class BazelStarlarkEnvironment {
 
@@ -63,7 +72,7 @@ public final class BazelStarlarkEnvironment {
   /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
   private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
-  BazelStarlarkEnvironment(RuleClassProvider ruleClassProvider) {
+  public BazelStarlarkEnvironment(RuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = ruleClassProvider;
     this.ruleFunctions = ruleClassProvider.getRuleFunctionMap();
     this.uninjectedBuildBzlNativeBindings =
@@ -216,7 +225,7 @@ public final class BazelStarlarkEnvironment {
     // Clear out rule-specific symbols like CcInfo.
     env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
 
-    // For _builtins.toplevel, replace all FlagGuardedValues with the underlying value;
+    // For _builtins.toplevel, replace all GuardedValues with the underlying value;
     // StarlarkSemantics flags do not affect @_builtins.
     //
     // We do this because otherwise we'd need to differentiate the _builtins.toplevel object (and

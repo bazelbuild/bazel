@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.PackageCallable;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
@@ -692,6 +693,8 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final ImmutableMap<String, Object> environment;
 
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
+
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
 
   private final ImmutableSet<String> reservedActionMnemonics;
@@ -760,6 +763,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
     this.networkAllowlistForTests = networkAllowlistForTests;
+    // Initialize this after other fields to avoid circular init dependencies.
+    this.bazelStarlarkEnvironment = new BazelStarlarkEnvironment(this);
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -927,6 +932,11 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public ImmutableMap<String, Object> getEnvironment() {
     return environment;
+  }
+
+  @Override
+  public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
+    return bazelStarlarkEnvironment;
   }
 
   @Override

@@ -111,6 +111,7 @@ public class BzlLoadFunction implements SkyFunction {
   // evaluation; 2) providing predeclared environments to other Skyfunctions
   // (StarlarkBuiltinsFunction, BzlCompileFunction) when they are inlined and called via a static
   // computeInline() entry point.
+  // TODO(b/280446865): Replace packageFactory field with a ruleClassProvider
   private final PackageFactory packageFactory;
 
   // Used for determining paths to builtins bzls that live in the workspace.
@@ -1274,7 +1275,8 @@ public class BzlLoadFunction implements SkyFunction {
   @Nullable
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
       BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
-    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
+    BazelStarlarkEnvironment starlarkEnv =
+        packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment();
     if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
       if (builtins

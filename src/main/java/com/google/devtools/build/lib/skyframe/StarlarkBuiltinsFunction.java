@@ -84,6 +84,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       BzlLoadValue.keyForBuiltins(EXPORTS_ENTRYPOINT);
 
   // Used to obtain the injected environment.
+  // TODO(b/280446865): Replace packageFactory field with a ruleClassProvider
   private final PackageFactory packageFactory;
 
   public StarlarkBuiltinsFunction(PackageFactory packageFactory) {
@@ -164,7 +165,8 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     // Apply declarations of exports.bzl to the native predeclared symbols.
     byte[] transitiveDigest = exportsValue.getTransitiveDigest();
     Module module = exportsValue.getModule();
-    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
+    BazelStarlarkEnvironment starlarkEnv =
+        packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment();
     try {
       ImmutableMap<String, Object> exportedToplevels = getDict(module, "exported_toplevels");
       ImmutableMap<String, Object> exportedRules = getDict(module, "exported_rules");

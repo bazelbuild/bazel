@@ -116,8 +116,6 @@ public final class PackageFactory {
   private final PackageOverheadEstimator packageOverheadEstimator;
   private final PackageLoadingListener packageLoadingListener;
 
-  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
-
   /** Builder for {@link PackageFactory} instances. Intended to only be used by unit tests. */
   @VisibleForTesting
   public abstract static class BuilderForTesting {
@@ -179,8 +177,6 @@ public final class PackageFactory {
     this.packageValidator = packageValidator;
     this.packageOverheadEstimator = packageOverheadEstimator;
     this.packageLoadingListener = packageLoadingListener;
-    // TODO(b/280446865): Consider creating this in the ConfiguredRuleClassProvider instead of here.
-    this.bazelStarlarkEnvironment = new BazelStarlarkEnvironment(ruleClassProvider);
   }
 
   /** Sets the syscalls cache used in filesystem access. */
@@ -232,10 +228,6 @@ public final class PackageFactory {
   /** Returns the {@link RuleClassProvider} of this {@link PackageFactory}. */
   public RuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
-  }
-
-  public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
-    return bazelStarlarkEnvironment;
   }
 
   /** Get the PackageContext by looking up in the environment. */

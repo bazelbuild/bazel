@@ -51,6 +51,7 @@ import net.starlark.java.syntax.SyntaxError;
 // TODO(adonovan): actually compile. The name is a step ahead of the implementation.
 public class BzlCompileFunction implements SkyFunction {
 
+  // TODO(b/280446865): Replace packageFactory field with a ruleClassProvider
   private final PackageFactory packageFactory;
   private final HashFunction hashFunction;
 
@@ -144,20 +145,20 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     Map<String, Object> predeclared;
-    BazelStarlarkEnvironment starlarkEnv = packageFactory.getBazelStarlarkEnvironment();
+    BazelStarlarkEnvironment starlarkEnv =
+        packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment();
     if (key.kind == BzlCompileValue.Kind.BUILTINS) {
       predeclared = starlarkEnv.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not
       // the right env for the actual evaluation of BUILD-loaded bzl files because it doesn't
       // map to the injected symbols. But the names of the symbols are the same, and the names are
-      // all we need to do symbol resolution (modulo FlagGuardedValues -- see TODO in
-      // PackageFactory.createBuildBzlEnvUsingInjection()).
+      // all we need to do symbol resolution.
+      //
       // For WORKSPACE-loaded bzl files, the env isn't quite right not because of injection but
       // because the "native" object is different. But A) that will be fixed with #11954, and B) we
       // don't care for the same reason as above.
       predeclared = starlarkEnv.getUninjectedBuildBzlEnv();
-
     }
 
     // We have all deps. Parse, resolve, and return.
