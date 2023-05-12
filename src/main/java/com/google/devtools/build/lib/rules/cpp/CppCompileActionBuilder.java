@@ -68,7 +68,7 @@ public final class CppCompileActionBuilder {
   private final CppSemantics cppSemantics;
   private final CcToolchainProvider ccToolchain;
   @Nullable private String actionName;
-  private ImmutableList<Artifact> builtinIncludeFiles;
+  private ImmutableList<Artifact> buildInfoHeaderArtifacts = ImmutableList.of();
   private NestedSet<Artifact> cacheKeyInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private NestedSet<Artifact> additionalPrunableHeaders =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -316,12 +316,19 @@ public final class CppCompileActionBuilder {
   }
 
   private ImmutableList<Artifact> getBuiltinIncludeFiles() {
-    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    result.addAll(ccToolchain.getBuiltinIncludeFiles(cppConfiguration));
-    if (builtinIncludeFiles != null) {
-      result.addAll(builtinIncludeFiles);
+    ImmutableList<Artifact> builtinIncludeFiles =
+        ccToolchain.getBuiltinIncludeFiles(cppConfiguration);
+    if (buildInfoHeaderArtifacts.isEmpty()) {
+      return builtinIncludeFiles;
     }
-    return result.build();
+    if (builtinIncludeFiles.isEmpty()) {
+      return buildInfoHeaderArtifacts;
+    }
+    return ImmutableList.<Artifact>builderWithExpectedSize(
+            builtinIncludeFiles.size() + buildInfoHeaderArtifacts.size())
+        .addAll(builtinIncludeFiles)
+        .addAll(buildInfoHeaderArtifacts)
+        .build();
   }
 
   private boolean shouldParseShowIncludes() {
@@ -580,9 +587,9 @@ public final class CppCompileActionBuilder {
   }
 
   @CanIgnoreReturnValue
-  public CppCompileActionBuilder setBuiltinIncludeFiles(
-      ImmutableList<Artifact> builtinIncludeFiles) {
-    this.builtinIncludeFiles = builtinIncludeFiles;
+  public CppCompileActionBuilder setBuildInfoHeaderArtifacts(
+      ImmutableList<Artifact> buildInfoHeaderArtifacts) {
+    this.buildInfoHeaderArtifacts = buildInfoHeaderArtifacts;
     return this;
   }
 
