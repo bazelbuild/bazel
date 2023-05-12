@@ -359,6 +359,7 @@ java_library(
         ":starlark/starlark_toolchain_context",
         ":starlark/starlark_transition",
         ":starlark/template_dict",
+        ":symlink_entry",
         ":target_and_configuration",
         ":template_variable_info",
         ":test/analysis_failure",
@@ -1041,6 +1042,7 @@ java_library(
     deps = [
         ":actions/abstract_file_write_action",
         ":actions/deterministic_writer",
+        ":symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -1140,6 +1142,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "symlink_entry",
+    srcs = ["SymlinkEntry.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 

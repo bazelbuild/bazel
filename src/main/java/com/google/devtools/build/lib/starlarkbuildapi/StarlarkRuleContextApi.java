@@ -557,8 +557,8 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
               @ParamType(type = Depset.class, generic1 = SymlinkEntryApi.class)
             },
             doc =
-                "Either a SymlinkEntry depset or the map of symlinks, prefixed by workspace name,"
-                    + " to be added to the runfiles. See <a"
+                "Either a SymlinkEntry depset or the map of symlinks to be added to the runfiles"
+                    + " with the workspace name added as a prefix. See <a"
                     + " href=\"https://bazel.build/extending/rules#runfiles_symlinks\">Runfiles"
                     + " symlinks</a> in the rules guide."),
         @Param(
