@@ -89,6 +89,7 @@ java_test(
     size = "medium",
     jvm_flags = ["-DBAZEL_USE_POOLED_LABEL_INTERNER=1"],
     shard_count = 2,
+    tags = ["not_run:arm"],
     test_class = "com.google.devtools.build.skyframe.AllTests",
     runtime_deps = [":skyframe_tests"],
 )
