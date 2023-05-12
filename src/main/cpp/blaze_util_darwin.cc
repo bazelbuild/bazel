@@ -135,12 +135,12 @@ string GetSelfPath(const char* argv0) {
 }
 
 uint64_t GetMillisecondsMonotonic() {
-  struct timeval ts = {};
-  if (gettimeofday(&ts, nullptr) < 0) {
+  struct timespec ts = {};
+  if (clock_gettime(CLOCK_UPTIME_RAW, &ts) < 0) {
     BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
-        << "error calling gettimeofday: " << GetLastErrorString();
+        << "error calling clock_gettime: " << GetLastErrorString();
   }
-  return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
+  return ts.tv_sec * 1000LL + ts.tv_nsec / 1000000LL;
 }
 
 uint64_t GetMillisecondsSinceProcessStart() {
