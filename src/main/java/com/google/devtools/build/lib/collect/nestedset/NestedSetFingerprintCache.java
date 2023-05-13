@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLineItem.MapFn;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -58,6 +59,27 @@ public class NestedSetFingerprintCache {
     fingerprint.addInt(nestedSet.getOrder().ordinal());
     Object children = nestedSet.getChildren();
     addToFingerprint(mapFn, fingerprint, digestMap, children);
+  }
+
+  public static <T> String describedNestedSetFingerprint(
+      MapFn<? super T> mapFn, NestedSet<T> nestedSet) {
+    if (nestedSet.isEmpty()) {
+      return "<empty>";
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append("order: ").append(nestedSet.getOrder()).append('\n');
+    List<T> list = nestedSet.toList();
+    sb.append("size: ").append(list.size()).append('\n');
+    for (T item : list) {
+      sb.append("  ");
+      try {
+        mapFn.expandToCommandLine(item, s -> sb.append(sb).append(", "));
+      } catch (CommandLineExpansionException | InterruptedException e) {
+        return null;
+      }
+      sb.append('\n');
+    }
+    return sb.toString();
   }
 
   private <T> void addNestedSetToFingerprintSlow(

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
@@ -249,10 +250,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   protected void computeKey(
       ActionKeyContext actionKeyContext,
       @Nullable Artifact.ArtifactExpander artifactExpander,
-      Fingerprint fp) {
+      Fingerprint fp) throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(fp);
+    runfiles.fingerprint(actionKeyContext, fp);
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {
       fp.addPath(repoMappingManifest.getExecPath());

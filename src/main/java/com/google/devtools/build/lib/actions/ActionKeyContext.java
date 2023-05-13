@@ -35,6 +35,11 @@ public class ActionKeyContext {
     nestedSetFingerprintCache.addNestedSetToFingerprint(mapFn, fingerprint, nestedSet);
   }
 
+  public static <T> String describedNestedSetFingerprint(
+      CommandLineItem.MapFn<? super T> mapFn, NestedSet<T> nestedSet) {
+    return NestedSetFingerprintCache.describedNestedSetFingerprint(mapFn, nestedSet);
+  }
+
   public void clear() {
     nestedSetFingerprintCache.clear();
   }
