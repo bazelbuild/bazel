@@ -287,7 +287,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected MemoizingEvaluator memoizingEvaluator;
-  private final EmittedEventState emittedEventState = new EmittedEventState();
+  protected final EmittedEventState emittedEventState = new EmittedEventState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final FileSystem fileSystem;
@@ -332,7 +332,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
   protected final SyscallCache syscallCache;
 
-  private final SkyframeBuildView skyframeBuildView;
+  protected final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
@@ -434,7 +434,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // ever losing injected/invalidated data here. This is safe because the worst that will happen is
   // that on the next build we try to inject/invalidate some nodes that aren't needed for the build.
   @Nullable protected final RecordingDifferencer recordingDiffer;
-  @Nullable final DiffAwarenessManager diffAwarenessManager;
+  @Nullable protected final DiffAwarenessManager diffAwarenessManager;
   // If this is null then workspace header pre-calculation won't happen.
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;

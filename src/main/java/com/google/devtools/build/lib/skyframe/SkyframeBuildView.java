@@ -1264,7 +1264,7 @@ public final class SkyframeBuildView {
    * Clears any data cached in this BuildView. To be called when the attached SkyframeExecutor is
    * reset.
    */
-  void reset() {
+  public void reset() {
     configuration = null;
     skyframeAnalysisWasDiscarded = false;
     clearLegacyData();
