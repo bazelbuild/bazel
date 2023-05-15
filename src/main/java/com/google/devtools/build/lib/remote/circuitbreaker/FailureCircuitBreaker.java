@@ -31,7 +31,7 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
    *                          time window.
    * @param slidingWindowSize the size of the sliding window in milliseconds to calculate the number of failures.
    */
-  public FailureCircuitBreaker(final int failureThreshold, final int slidingWindowSize) {
+  public FailureCircuitBreaker(int failureThreshold, int slidingWindowSize) {
     this.failureThreshold = failureThreshold;
     this.failures = new AtomicInteger(0);
     this.slidingWindowSize = slidingWindowSize;
