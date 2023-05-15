@@ -59,6 +59,7 @@ DEFAULT_JAVACOPTS = [
     "-Xep:EmptyTopLevelDeclaration:OFF",
     "-Xep:LenientFormatStringValidation:OFF",
     "-Xep:ReturnMissingNullable:OFF",
+    "-Xep:ImpossibleNullComparison:OFF",
 ]
 
 # java_toolchain parameters without specifying javac, java.compiler,
