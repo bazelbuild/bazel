@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -992,20 +993,57 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLabelsCrossesSubpackageBoundaries() throws Exception {
+  public void testLabelsCrossesSubpackageBoundaries_singleSubpackageCrossing() throws Exception {
     reporter.removeHandler(failFastHandler);
 
-    scratch.file("pkg/BUILD", "exports_files(['sub/blah'])");
-    scratch.file("pkg/sub/BUILD");
+    scratch.file("pkg/foo/BUILD", "exports_files(['sub/bar/blah'])");
+    scratch.file("pkg/foo/sub/BUILD");
     invalidatePackages();
 
-    SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg");
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg/foo");
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThatEvaluationResult(result).hasNoError();
     assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
-    assertContainsEvent("Label '//pkg:sub/blah' is invalid because 'pkg/sub' is a subpackage");
+    assertContainsEvent(
+        "Label '//pkg/foo:sub/bar/blah' is invalid because 'pkg/foo/sub' is a subpackage; perhaps"
+            + " you meant to put the colon here: '//pkg/foo/sub:bar/blah'?");
+  }
+
+  @Test
+  public void testLabelsCrossesSubpackageBoundaries_complexSubpackageCrossing() throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "pkg/foo/BUILD",
+        "exports_files(['sub11/sub12/blah1'])",
+        "exports_files(['sub21/sub22/blah2'])");
+    scratch.file("pkg/foo/sub11/BUILD");
+    scratch.file("pkg/foo/sub11/sub12/BUILD");
+    scratch.file("pkg/foo/sub21/BUILD");
+    scratch.file("pkg/foo/sub21/sub22/BUILD");
+
+    invalidatePackages();
+
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg/foo");
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
+
+    // Only the deepest package that crosses subpackage boundary should be displayed in the error
+    // message.
+    assertContainsEvent(
+        "Label '//pkg/foo:sub11/sub12/blah1' is invalid because 'pkg/foo/sub11/sub12' is a"
+            + " subpackage; perhaps you meant to put the colon here:"
+            + " '//pkg/foo/sub11/sub12:blah1'?");
+    assertContainsEvent(
+        "Label '//pkg/foo:sub21/sub22/blah2' is invalid because 'pkg/foo/sub21/sub22' is a"
+            + " subpackage; perhaps you meant to put the colon here:"
+            + " '//pkg/foo/sub21/sub22:blah2'?");
+    assertThat(eventCollector.filtered(EventKind.ERROR)).hasSize(2);
   }
 
   @Test
