@@ -110,6 +110,7 @@ abstract class AbstractParallelEvaluator {
 
   protected final Cache<SkyKey, SkyKeyComputeState> stateCache =
       Caffeine.newBuilder()
+          .executor(Runnable::run) // run the removalListener immediately in the same thread
           .removalListener((SkyKey k, SkyKeyComputeState v, RemovalCause cause) -> v.close())
           .build();
 
