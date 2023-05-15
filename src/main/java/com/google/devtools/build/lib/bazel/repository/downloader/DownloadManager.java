@@ -60,7 +60,17 @@ public class DownloadManager {
   private boolean disableDownload = false;
   private int retries = 0;
   private boolean urlsAsDefaultCanonicalId;
-  @Nullable private Credentials netrcCreds;
+  @Nullable
+  private Credentials netrcCreds;
+  private CredentialFactory credentialFactory = StaticCredentials::new;
+
+  /**
+   * Creates {@code Credentials} from a map of per-{@code URI} authentication headers.
+   */
+  public interface CredentialFactory {
+
+    Credentials create(Map<URI, Map<String, List<String>>> authHeaders);
+  }
 
   public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
     this.repositoryCache = repositoryCache;
@@ -90,6 +100,10 @@ public class DownloadManager {
 
   public void setNetrcCreds(Credentials netrcCreds) {
     this.netrcCreds = netrcCreds;
+  }
+
+  public void setCredentialFactory(CredentialFactory credentialFactory) {
+    this.credentialFactory = credentialFactory;
   }
 
   /**
@@ -257,7 +271,7 @@ public class DownloadManager {
       try {
         downloader.download(
             rewrittenUrls,
-            new StaticCredentials(rewrittenAuthHeaders),
+            credentialFactory.create(rewrittenAuthHeaders),
             checksum,
             canonicalId,
             destination,
@@ -338,7 +352,7 @@ public class DownloadManager {
     for (int attempt = 0; attempt <= retries; ++attempt) {
       try {
         return httpDownloader.downloadAndReadOneUrl(
-            rewrittenUrls.get(0), new StaticCredentials(authHeaders), eventHandler, clientEnv);
+            rewrittenUrls.get(0), credentialFactory.create(authHeaders), eventHandler, clientEnv);
       } catch (ContentLengthMismatchException e) {
         if (attempt == retries) {
           throw e;
