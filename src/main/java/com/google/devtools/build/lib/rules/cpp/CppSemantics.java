@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.Language;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -64,10 +63,6 @@ public interface CppSemantics extends StarlarkValue {
   /** Returns true iff this build should perform .d input pruning. */
   boolean needsDotdInputPruning(BuildConfigurationValue configuration);
 
-  void validateAttributes(RuleContext ruleContext);
-
-  default void validateDeps(RuleContext ruleContext) throws RuleErrorException {}
-
   /** Returns true iff this build requires include validation. */
   boolean needsIncludeValidation();
 
@@ -78,7 +73,6 @@ public interface CppSemantics extends StarlarkValue {
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures);
 
-  boolean createEmptyArchive();
   void validateStarlarkCompileApiCall(
       StarlarkActionFactory actionFactory,
       StarlarkThread thread,
