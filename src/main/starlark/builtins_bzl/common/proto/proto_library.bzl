@@ -71,7 +71,7 @@ def _proto_library_impl(ctx):
 
     proto_path, direct_sources = _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
-    proto_info = _create_proto_info(direct_sources, deps, proto_path, descriptor_set, bin_dir = ctx.bin_dir.path)
+    proto_info = _create_proto_info(direct_sources, deps, proto_path, descriptor_set, genfiles_dir = ctx.genfiles_dir.path)
 
     _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set)
 
@@ -180,7 +180,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
         direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _proto_path = root_proto_path))
     return proto_path, direct_sources
 
-def _create_proto_info(direct_sources, deps, proto_path, descriptor_set, bin_dir):
+def _create_proto_info(direct_sources, deps, proto_path, descriptor_set, genfiles_dir):
     """Constructs ProtoInfo."""
 
     # Construct ProtoInfo
@@ -224,8 +224,8 @@ def _create_proto_info(direct_sources, deps, proto_path, descriptor_set, bin_dir
         transitive_sources = transitive_sources,
         direct_descriptor_set = descriptor_set,
         transitive_descriptor_sets = transitive_descriptor_sets,
-        #TODO(b/281812523): remove bin_dir from proto_source_root (when users assuming it's there are migrated)
-        proto_source_root = _empty_to_dot(_from_root(bin_dir, proto_path) if "_virtual_imports/" in proto_path else _remove_sibling_repo(proto_path)),
+        #TODO(b/281812523): remove genfiles_dir from proto_source_root (when users assuming it's there are migrated)
+        proto_source_root = _empty_to_dot(_from_root(genfiles_dir, proto_path) if "_virtual_imports/" in proto_path else _remove_sibling_repo(proto_path)),
         transitive_proto_path = transitive_proto_path,
         check_deps_sources = check_deps_sources,
         transitive_imports = transitive_sources,
