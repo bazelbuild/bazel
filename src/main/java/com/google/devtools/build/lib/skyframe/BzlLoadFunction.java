@@ -828,7 +828,11 @@ public class BzlLoadFunction implements SkyFunction {
     // including the label and a reified copy of the load DAG.
     BazelModuleContext bazelModuleContext =
         BazelModuleContext.create(
-            label, repoMapping, prog.getFilename(), ImmutableMap.copyOf(loadMap), transitiveDigest);
+            label,
+            repoMapping,
+            prog.getFilename(),
+            ImmutableList.copyOf(loadMap.values()),
+            transitiveDigest);
 
     // Construct the initial Starlark module used for executing the program.
     // The set of keys in the predeclared environment matches the set of predeclareds used to

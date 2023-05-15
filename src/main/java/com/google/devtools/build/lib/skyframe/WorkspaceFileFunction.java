@@ -368,7 +368,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       } else {
         starlarkFileDependencies = Sets.newLinkedHashSet();
       }
-      PackageFactory.transitiveClosureOfLabelsRec(starlarkFileDependencies, loadedModules);
+      PackageFactory.transitiveClosureOfLabelsRec(starlarkFileDependencies, loadedModules.values());
       builder.setStarlarkFileDependencies(ImmutableList.copyOf(starlarkFileDependencies));
       // Execute the partial files that comprise this chunk.
       for (StarlarkFile partialFile : chunk) {

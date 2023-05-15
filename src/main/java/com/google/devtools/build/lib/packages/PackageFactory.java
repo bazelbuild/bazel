@@ -454,7 +454,7 @@ public final class PackageFactory {
     // and can be derived from Package.loads (if available) on demand.
     pkgBuilder.setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules));
     if (packageSettings.recordLoadedModules()) {
-      pkgBuilder.setLoads(loadedModules);
+      pkgBuilder.setLoads(ImmutableList.copyOf(loadedModules.values()));
     }
 
     StoredEventHandler eventHandler = new StoredEventHandler();
@@ -506,13 +506,12 @@ public final class PackageFactory {
   private static ImmutableList<Label> transitiveClosureOfLabels(
       ImmutableMap<String, Module> loads) {
     Set<Label> set = Sets.newLinkedHashSet();
-    transitiveClosureOfLabelsRec(set, loads);
+    transitiveClosureOfLabelsRec(set, loads.values());
     return ImmutableList.copyOf(set);
   }
 
-  public static void transitiveClosureOfLabelsRec(
-      Set<Label> set, ImmutableMap<String, Module> loads) {
-    for (Module m : loads.values()) {
+  public static void transitiveClosureOfLabelsRec(Set<Label> set, Collection<Module> loads) {
+    for (Module m : loads) {
       BazelModuleContext ctx = BazelModuleContext.of(m);
       if (set.add(ctx.label())) {
         transitiveClosureOfLabelsRec(set, ctx.loads());

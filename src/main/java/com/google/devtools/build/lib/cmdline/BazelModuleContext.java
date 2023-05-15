@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import net.starlark.java.eval.Module;
 
 /**
@@ -42,10 +42,12 @@ public abstract class BazelModuleContext {
   public abstract String filename();
 
   /**
-   * Maps the load string for each load statement in this .bzl file (in source order) to the module
-   * it loads. It thus records the complete load DAG (not including {@code @_builtins} .bzl files).
+   * Returns a list of modules loaded by this .bzl file, in source order.
+   *
+   * <p>By traversing these modules' loads, it is possible to reconstruct the complete load DAG (not
+   * including {@code @_builtins} .bzl files).
    */
-  public abstract ImmutableMap<String, Module> loads();
+  public abstract ImmutableList<Module> loads();
 
   /**
    * Transitive digest of the .bzl file of the {@link net.starlark.java.eval.Module} itself and all
@@ -75,7 +77,7 @@ public abstract class BazelModuleContext {
       Label label,
       RepositoryMapping repoMapping,
       String filename,
-      ImmutableMap<String, Module> loads,
+      ImmutableList<Module> loads,
       byte[] bzlTransitiveDigest) {
     return new AutoValue_BazelModuleContext(
         label, repoMapping, filename, loads, bzlTransitiveDigest);
