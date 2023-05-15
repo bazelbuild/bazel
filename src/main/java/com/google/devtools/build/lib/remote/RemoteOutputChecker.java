@@ -119,11 +119,26 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     if (runfilesSupport == null) {
       return;
     }
-    for (Artifact runfile : runfilesSupport.getRunfiles().getArtifacts().toList()) {
+    var runfiles = runfilesSupport.getRunfiles();
+    for (Artifact runfile : runfiles.getArtifacts().toList()) {
       if (runfile.isSourceArtifact()) {
         continue;
       }
       toplevelArtifactsToDownload.add(runfile);
+    }
+    for (var symlink : runfiles.getSymlinks().toList()) {
+      var artifact = symlink.getArtifact();
+      if (artifact.isSourceArtifact()) {
+        continue;
+      }
+      toplevelArtifactsToDownload.add(artifact);
+    }
+    for (var symlink : runfiles.getRootSymlinks().toList()) {
+      var artifact = symlink.getArtifact();
+      if (artifact.isSourceArtifact()) {
+        continue;
+      }
+      toplevelArtifactsToDownload.add(artifact);
     }
   }
 
