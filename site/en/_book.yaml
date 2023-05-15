@@ -95,12 +95,12 @@ upper_tabs:
     other:
     - name: Releases
       contents:
-      - title: Overview
+      - title: Release model
         path: /release/
-      - title: Release versioning
-        path: /release/versioning
       - title: Backward compatibility
         path: /release/backward-compatibility
+      - title: Rule compatibility
+        path: /release/rule-compatibility
     - name: Basics
       contents:
       - heading: Getting started with BUILD files
