@@ -68,6 +68,18 @@ final class WorkerLifecycleManager extends Thread {
       return;
     }
 
+    String msg =
+        String.format(
+            "Worker Lifecycle Manager starts work with (total limit: %d MB, limit: %d MB,"
+                + " shrinking: %s)",
+            options.totalWorkerMemoryLimitMb,
+            options.workerMemoryLimitMb,
+            options.shrinkWorkerPool ? "enabled" : "disabled");
+    logger.atInfo().log("%s", msg);
+    if (reporter != null) {
+      reporter.handle(Event.info(msg));
+    }
+
     isWorking = true;
 
     // This loop works until method stopProcessing() called by WorkerModule.

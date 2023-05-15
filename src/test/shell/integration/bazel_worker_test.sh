@@ -757,6 +757,32 @@ EOF
   expect_log "^---8<---8<--- End of log ---8<---8<---"
 }
 
+function test_total_worker_memory_limit_log_starting() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--worker_protocol=${WORKER_PROTOCOL}"],
+  args = ["--write_uuid", "--write_counter", "--work_time=1s"],
+) for idx in range(10)]
+EOF
+
+  bazel build --experimental_total_worker_memory_limit_mb=10000 \
+  --experimental_worker_memory_limit_mb=5000 --noexperimental_shrink_worker_pool :hello_world_1 &> "$TEST_log" \
+  || fail "build failed"
+
+
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 10000 MB, limit: 5000 MB, shrinking: disabled)"
+
+  bazel build --experimental_total_worker_memory_limit_mb=15000 \
+  --experimental_worker_memory_limit_mb=7000 --experimental_shrink_worker_pool :hello_world_2 &> "$TEST_log" \
+  || fail "build failed"
+
+  expect_not_log "Destroying Work worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Worker Lifecycle Manager starts work with (total limit: 15000 MB, limit: 7000 MB, shrinking: enabled)"
+}
+
 function test_worker_metrics_collection() {
   prepare_example_worker
   cat >>BUILD <<EOF
