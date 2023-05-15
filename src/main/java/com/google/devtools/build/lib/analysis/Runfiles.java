@@ -1183,15 +1183,19 @@ public final class Runfiles implements RunfilesApi {
   }
 
   /** Fingerprint this {@link Runfiles} tree. */
-  public void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp)
-      throws CommandLineExpansionException, InterruptedException {
+  public void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addInt(conflictPolicy.ordinal());
     fp.addBoolean(legacyExternalRunfiles);
     fp.addPath(suffix);
 
-    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
-    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
-    actionKeyContext.addNestedSetToFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, fp, artifacts);
+    try {
+      actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
+      actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
+      actionKeyContext.addNestedSetToFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, fp, artifacts);
+    } catch (CommandLineExpansionException | InterruptedException e) {
+      // The MapFns used above do not throw any exceptions.
+      throw new IllegalStateException(e);
+    }
 
     emptyFilesSupplier.fingerprint(fp);
   }

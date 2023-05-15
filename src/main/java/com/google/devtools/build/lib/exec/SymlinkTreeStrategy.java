@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
@@ -164,11 +163,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       // If we don't have an input manifest, then create a file containing a fingerprint of
       // the runfiles object.
       Fingerprint fp = new Fingerprint();
-      try {
-        action.getRunfiles().fingerprint(actionExecutionContext.getActionKeyContext(), fp);
-      } catch (CommandLineExpansionException | InterruptedException e) {
-        throw createLinkFailureException(outputManifest, new IOException(e));
-      }
+      action.getRunfiles().fingerprint(actionExecutionContext.getActionKeyContext(), fp);
       String hexDigest = fp.hexDigestAndReset();
       try {
         FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);
