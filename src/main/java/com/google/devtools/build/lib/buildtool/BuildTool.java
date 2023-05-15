@@ -301,7 +301,7 @@ public class BuildTool {
               request,
               buildOptions,
               loadingResult,
-              () -> executionTool.prepareForExecution(request.getId(), executionTimer),
+              () -> executionTool.prepareForExecution(executionTimer),
               result::setBuildConfiguration,
               new BuildDriverKeyTestContext() {
                 @Override
