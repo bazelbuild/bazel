@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """A tool for building the documentation for a Bazel release."""
+import argparse
 import os
 import shutil
 import sys
@@ -21,54 +22,9 @@ import tarfile
 import tempfile
 import zipfile
 
-from absl import app
-from absl import flags
-
 from scripts.docs import rewriter
 
-FLAGS = flags.FLAGS
-
-flags.DEFINE_string("version", None, "Name of the Bazel release.")
-flags.DEFINE_string(
-    "toc_path",
-    None,
-    "Path to the _toc.yaml file that contains the table of contents for the versions menu.",
-)
-flags.DEFINE_string(
-    "narrative_docs_path",
-    None,
-    "Path of the archive (zip or tar) that contains the narrative documentation.",
-)
-flags.DEFINE_string(
-    "reference_docs_path",
-    None,
-    "Path of the archive (zip or tar) that contains the reference documentation.",
-)
-flags.DEFINE_string(
-    "output_path", None,
-    "Location where the zip'ed documentation should be written to.")
-
 _ARCHIVE_FUNCTIONS = {".tar": tarfile.open, ".zip": zipfile.ZipFile}
-
-
-def validate_flag(name):
-  """Ensures that a flag is set, and returns its value (if yes).
-
-  This function exits with an error if the flag was not set.
-
-  Args:
-    name: Name of the flag.
-
-  Returns:
-    The value of the flag, if set.
-  """
-  value = getattr(FLAGS, name, None)
-  if value:
-    return value
-
-  print("Missing --{} flag.".format(name), file=sys.stderr)
-  exit(1)
-
 
 def create_docs_tree(version, toc_path, narrative_docs_path,
                      reference_docs_path):
@@ -170,14 +126,22 @@ def get_versioned_content(path, version):
   return rewriter.rewrite_links(path, content, version)
 
 
-def main(unused_argv):
-  version = validate_flag("version")
-  output_path = validate_flag("output_path")
+def main():
+  parser = argparse.ArgumentParser(description='A tool for building the documentation for a Bazel release.')
+  parser.add_argument('--version', required=True, help='Name of the Bazel release.')
+  parser.add_argument('--toc_path', required=True, help='Path to the _toc.yaml file that contains the table of contents for the versions menu.')
+  parser.add_argument('--narrative_docs_path', required=True, help='Path of the archive (zip or tar) that contains the narrative documentation.')
+  parser.add_argument('--reference_docs_path', required=True, help='Path of the archive (zip or tar) that contains the reference documentation.')
+  parser.add_argument('--output_path', required=True, help="Location where the zip'ed documentation should be written to.")
+  args = parser.parse_args()
+
+  version = args.version
+  output_path = args.output_path
   root_dir, toc_path = create_docs_tree(
       version=version,
-      toc_path=validate_flag("toc_path"),
-      narrative_docs_path=validate_flag("narrative_docs_path"),
-      reference_docs_path=validate_flag("reference_docs_path"),
+      toc_path=args.toc_path,
+      narrative_docs_path=args.narrative_docs_path,
+      reference_docs_path=args.reference_docs_path,
   )
 
   build_archive(
@@ -189,5 +153,4 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
-  app.run(main)
+  main()
