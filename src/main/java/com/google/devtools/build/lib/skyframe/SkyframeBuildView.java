@@ -981,11 +981,13 @@ public final class SkyframeBuildView {
       return TestType.NOT_TEST;
     }
 
+    Rule rule = (Rule) target;
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
-        || TargetUtils.isExclusiveTestRule((Rule) target)) {
+        || TargetUtils.isExclusiveTestRule(rule)
+        || (TargetUtils.isExclusiveIfLocalTestRule(rule) && TargetUtils.isLocalTestRule(rule))) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE;
-    } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
+    } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
     } else {
       fromExplicitFlagOrTag = TestType.PARALLEL;
