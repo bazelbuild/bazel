@@ -32,7 +32,7 @@ abstract class ProtoSource implements StarlarkValue {
 
   @VisibleForTesting
   PathFragment getImportPath() {
-    return getSourceFile().getExecPath().relativeTo(getSourceRoot());
+    return getSourceFile().getRepositoryRelativePath().relativeTo(getSourceRoot());
   }
 
   @VisibleForTesting

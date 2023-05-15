@@ -536,12 +536,11 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     // exported proto source roots should be the source root of the rule and the direct source roots
     // of its exports and nothing else (not the exports of its exports or the deps of its exports
     // or the exports of its deps)
-    String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     assertThat(
             Iterables.transform(
                 a.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
                 s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(genfiles + "/a/_virtual_imports/a");
+        .containsExactly("a/_virtual_imports/a");
     assertThat(
             Iterables.transform(
                 a.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
@@ -1204,7 +1203,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(genfiles + "/x/_virtual_imports/foo");
+        .containsExactly("x/_virtual_imports/foo");
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getImportPath().getPathString()))
@@ -1233,7 +1232,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(genfiles + "/x/_virtual_imports/foo");
+        .containsExactly("x/_virtual_imports/foo");
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getImportPath().getPathString()))
@@ -1262,7 +1261,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(genfiles);
+        .containsExactly(".");
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getImportPath().getPathString()))
@@ -1293,8 +1292,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(
-            genfiles + "/x/_virtual_imports/foo", genfiles + "/x/_virtual_imports/foo");
+        .containsExactly("x/_virtual_imports/foo", "x/_virtual_imports/foo");
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getImportPath().getPathString()))
@@ -1323,7 +1321,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(genfiles, ".");
+        .containsExactly(".", ".");
     assertThat(
             Iterables.transform(
                 provider.getDirectSources(), s -> s.getImportPath().getPathString()))
