@@ -17,20 +17,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import argparse
 import re
 import subprocess
 import tempfile
 
-from absl import app
-from absl import flags
-
-flags.DEFINE_string('bazel', None, 'Path to the bazel binary')
-flags.DEFINE_string('output', None, 'Where to put the generated fish script')
-
-flags.mark_flag_as_required('bazel')
-flags.mark_flag_as_required('output')
-
-FLAGS = flags.FLAGS
 _BAZEL = 'bazel'
 _FISH_SEEN_SUBCOMMAND_FROM = '__fish_seen_subcommand_from'
 _FISH_BAZEL_HEADER = """#!/usr/bin/env fish
@@ -309,14 +300,17 @@ class Arg(object):
     return text.replace('"', r'\"')
 
 
-def main(argv):
+def main():
   """Generates fish completion using provided flags."""
-  del argv  # Unused.
+  parser = argparse.ArgumentParser(description='Generates fish completion using provided flags.')
+  parser.add_argument('--bazel', required=True, help='Path to the bazel binary')
+  parser.add_argument('--output', required=True, help='Where to put the generated fish script')
+  args = parser.parse_args()
   with tempfile.TemporaryDirectory() as output_user_root:
-    writer = BazelCompletionWriter(FLAGS.bazel, output_user_root)
-    with open(FLAGS.output, mode='w') as output:
+    writer = BazelCompletionWriter(args.bazel, output_user_root)
+    with open(args.output, mode='w') as output:
       writer.write_completion(output)
 
 
 if __name__ == '__main__':
-  app.run(main)
+  main()
