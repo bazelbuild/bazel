@@ -142,7 +142,7 @@ indicates which representation it conveys; three such events appear in the BEP:
   invocation policy applied.
 * `"tool"`: Populated from the `--experimental_tool_command_line` option. This
   is useful to convey the command-line of a tool wrapping Bazel through the BEP.
-  This could be a base64-encoded `CommandLine` binary protocol buffer messsage
+  This could be a base64-encoded `CommandLine` binary protocol buffer message
   which is used directly, or a string which is parsed but not interpreted (as
   the tool's options may differ from Bazel's).
 
