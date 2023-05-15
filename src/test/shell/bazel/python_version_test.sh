@@ -191,6 +191,37 @@ EOF
   expect_log "I am mockpy!"
 }
 
+# Verify that looking up runfiles that require repo mapping works
+function test_build_python_zip_bzlmod_repo_mapping_runfiles() {
+  cat > WORKSPACE
+  cat > MODULE.bazel << EOF
+module(name="pyzip")
+bazel_dep(name = "rules_python", version = "0.19.0")
+EOF
+  mkdir test
+  cat > test/BUILD << EOF
+py_binary(
+  name = "pybin",
+  srcs = ["pybin.py"],
+  deps = ["@rules_python//python/runfiles"],
+  data = ["data.txt"],
+)
+EOF
+  echo "data" > test/data.txt
+  cat > test/pybin.py << EOF
+from python.runfiles import runfiles
+rf = runfiles.Create()
+path = rf.Rlocation("pyzip/test/data.txt")
+with open(path, "r") as fp:
+  fp.read()
+EOF
+
+  bazel run --enable_bzlmod --build_python_zip //test:pybin &> $TEST_log || fail "bazel run failed"
+
+  unzip -p bazel-bin/test/pybin.zip runfiles/_repo_mapping > actual_repo_mapping
+  assert_contains ",pyzip,_main" actual_repo_mapping
+}
+
 # Test that running a zip app without RUN_UNDER_RUNFILES=1 removes the
 # temporary directory it creates
 function test_build_python_zip_cleans_up_temporary_module_space() {

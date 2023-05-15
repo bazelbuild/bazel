@@ -372,7 +372,24 @@ def _create_zip_file(ctx, *, output, original_nonzip_executable, executable_for_
             return None
 
     manifest.add_all(runfiles.files, map_each = map_zip_runfiles, allow_closure = True)
+
     inputs = [executable_for_zip_file]
+    if _py_builtins.is_bzlmod_enabled(ctx):
+        zip_repo_mapping_manifest = ctx.actions.declare_file(
+            output.basename + ".repo_mapping",
+            sibling = output,
+        )
+        _py_builtins.create_repo_mapping_manifest(
+            ctx = ctx,
+            runfiles = runfiles,
+            output = zip_repo_mapping_manifest,
+        )
+        manifest.add("{}/_repo_mapping={}".format(
+            _ZIP_RUNFILES_DIRECTORY_NAME,
+            zip_repo_mapping_manifest.path,
+        ))
+        inputs.append(zip_repo_mapping_manifest)
+
     for artifact in runfiles.files.to_list():
         # Don't include the original executable because it isn't used by the
         # zip file, so no need to build it for the action.
