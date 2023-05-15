@@ -26,7 +26,7 @@ public class CircuitBreakerFactory {
   public static Retrier.CircuitBreaker createCircuitBreaker(final RemoteOptions remoteOptions) {
     if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       return new FailureCircuitBreaker(remoteOptions.remoteFailureThreshold,
-          (int) remoteOptions.remoteFailureWindowSize.toMillis());
+          (int) remoteOptions.remoteFailureWindowInterval.toMillis());
     }
     return Retrier.ALLOW_ALL_CALLS;
   }

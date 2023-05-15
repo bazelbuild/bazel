@@ -683,17 +683,17 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public int remoteFailureThreshold;
 
   @Option(
-          name = "experimental_remote_failure_window_size",
+          name = "experimental_remote_failure_window_interval",
           defaultValue = "60s",
           documentationCategory = OptionDocumentationCategory.REMOTE,
           effectTags = {OptionEffectTag.EXECUTION},
           converter = RemoteDurationConverter.class,
           help =
-              "The sliding window in which the failure count of the remote requests are computed. On zero or negative "
+              "The interval in which the failure count of the remote requests are computed. On zero or negative "
                  + "value the failure duration is computed the whole duration of the execution."
                  + "Following units can be used: Days (d), hours (h), minutes (m), seconds (s), and milliseconds (ms). "
                  + "If the unit is omitted, the value is interpreted as seconds.")
-  public Duration remoteFailureWindowSize;
+  public Duration remoteFailureWindowInterval;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

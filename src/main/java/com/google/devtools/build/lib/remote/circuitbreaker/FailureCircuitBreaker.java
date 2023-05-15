@@ -47,17 +47,15 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
 
   @Override
   public void recordFailure(Exception e) {
-    if (ignoredErrors.contains(e.getClass())) {
-      return;
-    }
-
-    int failureCount = failures.incrementAndGet();
-    if (slidingWindowSize > 0) {
-      scheduledExecutor.schedule(failures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
-    }
-    // Since the state can only be changed to the open state, synchronization is not required.
-    if (failureCount > this.failureThreshold) {
-      this.state = State.REJECT_CALLS;
+    if (!ignoredErrors.contains(e.getClass())) {
+      int failureCount = failures.incrementAndGet();
+      if (slidingWindowSize > 0) {
+        scheduledExecutor.schedule(failures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
+      }
+      // Since the state can only be changed to the open state, synchronization is not required.
+      if (failureCount > this.failureThreshold) {
+        this.state = State.REJECT_CALLS;
+      }
     }
   }
 

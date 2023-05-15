@@ -19,8 +19,8 @@ public class FailureCircuitBreakerTest {
     @Test
     public void testRecordFailure() throws InterruptedException {
         final int failureThreshold = 10;
-        final int slidingWindowSize = 100;
-        FailureCircuitBreaker failureCircuitBreaker = new FailureCircuitBreaker(failureThreshold, slidingWindowSize);
+        final int windowInterval = 100;
+        FailureCircuitBreaker failureCircuitBreaker = new FailureCircuitBreaker(failureThreshold, windowInterval);
 
         List<Exception> listOfExceptionThrownOnFailure = new ArrayList<>();
         for (int index = 0; index < failureThreshold; index++) {
@@ -36,15 +36,15 @@ public class FailureCircuitBreakerTest {
         listOfExceptionThrownOnFailure.stream().parallel().forEach(failureCircuitBreaker::recordFailure);
         assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-        // Sleep for slidingWindowSize + 1ms.
-        Thread.sleep(slidingWindowSize + 1 /*to compensate any delay*/);
+        // Sleep for windowInterval + 1ms.
+        Thread.sleep(windowInterval + 1 /*to compensate any delay*/);
 
         // make calls equals to threshold number of not ignored failure calls in parallel.
         listOfExceptionThrownOnFailure.stream().parallel().forEach(failureCircuitBreaker::recordFailure);
         assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
-        // Sleep for less than slidingWindowSize.
-        Thread.sleep(slidingWindowSize - 5);
+        // Sleep for less than windowInterval.
+        Thread.sleep(windowInterval - 5);
         failureCircuitBreaker.recordFailure(new Exception());
         assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
     }
