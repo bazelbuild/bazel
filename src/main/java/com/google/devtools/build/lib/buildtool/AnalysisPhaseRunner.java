@@ -153,19 +153,7 @@ public final class AnalysisPhaseRunner {
         reportTargets(env, analysisResult.getTargetsToBuild());
       }
 
-      for (ConfiguredTarget target : analysisResult.getTargetsToSkip()) {
-        BuildConfigurationValue config =
-            env.getSkyframeExecutor()
-                .getConfiguration(env.getReporter(), target.getConfigurationKey());
-        Label label = target.getLabel();
-        env.getEventBus()
-            .post(
-                new AbortedEvent(
-                    BuildEventIdUtil.targetCompleted(label, config.getEventId()),
-                    AbortReason.SKIPPED,
-                    String.format("Target %s build was skipped.", label),
-                    label));
-      }
+      postAbortedEventsForSkippedTargets(env, analysisResult.getTargetsToSkip());
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());
@@ -179,6 +167,23 @@ public final class AnalysisPhaseRunner {
     }
 
     return analysisResult;
+  }
+
+  static void postAbortedEventsForSkippedTargets(
+      CommandEnvironment env, ImmutableSet<ConfiguredTarget> targetsToSkip) {
+    for (ConfiguredTarget target : targetsToSkip) {
+      BuildConfigurationValue config =
+          env.getSkyframeExecutor()
+              .getConfiguration(env.getReporter(), target.getConfigurationKey());
+      Label label = target.getLabel();
+      env.getEventBus()
+          .post(
+              new AbortedEvent(
+                  BuildEventIdUtil.targetCompleted(label, config.getEventId()),
+                  AbortReason.SKIPPED,
+                  String.format("Target %s build was skipped.", label),
+                  label));
+    }
   }
 
   private static TargetPatternPhaseValue evaluateTargetPatterns(
