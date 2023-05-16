@@ -101,14 +101,6 @@ public abstract class ExecGroupCollection {
   public abstract static class Builder {
     public abstract ImmutableMap<String, ExecGroup> execGroups();
 
-    public ImmutableSet<String> getExecGroupNames() {
-      return execGroups().keySet();
-    }
-
-    public ExecGroup getExecGroup(String name) {
-      return execGroups().get(name);
-    }
-
     public ExecGroupCollection build(
         @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
         ImmutableMap<String, String> rawExecProperties)

@@ -131,11 +131,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     this.javaToolchainTypeRequirement = JavaRuleClasses.javaToolchainTypeRequirement(env);
   }
 
-  /** Returns whether this aspect allows proto services to be generated from this proto rule */
-  protected boolean shouldAllowProtoServices(RuleContext ruleContext) {
-    return true;
-  }
-
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(this))
