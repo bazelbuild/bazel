@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -514,6 +515,93 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     assertThrows(BuildFailedException.class, () -> buildTarget("//:foobar"));
 
     assertOutputContains(outErr.errAsLatin1(), "my-error-message");
+  }
+
+  @Test
+  public void downloadToplevel_outputsFromAspect_notAggregated() throws Exception {
+    setDownloadToplevel();
+    writeCopyAspectRule(/* aggregate= */ false);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.out'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+    write("foo.in", "foo");
+
+    addOptions("--aspects=rules.bzl%copy_aspect", "--output_groups=+copy");
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertOutputDoesNotExist("foo.in.copy");
+    assertValidOutputFile("foo.out.copy", "foo" + lineSeparator());
+  }
+
+  @Test
+  public void downloadToplevel_outputsFromAspect_aggregated() throws Exception {
+    setDownloadToplevel();
+    writeCopyAspectRule(/* aggregate= */ true);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.out'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+    write("foo.in", "foo");
+
+    addOptions("--aspects=rules.bzl%copy_aspect", "--output_groups=+copy");
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertValidOutputFile("foo.in.copy", "foo" + lineSeparator());
+    assertValidOutputFile("foo.out.copy", "foo" + lineSeparator());
+  }
+
+  @Test
+  public void downloadToplevel_outputsFromAspect_notDownloadedIfNoOutputGroups() throws Exception {
+    setDownloadToplevel();
+    writeCopyAspectRule(/* aggregate= */ true);
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo',",
+        "  srcs = ['foo.in'],",
+        "  outs = ['foo.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foobar',",
+        "  srcs = [':foo'],",
+        "  outs = ['foobar.out'],",
+        "  cmd = 'cat $(location :foo) > $@ && echo bar >> $@',",
+        ")");
+    write("foo.in", "foo");
+
+    addOptions("--aspects=rules.bzl%copy_aspect");
+    buildTarget("//:foobar");
+    waitDownloads();
+
+    assertValidOutputFile("foobar.out", "foo" + lineSeparator() + "bar\n");
+    assertOutputDoesNotExist("foo.in.copy");
+    assertOutputDoesNotExist("foo.out.copy");
   }
 
   @Test
@@ -1331,6 +1419,44 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
         "    'content_map': attr.string_dict(mandatory = True),",
         "  },",
         ")");
+  }
+
+  protected void writeCopyAspectRule(boolean aggregate) throws IOException {
+    var lines = ImmutableList.<String>builder();
+    lines.add(
+        "def _copy_aspect_impl(target, ctx):",
+        "  files = []",
+        "  for src in ctx.rule.files.srcs:",
+        "    dst = ctx.actions.declare_file(src.basename + '.copy')",
+        "    ctx.actions.run_shell(",
+        "      inputs = [src],",
+        "      outputs = [dst],",
+        "      command = '''",
+        "cp $1 $2",
+        "''',",
+        "      arguments = [src.path, dst.path],",
+        "    )",
+        "    files.append(dst)",
+        "");
+    if (aggregate) {
+      lines.add(
+          "  files = depset(",
+          "    direct = files,",
+          "    transitive = [src[OutputGroupInfo].copy for src in ctx.rule.attr.srcs if"
+              + " OutputGroupInfo in src],",
+          "  )");
+    } else {
+      lines.add("  files = depset(files)");
+    }
+    lines.add(
+        "",
+        "  return [OutputGroupInfo(copy = files)]",
+        "",
+        "copy_aspect = aspect(",
+        "  implementation = _copy_aspect_impl,",
+        "  attr_aspects = ['srcs'],",
+        ")");
+    write("rules.bzl", lines.build().toArray(new String[0]));
   }
 
   protected static class ActionEventCollector {

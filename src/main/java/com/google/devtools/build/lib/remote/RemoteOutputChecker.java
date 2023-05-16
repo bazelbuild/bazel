@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.clock.Clock;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** A {@link RemoteArtifactChecker} that checks the TTL of remote metadata. */
 public class RemoteOutputChecker implements RemoteArtifactChecker {
@@ -79,36 +81,40 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   public void afterTopLevelTargetAnalysis(
       ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
-    addTopLevelTarget(configuredTarget, topLevelArtifactContextSupplier);
+    addTopLevelTarget(configuredTarget, configuredTarget, topLevelArtifactContextSupplier);
   }
 
   public void afterAnalysis(AnalysisResult analysisResult) {
     for (var target : analysisResult.getTargetsToBuild()) {
-      addTopLevelTarget(target, analysisResult::getTopLevelContext);
+      addTopLevelTarget(target, target, analysisResult::getTopLevelContext);
+    }
+    for (var aspect : analysisResult.getAspectsMap().values()) {
+      addTopLevelTarget(aspect, /* configuredTarget= */ null, analysisResult::getTopLevelContext);
     }
     var targetsToTest = analysisResult.getTargetsToTest();
     if (targetsToTest != null) {
       for (var target : targetsToTest) {
-        addTopLevelTarget(target, analysisResult::getTopLevelContext);
+        addTopLevelTarget(target, target, analysisResult::getTopLevelContext);
       }
     }
   }
 
   private void addTopLevelTarget(
-      ConfiguredTarget toplevelTarget,
+      ProviderCollection target,
+      @Nullable ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
-    if (shouldDownloadToplevelOutputs(toplevelTarget)) {
+    if (shouldDownloadToplevelOutputs(configuredTarget)) {
       var topLevelArtifactContext = topLevelArtifactContextSupplier.get();
       var artifactsToBuild =
-          TopLevelArtifactHelper.getAllArtifactsToBuild(toplevelTarget, topLevelArtifactContext)
+          TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
               .getImportantArtifacts();
       toplevelArtifactsToDownload.addAll(artifactsToBuild.toList());
 
-      addRunfiles(toplevelTarget);
+      addRunfiles(target);
     }
   }
 
-  private void addRunfiles(ConfiguredTarget buildTarget) {
+  private void addRunfiles(ProviderCollection buildTarget) {
     var runfilesProvider = buildTarget.getProvider(FilesToRunProvider.class);
     if (runfilesProvider == null) {
       return;
@@ -125,7 +131,11 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
-  private boolean shouldDownloadToplevelOutputs(ConfiguredTarget configuredTarget) {
+  public void addInputToDownload(ActionInput file) {
+    inputsToDownload.add(file);
+  }
+
+  private boolean shouldDownloadToplevelOutputs(@Nullable ConfiguredTarget configuredTarget) {
     switch (commandMode) {
       case RUN:
         // Always download outputs of toplevel targets in RUN mode
