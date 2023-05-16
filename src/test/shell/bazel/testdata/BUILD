@@ -28,26 +28,4 @@ filegroup(
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
-filegroup(
-    name = "jdk_http_archives_filegroup",
-    srcs = [
-        "//src/test/shell/bazel/testdata:jdk_http_archives",
-    ],
-    visibility = ["//src/test/shell/bazel:__subpackages__"],
-)
-
-gen_workspace_stanza(
-    name = "workspace_with_rules_java",
-    out = "jdk_http_archives",
-    repo_clause = """
-  name = "{repo}",
-  sha256 = "{sha256}",
-  strip_prefix = {strip_prefix},
-  urls = {urls},
-""",
-    repos = ["rules_java"],
-    template = "jdk_http_archives.tmpl",
-    visibility = ["//:__pkg__"],
-)
-
 exports_files(["zstd_test_archive.tar.zst"])

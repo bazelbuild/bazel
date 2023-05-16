@@ -90,8 +90,6 @@ http_archive(
 )
 EOF
     fi
-
-    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
 # Returns 0 if gcov is not installed or if a version before 7.0 was found.

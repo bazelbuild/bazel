@@ -1,4 +1,4 @@
-# Copyright 2022 The Bazel Authors. All rights reserved.
+# Copyright 2023 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//toolchains:default_java_toolchain.bzl", _default_java_toolchain = "default_java_toolchain")
+load("@rules_java//toolchains:local_java_repository.bzl", _local_java_repository = "local_java_repository")
 
-default_java_toolchain = _default_java_toolchain
+local_java_repository = _local_java_repository

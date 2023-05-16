@@ -16,9 +16,19 @@ filegroup(
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.pgcfg",
+        "remote_java_repository.bzl",
+        "local_java_repository.bzl",
+        "default_java_toolchain.bzl",
         ":java_stub_template.txt",
     ],
 )
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
+)
+
 
 filegroup(
     name = "package-srcs",
