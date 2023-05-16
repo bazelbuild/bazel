@@ -47,14 +47,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.bugreport.BugReport;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.ArtifactDependencies;
-import com.google.devtools.build.lib.skyframe.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -705,11 +704,11 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Constructs a mapping from input artifact to all direct dep {@link ArtifactNestedSetKey}s whose
-   * {@linkplain ArtifactNestedSetKey#getSet set} transitively contains the artifact.
+   * Constructs a mapping from input artifact to all direct dep {@link ArtifactNestedSetKey}s that
+   * transitively contain the artifact.
    *
    * <p>More formally, a key-value pair {@code (Artifact k, ArtifactNestedSetKey v)} is present in
-   * the returned map iff {@code deps.contains(v) && v.getSet().toList().contains(k)}.
+   * the returned map iff {@code deps.contains(v) && v.expandToArtifacts().contains(k)}.
    *
    * <p>When {@link com.google.devtools.build.lib.skyframe.ActionExecutionFunction} requests input
    * deps, it unwraps a single layer of {@linkplain Action#getInputs the action's inputs}, thus
@@ -720,7 +719,7 @@ public final class ActionRewindStrategy {
     Multimap<Artifact, ArtifactNestedSetKey> map =
         MultimapBuilder.hashKeys().arrayListValues().build();
     for (ArtifactNestedSetKey key : Iterables.filter(deps, ArtifactNestedSetKey.class)) {
-      for (Artifact artifact : key.getSet().toList()) {
+      for (Artifact artifact : key.expandToArtifacts()) {
         map.put(artifact, key);
       }
     }
@@ -728,8 +727,8 @@ public final class ActionRewindStrategy {
   }
 
   /**
-   * Initiates a depth-first search for {@code lostArtifact}, which must be present in the
-   * {@linkplain ArtifactNestedSetKey#getSet set} represented by {@code directDep}.
+   * Adds a skyframe dependency chain from {@code failedAction} to {@code lostArtifactKey} to the
+   * rewind graph.
    *
    * <p>Each edge along the path from {@code failedAction} to {@code lostArtifactKey} is added to
    * the rewind graph. This necessarily includes the initial edge {@code (failedAction, directDep)}.
@@ -745,40 +744,11 @@ public final class ActionRewindStrategy {
       DerivedArtifact lostArtifact,
       SkyKey lostArtifactKey,
       ArtifactNestedSetKey directDep) {
-    SkyKey depKey =
-        checkNotNull(
-            findPathToLostArtifact(
-                rewindGraph, lostArtifact, lostArtifactKey, directDep.getSet(), new HashSet<>()),
-            "%s not found",
-            lostArtifact);
-    rewindGraph.putEdge(directDep, depKey);
-    rewindGraph.putEdge(failedAction, directDep);
-  }
-
-  @Nullable
-  private static SkyKey findPathToLostArtifact(
-      MutableGraph<SkyKey> rewindGraph,
-      DerivedArtifact lostArtifact,
-      SkyKey lostArtifactKey,
-      NestedSet<Artifact> current,
-      Set<NestedSet.Node> visited) {
-    if (!visited.add(current.toNode())) {
-      return null;
+    SkyKey current = failedAction;
+    for (ArtifactNestedSetKey key : directDep.findPathToArtifact(lostArtifact)) {
+      rewindGraph.putEdge(current, key);
+      current = key;
     }
-
-    if (current.getLeaves().contains(lostArtifact)) {
-      return lostArtifactKey;
-    }
-
-    for (NestedSet<Artifact> child : current.getNonLeaves()) {
-      SkyKey depKey =
-          findPathToLostArtifact(rewindGraph, lostArtifact, lostArtifactKey, child, visited);
-      if (depKey != null) {
-        ArtifactNestedSetKey childKey = ArtifactNestedSetKey.create(child);
-        rewindGraph.putEdge(childKey, depKey);
-        return childKey;
-      }
-    }
-    return null;
+    rewindGraph.putEdge(current, lostArtifactKey);
   }
 }

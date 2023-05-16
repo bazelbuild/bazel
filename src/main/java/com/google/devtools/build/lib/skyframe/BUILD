@@ -101,7 +101,6 @@ java_library(
         ":artifact_conflict_finder",
         ":artifact_function",
         ":artifact_nested_set_function",
-        ":artifact_nested_set_key",
         ":aspect_completion_value",
         ":aspect_creation_exception",
         ":aspect_key_creator",
@@ -307,6 +306,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline:query_exception_marker_interface",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/io:file_symlink_cycle_uniqueness_function",
@@ -396,7 +396,6 @@ java_library(
     srcs = ["ActionArtifactCycleReporter.java"],
     deps = [
         ":abstract_label_cycle_reporter",
-        ":artifact_nested_set_key",
         ":aspect_completion_value",
         ":sky_functions",
         ":test_completion_value",
@@ -404,6 +403,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -690,30 +690,15 @@ java_library(
     srcs = ["ArtifactNestedSetFunction.java"],
     deps = [
         ":artifact_function",
-        ":artifact_nested_set_key",
         ":artifact_nested_set_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset:artifact_nested_set_key",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "artifact_nested_set_key",
-    srcs = ["ArtifactNestedSetKey.java"],
-    deps = [
-        ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/skyframe:execution_phase_skykey",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:guava",
     ],
 )
 

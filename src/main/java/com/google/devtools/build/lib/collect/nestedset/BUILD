@@ -50,6 +50,19 @@ java_library(
 )
 
 java_library(
+    name = "artifact_nested_set_key",
+    srcs = ["ArtifactNestedSetKey.java"],
+    deps = [
+        ":nestedset",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "testutils",
     testonly = 1,
     srcs = ["NestedSetCodecTestUtils.java"],

@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Suppliers;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.SourceArtifactException;
@@ -28,7 +27,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -93,7 +91,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, ArtifactNestedSetFunctionException {
-    List<SkyKey> depKeys = getDepSkyKeys((ArtifactNestedSetKey) skyKey);
+    List<SkyKey> depKeys = ((ArtifactNestedSetKey) skyKey).getDirectDepKeys();
     SkyframeLookupResult depsEvalResult = env.getValuesAndExceptions(depKeys);
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
@@ -147,20 +145,6 @@ final class ArtifactNestedSetFunction implements SkyFunction {
       return null;
     }
     return valueSupplier.get();
-  }
-
-  private List<SkyKey> getDepSkyKeys(ArtifactNestedSetKey skyKey) {
-    ImmutableList<Artifact> leaves = skyKey.getSet().getLeaves();
-    ImmutableList<NestedSet<Artifact>> nonLeaves = skyKey.getSet().getNonLeaves();
-
-    List<SkyKey> keys = new ArrayList<>(leaves.size() + nonLeaves.size());
-    for (Artifact file : leaves) {
-      keys.add(Artifact.key(file));
-    }
-    for (NestedSet<Artifact> nonLeaf : nonLeaves) {
-      keys.add(ArtifactNestedSetKey.create(nonLeaf));
-    }
-    return keys;
   }
 
   static ArtifactNestedSetFunction getInstance() {
