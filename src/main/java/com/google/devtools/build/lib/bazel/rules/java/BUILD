@@ -88,29 +88,7 @@ gen_workspace_stanza(
     strip_prefix = {strip_prefix},
     urls = {urls},
     """,
-    repos = [
-        "remote_java_tools",
-        "remote_java_tools_linux",
-        "remote_java_tools_windows",
-        "remote_java_tools_darwin_x86_64",
-        "remote_java_tools_darwin_arm64",
-        "rules_cc",
-        "rules_java",
-        "rules_proto",
-        "rules_python",
-        "remotejdk11_linux",
-        "remotejdk11_linux_aarch64",
-        "remotejdk11_linux_ppc64le",
-        "remotejdk11_linux_s390x",
-        "remotejdk11_macos",
-        "remotejdk11_macos_aarch64",
-        "remotejdk11_win",
-        "remotejdk11_win_arm64",
-    ] + [
-        "remotejdk%s_%s" % (version, os)
-        for version in ("17", "20")
-        for os in ("macos", "macos_aarch64", "linux", "linux_aarch64", "win") + (("linux_s390x", "win_arm64") if version != "20" else ())
-    ],
+    repos = ["rules_java"],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],
 )
