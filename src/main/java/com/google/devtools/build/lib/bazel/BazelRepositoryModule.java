@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
+import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
+import com.google.devtools.build.lib.authandtls.StaticCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperCredentials;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperEnvironment;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperProvider;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialModule;
 import com.google.devtools.build.lib.bazel.bzlmod.AttributeValues;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
@@ -110,6 +118,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /** Adds support for fetching external code. */
 public class BazelRepositoryModule extends BlazeModule {
@@ -145,6 +154,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private LockfileMode bazelLockfileMode = LockfileMode.OFF;
   private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
+
+  @Nullable private CredentialModule credentialModule;
 
   public BazelRepositoryModule() {
     this.starlarkRepositoryFunction = new StarlarkRepositoryFunction(downloadManager);
@@ -263,6 +274,8 @@ public class BazelRepositoryModule extends BlazeModule {
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
         .addSkyFunction(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction());
     filesystem = runtime.getFileSystem();
+
+    credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
   }
 
   @Override
@@ -371,6 +384,41 @@ public class BazelRepositoryModule extends BlazeModule {
                 String.format(
                     "Failed to parse downloader config at %s: %s", e.getLocation(), e.getMessage()),
                 Code.BAD_DOWNLOADER_CONFIG));
+      }
+
+      try {
+        AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
+        var credentialHelperEnvironment =
+            CredentialHelperEnvironment.newBuilder()
+                .setEventReporter(env.getReporter())
+                .setWorkspacePath(env.getWorkspace())
+                .setClientEnvironment(env.getClientEnv())
+                .setHelperExecutionTimeout(authAndTlsOptions.credentialHelperTimeout)
+                .build();
+        CredentialHelperProvider credentialHelperProvider =
+            GoogleAuthUtils.newCredentialHelperProvider(
+                credentialHelperEnvironment,
+                env.getCommandLinePathFactory(),
+                authAndTlsOptions.credentialHelpers);
+
+        downloadManager.setCredentialFactory(
+            headers -> {
+              Preconditions.checkNotNull(headers);
+
+              return new CredentialHelperCredentials(
+                  credentialHelperProvider,
+                  credentialHelperEnvironment,
+                  credentialModule.getCredentialCache(),
+                  Optional.of(new StaticCredentials(headers)));
+            });
+      } catch (IOException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        env.getBlazeModuleEnvironment()
+            .exit(
+                new AbruptExitException(
+                    detailedExitCode(
+                        "Error initializing credential helper", Code.CREDENTIALS_INIT_FAILURE)));
+        return;
       }
 
       if (repoOptions.experimentalDistdir != null) {
