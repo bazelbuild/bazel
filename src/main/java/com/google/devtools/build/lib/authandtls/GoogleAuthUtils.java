@@ -372,7 +372,6 @@ public final class GoogleAuthUtils {
     }
   }
 
-  @VisibleForTesting
   public static CredentialHelperProvider newCredentialHelperProvider(
       CredentialHelperEnvironment environment,
       CommandLinePathFactory pathFactory,

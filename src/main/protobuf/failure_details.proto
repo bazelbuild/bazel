@@ -249,6 +249,7 @@ message ExternalRepository {
     OVERRIDE_DISALLOWED_MANAGED_DIRECTORIES = 1 [(metadata) = { exit_code: 2 }];
     BAD_DOWNLOADER_CONFIG = 2 [(metadata) = { exit_code: 2 }];
     REPOSITORY_MAPPING_RESOLUTION_FAILED = 3 [(metadata) = { exit_code: 37 }];
+    CREDENTIALS_INIT_FAILURE = 4 [(metadata) = { exit_code: 2 }];
   }
   Code code = 1;
   // Additional data could include external repository names.
