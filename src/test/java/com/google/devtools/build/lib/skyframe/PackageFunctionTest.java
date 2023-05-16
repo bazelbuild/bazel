@@ -1077,7 +1077,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path pkgBUILDPath =
         scratch.file(
             "pkg/BUILD",
-            "exports_files(['sub/blah'])  # label crossing subpackage boundaries", //
+            "exports_files(['sub/blah'])  # label crossing subpackage boundaries",
             "glob(['globcycle/**/foo.txt'])  # triggers non-Skyframe globbing error");
     scratch.file("pkg/sub/BUILD");
     Path pkgGlobcyclePath = pkgBUILDPath.getParentDirectory().getChild("globcycle");
