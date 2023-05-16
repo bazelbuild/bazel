@@ -147,7 +147,7 @@ final class CallUtils {
 
     CacheValue value = new CacheValue();
     value.selfCall = selfCall;
-    value.methods = methods.build();
+    value.methods = methods.buildOrThrow();
     value.fields = ImmutableMap.copyOf(fields);
     return value;
   }
