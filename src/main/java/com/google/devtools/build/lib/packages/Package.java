@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -900,7 +899,7 @@ public class Package {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             basePackageId,
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* associatedModuleName= */ Optional.empty(),
@@ -943,30 +942,16 @@ public class Package {
        * thrown from {@link #getTarget}. Useful for toning down verbosity in situations where it can
        * be less helpful.
        */
-      boolean succinctTargetNotFoundErrors();
-
-      /**
-       * Reports whether to record the set of Modules loaded by this package, which enables richer
-       * modes of blaze query.
-       */
-      boolean recordLoadedModules();
-    }
-
-    /** Default {@link PackageSettings}. */
-    public static class DefaultPackageSettings implements PackageSettings {
-      public static final DefaultPackageSettings INSTANCE = new DefaultPackageSettings();
-
-      private DefaultPackageSettings() {}
-
-      @Override
-      public boolean succinctTargetNotFoundErrors() {
+      default boolean succinctTargetNotFoundErrors() {
         return false;
       }
 
-      @Override
-      public boolean recordLoadedModules() {
+      /** Reports whether to record the set of Modules loaded by this package. */
+      default boolean recordLoadedModules() {
         return true;
       }
+
+      PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
     /**

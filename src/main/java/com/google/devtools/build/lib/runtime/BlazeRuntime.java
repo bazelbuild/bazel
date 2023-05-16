@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.jni.JniLoader;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -1644,7 +1643,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               .collect(toImmutableList());
       Preconditions.checkState(
           packageSettingss.size() <= 1, "more than one module defines a PackageSettings");
-      return Iterables.getFirst(packageSettingss, DefaultPackageSettings.INSTANCE);
+      return Iterables.getFirst(packageSettingss, PackageSettings.DEFAULTS);
     }
 
     private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {

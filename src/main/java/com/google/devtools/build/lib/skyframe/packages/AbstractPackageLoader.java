@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -286,7 +286,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new PackageFactory(
             ruleClassProvider,
             forkJoinPoolForNonSkyframeGlobbing,
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             PackageValidator.NOOP_VALIDATOR,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             PackageLoadingListener.NOOP_LISTENER);
