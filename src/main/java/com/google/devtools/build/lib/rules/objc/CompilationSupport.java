@@ -570,6 +570,10 @@ public class CompilationSupport implements StarlarkValue {
         Iterables.isEmpty(prunedJ2ObjcArchives)
             ? asNeededLibrarySet
             : substituteJ2ObjcPrunedLibraries(asNeededLibrarySet, secondaryObjcProvider);
+    alwaysLinkLibrarySet =
+        Iterables.isEmpty(prunedJ2ObjcArchives)
+            ? alwaysLinkLibrarySet
+            : substituteJ2ObjcPrunedLibraries(alwaysLinkLibrarySet, secondaryObjcProvider);
 
     ImmutableList<Artifact> asNeededLibraryList = asNeededLibrarySet.asList();
     ImmutableList<Artifact> alwaysLinkLibraryList = alwaysLinkLibrarySet.asList();

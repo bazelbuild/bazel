@@ -252,7 +252,7 @@ def _register_compile_and_archive_actions_for_j2objc(
         objc_compilation_context = objc_compilation_context,
         objc_linking_context = objc_linking_context,
         toolchain = toolchain,
-        alwayslink = False,
+        alwayslink = True,
         use_pch = False,
         objc_config = ctx.fragments.objc,
         objc_provider = None,

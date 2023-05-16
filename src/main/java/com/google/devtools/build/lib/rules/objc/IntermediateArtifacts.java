@@ -40,7 +40,14 @@ public final class IntermediateArtifacts implements StarlarkValue {
   private final BuildConfigurationValue buildConfiguration;
   private final String archiveFileNameSuffix;
   private final UmbrellaHeaderStrategy umbrellaHeaderStrategy;
-  private final boolean alwaysLinkLibraryExtension;
+  private final AlwaysLink alwaysLink;
+
+  /** How to determine whether the archive is alwaysLink. */
+  public enum AlwaysLink {
+    FROM_ATTRIBUTE,
+    TRUE,
+    FALSE
+  };
 
   IntermediateArtifacts(RuleContext ruleContext) {
     this(
@@ -48,7 +55,7 @@ public final class IntermediateArtifacts implements StarlarkValue {
         /* archiveFileNameSuffix= */ "",
         ruleContext.getConfiguration(),
         UmbrellaHeaderStrategy.DO_NOT_GENERATE,
-        /* alwaysLinkLibraryExtension= */ true);
+        AlwaysLink.FROM_ATTRIBUTE);
   }
 
   IntermediateArtifacts(RuleContext ruleContext, BuildConfigurationValue buildConfiguration) {
@@ -57,20 +64,20 @@ public final class IntermediateArtifacts implements StarlarkValue {
         /* archiveFileNameSuffix= */ "",
         buildConfiguration,
         UmbrellaHeaderStrategy.DO_NOT_GENERATE,
-        /* alwaysLinkLibraryExtension= */ true);
+        AlwaysLink.FROM_ATTRIBUTE);
   }
 
   IntermediateArtifacts(
       RuleContext ruleContext,
       String archiveFileNameSuffix,
       UmbrellaHeaderStrategy umbrellaHeaderStrategy,
-      boolean alwaysLinkLibraryExtension) {
+      AlwaysLink alwaysLink) {
     this(
         ruleContext,
         archiveFileNameSuffix,
         ruleContext.getConfiguration(),
         umbrellaHeaderStrategy,
-        alwaysLinkLibraryExtension);
+        alwaysLink);
   }
 
   IntermediateArtifacts(
@@ -78,12 +85,12 @@ public final class IntermediateArtifacts implements StarlarkValue {
       String archiveFileNameSuffix,
       BuildConfigurationValue buildConfiguration,
       UmbrellaHeaderStrategy umbrellaHeaderStrategy,
-      boolean alwaysLinkLibraryExtension) {
+      AlwaysLink alwaysLink) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
     this.umbrellaHeaderStrategy = umbrellaHeaderStrategy;
-    this.alwaysLinkLibraryExtension = alwaysLinkLibraryExtension;
+    this.alwaysLink = alwaysLink;
   }
 
   /** Returns the archive file name suffix. */
@@ -183,15 +190,27 @@ public final class IntermediateArtifacts implements StarlarkValue {
     String extension;
     AttributeMap attributes = ruleContext.attributes();
     ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
-    if (alwaysLinkLibraryExtension
-        && attributes.has("alwayslink", Type.BOOLEAN)
-        && (attributes.isAttributeValueExplicitlySpecified("alwayslink")
+
+    switch (alwaysLink) {
+      case FROM_ATTRIBUTE:
+        Preconditions.checkState(attributes.has("alwayslink", Type.BOOLEAN));
+        if (attributes.isAttributeValueExplicitlySpecified("alwayslink")
             ? attributes.get("alwayslink", Type.BOOLEAN)
-            : objcConfiguration.alwayslinkByDefault())) {
-      extension = ".lo";
-    } else {
-      extension = ".a";
+            : objcConfiguration.alwayslinkByDefault()) {
+          extension = ".lo";
+        } else {
+          extension = ".a";
+        }
+        break;
+      case TRUE:
+        extension = ".lo";
+        break;
+      case FALSE:
+      default:
+        extension = ".a";
+        break;
     }
+
     return scopedArtifact(
         PathFragment.create(
             String.format("lib%s%s%s", basename, archiveFileNameSuffix, extension)));

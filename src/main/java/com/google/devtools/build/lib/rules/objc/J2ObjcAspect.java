@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -270,7 +271,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext,
         /* archiveFileNameSuffix= */ "_j2objc",
         UmbrellaHeaderStrategy.GENERATE,
-        /* alwaysLinkLibraryExtension= */ false);
+        AlwaysLink.TRUE);
   }
 
   private ConfiguredAspect buildAspect(
