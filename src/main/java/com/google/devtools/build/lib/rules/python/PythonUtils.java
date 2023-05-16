@@ -45,6 +45,8 @@ public final class PythonUtils {
      * The Predicate isPackageInit's .test(source) should be true when a given source is known to be
      * a valid __init__.py file equivalent, meaning no empty __init__.py file need be created.
      * Useful for custom Python runtimes that may have non-standard Python package import logic.
+     * @param guid a UUID that uniquely identifies the particular isPackageInit predicate for the
+     *             purpose of fingerprinting this {@link Runfiles.EmptyFilesSupplier} instance
      */
     public GetInitPyFiles(Predicate<PathFragment> isPackageInit, UUID guid) {
       this.isPackageInit = isPackageInit;

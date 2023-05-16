@@ -44,6 +44,18 @@ public class NestedSetFingerprintCache {
   }
 
   public <T> void addNestedSetToFingerprint(
+      CommandLineItem.ExceptionlessMapFn<? super T> mapFn,
+      Fingerprint fingerprint,
+      NestedSet<T> nestedSet) {
+    try {
+      addNestedSetToFingerprint((CommandLineItem.MapFn<? super T>) mapFn, fingerprint, nestedSet);
+    } catch (CommandLineExpansionException | InterruptedException e) {
+      // addNestedSetToFingerprint only throws these exceptions if mapFn does.
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public <T> void addNestedSetToFingerprint(
       CommandLineItem.MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws CommandLineExpansionException, InterruptedException {
     if (mapFn instanceof CommandLineItem.CapturingMapFn) {
@@ -62,7 +74,7 @@ public class NestedSetFingerprintCache {
   }
 
   public static <T> String describedNestedSetFingerprint(
-      MapFn<? super T> mapFn, NestedSet<T> nestedSet) {
+      CommandLineItem.ExceptionlessMapFn<? super T> mapFn, NestedSet<T> nestedSet) {
     if (nestedSet.isEmpty()) {
       return "<empty>";
     }
@@ -72,11 +84,7 @@ public class NestedSetFingerprintCache {
     sb.append("size: ").append(list.size()).append('\n');
     for (T item : list) {
       sb.append("  ");
-      try {
-        mapFn.expandToCommandLine(item, s -> sb.append(sb).append(", "));
-      } catch (CommandLineExpansionException | InterruptedException e) {
-        return null;
-      }
+      mapFn.expandToCommandLine(item, s -> sb.append(sb).append(", "));
       sb.append('\n');
     }
     return sb.toString();

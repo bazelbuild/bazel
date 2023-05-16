@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.actions.ActionKeyContext.describedNestedSetFingerprint;
+import static com.google.devtools.build.lib.actions.ActionKeyContext.describeNestedSetFingerprint;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -26,7 +26,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -164,13 +163,13 @@ public final class Runfiles implements RunfilesApi {
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
   public static final Runfiles EMPTY = new Builder().build();
 
-  private static final CommandLineItem.MapFn<SymlinkEntry> SYMLINK_ENTRY_MAP_FN =
+  private static final CommandLineItem.ExceptionlessMapFn<SymlinkEntry> SYMLINK_ENTRY_MAP_FN =
       (symlink, args) -> {
         args.accept(symlink.getPathString());
         args.accept(symlink.getArtifact().getExecPathString());
       };
 
-  private static final CommandLineItem.MapFn<Artifact> RUNFILES_AND_EXEC_PATH_MAP_FN =
+  private static final CommandLineItem.ExceptionlessMapFn<Artifact> RUNFILES_AND_EXEC_PATH_MAP_FN =
       (artifact, args) -> {
         args.accept(artifact.getRunfilesPathString());
         args.accept(artifact.getExecPathString());
@@ -1188,16 +1187,14 @@ public final class Runfiles implements RunfilesApi {
     fp.addBoolean(legacyExternalRunfiles);
     fp.addPath(suffix);
 
-    try {
-      actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
-      actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
-      actionKeyContext.addNestedSetToFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, fp, artifacts);
-    } catch (CommandLineExpansionException | InterruptedException e) {
-      // The MapFns used above do not throw any exceptions.
-      throw new IllegalStateException(e);
-    }
+    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
+    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
+    actionKeyContext.addNestedSetToFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, fp, artifacts);
 
     emptyFilesSupplier.fingerprint(fp);
+
+    // extraMiddlemen does not affect the shape of the runfiles tree described by this instance and
+    // thus does not need to be fingerprinted.
   }
 
   /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */
@@ -1206,12 +1203,12 @@ public final class Runfiles implements RunfilesApi {
         + String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles)
         + String.format("suffix: %s\n", suffix)
         + String.format(
-            "symlinks: %s\n", describedNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, symlinks))
+            "symlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, symlinks))
         + String.format(
-            "rootSymlinks: %s\n", describedNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, rootSymlinks))
+            "rootSymlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, rootSymlinks))
         + String.format(
             "artifacts: %s\n",
-            describedNestedSetFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, artifacts))
+            describeNestedSetFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, artifacts))
         + String.format("emptyFilesSupplier: %s\n", emptyFilesSupplier.getClass().getName());
   }
 }
