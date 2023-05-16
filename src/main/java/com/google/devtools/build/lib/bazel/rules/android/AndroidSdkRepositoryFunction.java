@@ -373,7 +373,7 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     String newestBuildToolsDirectory = null;
     AndroidRevision newestBuildToolsRevision = null;
     for (Dirent buildToolsDirectory : buildToolsDirectories) {
-      if (buildToolsDirectory.getType() != Dirent.Type.DIRECTORY) {
+      if (buildToolsDirectory.getType() != Dirent.Type.DIRECTORY && buildToolsDirectory.getType() != Dirent.Type.SYMLINK) {
         continue;
       }
       try {
