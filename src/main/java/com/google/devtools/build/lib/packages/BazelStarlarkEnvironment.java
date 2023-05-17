@@ -85,8 +85,10 @@ public final class BazelStarlarkEnvironment {
    *     Starlark callable that instantiates it
    * @param environmentExtensions a list of {@link EnvironmentExtensions} to apply
    * @param packageCallable the symbol implementing the {@code package()} function in BUILD files
-   * @param bzlToplevels the map of top-level symbols available to .bzl files (excluding {@link
-   *     Starlark#UNIVERSE} symbols), prior to builtins injection
+   * @param buildFileToplevels the map of non-{@link Starlark#UNIVERSE} top-level symbols available
+   *     to BUILD files, prior to builtins injection
+   * @param bzlToplevels the map of non-universe top-level symbols available to .bzl files, prior to
+   *     builtins injection, excluding the {@code native} object
    * @param nativeRuleSpecificBindings a subset of {@code bzlToplevels} that excludes core symbols
    *     like {@code rule()} and {@code struct()}. This is intended to identify symbols that are
    *     eligible for builtins injection.
@@ -102,6 +104,7 @@ public final class BazelStarlarkEnvironment {
       // PackageArguments.
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Object packageCallable,
+      ImmutableMap<String, Object> buildFileToplevels,
       ImmutableMap<String, Object> bzlToplevels,
       ImmutableMap<String, Object> nativeRuleSpecificBindings,
       ImmutableMap<String, Object> workspaceBzlNativeBindings,
@@ -114,7 +117,7 @@ public final class BazelStarlarkEnvironment {
 
     this.uninjectedBuildBzlNativeBindings =
         createUninjectedBuildBzlNativeBindings(
-            ruleFunctions, environmentExtensions, packageCallable);
+            ruleFunctions, environmentExtensions, packageCallable, buildFileToplevels);
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(bzlToplevels, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
@@ -131,7 +134,8 @@ public final class BazelStarlarkEnvironment {
             uninjectedBuildBzlNativeBindings,
             uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
-        createUninjectedBuildEnv(ruleFunctions, environmentExtensions, packageCallable);
+        createUninjectedBuildEnv(
+            ruleFunctions, environmentExtensions, packageCallable, buildFileToplevels);
   }
 
   /**
@@ -192,17 +196,17 @@ public final class BazelStarlarkEnvironment {
   private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
       Map<String, ?> ruleFunctions,
       List<PackageFactory.EnvironmentExtension> environmentExtensions,
-      Object packageCallable) {
+      Object packageCallable,
+      Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.putAll(ruleFunctions);
     env.put("package", packageCallable);
-    // TODO(b/280446865): Remove ability to register BUILD toplevels in this way. They should
-    // instead go directly on the ConfiguredRuleClassProvider.Builder, e.g. an addBuildToplevel()
-    // method.
+    // TODO(b/280446865): Remove ability to register BUILD toplevels in this way.
     for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
       ext.update(env);
     }
+    env.putAll(buildFileToplevels);
     return env.buildOrThrow();
   }
 
@@ -228,7 +232,8 @@ public final class BazelStarlarkEnvironment {
   private static ImmutableMap<String, Object> createUninjectedBuildEnv(
       Map<String, ?> ruleFunctions,
       List<PackageFactory.EnvironmentExtension> environmentExtensions,
-      Object packageCallable) {
+      Object packageCallable,
+      Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.putAll(StarlarkLibrary.BUILD); // e.g. select, depset
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
@@ -237,6 +242,7 @@ public final class BazelStarlarkEnvironment {
     for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
       ext.update(env);
     }
+    env.putAll(buildFileToplevels);
     return env.buildOrThrow();
   }
 

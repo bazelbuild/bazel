@@ -166,6 +166,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
+    private final ImmutableMap.Builder<String, Object> buildFileToplevels = ImmutableMap.builder();
     private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
     private final ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
         ImmutableMap.builder();
@@ -342,18 +343,39 @@ public /*final*/ class ConfiguredRuleClassProvider
       return this;
     }
 
+    /**
+     * Registers a new top-level symbol for BUILD files.
+     *
+     * <p>The symbol will also be available in BUILD-loaded .bzl files under the {@code native}
+     * module.
+     */
+    @CanIgnoreReturnValue
+    public Builder addBuildFileToplevel(String name, Object object) {
+      this.buildFileToplevels.put(name, object);
+      return this;
+    }
+
+    /**
+     * Registers all symbols contained in the {@code Bootstrap} as top-level symbols for .bzl files.
+     */
     @CanIgnoreReturnValue
     public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
       this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
+    /** Registers a new top-level symbol for .bzl files. */
+    // TODO(b/280446865): rename to something like addBzlToplevel()
     @CanIgnoreReturnValue
     public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
+    /**
+     * Registers a new symbol for {@code @_builtins} .bzl files, to be made available under the
+     * {@code _builtins.internal} object.
+     */
     @CanIgnoreReturnValue
     public Builder addStarlarkBuiltinsInternal(String name, Object object) {
       this.starlarkBuiltinsInternals.put(name, object);
@@ -596,6 +618,7 @@ public /*final*/ class ConfiguredRuleClassProvider
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
+          buildFileToplevels.buildOrThrow(),
           starlarkAccessibleTopLevels.buildOrThrow(),
           starlarkBuiltinsInternals.buildOrThrow(),
           starlarkBootstraps.build(),
@@ -714,6 +737,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
+      ImmutableMap<String, Object> buildFileToplevels,
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableMap<String, Object> starlarkBuiltinsInternals,
       ImmutableList<Bootstrap> starlarkBootstraps,
@@ -756,11 +780,12 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
-            /* environmentExtensions= */ environmentExtensions,
+            environmentExtensions,
             // TODO(b/280446865): Instead of exposing the {@code package()} symbol separately, just
             // keep it part of the BUILD/native environments. Requires migrating {@code package()}
             // to be a @StarlarkMethod that gets registered as a BUILD toplevel.
             /* packageCallable= */ PackageCallable.newPackageCallable(environmentExtensions),
+            buildFileToplevels,
             /* bzlToplevels= */ environment,
             /* nativeRuleSpecificBindings= */ nativeRuleSpecificBindings,
             /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
