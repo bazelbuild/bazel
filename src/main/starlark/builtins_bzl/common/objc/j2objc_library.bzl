@@ -24,6 +24,7 @@ load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInf
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/j2objc_aspect.bzl", "j2objc_aspect")
 
 def _jre_deps_aspect_impl(_, ctx):
     if "j2objc_jre_lib" not in ctx.rule.attr.tags:
@@ -82,7 +83,7 @@ def _j2objc_library_impl(ctx):
 J2OBJC_ATTRS = {
     "deps": attr.label_list(
         allow_rules = ["j2objc_library", "java_library", "java_import", "java_proto_library"],
-        # aspects = [j2objc_aspect],
+        aspects = [j2objc_aspect],
     ),
     "entry_classes": attr.string_list(),
     "jre_deps": attr.label_list(
