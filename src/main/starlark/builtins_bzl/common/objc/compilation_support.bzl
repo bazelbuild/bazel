@@ -46,7 +46,8 @@ def _build_common_variables(
         extra_import_libraries = [],
         attr_linkopts = [],
         alwayslink = False,
-        has_module_map = False):
+        has_module_map = False,
+        direct_cc_compilation_contexts = []):
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
     if empty_compilation_artifacts:
@@ -69,6 +70,7 @@ def _build_common_variables(
         has_module_map = has_module_map,
         extra_import_libraries = extra_import_libraries,
         attr_linkopts = attr_linkopts,
+        direct_cc_compilation_contexts = direct_cc_compilation_contexts,
     )
 
     return struct(
