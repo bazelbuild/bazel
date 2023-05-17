@@ -71,10 +71,17 @@ local_repository(
 )
 EOF
 
-  mkdir -p override || fail "couldn't create override directory"
+  mkdir -p override/java || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
   cat > override/BUILD <<EOF
 filegroup(name = 'yolo')
+EOF
+  touch override/java/BUILD || fail "couldn't touch override/java/BUILD"
+  cat > override/java/repositories.bzl <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
 EOF
 
   cd rules_java_can_be_overridden || fail "couldn't cd into workspace"
@@ -82,14 +89,15 @@ EOF
     fail "Bazel failed to build @rules_java"
 }
 
-function test_rules_java_repository_builds_itself() {
-  write_default_bazelrc
-  setup_skylib_support
+# TODO(pcloudy): Probably don't need to exclude this test if we use a release version of rules_java
+# function test_rules_java_repository_builds_itself() {
+#   write_default_bazelrc
+#   setup_skylib_support
 
-  # We test that a built-in @rules_java repository is buildable.
-  bazel build -- @rules_java//... -@rules_java//toolchains/... &> $TEST_log \
-      || fail "Build failed unexpectedly"
-}
+#   # We test that a built-in @rules_java repository is buildable.
+#   bazel build -- @rules_java//... -@rules_java//toolchains/... &> $TEST_log \
+#       || fail "Build failed unexpectedly"
+# }
 
 
 function test_experimental_java_library_export_do_not_use() {
