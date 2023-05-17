@@ -12,6 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//toolchains:default_java_toolchain.bzl", _default_java_toolchain = "default_java_toolchain")
+load(
+    "@rules_java//toolchains:default_java_toolchain.bzl",
+    _default_java_toolchain = "default_java_toolchain",
+    _java_runtime_files = "java_runtime_files",
+    _DEFAULT_TOOLCHAIN_CONFIGURATION = "DEFAULT_TOOLCHAIN_CONFIGURATION",
+    _BASE_JDK9_JVM_OPTS = "BASE_JDK9_JVM_OPTS",
+    _JDK9_JVM_OPTS = "JDK9_JVM_OPTS",
+    _DEFAULT_JAVACOPTS = "DEFAULT_JAVACOPTS",
+    _VANILLA_TOOLCHAIN_CONFIGURATION = "VANILLA_TOOLCHAIN_CONFIGURATION",
+    _PREBUILT_TOOLCHAIN_CONFIGURATION = "PREBUILT_TOOLCHAIN_CONFIGURATION",
+    _NONPREBUILT_TOOLCHAIN_CONFIGURATION = "NONPREBUILT_TOOLCHAIN_CONFIGURATION",
+)
 
 default_java_toolchain = _default_java_toolchain
+java_runtime_files = _java_runtime_files
+DEFAULT_TOOLCHAIN_CONFIGURATION = _DEFAULT_TOOLCHAIN_CONFIGURATION
+BASE_JDK9_JVM_OPTS = _BASE_JDK9_JVM_OPTS
+JDK9_JVM_OPTS = _JDK9_JVM_OPTS
+DEFAULT_JAVACOPTS = _DEFAULT_JAVACOPTS
+VANILLA_TOOLCHAIN_CONFIGURATION = _VANILLA_TOOLCHAIN_CONFIGURATION
+PREBUILT_TOOLCHAIN_CONFIGURATION = _PREBUILT_TOOLCHAIN_CONFIGURATION
+NONPREBUILT_TOOLCHAIN_CONFIGURATION = _NONPREBUILT_TOOLCHAIN_CONFIGURATION
