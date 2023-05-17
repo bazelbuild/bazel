@@ -290,7 +290,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       if (inputFile.getName().equals("BUILD")) {
         Iterable<Label> starlarkLoadLabels =
             aspectResolver == null
-                ? inputFile.getPackage().getStarlarkFileDependencies()
+                ? inputFile.getPackage().getOrComputeTransitivelyLoadedStarlarkFiles()
                 : aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
         for (Label starlarkLoadLabel : starlarkLoadLabels) {

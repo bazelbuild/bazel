@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import java.util.Set;
 
 /**
  * An aspect resolver that overestimates the required aspect dependencies.
@@ -55,8 +54,8 @@ public class ConservativeAspectResolver implements AspectResolver {
   }
 
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg) {
+  public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
     // We do a conservative estimate precisely so that we don't depend on any other BUILD files.
-    return ImmutableSet.copyOf(pkg.getStarlarkFileDependencies());
+    return pkg.getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }

@@ -927,27 +927,28 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // extensions) for package "pkg", to "buildfiles".
     for (Target x : nodes) {
       Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          addIfUniqueLabel(pkg.getBuildFile(), seenLabels, dependentFiles);
-        }
+      if (!seenPackages.add(pkg.getPackageIdentifier())) {
+        continue;
+      }
+      if (buildFiles) {
+        addIfUniqueLabel(pkg.getBuildFile(), seenLabels, dependentFiles);
+      }
+      if (loads) {
+        pkg.<QueryException, InterruptedException>visitLoadGraph(
+            load -> {
+              if (!seenLabels.add(load)) {
+                return false;
+              }
+              dependentFiles.add(getLoadTarget(load, pkg));
 
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
-
-        for (Label extension : extensions) {
-
-          Target loadTarget = getLoadTarget(extension, pkg);
-          addIfUniqueLabel(loadTarget, seenLabels, dependentFiles);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            Label buildFileLabel = getBuildFileLabelForPackageOfBzlFile(extension);
-            addIfUniqueLabel(new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
-          }
-        }
+              // Also add the BUILD file of the extension.
+              if (buildFiles) {
+                Label buildFileLabel = getBuildFileLabelForPackageOfBzlFile(load);
+                addIfUniqueLabel(
+                    new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
+              }
+              return true;
+            });
       }
     }
     return dependentFiles;

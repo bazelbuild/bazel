@@ -31,6 +31,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -68,6 +69,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -230,9 +233,6 @@ public class Package {
    */
   @Nullable private FailureDetail failureDetail;
 
-  /** The list of transitive closure of the Starlark file dependencies. */
-  private ImmutableList<Label> starlarkFileDependencies;
-
   /** The package's default "package_metadata" attribute. */
   private ImmutableSet<Label> defaultPackageMetadata = ImmutableSet.of();
 
@@ -276,23 +276,14 @@ public class Package {
 
   private long computationSteps;
 
-  private ImmutableList<Module> loads;
+  // These two fields are mutually exclusive. Which one is set depends on
+  // PackageSettings#precomputeTransitiveLoads.
+  @Nullable private ImmutableList<Module> directLoads;
+  @Nullable private ImmutableList<Label> transitiveLoads;
 
   /** Returns the number of Starlark computation steps executed by this BUILD file. */
   public long getComputationSteps() {
     return computationSteps;
-  }
-
-  /**
-   * Returns a list of modules loaded by this BUILD file, in source order.
-   *
-   * <p>By traversing these modules' loads, it is possible to reconstruct the complete load DAG.
-   *
-   * <p>In some configurations the information may be unavailable (null).
-   */
-  @Nullable
-  public ImmutableList<Module> getLoads() {
-    return loads;
   }
 
   /**
@@ -439,16 +430,22 @@ public class Package {
   }
 
   /**
-   * Package initialization: part 3 of 3: applies all other settings and completes
-   * initialization of the package.
+   * Package initialization: part 3 of 3: applies all other settings and completes initialization of
+   * the package.
    *
-   * <p>Only after this method is called can this package be considered "complete"
-   * and be shared publicly.
+   * <p>Only after this method is called can this package be considered "complete" and be shared
+   * publicly.
    */
   private void finishInit(Builder builder) {
     this.filename = builder.getFilename();
     this.packageDirectory = filename.asPath().getParentDirectory();
     String baseName = filename.getRootRelativePath().getBaseName();
+
+    this.containsErrors |= builder.containsErrors;
+    if (directLoads == null && transitiveLoads == null) {
+      Preconditions.checkState(containsErrors, "Loads not set for error-free package");
+      builder.setLoads(ImmutableList.of());
+    }
 
     if (isWorkspaceFile(baseName) || isModuleDotBazelFile(baseName)) {
       Preconditions.checkState(isRepoRulePackage());
@@ -479,9 +476,7 @@ public class Package {
     this.defaultVisibilitySet = builder.defaultVisibilitySet;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
     this.buildFile = builder.buildFile;
-    this.containsErrors |= builder.containsErrors;
     this.failureDetail = builder.getFailureDetail();
-    this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
@@ -514,9 +509,88 @@ public class Package {
     return baseFileName.equals(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getPathString());
   }
 
-  /** Returns the list of transitive closure of the Starlark file dependencies of this package. */
-  public ImmutableList<Label> getStarlarkFileDependencies() {
-    return starlarkFileDependencies;
+  /**
+   * Returns a list of Starlark files transitively loaded by this package.
+   *
+   * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
+   * precomputed}, performs a traversal over the load graph to compute them.
+   *
+   * <p>If only the count of transitively loaded files is needed, use {@link
+   * #countTransitivelyLoadedStarlarkFiles}. For a customized online visitation, use {@link
+   * #visitLoadGraph}.
+   */
+  public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
+    return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
+  }
+
+  /**
+   * Counts the number Starlark files transitively loaded by this package.
+   *
+   * <p>If transitive loads are not {@linkplain PackageSettings#precomputeTransitiveLoads
+   * precomputed}, performs a traversal over the load graph to count them.
+   */
+  public int countTransitivelyLoadedStarlarkFiles() {
+    if (transitiveLoads != null) {
+      return transitiveLoads.size();
+    }
+    Set<Label> loads = new HashSet<>();
+    visitLoadGraph(loads::add);
+    return loads.size();
+  }
+
+  /**
+   * Consumes labels of loaded Starlark files during a call to {@link #visitLoadGraph}.
+   *
+   * <p>The value returned by {@link #visit} determines whether the traversal should continue (true)
+   * or backtrack (false). Using a method reference to {@link Set#add} is a convenient way to
+   * aggregate Starlark files while pruning branches when a file was already seen. The same set may
+   * be reused across multiple calls to {@link #visitLoadGraph} for different packages in order to
+   * prune the graph at files already seen during a previous traversal.
+   */
+  @FunctionalInterface
+  public interface LoadGraphVisitor<E1 extends Exception, E2 extends Exception> {
+    /**
+     * Processes a single loaded Starlark file and determines whether to recurse into that file's
+     * loads.
+     *
+     * @return true if the visitation should recurse into the loads of the given file; ignored if
+     *     transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed}
+     */
+    @CanIgnoreReturnValue
+    boolean visit(Label load) throws E1, E2;
+  }
+
+  /**
+   * Performs an online visitation of the load graph rooted at this package.
+   *
+   * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed},
+   * each file is passed to {@link LoadGraphVisitor#visit} once regardless of its return value.
+   */
+  public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
+      LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
+    if (transitiveLoads != null) {
+      for (Label load : transitiveLoads) {
+        visitor.visit(load);
+      }
+    } else {
+      visitLoadGraphRecursively(directLoads, visitor);
+    }
+  }
+
+  private static <E1 extends Exception, E2 extends Exception> void visitLoadGraphRecursively(
+      Iterable<Module> loads, LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
+    for (Module module : loads) {
+      BazelModuleContext ctx = BazelModuleContext.of(module);
+      if (visitor.visit(ctx.label())) {
+        visitLoadGraphRecursively(ctx.loads(), visitor);
+      }
+    }
+  }
+
+  private static ImmutableList<Label> computeTransitiveLoads(Iterable<Module> directLoads) {
+    Set<Label> loads = new LinkedHashSet<>();
+    visitLoadGraphRecursively(directLoads, loads::add);
+    return ImmutableList.copyOf(loads);
   }
 
   /**
@@ -527,9 +601,7 @@ public class Package {
     return filename;
   }
 
-  /**
-   * Returns the directory containing the package's BUILD file.
-   */
+  /** Returns the directory containing the package's BUILD file. */
   public Path getPackageDirectory() {
     return packageDirectory;
   }
@@ -910,7 +982,8 @@ public class Package {
             // construct a query command in an error message and the package built here can't be
             // seen by query, the particular value does not matter.
             RepositoryMapping.ALWAYS_FALLBACK)
-        .setFilename(moduleFilePath);
+        .setFilename(moduleFilePath)
+        .setLoads(ImmutableList.of());
   }
 
   /**
@@ -946,22 +1019,34 @@ public class Package {
         return false;
       }
 
-      /** Reports whether to record the set of Modules loaded by this package. */
-      default boolean recordLoadedModules() {
-        return true;
+      /**
+       * Determines whether to precompute a list of transitively loaded starlark files while
+       * building packages.
+       *
+       * <p>Typically, direct loads are stored as a {@code ImmutableList<Module>}. This is
+       * sufficient to reconstruct the full load graph by recursively traversing {@link
+       * BazelModuleContext#loads}. If the package is going to be serialized, however, it may make
+       * more sense to precompute a flat list containing the labels of all transitively loaded bzl
+       * files since {@link Module} is costly to serialize.
+       *
+       * <p>If this returns {@code true}, transitive loads are stored as an {@code
+       * ImmutableList<Label>} and direct loads are not stored.
+       */
+      default boolean precomputeTransitiveLoads() {
+        return false;
       }
 
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
     /**
-     * The output instance for this builder. Needs to be instantiated and
-     * available with name info throughout initialization. All other settings
-     * are applied during {@link #build}. See {@link Package#Package}
-     * and {@link Package#finishInit} for details.
+     * The output instance for this builder. Needs to be instantiated and available with name info
+     * throughout initialization. All other settings are applied during {@link #build}. See {@link
+     * Package#Package} and {@link Package#finishInit} for details.
      */
     private final Package pkg;
 
+    private final boolean precomputeTransitiveLoads;
     private final boolean noImplicitFileExport;
 
     // The map from each repository to that repository's remappings map.
@@ -1028,8 +1113,6 @@ public class Package {
      * package deserialization. Set back to {@code null} after building.
      */
     @Nullable private Map<Rule, List<Label>> ruleLabels = null;
-
-    private ImmutableList<Label> starlarkFileDependencies = ImmutableList.of();
 
     private final List<TargetPattern> registeredExecutionPlatforms = new ArrayList<>();
     private final List<TargetPattern> registeredToolchains = new ArrayList<>();
@@ -1113,6 +1196,7 @@ public class Package {
               associatedModuleName,
               associatedModuleVersion,
               packageSettings.succinctTargetNotFoundErrors());
+      this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
       this.mainRepositoryMapping = mainRepositoryMapping;
@@ -1327,11 +1411,6 @@ public class Package {
       pkg.computationSteps = n;
     }
 
-    /** Sets the loaded modules for this package. */
-    void setLoads(ImmutableList<Module> loads) {
-      pkg.loads = Preconditions.checkNotNull(loads);
-    }
-
     /** Sets the default header checking mode. */
     @CanIgnoreReturnValue
     public Builder setDefaultHdrsCheck(String hdrsCheck) {
@@ -1426,9 +1505,28 @@ public class Package {
     }
 
     @CanIgnoreReturnValue
-    public Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
-      this.starlarkFileDependencies = starlarkFileDependencies;
+    public Builder setLoads(Iterable<Module> directLoads) {
+      checkLoadsNotSet();
+      if (precomputeTransitiveLoads) {
+        pkg.transitiveLoads = computeTransitiveLoads(directLoads);
+      } else {
+        pkg.directLoads = ImmutableList.copyOf(directLoads);
+      }
       return this;
+    }
+
+    @CanIgnoreReturnValue
+    Builder setTransitiveLoadsForDeserialization(ImmutableList<Label> transitiveLoads) {
+      checkLoadsNotSet();
+      pkg.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
+      return this;
+    }
+
+    private void checkLoadsNotSet() {
+      Preconditions.checkState(
+          pkg.directLoads == null, "Direct loads already set: %s", pkg.directLoads);
+      Preconditions.checkState(
+          pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
     }
 
     /**
@@ -2083,9 +2181,7 @@ public class Package {
     }
 
     @Override
-    public Package deserialize(
-        DeserializationContext context,
-        CodedInputStream codedIn)
+    public Package deserialize(DeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       PackageCodecDependencies codecDeps = context.getDependency(PackageCodecDependencies.class);
       return codecDeps.getPackageSerializer().deserialize(context, codedIn);

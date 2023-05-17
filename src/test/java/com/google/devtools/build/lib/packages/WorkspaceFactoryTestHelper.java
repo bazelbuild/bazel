@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
@@ -65,11 +66,12 @@ final class WorkspaceFactoryTestHelper {
     // execute
     builder =
         Package.newExternalPackageBuilder(
-            PackageSettings.DEFAULTS,
-            RootedPath.toRootedPath(root, workspaceFilePath),
-            "",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            StarlarkSemantics.DEFAULT);
+                PackageSettings.DEFAULTS,
+                RootedPath.toRootedPath(root, workspaceFilePath),
+                "",
+                RepositoryMapping.ALWAYS_FALLBACK,
+                StarlarkSemantics.DEFAULT)
+            .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,

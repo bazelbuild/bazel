@@ -19,10 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
-import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -51,7 +49,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import net.starlark.java.eval.EvalException;
@@ -450,12 +447,7 @@ public final class PackageFactory {
       StarlarkSemantics semantics,
       Globber globber)
       throws InterruptedException {
-    // TODO(adonovan): opt: don't precompute this value, which is rarely needed
-    // and can be derived from Package.loads (if available) on demand.
-    pkgBuilder.setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules));
-    if (packageSettings.recordLoadedModules()) {
-      pkgBuilder.setLoads(ImmutableList.copyOf(loadedModules.values()));
-    }
+    pkgBuilder.setLoads(loadedModules.values());
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     PackageContext pkgContext = new PackageContext(pkgBuilder, globber, eventHandler);
@@ -501,22 +493,6 @@ public final class PackageFactory {
 
     pkgBuilder.addPosts(eventHandler.getPosts());
     pkgBuilder.addEvents(eventHandler.getEvents());
-  }
-
-  private static ImmutableList<Label> transitiveClosureOfLabels(
-      ImmutableMap<String, Module> loads) {
-    Set<Label> set = Sets.newLinkedHashSet();
-    transitiveClosureOfLabelsRec(set, loads.values());
-    return ImmutableList.copyOf(set);
-  }
-
-  public static void transitiveClosureOfLabelsRec(Set<Label> set, Collection<Module> loads) {
-    for (Module m : loads) {
-      BazelModuleContext ctx = BazelModuleContext.of(m);
-      if (set.add(ctx.label())) {
-        transitiveClosureOfLabelsRec(set, ctx.loads());
-      }
-    }
   }
 
   /**

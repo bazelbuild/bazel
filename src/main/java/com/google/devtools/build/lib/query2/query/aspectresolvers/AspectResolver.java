@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import java.util.Set;
 
 /** Utility class that determines additional dependencies of a target from its aspects. */
 public interface AspectResolver {
@@ -73,5 +72,5 @@ public interface AspectResolver {
    * Compute the labels of the BUILD Starlark files on which the results of the other two methods
    * depend for a target in the given package.
    */
-  Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException;
+  Iterable<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException;
 }

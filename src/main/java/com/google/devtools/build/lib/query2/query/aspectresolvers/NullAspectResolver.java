@@ -13,14 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import java.util.Set;
 
 /**
  * An aspect resolver that does not return any aspect dependencies.
@@ -35,7 +34,7 @@ public class NullAspectResolver implements AspectResolver {
   }
 
   @Override
-  public Set<Label> computeBuildFileDependencies(Package pkg) {
-    return ImmutableSet.copyOf(pkg.getStarlarkFileDependencies());
+  public ImmutableList<Label> computeBuildFileDependencies(Package pkg) {
+    return pkg.getOrComputeTransitivelyLoadedStarlarkFiles();
   }
 }
