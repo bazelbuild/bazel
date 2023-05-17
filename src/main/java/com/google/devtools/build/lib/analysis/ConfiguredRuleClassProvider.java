@@ -49,8 +49,8 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.PackageArgument;
 import com.google.devtools.build.lib.packages.PackageCallable;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -96,7 +96,7 @@ public /*final*/ class ConfiguredRuleClassProvider
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
-  // TODO(b/280446865): Consider merging Bootstrap and EnvironmentExtension into this interface.
+  // TODO(b/280446865): Consider merging Bootstrap into this interface.
   public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
@@ -157,7 +157,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
     private final Map<String, NativeAspectClass> nativeAspectClassMap = new HashMap<>();
-    private final List<EnvironmentExtension> environmentExtensions = new ArrayList<>();
+    private final List<PackageArgument<?>> packageArgs = new ArrayList<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph = new Digraph<>();
     private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
@@ -307,8 +307,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     @CanIgnoreReturnValue
-    public Builder addEnvironmentExtension(EnvironmentExtension environmentExtension) {
-      environmentExtensions.add(environmentExtension);
+    public Builder addPackageArg(PackageArgument<?> arg) {
+      packageArgs.add(arg);
       return this;
     }
 
@@ -608,7 +608,7 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
-          ImmutableList.copyOf(environmentExtensions),
+          ImmutableList.copyOf(packageArgs),
           FragmentRegistry.create(
               configurationFragmentClasses, universalFragments, configurationOptions),
           defaultWorkspaceFilePrefix.toString(),
@@ -728,7 +728,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
-      ImmutableList<EnvironmentExtension> environmentExtensions,
+      ImmutableList<PackageArgument<?>> packageArgs,
       FragmentRegistry fragmentRegistry,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
@@ -780,11 +780,10 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
-            environmentExtensions,
             // TODO(b/280446865): Instead of exposing the {@code package()} symbol separately, just
             // keep it part of the BUILD/native environments. Requires migrating {@code package()}
             // to be a @StarlarkMethod that gets registered as a BUILD toplevel.
-            /* packageCallable= */ PackageCallable.newPackageCallable(environmentExtensions),
+            /* packageCallable= */ PackageCallable.newPackageCallable(packageArgs),
             buildFileToplevels,
             /* bzlToplevels= */ environment,
             /* nativeRuleSpecificBindings= */ nativeRuleSpecificBindings,

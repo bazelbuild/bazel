@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +81,6 @@ public final class BazelStarlarkEnvironment {
    *
    * @param ruleFunctions a map from a rule class name (e.g. "java_library") to the (uninjected)
    *     Starlark callable that instantiates it
-   * @param environmentExtensions a list of {@link EnvironmentExtensions} to apply
    * @param packageCallable the symbol implementing the {@code package()} function in BUILD files
    * @param buildFileToplevels the map of non-{@link Starlark#UNIVERSE} top-level symbols available
    *     to BUILD files, prior to builtins injection
@@ -100,9 +97,6 @@ public final class BazelStarlarkEnvironment {
    */
   public BazelStarlarkEnvironment(
       ImmutableMap<String, ?> ruleFunctions,
-      // TODO(b/280446865): Eliminate the EnvironmentExtensions concept, replace with underlying
-      // PackageArguments.
-      ImmutableList<EnvironmentExtension> environmentExtensions,
       Object packageCallable,
       ImmutableMap<String, Object> buildFileToplevels,
       ImmutableMap<String, Object> bzlToplevels,
@@ -116,8 +110,7 @@ public final class BazelStarlarkEnvironment {
     this.workspaceBzlNativeBindings = workspaceBzlNativeBindings;
 
     this.uninjectedBuildBzlNativeBindings =
-        createUninjectedBuildBzlNativeBindings(
-            ruleFunctions, environmentExtensions, packageCallable, buildFileToplevels);
+        createUninjectedBuildBzlNativeBindings(ruleFunctions, packageCallable, buildFileToplevels);
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(bzlToplevels, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
@@ -134,8 +127,7 @@ public final class BazelStarlarkEnvironment {
             uninjectedBuildBzlNativeBindings,
             uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
-        createUninjectedBuildEnv(
-            ruleFunctions, environmentExtensions, packageCallable, buildFileToplevels);
+        createUninjectedBuildEnv(ruleFunctions, packageCallable, buildFileToplevels);
   }
 
   /**
@@ -195,17 +187,12 @@ public final class BazelStarlarkEnvironment {
    */
   private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
       Map<String, ?> ruleFunctions,
-      List<PackageFactory.EnvironmentExtension> environmentExtensions,
       Object packageCallable,
       Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.putAll(ruleFunctions);
     env.put("package", packageCallable);
-    // TODO(b/280446865): Remove ability to register BUILD toplevels in this way.
-    for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
-      ext.update(env);
-    }
     env.putAll(buildFileToplevels);
     return env.buildOrThrow();
   }
@@ -231,7 +218,6 @@ public final class BazelStarlarkEnvironment {
 
   private static ImmutableMap<String, Object> createUninjectedBuildEnv(
       Map<String, ?> ruleFunctions,
-      List<PackageFactory.EnvironmentExtension> environmentExtensions,
       Object packageCallable,
       Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
@@ -239,9 +225,6 @@ public final class BazelStarlarkEnvironment {
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.put("package", packageCallable);
     env.putAll(ruleFunctions);
-    for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
-      ext.update(env);
-    }
     env.putAll(buildFileToplevels);
     return env.buildOrThrow();
   }

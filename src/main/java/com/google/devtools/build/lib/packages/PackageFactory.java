@@ -86,20 +86,6 @@ import net.starlark.java.syntax.SyntaxError;
 public final class PackageFactory {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** An extension to the global namespace of the BUILD language. */
-  // TODO(b/280446865): Eliminate this interface. Package args can be registered directly on the
-  // rule class provider. Top-level symbols can be registered using a Starlark Bootstrap.
-  public interface EnvironmentExtension {
-    /**
-     * Updates the predeclared BUILD environment and {@code native} object with the symbols this
-     * extension contributes.
-     */
-    void update(ImmutableMap.Builder<String, Object> env);
-
-    /** Returns the extra arguments to the {@code package()} statement. */
-    Iterable<PackageArgument<?>> getPackageArguments();
-  }
-
   private final RuleClassProvider ruleClassProvider;
 
   private SyscallCache syscallCache;

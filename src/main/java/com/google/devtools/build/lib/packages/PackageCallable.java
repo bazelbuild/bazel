@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +44,8 @@ public class PackageCallable {
   /**
    * Returns a {@link StarlarkCallable} that implements the {@code package()} functionality.
    *
-   * @param environmentExtensions a list of extensions that define additional arguments for {@code
-   *     package()}, beyond the standard ones included in every Bazel environment
+   * @param packageArgs a list of {@link PackageArgument}s to support, beyond the standard ones
+   *     included in every Bazel environment
    */
   // TODO(b/280446865): Consider eliminating the package() extensibility mechanism altogether.
   // There is currently only one use case: distinguishing the set of package() arguments available
@@ -54,17 +53,14 @@ public class PackageCallable {
   // to this factory method to obtain a package() callable, we could instead define two
   // @StarlarkMethod-annotated Java functions implementing the two versions of package(), and
   // register the appropriate one with the ConfiguredRuleClassProvider.Builder.
-  public static StarlarkCallable newPackageCallable(
-      List<EnvironmentExtension> environmentExtensions) {
+  public static StarlarkCallable newPackageCallable(List<PackageArgument<?>> packageArgs) {
     // Construct a map of PackageArguments, which the returned callable closes over.
     ImmutableMap.Builder<String, PackageArgument<?>> argsBuilder = ImmutableMap.builder();
     for (PackageArgument<?> arg : getCommonArguments()) {
       argsBuilder.put(arg.getName(), arg);
     }
-    for (EnvironmentExtension ext : environmentExtensions) {
-      for (PackageArgument<?> arg : ext.getPackageArguments()) {
-        argsBuilder.put(arg.getName(), arg);
-      }
+    for (PackageArgument<?> arg : packageArgs) {
+      argsBuilder.put(arg.getName(), arg);
     }
     final ImmutableMap<String, PackageArgument<?>> packageArguments = argsBuilder.buildOrThrow();
 
