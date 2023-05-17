@@ -20,26 +20,13 @@ are converted from the AAR directory structure of /jni/<cpu>/foo.so to the APK
 directory structure of /lib/<cpu>/foo.so.
 """
 
+import argparse
 import os
 import re
 import sys
 import zipfile
 
-# Do not edit this line. Copybara replaces it with PY2 migration helper.
-from absl import app
-from absl import flags
-
 from tools.android import junction
-
-FLAGS = flags.FLAGS
-
-flags.DEFINE_string("input_aar", None, "Input AAR")
-flags.mark_flag_as_required("input_aar")
-flags.DEFINE_string("cpu", None, "CPU architecture to include")
-flags.mark_flag_as_required("cpu")
-flags.DEFINE_string("output_zip", None, "Output ZIP of native libs")
-flags.mark_flag_as_required("output_zip")
-
 
 class UnsupportedArchitectureException(Exception):
   """Exception thrown when an AAR does not support the requested CPU."""
@@ -81,18 +68,22 @@ def Main(input_aar_path, output_zip_path, cpu, input_aar_path_for_error_msg):
         sys.exit(1)
 
 
-def main(unused_argv):
+def main():
+  parser = argparse.ArgumentParser(description='A tool for extracting native libs from an AAR into a zip.')
+  parser.add_argument('--input_aar', required=True, help='Input AAR')
+  parser.add_argument('--cpu', required=True, help='CPU architecture to include')
+  parser.add_argument('--output_zip', required=True, help='Output ZIP of native libs')
+  args = parser.parse_args()
   if os.name == "nt":
-    with junction.TempJunction(os.path.dirname(FLAGS.input_aar)) as j_in:
-      with junction.TempJunction(os.path.dirname(FLAGS.output_zip)) as j_out:
+    with junction.TempJunction(os.path.dirname(args.input_aar)) as j_in:
+      with junction.TempJunction(os.path.dirname(args.output_zip)) as j_out:
         Main(
-            os.path.join(j_in, os.path.basename(FLAGS.input_aar)),
-            os.path.join(j_out, os.path.basename(FLAGS.output_zip)), FLAGS.cpu,
-            FLAGS.input_aar)
+            os.path.join(j_in, os.path.basename(args.input_aar)),
+            os.path.join(j_out, os.path.basename(args.output_zip)), args.cpu,
+            args.input_aar)
   else:
-    Main(FLAGS.input_aar, FLAGS.output_zip, FLAGS.cpu, FLAGS.input_aar)
+    Main(args.input_aar, args.output_zip, args.cpu, args.input_aar)
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
-  app.run(main)
+  main()
