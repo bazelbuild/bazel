@@ -182,6 +182,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
+import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolver;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
@@ -423,6 +424,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Set<ActionLookupKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
   private RegexFilter extraActionFilter;
+
+  // Reset to null after each build to save memory. Guaranteed to be non-null when retrieved via
+  // BuildDriverFunction.
+  @Nullable private TestTypeResolver testTypeResolver;
 
   // This boolean controls whether FILE_STATE or DIRECTORY_LISTING_STATE nodes are dropped after the
   // corresponding FILE or DIRECTORY_LISTING nodes are evaluated.
@@ -729,7 +734,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             },
             this::getIncrementalArtifactConflictFinder,
             this::getRuleContextConstraintSemantics,
-            this::getExtraActionFilter);
+            this::getExtraActionFilter,
+            this::getTestTypeResolver);
     map.put(SkyFunctions.BUILD_DRIVER, buildDriverFunction);
     this.buildDriverFunction = buildDriverFunction;
 
@@ -3145,6 +3151,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private RegexFilter getExtraActionFilter() {
     return checkNotNull(extraActionFilter);
+  }
+
+  private TestTypeResolver getTestTypeResolver() {
+    return checkNotNull(testTypeResolver);
+  }
+
+  public void setTestTypeResolver(TestTypeResolver testTypeResolver) {
+    this.testTypeResolver = testTypeResolver;
   }
 
   public void setExtraActionFilter(RegexFilter extraActionFilter) {

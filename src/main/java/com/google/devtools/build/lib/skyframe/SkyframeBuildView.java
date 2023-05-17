@@ -566,6 +566,15 @@ public final class SkyframeBuildView {
     ImmutableList<Artifact> workspaceStatusArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
 
+    skyframeExecutor.setTestTypeResolver(
+        target ->
+            determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                target.getLabel(),
+                buildDriverKeyTestContext,
+                eventHandler));
+
     ImmutableSet<BuildDriverKey> buildDriverCTKeys =
         ctKeys.stream()
             .map(
@@ -577,13 +586,7 @@ public final class SkyframeBuildView {
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
-                        extraActionTopLevelOnly,
-                        determineTestType(
-                            testsToRun,
-                            labelTargetMap,
-                            ctKey.getLabel(),
-                            buildDriverKeyTestContext,
-                            eventHandler)))
+                        extraActionTopLevelOnly))
             .collect(ImmutableSet.toImmutableSet());
 
     ImmutableSet<BuildDriverKey> buildDriverAspectKeys =
@@ -645,6 +648,7 @@ public final class SkyframeBuildView {
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
           skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
           skyframeExecutor.resetBuildDriverFunction();
+          skyframeExecutor.setTestTypeResolver(null);
 
           // Coverage needs to be done after the list of analyzed targets/tests is known.
           additionalArtifactsResult =
@@ -966,7 +970,7 @@ public final class SkyframeBuildView {
     return exclusiveTests.build();
   }
 
-  private static TestType determineTestType(
+  private static TestType determineTestTypeImpl(
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
       Label label,

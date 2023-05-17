@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildDriverKey.TestType;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
@@ -89,6 +90,8 @@ public class BuildDriverFunction implements SkyFunction {
   private final Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics;
   private final Supplier<RegexFilter> extraActionFilterSupplier;
 
+  private final Supplier<TestTypeResolver> testTypeResolver;
+
   @Nullable private Supplier<Boolean> shouldCheckForConflict;
 
   // A set of BuildDriverKeys that have been checked for conflicts.
@@ -118,17 +121,21 @@ public class BuildDriverFunction implements SkyFunction {
       TransitiveActionLookupValuesHelper transitiveActionLookupValuesHelper,
       Supplier<IncrementalArtifactConflictFinder> incrementalArtifactConflictFinder,
       Supplier<RuleContextConstraintSemantics> ruleContextConstraintSemantics,
-      Supplier<RegexFilter> extraActionFilterSupplier) {
+      Supplier<RegexFilter> extraActionFilterSupplier,
+      Supplier<TestTypeResolver> testTypeResolver) {
     this.transitiveActionLookupValuesHelper = transitiveActionLookupValuesHelper;
     this.incrementalArtifactConflictFinder = incrementalArtifactConflictFinder;
     this.ruleContextConstraintSemantics = ruleContextConstraintSemantics;
     this.extraActionFilterSupplier = extraActionFilterSupplier;
+    this.testTypeResolver = testTypeResolver;
   }
 
   private static class State implements SkyKeyComputeState {
     // It's only necessary to do this check once.
     private boolean checkedForCompatibility = false;
     private boolean checkedForPlatformCompatibility = false;
+
+    private TestType testType;
   }
 
   public void setShouldCheckForConflict(Supplier<Boolean> shouldCheckForConflict) {
@@ -192,6 +199,18 @@ public class BuildDriverFunction implements SkyFunction {
     Preconditions.checkState(
         topLevelSkyValue instanceof ConfiguredTargetValue
             || topLevelSkyValue instanceof TopLevelAspectsValue);
+    if (state.testType == null) {
+      if (topLevelSkyValue instanceof ConfiguredTargetValue) {
+        state.testType =
+            testTypeResolver
+                .get()
+                .determineTestType(
+                    ((ConfiguredTargetValue) topLevelSkyValue).getConfiguredTarget());
+      } else {
+        state.testType = NOT_TEST;
+      }
+    }
+
     if (topLevelSkyValue instanceof ConfiguredTargetValue) {
       ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
       ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
@@ -234,7 +253,7 @@ public class BuildDriverFunction implements SkyFunction {
                 postedEventsTypes, env, TopLevelTargetSkippedEvent.create(configuredTarget));
             // We still record analyzed but skipped tests, as this information is needed for the
             // result summary.
-            if (!NOT_TEST.equals(buildDriverKey.getTestType())) {
+            if (isTest(state.testType)) {
               postEventIfNecessary(
                   postedEventsTypes,
                   env,
@@ -264,7 +283,7 @@ public class BuildDriverFunction implements SkyFunction {
       postEventIfNecessary(
           postedEventsTypes,
           env,
-          TopLevelTargetPendingExecutionEvent.create(configuredTarget, buildDriverKey.isTest()));
+          TopLevelTargetPendingExecutionEvent.create(configuredTarget, isTest(state.testType)));
       requestConfiguredTargetExecution(
           configuredTarget,
           buildDriverKey,
@@ -272,7 +291,8 @@ public class BuildDriverFunction implements SkyFunction {
           buildConfigurationValue,
           env,
           topLevelArtifactContext,
-          postedEventsTypes);
+          postedEventsTypes,
+          state.testType);
     } else {
       announceAspectAnalysisDoneAndRequestExecution(
           buildDriverKey,
@@ -288,8 +308,7 @@ public class BuildDriverFunction implements SkyFunction {
 
     // If we get to this point, the execution of this target/aspect succeeded.
 
-    if (EXCLUSIVE.equals(buildDriverKey.getTestType())
-        || EXCLUSIVE_IF_LOCAL.equals(buildDriverKey.getTestType())) {
+    if (state.testType.equals(EXCLUSIVE) || state.testType.equals(EXCLUSIVE_IF_LOCAL)) {
       Preconditions.checkState(topLevelSkyValue instanceof ConfiguredTargetValue);
       removeStatesForKey(buildDriverKey);
       return new ExclusiveTestBuildDriverValue(
@@ -347,6 +366,9 @@ public class BuildDriverFunction implements SkyFunction {
     }
   }
 
+  private static boolean isTest(TestType testType) {
+    return !testType.equals(NOT_TEST);
+  }
 
   /**
    * Checks if a ConfiguredTarget is compatible with the platform/environment. See {@link
@@ -428,7 +450,8 @@ public class BuildDriverFunction implements SkyFunction {
       BuildConfigurationValue buildConfigurationValue,
       Environment env,
       TopLevelArtifactContext topLevelArtifactContext,
-      Set<TopLevelStatusEvents.Type> postedEventsTypes)
+      Set<TopLevelStatusEvents.Type> postedEventsTypes,
+      TestType testType)
       throws InterruptedException {
     ImmutableSet.Builder<Artifact> artifactsToBuild = ImmutableSet.builder();
     addExtraActionsIfRequested(
@@ -436,7 +459,7 @@ public class BuildDriverFunction implements SkyFunction {
         artifactsToBuild,
         buildDriverKey.isExtraActionTopLevelOnly());
     postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
-    if (NOT_TEST.equals(buildDriverKey.getTestType())) {
+    if (testType.equals(NOT_TEST)) {
       declareDependenciesAndCheckValues(
           env,
           Iterables.concat(
@@ -455,7 +478,7 @@ public class BuildDriverFunction implements SkyFunction {
             Preconditions.checkNotNull(buildConfigurationValue),
             /* isSkipped= */ false));
 
-    if (PARALLEL.equals(buildDriverKey.getTestType())) {
+    if (testType.equals(PARALLEL)) {
       // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
       declareDependenciesAndCheckValues(
           env,
@@ -604,6 +627,12 @@ public class BuildDriverFunction implements SkyFunction {
 
     /** Register with the helper that the {@code keys} are conflict-free. */
     void registerConflictFreeKeys(ImmutableSet<ActionLookupKey> keys);
+  }
+
+  interface TestTypeResolver {
+
+    /** Determines the appropriate test type given a ConfiguredTarget. */
+    TestType determineTestType(ConfiguredTarget target);
   }
 
   @AutoValue

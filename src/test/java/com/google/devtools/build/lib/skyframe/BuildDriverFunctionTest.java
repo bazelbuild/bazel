@@ -57,8 +57,9 @@ public class BuildDriverFunctionTest {
         new BuildDriverFunction(
             fakeHelper,
             () -> dummyConflictFinder,
-            /*ruleContextConstraintSemantics=*/ null,
-            /*extraActionFilterSupplier=*/ null);
+            /* ruleContextConstraintSemantics= */ null,
+            /* extraActionFilterSupplier= */ null,
+            /* testTypeResolver= */ null);
 
     var unused = function.checkActionConflicts(dummyKey, /* strictConflictCheck= */ true);
 
