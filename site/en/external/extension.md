@@ -175,3 +175,22 @@ functionality, it's best to put them in separate files in case you need it
 later. This is because the extension's identify is based on its file, so moving
 the extension into another file later changes your public API and is a backwards
 incompatible change for your users.
+
+### Only the root module should directly affect repository names
+
+Remember that when an extension creates repositories, they are created within the namespace
+of the extension. This means collisions can occur if different modules use
+the same extension and end up creating a repository with the same name. This
+often manifests as a module extension's `tag_class` having a `name` argument
+that is passed as a repository rule's `name` value.
+
+For example, say the root module, `A`, depends on module `B`. Both modules
+depend on module `mylang`. If both `A` and `B` call
+`mylang.toolchain(name="foo")`, they will both try to create a repository named
+`foo` within the `mylang` module and an error will occur.
+
+To avoid this, either remove the ability to set the repository name directly,
+or only allow the root module to do so. It's OK to allow the root module this
+ability because nothing will depend on it, so it doesn't have to worry about
+another module creating a conflicting name.
+
