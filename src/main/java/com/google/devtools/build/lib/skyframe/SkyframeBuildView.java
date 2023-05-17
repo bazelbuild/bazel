@@ -566,6 +566,15 @@ public final class SkyframeBuildView {
     ImmutableList<Artifact> workspaceStatusArtifacts =
         skyframeExecutor.getWorkspaceStatusArtifacts(eventHandler);
 
+    skyframeExecutor.setTestTypeResolver(
+        target ->
+            determineTestTypeImpl(
+                testsToRun,
+                labelTargetMap,
+                target.getLabel(),
+                buildDriverKeyTestContext,
+                eventHandler));
+
     ImmutableSet<BuildDriverKey> buildDriverCTKeys =
         ctKeys.stream()
             .map(
@@ -577,13 +586,7 @@ public final class SkyframeBuildView {
                         /* explicitlyRequested= */ explicitTargetPatterns.contains(
                             ctKey.getLabel()),
                         skipIncompatibleExplicitTargets,
-                        extraActionTopLevelOnly,
-                        determineTestType(
-                            testsToRun,
-                            labelTargetMap,
-                            ctKey.getLabel(),
-                            buildDriverKeyTestContext,
-                            eventHandler)))
+                        extraActionTopLevelOnly))
             .collect(ImmutableSet.toImmutableSet());
 
     ImmutableSet<BuildDriverKey> buildDriverAspectKeys =
@@ -623,6 +626,7 @@ public final class SkyframeBuildView {
             /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
 
       try {
+        skyframeExecutor.getIsBuildingExclusiveArtifacts().set(false);
         resourceManager.resetResourceUsage();
         EvaluationResult<SkyValue> additionalArtifactsResult;
         try (SilentCloseable c =
@@ -645,6 +649,7 @@ public final class SkyframeBuildView {
           // in case of --nokeep_going & analysis error, the analysis phase is never finished.
           skyframeExecutor.resetIncrementalArtifactConflictFindingStates();
           skyframeExecutor.resetBuildDriverFunction();
+          skyframeExecutor.setTestTypeResolver(null);
 
           // Coverage needs to be done after the list of analyzed targets/tests is known.
           additionalArtifactsResult =
@@ -681,14 +686,19 @@ public final class SkyframeBuildView {
             (!evaluationResult.hasError() && !additionalArtifactsResult.hasError()) || keepGoing;
 
         if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
+          skyframeExecutor.getIsBuildingExclusiveArtifacts().set(true);
           // Run exclusive tests sequentially.
           Iterable<SkyKey> testCompletionKeys =
               TestCompletionValue.keys(
                   exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
           for (SkyKey testCompletionKey : testCompletionKeys) {
             EvaluationResult<SkyValue> testRunResult =
-                skyframeExecutor.evaluateSkyKeys(
-                    eventHandler, ImmutableSet.of(testCompletionKey), keepGoing);
+                skyframeExecutor.runExclusiveTestSkymeld(
+                    eventHandler,
+                    resourceManager,
+                    testCompletionKey,
+                    keepGoing,
+                    executors.executionParallelism());
             if (testRunResult.hasError()) {
               detailedExitCodes.add(
                   SkyframeErrorProcessor.processErrors(
@@ -706,7 +716,7 @@ public final class SkyframeBuildView {
         }
       } finally {
         // No more action execution beyond this point.
-        skyframeExecutor.clearExecutionStates(eventHandler);
+        skyframeExecutor.clearExecutionStatesSkymeld(eventHandler);
         // Also releases thread locks.
         resourceManager.resetResourceUsage();
       }
@@ -907,11 +917,14 @@ public final class SkyframeBuildView {
         e.rethrowTyped();
       } catch (ActionConflictException ace) {
         ace.reportTo(eventHandler);
-        eventHandler.handle(
-            Event.warn(
-                String.format(
-                    "errors encountered while building target '%s'",
-                    ace.getArtifact().getOwnerLabel())));
+        if (keepGoing) {
+          eventHandler.handle(
+              Event.warn(
+                  String.format(
+                      "errors encountered while analyzing target '"
+                          + ace.getArtifact().getOwnerLabel()
+                          + "': it will not be built")));
+        }
       } catch (ArtifactPrefixConflictException apce) {
         if (reportedExceptions.add(apce)) {
           eventHandler.handle(Event.error(apce.getMessage()));
@@ -959,7 +972,7 @@ public final class SkyframeBuildView {
     return exclusiveTests.build();
   }
 
-  private static TestType determineTestType(
+  private static TestType determineTestTypeImpl(
       ImmutableSet<Label> testsToRun,
       ImmutableMap<Label, Target> labelTargetMap,
       Label label,
@@ -974,11 +987,13 @@ public final class SkyframeBuildView {
       return TestType.NOT_TEST;
     }
 
+    Rule rule = (Rule) target;
     TestType fromExplicitFlagOrTag;
     if (buildDriverKeyTestContext.getTestStrategy().equals("exclusive")
-        || TargetUtils.isExclusiveTestRule((Rule) target)) {
+        || TargetUtils.isExclusiveTestRule(rule)
+        || (TargetUtils.isExclusiveIfLocalTestRule(rule) && TargetUtils.isLocalTestRule(rule))) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE;
-    } else if (TargetUtils.isExclusiveIfLocalTestRule((Rule) target)) {
+    } else if (TargetUtils.isExclusiveIfLocalTestRule(rule)) {
       fromExplicitFlagOrTag = TestType.EXCLUSIVE_IF_LOCAL;
     } else {
       fromExplicitFlagOrTag = TestType.PARALLEL;
@@ -1255,7 +1270,7 @@ public final class SkyframeBuildView {
    * Clears any data cached in this BuildView. To be called when the attached SkyframeExecutor is
    * reset.
    */
-  void reset() {
+  public void reset() {
     configuration = null;
     skyframeAnalysisWasDiscarded = false;
     clearLegacyData();

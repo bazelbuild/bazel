@@ -752,8 +752,13 @@ public final class BazelBuildEventServiceModuleTest extends BuildIntegrationTest
         .getEvaluator()
         .injectGraphTransformerForTesting(
             NotifyingHelper.makeNotifyingTransformer(
+                // To get the right configuration, some analysis has to already been done.
+                // We're only throwing OOM here for non shareable ActionLookupData to exclude
+                // workspace status actions, which in Skymeld mode can run without any analysis.
                 (key, type, order, context) -> {
-                  if (key instanceof ActionLookupData && !threwOom.getAndSet(true)) {
+                  if (key instanceof ActionLookupData
+                      && key.valueIsShareable()
+                      && !threwOom.getAndSet(true)) {
                     throwOom.run();
                   }
                 }));

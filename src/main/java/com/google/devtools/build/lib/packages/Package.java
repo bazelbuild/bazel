@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -277,7 +276,7 @@ public class Package {
 
   private long computationSteps;
 
-  private ImmutableMap<String, Module> loads;
+  private ImmutableList<Module> loads;
 
   /** Returns the number of Starlark computation steps executed by this BUILD file. */
   public long getComputationSteps() {
@@ -285,12 +284,14 @@ public class Package {
   }
 
   /**
-   * Returns the mapping, for each load statement in this BUILD file in source order, from the load
-   * string to the module it loads. It thus indirectly records the package's complete load DAG. In
-   * some configurations the information may be unavailable (null).
+   * Returns a list of modules loaded by this BUILD file, in source order.
+   *
+   * <p>By traversing these modules' loads, it is possible to reconstruct the complete load DAG.
+   *
+   * <p>In some configurations the information may be unavailable (null).
    */
   @Nullable
-  public ImmutableMap<String, Module> getLoads() {
+  public ImmutableList<Module> getLoads() {
     return loads;
   }
 
@@ -898,7 +899,7 @@ public class Package {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             basePackageId,
             DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* associatedModuleName= */ Optional.empty(),
@@ -941,30 +942,16 @@ public class Package {
        * thrown from {@link #getTarget}. Useful for toning down verbosity in situations where it can
        * be less helpful.
        */
-      boolean succinctTargetNotFoundErrors();
-
-      /**
-       * Reports whether to record the set of Modules loaded by this package, which enables richer
-       * modes of blaze query.
-       */
-      boolean recordLoadedModules();
-    }
-
-    /** Default {@link PackageSettings}. */
-    public static class DefaultPackageSettings implements PackageSettings {
-      public static final DefaultPackageSettings INSTANCE = new DefaultPackageSettings();
-
-      private DefaultPackageSettings() {}
-
-      @Override
-      public boolean succinctTargetNotFoundErrors() {
+      default boolean succinctTargetNotFoundErrors() {
         return false;
       }
 
-      @Override
-      public boolean recordLoadedModules() {
+      /** Reports whether to record the set of Modules loaded by this package. */
+      default boolean recordLoadedModules() {
         return true;
       }
+
+      PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
     /**
@@ -1223,7 +1210,7 @@ public class Package {
         addInputFile(buildFileLabel, Location.fromFile(filename.asPath().toString()));
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
-        throw new AssertionError("Package BUILD file has an illegal name: " + filename);
+        throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
       }
       return this;
     }
@@ -1340,8 +1327,8 @@ public class Package {
       pkg.computationSteps = n;
     }
 
-    /** Sets the load mapping for this package. */
-    void setLoads(ImmutableMap<String, Module> loads) {
+    /** Sets the loaded modules for this package. */
+    void setLoads(ImmutableList<Module> loads) {
       pkg.loads = Preconditions.checkNotNull(loads);
     }
 
@@ -1910,7 +1897,7 @@ public class Package {
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
-        Collection<Event> errors = envGroup.processMemberEnvironments(targets);
+        List<Event> errors = envGroup.processMemberEnvironments(targets);
         if (!errors.isEmpty()) {
           addEvents(errors);
           setContainsErrors();
@@ -1965,7 +1952,7 @@ public class Package {
         throw nameConflict(rule, existing);
       }
 
-      List<OutputFile> outputFiles = rule.getOutputFiles();
+      ImmutableList<OutputFile> outputFiles = rule.getOutputFiles();
       Map<String, OutputFile> outputFilesByName =
           Maps.newHashMapWithExpectedSize(outputFiles.size());
 

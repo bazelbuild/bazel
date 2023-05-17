@@ -42,124 +42,29 @@ import java.util.TreeSet;
  * action cache), such that Bazel knows exactly which actions it needs to rerun, and does not have
  * to reanalyze the entire dependency graph.
  */
-public final class ActionEnvironment {
+public abstract class ActionEnvironment {
 
-  /**
-   * A map of environment variables and their values together with a list of variables whose values
-   * should be inherited from the client environment.
-   */
-  public interface EnvironmentVariables {
+  public static final ActionEnvironment EMPTY = new EmptyActionEnvironment();
 
-    /**
-     * Returns the fixed environment variables as a map.
-     *
-     * <p>WARNING: this allocates additional objects if the underlying implementation is a {@link
-     * CompoundEnvironmentVariables}; use sparingly.
-     */
-    ImmutableMap<String, String> getFixedEnvironment();
-
-    /**
-     * Returns the inherited environment variables as a set.
-     *
-     * <p>WARNING: this allocates additional objects if the underlying implementation is a {@link
-     * CompoundEnvironmentVariables}; use sparingly.
-     */
-    ImmutableSet<String> getInheritedEnvironment();
-
-    default boolean isEmpty() {
-      return getFixedEnvironment().isEmpty() && getInheritedEnvironment().isEmpty();
-    }
-
-    default int size() {
-      return getFixedEnvironment().size() + getInheritedEnvironment().size();
-    }
+  /** Convenience method for creating an {@link ActionEnvironment} with no inherited variables. */
+  public static ActionEnvironment create(ImmutableMap<String, String> fixedEnv) {
+    return create(fixedEnv, /* inheritedEnv= */ ImmutableSet.of());
   }
 
   /**
-   * An {@link EnvironmentVariables} that combines variables from two different environments without
-   * allocating a new map.
+   * Creates a new {@link ActionEnvironment}.
+   *
+   * <p>If an environment variable is contained both as a key in {@code fixedEnv} and in {@code
+   * inheritedEnv}, the result of {@link #resolve} will contain the value inherited from the client
+   * environment.
    */
-  static class CompoundEnvironmentVariables implements EnvironmentVariables {
-
-    static EnvironmentVariables create(
-        Map<String, String> fixedVars, Set<String> inheritedVars, EnvironmentVariables base) {
-      if (fixedVars.isEmpty() && inheritedVars.isEmpty()) {
-        return base;
-      }
-      return new CompoundEnvironmentVariables(fixedVars, inheritedVars, base);
+  public static ActionEnvironment create(
+      ImmutableMap<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
+    if (fixedEnv.isEmpty() && inheritedEnv.isEmpty()) {
+      return EMPTY;
     }
-
-    private final EnvironmentVariables current;
-    private final EnvironmentVariables base;
-
-    private CompoundEnvironmentVariables(
-        Map<String, String> fixedVars, Set<String> inheritedVars, EnvironmentVariables base) {
-      this.current = SimpleEnvironmentVariables.create(fixedVars, inheritedVars);
-      this.base = base;
-    }
-
-    @Override
-    public boolean isEmpty() {
-      return current.isEmpty() && base.isEmpty();
-    }
-
-    @Override
-    public ImmutableMap<String, String> getFixedEnvironment() {
-      ImmutableMap.Builder<String, String> result = new ImmutableMap.Builder<>();
-      result.putAll(base.getFixedEnvironment());
-      result.putAll(current.getFixedEnvironment());
-      return result.buildKeepingLast();
-    }
-
-    @Override
-    public ImmutableSet<String> getInheritedEnvironment() {
-      ImmutableSet.Builder<String> result = new ImmutableSet.Builder<>();
-      result.addAll(base.getInheritedEnvironment());
-      result.addAll(current.getInheritedEnvironment());
-      return result.build();
-    }
+    return new SimpleActionEnvironment(fixedEnv, inheritedEnv);
   }
-
-  /** A simple {@link EnvironmentVariables}. */
-  static class SimpleEnvironmentVariables implements EnvironmentVariables {
-
-    static EnvironmentVariables create(Map<String, String> fixedVars, Set<String> inheritedVars) {
-      if (fixedVars.isEmpty() && inheritedVars.isEmpty()) {
-        return EMPTY_ENVIRONMENT_VARIABLES;
-      }
-      return new SimpleEnvironmentVariables(fixedVars, inheritedVars);
-    }
-
-    private final ImmutableMap<String, String> fixedVars;
-    private final ImmutableSet<String> inheritedVars;
-
-    private SimpleEnvironmentVariables(Map<String, String> fixedVars, Set<String> inheritedVars) {
-      this.fixedVars = ImmutableMap.copyOf(fixedVars);
-      this.inheritedVars = ImmutableSet.copyOf(inheritedVars);
-    }
-
-    @Override
-    public ImmutableMap<String, String> getFixedEnvironment() {
-      return fixedVars;
-    }
-
-    @Override
-    public ImmutableSet<String> getInheritedEnvironment() {
-      return inheritedVars;
-    }
-  }
-
-  /** An empty {@link EnvironmentVariables}. */
-  public static final EnvironmentVariables EMPTY_ENVIRONMENT_VARIABLES =
-      new SimpleEnvironmentVariables(ImmutableMap.of(), ImmutableSet.of());
-
-  /**
-   * An empty environment, mainly for testing. Production code should never use this, but instead
-   * get the proper environment from the current configuration.
-   */
-  // TODO(ulfjack): Migrate all production code to use the proper action environment, and then make
-  // this @VisibleForTesting or rename it to clarify.
-  public static final ActionEnvironment EMPTY = new ActionEnvironment(EMPTY_ENVIRONMENT_VARIABLES);
 
   /**
    * Splits the given map into a map of variables with a fixed value, and a set of variables that
@@ -173,87 +78,20 @@ public final class ActionEnvironment {
       if (entry.getValue() != null) {
         fixedEnv.put(entry.getKey(), entry.getValue());
       } else {
-        String key = entry.getKey();
-        inheritedEnv.add(key);
+        inheritedEnv.add(entry.getKey());
       }
     }
-    return create(SimpleEnvironmentVariables.create(fixedEnv, inheritedEnv));
+    return create(ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(inheritedEnv));
   }
 
-  private final EnvironmentVariables vars;
-
-  private ActionEnvironment(EnvironmentVariables vars) {
-    this.vars = vars;
-  }
-
-  /**
-   * Creates a new action environment. If an environment variable is contained in both {@link
-   * EnvironmentVariables#getFixedEnvironment()} and {@link
-   * EnvironmentVariables#getInheritedEnvironment()}, the result of {@link
-   * ActionEnvironment#resolve(Map, Map)} will contain the value inherited from the client
-   * environment.
-   */
-  private static ActionEnvironment create(EnvironmentVariables vars) {
-    if (vars.isEmpty()) {
-      return EMPTY;
-    }
-    return new ActionEnvironment(vars);
-  }
-
-  /**
-   * Creates a new action environment. If an environment variable is contained both as a key in
-   * {@code fixedEnv} and in {@code inheritedEnv}, the result of {@link
-   * ActionEnvironment#resolve(Map, Map)} will contain the value inherited from the client
-   * environment.
-   */
-  public static ActionEnvironment create(
-      Map<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
-    return ActionEnvironment.create(SimpleEnvironmentVariables.create(fixedEnv, inheritedEnv));
-  }
-
-  public static ActionEnvironment create(Map<String, String> fixedEnv) {
-    return ActionEnvironment.create(SimpleEnvironmentVariables.create(fixedEnv, ImmutableSet.of()));
-  }
-
-  /**
-   * Returns a copy of the environment with the given fixed variables added to it, <em>overwriting
-   * any existing occurrences of those variables</em>.
-   */
-  public ActionEnvironment withAdditionalFixedVariables(Map<String, String> fixedVars) {
-    return withAdditionalVariables(fixedVars, ImmutableSet.of());
-  }
-
-  /**
-   * Returns a copy of the environment with the given fixed and inherited variables added to it,
-   * <em>overwriting any existing occurrences of those variables</em>.
-   */
-  public ActionEnvironment withAdditionalVariables(
-      Map<String, String> fixedVars, Set<String> inheritedVars) {
-    EnvironmentVariables newVars =
-        CompoundEnvironmentVariables.create(fixedVars, inheritedVars, vars);
-    if (newVars == vars) {
-      return this;
-    }
-    return ActionEnvironment.create(newVars);
-  }
-
-  /**
-   * Returns an upper bound on the combined size of the fixed and inherited environments. A call to
-   * {@link ActionEnvironment#resolve(Map, Map)} may add less entries than this number if
-   * environment variables are contained in both the fixed and the inherited environment.
-   */
-  public int size() {
-    return vars.size();
-  }
+  private ActionEnvironment() {}
 
   /**
    * Returns the 'fixed' part of the environment, i.e., those environment variables that are set to
    * fixed values and their values. This should only be used for testing and to compute the cache
    * keys of actions. Use {@link #resolve} instead to get the complete environment.
    */
-  public ImmutableMap<String, String> getFixedEnv() {
-    return vars.getFixedEnvironment();
-  }
+  public abstract ImmutableMap<String, String> getFixedEnv();
 
   /**
    * Returns the 'inherited' part of the environment, i.e., those environment variables that are
@@ -261,9 +99,14 @@ public final class ActionEnvironment {
    * be used for testing and to compute the cache keys of actions. Use {@link #resolve} instead to
    * get the complete environment.
    */
-  public ImmutableSet<String> getInheritedEnv() {
-    return vars.getInheritedEnvironment();
-  }
+  public abstract ImmutableSet<String> getInheritedEnv();
+
+  /**
+   * Returns an upper bound on the combined size of the fixed and inherited environments. A call to
+   * {@link #resolve} may add fewer entries than this number if environment variables are contained
+   * in both the fixed and the inherited environment.
+   */
+  public abstract int estimatedSize();
 
   /**
    * Resolves the action environment and adds the resulting entries to the given {@code result} map,
@@ -271,10 +114,10 @@ public final class ActionEnvironment {
    *
    * <p>We pass in a map to mutate to avoid creating and merging intermediate maps.
    */
-  public void resolve(Map<String, String> result, Map<String, String> clientEnv) {
+  public final void resolve(Map<String, String> result, Map<String, String> clientEnv) {
     checkNotNull(clientEnv);
-    result.putAll(vars.getFixedEnvironment());
-    for (String var : vars.getInheritedEnvironment()) {
+    result.putAll(getFixedEnv());
+    for (String var : getInheritedEnv()) {
       String value = clientEnv.get(var);
       if (value != null) {
         result.put(var, value);
@@ -282,8 +125,113 @@ public final class ActionEnvironment {
     }
   }
 
-  public void addTo(Fingerprint f) {
-    f.addStringMap(vars.getFixedEnvironment());
-    f.addStrings(vars.getInheritedEnvironment());
+  public final void addTo(Fingerprint f) {
+    f.addStringMap(getFixedEnv());
+    f.addStrings(getInheritedEnv());
+  }
+
+  /**
+   * Returns a copy of the environment with the given fixed variables added to it, <em>overwriting
+   * any existing occurrences of those variables</em>.
+   */
+  public final ActionEnvironment withAdditionalFixedVariables(Map<String, String> fixedVars) {
+    return withAdditionalVariables(fixedVars, ImmutableSet.of());
+  }
+
+  /**
+   * Returns a copy of this environment with the given fixed and inherited variables added to it,
+   * <em>overwriting any existing occurrences of those variables</em>.
+   */
+  public final ActionEnvironment withAdditionalVariables(
+      Map<String, String> fixedVars, Set<String> inheritedVars) {
+    if (fixedVars.isEmpty() && inheritedVars.isEmpty()) {
+      return this;
+    }
+    if (this == EMPTY) {
+      return new SimpleActionEnvironment(
+          ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars));
+    }
+    return new CompoundActionEnvironment(
+        this, ImmutableMap.copyOf(fixedVars), ImmutableSet.copyOf(inheritedVars));
+  }
+
+  private static final class EmptyActionEnvironment extends ActionEnvironment {
+
+    @Override
+    public ImmutableMap<String, String> getFixedEnv() {
+      return ImmutableMap.of();
+    }
+
+    @Override
+    public ImmutableSet<String> getInheritedEnv() {
+      return ImmutableSet.of();
+    }
+
+    @Override
+    public int estimatedSize() {
+      return 0;
+    }
+  }
+
+  private static final class SimpleActionEnvironment extends ActionEnvironment {
+    private final ImmutableMap<String, String> fixedEnv;
+    private final ImmutableSet<String> inheritedEnv;
+
+    SimpleActionEnvironment(
+        ImmutableMap<String, String> fixedEnv, ImmutableSet<String> inheritedEnv) {
+      this.fixedEnv = fixedEnv;
+      this.inheritedEnv = inheritedEnv;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getFixedEnv() {
+      return fixedEnv;
+    }
+
+    @Override
+    public ImmutableSet<String> getInheritedEnv() {
+      return inheritedEnv;
+    }
+
+    @Override
+    public int estimatedSize() {
+      return fixedEnv.size() + inheritedEnv.size();
+    }
+  }
+
+  private static final class CompoundActionEnvironment extends ActionEnvironment {
+    private final ActionEnvironment base;
+    private final ImmutableMap<String, String> fixedVars;
+    private final ImmutableSet<String> inheritedVars;
+
+    private CompoundActionEnvironment(
+        ActionEnvironment base,
+        ImmutableMap<String, String> fixedVars,
+        ImmutableSet<String> inheritedVars) {
+      this.base = base;
+      this.fixedVars = fixedVars;
+      this.inheritedVars = inheritedVars;
+    }
+
+    @Override
+    public ImmutableMap<String, String> getFixedEnv() {
+      return ImmutableMap.<String, String>builder()
+          .putAll(base.getFixedEnv())
+          .putAll(fixedVars)
+          .buildKeepingLast();
+    }
+
+    @Override
+    public ImmutableSet<String> getInheritedEnv() {
+      return ImmutableSet.<String>builder()
+          .addAll(base.getInheritedEnv())
+          .addAll(inheritedVars)
+          .build();
+    }
+
+    @Override
+    public int estimatedSize() {
+      return base.estimatedSize() + fixedVars.size() + inheritedVars.size();
+    }
   }
 }

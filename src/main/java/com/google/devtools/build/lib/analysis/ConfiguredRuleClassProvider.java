@@ -47,11 +47,15 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.PackageCallable;
+import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -92,6 +96,7 @@ public /*final*/ class ConfiguredRuleClassProvider
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
+  // TODO(b/280446865): Consider merging Bootstrap and EnvironmentExtension into this interface.
   public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
@@ -152,6 +157,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
     private final Map<String, NativeAspectClass> nativeAspectClassMap = new HashMap<>();
+    private final List<EnvironmentExtension> environmentExtensions = new ArrayList<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph = new Digraph<>();
     private final List<Class<? extends Fragment>> universalFragments = new ArrayList<>();
@@ -296,6 +302,12 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     public Builder addNativeAspectClass(NativeAspectClass aspectFactoryClass) {
       nativeAspectClassMap.put(aspectFactoryClass.getName(), aspectFactoryClass);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addEnvironmentExtension(EnvironmentExtension environmentExtension) {
+      environmentExtensions.add(environmentExtension);
       return this;
     }
 
@@ -574,6 +586,7 @@ public /*final*/ class ConfiguredRuleClassProvider
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(nativeAspectClassMap),
+          ImmutableList.copyOf(environmentExtensions),
           FragmentRegistry.create(
               configurationFragmentClasses, universalFragments, configurationOptions),
           defaultWorkspaceFilePrefix.toString(),
@@ -645,9 +658,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   /** Maps rule class name to the metaclass instance for that rule. */
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
-  /** Maps rule class name to the Starlark callable that instantiates it. */
-  private final ImmutableMap<String, ?> ruleFunctionMap;
-
   /** Maps rule class name to the rule definition objects. */
   private final ImmutableMap<String, RuleDefinition> ruleDefinitionMap;
 
@@ -669,11 +679,9 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
-
-  private final ImmutableMap<String, Object> starlarkBuiltinsInternals;
-
   private final ImmutableMap<String, Object> environment;
+
+  private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
 
@@ -697,6 +705,7 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
+      ImmutableList<EnvironmentExtension> environmentExtensions,
       FragmentRegistry fragmentRegistry,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
@@ -719,7 +728,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.bundledBuiltinsRoot = bundledBuiltinsRoot;
     this.builtinsBzlPackagePathInSource = builtinsBzlPackagePathInSource;
     this.ruleClassMap = ruleClassMap;
-    this.ruleFunctionMap = RuleFactory.buildRuleFunctions(ruleClassMap);
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.nativeAspectClassMap = nativeAspectClassMap;
     this.fragmentRegistry = fragmentRegistry;
@@ -730,16 +738,34 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.nativeRuleSpecificBindings =
-        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
-    this.starlarkBuiltinsInternals = starlarkBuiltinsInternals;
-    this.environment = createEnvironment(nativeRuleSpecificBindings);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
     this.configurationFragmentMap = createFragmentMap(fragmentRegistry.getAllFragments());
     this.constraintSemantics = constraintSemantics;
     this.networkAllowlistForTests = networkAllowlistForTests;
+
+    // TODO(b/280446865): See about moving createNativeRuleSpecificBindings to
+    // BazelStarlarkEnvironment, or obviating the need for this method entirely.
+    ImmutableMap<String, Object> nativeRuleSpecificBindings =
+        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
+    this.environment = createEnvironment(nativeRuleSpecificBindings);
+    // If needed, we could allow the version to be customized by the builder e.g. for unit testing,
+    // but at the moment it suffices to use the production value unconditionally.
+    String version = BlazeVersionInfo.instance().getVersion();
+    this.bazelStarlarkEnvironment =
+        new BazelStarlarkEnvironment(
+            /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
+            /* environmentExtensions= */ environmentExtensions,
+            // TODO(b/280446865): Instead of exposing the {@code package()} symbol separately, just
+            // keep it part of the BUILD/native environments. Requires migrating {@code package()}
+            // to be a @StarlarkMethod that gets registered as a BUILD toplevel.
+            /* packageCallable= */ PackageCallable.newPackageCallable(environmentExtensions),
+            /* bzlToplevels= */ environment,
+            /* nativeRuleSpecificBindings= */ nativeRuleSpecificBindings,
+            /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
+                ruleClassMap, version),
+            /* builtinsInternals= */ starlarkBuiltinsInternals);
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -776,11 +802,6 @@ public /*final*/ class ConfiguredRuleClassProvider
   @Override
   public ImmutableMap<String, RuleClass> getRuleClassMap() {
     return ruleClassMap;
-  }
-
-  @Override
-  public ImmutableMap<String, ?> getRuleFunctionMap() {
-    return ruleFunctionMap;
   }
 
   @Override
@@ -873,22 +894,13 @@ public /*final*/ class ConfiguredRuleClassProvider
   }
 
   @Override
-  public ImmutableMap<String, Object> getNativeRuleSpecificBindings() {
-    // Include rule-related stuff like CcInfo, but not core stuff like rule(). Essentially, this
-    // is intended to include things that could in principle be migrated to Starlark (and hence
-    // should be overridable by @_builtins); in practice it means anything specifically
-    // registered with the RuleClassProvider.
-    return nativeRuleSpecificBindings;
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getStarlarkBuiltinsInternals() {
-    return starlarkBuiltinsInternals;
-  }
-
-  @Override
   public ImmutableMap<String, Object> getEnvironment() {
     return environment;
+  }
+
+  @Override
+  public BazelStarlarkEnvironment getBazelStarlarkEnvironment() {
+    return bazelStarlarkEnvironment;
   }
 
   @Override

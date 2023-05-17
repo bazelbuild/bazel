@@ -316,8 +316,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
             if (o instanceof TargetAndErrorIfAny) {
               TargetAndErrorIfAny targetAndErrorIfAny = (TargetAndErrorIfAny) o;
               if (!targetAndErrorIfAny.isPackageLoadedSuccessfully()) {
-                throw new BrokenQueryScopeException(
-                    "errors were encountered while computing transitive closure of the scope.");
+                throw BrokenQueryScopeException.of(targetAndErrorIfAny.getErrorLoadingTarget());
               }
 
               target = targetAndErrorIfAny.getTarget();
@@ -330,8 +329,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
               continue;
             }
           } catch (NoSuchTargetException | NoSuchPackageException e) {
-            throw new BrokenQueryScopeException(
-                "errors were encountered while computing transitive closure of the scope.", e);
+            throw BrokenQueryScopeException.of(e);
           }
         }
 

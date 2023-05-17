@@ -119,7 +119,10 @@ java_library(
 java_test(
     name = "ObjcRulesTests",
     shard_count = 20,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "not_run:arm",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":ObjcRulesTests_lib",

@@ -127,8 +127,8 @@ function test_java_8_android_binary_worker_strategy() {
   assert_build //java/bazel:bin \
     --persistent_android_dex_desugar \
     --worker_verbose &> $TEST_log
-  expect_log "Created new non-sandboxed Desugar worker (id [0-9]\+)"
-  expect_log "Created new non-sandboxed DexBuilder worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed Desugar worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new non-sandboxed DexBuilder worker (id [0-9]\+, key hash -\?[0-9]\+)"
 }
 
 function test_java_8_android_binary_multiplex_worker_strategy() {
@@ -140,8 +140,8 @@ function test_java_8_android_binary_multiplex_worker_strategy() {
     --experimental_worker_multiplex \
     --persistent_multiplex_android_dex_desugar \
     --worker_verbose &> $TEST_log
-  expect_log "Created new non-sandboxed Desugar multiplex-worker (id [0-9]\+)"
-  expect_log "Created new non-sandboxed DexBuilder multiplex-worker (id [0-9]\+)"
+  expect_log "Created new non-sandboxed Desugar multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
+  expect_log "Created new non-sandboxed DexBuilder multiplex-worker (id [0-9]\+, key hash -\?[0-9]\+)"
 }
 
 run_suite "Android desugarer integration tests"

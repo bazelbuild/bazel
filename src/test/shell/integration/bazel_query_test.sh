@@ -668,7 +668,7 @@ genquery(name='q',
          opts = ["--output=blargh"],)
 EOF
 
-  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, xml, proto"
+  local expected_error_msg="in genquery rule //starfruit:q: Invalid output format 'blargh'. Valid values are: label, label_kind, build, minrank, maxrank, package, location, graph, jsonproto, xml, proto"
   bazel build //starfruit:q >& $TEST_log && fail "Expected failure"
   expect_log "$expected_error_msg"
 }
@@ -1096,6 +1096,29 @@ EOF
   # the result of "same_pkg_direct_rdeps(//pkg1:t2+//pkg3:t5)"
   expect_log "//pkg1:t1"
   expect_log "//pkg3:t4"
+}
+
+function test_basic_query_jsonproto() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "bar",
+    srcs = ["dummy.txt"],
+    outs = ["bar_out.txt"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  bazel query --output=jsonproto --noimplicit_deps "//$pkg:bar" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  # Verify that the appropriate attributes were included.
+  assert_contains "\"ruleClass\": \"genrule\"" output
+  assert_contains "\"name\": \"//$pkg:bar\"" output
+  assert_contains "\"ruleInput\": \[\"//$pkg:dummy.txt\"\]" output
+  assert_contains "\"ruleOutput\": \[\"//$pkg:bar_out.txt\"\]" output
+  assert_contains "echo unused" output
 }
 
 run_suite "${PRODUCT_NAME} query tests"

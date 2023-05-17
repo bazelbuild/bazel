@@ -28,6 +28,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -122,6 +123,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
@@ -181,6 +183,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictExc
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.ActionLookupValuesCollectionResult;
+import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TestTypeResolver;
 import com.google.devtools.build.lib.skyframe.BuildDriverFunction.TransitiveActionLookupValuesHelper;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
@@ -197,6 +200,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -286,7 +290,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected MemoizingEvaluator memoizingEvaluator;
-  private final EmittedEventState emittedEventState = new EmittedEventState();
+  protected final EmittedEventState emittedEventState = new EmittedEventState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final FileSystem fileSystem;
@@ -331,7 +335,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @Nullable private final ConfiguredTargetProgressReceiver configuredTargetProgress;
   protected final SyscallCache syscallCache;
 
-  private final SkyframeBuildView skyframeBuildView;
+  protected final SkyframeBuildView skyframeBuildView;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
   private final Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit;
@@ -421,6 +425,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Set<ActionLookupKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
   private RegexFilter extraActionFilter;
+  @Nullable private ActionExecutionInactivityWatchdog watchdog;
+
+  private final AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
+
+  // Reset to null after each build to save memory. Guaranteed to be non-null when retrieved via
+  // BuildDriverFunction.
+  @Nullable private TestTypeResolver testTypeResolver;
 
   // This boolean controls whether FILE_STATE or DIRECTORY_LISTING_STATE nodes are dropped after the
   // corresponding FILE or DIRECTORY_LISTING nodes are evaluated.
@@ -433,7 +444,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // ever losing injected/invalidated data here. This is safe because the worst that will happen is
   // that on the next build we try to inject/invalidate some nodes that aren't needed for the build.
   @Nullable protected final RecordingDifferencer recordingDiffer;
-  @Nullable final DiffAwarenessManager diffAwarenessManager;
+  @Nullable protected final DiffAwarenessManager diffAwarenessManager;
   // If this is null then workspace header pre-calculation won't happen.
   @Nullable private final SkyframeExecutorRepositoryHelpersHolder repositoryHelpersHolder;
   @Nullable private final WorkspaceInfoFromDiffReceiver workspaceInfoFromDiffReceiver;
@@ -574,9 +585,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(
         SkyFunctions.BZL_COMPILE, // TODO rename
-        new BzlCompileFunction(pkgFactory, getDigestFunction().getHashFunction()));
-    map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
-    map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
+        new BzlCompileFunction(
+            ruleClassProvider.getBazelStarlarkEnvironment(),
+            getDigestFunction().getHashFunction()));
+    map.put(
+        SkyFunctions.STARLARK_BUILTINS,
+        new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()));
+    map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider));
     GlobFunction globFunction = newGlobFunction();
     map.put(SkyFunctions.GLOB, globFunction);
     this.globFunction = globFunction;
@@ -723,7 +738,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             },
             this::getIncrementalArtifactConflictFinder,
             this::getRuleContextConstraintSemantics,
-            this::getExtraActionFilter);
+            this::getExtraActionFilter,
+            this::getTestTypeResolver);
     map.put(SkyFunctions.BUILD_DRIVER, buildDriverFunction);
     this.buildDriverFunction = buildDriverFunction;
 
@@ -764,10 +780,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return null;
   }
 
-  protected SkyFunction newBzlLoadFunction(
-      RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
+  protected SkyFunction newBzlLoadFunction(RuleClassProvider ruleClassProvider) {
     return BzlLoadFunction.create(
-        this.pkgFactory, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
+        ruleClassProvider, directories, getDigestFunction().getHashFunction(), bzlCompileCache);
   }
 
   @ThreadCompatible
@@ -1625,6 +1640,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
+  public EvaluationResult<SkyValue> runExclusiveTestSkymeld(
+      ExtendedEventHandler eventHandler,
+      ResourceManager resourceManager,
+      SkyKey testCompletionKey,
+      boolean keepGoing,
+      int numThreads)
+      throws InterruptedException {
+    checkActive();
+    checkState(actionLogBufferPathGenerator != null);
+
+    resourceManager.resetResourceUsage();
+    try {
+      return evaluate(ImmutableSet.of(testCompletionKey), keepGoing, numThreads, eventHandler);
+    } finally {
+      resourceManager.resetResourceUsage();
+    }
+  }
+
   @VisibleForTesting
   public void prepareBuildingForTestingOnly(
       Reporter reporter, Executor executor, OptionsProvider options, ActionCacheChecker checker) {
@@ -2372,6 +2405,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try {
       buildDriverFunction.setShouldCheckForConflict(shouldCheckForConflicts);
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
+      // For the workspace status actions.
+      eventHandler.post(SomeExecutionStartedEvent.create());
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)
@@ -2401,8 +2436,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Clears the various states required for execution after ALL action execution in the build is
    * done.
    */
-  public void clearExecutionStates(ExtendedEventHandler eventHandler) {
+  public void clearExecutionStatesSkymeld(ExtendedEventHandler eventHandler) {
+    Preconditions.checkNotNull(watchdog).stop();
+    watchdog = null;
     cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
+    statusReporterRef.get().unregisterFromEventBus();
     setActionExecutionProgressReportingObjects(null, null, null);
   }
 
@@ -3122,8 +3160,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return checkNotNull(extraActionFilter);
   }
 
+  private TestTypeResolver getTestTypeResolver() {
+    return checkNotNull(testTypeResolver);
+  }
+
+  public void setTestTypeResolver(TestTypeResolver testTypeResolver) {
+    this.testTypeResolver = testTypeResolver;
+  }
+
   public void setExtraActionFilter(RegexFilter extraActionFilter) {
     this.extraActionFilter = extraActionFilter;
+  }
+
+  public void setAndStartWatchdog(ActionExecutionInactivityWatchdog watchdog) {
+    this.watchdog = watchdog;
+    watchdog.start();
+  }
+
+  public AtomicBoolean getIsBuildingExclusiveArtifacts() {
+    return isBuildingExclusiveArtifacts;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */
@@ -3941,6 +3996,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
         @Override
         public void onEvaluationFinished() {
+          // TODO(wyv): Consider calling dropper.drop() here. That would effectively cause us to
+          //   clear the SkyKeyComputeState cache at the end of an evaluation, potentially releasing
+          //   any hogged memory (for example, in case of an interrupted evaluation).
           SkyframeExecutor.this.dropper = NULL_UNNECESSARY_TEMPORARY_STATE_DROPPER;
         }
       };

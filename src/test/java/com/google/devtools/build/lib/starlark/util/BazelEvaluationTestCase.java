@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.starlark.util;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
@@ -146,7 +147,7 @@ public final class BazelEvaluationTestCase {
         Label.parseCanonicalUnchecked("//test:label"),
         RepositoryMapping.ALWAYS_FALLBACK,
         "test/label.bzl",
-        /* loads= */ ImmutableMap.of(),
+        /* loads= */ ImmutableList.of(),
         /* bzlTransitiveDigest= */ new byte[0]);
   }
 

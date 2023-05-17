@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -201,10 +202,13 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
     WorkspaceStatusAction createWorkspaceStatusAction(Environment env);
 
     /**
-     * Creates a dummy workspace status map. Used in cases where the build failed, so that part of
-     * the workspace status is nevertheless available.
+     * Returns a map containing any available workspace status information.
+     *
+     * <p>Used to construct a {@link BuildInfoEvent} at the end of builds in which no such event was
+     * posted.
      */
-    Map<String, String> createDummyWorkspaceStatus(DummyEnvironment env);
+    ImmutableSortedMap<String, String> createDummyWorkspaceStatus(
+        @Nullable WorkspaceInfoFromDiff workspaceInfoFromDiff);
   }
 
   private final String workspaceStatusDescription;

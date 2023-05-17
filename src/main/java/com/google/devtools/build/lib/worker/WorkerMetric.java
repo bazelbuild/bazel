@@ -64,7 +64,7 @@ public abstract class WorkerMetric {
 
     public abstract boolean isSandboxed();
 
-    public abstract int getWorkerKeylHash();
+    public abstract int getWorkerKeyHash();
 
     public static WorkerProperties create(
         ImmutableList<Integer> workerIds,
@@ -89,7 +89,8 @@ public abstract class WorkerMetric {
             .setMnemonic(workerProperties.getMnemonic())
             .setIsSandbox(workerProperties.isSandboxed())
             .setIsMultiplex(workerProperties.isMultiplex())
-            .setIsMeasurable(isMeasurable());
+            .setIsMeasurable(isMeasurable())
+            .setWorkerKeyHash(workerProperties.getWorkerKeyHash());
 
     if (workerStat != null) {
       WorkerStats stats =

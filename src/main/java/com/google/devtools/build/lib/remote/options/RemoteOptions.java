@@ -419,7 +419,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "incompatible_remote_disallow_symlink_in_tree_artifact",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},

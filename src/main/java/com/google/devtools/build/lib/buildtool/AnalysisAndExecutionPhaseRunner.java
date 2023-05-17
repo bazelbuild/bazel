@@ -151,6 +151,8 @@ public final class AnalysisAndExecutionPhaseRunner {
         AnalysisPhaseRunner.reportTargets(env, buildResultListener.getAnalyzedTargets());
       }
 
+      AnalysisPhaseRunner.postAbortedEventsForSkippedTargets(
+          env, buildResultListener.getSkippedTargets());
     } else {
       env.getReporter().handle(Event.progress("Loading complete."));
       env.getReporter().post(new NoAnalyzeEvent());

@@ -11,7 +11,7 @@ graph.
 
 It achieves this by running over the results of Bazel's [analysis
 phase](/extending/concepts#evaluation-model),
-which integrates these effects. `query`, by constrast, runs over the results of
+which integrates these effects. `query`, by contrast, runs over the results of
 Bazel's loading phase, before options are evaluated.
 
 For example:
@@ -209,8 +209,9 @@ genrule(
      cmd = "$(locations :tool) $&lt; >$@",
      tools = [":tool"],
 )
-cc_library(
+cc_binary(
     name = "tool",
+    srcs = ["tool.cpp"],
 )
 </pre>
 
@@ -532,7 +533,7 @@ different niches. Consider the following to decide which is right for you:
     `query` does. Specifically, `cquery`
     evaluates _configured targets_ while `query` only
     evaluates _targets_. This takes more time and uses more memory.
-*   `cquery`'s intepretation of
+*   `cquery`'s interpretation of
     the [query language](/query/language) introduces ambiguity
     that `query` avoids. For example,
     if `"//foo"` exists in two configurations, which one

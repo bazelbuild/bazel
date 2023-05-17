@@ -1209,6 +1209,15 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
+def _proto_output_root(proto_root, genfiles_dir_path, bin_dir_path):
+    if proto_root == ".":
+        return bin_dir_path
+
+    if proto_root.startswith(genfiles_dir_path):
+        return bin_dir_path + "/" + proto_root[len(genfiles_dir_path):]
+    else:
+        return bin_dir_path + "/" + proto_root
+
 cc_helper = struct(
     CPP_TOOLCHAIN_TYPE = _CPP_TOOLCHAIN_TYPE,
     merge_cc_debug_contexts = _merge_cc_debug_contexts,
@@ -1271,4 +1280,6 @@ cc_helper = struct(
     linker_scripts = _linker_scripts,
     copts_filter = _copts_filter,
     package_exec_path = _package_exec_path,
+    repository_exec_path = _repository_exec_path,
+    proto_output_root = _proto_output_root,
 )

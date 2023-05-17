@@ -1065,6 +1065,9 @@ message BuildMetrics {
     bool is_sandbox = 5;
     // Shows is worker stats measured at the end of invocation.
     bool is_measurable = 6;
+    // Hash value of worker key. Needed to distinguish worker pools with same
+    // menmonic but with different worker keys.
+    int64 worker_key_hash = 9;
 
     // Information collected from worker at some point.
     message WorkerStats {

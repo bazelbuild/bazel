@@ -30,11 +30,13 @@ code base.
 1. A Bazel maintainer should assign you a reviewer within two business days
    (excluding holidays in the USA and Germany). If you aren't assigned a
    reviewer in that time, you can request one by emailing
-   [bazel-dev@googlegroups.com](mailto:bazel-dev@googlegroups.com){: .external}.
+   [bazel-discuss@googlegroups.com]
+   (mailto:bazel-discuss@googlegroups.com){: .external}.
 1. Work with the reviewer to complete a code review. For each change, create a
    new commit and push it to make changes to your pull request. If the review
    takes too long (for instance, if the reviewer is unresponsive), send an email to
-   [bazel-dev@googlegroups.com](mailto:bazel-dev@googlegroups.com){: .external}.
+   [bazel-discuss@googlegroups.com]
+   (mailto:bazel-discuss@googlegroups.com){: .external}.
 1. After your review is complete, a Bazel maintainer applies your patch to
    Google's internal version control system.
 

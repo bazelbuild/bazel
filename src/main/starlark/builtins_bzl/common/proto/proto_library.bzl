@@ -17,7 +17,7 @@ Definition of proto_library rule.
 """
 
 load(":common/proto/proto_semantics.bzl", "semantics")
-load(":common/proto/proto_common.bzl", proto_common = "proto_common_do_not_use")
+load(":common/proto/proto_common.bzl", "get_import_path", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo", "ProtoSourceInfo")
 load(":common/paths.bzl", "paths")
 
@@ -69,11 +69,11 @@ def _proto_library_impl(ctx):
     import_prefix = _get_import_prefix(ctx)
     strip_import_prefix = _get_strip_import_prefix(ctx)
 
-    proto_path, direct_sources = _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix)
+    proto_path, virtual_srcs = _process_srcs(ctx, srcs, import_prefix, strip_import_prefix)
     descriptor_set = ctx.actions.declare_file(ctx.label.name + "-descriptor-set.proto.bin")
-    proto_info = _create_proto_info(direct_sources, deps, proto_path, descriptor_set)
+    proto_info = _create_proto_info(virtual_srcs, deps, proto_path, descriptor_set, workspace_root = ctx.label.workspace_root, genfiles_dir = ctx.genfiles_dir.path)
 
-    _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set)
+    _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set)
 
     # We assume that the proto sources will not have conflicting artifacts
     # with the same root relative path
@@ -90,11 +90,33 @@ def _proto_library_impl(ctx):
         ),
     ]
 
-def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
-    """Transforms Files in srcs to ProtoSourceInfos, optionally symlinking them to _virtual_imports.
+def _from_root(root, repo, relpath):
+    """Constructs an exec path from root to relpath"""
+    if not root:
+        # `relpath` is a directory with an input source file, the exec path is one of:
+        # - when in main repo: `package/path`
+        # - when in a external repository: `external/repo/package/path`
+        #   - with sibling layout: `../repo/package/path`
+        return _join(repo, relpath)
+    else:
+        # `relpath` is a directory with a generated file or an output directory:
+        # - when in main repo: `{root}/package/path`
+        # - when in an external repository: `{root}/external/repo/package/path`
+        #   - with sibling layout: `{root}/package/path`
+        return _join(root, "" if repo.startswith("../") else repo, relpath)
+
+def _empty_to_dot(path):
+    return path if path else "."
+
+def _uniq(iterable):
+    unique_elements = {element: None for element in iterable}
+    return list(unique_elements.keys())
+
+def _process_srcs(ctx, srcs, import_prefix, strip_import_prefix):
+    """Returns proto_path and sources, optionally symlinking them to _virtual_imports.
 
     Returns:
-      A pair proto_path, directs_sources.
+      (str, [File]) A pair of proto_path and virtual_sources.
     """
     generate_protos_in_virtual_imports = False
     if ctx.fragments.proto.generated_protos_in_virtual_imports():
@@ -105,17 +127,7 @@ def _create_proto_sources(ctx, srcs, import_prefix, strip_import_prefix):
         return _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix)
     else:
         # No virtual source roots
-        direct_sources = []
-        for src in srcs:
-            if ctx.label.workspace_name == "" or ctx.label.workspace_root.startswith(".."):
-                # source_root == ''|'bazel-out/foo/k8-fastbuild/bin'
-                source_root = src.root.path
-            else:
-                # source_root == ''|'bazel-out/foo/k8-fastbuild/bin' / 'external/repo'
-                source_root = _join(src.root.path, ctx.label.workspace_root)
-            direct_sources.append(ProtoSourceInfo(_source_file = src, _proto_path = source_root))
-
-        return ctx.label.workspace_root if ctx.label.workspace_root else ".", direct_sources
+        return "", srcs
 
 def _join(*path):
     return "/".join([p for p in path if p != ""])
@@ -127,12 +139,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
           A pair proto_path, directs_sources.
     """
     virtual_imports = _join("_virtual_imports", ctx.label.name)
-    if ctx.label.workspace_name == "" or ctx.label.workspace_root.startswith(".."):  # siblingRepositoryLayout
-        # Example: `bazel-out/[repo/]target/bin / pkg / _virtual_imports/name`
-        proto_path = _join(ctx.genfiles_dir.path, ctx.label.package, virtual_imports)
-    else:
-        # Example: `bazel-out/target/bin / repo / pkg / _virtual_imports/name`
-        proto_path = _join(ctx.genfiles_dir.path, ctx.label.workspace_root, ctx.label.package, virtual_imports)
+    proto_path = _join(ctx.label.package, virtual_imports)
 
     if ctx.label.workspace_name == "":
         full_strip_import_prefix = strip_import_prefix
@@ -141,7 +148,7 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
     if full_strip_import_prefix:
         full_strip_import_prefix += "/"
 
-    direct_sources = []
+    virtual_srcs = []
     for src in srcs:
         # Remove strip_import_prefix
         if not src.short_path.startswith(full_strip_import_prefix):
@@ -156,29 +163,34 @@ def _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix):
             target_file = src,
             progress_message = "Symlinking virtual .proto sources for %{label}",
         )
-        direct_sources.append(ProtoSourceInfo(_source_file = virtual_src, _proto_path = proto_path))
-    return proto_path, direct_sources
+        virtual_srcs.append(virtual_src)
+    return proto_path, virtual_srcs
 
-def _create_proto_info(direct_sources, deps, proto_path, descriptor_set):
+def _create_proto_info(srcs, deps, proto_path, descriptor_set, workspace_root, genfiles_dir):
     """Constructs ProtoInfo."""
 
-    # Construct ProtoInfo
+    direct_proto_sources = [ProtoSourceInfo(_source_file = src, _proto_path = proto_path) for src in srcs]
     transitive_proto_sources = depset(
-        direct = direct_sources,
+        direct = direct_proto_sources,
         transitive = [dep._transitive_proto_sources for dep in deps],
         order = "preorder",
     )
     transitive_sources = depset(
-        direct = [src._source_file for src in direct_sources],
+        direct = srcs,
         transitive = [dep.transitive_sources for dep in deps],
         order = "preorder",
     )
+
+    # There can be up more than 1 direct proto_paths, for example when there's
+    # a generated and non-generated .proto file in srcs
+    root_paths = _uniq([src.root.path for src in srcs])
     transitive_proto_path = depset(
-        direct = [proto_path],
+        direct = [_empty_to_dot(_from_root(root, workspace_root, proto_path)) for root in root_paths],
         transitive = [dep.transitive_proto_path for dep in deps],
     )
-    if direct_sources:
-        check_deps_sources = depset(direct = [src._source_file for src in direct_sources])
+
+    if srcs:
+        check_deps_sources = depset(direct = srcs)
     else:
         check_deps_sources = depset(transitive = [dep.check_deps_sources for dep in deps])
 
@@ -188,29 +200,34 @@ def _create_proto_info(direct_sources, deps, proto_path, descriptor_set):
     )
 
     # Layering checks.
-    if direct_sources:
-        exported_sources = depset(direct = direct_sources)
+    if srcs:
+        exported_sources = depset(direct = direct_proto_sources)
     else:
         exported_sources = depset(transitive = [dep._exported_sources for dep in deps])
 
+    if "_virtual_imports/" in proto_path:
+        #TODO(b/281812523): remove genfiles_dir from proto_source_root (when users assuming it's there are migrated)
+        proto_source_root = _empty_to_dot(_from_root(genfiles_dir, workspace_root, proto_path))
+    elif workspace_root.startswith("../"):
+        proto_source_root = proto_path
+    else:
+        proto_source_root = _empty_to_dot(_join(workspace_root, proto_path))
+
     return ProtoInfo(
-        direct_sources = [src._source_file for src in direct_sources],
+        direct_sources = srcs,
         transitive_sources = transitive_sources,
         direct_descriptor_set = descriptor_set,
         transitive_descriptor_sets = transitive_descriptor_sets,
-        proto_source_root = proto_path,
+        proto_source_root = proto_source_root,
         transitive_proto_path = transitive_proto_path,
         check_deps_sources = check_deps_sources,
         transitive_imports = transitive_sources,
-        _direct_proto_sources = direct_sources,
+        _direct_proto_sources = direct_proto_sources,
         _transitive_proto_sources = transitive_proto_sources,
         _exported_sources = exported_sources,
     )
 
-def _get_import_path(proto_source):
-    return paths.relativize(proto_source._source_file.path, proto_source._proto_path)
-
-def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descriptor_set):
+def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
     """Writes descriptor set."""
     if proto_info.direct_sources == []:
         ctx.actions.write(descriptor_set, "")
@@ -227,15 +244,15 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
     if strict_deps:
-        if direct_sources:
+        if proto_info.direct_sources:
             strict_importable_sources = depset(
-                direct = direct_sources,
+                direct = proto_info._direct_proto_sources,
                 transitive = [dep._exported_sources for dep in deps],
             )
         else:
             strict_importable_sources = None
         if strict_importable_sources:
-            args.add_joined("--direct_dependencies", strict_importable_sources, map_each = _get_import_path, join_with = ":")
+            args.add_joined("--direct_dependencies", strict_importable_sources, map_each = get_import_path, join_with = ":")
             # Example: `--direct_dependencies a.proto:b.proto`
 
         else:
@@ -253,7 +270,7 @@ def _write_descriptor_set(ctx, direct_sources, deps, exports, proto_info, descri
             # This line is necessary to trigger the check.
             args.add("--allowed_public_imports=")
         else:
-            args.add_joined("--allowed_public_imports", public_import_protos, map_each = _get_import_path, join_with = ":")
+            args.add_joined("--allowed_public_imports", public_import_protos, map_each = get_import_path, join_with = ":")
     proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
         out_replacement_format_flag = "--descriptor_set_out=%s",
         mnemonic = "GenProtoDescriptorSet",

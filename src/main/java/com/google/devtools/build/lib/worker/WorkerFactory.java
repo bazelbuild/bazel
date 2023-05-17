@@ -103,11 +103,12 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
 
     String msg =
         String.format(
-            "Created new %s %s %s (id %d), logging to %s",
+            "Created new %s %s %s (id %d, key hash %d), logging to %s",
             key.isSandboxed() ? "sandboxed" : "non-sandboxed",
             key.getMnemonic(),
             workTypeName,
             workerId,
+            key.hashCode(),
             worker.getLogFile());
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     if (eventBus != null) {
@@ -142,7 +143,8 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
     int workerId = p.getObject().getWorkerId();
     String msg =
         String.format(
-            "Destroying %s %s (id %d)", key.getMnemonic(), key.getWorkerTypeName(), workerId);
+            "Destroying %s %s (id %d, key hash %d)",
+            key.getMnemonic(), key.getWorkerTypeName(), workerId, key.hashCode());
     WorkerLoggingHelper.logMessage(reporter, WorkerLoggingHelper.LogLevel.INFO, msg);
     p.getObject().destroy();
     if (eventBus != null) {

@@ -243,6 +243,9 @@ public class RuleFactory {
     return new BuildLangTypedAttributeValuesMap(builder.buildOrThrow());
   }
 
+  /**
+   * Builds a map from rule names to (newly constructed)) Starlark callables that instantiate them.
+   */
   public static ImmutableMap<String, BuiltinRuleFunction> buildRuleFunctions(
       Map<String, RuleClass> ruleClassMap) {
     ImmutableMap.Builder<String, BuiltinRuleFunction> result = ImmutableMap.builder();

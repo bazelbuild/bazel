@@ -118,6 +118,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private final ImmutableMap<Linkstamp, Artifact> linkstamps;
 
   private final LinkCommandLine linkCommandLine;
+  private final ActionEnvironment env;
 
   private final boolean isLtoIndexing;
 
@@ -148,7 +149,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       ImmutableMap<String, String> executionRequirements,
       PathFragment ldExecutable,
       String targetCpu) {
-    super(owner, inputs, outputs, env);
+    super(owner, inputs, outputs);
     this.mnemonic = getMnemonic(mnemonic, isLtoIndexing);
     this.outputLibrary = outputLibrary;
     this.linkOutput = linkOutput;
@@ -156,6 +157,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.isLtoIndexing = isLtoIndexing;
     this.linkstamps = linkstamps;
     this.linkCommandLine = linkCommandLine;
+    this.env = env;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
     this.ldExecutable = ldExecutable;
@@ -174,6 +176,11 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   @Override
+  public ActionEnvironment getEnvironment() {
+    return env;
+  }
+
+  @Override
   @VisibleForTesting
   public ImmutableMap<String, String> getIncompleteEnvironmentForTesting() {
     return getEffectiveEnvironment(ImmutableMap.of());
@@ -181,8 +188,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
-    ActionEnvironment env = getEnvironment();
-    LinkedHashMap<String, String> result = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    LinkedHashMap<String, String> result =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(result, clientEnv);
 
     result.putAll(toolchainEnv);

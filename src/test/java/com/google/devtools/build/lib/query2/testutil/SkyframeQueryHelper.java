@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -382,7 +380,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                         BazelCompatibilityMode.ERROR),
                     PrecomputedValue.injected(
                         BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF)))
-            .setEnvironmentExtensions(getEnvironmentExtensions())
             .build(ruleClassProvider, fileSystem);
     SkyframeExecutor skyframeExecutor =
         BazelSkyframeExecutorConstants.newBazelSkyframeExecutorBuilder()
@@ -429,11 +426,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
-
-  protected abstract Iterable<EnvironmentExtension> getEnvironmentExtensions();
-
-  protected abstract BuildOptions getDefaultBuildOptions(
-      ConfiguredRuleClassProvider ruleClassProvider);
 
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {

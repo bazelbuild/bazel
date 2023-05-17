@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -22,7 +21,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.vfs.Path;
@@ -57,7 +55,6 @@ public class WorkspaceFactory {
 
   private final StarlarkSemantics starlarkSemantics;
   private final ImmutableMap<String, Object> workspaceFunctions;
-  private final ImmutableList<EnvironmentExtension> environmentExtensions;
 
   // Values accumulated from all previous WORKSPACE file parts.
   private final Map<String, Module> loadedModules = new HashMap<>();
@@ -67,7 +64,6 @@ public class WorkspaceFactory {
   /**
    * @param builder a builder for the Workspace
    * @param ruleClassProvider a provider for known rule classes
-   * @param environmentExtensions the Starlark environment extensions
    * @param mutability the Mutability for the current evaluation context
    * @param installDir the install directory
    * @param workspaceDir the workspace directory
@@ -76,7 +72,6 @@ public class WorkspaceFactory {
   public WorkspaceFactory(
       Package.Builder builder,
       RuleClassProvider ruleClassProvider,
-      ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
       boolean allowOverride,
       @Nullable Path installDir,
@@ -88,7 +83,6 @@ public class WorkspaceFactory {
     this.installDir = installDir;
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
-    this.environmentExtensions = environmentExtensions;
     this.starlarkSemantics = starlarkSemantics;
     this.workspaceFunctions =
         createWorkspaceFunctions(
@@ -338,9 +332,6 @@ public class WorkspaceFactory {
       env.put("__workspace_dir__", workspaceDir.getPathString());
     }
     env.put("DEFAULT_SYSTEM_JAVABASE", getDefaultSystemJavabase());
-    for (EnvironmentExtension ext : environmentExtensions) {
-      ext.updateWorkspace(env);
-    }
     return env.buildOrThrow();
   }
 
@@ -352,11 +343,11 @@ public class WorkspaceFactory {
   }
 
   /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
-  static ImmutableMap<String, Object> createNativeModuleBindings(
-      RuleClassProvider ruleClassProvider, String version) {
+  public static ImmutableMap<String, Object> createNativeModuleBindings(
+      ImmutableMap<String, RuleClass> ruleClassMap, String bazelVersion) {
     // Machinery to build the collection of workspace functions.
     WorkspaceGlobals workspaceGlobals =
-        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassProvider.getRuleClassMap());
+        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassMap);
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.
@@ -364,10 +355,7 @@ public class WorkspaceFactory {
     // of the particular semantics.]
     ImmutableMap<String, Object> workspaceFunctions =
         createWorkspaceFunctions(
-            /* allowOverride= */ false,
-            ruleClassProvider.getRuleClassMap(),
-            workspaceGlobals,
-            StarlarkSemantics.DEFAULT);
+            /* allowOverride= */ false, ruleClassMap, workspaceGlobals, StarlarkSemantics.DEFAULT);
 
     // Determine the contents for native.
     ImmutableMap.Builder<String, Object> bindings = new ImmutableMap.Builder<>();
@@ -386,7 +374,7 @@ public class WorkspaceFactory {
       }
       bindings.put(entry);
     }
-    bindings.put("bazel_version", version);
+    bindings.put("bazel_version", bazelVersion);
 
     return bindings.buildOrThrow();
   }

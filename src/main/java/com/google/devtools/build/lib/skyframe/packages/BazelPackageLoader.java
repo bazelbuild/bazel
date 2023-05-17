@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
@@ -149,11 +148,6 @@ public class BazelPackageLoader extends AbstractPackageLoader {
 
   private BazelPackageLoader(Builder builder) {
     super(builder);
-  }
-
-  @Override
-  protected ImmutableList<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.of();
   }
 
   @Override

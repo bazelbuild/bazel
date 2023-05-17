@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -107,7 +108,11 @@ abstract class AbstractParallelEvaluator {
    */
   private final AtomicInteger nextEvaluateId = new AtomicInteger(Integer.MAX_VALUE);
 
-  protected final Cache<SkyKey, SkyKeyComputeState> stateCache = Caffeine.newBuilder().build();
+  protected final Cache<SkyKey, SkyKeyComputeState> stateCache =
+      Caffeine.newBuilder()
+          .executor(Runnable::run) // run the removalListener immediately in the same thread
+          .removalListener((SkyKey k, SkyKeyComputeState v, RemovalCause cause) -> v.close())
+          .build();
 
   AbstractParallelEvaluator(
       ProcessableGraph graph,

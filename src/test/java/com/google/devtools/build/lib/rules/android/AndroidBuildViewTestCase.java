@@ -188,6 +188,11 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
         target.getProvider(FileProvider.class).getFilesToBuild(), "_unsigned.apk");
   }
 
+  protected Artifact getDeployJar(ConfiguredTarget target) {
+    return getFirstArtifactEndingWith(
+        target.getProvider(FileProvider.class).getFilesToBuild(), "_deploy.jar");
+  }
+
   protected Artifact getResourceApk(ConfiguredTarget target) {
     Artifact resourceApk =
         getFirstArtifactEndingWith(

@@ -142,7 +142,6 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public JavaCompileAction(
       CompilationType compilationType,
       ActionOwner owner,
-      ActionEnvironment env,
       NestedSet<Artifact> tools,
       OnDemandString progressMessage,
       NestedSet<Artifact> mandatoryInputs,
@@ -157,11 +156,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       NestedSet<Artifact> dependencyArtifacts,
       Artifact outputDepsProto,
       JavaClasspathMode classpathMode) {
-    super(
-        owner,
-        allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts),
-        outputs,
-        env);
+    super(owner, allInputs(mandatoryInputs, transitiveInputs, dependencyArtifacts), outputs);
     if (outputs.stream().anyMatch(Artifact::isTreeArtifact)) {
       throw new IllegalArgumentException(
           String.format(
@@ -210,6 +205,13 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   public NestedSet<Artifact> getTools() {
     return tools;
+  }
+
+  @Override
+  public ActionEnvironment getEnvironment() {
+    return configuration
+        .getActionEnvironment()
+        .withAdditionalFixedVariables(JavaCompileActionBuilder.UTF8_ENVIRONMENT);
   }
 
   @Override
@@ -387,7 +389,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv) {
     ActionEnvironment env = getEnvironment();
     LinkedHashMap<String, String> effectiveEnvironment =
-        Maps.newLinkedHashMapWithExpectedSize(env.size());
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }

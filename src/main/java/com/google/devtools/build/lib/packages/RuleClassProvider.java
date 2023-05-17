@@ -53,27 +53,8 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   /** Returns a map from rule names to rule class objects. */
   ImmutableMap<String, RuleClass> getRuleClassMap();
 
-  /** Returns a map from rule names to the Starlark callables that instantiate them. */
-  ImmutableMap<String, ?> getRuleFunctionMap();
-
-  /**
-   * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
-   * and hence are allowed to be overridden by builtins-injection.
-   *
-   * <p>For example, {@code CcInfo} is included, but {@code rule()} is not.
-   *
-   * @see StarlarkBuiltinsFunction
-   */
-  ImmutableMap<String, Object> getNativeRuleSpecificBindings();
-
-  /**
-   * Returns the set of symbols to be made available to {@code @_builtins} .bzl files under the
-   * _builtins.internal object.
-   *
-   * <p>These symbols are not exposed to user .bzl code and do not constitute a public or stable API
-   * (unless exposed through another means).
-   */
-  ImmutableMap<String, Object> getStarlarkBuiltinsInternals();
+  /** Returns a map from aspect names to aspect factory objects. */
+  Map<String, NativeAspectClass> getNativeAspectClassMap();
 
   /**
    * Returns the Starlark builtins registered with this RuleClassProvider.
@@ -83,10 +64,15 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    * <p>See {@link BazelStarlarkEnvironment#getUninjectedBuildBzlNativeBindings} for the canonical
    * determination of the bzl environment (before injection).
    */
+  // TODO(b/280446865): See about eliminating this accessor, in favor of
+  // BazelStarlarkEnvironment#getUninjectedBuildBzlEnv().
   ImmutableMap<String, Object> getEnvironment();
 
-  /** Returns a map from aspect names to aspect factory objects. */
-  Map<String, NativeAspectClass> getNativeAspectClassMap();
+  /**
+   * Returns the {@link BazelStarlarkEnvironment}, which is the final determiner of the BUILD and
+   * .bzl environment (with and without builtins injection).
+   */
+  BazelStarlarkEnvironment getBazelStarlarkEnvironment();
 
   /**
    * Returns the default content that should be added at the beginning of the WORKSPACE file.

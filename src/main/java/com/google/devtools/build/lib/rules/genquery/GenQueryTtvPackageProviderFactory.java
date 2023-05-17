@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.Set;
@@ -64,20 +64,26 @@ public class GenQueryTtvPackageProviderFactory implements GenQueryPackageProvide
       return null;
     }
     for (SkyKey skyKey : transitiveTargetKeys) {
-      SkyValue value = transitiveTargetValues.get(skyKey);
-      if (value == null) {
-        BugReport.logUnexpected("Value for: '%s' was missing, this should never happen", skyKey);
-        return null;
+      TransitiveTargetValue ttv;
+      try {
+        ttv =
+            (TransitiveTargetValue)
+                transitiveTargetValues.getOrThrow(
+                    skyKey, NoSuchPackageException.class, NoSuchTargetException.class);
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
+        throw BrokenQueryScopeException.of(e);
       }
-      TransitiveTargetValue transNode = (TransitiveTargetValue) value;
-      if (transNode.encounteredLoadingError()) {
-        // This should only happen if the unsuccessful package was loaded in a non-selected
-        // path, as otherwise this configured target would have failed earlier. See b/34132681.
-        throw new BrokenQueryScopeException(
-            "errors were encountered while computing transitive closure of the scope.");
+      if (ttv == null) {
+        BugReport.sendNonFatalBugReport(
+            new IllegalStateException(
+                "TransitiveTargetValue " + skyKey + " was missing, this should never happen"));
+        continue;
       }
-      validTargets.addTransitive(transNode.getTransitiveTargets());
-      for (Label transitiveLabel : transNode.getTransitiveTargets().toList()) {
+      if (ttv.encounteredLoadingError()) {
+        throw BrokenQueryScopeException.of(ttv.getErrorLoadingTarget());
+      }
+      validTargets.addTransitive(ttv.getTransitiveTargets());
+      for (Label transitiveLabel : ttv.getTransitiveTargets().toList()) {
         successfulPackageKeys.add(transitiveLabel.getPackageIdentifier());
       }
     }
@@ -93,7 +99,7 @@ public class GenQueryTtvPackageProviderFactory implements GenQueryPackageProvide
     for (SkyKey skyKey : successfulPackageKeys) {
       PackageValue pkg = (PackageValue) transitivePackages.get(skyKey);
       if (pkg == null) {
-        BugReport.sendBugReport(
+        BugReport.sendNonFatalBugReport(
             new IllegalStateException(
                 "SkyValue " + skyKey + " was missing, this should never happen"));
         return null;

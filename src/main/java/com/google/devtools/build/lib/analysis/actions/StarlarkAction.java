@@ -467,7 +467,7 @@ public class StarlarkAction extends SpawnAction {
     public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
         throws CommandLineExpansionException {
       ActionEnvironment env = getEnvironment();
-      Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+      Map<String, String> environment = Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
 
       if (shadowedAction.isPresent()) {
         // Put all the variables of the shadowed action's environment

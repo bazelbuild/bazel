@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -90,6 +92,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkInt;
@@ -992,20 +995,57 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLabelsCrossesSubpackageBoundaries() throws Exception {
+  public void testLabelsCrossesSubpackageBoundaries_singleSubpackageCrossing() throws Exception {
     reporter.removeHandler(failFastHandler);
 
-    scratch.file("pkg/BUILD", "exports_files(['sub/blah'])");
-    scratch.file("pkg/sub/BUILD");
+    scratch.file("pkg/foo/BUILD", "exports_files(['sub/bar/blah'])");
+    scratch.file("pkg/foo/sub/BUILD");
     invalidatePackages();
 
-    SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg");
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg/foo");
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
-            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
     assertThatEvaluationResult(result).hasNoError();
     assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
-    assertContainsEvent("Label '//pkg:sub/blah' is invalid because 'pkg/sub' is a subpackage");
+    assertContainsEvent(
+        "Label '//pkg/foo:sub/bar/blah' is invalid because 'pkg/foo/sub' is a subpackage; perhaps"
+            + " you meant to put the colon here: '//pkg/foo/sub:bar/blah'?");
+  }
+
+  @Test
+  public void testLabelsCrossesSubpackageBoundaries_complexSubpackageCrossing() throws Exception {
+    reporter.removeHandler(failFastHandler);
+
+    scratch.file(
+        "pkg/foo/BUILD",
+        "exports_files(['sub11/sub12/blah1'])",
+        "exports_files(['sub21/sub22/blah2'])");
+    scratch.file("pkg/foo/sub11/BUILD");
+    scratch.file("pkg/foo/sub11/sub12/BUILD");
+    scratch.file("pkg/foo/sub21/BUILD");
+    scratch.file("pkg/foo/sub21/sub22/BUILD");
+
+    invalidatePackages();
+
+    SkyKey skyKey = PackageIdentifier.createInMainRepo("pkg/foo");
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /* keepGoing= */ false, reporter);
+    assertThatEvaluationResult(result).hasNoError();
+    assertThat(result.get(skyKey).getPackage().containsErrors()).isTrue();
+
+    // Only the deepest package that crosses subpackage boundary should be displayed in the error
+    // message.
+    assertContainsEvent(
+        "Label '//pkg/foo:sub11/sub12/blah1' is invalid because 'pkg/foo/sub11/sub12' is a"
+            + " subpackage; perhaps you meant to put the colon here:"
+            + " '//pkg/foo/sub11/sub12:blah1'?");
+    assertContainsEvent(
+        "Label '//pkg/foo:sub21/sub22/blah2' is invalid because 'pkg/foo/sub21/sub22' is a"
+            + " subpackage; perhaps you meant to put the colon here:"
+            + " '//pkg/foo/sub21/sub22:blah2'?");
+    assertThat(eventCollector.filtered(EventKind.ERROR)).hasSize(2);
   }
 
   @Test
@@ -1037,7 +1077,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Path pkgBUILDPath =
         scratch.file(
             "pkg/BUILD",
-            "exports_files(['sub/blah'])  # label crossing subpackage boundaries", //
+            "exports_files(['sub/blah'])  # label crossing subpackage boundaries",
             "glob(['globcycle/**/foo.txt'])  # triggers non-Skyframe globbing error");
     scratch.file("pkg/sub/BUILD");
     Path pkgGlobcyclePath = pkgBUILDPath.getParentDirectory().getChild("globcycle");
@@ -1364,27 +1404,31 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageIdentifier.createInMainRepo("p");
     Package p = validPackageWithoutErrors(skyKey);
 
-    // Keys are load strings as they appear in the source (notice ":" in one of them).
-    Map<String, Module> pLoads = p.getLoads();
-    assertThat(pLoads.keySet().toString()).isEqualTo("[a.bzl, :b.bzl]");
+    // load() statements in p/BUILD
+    ImmutableList<Module> pLoads = p.getLoads();
+    assertThat(toLabels(pLoads)).containsExactly("//p:a.bzl", "//p:b.bzl").inOrder();
 
     // subgraph a
-    Module a = pLoads.get("a.bzl");
+    Module a = pLoads.get(0);
     assertThat(a.toString()).isEqualTo("<module //p:a.bzl>");
-    Map<String, Module> aLoads = BazelModuleContext.of(a).loads();
-    assertThat(aLoads.keySet().toString()).isEqualTo("[c.bzl]");
-    Module cViaA = aLoads.get("c.bzl");
+    ImmutableList<Module> aLoads = BazelModuleContext.of(a).loads();
+    assertThat(toLabels(aLoads)).containsExactly("//p:c.bzl");
+    Module cViaA = aLoads.get(0);
     assertThat(cViaA.toString()).isEqualTo("<module //p:c.bzl>");
 
     // subgraph b
-    Module b = pLoads.get(":b.bzl");
+    Module b = pLoads.get(1);
     assertThat(b.toString()).isEqualTo("<module //p:b.bzl>");
-    Map<String, Module> bLoads = BazelModuleContext.of(b).loads();
-    assertThat(bLoads.keySet().toString()).isEqualTo("[:c.bzl]");
-    Module cViaB = bLoads.get(":c.bzl");
+    ImmutableList<Module> bLoads = BazelModuleContext.of(b).loads();
+    assertThat(toLabels(bLoads)).containsExactly("//p:c.bzl");
+    Module cViaB = bLoads.get(0);
     assertThat(cViaB).isSameInstanceAs(cViaA);
 
     assertThat(cViaA.getGlobal("c")).isEqualTo(StarlarkInt.of(0));
+  }
+
+  private static Stream<String> toLabels(ImmutableList<Module> loads) {
+    return loads.stream().map(module -> BazelModuleContext.of(module).label().toString());
   }
 
   @Test

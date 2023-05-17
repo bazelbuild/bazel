@@ -209,11 +209,7 @@ public class TestRunnerAction extends AbstractAction
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier,
       PackageSpecificationProvider networkAllowlist) {
-    super(
-        owner,
-        inputs,
-        nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
-        configuration.getActionEnvironment());
+    super(owner, inputs, nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.runfilesSupplier = runfilesSupplier;
     this.testSetupScript = testSetupScript;
@@ -305,6 +301,11 @@ public class TestRunnerAction extends AbstractAction
   @Override
   public final RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
+  }
+
+  @Override
+  public final ActionEnvironment getEnvironment() {
+    return configuration.getActionEnvironment();
   }
 
   public RunfilesSupplier getLcovMergerRunfilesSupplier() {

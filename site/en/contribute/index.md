@@ -46,7 +46,7 @@ You can contribute to the Bazel ecosystem by:
 
 Before making a change, [create a GitHub
 issue](http://github.com/bazelbuild/bazel/issues){: .external}
-or email [bazel-dev@](mailto:bazel-dev@googlegroups.com){: .external}.
+or email [bazel-discuss@](mailto:bazel-discuss@googlegroups.com){: .external}.
 
 The most helpful contributions fix bugs or add features (as opposed
 to stylistic, refactoring, or "cleanup" changes). Your change should

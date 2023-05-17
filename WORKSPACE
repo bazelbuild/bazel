@@ -4,6 +4,7 @@ load("//tools/build_defs/repo:http.bzl", "http_archive")
 load("//:distdir.bzl", "dist_http_archive", "distdir_tar", "dist_http_jar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
+load("//tools/jdk:jdk_build_file.bzl", "JDK_BUILD_TEMPLATE")
 
 # These can be used as values for the patch_cmds and patch_cmds_win attributes
 # of http_archive, in order to export the WORKSPACE file from the BUILD or
@@ -310,56 +311,56 @@ dist_http_archive(
 
 dist_http_archive(
     name = "remotejdk11_linux_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_linux_aarch64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_linux_ppc64le_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_linux_s390x_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_macos_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_macos_aarch64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_win_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
 dist_http_archive(
     name = "remotejdk11_win_arm64_for_testing",
-    build_file = "@local_jdk//:BUILD.bazel",
+    build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = 11),
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
@@ -367,7 +368,7 @@ dist_http_archive(
 [
     dist_http_archive(
         name = "remotejdk%s_%s_for_testing" % (version, os),
-        build_file = "@local_jdk//:BUILD.bazel",
+        build_file_content = JDK_BUILD_TEMPLATE.format(RUNTIME_VERSION = version),
         patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
         patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
     )
@@ -625,11 +626,11 @@ maven_install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.9.0",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-        "com.google.errorprone:error_prone_annotation:2.18.0",
-        "com.google.errorprone:error_prone_annotations:2.18.0",
-        "com.google.errorprone:error_prone_check_api:2.18.0",
-        "com.google.errorprone:error_prone_core:2.18.0",
-        "com.google.errorprone:error_prone_type_annotations:2.18.0",
+        "com.google.errorprone:error_prone_annotation:2.19.0",
+        "com.google.errorprone:error_prone_annotations:2.19.0",
+        "com.google.errorprone:error_prone_check_api:2.19.0",
+        "com.google.errorprone:error_prone_core:2.19.0",
+        "com.google.errorprone:error_prone_type_annotations:2.19.0",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",

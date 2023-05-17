@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -160,7 +160,7 @@ public class PackageTest {
   private Package.Builder pkgBuilder(String name) {
     Package.Builder result =
         new Package.Builder(
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             PackageIdentifier.createInMainRepo(name),
             "workspace",
             Optional.empty(),

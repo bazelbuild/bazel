@@ -474,13 +474,15 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   private NestedSet<Artifact> getBootclasspath(ConfiguredTarget base, RuleContext ruleContext) {
     JavaCompilationInfoProvider compilationInfo =
         JavaInfo.getProvider(JavaCompilationInfoProvider.class, base);
-    if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
-      Artifact androidJar = getAndroidJar(ruleContext);
-      if (androidJar != null) {
-        return NestedSetBuilder.<Artifact>naiveLinkOrder().add(androidJar).build();
-      }
+    if (compilationInfo != null && !compilationInfo.getBootClasspath().isEmpty()) {
+      return compilationInfo.getBootClasspathAsNestedSet();
     }
-    return compilationInfo.getBootClasspathAsNestedSet();
+    Artifact androidJar = getAndroidJar(ruleContext);
+    if (androidJar != null) {
+      return NestedSetBuilder.<Artifact>naiveLinkOrder().add(androidJar).build();
+    }
+    // This shouldn't ever be reached, but if it is, we should be clear about the error.
+    throw new IllegalStateException("no compilationInfo or androidJar");
   }
 
   @Nullable

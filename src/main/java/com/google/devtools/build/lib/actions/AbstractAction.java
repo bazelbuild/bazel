@@ -92,28 +92,16 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
   @GuardedBy("this")
   private NestedSet<Artifact> inputs;
 
-  private final ActionEnvironment env;
-
   /**
    * To save memory, this is either an {@link Artifact} for actions with a single output, or a
    * duplicate-free {@code Artifact[]} for actions with multiple outputs.
    */
   private final Object outputs;
 
-  /** Construct an abstract action with the specified inputs and outputs; */
   protected AbstractAction(
-      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<Artifact> outputs) {
-    this(owner, inputs, outputs, ActionEnvironment.EMPTY);
-  }
-
-  protected AbstractAction(
-      ActionOwner owner,
-      NestedSet<Artifact> inputs,
-      Iterable<? extends Artifact> outputs,
-      ActionEnvironment env) {
+      ActionOwner owner, NestedSet<Artifact> inputs, Iterable<? extends Artifact> outputs) {
     this.owner = checkNotNull(owner);
     this.inputs = checkNotNull(inputs);
-    this.env = checkNotNull(env);
     this.outputs = singletonOrArray(outputs);
   }
 
@@ -253,21 +241,23 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
     return inputs;
   }
 
-  public final ActionEnvironment getEnvironment() {
-    return env;
+  public ActionEnvironment getEnvironment() {
+    return ActionEnvironment.EMPTY;
   }
 
   @Override
   public ImmutableMap<String, String> getEffectiveEnvironment(Map<String, String> clientEnv)
       throws CommandLineExpansionException {
-    Map<String, String> effectiveEnvironment = Maps.newLinkedHashMapWithExpectedSize(env.size());
+    ActionEnvironment env = getEnvironment();
+    Map<String, String> effectiveEnvironment =
+        Maps.newLinkedHashMapWithExpectedSize(env.estimatedSize());
     env.resolve(effectiveEnvironment, clientEnv);
     return ImmutableMap.copyOf(effectiveEnvironment);
   }
 
   @Override
   public Collection<String> getClientEnvironmentVariables() {
-    return env.getInheritedEnv();
+    return getEnvironment().getInheritedEnv();
   }
 
   @Override
@@ -740,7 +730,7 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
         throw new EvalException(ex);
       }
     } else {
-      return Dict.immutableCopyOf(env.getFixedEnv());
+      return Dict.immutableCopyOf(getEnvironment().getFixedEnv());
     }
   }
 

@@ -405,6 +405,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--proto_path=bl?azel?-out/k8-fastbuild/bin",
             "-Ibar/A.proto=bar/A.proto",
             "-Ibar/G.proto=bl?azel?-out/k8-fastbuild/bin/bar/G.proto",
             "bar/A.proto",
@@ -436,6 +437,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "--proto_path=bl?azel?-out/k8-fastbuild/bin",
             "-Ibar/A.proto=bar/A.proto",
             "-Ibar/G.proto=bl?azel?-out/k8-fastbuild/bin/bar/G.proto",
             "bar/A.proto")
@@ -451,7 +453,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     "{virtual: false, sibling: false, generated: false, expectedFlags:"
         + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
     "{virtual: false, sibling: false, generated: true, expectedFlags:"
-        + " ['--proto_path=external/foo',"
+        + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo',"
         + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/E.proto']}",
     "{virtual: true, sibling: false, generated: false,expectedFlags:"
         + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
@@ -459,14 +461,14 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e',"
         + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e/e/E.proto']}",
     "{virtual: true, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-I../foo/e/E.proto=../foo/e/E.proto']}",
+        + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
     "{virtual: true, sibling: true, generated: true, expectedFlags:"
         + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e',"
         + " '-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e/e/E.proto']}",
     "{virtual: false, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-I../foo/e/E.proto=../foo/e/E.proto']}",
+        + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
     "{virtual: false, sibling: true, generated: true, expectedFlags:"
-        + " ['--proto_path=../foo','-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/E.proto']}",
+        + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin','-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/E.proto']}",
   })
   public void generateCode_externalProtoLibrary(
       boolean virtual, boolean sibling, boolean generated, List<String> expectedFlags)

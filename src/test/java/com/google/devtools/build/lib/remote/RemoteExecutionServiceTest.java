@@ -658,7 +658,9 @@ public class RemoteExecutionServiceTest {
         RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
     FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
+    RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
+    remoteOptions.incompatibleRemoteDisallowSymlinkInTreeArtifact = false;
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
     RemoteAction action = service.buildRemoteAction(spawn, context);
 
     // Doesn't check for dangling links, hence download succeeds.

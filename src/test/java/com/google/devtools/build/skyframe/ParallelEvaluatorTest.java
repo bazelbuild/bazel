@@ -3106,7 +3106,7 @@ public class ParallelEvaluatorTest {
     // Confirming that all our other expectations about the compute states were correct.
   }
 
-  // Demonstrates we're able to drop SkyKeyCompute state intra-evaluation.
+  // Demonstrates we're able to drop SkyKeyCompute state intra-evaluation and post-evaluation.
   @Test
   public void skyKeyComputeState_unnecessaryTemporaryStateDropperReceiver()
       throws InterruptedException {
@@ -3116,13 +3116,20 @@ public class ParallelEvaluatorTest {
     SkyKey key1 = new SkyKeyForSkyKeyComputeStateTests("key1");
     SkyKey key2 = new SkyKeyForSkyKeyComputeStateTests("key2");
 
-    // And an SkyKeyComputeState implementation that tracks global instance counts,
+    // And an SkyKeyComputeState implementation that tracks global instance counts and cleanup call
+    // counts,
     AtomicInteger globalStateInstanceCounter = new AtomicInteger();
+    AtomicInteger globalStateCleanupCounter = new AtomicInteger();
     class State implements SkyKeyComputeState {
       final int instanceCount = globalStateInstanceCounter.incrementAndGet();
+
+      @Override
+      public void close() {
+        globalStateCleanupCounter.incrementAndGet();
+      }
     }
 
-    // And a UnnecessaryTemporaryStateDropperReceiver that,
+    // And an UnnecessaryTemporaryStateDropperReceiver that,
     AtomicReference<UnnecessaryTemporaryStateDropper> dropperRef = new AtomicReference<>();
     UnnecessaryTemporaryStateDropperReceiver dropperReceiver =
         new UnnecessaryTemporaryStateDropperReceiver() {
@@ -3134,8 +3141,8 @@ public class ParallelEvaluatorTest {
 
           @Override
           public void onEvaluationFinished() {
-            // And then throws it away when the evaluation is done.
-            dropperRef.set(null);
+            // And then drops everything when the evaluation is done.
+            dropperRef.get().drop();
           }
         };
 
@@ -3172,6 +3179,8 @@ public class ParallelEvaluatorTest {
             dropperRef.get().drop();
             // Confirm the old compute state for key1 was GC'd.
             GcFinalization.awaitClear(stateForKey1Ref.get());
+            // At this point, both state objects have been cleaned up.
+            assertThat(globalStateCleanupCounter.get()).isEqualTo(2);
             // Also confirm key2's compute state is the second instance ever.
             assertThat(state.instanceCount).isEqualTo(2);
 
@@ -3208,8 +3217,9 @@ public class ParallelEvaluatorTest {
     // It successfully produces the value we expect, confirming all our other expectations about
     // the compute states were correct.
     assertThat(resultValue).isEqualTo(new StringValue("value1"));
-    // And we threw away the dropper, confirming the #onEvaluationFinished method was called.
-    assertThat(dropperRef.get()).isNull();
+    // And all state objects have been dropped, confirming the #onEvaluationFinished method was
+    // called.
+    assertThat(globalStateCleanupCounter.get()).isEqualTo(3);
   }
 
   // Test for the basic functionality of ClassToInstanceMapSkyKeyComputeState, demonstrating

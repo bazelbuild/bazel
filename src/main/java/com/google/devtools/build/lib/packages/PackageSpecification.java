@@ -75,25 +75,6 @@ public abstract class PackageSpecification {
   // TODO(b/77598306): Remove the parameter after switching all callers to pass true.
   protected abstract String asString(boolean includeDoubleSlash);
 
-  /**
-   * Returns a string representation of this package spec without the repository, and which is
-   * round-trippable through {@link #fromString}.
-   *
-   * <p>For instance, {@code @somerepo//pkg/subpkg/...} turns into {@code "//pkg/subpkg/..."}.
-   *
-   * <p>Omitting the repository means that the returned strings are ambiguous in the absence of
-   * additional context. But, for instance, if interpreted with respect to a {@code package_group}'s
-   * {@code packages} attribute, the strings always have the same repository as the package group.
-   */
-  // TODO(brandjon): This method's main benefit is that it's round-trippable. But we can already
-  // achieve the same thing with asString(), if the caller parses out the repo to pass to
-  // fromString() as a separate arg. It'd be nice to eliminate this method in favor of asString()
-  // and make a version of fromString() that can parse repo names in the label. We'd just have to
-  // mimic the Label parsing of repo (we can't reuse Label parsing directly since it won't like the
-  // `/...` syntax). Repo remapping shouldn't come up, since the names we get from stringification
-  // ought to already be canonical/absolute.
-  protected abstract String asStringWithoutRepository();
-
   @Override
   public String toString() {
     return asString(/*includeDoubleSlash=*/ false);
@@ -301,12 +282,6 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String asStringWithoutRepository() {
-      return PackageGroupContents.stringForSinglePackageWithDoubleSlashAndWithoutRepository(
-          singlePackageName);
-    }
-
-    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -340,12 +315,6 @@ public abstract class PackageSpecification {
     @Override
     protected String asString(boolean includeDoubleSlash) {
       return PackageGroupContents.stringForAllPackagesBeneath(prefix, includeDoubleSlash);
-    }
-
-    @Override
-    protected String asStringWithoutRepository() {
-      return PackageGroupContents.stringForAllPackagesBeneathWithDoubleSlashAndWithoutRepository(
-          prefix);
     }
 
     @Override
@@ -385,11 +354,6 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String asStringWithoutRepository() {
-      return "-" + delegate.asStringWithoutRepository();
-    }
-
-    @Override
     public boolean equals(Object obj) {
       if (this == obj) {
         return true;
@@ -420,11 +384,6 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    protected String asStringWithoutRepository() {
-      return "public";
-    }
-
-    @Override
     public boolean equals(Object o) {
       return o instanceof AllPackages;
     }
@@ -447,11 +406,6 @@ public abstract class PackageSpecification {
 
     @Override
     protected String asString(boolean includeDoubleSlash) {
-      return "private";
-    }
-
-    @Override
-    protected String asStringWithoutRepository() {
       return "private";
     }
 
@@ -692,8 +646,15 @@ public abstract class PackageSpecification {
     }
 
     /**
-     * Does the equivalent of mapping {@link PackageSpecification#asStringWithoutRepository} to the
-     * component package specs.
+     * /** Returns a string representation of this package spec without the repository, and which is
+     * round-trippable through {@link #fromString}.
+     *
+     * <p>For instance, {@code @somerepo//pkg/subpkg/...} turns into {@code "//pkg/subpkg/..."}.
+     *
+     * <p>Omitting the repository means that the returned strings are ambiguous in the absence of
+     * additional context. But, for instance, if interpreted with respect to a {@code
+     * package_group}'s {@code packages} attribute, the strings always have the same repository as
+     * the package group.
      *
      * <p>Note that this is ambiguous w.r.t. specs that reference other repositories.
      *
