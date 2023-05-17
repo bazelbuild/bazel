@@ -28,6 +28,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -424,6 +425,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private Set<ActionLookupKey> conflictFreeActionLookupKeysGlobalSet;
   private RuleContextConstraintSemantics ruleContextConstraintSemantics;
   private RegexFilter extraActionFilter;
+  @Nullable private ActionExecutionInactivityWatchdog watchdog;
+
+  private final AtomicBoolean isBuildingExclusiveArtifacts = new AtomicBoolean(false);
 
   // Reset to null after each build to save memory. Guaranteed to be non-null when retrieved via
   // BuildDriverFunction.
@@ -2432,8 +2436,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * Clears the various states required for execution after ALL action execution in the build is
    * done.
    */
-  public void clearExecutionStates(ExtendedEventHandler eventHandler) {
+  public void clearExecutionStatesSkymeld(ExtendedEventHandler eventHandler) {
+    Preconditions.checkNotNull(watchdog).stop();
+    watchdog = null;
     cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
+    statusReporterRef.get().unregisterFromEventBus();
     setActionExecutionProgressReportingObjects(null, null, null);
   }
 
@@ -3163,6 +3170,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   public void setExtraActionFilter(RegexFilter extraActionFilter) {
     this.extraActionFilter = extraActionFilter;
+  }
+
+  public void setAndStartWatchdog(ActionExecutionInactivityWatchdog watchdog) {
+    this.watchdog = watchdog;
+    watchdog.start();
+  }
+
+  public AtomicBoolean getIsBuildingExclusiveArtifacts() {
+    return isBuildingExclusiveArtifacts;
   }
 
   /** A progress receiver to track analysis invalidation and update progress messages. */

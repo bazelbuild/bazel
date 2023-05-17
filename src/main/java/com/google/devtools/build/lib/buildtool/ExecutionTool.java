@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -339,8 +340,9 @@ public class ExecutionTool {
     }
 
     env.getEventBus()
-        .register(new ExecutionProgressReceiverSetup(skyframeExecutor, env, executionTimer));
-    // TODO(leba): Add watchdog support.
+        .register(
+            new ExecutionProgressReceiverSetup(
+                skyframeExecutor, env, executionTimer, buildRequestOptions.progressReportInterval));
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -1023,13 +1025,17 @@ public class ExecutionTool {
     private final Stopwatch executionUnstartedTimer;
     private final AtomicBoolean activated = new AtomicBoolean(false);
 
+    private final int progressReportInterval;
+
     ExecutionProgressReceiverSetup(
         SkyframeExecutor skyframeExecutor,
         CommandEnvironment env,
-        Stopwatch executionUnstartedTimer) {
+        Stopwatch executionUnstartedTimer,
+        int progressReportInterval) {
       this.skyframeExecutor = skyframeExecutor;
       this.env = env;
       this.executionUnstartedTimer = executionUnstartedTimer;
+      this.progressReportInterval = progressReportInterval;
     }
 
     @Subscribe
@@ -1052,6 +1058,13 @@ public class ExecutionTool {
             executionProgressReceiver, executionProgressReceiver, statusReporter);
         skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
         executionUnstartedTimer.start();
+
+        skyframeExecutor.setAndStartWatchdog(
+            new ActionExecutionInactivityWatchdog(
+                executionProgressReceiver.createInactivityMonitor(statusReporter),
+                executionProgressReceiver.createInactivityReporter(
+                    statusReporter, skyframeExecutor.getIsBuildingExclusiveArtifacts()),
+                progressReportInterval));
 
         env.getEventBus().unregister(this);
       }

@@ -626,6 +626,7 @@ public final class SkyframeBuildView {
             /* executionGoAheadCallback= */ executor::launchQueuedUpExecutionPhaseTasks)) {
 
       try {
+        skyframeExecutor.getIsBuildingExclusiveArtifacts().set(false);
         resourceManager.resetResourceUsage();
         EvaluationResult<SkyValue> additionalArtifactsResult;
         try (SilentCloseable c =
@@ -685,6 +686,7 @@ public final class SkyframeBuildView {
             (!evaluationResult.hasError() && !additionalArtifactsResult.hasError()) || keepGoing;
 
         if (continueWithExclusiveTests && !exclusiveTestsToRun.isEmpty()) {
+          skyframeExecutor.getIsBuildingExclusiveArtifacts().set(true);
           // Run exclusive tests sequentially.
           Iterable<SkyKey> testCompletionKeys =
               TestCompletionValue.keys(
@@ -714,7 +716,7 @@ public final class SkyframeBuildView {
         }
       } finally {
         // No more action execution beyond this point.
-        skyframeExecutor.clearExecutionStates(eventHandler);
+        skyframeExecutor.clearExecutionStatesSkymeld(eventHandler);
         // Also releases thread locks.
         resourceManager.resetResourceUsage();
       }

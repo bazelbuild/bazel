@@ -88,6 +88,7 @@ java_library(
         ":abstract_label_cycle_reporter",
         ":action_artifact_cycle_reporter",
         ":action_environment_function",
+        ":action_execution_inactivity_watchdog",
         ":action_execution_state",
         ":action_execution_value",
         ":action_input_collected_event",
