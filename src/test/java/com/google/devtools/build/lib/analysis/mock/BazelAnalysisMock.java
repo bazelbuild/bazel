@@ -413,6 +413,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     config.create("rules_java_workspace/WORKSPACE", "workspace(name = 'rules_java')");
     config.create("rules_java_workspace/java/BUILD");
+    config.create("rules_java_workspace/toolchains/BUILD");
+    java.nio.file.Path path = Paths.get(runfiles.rlocation("rules_java/toolchains/java_toolchain_alias.bzl"));
+    if (Files.exists(path)) {
+      config.create("rules_java_workspace/toolchains/java_toolchain_alias.bzl", MoreFiles.asCharSource(path, UTF_8).read());
+    }
     config.create(
         "rules_java_workspace/java/defs.bzl",
         "def java_binary(**attrs):",

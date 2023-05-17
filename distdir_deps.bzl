@@ -66,11 +66,11 @@ DIST_DEPS = {
     },
     # TODO(pcloudy): DO NOT SUBMIT: Switch to release version of rules_java
     "rules_java": {
-        "archive": "e946d92228bb72ab08e5cf66ff6af1f17fc4cdf1.tar.gz",
-        "sha256": "a0cb59dd2173bfea85fbe3803fbbe365e63cd2f19071763b8c057c07345f0cf6",
-        "strip_prefix": "rules_java-e946d92228bb72ab08e5cf66ff6af1f17fc4cdf1",
+        "archive": "06b5ff985a44b549a204229148a80f99ff97469d.tar.gz",
+        "sha256": "4954c4f1fc1dbf690ebc11e98f9c750aae3ddde3cde51b787235171bf8b4e52b",
+        "strip_prefix": "rules_java-06b5ff985a44b549a204229148a80f99ff97469d",
         "urls": [
-            "https://github.com/meteorcloudy/rules_java/archive/e946d92228bb72ab08e5cf66ff6af1f17fc4cdf1.tar.gz",
+            "https://github.com/meteorcloudy/rules_java/archive/06b5ff985a44b549a204229148a80f99ff97469d.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",

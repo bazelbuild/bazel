@@ -19,6 +19,7 @@ filegroup(
         "remote_java_repository.bzl",
         "local_java_repository.bzl",
         "default_java_toolchain.bzl",
+        "java_toolchain_alias.bzl",
         ":java_stub_template.txt",
     ],
 )

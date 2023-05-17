@@ -79,6 +79,7 @@ filegroup(
         "//tools/build_defs:bzl_srcs",
         "//tools/build_rules:bzl_srcs",
         "//tools/cpp:bzl_srcs",
+        "//tools/jdk:bzl_srcs",
         "//tools/osx:bzl_srcs",
         "//tools/python:bzl_srcs",
         "//tools/sh:bzl_srcs",
