@@ -138,6 +138,7 @@ def _compile(
         use_default_shell_env = True,
         resource_set = resource_set,
         exec_group = experimental_exec_group,
+        toolchain = None,
     )
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"
