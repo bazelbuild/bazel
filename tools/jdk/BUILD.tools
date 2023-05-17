@@ -116,95 +116,36 @@ py_test(
     ],
 )
 
-#### Aliases to rules_java (begin) ####
+#### Aliases to rules_java to keep backward-compatibility (begin) ####
 
-# This is necessary to get the *host* Java runtime. Depending on
-# //tools/jdk:current_java_runtime from an attribute with the host transition
-# does not work because the dependency is determined based on the configuration
-# *before* the transition.
-alias(
-    name = "java_runtime_alias",
-    actual = "@rules_java//toolchains:current_java_runtime",
-)
-
-alias(
-    name = "current_host_java_runtime",
-    actual = "@rules_java//toolchains:current_host_java_runtime",
-)
-
-alias(
-    name = "current_java_runtime",
-    actual = "@rules_java//toolchains:current_java_runtime",
-)
-
-alias(
-    name = "current_java_toolchain",
-    actual = "@rules_java//toolchains:current_java_toolchain",
-)
-
-alias(
-    name = "jni",
-    actual = "@rules_java//toolchains:jni",
-)
-
-alias(
-    name = "jni_header",
-    actual = "@rules_java//toolchains:jni_header",
-)
-
-alias(
-    name = "jni_md_header-darwin",
-    actual = "@rules_java//toolchains:jni_md_header-darwin",
-)
-
-alias(
-    name = "jni_md_header-freebsd",
-    actual = "@rules_java//toolchains:jni_md_header-freebsd",
-)
-
-alias(
-    name = "jni_md_header-linux",
-    actual = "@rules_java//toolchains:jni_md_header-linux",
-)
-
-alias(
-    name = "jni_md_header-openbsd",
-    actual = "@rules_java//toolchains:jni_md_header-openbsd",
-)
-
-alias(
-    name = "jni_md_header-windows",
-    actual = "@rules_java//toolchains:jni_md_header-windows",
-)
-
-alias(
-    name = "platformclasspath",
-    actual = "@rules_java//toolchains:platformclasspath",
-)
-
-alias(
-    name = "remote_jdk11",
-    actual = "@rules_java//toolchains:remote_jdk11",
-)
-
-alias(
-    name = "remote_toolchain",
-    actual = "@rules_java//toolchains:remote_toolchain",
-)
-
-alias(
-    name = "toolchain",
-    actual = "@rules_java//toolchains:toolchain",
-)
-
-RELEASES = (8, 9, 10, 11)
+TARGET_NAMES = [
+    "java_runtime_alias",
+    "current_host_java_runtime",
+    "current_java_runtime",
+    "current_java_toolchain",
+    "jni",
+    "jni_header",
+    "jni_md_header-darwin",
+    "jni_md_header-freebsd",
+    "jni_md_header-linux",
+    "jni_md_header-openbsd",
+    "jni_md_header-windows",
+    "platformclasspath",
+    "remote_jdk11",
+    "remote_toolchain",
+    "toolchain",
+] + [
+    "toolchain_java%d" % version for version in (8, 9, 10, 11)
+] + [
+    "toolchain_jdk_%d" % version for version in (14, 15, 16, 17, 20)
+]
 
 [
     alias(
-        name = "toolchain_java%d" % release,
-        actual = "@rules_java//toolchains:toolchain_java%d" % release,
+        name = name,
+        actual = "@rules_java//toolchains:" + name,
     )
-    for release in RELEASES
+    for name in TARGET_NAMES
 ]
 
-#### Aliases to rules_java (end) ####
+#### Aliases to rules_java to keep backward-compatibility (end) ####
