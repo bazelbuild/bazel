@@ -152,7 +152,7 @@ element containing all of the information from the action key, Thus, if the
 logs are identical then so are the action cache keys.
 
 To compare logs for two builds that are not sharing cache hits as expected,
-do the folowing:
+do the following:
 
 1. Get the execution logs from each build and store them as `/tmp/exec1.log` and
    `/tmp/exec2.log`.

@@ -64,6 +64,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote/options",

@@ -68,6 +68,18 @@ final class WorkerLifecycleManager extends Thread {
       return;
     }
 
+    String msg =
+        String.format(
+            "Worker Lifecycle Manager starts work with (total limit: %d MB, limit: %d MB,"
+                + " shrinking: %s)",
+            options.totalWorkerMemoryLimitMb,
+            options.workerMemoryLimitMb,
+            options.shrinkWorkerPool ? "enabled" : "disabled");
+    logger.atInfo().log("%s", msg);
+    if (reporter != null) {
+      reporter.handle(Event.info(msg));
+    }
+
     isWorking = true;
 
     // This loop works until method stopProcessing() called by WorkerModule.
@@ -131,7 +143,7 @@ final class WorkerLifecycleManager extends Thread {
         if (eventBus != null) {
           eventBus.post(
               new WorkerEvictedEvent(
-                  l.getWorkerProperties().getWorkerKeylHash(),
+                  l.getWorkerProperties().getWorkerKeyHash(),
                   l.getWorkerProperties().getMnemonic()));
         }
       }
@@ -216,7 +228,7 @@ final class WorkerLifecycleManager extends Thread {
         for (Integer workerId : properties.getWorkerIds()) {
           if (evictedWorkers.contains(workerId)) {
             eventBus.post(
-                new WorkerEvictedEvent(properties.getWorkerKeylHash(), properties.getMnemonic()));
+                new WorkerEvictedEvent(properties.getWorkerKeyHash(), properties.getMnemonic()));
           }
         }
       }

@@ -74,9 +74,6 @@ public final class MockCppSemantics implements CppSemantics {
   }
 
   @Override
-  public void validateAttributes(RuleContext ruleContext) {}
-
-  @Override
   public boolean needsIncludeValidation() {
     return true;
   }
@@ -88,10 +85,6 @@ public final class MockCppSemantics implements CppSemantics {
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
 
-  @Override
-  public boolean createEmptyArchive() {
-    return false;
-  }
   @Override
   public void validateStarlarkCompileApiCall(
       StarlarkActionFactory actionFactory,

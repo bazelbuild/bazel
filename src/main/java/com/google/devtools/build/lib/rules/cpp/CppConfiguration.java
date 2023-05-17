@@ -300,8 +300,16 @@ public final class CppConfiguration extends Fragment
       doc = "The label of the target describing the C++ toolchain",
       defaultLabel = "//tools/cpp:toolchain",
       defaultInToolRepository = true)
+  @Nullable
   public Label getRuleProvidingCcToolchainProvider() {
-    return cppOptions.crosstoolTop;
+    if (cppOptions.enableCcToolchainResolution) {
+      // In case C++ toolchain resolution is enabled, crosstool_top flags are not used.
+      // Returning null prevents additional work on the flags values and makes it possible to
+      // remove `--crosstool_top` flags.
+      return null;
+    } else {
+      return cppOptions.crosstoolTop;
+    }
   }
 
   /** Returns the configured current compilation mode. */

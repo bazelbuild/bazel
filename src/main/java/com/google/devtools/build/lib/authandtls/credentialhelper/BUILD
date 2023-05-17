@@ -20,6 +20,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:caffeine",
         "//third_party:guava",
     ],

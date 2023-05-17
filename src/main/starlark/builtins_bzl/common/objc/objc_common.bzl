@@ -48,7 +48,8 @@ def _create_context_and_provider(
         extra_import_libraries,
         deps,
         implementation_deps,
-        attr_linkopts):
+        attr_linkopts,
+        direct_cc_compilation_contexts = []):
     objc_providers = []
     cc_compilation_contexts = []
     cc_linking_contexts = []
@@ -126,6 +127,7 @@ def _create_context_and_provider(
         "public_textual_hdrs": [],
         "defines": [],
         "includes": [],
+        "direct_cc_compilation_contexts": direct_cc_compilation_contexts,
     }
 
     # Merge cc_linking_context's library and linkopt information into

@@ -162,16 +162,16 @@ public class WorkerModule extends BlazeModule {
       workerPool = new WorkerPoolImpl(newConfig);
       // If workerPool is restarted then we should recreate metrics.
       WorkerMetricsCollector.instance().clear();
-
-      // Start collecting after a pool is defined
-      workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
-      if (options.workerVerbose) {
-        workerLifecycleManager.setReporter(env.getReporter());
-      }
-      workerLifecycleManager.setEventBus(env.getEventBus());
-      workerLifecycleManager.setDaemon(true);
-      workerLifecycleManager.start();
     }
+
+    // Start collecting after a pool is defined
+    workerLifecycleManager = new WorkerLifecycleManager(workerPool, options);
+    if (options.workerVerbose) {
+      workerLifecycleManager.setReporter(env.getReporter());
+    }
+    workerLifecycleManager.setEventBus(env.getEventBus());
+    workerLifecycleManager.setDaemon(true);
+    workerLifecycleManager.start();
 
     workerPool.setEventBus(env.getEventBus());
     // Clean doomed workers on the beginning of a build.

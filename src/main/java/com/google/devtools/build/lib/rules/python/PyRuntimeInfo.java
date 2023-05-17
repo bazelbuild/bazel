@@ -89,17 +89,6 @@ public final class PyRuntimeInfo {
     }
   }
 
-  @Nullable
-  public Artifact getCoverageTool() throws EvalException {
-    return info.getValue("coverage_tool", Artifact.class);
-  }
-
-  @Nullable
-  public NestedSet<Artifact> getCoverageToolFiles() throws EvalException {
-    Object value = info.getValue("coverage_files");
-    return Depset.cast(value, Artifact.class, "coverage_files");
-  }
-
   public PythonVersion getPythonVersion() throws EvalException {
     return PythonVersion.parseTargetValue(info.getValue("python_version", String.class));
   }

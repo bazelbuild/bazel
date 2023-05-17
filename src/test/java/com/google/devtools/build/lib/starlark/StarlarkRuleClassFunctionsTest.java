@@ -2965,8 +2965,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             RepositoryMapping.create(
                 ImmutableMap.of("my_module", currentRepo, "dep", otherRepo), currentRepo),
             "lib/label.bzl",
-            /*loads=*/ ImmutableMap.of(),
-            /*bzlTransitiveDigest=*/ new byte[0]);
+            /* loads= */ ImmutableList.of(),
+            /* bzlTransitiveDigest= */ new byte[0]);
     Module module =
         Module.withPredeclaredAndData(
             StarlarkSemantics.DEFAULT, predeclared.buildOrThrow(), clientData);

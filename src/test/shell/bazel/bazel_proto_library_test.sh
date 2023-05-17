@@ -49,6 +49,7 @@ function write_workspace() {
   fi
 
   cat $(rlocation io_bazel/src/tests/shell/bazel/rules_proto_stanza.txt) >> "$workspace"WORKSPACE
+
   cat >> "$workspace"WORKSPACE << EOF
 load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
 rules_proto_dependencies()
@@ -672,6 +673,17 @@ proto_library(
   srcs = ["h.proto"],
   deps = ["//g", "@repo//f"],
 )
+
+cc_proto_library(
+  name = "h_cc_proto",
+  deps = ["//h"],
+)
+
+java_proto_library(
+  name = "h_java_proto",
+  deps = ["//h"],
+)
+
 EOF
 
   cat > h/h.proto <<EOF
@@ -687,7 +699,130 @@ message H {
 }
 EOF
 
-  bazel build //h || fail "build failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+
+  bazel build -s --experimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
+
+  expect_not_log "warning: directory does not exist." # --proto_path is wrong
+}
+
+function test_cross_repo_protos() {
+  mkdir -p e
+  touch e/WORKSPACE
+  write_workspace ""
+
+  cat >> WORKSPACE <<EOF
+local_repository(
+  name = "repo",
+  path = "e"
+)
+EOF
+
+  mkdir -p e/f/good
+  cat > e/f/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = "f",
+  srcs = ["good/f.proto"],
+  visibility = ["//visibility:public"],
+)
+
+proto_library(
+  name = "gen",
+  srcs = ["good/gen.proto"],
+  visibility = ["//visibility:public"],
+)
+
+genrule(name = 'generate', srcs = ['good/gensrc.txt'], cmd = 'cat \$(SRCS) > \$@', outs = ['good/gen.proto'])
+
+EOF
+
+  cat > e/f/good/f.proto <<EOF
+syntax = "proto2";
+package f;
+
+message F {
+  optional int32 f = 1;
+}
+EOF
+
+  cat > e/f/good/gensrc.txt <<EOF
+syntax = "proto2";
+package gen;
+
+message Gen {
+  optional int32 gen = 1;
+}
+EOF
+
+  mkdir -p g/good
+  cat > g/BUILD << EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = 'g',
+  srcs = ['good/g.proto'],
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > g/good/g.proto <<EOF
+syntax = "proto2";
+package g;
+
+message G {
+  optional int32 g = 1;
+}
+EOF
+
+  mkdir -p h
+  cat > h/BUILD <<EOF
+load("@rules_proto//proto:defs.bzl", "proto_library")
+proto_library(
+  name = "h",
+  srcs = ["h.proto"],
+  deps = ["//g", "@repo//f", "@repo//f:gen"],
+)
+
+cc_proto_library(
+  name = "h_cc_proto",
+  deps = ["//h"],
+)
+
+java_proto_library(
+  name = "h_java_proto",
+  deps = ["//h"],
+)
+EOF
+
+  cat > h/h.proto <<EOF
+syntax = "proto2";
+package h;
+
+import "f/good/f.proto";
+import "g/good/g.proto";
+import "f/good/gen.proto";
+
+message H {
+  optional f.F f = 1;
+  optional g.G g = 2;
+  optional gen.Gen h = 3;
+}
+EOF
+
+  bazel build -s --noexperimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h:h_java_proto >& $TEST_log || fail "failed"
+
+  bazel build -s --experimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h:h_cc_proto -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports  //h:h_java_proto  -s >& $TEST_log || fail "failed"
+
+  expect_not_log "warning: directory does not exist." # --proto_path is wrong
+
 }
 
 run_suite "Integration tests for proto_library"

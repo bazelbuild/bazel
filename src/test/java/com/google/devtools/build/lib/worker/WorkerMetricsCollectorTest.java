@@ -71,7 +71,7 @@ public class WorkerMetricsCollectorTest {
         props1.getMnemonic(),
         props1.isMultiplex(),
         props1.isSandboxed(),
-        props1.getWorkerKeylHash());
+        props1.getWorkerKeyHash());
     assertThat(spyCollector.getProcessIdToWorkerProperties()).hasSize(1);
     spyCollector.registerWorker(
         props2.getWorkerIds().get(0),
@@ -79,7 +79,7 @@ public class WorkerMetricsCollectorTest {
         props2.getMnemonic(),
         props2.isMultiplex(),
         props2.isSandboxed(),
-        props2.getWorkerKeylHash());
+        props2.getWorkerKeyHash());
     assertThat(spyCollector.getProcessIdToWorkerProperties()).hasSize(2);
     assertThat(spyCollector.getProcessIdToWorkerProperties()).isEqualTo(map);
   }
@@ -240,7 +240,7 @@ public class WorkerMetricsCollectorTest {
         props.getMnemonic(),
         props.isMultiplex(),
         props.isSandboxed(),
-        props.getWorkerKeylHash());
+        props.getWorkerKeyHash());
   }
 
   private static class ManualClock implements Clock {

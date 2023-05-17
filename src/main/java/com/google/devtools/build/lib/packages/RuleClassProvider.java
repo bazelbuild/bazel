@@ -14,11 +14,9 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
 
@@ -27,11 +25,6 @@ import java.util.Map;
  * creation.
  */
 public interface RuleClassProvider extends RuleDefinitionEnvironment {
-
-  /**
-   * Returns a version string, e.g. for use by {@code native.bazel_version} in WORKSPACE .bzl files.
-   */
-  String getVersion();
 
   /** Label referencing the prelude file. */
   Label getPreludeLabel();
@@ -60,35 +53,8 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
   /** Returns a map from rule names to rule class objects. */
   ImmutableMap<String, RuleClass> getRuleClassMap();
 
-  /** Returns a map from rule names to the Starlark callables that instantiate them. */
-  ImmutableMap<String, ?> getRuleFunctionMap();
-
-  /**
-   * Returns a list of environment extensions to use for customizing the available BUILD symbols and
-   * the arguments to the {@code package()} function.
-   */
-  // TODO(b/280446865): Eliminate this by breaking off the package() arg registration into its own
-  // API, and moving the top-level symbol customization into a Bootstrap like everything else.
-  ImmutableList<EnvironmentExtension> getEnvironmentExtensions();
-
-  /**
-   * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
-   * and hence are allowed to be overridden by builtins-injection.
-   *
-   * <p>For example, {@code CcInfo} is included, but {@code rule()} is not.
-   *
-   * @see StarlarkBuiltinsFunction
-   */
-  ImmutableMap<String, Object> getNativeRuleSpecificBindings();
-
-  /**
-   * Returns the set of symbols to be made available to {@code @_builtins} .bzl files under the
-   * _builtins.internal object.
-   *
-   * <p>These symbols are not exposed to user .bzl code and do not constitute a public or stable API
-   * (unless exposed through another means).
-   */
-  ImmutableMap<String, Object> getStarlarkBuiltinsInternals();
+  /** Returns a map from aspect names to aspect factory objects. */
+  Map<String, NativeAspectClass> getNativeAspectClassMap();
 
   /**
    * Returns the Starlark builtins registered with this RuleClassProvider.
@@ -98,10 +64,15 @@ public interface RuleClassProvider extends RuleDefinitionEnvironment {
    * <p>See {@link BazelStarlarkEnvironment#getUninjectedBuildBzlNativeBindings} for the canonical
    * determination of the bzl environment (before injection).
    */
+  // TODO(b/280446865): See about eliminating this accessor, in favor of
+  // BazelStarlarkEnvironment#getUninjectedBuildBzlEnv().
   ImmutableMap<String, Object> getEnvironment();
 
-  /** Returns a map from aspect names to aspect factory objects. */
-  Map<String, NativeAspectClass> getNativeAspectClassMap();
+  /**
+   * Returns the {@link BazelStarlarkEnvironment}, which is the final determiner of the BUILD and
+   * .bzl environment (with and without builtins injection).
+   */
+  BazelStarlarkEnvironment getBazelStarlarkEnvironment();
 
   /**
    * Returns the default content that should be added at the beginning of the WORKSPACE file.

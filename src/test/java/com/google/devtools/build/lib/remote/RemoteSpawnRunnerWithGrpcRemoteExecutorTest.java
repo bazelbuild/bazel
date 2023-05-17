@@ -34,6 +34,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionImplBase;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
@@ -42,6 +43,7 @@ import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -201,13 +203,13 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
-            /*executionInfo=*/ ImmutableMap.<String, String>of(),
-            /*runfilesSupplier=*/ null,
-            /*filesetMappings=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.create(
+            /* executionInfo= */ ImmutableMap.<String, String>of(),
+            /* runfilesSupplier= */ null,
+            /* filesetMappings= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.create(
                 Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
-            /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*outputs=*/ ImmutableSet.of(
+            /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(
                 new ActionInput() {
                   @Override
                   public String getExecPathString() {
@@ -250,7 +252,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     return PathFragment.create("bar");
                   }
                 }),
-            /*mandatoryOutputs=*/ ImmutableSet.of(),
+            /* mandatoryOutputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -298,8 +300,14 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                 return 100;
               }
             });
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+            .build();
     GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
+        new GrpcRemoteExecutor(
+            caps, channel.retain(), CallCredentialsProvider.NO_CREDENTIALS, retrier);
     CallCredentialsProvider callCredentialsProvider =
         GoogleAuthUtils.newCallCredentialsProvider(null);
     GrpcCacheClient cacheProtocol =
@@ -330,7 +338,7 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
             /* verboseFailures= */ true,
-            /*cmdlineReporter=*/ null,
+            /* cmdlineReporter= */ null,
             retryService,
             logDir,
             remoteExecutionService);

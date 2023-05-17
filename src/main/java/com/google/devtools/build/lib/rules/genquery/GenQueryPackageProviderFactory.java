@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.genquery;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import javax.annotation.Nullable;
 
@@ -35,15 +36,23 @@ public interface GenQueryPackageProviderFactory {
 
   /**
    * Thrown if {@link GenQueryPackageProviderFactory#constructPackageMap} cannot load the full
-   * transitive closure of its scope because some needed package is in error.
+   * transitive closure of its scope because of broken or missing packages or missing targets.
    */
   class BrokenQueryScopeException extends Exception {
-    public BrokenQueryScopeException(String message) {
-      super(message);
+
+    public static BrokenQueryScopeException of(@Nullable NoSuchThingException cause) {
+      return cause == null ? new BrokenQueryScopeException() : new BrokenQueryScopeException(cause);
     }
 
-    public BrokenQueryScopeException(String message, Throwable cause) {
-      super(message, cause);
+    private BrokenQueryScopeException() {
+      super("errors were encountered while computing transitive closure of the scope");
+    }
+
+    private BrokenQueryScopeException(NoSuchThingException cause) {
+      super(
+          "errors were encountered while computing transitive closure of the scope: "
+              + cause.getMessage(),
+          cause);
     }
   }
 }

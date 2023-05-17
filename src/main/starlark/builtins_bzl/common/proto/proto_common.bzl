@@ -35,12 +35,31 @@ def _proto_path_flag(path):
     return "--proto_path=%s" % path
 
 def _Iimport_path_equals_fullpath(proto_source):
-    return "-I%s=%s" % (_get_import_path(proto_source), proto_source._source_file.path)
+    return "-I%s=%s" % (get_import_path(proto_source), proto_source._source_file.path)
 
-def _get_import_path(proto_source):
-    if proto_source._proto_path == "":
-        return proto_source._source_file.path
-    return proto_source._source_file.path[len(proto_source._proto_path) + 1:]
+def _remove_repo(file):
+    """Removes `../repo/` prefix from path, e.g. `../repo/package/path -> package/path`"""
+    short_path = file.short_path
+    workspace_root = file.owner.workspace_root
+    if workspace_root:
+        if workspace_root.startswith("external/"):
+            workspace_root = "../" + workspace_root.removeprefix("external/")
+        return short_path.removeprefix(workspace_root + "/")
+    return short_path
+
+def get_import_path(proto_source):
+    """Returns the import path of a .proto file, i.e. clean path without any repo or strip_prefixes remapping
+
+    Args:
+      proto_source: (ProtoSourceInfo) The .proto file
+    Returns:
+      (str) import path
+    """
+    proto_path = proto_source._proto_path
+    short_path = _remove_repo(proto_source._source_file)
+    if proto_path and not short_path.startswith(proto_path + "/"):
+        fail("Bad proto_path %s for proto %s" % (proto_path, short_path))
+    return short_path.removeprefix(proto_path + "/")
 
 def _compile(
         actions,
@@ -119,6 +138,7 @@ def _compile(
         use_default_shell_env = True,
         resource_set = resource_set,
         exec_group = experimental_exec_group,
+        toolchain = None,
     )
 
 _BAZEL_TOOLS_PREFIX = "external/bazel_tools/"

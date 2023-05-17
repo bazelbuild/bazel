@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -427,9 +426,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
-
-  protected abstract BuildOptions getDefaultBuildOptions(
-      ConfiguredRuleClassProvider ruleClassProvider);
 
   @Override
   public void assertPackageNotLoaded(String packageName) throws Exception {

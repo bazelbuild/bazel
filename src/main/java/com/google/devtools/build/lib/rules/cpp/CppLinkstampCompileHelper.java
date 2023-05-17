@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,13 +33,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 
 /** Handles creation of CppCompileAction used to compile linkstamp sources. */
-public class CppLinkstampCompileHelper {
+public final class CppLinkstampCompileHelper {
 
-  /**
-   * Creates {@link CppCompileAction} to compile linkstamp source
-   *
-   * @param inputsForInvalidation: see {@link CppCompileAction#inputsForInvalidation}
-   */
+  /** Creates {@link CppCompileAction} to compile linkstamp source. */
   public static CppCompileAction createLinkstampCompileAction(
       RuleErrorConsumer ruleErrorConsumer,
       ActionConstructionContext actionConstructionContext,
@@ -83,7 +81,7 @@ public class CppLinkstampCompileHelper {
             .setSourceFile(sourceFile)
             .setOutputs(outputFile, /* dotdFile= */ null, /* diagnosticsFile= */ null)
             .setCacheKeyInputs(inputsForInvalidation)
-            .setBuiltinIncludeFiles(buildInfoHeaderArtifacts)
+            .setBuildInfoHeaderArtifacts(buildInfoHeaderArtifacts)
             .addMandatoryInputs(nonCodeInputs)
             .setShareable(true)
             .setShouldScanIncludes(false)
@@ -167,7 +165,7 @@ public class CppLinkstampCompileHelper {
         /* ltoIndexingFile= */ null,
         buildInfoHeaderArtifacts.stream()
             .map(Artifact::getExecPathString)
-            .collect(ImmutableList.toImmutableList()),
+            .collect(toImmutableList()),
         CcCompilationHelper.getCoptsFromOptions(
             cppConfiguration, semantics, sourceFile.getExecPathString()),
         /* cppModuleMap= */ null,
@@ -191,4 +189,6 @@ public class CppLinkstampCompileHelper {
             codeCoverageEnabled),
         /* localDefines= */ ImmutableList.of());
   }
+
+  private CppLinkstampCompileHelper() {}
 }

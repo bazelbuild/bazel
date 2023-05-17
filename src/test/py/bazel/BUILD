@@ -346,3 +346,17 @@ py_test(
         ":test_base",
     ],
 )
+
+py_test(
+    name = "bzlmod_credentials_test",
+    size = "large",
+    srcs = ["bzlmod/bzlmod_credentials_test.py"],
+    tags = [
+        "no_windows",  # test uses a Python script as a credential helper
+        "requires-network",
+    ],
+    deps = [
+        ":bzlmod_test_utils",
+        ":test_base",
+    ],
+)

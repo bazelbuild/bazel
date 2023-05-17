@@ -190,12 +190,20 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                         // Required to load @_builtins.
                         ImmutableMap.of("bazel_tools", LocalPathOverride.create(bazelToolsPath))))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(packageFactory, hashFunction))
+                .put(
+                    SkyFunctions.BZL_COMPILE,
+                    new BzlCompileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction))
                 .put(
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
-                        packageFactory, directories, hashFunction, Caffeine.newBuilder().build()))
-                .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(packageFactory))
+                        ruleClassProvider,
+                        directories,
+                        hashFunction,
+                        Caffeine.newBuilder().build()))
+                .put(
+                    SkyFunctions.STARLARK_BUILTINS,
+                    new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
                 .put(
                     SkyFunctions.PACKAGE,
                     new PackageFunction(

@@ -95,12 +95,12 @@ upper_tabs:
     other:
     - name: Releases
       contents:
-      - title: Overview
+      - title: Release model
         path: /release/
-      - title: Release versioning
-        path: /release/versioning
       - title: Backward compatibility
         path: /release/backward-compatibility
+      - title: Rule compatibility
+        path: /release/rule-compatibility
     - name: Basics
       contents:
       - heading: Getting started with BUILD files
@@ -272,8 +272,12 @@ upper_tabs:
         path: /extending/repo
       - title: Configuring
         path: /extending/config
-      - title: Platforms and toolchains
+      - title: Platforms
         path: /extending/platforms
+      - title: Toolchains
+        path: /extending/toolchains
+      - title: Execution groups
+        path: /extending/exec-groups
     - name: Writing rules
       contents:
       - title: Creating a rule
@@ -309,12 +313,6 @@ upper_tabs:
       - title: Document rules with Stardoc
         path: https://github.com/bazelbuild/stardoc
         status: external
-    - name: Design docs
-      contents:
-      - title: Execution groups
-        path: /extending/exec-groups
-      - title: Toolchains
-        path: /extending/toolchains
     - name: APIs
       contents:
       - title: Build file API

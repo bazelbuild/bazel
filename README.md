@@ -40,7 +40,7 @@ Build and test software of any size, quickly and reliably.
   * [Extend Bazel](https://bazel.build/rules/concepts)
   * [Write tests](https://bazel.build/reference/test-encyclopedia)
   * [Roadmap](https://bazel.build/community/roadmaps)
-  * [Who is using Bazel?](https://github.com/bazelbuild/bazel/wiki/Bazel-Users)
+  * [Who is using Bazel?](https://bazel.build/community/users)
 
 ## Reporting a Vulnerability
 

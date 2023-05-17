@@ -180,6 +180,7 @@ public final class ObjcCompilationContext implements StarlarkValue {
     return StarlarkList.immutableCopyOf(getImplementationCcCompilationContexts());
   }
 
+  @StarlarkMethod(name = "create_cc_compilation_context", documented = false)
   public CcCompilationContext createCcCompilationContext() {
     CcCompilationContext.Builder builder =
         CcCompilationContext.builder(

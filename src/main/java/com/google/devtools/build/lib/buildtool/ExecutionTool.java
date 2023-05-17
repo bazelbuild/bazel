@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -248,7 +249,7 @@ public class ExecutionTool {
    *
    * <p>TODO(b/213040766): Write tests for these setup steps.
    */
-  public void prepareForExecution(UUID buildId, Stopwatch executionTimer)
+  public void prepareForExecution(Stopwatch executionTimer)
       throws AbruptExitException,
           BuildFailedException,
           InterruptedException,
@@ -291,7 +292,7 @@ public class ExecutionTool {
       try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
         modifiedOutputFiles =
             outputService.startBuild(
-                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+                env.getReporter(), request.getId(), request.getBuildOptions().finalizeActions);
       }
     } else {
       // TODO(bazel-team): this could be just another OutputService
@@ -339,8 +340,9 @@ public class ExecutionTool {
     }
 
     env.getEventBus()
-        .register(new ExecutionProgressReceiverSetup(skyframeExecutor, env, executionTimer));
-    // TODO(leba): Add watchdog support.
+        .register(
+            new ExecutionProgressReceiverSetup(
+                skyframeExecutor, env, executionTimer, buildRequestOptions.progressReportInterval));
     for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
       try (SilentCloseable c =
           Profiler.instance().profile(executorLifecycleListener + ".executionPhaseStarting")) {
@@ -350,6 +352,8 @@ public class ExecutionTool {
     try (SilentCloseable c = Profiler.instance().profile("configureResourceManager")) {
       configureResourceManager(env.getLocalResourceManager(), request);
     }
+
+    announceEnteringDirIfEmacs();
   }
 
   /**
@@ -428,12 +432,7 @@ public class ExecutionTool {
         installExplanationHandler(
             request.getBuildOptions().explanationPath, request.getOptionsDescription());
 
-    if (request.isRunningInEmacs()) {
-      // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
-      request
-          .getOutErr()
-          .printErrLn(runtime.getProductName() + ": Entering directory `" + getExecRoot() + "/'");
-    }
+    announceEnteringDirIfEmacs();
 
     Throwable catastrophe = null;
     boolean buildCompleted = false;
@@ -499,6 +498,23 @@ public class ExecutionTool {
     }
   }
 
+  private void announceEnteringDirIfEmacs() {
+    if (request.isRunningInEmacs()) {
+      // The syntax of this message is tightly constrained by lisp/progmodes/compile.el in emacs
+      request
+          .getOutErr()
+          .printErrLn(runtime.getProductName() + ": Entering directory `" + getExecRoot() + "/'");
+    }
+  }
+
+  private void announceLeavingDirIfEmacs() {
+    if (request.isRunningInEmacs()) {
+      request
+          .getOutErr()
+          .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
+    }
+  }
+
   /** These steps get performed after execution, if there's no catastrophic exception. */
   void nonCatastrophicFinalizations(
       BuildResult buildResult,
@@ -508,11 +524,7 @@ public class ExecutionTool {
       throws BuildFailedException, AbruptExitException, InterruptedException {
     env.recordLastExecutionTime();
 
-    if (request.isRunningInEmacs()) {
-      request
-          .getOutErr()
-          .printErrLn(runtime.getProductName() + ": Leaving directory `" + getExecRoot() + "/'");
-    }
+    announceLeavingDirIfEmacs();
     if (buildCompleted) {
       getReporter().handle(Event.progress("Building complete."));
     }
@@ -1013,13 +1025,17 @@ public class ExecutionTool {
     private final Stopwatch executionUnstartedTimer;
     private final AtomicBoolean activated = new AtomicBoolean(false);
 
+    private final int progressReportInterval;
+
     ExecutionProgressReceiverSetup(
         SkyframeExecutor skyframeExecutor,
         CommandEnvironment env,
-        Stopwatch executionUnstartedTimer) {
+        Stopwatch executionUnstartedTimer,
+        int progressReportInterval) {
       this.skyframeExecutor = skyframeExecutor;
       this.env = env;
       this.executionUnstartedTimer = executionUnstartedTimer;
+      this.progressReportInterval = progressReportInterval;
     }
 
     @Subscribe
@@ -1042,6 +1058,13 @@ public class ExecutionTool {
             executionProgressReceiver, executionProgressReceiver, statusReporter);
         skyframeExecutor.setExecutionProgressReceiver(executionProgressReceiver);
         executionUnstartedTimer.start();
+
+        skyframeExecutor.setAndStartWatchdog(
+            new ActionExecutionInactivityWatchdog(
+                executionProgressReceiver.createInactivityMonitor(statusReporter),
+                executionProgressReceiver.createInactivityReporter(
+                    statusReporter, skyframeExecutor.getIsBuildingExclusiveArtifacts()),
+                progressReportInterval));
 
         env.getEventBus().unregister(this);
       }

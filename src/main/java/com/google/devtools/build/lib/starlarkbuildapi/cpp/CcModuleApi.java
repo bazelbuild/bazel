@@ -868,7 +868,7 @@ public interface CcModuleApi<
         @Param(
             name = "must_keep_debug",
             doc =
-                "When set to True, bazel will expose 'strip_debug_symbols' variable, which is "
+                "When set to False, bazel will expose 'strip_debug_symbols' variable, which is "
                     + "usually used to use the linker to strip debug symbols from the output file.",
             named = true,
             positional = false,

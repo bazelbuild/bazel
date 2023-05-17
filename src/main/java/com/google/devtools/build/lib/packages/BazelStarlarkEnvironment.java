@@ -32,24 +32,36 @@ import net.starlark.java.eval.Starlark;
  * and bzl file evaluation, including the top-level predeclared symbols, the {@code native} module,
  * and the special environment for {@code @_builtins} bzl evaluation.
  *
- * <p>The set of available symbols is determined by 1) gathering registered toplevels, rules,
- * extensions, etc., from the {@link ConfiguredRuleClassProvider} and {@link PackageFactory}, and
- * then 2) applying builtins injection (see {@link StarlarkBuiltinsFunction}, if applicable. The
- * result of (1) is cached by an instance of this class. (2) is obtained using helper methods on
- * this class, and cached in {@link StarlarkBuiltinsValue}.
+ * <p>The set of available symbols is determined by
+ *
+ * <ol>
+ *   <li>Gathering a fixed set of top-level symbols aggregated in {@link StarlarkLibrary}, which are
+ *       present in all versions of Bazel.
+ *   <li>Gathering additional toplevels, rules, extensions, etc., registered on the {@link
+ *       ConfiguredRuleClassProvider}.
+ *   <li>Applying builtins injection (see {@link StarlarkBuiltinsFunction}), if applicable.
+ * </ol>
+ *
+ * The end result of (1) and (2) is constant for any given Bazel binary and is cached by an instance
+ * of this class upon construction. The final environment, which takes into account builtins
+ * injection, is obtained by calling methods on this class during Skyframe evaluation; the result is
+ * cached in {@link StarlarkBuiltinsValue}.
  */
 public final class BazelStarlarkEnvironment {
 
   // TODO(#11954): Eventually the BUILD and WORKSPACE bzl dialects should converge. Right now they
   // only differ on the "native" object.
 
-  private final RuleClassProvider ruleClassProvider;
+  // The following fields correspond to the constructor params of the same name. These include only
+  // the params that are needed by injection. See the constructor for javadoc.
   private final ImmutableMap<String, ?> ruleFunctions;
+  private final ImmutableMap<String, Object> bzlToplevels;
+  // TODO(b/280446865): This could be a set. Simplify and/or eliminate the concept.
+  private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
+  private final ImmutableMap<String, Object> workspaceBzlNativeBindings;
 
   /** The "native" module fields for a BUILD-loaded bzl module, before builtins injection. */
   private final ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings;
-  /** The "native" module fields for a WORKSPACE-loaded bzl module. */
-  private final ImmutableMap<String, Object> workspaceBzlNativeBindings;
   /** The top-level predeclared symbols for a BUILD-loaded bzl module before builtins injection. */
   private final ImmutableMap<String, Object> uninjectedBuildBzlEnv;
   /** The top-level predeclared symbols for BUILD files, before builtins injection and prelude. */
@@ -63,26 +75,56 @@ public final class BazelStarlarkEnvironment {
   /** The top-level predeclared symbols for a bzl module in the Bzlmod system. */
   private final ImmutableMap<String, Object> bzlmodBzlEnv;
 
-  BazelStarlarkEnvironment(RuleClassProvider ruleClassProvider, Object packageFunction) {
-    this.ruleClassProvider = ruleClassProvider;
-    this.ruleFunctions = ruleClassProvider.getRuleFunctionMap();
+  /**
+   * Constructs a new {@code BazelStarlarkEnvironment} that will have complete knowledge of the
+   * proper Starlark symbols available in each context, with and without injection.
+   *
+   * @param ruleFunctions a map from a rule class name (e.g. "java_library") to the (uninjected)
+   *     Starlark callable that instantiates it
+   * @param buildFileToplevels the map of non-{@link Starlark#UNIVERSE} top-level symbols available
+   *     to BUILD files, prior to builtins injection
+   * @param bzlToplevels the map of non-universe top-level symbols available to .bzl files, prior to
+   *     builtins injection, excluding the {@code native} object
+   * @param nativeRuleSpecificBindings a subset of {@code bzlToplevels} that excludes core symbols
+   *     like {@code rule()} and {@code struct()}. This is intended to identify symbols that are
+   *     eligible for builtins injection.
+   * @param workspaceBzlNativeBindings entries available in the {@code native} object for
+   *     WORKSPACE-loaded .bzl files
+   * @param builtinsInternals a set of symbols to be made available to {@code @_builtins} .bzls
+   *     under the {@code _builtins.internal} object. These symbols are not exposed to user .bzl
+   *     code and do not constitute a public or stable API if not exposed through another means.
+   */
+  public BazelStarlarkEnvironment(
+      ImmutableMap<String, ?> ruleFunctions,
+      ImmutableMap<String, Object> buildFileToplevels,
+      ImmutableMap<String, Object> bzlToplevels,
+      ImmutableMap<String, Object> nativeRuleSpecificBindings,
+      ImmutableMap<String, Object> workspaceBzlNativeBindings,
+      ImmutableMap<String, Object> builtinsInternals) {
+
+    this.ruleFunctions = ruleFunctions;
+    this.bzlToplevels = bzlToplevels;
+    this.nativeRuleSpecificBindings = nativeRuleSpecificBindings;
+    this.workspaceBzlNativeBindings = workspaceBzlNativeBindings;
+
     this.uninjectedBuildBzlNativeBindings =
-        createUninjectedBuildBzlNativeBindings(
-            ruleFunctions, packageFunction, ruleClassProvider.getEnvironmentExtensions());
-    this.workspaceBzlNativeBindings = createWorkspaceBzlNativeBindings(ruleClassProvider);
+        createUninjectedBuildBzlNativeBindings(ruleFunctions, buildFileToplevels);
     this.uninjectedBuildBzlEnv =
-        createUninjectedBuildBzlEnv(ruleClassProvider, uninjectedBuildBzlNativeBindings);
+        createUninjectedBuildBzlEnv(bzlToplevels, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
-        createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
-    // TODO(pcloudy): this should be a bzlmod specific environment, but keep using the workspace
-    // envirnment until we implement module rules.
-    this.bzlmodBzlEnv = createWorkspaceBzlEnv(ruleClassProvider, workspaceBzlNativeBindings);
+        createWorkspaceBzlEnv(bzlToplevels, workspaceBzlNativeBindings);
+    // TODO(#11954): We should converge all .bzl dialects regardless of whether they're loaded by
+    // BUILD, WORKSPACE, or MODULE. At the moment, WORKSPACE-loaded and MODULE-loaded .bzl files are
+    // already converged, hence why bzlmodBzlEnv is populated with a "Workspace" helper function.
+    this.bzlmodBzlEnv = createWorkspaceBzlEnv(bzlToplevels, workspaceBzlNativeBindings);
     this.builtinsBzlEnv =
         createBuiltinsBzlEnv(
-            ruleClassProvider, uninjectedBuildBzlNativeBindings, uninjectedBuildBzlEnv);
-    this.uninjectedBuildEnv =
-        createUninjectedBuildEnv(
-            ruleFunctions, packageFunction, ruleClassProvider.getEnvironmentExtensions());
+            bzlToplevels,
+            nativeRuleSpecificBindings,
+            builtinsInternals,
+            uninjectedBuildBzlNativeBindings,
+            uninjectedBuildBzlEnv);
+    this.uninjectedBuildEnv = createUninjectedBuildEnv(ruleFunctions, buildFileToplevels);
   }
 
   /**
@@ -141,23 +183,12 @@ public final class BazelStarlarkEnvironment {
    * injection didn't happen.
    */
   private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
-      Map<String, ?> ruleFunctions,
-      Object packageFunction,
-      List<PackageFactory.EnvironmentExtension> environmentExtensions) {
+      Map<String, ?> ruleFunctions, Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.putAll(ruleFunctions);
-    env.put("package", packageFunction);
-    for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
-      ext.update(env);
-    }
+    env.putAll(buildFileToplevels);
     return env.buildOrThrow();
-  }
-
-  /** Produces everything in the "native" object for WORKSPACE-loaded bzl files. */
-  private static ImmutableMap<String, Object> createWorkspaceBzlNativeBindings(
-      RuleClassProvider ruleClassProvider) {
-    return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider);
   }
 
   /** Constructs a "native" module object with the given contents. */
@@ -166,8 +197,9 @@ public final class BazelStarlarkEnvironment {
   }
 
   private static ImmutableMap<String, Object> createUninjectedBuildBzlEnv(
-      RuleClassProvider ruleClassProvider, Map<String, Object> uninjectedBuildBzlNativeBindings) {
-    Map<String, Object> env = new HashMap<>(ruleClassProvider.getEnvironment());
+      Map<String, Object> bzlToplevels, Map<String, Object> uninjectedBuildBzlNativeBindings) {
+    ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
+    env.putAll(bzlToplevels);
 
     // Determine the "native" module.
     // TODO(#11954): Use the same "native" object for both BUILD- and WORKSPACE-loaded .bzls, and
@@ -175,44 +207,42 @@ public final class BazelStarlarkEnvironment {
     // change.
     env.put("native", createNativeModule(uninjectedBuildBzlNativeBindings));
 
-    return ImmutableMap.copyOf(env);
+    return env.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createUninjectedBuildEnv(
-      Map<String, ?> ruleFunctions,
-      Object packageFunction,
-      List<PackageFactory.EnvironmentExtension> environmentExtensions) {
+      Map<String, ?> ruleFunctions, Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.putAll(StarlarkLibrary.BUILD); // e.g. select, depset
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    env.put("package", packageFunction);
     env.putAll(ruleFunctions);
-    for (PackageFactory.EnvironmentExtension ext : environmentExtensions) {
-      ext.update(env);
-    }
+    env.putAll(buildFileToplevels);
     return env.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createWorkspaceBzlEnv(
-      RuleClassProvider ruleClassProvider, Map<String, Object> workspaceBzlNativeBindings) {
-    Map<String, Object> env = new HashMap<>(ruleClassProvider.getEnvironment());
+      Map<String, Object> bzlToplevels, Map<String, Object> workspaceBzlNativeBindings) {
+    ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
+    env.putAll(bzlToplevels);
 
     // See above comments for native in BUILD bzls.
     env.put("native", createNativeModule(workspaceBzlNativeBindings));
 
-    return ImmutableMap.copyOf(env);
+    return env.buildOrThrow();
   }
 
   private static ImmutableMap<String, Object> createBuiltinsBzlEnv(
-      RuleClassProvider ruleClassProvider,
-      ImmutableMap<String, Object> uninjectedBuildBzlNativeBindings,
-      ImmutableMap<String, Object> uninjectedBuildBzlEnv) {
-    Map<String, Object> env = new HashMap<>(ruleClassProvider.getEnvironment());
+      Map<String, Object> bzlToplevels,
+      Map<String, Object> nativeRuleSpecificBindings,
+      Map<String, Object> builtinsInternals,
+      Map<String, Object> uninjectedBuildBzlNativeBindings,
+      Map<String, Object> uninjectedBuildBzlEnv) {
+    Map<String, Object> env = new HashMap<>(bzlToplevels);
 
     // Clear out rule-specific symbols like CcInfo.
-    env.keySet().removeAll(ruleClassProvider.getNativeRuleSpecificBindings().keySet());
+    env.keySet().removeAll(nativeRuleSpecificBindings.keySet());
 
-    // For _builtins.toplevel, replace all FlagGuardedValues with the underlying value;
+    // For _builtins.toplevel, replace all GuardedValues with the underlying value;
     // StarlarkSemantics flags do not affect @_builtins.
     //
     // We do this because otherwise we'd need to differentiate the _builtins.toplevel object (and
@@ -236,7 +266,7 @@ public final class BazelStarlarkEnvironment {
             createNativeModule(uninjectedBuildBzlNativeBindings),
             // createNativeModule() is good enough for the "toplevel" and "internal" objects too.
             createNativeModule(unwrappedBuildBzlSymbols),
-            createNativeModule(ruleClassProvider.getStarlarkBuiltinsInternals()));
+            createNativeModule(builtinsInternals));
     Object conflictingValue = env.put("_builtins", builtinsModule);
     Preconditions.checkState(
         conflictingValue == null, "'_builtins' name is reserved for builtins injection");
@@ -372,7 +402,7 @@ public final class BazelStarlarkEnvironment {
       throws InjectionException {
     Map<String, Boolean> overridesMap = parseInjectionOverridesList(overridesList);
 
-    Map<String, Object> env = new HashMap<>(ruleClassProvider.getEnvironment());
+    Map<String, Object> env = new HashMap<>(bzlToplevels);
 
     // Determine "native" bindings.
     // TODO(#11954): See above comment in createUninjectedBuildBzlEnv.
@@ -394,7 +424,7 @@ public final class BazelStarlarkEnvironment {
       validateSymbolIsInjectable(
           name,
           Sets.union(env.keySet(), Starlark.UNIVERSE.keySet()),
-          ruleClassProvider.getNativeRuleSpecificBindings().keySet(),
+          nativeRuleSpecificBindings.keySet(),
           "top-level symbol");
       if (injectionApplies(key, overridesMap)) {
         env.put(name, entry.getValue());

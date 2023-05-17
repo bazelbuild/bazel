@@ -18,10 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
@@ -65,11 +66,12 @@ final class WorkspaceFactoryTestHelper {
     // execute
     builder =
         Package.newExternalPackageBuilder(
-            DefaultPackageSettings.INSTANCE,
-            RootedPath.toRootedPath(root, workspaceFilePath),
-            "",
-            RepositoryMapping.ALWAYS_FALLBACK,
-            StarlarkSemantics.DEFAULT);
+                PackageSettings.DEFAULTS,
+                RootedPath.toRootedPath(root, workspaceFilePath),
+                "",
+                RepositoryMapping.ALWAYS_FALLBACK,
+                StarlarkSemantics.DEFAULT)
+            .setLoads(ImmutableList.of());
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,

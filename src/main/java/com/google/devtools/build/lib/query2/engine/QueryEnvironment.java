@@ -538,26 +538,6 @@ public interface QueryEnvironment<T> {
   ThreadSafeMutableSet<T> createThreadSafeMutableSet();
 
   /**
-   * A simple map-like interface that uses proper equality semantics for the key type. {@link
-   * QueryExpression}/{@link QueryFunction} implementations should use {@code
-   * ThreadSafeMutableSet<T, V>} they need a map-like data structure for {@code T}.
-   */
-  interface MutableMap<K, V> {
-    /**
-     * Returns the value {@code value} associated with the given key by the most recent call to
-     * {@code put(key, value)}, or {@code null} if there was no such call.
-     */
-    @Nullable
-    V get(K key);
-
-    /**
-     * Associates the given key with the given value and returns the previous value associated with
-     * the key, or {@code null} if there wasn't one.
-     */
-    V put(K key, V value);
-  }
-
-  /**
    * Creates a Uniquifier for use in a {@code QueryExpression}. Note that the usage of this
    * uniquifier should not be used for returning unique results to the parent callback. It should
    * only be used to avoid processing the same elements multiple times within this QueryExpression.

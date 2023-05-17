@@ -30,7 +30,7 @@ def _check_toolchain_supports_objc_compile(ctx, cc_toolchain):
         action_name = "objc-compile",
     ):
         fail("Compiling objc_library targets requires the Apple CC toolchain " +
-             "which can be found here: https://github.com/bazelbuild/apple_support")
+             "which can be found here: https://github.com/bazelbuild/apple_support#toolchain-setup")
 
 def _get_licenses_attr():
     # TODO(b/182226065): Change to applicable_licenses

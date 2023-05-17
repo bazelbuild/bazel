@@ -59,12 +59,10 @@ import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -414,12 +412,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   // of QueryEnvironment is fixed.
   @Override
   public ThreadSafeMutableSet<Target> getBuildFiles(
-      final QueryExpression caller,
+      QueryExpression caller,
       ThreadSafeMutableSet<Target> nodes,
       boolean buildFiles,
       boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException {
+      QueryExpressionContext<Target> context) {
     ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
     Set<PackageIdentifier> seenPackages = new HashSet<>();
     // Keep track of seen labels, to avoid adding a fake subinclude label that also exists as a
@@ -430,36 +427,36 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // extensions) for package "pkg", to "buildfiles".
     for (Target x : nodes) {
       Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, dependentFiles);
-        }
+      if (!seenPackages.add(pkg.getPackageIdentifier())) {
+        continue;
+      }
+      if (buildFiles) {
+        addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, dependentFiles);
+      }
+      if (loads) {
+        pkg.visitLoadGraph(
+            load -> {
+              if (!seenLabels.add(load)) {
+                return false;
+              }
 
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
+              Node<Target> loadTarget = getLoadTarget(load, pkg);
+              dependentFiles.add(loadTarget.getLabel());
 
-        for (Label extension : extensions) {
-
-          Node<Target> loadTarget = getLoadTarget(extension, pkg);
-          addIfUniqueLabel(loadTarget, seenLabels, dependentFiles);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
-                    loadTarget.getLabel().getLabel().getPackageIdentifier());
-            if (baseName != null) {
-              Label buildFileLabel =
-                  Label.createUnvalidated(
-                      loadTarget.getLabel().getLabel().getPackageIdentifier(), baseName);
-              addIfUniqueLabel(
-                  getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
-            }
-          }
-        }
+              // Also add the BUILD file of the extension.
+              if (buildFiles) {
+                // Can be null in genquery: see http://b/123795023#comment6.
+                String baseName =
+                    cachingPackageLocator.getBaseNameForLoadedPackage(load.getPackageIdentifier());
+                if (baseName != null) {
+                  Label buildFileLabel =
+                      Label.createUnvalidated(load.getPackageIdentifier(), baseName);
+                  addIfUniqueLabel(
+                      getNode(new FakeLoadTarget(buildFileLabel, pkg)), seenLabels, dependentFiles);
+                }
+              }
+              return true;
+            });
       }
     }
     return dependentFiles;

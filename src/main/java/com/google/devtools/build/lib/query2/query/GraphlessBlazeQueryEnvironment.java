@@ -53,12 +53,10 @@ import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -445,46 +443,46 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
 
   @Override
   public ThreadSafeMutableSet<Target> getBuildFiles(
-      final QueryExpression caller,
+      QueryExpression caller,
       ThreadSafeMutableSet<Target> nodes,
       boolean buildFiles,
       boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException {
+      QueryExpressionContext<Target> context) {
     ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
     Set<PackageIdentifier> seenPackages = new HashSet<>();
+    Set<Label> seenLoads = new HashSet<>();
 
     // Adds all the package definition files (BUILD files and build extensions) for package "pkg",
     // to dependentFiles.
     for (Target x : nodes) {
       Package pkg = x.getPackage();
-      if (seenPackages.add(pkg.getPackageIdentifier())) {
-        if (buildFiles) {
-          dependentFiles.add(pkg.getBuildFile());
-        }
+      if (!seenPackages.add(pkg.getPackageIdentifier())) {
+        continue;
+      }
+      if (buildFiles) {
+        dependentFiles.add(pkg.getBuildFile());
+      }
+      if (loads) {
+        pkg.visitLoadGraph(
+            load -> {
+              if (!seenLoads.add(load)) {
+                return false;
+              }
+              dependentFiles.add(new FakeLoadTarget(load, pkg));
 
-        List<Label> extensions = new ArrayList<>();
-        if (loads) {
-          extensions.addAll(pkg.getStarlarkFileDependencies());
-        }
-
-        for (Label extension : extensions) {
-          Target loadTarget = new FakeLoadTarget(extension, pkg);
-          dependentFiles.add(loadTarget);
-
-          // Also add the BUILD file of the extension.
-          if (buildFiles) {
-            // Can be null in genquery: see http://b/123795023#comment6.
-            String baseName =
-                cachingPackageLocator.getBaseNameForLoadedPackage(
-                    loadTarget.getLabel().getPackageIdentifier());
-            if (baseName != null) {
-              Label buildFileLabel =
-                  Label.createUnvalidated(loadTarget.getLabel().getPackageIdentifier(), baseName);
-              dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
-            }
-          }
-        }
+              // Also add the BUILD file of the extension.
+              if (buildFiles) {
+                // Can be null in genquery: see http://b/123795023#comment6.
+                String baseName =
+                    cachingPackageLocator.getBaseNameForLoadedPackage(load.getPackageIdentifier());
+                if (baseName != null) {
+                  Label buildFileLabel =
+                      Label.createUnvalidated(load.getPackageIdentifier(), baseName);
+                  dependentFiles.add(new FakeLoadTarget(buildFileLabel, pkg));
+                }
+              }
+              return true;
+            });
       }
     }
     return dependentFiles;

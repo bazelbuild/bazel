@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.testutil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.packages.BuilderFactoryForTesting;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -52,7 +52,7 @@ class PackageFactoryBuilderFactoryForBazelUnitTests implements BuilderFactoryFor
       return new PackageFactory(
           ruleClassProvider,
           PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
-          DefaultPackageSettings.INSTANCE,
+          PackageSettings.DEFAULTS,
           packageValidator,
           packageOverheadEstimator,
           doChecksForTesting

@@ -979,7 +979,7 @@ non-tool [dependency attribute](#dependency_attributes) that doesn't set
 [`cfg`](#configuration) to `"host"` or `"exec"` in the attribute schema) in
 `dependency_attributes`. (This isn't ideal behavior, since it puts attributes
 like `srcs` in `dependency_attributes` instead of `source_attributes`, but it
-avoids the need for explcit coverage configuration for all rules in the
+avoids the need for explicit coverage configuration for all rules in the
 dependency chain.)
 
 ### Validation Actions

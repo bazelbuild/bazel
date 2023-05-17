@@ -240,8 +240,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     // Load the .bzl module.
     try {
-      // TODO(b/22193153, wyv): Determine whether .bzl load visibility should apply at all to this
-      // type of .bzl load. As it stands, this call checks that bzlFile is visible to package @//.
+      // No need to check visibility for an extension repospec that is always public
       return PackageFunction.loadBzlModules(
           env,
           PackageIdentifier.EMPTY_PACKAGE_ID,
@@ -249,7 +248,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
           programLoads,
           keys,
           starlarkSemantics,
-          null);
+          null,
+          /* checkVisibility= */ false);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }

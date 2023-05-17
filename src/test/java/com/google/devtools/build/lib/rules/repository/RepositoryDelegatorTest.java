@@ -222,12 +222,20 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new ExternalPackageFunction(
                         BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction())
-                .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(pkgFactory, hashFunction))
+                .put(
+                    SkyFunctions.BZL_COMPILE,
+                    new BzlCompileFunction(
+                        ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction))
                 .put(
                     SkyFunctions.BZL_LOAD,
                     BzlLoadFunction.create(
-                        pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
-                .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
+                        ruleClassProvider,
+                        directories,
+                        hashFunction,
+                        Caffeine.newBuilder().build()))
+                .put(
+                    SkyFunctions.STARLARK_BUILTINS,
+                    new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
                     SkyFunctions.IGNORED_PACKAGE_PREFIXES,

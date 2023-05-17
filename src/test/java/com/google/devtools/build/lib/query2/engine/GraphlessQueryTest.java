@@ -17,8 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -151,12 +149,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
       @Override
       protected Iterable<QueryFunction> getExtraQueryFunctions() {
         return ImmutableList.of();
-      }
-
-      @Override
-      protected BuildOptions getDefaultBuildOptions(ConfiguredRuleClassProvider ruleClassProvider) {
-        return BuildOptions.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
       }
     };
   }

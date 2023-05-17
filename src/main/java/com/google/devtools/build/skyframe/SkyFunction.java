@@ -383,6 +383,9 @@ public interface SkyFunction {
        * drop {@link SkyKeyComputeState} objects on high memory pressure. If the external resource
        * being held on to is approaching starvation, we currently don't do anything to alleviate
        * that pressure. So think *hard* before you start doing that!
+       *
+       * <p>Note also that this method should not perform any heavy work (especially blocking
+       * operations).
        */
       @Override
       default void close() {}

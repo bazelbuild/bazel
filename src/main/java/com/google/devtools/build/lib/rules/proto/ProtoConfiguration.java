@@ -112,7 +112,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_j2objc",
-        defaultValue = "@bazel_tools//tools/j2objc:j2objc_proto_toolchain",
+        defaultValue = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL,
         category = "flags",
         converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -262,6 +262,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return options.protoToolchainForJava;
   }
 
+  @StarlarkConfigurationField(
+      name = "proto_toolchain_for_j2objc",
+      doc = "Label for the j2objc toolchains.",
+      defaultLabel = ProtoConstants.DEFAULT_J2OBJC_PROTO_LABEL)
   public Label protoToolchainForJ2objc() {
     return options.protoToolchainForJ2objc;
   }

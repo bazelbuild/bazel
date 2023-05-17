@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
@@ -570,19 +569,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       } catch (InterruptedException ignored) {
         downloadCache.shutdownNow();
       }
-    }
-  }
-
-  /** Event which is fired when inputs for local action are eagerly prefetched. */
-  public static class InputsEagerlyPrefetched implements Postable {
-    private final List<Artifact> artifacts;
-
-    public InputsEagerlyPrefetched(List<Artifact> artifacts) {
-      this.artifacts = artifacts;
-    }
-
-    public List<Artifact> getArtifacts() {
-      return artifacts;
     }
   }
 

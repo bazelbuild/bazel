@@ -137,10 +137,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   }
 
   @Override
-  public void validateAttributes(RuleContext ruleContext) {
-  }
-
-  @Override
   public boolean needsIncludeValidation() {
     return language != Language.OBJC;
   }
@@ -152,10 +148,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
       CcToolchainProvider ccToolchain,
       ImmutableSet<String> unsupportedFeatures) {}
 
-  @Override
-  public boolean createEmptyArchive() {
-    return false;
-  }
   @Override
   public void validateStarlarkCompileApiCall(
       StarlarkActionFactory actionFactory,

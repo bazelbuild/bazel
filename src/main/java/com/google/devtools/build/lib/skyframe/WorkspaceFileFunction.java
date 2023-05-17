@@ -23,7 +23,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -60,7 +60,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
@@ -281,11 +280,12 @@ public class WorkspaceFileFunction implements SkyFunction {
             workspaceFile, ruleClassProvider.getRunfilesPrefix(), repoMapping, starlarkSemantics);
 
     if (chunks.isEmpty()) {
+      builder.setLoads(ImmutableList.of());
       return new WorkspaceFileValue(
           buildAndReportEvents(builder, env),
-          /* loadedModules= */ ImmutableMap.<String, Module>of(),
-          /* loadToChunkMap= */ ImmutableMap.<String, Integer>of(),
-          /* bindings= */ ImmutableMap.<String, Object>of(),
+          /* loadedModules= */ ImmutableMap.of(),
+          /* loadToChunkMap= */ ImmutableMap.of(),
+          /* bindings= */ ImmutableMap.of(),
           workspaceFile,
           /* idx= */ 0, // first fragment
           /* hasNext= */ false);
@@ -334,7 +334,8 @@ public class WorkspaceFileFunction implements SkyFunction {
               programLoads,
               keys.build(),
               starlarkSemantics,
-              bzlLoadFunctionForInlining);
+              bzlLoadFunctionForInlining,
+              /* checkVisibility= */ true);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
@@ -355,21 +356,18 @@ public class WorkspaceFileFunction implements SkyFunction {
               directories.getWorkspace(),
               directories.getLocalJavabase(),
               starlarkSemantics);
-      Set<Label> starlarkFileDependencies;
       if (prevValue != null) {
-        starlarkFileDependencies =
-            Sets.newLinkedHashSet(prevValue.getPackage().getStarlarkFileDependencies());
         try {
           parser.setParent(
               prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
         } catch (NameConflictException e) {
           throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
         }
+        builder.setLoads(
+            Iterables.concat(prevValue.getLoadedModules().values(), loadedModules.values()));
       } else {
-        starlarkFileDependencies = Sets.newLinkedHashSet();
+        builder.setLoads(loadedModules.values());
       }
-      PackageFactory.transitiveClosureOfLabelsRec(starlarkFileDependencies, loadedModules);
-      builder.setStarlarkFileDependencies(ImmutableList.copyOf(starlarkFileDependencies));
       // Execute the partial files that comprise this chunk.
       for (StarlarkFile partialFile : chunk) {
         parser.execute(partialFile, loadedModules, key);
@@ -460,7 +458,7 @@ public class WorkspaceFileFunction implements SkyFunction {
    */
   private static ImmutableMap<String, Integer> createLoadToChunkMap(
       WorkspaceFileValue prevValue, WorkspaceFactory parser, WorkspaceFileKey key) {
-    ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<String, Integer>();
+    ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<>();
     if (prevValue == null) {
       for (String loadString : parser.getLoadedModules().keySet()) {
         builder.put(loadString, key.getIndex());

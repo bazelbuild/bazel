@@ -115,12 +115,24 @@ public final class IntegrationTestUtils {
   public static WorkerInstance startWorker(boolean useHttp)
       throws IOException, InterruptedException {
     PathFragment testTmpDir = PathFragment.create(tmpDirFile().getAbsolutePath());
+    PathFragment stdPath = testTmpDir.getRelative("remote.std");
     PathFragment workPath = testTmpDir.getRelative("remote.work_path");
     PathFragment casPath = testTmpDir.getRelative("remote.cas_path");
     int workerPort = pickUnusedRandomPort();
-    var worker = new WorkerInstance(WORKER_COUNTER, useHttp, workerPort, workPath, casPath);
+    var worker =
+        new WorkerInstance(WORKER_COUNTER, useHttp, workerPort, stdPath, workPath, casPath);
     worker.start();
     return worker;
+  }
+
+  private static void ensureTouchFile(PathFragment path) throws IOException {
+    File file = new File(path.getSafePathString());
+    if (file.exists()) {
+      throw new IOException(path + " already exists");
+    }
+    if (!file.createNewFile()) {
+      throw new IOException("Failed to create file " + path);
+    }
   }
 
   private static void ensureMkdir(PathFragment path) throws IOException {
@@ -137,10 +149,13 @@ public final class IntegrationTestUtils {
     private final AtomicInteger counter;
     private final boolean useHttp;
     private final int port;
+    private final PathFragment stdPathPrefix;
     private final PathFragment workPathPrefix;
     private final PathFragment casPathPrefix;
 
     @Nullable private Subprocess process;
+    @Nullable PathFragment stdoutPath;
+    @Nullable PathFragment stderrPath;
     @Nullable PathFragment workPath;
     @Nullable PathFragment casPath;
 
@@ -148,29 +163,41 @@ public final class IntegrationTestUtils {
         AtomicInteger counter,
         boolean useHttp,
         int port,
+        PathFragment stdPathPrefix,
         PathFragment workPathPrefix,
         PathFragment casPathPrefix) {
       this.counter = counter;
       this.useHttp = useHttp;
       this.port = port;
+      this.stdPathPrefix = stdPathPrefix;
       this.workPathPrefix = workPathPrefix;
       this.casPathPrefix = casPathPrefix;
     }
 
     private void start() throws IOException, InterruptedException {
       Preconditions.checkState(process == null);
+      Preconditions.checkState(stdoutPath == null);
+      Preconditions.checkState(stderrPath == null);
       Preconditions.checkState(workPath == null);
       Preconditions.checkState(casPath == null);
 
       var suffix = String.valueOf(counter.getAndIncrement());
+      var stdPath = stdPathPrefix.getRelative(suffix);
+      stdoutPath = stdPath.getRelative("stdoud");
+      stderrPath = stdPath.getRelative("stderr");
       workPath = workPathPrefix.getRelative(suffix);
       casPath = casPathPrefix.getRelative(suffix);
 
       ensureMkdir(workPath);
       ensureMkdir(casPath);
+      ensureMkdir(stdPath);
+      ensureTouchFile(stdoutPath);
+      ensureTouchFile(stderrPath);
       String workerPath = Runfiles.create().rlocation(WORKER_PATH.getSafePathString());
       process =
           new SubprocessBuilder()
+              .setStdout(new File(stdoutPath.getSafePathString()))
+              .setStderr(new File(stderrPath.getSafePathString()))
               .setArgv(
                   ImmutableList.of(
                       workerPath,
@@ -186,6 +213,11 @@ public final class IntegrationTestUtils {
       process.destroyAndWait();
       process = null;
 
+      deleteDir(stdoutPath);
+      stdoutPath = null;
+      deleteDir(stderrPath);
+      stderrPath = null;
+
       deleteDir(workPath);
       workPath = null;
 
@@ -196,6 +228,24 @@ public final class IntegrationTestUtils {
     public void restart() throws IOException, InterruptedException {
       stop();
       start();
+    }
+
+    public String getStdout() {
+      try {
+        var out = Files.readAllBytes(Paths.get(stdoutPath.getSafePathString()));
+        return new String(out, UTF_8);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    public String getStderr() {
+      try {
+        var out = Files.readAllBytes(Paths.get(stderrPath.getSafePathString()));
+        return new String(out, UTF_8);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     private static void deleteDir(PathFragment path) throws IOException {

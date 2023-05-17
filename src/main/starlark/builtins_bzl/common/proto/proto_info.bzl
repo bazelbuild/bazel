@@ -33,7 +33,21 @@ ProtoInfo = provider(
         "proto_source_root": """(str) The directory relative to which the `.proto` files defined in
             the `proto_library` are defined. For example, if this is `a/b` and the rule has the
             file `a/b/c/d.proto` as a source, that source file would be imported as
-            `import c/d.proto`""",
+            `import c/d.proto`
+
+            In principle, the `proto_source_root` directory itself should always
+            be relative to the output directory (`ctx.bin_dir` or `ctx.genfiles_dir`).
+
+            This is at the moment not true for `proto_libraries` using (additional and/or strip)
+            import prefixes. `proto_source_root` is in this case prefixed with the output
+            directory. For example, the value is similar to
+            `bazel-out/k8-fastbuild/bin/a/_virtual_includes/b` for an input file in
+            `a/_virtual_includes/b/c.proto` that should be imported as `c.proto`.
+
+            When using the value please account for both cases in a general way.
+            That is assume the value is either prefixed with the output directory or not.
+            This will make it possible to fix `proto_library` in the future.
+            """,
         "transitive_proto_path": """(depset(str) A set of `proto_source_root`s collected from the
             transitive closure of this rule.""",
         "check_deps_sources": """(depset[File]) The `.proto` sources from the 'srcs' attribute.

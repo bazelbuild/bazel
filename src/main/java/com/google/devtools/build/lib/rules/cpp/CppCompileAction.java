@@ -134,7 +134,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final BuildConfigurationValue configuration;
   private final NestedSet<Artifact> mandatoryInputs;
   private final NestedSet<Artifact> mandatorySpawnInputs;
-  private final NestedSet<Artifact> inputsForInvalidation;
   private final NestedSet<Artifact> allowedDerivedInputs;
 
   /**
@@ -217,8 +216,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * @param usePic TODO(bazel-team): Add parameter description.
    * @param mandatoryInputs any additional files that need to be present for the compilation to
    *     succeed, can be empty but not null, for example, extra sources for FDO.
-   * @param inputsForInvalidation are there only to invalidate this action when they change, but are
-   *     not needed during actual execution.
    * @param outputFile the object file that is written as result of the compilation
    * @param dotdFile the .d file that is generated as a side-effect of compilation
    * @param diagnosticsFile the .dia file that is generated as a side-effect of compilation
@@ -245,7 +242,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       boolean useHeaderModules,
       NestedSet<Artifact> mandatoryInputs,
       NestedSet<Artifact> mandatorySpawnInputs,
-      NestedSet<Artifact> inputsForInvalidation,
       ImmutableList<Artifact> builtinIncludeFiles,
       NestedSet<Artifact> additionalPrunableHeaders,
       Artifact outputFile,
@@ -267,7 +263,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         owner,
         configuration.getFragment(CppConfiguration.class).useSchedulingMiddlemen()
             ? NestedSetBuilder.fromNestedSet(mandatoryInputs)
-                .addTransitive(inputsForInvalidation)
+                .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
                 .build()
             : mandatoryInputs,
         collectOutputs(
@@ -286,7 +282,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
     this.mandatorySpawnInputs = mandatorySpawnInputs;
-    this.inputsForInvalidation = inputsForInvalidation;
     this.additionalPrunableHeaders = additionalPrunableHeaders;
     this.shouldScanIncludes = shouldScanIncludes && cppSemantics.allowIncludeScanning();
     this.usePic = usePic;
@@ -323,7 +318,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     NestedSetBuilder<Artifact> allowedDerivedInputsBuilder =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)
             .addTransitive(additionalPrunableHeaders)
-            .addTransitive(inputsForInvalidation)
+            .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
             .addTransitive(ccCompilationContext.getDeclaredIncludeSrcs())
             .addTransitive(ccCompilationContext.getTransitiveModules(usePic))
             .add(getSourceFile());
@@ -633,7 +628,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   protected final NestedSet<Artifact> getOriginalInputs() {
     if (cppConfiguration().useSchedulingMiddlemen()) {
       return NestedSetBuilder.fromNestedSet(mandatoryInputs)
-          .addTransitive(inputsForInvalidation)
+          .addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites())
           .build();
     } else {
       return mandatoryInputs;
@@ -1231,7 +1226,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       NestedSetBuilder<Artifact> inputsBuilder =
           NestedSetBuilder.<Artifact>stableOrder().addTransitive(mandatoryInputs);
       if (cppConfiguration().useSchedulingMiddlemen()) {
-        inputsBuilder.addTransitive(inputsForInvalidation);
+        inputsBuilder.addTransitive(ccCompilationContext.getTransitiveCompilationPrerequisites());
       }
       if (discoveredInputs != null) {
         inputsBuilder.addTransitive(discoveredInputs);
@@ -1281,7 +1276,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public NestedSet<Artifact> getSchedulingDependencies() {
     return cppConfiguration().useSchedulingMiddlemen()
         ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
-        : inputsForInvalidation;
+        : ccCompilationContext.getTransitiveCompilationPrerequisites();
   }
 
   @Override
@@ -1394,7 +1389,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         additionalPrunableHeaders,
         ccCompilationContext.getLooseHdrsDirs(),
         builtInIncludeDirectories,
-        inputsForInvalidation,
+        ccCompilationContext.getTransitiveCompilationPrerequisites(),
         cppConfiguration().validateTopLevelHeaderInclusions());
   }
 

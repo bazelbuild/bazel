@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RepoMappingManifestAction;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,6 +66,20 @@ public abstract class PyBuiltins implements StarlarkValue {
 
   protected PyBuiltins(Runfiles.EmptyFilesSupplier emptyFilesSupplier) {
     this.emptyFilesSupplier = emptyFilesSupplier;
+  }
+
+  @StarlarkMethod(
+      name = "is_bzlmod_enabled",
+      doc = "Tells if bzlmod is enabled",
+      parameters = {
+        @Param(name = "ctx", positional = true, named = true, defaultValue = "unbound")
+      })
+  public boolean isBzlmodEnabled(StarlarkRuleContext starlarkCtx) {
+    return starlarkCtx
+        .getRuleContext()
+        .getAnalysisEnvironment()
+        .getStarlarkSemantics()
+        .getBool(BuildLanguageOptions.ENABLE_BZLMOD);
   }
 
   @StarlarkMethod(
@@ -286,6 +302,28 @@ public abstract class PyBuiltins implements StarlarkValue {
             starlarkCtx.getWorkspaceName(), starlarkCtx.getConfiguration().legacyExternalRunfiles())
         .addLegacyExtraMiddleman(runfilesSupport.getRunfilesMiddleman())
         .build();
+  }
+
+  @StarlarkMethod(
+      name = "create_repo_mapping_manifest",
+      doc = "Write a repo_mapping file for the given runfiles",
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "runfiles", positional = false, named = true, defaultValue = "unbound"),
+        @Param(name = "output", positional = false, named = true, defaultValue = "unbound")
+      })
+  public void repoMappingAction(
+      StarlarkRuleContext starlarkCtx, Runfiles runfiles, Artifact repoMappingManifest) {
+    var ruleContext = starlarkCtx.getRuleContext();
+    ruleContext
+        .getAnalysisEnvironment()
+        .registerAction(
+            new RepoMappingManifestAction(
+                ruleContext.getActionOwner(),
+                repoMappingManifest,
+                ruleContext.getTransitivePackagesForRunfileRepoMappingManifest(),
+                runfiles.getAllArtifacts(),
+                ruleContext.getWorkspaceName()));
   }
 
   @StarlarkMethod(

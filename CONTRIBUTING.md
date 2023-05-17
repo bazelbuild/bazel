@@ -16,5 +16,5 @@ again.
 
 Read how to [contribute to Bazel](https://bazel.build/contributing.html),
 the [acceptance process for your pull request](https://bazel.build/basics/patching.html),
-and the lifecycle of a Bazel [issue](https://www.bazel.build/maintaining/maintainers-guide.html#lifecycle-of-an-issue)
-and [pull request](https://www.bazel.build/maintaining/maintainers-guide.html#lifecycle-of-a-pull-request).
+and the lifecycle of a Bazel [issue](https://www.bazel.build/maintaining/maintainers-guide.html#lifecycle-issue)
+and [pull request](https://www.bazel.build/maintaining/maintainers-guide.html#lifecycle-pull-request).

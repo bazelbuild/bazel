@@ -202,6 +202,7 @@ java_library(
 java_test(
     name = "AnalysisTests",
     shard_count = 12,
+    tags = ["not_run:arm"],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":AnalysisTests_lib",

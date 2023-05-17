@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -140,7 +140,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   private final int nonSkyframeGlobbingThreads;
   @VisibleForTesting final ForkJoinPool forkJoinPoolForNonSkyframeGlobbing;
   private final int skyframeThreads;
-  private final boolean usePooledInterning;
 
   /** Abstract base class of a builder for {@link PackageLoader} instances. */
   public abstract static class Builder {
@@ -157,7 +156,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int nonSkyframeGlobbingThreads = 1;
     int skyframeThreads = 1;
-    boolean usePooledInterning = true;
 
     protected Builder(
         Root workspaceDir,
@@ -243,12 +241,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder disablePooledSkyKeyInterning() {
-      this.usePooledInterning = false;
-      return this;
-    }
-
     /** Throws {@link IllegalArgumentException} if builder args are incomplete/inconsistent. */
     protected void validate() {
       if (starlarkSemantics == null) {
@@ -280,7 +272,6 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         NamedForkJoinPool.newNamedPool(
             "package-loader-globbing-pool", builder.nonSkyframeGlobbingThreads);
     this.skyframeThreads = builder.skyframeThreads;
-    this.usePooledInterning = builder.usePooledInterning;
     this.directories = builder.directories;
     this.hashFunction = builder.workspaceDir.getFileSystem().getDigestFunction().getHashFunction();
 
@@ -295,7 +286,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         new PackageFactory(
             ruleClassProvider,
             forkJoinPoolForNonSkyframeGlobbing,
-            DefaultPackageSettings.INSTANCE,
+            PackageSettings.DEFAULTS,
             PackageValidator.NOOP_VALIDATOR,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             PackageLoadingListener.NOOP_LISTENER);
@@ -362,14 +353,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       StoredEventHandler storedEventHandler)
       throws InterruptedException {
     MemoizingEvaluator evaluator = makeFreshEvaluator();
-    EvaluationResult<PackageValue> evalResult;
-    try {
-      evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
-    } finally {
-      if (usePooledInterning) {
-        evaluator.cleanupInterningPools();
-      }
-    }
+    EvaluationResult<PackageValue> evalResult = evaluator.evaluate(pkgKeys, evaluationContext);
+
     ImmutableMap.Builder<PackageIdentifier, PackageLoader.PackageOrException> result =
         ImmutableMap.builder();
     for (SkyKey key : pkgKeys) {
@@ -417,7 +402,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         EventFilter.FULL_STORAGE,
         new EmittedEventState(),
         /* keepEdges= */ false,
-        usePooledInterning);
+        // Using pooled interner is unsound if there are multiple MemoizingEvaluators evaluating
+        // concurrently.
+        /* usePooledInterning= */ false);
   }
 
   protected abstract CrossRepositoryLabelViolationStrategy
@@ -472,19 +459,23 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.IGNORED_PACKAGE_PREFIXES,
             new IgnoredPackagePrefixesFunction(
-                /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                /* ignoredPackagePrefixesFile= */ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
-        .put(SkyFunctions.BZL_COMPILE, new BzlCompileFunction(pkgFactory, hashFunction))
-        .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
+        .put(
+            SkyFunctions.BZL_COMPILE,
+            new BzlCompileFunction(ruleClassProvider.getBazelStarlarkEnvironment(), hashFunction))
+        .put(
+            SkyFunctions.STARLARK_BUILTINS,
+            new StarlarkBuiltinsFunction(ruleClassProvider.getBazelStarlarkEnvironment()))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
-                pkgFactory, directories, hashFunction, Caffeine.newBuilder().build()))
+                ruleClassProvider, directories, hashFunction, Caffeine.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
-                ruleClassProvider, pkgFactory, directories, /*bzlLoadFunctionForInlining=*/ null))
+                ruleClassProvider, pkgFactory, directories, /* bzlLoadFunctionForInlining= */ null))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(
             BzlmodRepoRuleValue.BZLMOD_REPO_RULE,
@@ -495,10 +486,10 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             new PackageFunction(
                 pkgFactory,
                 cachingPackageLocator,
-                /*showLoadingProgress=*/ new AtomicBoolean(false),
-                /*numPackagesSuccessfullyLoaded=*/ new AtomicInteger(0),
-                /*bzlLoadFunctionForInlining=*/ null,
-                /*packageProgress=*/ null,
+                /* showLoadingProgress= */ new AtomicBoolean(false),
+                /* numPackagesSuccessfullyLoaded= */ new AtomicInteger(0),
+                /* bzlLoadFunctionForInlining= */ null,
+                /* packageProgress= */ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.
                 GlobbingStrategy.NON_SKYFRAME,
