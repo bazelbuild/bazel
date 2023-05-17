@@ -14,4 +14,6 @@
 
 load("@rules_java//toolchains:local_java_repository.bzl", _local_java_repository = "local_java_repository")
 
-local_java_repository = _local_java_repository
+def local_java_repository(name, **kwargs):
+    _local_java_repository(name, **kwargs)
+    native.register_toolchains("@" + name + "//:runtime_toolchain_definition")
