@@ -90,6 +90,9 @@ public interface JavaSemantics {
   /** The java_toolchain.compatible_javacopts key for testonly compilations. */
   public static final String TESTONLY_JAVACOPTS_KEY = "testonly";
 
+  /** The java_toolchain.compatible_javacopts key for public visibility. */
+  public static final String PUBLIC_VISIBILITY_JAVACOPTS_KEY = "public_visibility";
+
   static Label javaToolchainAttribute(RuleDefinitionEnvironment environment) {
     return environment.getToolsLabel("//tools/jdk:current_java_toolchain");
   }
