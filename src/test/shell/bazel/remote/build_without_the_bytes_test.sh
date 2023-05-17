@@ -1686,4 +1686,96 @@ EOF
   expect_log "Found remote cache eviction error, retrying the build..."
 }
 
+function test_download_toplevel_symlinks_runfiles() {
+    cat > rules.bzl <<EOF
+def _symlink_rule_impl(ctx):
+    file = ctx.actions.declare_file("file.txt")
+    executable = ctx.actions.declare_file("executable")
+
+    ctx.actions.run_shell(
+        outputs = [file],
+        command = "echo 'Hello World!' > " + file.path,
+    )
+    ctx.actions.write(executable, "[[ -L symlink.txt ]] && cat symlink.txt")
+    return [DefaultInfo(
+        runfiles = ctx.runfiles(
+            symlinks = {"symlink.txt": file},
+        ),
+        executable = executable,
+    )]
+
+symlink_rule = rule(
+    implementation = _symlink_rule_impl,
+    executable = True,
+    attrs = {},
+)
+EOF
+  cat > BUILD <<EOF
+load(":rules.bzl", "symlink_rule")
+symlink_rule(name = "symlink")
+EOF
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+
+  rm bazel-bin/file.txt
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+}
+
+function test_download_toplevel_root_symlinks_runfiles() {
+    cat > rules.bzl <<EOF
+def _symlink_rule_impl(ctx):
+    file = ctx.actions.declare_file("file.txt")
+    executable = ctx.actions.declare_file("executable")
+
+    ctx.actions.run_shell(
+        outputs = [file],
+        command = "echo 'Hello World!' > " + file.path,
+    )
+    ctx.actions.write(executable, "[[ -L ../symlink.txt ]] && cat ../symlink.txt")
+    return [DefaultInfo(
+        runfiles = ctx.runfiles(
+            root_symlinks = {"symlink.txt": file},
+        ),
+        executable = executable,
+    )]
+
+symlink_rule = rule(
+    implementation = _symlink_rule_impl,
+    executable = True,
+    attrs = {},
+)
+EOF
+  cat > BUILD <<EOF
+load(":rules.bzl", "symlink_rule")
+symlink_rule(name = "symlink")
+EOF
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+
+  rm bazel-bin/file.txt
+
+  bazel run \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //:symlink >& $TEST_log || fail "Failed to run //:symlink"
+
+  expect_log "Hello World"
+}
+
 run_suite "Build without the Bytes tests"
