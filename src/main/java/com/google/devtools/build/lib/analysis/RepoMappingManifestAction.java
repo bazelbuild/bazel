@@ -127,8 +127,8 @@ public final class RepoMappingManifestAction extends AbstractFileWriteAction {
 
       var reposInRunfilePaths = ImmutableSet.<String>builder();
 
-      // The runfiles paths of symlinks are always prefixed with the workspace name, *not* the name
-      // of the repository adding the symlink.
+      // The runfiles paths of symlinks are always prefixed with the main workspace name, *not* the
+      // name of the repository adding the symlink.
       if (hasRunfilesSymlinks) {
         reposInRunfilePaths.add(RepositoryName.MAIN.getName());
       }
