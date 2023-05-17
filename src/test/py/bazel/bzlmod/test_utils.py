@@ -16,11 +16,14 @@
 """Test utils for Bzlmod."""
 
 import base64
+import functools
 import hashlib
+import http.server
 import json
 import os
 import pathlib
 import shutil
+import threading
 import urllib.request
 import zipfile
 
@@ -319,3 +322,62 @@ class BazelRegistry:
 
     with module_dir.joinpath('source.json').open('w') as f:
       json.dump(source, f, indent=4, sort_keys=True)
+
+
+class StaticHTTPServer:
+  """An HTTP server serving static files, optionally with authentication."""
+
+  def __init__(self, root_directory, expected_auth=None):
+    self.root_directory = root_directory
+    self.expected_auth = expected_auth
+
+  def __enter__(self):
+    address = ('localhost', 0)  # assign random port
+    handler = functools.partial(
+        _Handler, self.root_directory, self.expected_auth)
+    self.httpd = http.server.HTTPServer(address, handler)
+    self.thread = threading.Thread(
+        target=self.httpd.serve_forever, daemon=True)
+    self.thread.start()
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    self.httpd.shutdown()
+    self.thread.join()
+
+  def getURL(self):
+    return "http://{}:{}".format(*self.httpd.server_address)
+
+
+class _Handler(http.server.SimpleHTTPRequestHandler):
+  """A SimpleHTTPRequestHandler with authentication."""
+
+  # Note: until Python 3.6, SimpleHTTPRequestHandler was only able to serve
+  # files from the working directory. A 'directory' parameter was added in
+  # Python 3.7, but sadly our CI builds are stuck with Python 3.6. Instead,
+  # we monkey-patch translate_path() to rewrite the path.
+
+  def __init__(self, root_directory, expected_auth, *args, **kwargs):
+    self.root_directory = root_directory
+    self.expected_auth = expected_auth
+    super().__init__(*args, **kwargs)
+
+  def translate_path(self, path):
+    abs_path = super().translate_path(path)
+    rel_path = os.path.relpath(abs_path, os.getcwd())
+    return os.path.join(self.root_directory, rel_path)
+
+  def check_auth(self):
+    auth_header = self.headers.get('Authorization', None)
+    if auth_header != self.expected_auth:
+      self.send_error(http.HTTPStatus.UNAUTHORIZED)
+      return False
+    return True
+
+  def do_HEAD(self):
+    if self.check_auth():
+      return super().do_HEAD()
+
+  def do_GET(self):
+    if self.check_auth():
+      return super().do_GET()
