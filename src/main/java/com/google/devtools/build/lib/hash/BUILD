@@ -13,15 +13,11 @@ filegroup(
 )
 
 java_library(
-    name = "blake3_jni",
-    srcs = ["Blake3JNI.java"],
-    deps = ["//src/main/java/com/google/devtools/build/lib/jni"],
-)
-
-java_library(
-    name = "blake3_hasher",
-    srcs = ["Blake3Hasher.java"],
+    name = "hash",
+    srcs = glob(["*.java"]),
     deps = [
-        ":blake3_jni",
+        "//src/main/java/com/google/devtools/build/lib/jni",
+        "//third_party:guava",
+        "@maven//:com_google_errorprone_error_prone_annotations",
     ],
 )

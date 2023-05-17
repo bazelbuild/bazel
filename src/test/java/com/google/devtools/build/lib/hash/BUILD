@@ -21,7 +21,7 @@ java_library(
         ],
     ),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/hash:blake3_hasher",
+        "//src/main/java/com/google/devtools/build/lib/hash",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//third_party:guava-testlib",
         "//third_party:junit4",

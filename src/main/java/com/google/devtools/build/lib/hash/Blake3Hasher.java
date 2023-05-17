@@ -1,8 +1,10 @@
 package com.google.devtools.build.lib.hash;
 
+import com.google.common.hash.HashCode;
+import com.google.common.hash.Hasher;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class Blake3Hasher {
+public class Blake3Hasher extends AbstractHasher {
   // These constants match the native definitions in:
   // https://github.com/BLAKE3-team/BLAKE3/blob/master/c/blake3.h
   public static final int KEY_LEN = 32;
@@ -90,6 +92,23 @@ public class Blake3Hasher {
     } finally {
       rl.unlock();
     }
+  }
+
+  @Override
+  public Hasher putBytes(byte[] bytes) {
+    update(bytes, bytes.length);
+    return this;
+  }
+
+  @Override
+  public Hasher putByte(byte b) {
+    update(new byte[] {b});
+    return this;
+  }
+
+  @Override
+  public HashCode hash() {
+    return HashCode.fromBytes(getOutput());
   }
 
   public byte[] getOutput() throws IllegalArgumentException {
