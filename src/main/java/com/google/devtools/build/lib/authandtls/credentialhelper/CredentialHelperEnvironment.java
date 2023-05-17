@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import java.time.Duration;
+import javax.annotation.Nullable;
 
 /** Environment for running {@link CredentialHelper}s in. */
 @AutoValue
@@ -27,10 +28,12 @@ public abstract class CredentialHelperEnvironment {
   public abstract Reporter getEventReporter();
 
   /**
-   * Returns the (absolute) path to the workspace.
+   * Returns the absolute path to the workspace, or null if Bazel was invoked outside a workspace.
    *
-   * <p>Used as working directory when invoking the subprocess.
+   * <p>If available, it will be used as the working directory when invoking the helper subprocess.
+   * Otherwise, the working directory is inherited from the Bazel server process.
    */
+  @Nullable
   public abstract Path getWorkspacePath();
 
   /**
@@ -55,10 +58,9 @@ public abstract class CredentialHelperEnvironment {
     public abstract Builder setEventReporter(Reporter reporter);
 
     /**
-     * Sets the (absolute) path to the workspace to use as working directory when invoking the
-     * subprocess.
+     * Sets the absolute path to the workspace, or null if Bazel was invoked outside a workspace.
      */
-    public abstract Builder setWorkspacePath(Path path);
+    public abstract Builder setWorkspacePath(@Nullable Path path);
 
     /**
      * Sets the environment from the Bazel client to pass as environment variables to the

@@ -158,7 +158,10 @@ public final class CredentialHelper {
     // WindowsSubprocessFactory cannot redirect stdin to subprocess.
     return new SubprocessBuilder(JavaSubprocessFactory.INSTANCE)
         .setArgv(ImmutableList.<String>builder().add(path.getPathString()).add(args).build())
-        .setWorkingDirectory(environment.getWorkspacePath().getPathFile())
+        .setWorkingDirectory(
+            environment.getWorkspacePath() != null
+                ? environment.getWorkspacePath().getPathFile()
+                : null)
         .setEnv(environment.getClientEnvironment())
         .setTimeoutMillis(environment.getHelperExecutionTimeout().toMillis())
         .start();
