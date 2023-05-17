@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.PackageCallable;
 import com.google.devtools.build.lib.rules.android.AarImportBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
 import com.google.devtools.build.lib.rules.android.AndroidAssetsInfo;
@@ -308,6 +309,15 @@ public class BazelRuleClassProvider {
           builder.addStarlarkBuiltinsInternal(CcStarlarkInternal.NAME, new CcStarlarkInternal());
           builder.addStarlarkBuiltinsInternal(
               BazelObjcStarlarkInternal.NAME, new BazelObjcStarlarkInternal());
+
+          // Add the package() function.
+          // TODO(bazel-team): Factor this into a group of similar BUILD definitions, or add a more
+          // convenient way of obtaining a BuiltinFunction than addMethods().
+          ImmutableMap.Builder<String, Object> symbols = ImmutableMap.builder();
+          Starlark.addMethods(symbols, PackageCallable.INSTANCE);
+          for (Map.Entry<String, Object> entry : symbols.buildOrThrow().entrySet()) {
+            builder.addBuildFileToplevel(entry.getKey(), entry.getValue());
+          }
         }
       };
 

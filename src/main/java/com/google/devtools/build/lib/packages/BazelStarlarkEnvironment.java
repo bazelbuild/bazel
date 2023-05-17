@@ -81,7 +81,6 @@ public final class BazelStarlarkEnvironment {
    *
    * @param ruleFunctions a map from a rule class name (e.g. "java_library") to the (uninjected)
    *     Starlark callable that instantiates it
-   * @param packageCallable the symbol implementing the {@code package()} function in BUILD files
    * @param buildFileToplevels the map of non-{@link Starlark#UNIVERSE} top-level symbols available
    *     to BUILD files, prior to builtins injection
    * @param bzlToplevels the map of non-universe top-level symbols available to .bzl files, prior to
@@ -97,7 +96,6 @@ public final class BazelStarlarkEnvironment {
    */
   public BazelStarlarkEnvironment(
       ImmutableMap<String, ?> ruleFunctions,
-      Object packageCallable,
       ImmutableMap<String, Object> buildFileToplevels,
       ImmutableMap<String, Object> bzlToplevels,
       ImmutableMap<String, Object> nativeRuleSpecificBindings,
@@ -110,7 +108,7 @@ public final class BazelStarlarkEnvironment {
     this.workspaceBzlNativeBindings = workspaceBzlNativeBindings;
 
     this.uninjectedBuildBzlNativeBindings =
-        createUninjectedBuildBzlNativeBindings(ruleFunctions, packageCallable, buildFileToplevels);
+        createUninjectedBuildBzlNativeBindings(ruleFunctions, buildFileToplevels);
     this.uninjectedBuildBzlEnv =
         createUninjectedBuildBzlEnv(bzlToplevels, uninjectedBuildBzlNativeBindings);
     this.uninjectedWorkspaceBzlEnv =
@@ -126,8 +124,7 @@ public final class BazelStarlarkEnvironment {
             builtinsInternals,
             uninjectedBuildBzlNativeBindings,
             uninjectedBuildBzlEnv);
-    this.uninjectedBuildEnv =
-        createUninjectedBuildEnv(ruleFunctions, packageCallable, buildFileToplevels);
+    this.uninjectedBuildEnv = createUninjectedBuildEnv(ruleFunctions, buildFileToplevels);
   }
 
   /**
@@ -186,13 +183,10 @@ public final class BazelStarlarkEnvironment {
    * injection didn't happen.
    */
   private static ImmutableMap<String, Object> createUninjectedBuildBzlNativeBindings(
-      Map<String, ?> ruleFunctions,
-      Object packageCallable,
-      Map<String, Object> buildFileToplevels) {
+      Map<String, ?> ruleFunctions, Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.putAll(ruleFunctions);
-    env.put("package", packageCallable);
     env.putAll(buildFileToplevels);
     return env.buildOrThrow();
   }
@@ -217,13 +211,10 @@ public final class BazelStarlarkEnvironment {
   }
 
   private static ImmutableMap<String, Object> createUninjectedBuildEnv(
-      Map<String, ?> ruleFunctions,
-      Object packageCallable,
-      Map<String, Object> buildFileToplevels) {
+      Map<String, ?> ruleFunctions, Map<String, Object> buildFileToplevels) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.putAll(StarlarkLibrary.BUILD); // e.g. select, depset
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
-    env.put("package", packageCallable);
     env.putAll(ruleFunctions);
     env.putAll(buildFileToplevels);
     return env.buildOrThrow();
