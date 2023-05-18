@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -766,6 +767,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     String version = BlazeVersionInfo.instance().getVersion();
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
+            StarlarkGlobalsImpl.INSTANCE,
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
             buildFileToplevels,
             /* bzlToplevels= */ environment,
@@ -882,6 +884,8 @@ public /*final*/ class ConfiguredRuleClassProvider
       ImmutableMap<String, Object> nativeRuleSpecificBindings) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
     // Add predeclared symbols of the Bazel build language.
+    // TODO(b/280446865): Move knowledge of StarlarkModules to BazelStarlarkEnvironment; i.e.,
+    // eliminate createEnvironment().
     StarlarkModules.addPredeclared(envBuilder);
     // Add all the extensions registered with the rule class provider.
     envBuilder.putAll(nativeRuleSpecificBindings);

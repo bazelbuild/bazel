@@ -245,6 +245,7 @@ java_library(
         "starlark/StarlarkAttrModule.java",
         "starlark/StarlarkAttributeTransitionProvider.java",
         "starlark/StarlarkAttributesCollection.java",
+        "starlark/StarlarkGlobalsImpl.java",
         "starlark/StarlarkModules.java",
         "starlark/StarlarkRuleClassFunctions.java",
         "starlark/StarlarkRuleConfiguredTargetUtil.java",
