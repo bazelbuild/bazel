@@ -908,82 +908,43 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             directExecutor()));
   }
 
-  @ThreadSafe
   @Override
-  public ThreadSafeMutableSet<Target> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<Target> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<Target> context)
-      throws QueryException, InterruptedException {
-    ThreadSafeMutableSet<Target> dependentFiles = createThreadSafeMutableSet();
-    Set<PackageIdentifier> seenPackages = new HashSet<>();
-    // Keep track of seen labels, to avoid adding a fake subinclude label that also exists as a
-    // real target.
-    Set<Label> seenLabels = new HashSet<>();
-
-    // Adds all the package definition files (BUILD files and build
-    // extensions) for package "pkg", to "buildfiles".
-    for (Target x : nodes) {
-      Package pkg = x.getPackage();
-      if (!seenPackages.add(pkg.getPackageIdentifier())) {
-        continue;
+  public TransitiveLoadFilesHelper<Target> getTransitiveLoadFilesHelper() {
+    return new TransitiveLoadFilesHelperForTargets() {
+      @Override
+      public Target getLoadFileTarget(Target originalTarget, Label bzlLabel) {
+        return new FakeLoadTarget(bzlLabel, originalTarget.getPackage());
       }
-      if (buildFiles) {
-        addIfUniqueLabel(pkg.getBuildFile(), seenLabels, dependentFiles);
+
+      @Override
+      public Target maybeGetBuildFileTargetForLoadFileTarget(Target originalTarget, Label bzlLabel)
+          throws QueryException, InterruptedException {
+        PackageIdentifier packageIdentifier = bzlLabel.getPackageIdentifier();
+        PackageLookupValue packageLookupValue =
+            (PackageLookupValue) graph.getValue(PackageLookupValue.key(packageIdentifier));
+        if (packageLookupValue == null) {
+          BugReport.sendBugReport(
+              new IllegalStateException(
+                  "PackageLookupValue for package of extension file "
+                      + bzlLabel
+                      + " not in graph"));
+          throw new QueryException(
+              bzlLabel + " does not exist in graph",
+              FailureDetail.newBuilder()
+                  .setMessage("BUILD file not found on package path")
+                  .setPackageLoading(
+                      FailureDetails.PackageLoading.newBuilder()
+                          .setCode(FailureDetails.PackageLoading.Code.BUILD_FILE_MISSING)
+                          .build())
+                  .build());
+        }
+        return new FakeLoadTarget(
+            Label.createUnvalidated(
+                packageIdentifier,
+                packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName()),
+            originalTarget.getPackage());
       }
-      if (loads) {
-        pkg.<QueryException, InterruptedException>visitLoadGraph(
-            load -> {
-              if (!seenLabels.add(load)) {
-                return false;
-              }
-              dependentFiles.add(getLoadTarget(load, pkg));
-
-              // Also add the BUILD file of the extension.
-              if (buildFiles) {
-                Label buildFileLabel = getBuildFileLabelForPackageOfBzlFile(load);
-                addIfUniqueLabel(
-                    new FakeLoadTarget(buildFileLabel, pkg), seenLabels, dependentFiles);
-              }
-              return true;
-            });
-      }
-    }
-    return dependentFiles;
-  }
-
-  protected Label getBuildFileLabelForPackageOfBzlFile(Label bzlFileLabel)
-      throws QueryException, InterruptedException {
-    PackageIdentifier packageIdentifier = bzlFileLabel.getPackageIdentifier();
-    PackageLookupValue packageLookupValue =
-        (PackageLookupValue) graph.getValue(PackageLookupValue.key(packageIdentifier));
-    if (packageLookupValue == null) {
-      BugReport.sendBugReport(
-          new IllegalStateException(
-              "PackageLookupValue for package of extension file "
-                  + bzlFileLabel
-                  + " not in graph"));
-      throw new QueryException(
-          bzlFileLabel + " does not exist in graph",
-          FailureDetail.newBuilder()
-              .setMessage("BUILD file not found on package path")
-              .setPackageLoading(
-                  FailureDetails.PackageLoading.newBuilder()
-                      .setCode(FailureDetails.PackageLoading.Code.BUILD_FILE_MISSING)
-                      .build())
-              .build());
-    }
-    return Label.createUnvalidated(
-        packageIdentifier,
-        packageLookupValue.getBuildFileName().getFilenameFragment().getBaseName());
-  }
-
-  private static void addIfUniqueLabel(Target node, Set<Label> labels, Set<Target> nodes) {
-    if (labels.add(node.getLabel())) {
-      nodes.add(node);
-    }
+    };
   }
 
   protected int getVisitBatchSizeForParallelVisitation() {
@@ -992,10 +953,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   public VisitTaskStatusCallback getVisitTaskStatusCallback() {
     return VisitTaskStatusCallback.NULL_INSTANCE;
-  }
-
-  private static Target getLoadTarget(Label label, Package pkg) {
-    return new FakeLoadTarget(label, pkg);
   }
 
   @ThreadSafe
