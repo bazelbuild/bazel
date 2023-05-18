@@ -182,13 +182,14 @@ public abstract class CommandLines {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint)
+      Fingerprint fingerprint,
+      PathMapper pathStripper)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint, pathStripper);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -419,9 +420,11 @@ public abstract class CommandLines {
     public void addToFingerprint(
         ActionKeyContext actionKeyContext,
         @Nullable ArtifactExpander artifactExpander,
-        Fingerprint fingerprint)
+        Fingerprint fingerprint,
+        PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
-      toCommandLine(part1).addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+      toCommandLine(part1)
+          .addToFingerprint(actionKeyContext, artifactExpander, fingerprint, pathMapper);
     }
 
     @Override

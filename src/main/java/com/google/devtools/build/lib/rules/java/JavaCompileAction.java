@@ -227,8 +227,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
     fp.addInt(classpathMode.ordinal());
-    executableLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
-    flagLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    executableLine.addToFingerprint(
+        actionKeyContext, artifactExpander, fp, PathStripper.PathMapper.NOOP);
+    flagLine.addToFingerprint(actionKeyContext, artifactExpander, fp, PathStripper.PathMapper.NOOP);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);

@@ -1334,7 +1334,8 @@ public class CustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint)
+      Fingerprint fingerprint,
+      PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     int count = arguments.size();

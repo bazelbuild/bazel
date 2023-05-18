@@ -139,7 +139,8 @@ public final class PathStripper {
         // Add your favorite Starlark mnemonic that needs custom arg processing here.
         if (!starlarkMnemonic.contains("Android")
             && !starlarkMnemonic.equals("MergeManifests")
-            && !starlarkMnemonic.equals("StarlarkRClassGenerator")) {
+            && !starlarkMnemonic.equals("StarlarkRClassGenerator")
+            && !starlarkMnemonic.equals("StarlarkAARGenerator")) {
           return args;
         }
         // Add your favorite arg to custom-process here. When Bazel finds one of these in the
@@ -147,6 +148,7 @@ public final class PathStripper {
         // argument (the argument value).
         ImmutableList<String> starlarkArgsToStrip =
             ImmutableList.of(
+                "--mainData",
                 "--primaryData",
                 "--directData",
                 "--data",

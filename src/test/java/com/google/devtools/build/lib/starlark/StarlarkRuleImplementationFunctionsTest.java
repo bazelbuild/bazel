@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
+import com.google.devtools.build.lib.actions.PathStripper;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.CommandHelper;
@@ -2924,7 +2925,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, /*artifactExpander=*/ null, new Fingerprint()));
+                actionKeyContext,
+                /* artifactExpander= */ null,
+                new Fingerprint(),
+                PathStripper.PathMapper.NOOP));
   }
 
   @Test
@@ -3185,7 +3189,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, fingerprint, PathStripper.PathMapper.NOOP);
     return fingerprint.hexDigestAndReset();
   }
 

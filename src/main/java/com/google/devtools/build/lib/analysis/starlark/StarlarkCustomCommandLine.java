@@ -198,7 +198,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         originalValues = arguments.subList(argi, argi + count);
         argi += count;
       }
-      List<Object> expandedValues = maybeExpandDirectories(artifactExpander, originalValues);
+      List<Object> expandedValues =
+          maybeExpandDirectories(artifactExpander, originalValues, pathMapper);
       List<String> stringValues;
       if (mapEach != null) {
         stringValues = new ArrayList<>(expandedValues.size());
@@ -290,7 +291,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
      * we cannot do that in the absence of the {@link ArtifactExpander}.
      */
     private List<Object> maybeExpandDirectories(
-        @Nullable ArtifactExpander artifactExpander, List<Object> originalValues)
+        @Nullable ArtifactExpander artifactExpander,
+        List<Object> originalValues,
+        PathMapper pathMapper)
         throws CommandLineExpansionException {
       if ((features & EXPAND_DIRECTORIES) == 0
           || artifactExpander == null
@@ -298,7 +301,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         return originalValues;
       }
 
-      return expandDirectories(artifactExpander, originalValues);
+      return expandDirectories(artifactExpander, originalValues, pathMapper);
     }
 
     private static boolean hasDirectory(List<Object> originalValues) {
@@ -317,7 +320,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static List<Object> expandDirectories(
-        Artifact.ArtifactExpander artifactExpander, List<Object> originalValues)
+        Artifact.ArtifactExpander artifactExpander,
+        List<Object> originalValues,
+        PathMapper pathMapper)
         throws CommandLineExpansionException {
       List<Object> expandedValues = new ArrayList<>(originalValues.size());
       for (Object object : originalValues) {
@@ -326,7 +331,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
           if (artifact.isTreeArtifact()) {
             artifactExpander.expand((Artifact) object, expandedValues);
           } else if (artifact.isFileset()) {
-            expandFileset(artifactExpander, artifact, expandedValues);
+            expandFileset(artifactExpander, artifact, expandedValues, pathMapper);
           } else {
             throw new AssertionError("Unknown artifact type.");
           }
@@ -338,7 +343,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     private static void expandFileset(
-        Artifact.ArtifactExpander artifactExpander, Artifact fileset, List<Object> expandedValues)
+        Artifact.ArtifactExpander artifactExpander,
+        Artifact fileset,
+        List<Object> expandedValues,
+        PathMapper pathMapper)
         throws CommandLineExpansionException {
       ImmutableList<FilesetOutputSymlink> expandedFileSet;
       try {
@@ -355,7 +363,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
           FilesetManifest.constructFilesetManifestWithoutError(
               expandedFileSet, fileset.getExecPath(), RelativeSymlinkBehaviorWithoutError.IGNORE);
       for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
-        expandedValues.add(new FilesetSymlinkFile(fileset, relativePath));
+        PathFragment mappedRelativePath = pathMapper.map(relativePath);
+        expandedValues.add(new FilesetSymlinkFile(fileset, mappedRelativePath));
       }
     }
 
@@ -364,7 +373,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        @Nullable ArtifactExpander artifactExpander)
+        @Nullable ArtifactExpander artifactExpander,
+        PathMapper pathMapper)
         throws CommandLineExpansionException, InterruptedException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
@@ -380,7 +390,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
                   mapEach,
                   location,
                   starlarkSemantics,
-                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null);
+                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null,
+                  pathMapper);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } finally {
@@ -399,7 +410,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       } else {
         int count = (Integer) arguments.get(argi++);
         List<Object> maybeExpandedValues =
-            maybeExpandDirectories(artifactExpander, arguments.subList(argi, argi + count));
+            maybeExpandDirectories(
+                artifactExpander, arguments.subList(argi, argi + count), pathMapper);
         argi += count;
         if (mapEach != null) {
           // TODO(b/160181927): If artifactExpander == null (which happens in the analysis phase)
@@ -836,7 +848,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fingerprint)
+      Fingerprint fingerprint,
+      PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     for (int argi = 0; argi < arguments.size(); ) {
@@ -845,11 +858,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi =
             ((VectorArg) arg)
                 .addToFingerprint(
-                    arguments,
-                    argi,
-                    actionKeyContext,
-                    fingerprint,
-                    artifactExpander);
+                    arguments, argi, actionKeyContext, fingerprint, artifactExpander, pathMapper);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);
       } else {
@@ -961,16 +970,20 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Nullable private ArtifactExpander artifactExpander;
 
+    private final PathMapper pathMapper;
+
     CommandLineItemMapEachAdaptor(
         StarlarkCallable mapFn,
         Location location,
         StarlarkSemantics starlarkSemantics,
-        @Nullable ArtifactExpander artifactExpander) {
+        @Nullable ArtifactExpander artifactExpander,
+        PathMapper pathMapper) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
       this.hasArtifactExpander = artifactExpander != null;
       this.artifactExpander = artifactExpander;
+      this.pathMapper = pathMapper;
     }
 
     @Override
@@ -986,7 +999,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         return ImmutableList.of(object);
       }
 
-      return VectorArg.expandDirectories(artifactExpander, ImmutableList.of(object));
+      return VectorArg.expandDirectories(artifactExpander, ImmutableList.of(object), pathMapper);
     }
 
     @Override
