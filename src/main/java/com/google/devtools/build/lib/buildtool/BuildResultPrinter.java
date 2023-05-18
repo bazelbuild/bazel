@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.buildtool;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -22,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Objects;
 
 /**
  * Handles --show_result and --experimental_show_artifacts.
@@ -63,7 +66,30 @@ class BuildResultPrinter {
     // NOTE: be careful what you print!  We don't want to create a consistency
     // problem where the summary message and the exit code disagree.  The logic
     // here is already complex.
+    boolean ok =
+        outputTargets(request, result, configuredTargets, configuredTargetsToSkip, aspects);
+    if (!ok && !request.getOptions(ExecutionOptions.class).verboseFailures) {
+      request
+          .getOutErr()
+          .printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
+    }
+  }
 
+  /**
+   * Outputs the targets, omitting values with {@code (nothing to build)} when it allows staying
+   * under the --show_result limit.
+   *
+   * <p>This method exits early if there are too many results.
+   *
+   * @return {@code true} if no errors were detected among the results inspected, this can be a
+   *     false positive on early exit.
+   */
+  private boolean outputTargets(
+      BuildRequest request,
+      BuildResult result,
+      Collection<ConfiguredTarget> configuredTargets,
+      Collection<ConfiguredTarget> configuredTargetsToSkip,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects) {
     BlazeRuntime runtime = env.getRuntime();
     String productName = runtime.getProductName();
     PathPrettyPrinter prettyPrinter =
@@ -77,144 +103,260 @@ class BuildResultPrinter {
                 : env.getWorkspace());
     OutErr outErr = request.getOutErr();
 
-    // Produce output as if validation aspect didn't exist; instead we'll consult validation aspect
-    // if we end up printing targets below. Note that in the presence of other aspects, we may print
-    // success messages for them but the overall build will still fail if validation aspects (or
-    // targets) failed.
-    Collection<AspectKey> aspectsToPrint = aspects.keySet();
+    // Splits aspects based on whether they are validation aspects.
+    final ImmutableSet<AspectKey> aspectsToPrint;
+    final ImmutableList<AspectKey> validationAspects;
     if (request.useValidationAspect()) {
-      aspectsToPrint =
-          aspectsToPrint.stream()
-              .filter(
-                  k -> !BuildRequest.VALIDATION_ASPECT_NAME.equals(k.getAspectClass().getName()))
-              .collect(ImmutableList.toImmutableList());
-    }
-    final boolean success;
-    if (aspectsToPrint.isEmpty()) {
-      // Suppress summary if --show_result value is exceeded:
-      Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
-      if (targetsToPrint.size() > request.getBuildOptions().maxResultTargets) {
-        return;
-      }
-
-      // Filter the targets we care about into three buckets. Targets are only considered successful
-      // if they and their validation aspects succeeded. Note we determined above that all aspects
-      // are validation aspects, so just use the full keySet() here.
-      ImmutableMap<ConfiguredTargetKey, Boolean> validated =
-          aspects.keySet().stream()
-              .collect(
-                  ImmutableMap.toImmutableMap(
-                      AspectKey::getBaseConfiguredTargetKey,
-                      k -> result.getSuccessfulAspects().contains(k),
-                      Boolean::logicalAnd));
-
-      Collection<ConfiguredTarget> succeeded = new ArrayList<>();
-      Collection<ConfiguredTarget> failed = new ArrayList<>();
-      Collection<ConfiguredTarget> skipped = new ArrayList<>();
-      Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
-      for (ConfiguredTarget target : targetsToPrint) {
-        if (configuredTargetsToSkip.contains(target)) {
-          skipped.add(target);
-        } else if (successfulTargets.contains(target)
-            && validated.getOrDefault(
-                ConfiguredTargetKey.fromConfiguredTarget(target), Boolean.TRUE)) {
-          succeeded.add(target);
+      var aspectsToPrintBuilder = ImmutableSet.<AspectKey>builder();
+      var validationAspectsBuilder = ImmutableList.<AspectKey>builder();
+      for (AspectKey key : aspects.keySet()) {
+        if (Objects.equals(key.getAspectClass().getName(), BuildRequest.VALIDATION_ASPECT_NAME)) {
+          validationAspectsBuilder.add(key);
         } else {
-          failed.add(target);
+          aspectsToPrintBuilder.add(key);
         }
       }
+      aspectsToPrint = aspectsToPrintBuilder.build();
+      validationAspects = validationAspectsBuilder.build();
+    } else {
+      aspectsToPrint = aspects.keySet();
+      validationAspects = ImmutableList.of();
+    }
 
-      for (ConfiguredTarget target : skipped) {
-        outErr.printErr("Target " + target.getLabel() + " was skipped\n");
-      }
+    Collection<ConfiguredTarget> targetsToPrint = filterTargetsToPrint(configuredTargets);
+    TopLevelArtifactContext context = request.getTopLevelArtifactContext();
 
-      TopLevelArtifactContext context = request.getTopLevelArtifactContext();
-      for (ConfiguredTarget target : succeeded) {
-        Label label = target.getLabel();
-        // For up-to-date targets report generated artifacts, but only
-        // if they have associated action and not middleman artifacts.
-        boolean headerFlag = true;
-        for (Artifact artifact :
-            TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
-                .getImportantArtifacts()
-                .toList()) {
-          if (TopLevelArtifactHelper.shouldDisplay(artifact)) {
-            if (headerFlag) {
-              outErr.printErr("Target " + label + " up-to-date:\n");
-              headerFlag = false;
-            }
-            outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, artifact));
+    // `essentialBudget` tracks the number of non-empty results that can be printed.
+    int essentialBudget = request.getBuildOptions().maxResultTargets;
+
+    // Splits the targets we care about into three buckets. Targets are only considered successful
+    // if they and their validation aspects succeeded.
+    var skipped = new ArrayList<ConfiguredTarget>();
+    var succeeded = new ArrayList<ConfiguredTarget>();
+    var artifactsToPrintPerTarget = new ArrayList<ArrayList<Artifact>>();
+    var failed = new ArrayList<ConfiguredTarget>();
+    essentialBudget =
+        splitConfiguredTargetsByResultReturnRemaining(
+            targetsToPrint,
+            result,
+            context,
+            configuredTargetsToSkip,
+            validationAspects,
+            skipped,
+            succeeded,
+            artifactsToPrintPerTarget,
+            failed,
+            essentialBudget);
+    if (essentialBudget < 0) {
+      return failed.isEmpty();
+    }
+
+    // Splits the aspects we care about into two buckets.
+    var successfulAspects = new ArrayList<AspectKey>();
+    var failedAspects = new ArrayList<AspectKey>();
+    var artifactsToPrintPerAspect = new ArrayList<ArrayList<Artifact>>(successfulAspects.size());
+    essentialBudget =
+        splitAspectsByResultReturnRemaining(
+            aspectsToPrint,
+            aspects,
+            context,
+            result.getSuccessfulAspects(),
+            successfulAspects,
+            artifactsToPrintPerAspect,
+            failedAspects,
+            essentialBudget);
+    if (essentialBudget < 0) {
+      return failed.isEmpty() && failedAspects.isEmpty();
+    }
+
+    // Omits "nothing to build" values if it enables staying under --show_result.
+    boolean omitNothingToBuild =
+        (targetsToPrint.size() + aspectsToPrint.size())
+            > request.getBuildOptions().maxResultTargets;
+
+    outputConfiguredTargets(
+        outErr,
+        prettyPrinter,
+        succeeded,
+        artifactsToPrintPerTarget,
+        failed,
+        skipped,
+        omitNothingToBuild);
+    outputAspects(
+        outErr,
+        prettyPrinter,
+        successfulAspects,
+        artifactsToPrintPerAspect,
+        failedAspects,
+        omitNothingToBuild);
+
+    return failed.isEmpty() && failedAspects.isEmpty();
+  }
+
+  private static int splitConfiguredTargetsByResultReturnRemaining(
+      Collection<ConfiguredTarget> configuredTargets,
+      BuildResult result,
+      TopLevelArtifactContext context,
+      Collection<ConfiguredTarget> configuredTargetsToSkip,
+      ImmutableList<AspectKey> validationAspects,
+      ArrayList<ConfiguredTarget> skipped,
+      ArrayList<ConfiguredTarget> succeeded,
+      ArrayList<ArrayList<Artifact>> artifactsToPrintPerTarget,
+      ArrayList<ConfiguredTarget> failed,
+      int essentialBudget) {
+    ImmutableSet<ConfiguredTargetKey> validationFailures =
+        validationAspects.stream()
+            .filter(k -> !result.getSuccessfulAspects().contains(k))
+            .map(AspectKey::getBaseConfiguredTargetKey)
+            .collect(toImmutableSet());
+    Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
+    for (ConfiguredTarget target : configuredTargets) {
+      if (configuredTargetsToSkip.contains(target)) {
+        skipped.add(target);
+        if (--essentialBudget < 0) {
+          return essentialBudget;
+        }
+      } else if (successfulTargets.contains(target)
+          && !validationFailures.contains(ConfiguredTargetKey.fromConfiguredTarget(target))) {
+        succeeded.add(target);
+        ArrayList<Artifact> artifactsToPrint = getArtifactsToPrint(target, context);
+        artifactsToPrintPerTarget.add(artifactsToPrint);
+        if (!artifactsToPrint.isEmpty()) {
+          if (--essentialBudget < 0) {
+            return essentialBudget;
           }
         }
-        if (headerFlag) {
+      } else {
+        failed.add(target);
+        if (--essentialBudget < 0) {
+          return essentialBudget;
+        }
+      }
+    }
+    return essentialBudget;
+  }
+
+  private static ArrayList<Artifact> getArtifactsToPrint(
+      ProviderCollection target, TopLevelArtifactContext context) {
+    var artifacts = new ArrayList<Artifact>();
+    // For up-to-date targets report generated artifacts, but only if they have associated action
+    // and not middleman artifacts.
+    for (Artifact artifact :
+        TopLevelArtifactHelper.getAllArtifactsToBuild(target, context)
+            .getImportantArtifacts()
+            .toList()) {
+      if (TopLevelArtifactHelper.shouldDisplay(artifact)) {
+        artifacts.add(artifact);
+      }
+    }
+    return artifacts;
+  }
+
+  private static int splitAspectsByResultReturnRemaining(
+      Collection<AspectKey> aspectsToPrint,
+      ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      TopLevelArtifactContext context,
+      ImmutableSet<AspectKey> successfulAspects,
+      ArrayList<AspectKey> succeeded,
+      ArrayList<ArrayList<Artifact>> artifactsToPrintPerAspect,
+      ArrayList<AspectKey> failed,
+      int essentialBudget) {
+    for (AspectKey aspect : aspectsToPrint) {
+      if (successfulAspects.contains(aspect)) {
+        succeeded.add(aspect);
+        ArrayList<Artifact> artifactsToPrint = getArtifactsToPrint(aspects.get(aspect), context);
+        artifactsToPrintPerAspect.add(artifactsToPrint);
+        if (!artifactsToPrint.isEmpty()) {
+          if (--essentialBudget < 0) {
+            return essentialBudget;
+          }
+        }
+      } else {
+        failed.add(aspect);
+        if (--essentialBudget < 0) {
+          return essentialBudget;
+        }
+      }
+    }
+    return essentialBudget;
+  }
+
+  private static void outputConfiguredTargets(
+      OutErr outErr,
+      PathPrettyPrinter prettyPrinter,
+      ArrayList<ConfiguredTarget> succeeded,
+      ArrayList<ArrayList<Artifact>> artifactsToPrintPerTarget,
+      ArrayList<ConfiguredTarget> failed,
+      ArrayList<ConfiguredTarget> skipped,
+      boolean omitNothingToBuild) {
+    for (ConfiguredTarget target : skipped) {
+      outErr.printErr("Target " + target.getLabel() + " was skipped\n");
+    }
+    for (int i = 0; i < succeeded.size(); ++i) {
+      ConfiguredTarget target = succeeded.get(i);
+      Label label = target.getLabel();
+      ArrayList<Artifact> artifacts = artifactsToPrintPerTarget.get(i);
+      if (artifacts.isEmpty()) {
+        if (!omitNothingToBuild) {
           outErr.printErr("Target " + label + " up-to-date (nothing to build)\n");
         }
+        continue;
       }
-      for (ConfiguredTarget target : failed) {
-        outErr.printErr("Target " + target.getLabel() + " failed to build\n");
-
-        // For failed compilation, it is still useful to examine temp artifacts,
-        // (ie, preprocessed and assembler files).
-        OutputGroupInfo topLevelProvider = OutputGroupInfo.get(target);
-        if (topLevelProvider != null) {
-          for (Artifact temp :
-              topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES).toList()) {
-            if (temp.getPath().exists()) {
-              outErr.printErrLn(
-                  "  See temp at " + prettyPrinter.getPrettyPath(temp.getPath().asFragment()));
-            }
-          }
-        }
+      outErr.printErr("Target " + label + " up-to-date:\n");
+      for (Artifact artifact : artifacts) {
+        outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, artifact));
       }
-      success = failed.isEmpty();
-    } else {
-      // Suppress summary if --show_result value is exceeded:
-      if (aspectsToPrint.size() > request.getBuildOptions().maxResultTargets) {
-        return;
-      }
-      // Filter the targets we care about into two buckets:
-      Collection<AspectKey> succeeded = new ArrayList<>();
-      Collection<AspectKey> failed = new ArrayList<>();
-      ImmutableSet<AspectKey> successfulAspects = result.getSuccessfulAspects();
-      for (AspectKey aspect : aspectsToPrint) {
-        (successfulAspects.contains(aspect) ? succeeded : failed).add(aspect);
-      }
-      TopLevelArtifactContext context = request.getTopLevelArtifactContext();
-      for (AspectKey aspect : succeeded) {
-        Label label = aspect.getLabel();
-        ConfiguredAspect configuredAspect = aspects.get(aspect);
-        String aspectName = aspect.getAspectClass().getName();
-        boolean headerFlag = true;
-        NestedSet<Artifact> importantArtifacts =
-            TopLevelArtifactHelper.getAllArtifactsToBuild(configuredAspect, context)
-                .getImportantArtifacts();
-        for (Artifact importantArtifact : importantArtifacts.toList()) {
-          if (headerFlag) {
-            outErr.printErr("Aspect " + aspectName + " of " + label + " up-to-date:\n");
-            headerFlag = false;
-          }
-          if (TopLevelArtifactHelper.shouldDisplay(importantArtifact)) {
-            outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, importantArtifact));
-          }
-        }
-        if (headerFlag) {
-          outErr.printErr(
-              "Aspect " + aspectName + " of " + label + " up-to-date (nothing to build)\n");
-        }
-      }
-      for (AspectKey aspect : failed) {
-        Label label = aspect.getLabel();
-        String aspectName = aspect.getAspectClass().getName();
-        outErr.printErr("Aspect " + aspectName + " of " + label + " failed to build\n");
-      }
-      success = failed.isEmpty();
     }
-    if (!success && !request.getOptions(ExecutionOptions.class).verboseFailures) {
-      outErr.printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
+    for (ConfiguredTarget target : failed) {
+      outErr.printErr("Target " + target.getLabel() + " failed to build\n");
+
+      // For failed compilation, it is still useful to examine temp artifacts, (ie, preprocessed and
+      // assembler files).
+      OutputGroupInfo topLevelProvider = OutputGroupInfo.get(target);
+      if (topLevelProvider != null) {
+        for (Artifact temp : topLevelProvider.getOutputGroup(OutputGroupInfo.TEMP_FILES).toList()) {
+          if (temp.getPath().exists()) {
+            outErr.printErrLn(
+                "  See temp at " + prettyPrinter.getPrettyPath(temp.getPath().asFragment()));
+          }
+        }
+      }
     }
   }
 
-  private String formatArtifactForShowResults(PathPrettyPrinter prettyPrinter, Artifact artifact) {
+  private static void outputAspects(
+      OutErr outErr,
+      PathPrettyPrinter prettyPrinter,
+      ArrayList<AspectKey> succeeded,
+      ArrayList<ArrayList<Artifact>> artifactsToPrintPerAspect,
+      ArrayList<AspectKey> failed,
+      boolean omitNothingToBuild) {
+    for (int i = 0; i < succeeded.size(); ++i) {
+      AspectKey aspect = succeeded.get(i);
+      Label label = aspect.getLabel();
+      String aspectName = aspect.getAspectClass().getName();
+      ArrayList<Artifact> artifacts = artifactsToPrintPerAspect.get(i);
+      if (artifacts.isEmpty()) {
+        if (!omitNothingToBuild) {
+          outErr.printErr(
+              "Aspect " + aspectName + " of " + label + " up-to-date (nothing to build)\n");
+        }
+        continue;
+      }
+      outErr.printErr("Aspect " + aspectName + " of " + label + " up-to-date:\n");
+      for (Artifact artifact : artifacts) {
+        outErr.printErrLn(formatArtifactForShowResults(prettyPrinter, artifact));
+      }
+    }
+    for (AspectKey aspect : failed) {
+      Label label = aspect.getLabel();
+      String aspectName = aspect.getAspectClass().getName();
+      outErr.printErr("Aspect " + aspectName + " of " + label + " failed to build\n");
+    }
+  }
+
+  private static String formatArtifactForShowResults(
+      PathPrettyPrinter prettyPrinter, Artifact artifact) {
     return "  " + prettyPrinter.getPrettyPath(artifact.getPath().asFragment());
   }
 
