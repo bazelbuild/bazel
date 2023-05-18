@@ -692,8 +692,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final ImmutableMap<String, Object> environment;
-
   private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
@@ -762,7 +760,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     // BazelStarlarkEnvironment, or obviating the need for this method entirely.
     ImmutableMap<String, Object> nativeRuleSpecificBindings =
         createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
-    this.environment = createEnvironment(nativeRuleSpecificBindings);
+    ImmutableMap<String, Object> environment = createEnvironment(nativeRuleSpecificBindings);
     // If needed, we could allow the version to be customized by the builder e.g. for unit testing,
     // but at the moment it suffices to use the production value unconditionally.
     String version = BlazeVersionInfo.instance().getVersion();
@@ -900,11 +898,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       }
     }
     return mapBuilder.buildOrThrow();
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getEnvironment() {
-    return environment;
   }
 
   @Override
