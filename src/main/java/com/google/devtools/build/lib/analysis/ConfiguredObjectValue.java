@@ -39,6 +39,8 @@ public interface ConfiguredObjectValue extends NotComparableSkyValue {
    * {@link com.google.devtools.build.lib.skyframe.AspectFunction#AspectFunction}), calling this
    * will crash.
    */
+  // TODO(b/283125139): Most builds never need to build a repo mapping manifest. Store transitive
+  // packages outside of configured object values to save the wasted field.
   NestedSet<Package> getTransitivePackages();
 
   /**

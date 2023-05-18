@@ -124,8 +124,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -1062,11 +1060,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * symlink forest, and can trivially resolve source artifacts from exec paths. As a consequence,
    * builds where this is not null do not need to track a package -> source root map. In addition,
    * such builds can only occur in a monorepo, and thus do not need to produce repo mapping
-   * manifests for runfiles. These two conditions together mean that such builds do not need to
-   * track all loaded packages.
-   *
-   * <p>See also {@link
-   * com.google.devtools.build.lib.analysis.ConfiguredObjectValue#getTransitivePackages}.
+   * manifests for runfiles.
    */
   // TODO(wyv): To be safe, fail early if we're in a multi-repo setup but this is not being tracked.
   @Nullable
@@ -1075,7 +1069,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   private boolean shouldStoreTransitivePackagesInLoadingAndAnalysis() {
-    return getForcedSingleSourceRootIfNoExecrootSymlinkCreation() == null;
+    // Transitive packages may be needed for either RepoMappingManifestAction or Skymeld with
+    // external repository support. They are never needed if external repositories are disabled. To
+    // avoid complexity from toggling this, just choose a setting for the lifetime of the server.
+    // TODO(b/283125139): Can we support external repositories without tracking transitive packages?
+    return repositoryHelpersHolder != null;
   }
 
   @VisibleForTesting
@@ -2323,8 +2321,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ImmutableSet.Builder<ConfiguredTarget> configuredTargets = ImmutableSet.builder();
     ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects = ImmutableMap.builder();
     Root singleSourceRoot = getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
-    NestedSetBuilder<Package> packages =
-        singleSourceRoot == null ? NestedSetBuilder.stableOrder() : null;
 
     for (ConfiguredTargetKey key : configuredTargetKeys) {
       ConfiguredTargetValue value = (ConfiguredTargetValue) result.get(key.toKey());
@@ -2332,9 +2328,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         continue;
       }
       configuredTargets.add(value.getConfiguredTarget());
-      if (packages != null) {
-        packages.addTransitive(value.getTransitivePackages());
-      }
     }
 
     for (TopLevelAspectsKey key : topLevelAspectKeys) {
@@ -2344,15 +2337,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
       for (AspectValue aspectValue : value.getTopLevelAspectsValues()) {
         aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
-        if (packages != null) {
-          packages.addTransitive(aspectValue.getTransitivePackages());
-        }
       }
     }
 
     PackageRoots packageRoots =
         singleSourceRoot == null
-            ? new MapAsPackageRoots(collectPackageRoots(packages.build()))
+            ? new MapAsPackageRoots(collectPackageRoots())
             : new PackageRootsNoSymlinkCreation(singleSourceRoot);
 
     return new AutoValue_SkyframeExecutor_ConfigureTargetsResult(
@@ -2372,15 +2362,24 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   /** Returns a map of collected package names to root paths. */
-  private static ImmutableMap<PackageIdentifier, Root> collectPackageRoots(
-      NestedSet<Package> packages) {
-    ImmutableMap.Builder<PackageIdentifier, Root> packageRoots = ImmutableMap.builder();
-    for (Package pkg : packages.toList()) {
-      if (pkg.getSourceRoot().isPresent()) {
-        packageRoots.put(pkg.getPackageIdentifier(), pkg.getSourceRoot().get());
-      }
-    }
-    return packageRoots.buildOrThrow();
+  private ImmutableMap<PackageIdentifier, Root> collectPackageRoots() {
+    Map<PackageIdentifier, Root> roots = new ConcurrentHashMap<>();
+    memoizingEvaluator
+        .getInMemoryGraph()
+        .parallelForEach(
+            nodeEntry -> {
+              SkyKey key = nodeEntry.getKey();
+              if (key instanceof PackageIdentifier && nodeEntry.isDone()) {
+                PackageValue packageValue = (PackageValue) nodeEntry.getValue();
+                if (packageValue != null) { // Null for errors e.g. "no such package"
+                  Optional<Root> sourceRoot = packageValue.getPackage().getSourceRoot();
+                  if (sourceRoot.isPresent()) {
+                    roots.put((PackageIdentifier) key, sourceRoot.get());
+                  }
+                }
+              }
+            });
+    return ImmutableMap.copyOf(roots);
   }
 
   void clearSyscallCache() {
