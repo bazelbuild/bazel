@@ -41,5 +41,6 @@ public interface StarlarkGlobals {
   /** Returns the fixed top-levels for BUILD files that are *not* also fields of {@code native}. */
   ImmutableMap<String, Object> getFixedBuildFileToplevelsNotInNative();
 
-  // TODO(b/280446865): Add accessor for fixed env for .bzl files.
+  /** Returns the fixed top-levels for .bzl files, excluding the {@code native} object. */
+  ImmutableMap<String, Object> getFixedBzlToplevels();
 }

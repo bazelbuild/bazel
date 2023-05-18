@@ -41,4 +41,11 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
   public ImmutableMap<String, Object> getFixedBuildFileToplevelsNotInNative() {
     return StarlarkLibrary.BUILD; // e.g. select, depset
   }
+
+  @Override
+  public ImmutableMap<String, Object> getFixedBzlToplevels() {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    StarlarkModules.addPredeclared(env);
+    return env.buildOrThrow();
+  }
 }

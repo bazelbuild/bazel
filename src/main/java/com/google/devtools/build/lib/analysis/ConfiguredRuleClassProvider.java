@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -757,11 +756,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.constraintSemantics = constraintSemantics;
     this.networkAllowlistForTests = networkAllowlistForTests;
 
-    // TODO(b/280446865): See about moving createNativeRuleSpecificBindings to
-    // BazelStarlarkEnvironment, or obviating the need for this method entirely.
-    ImmutableMap<String, Object> nativeRuleSpecificBindings =
-        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
-    ImmutableMap<String, Object> environment = createEnvironment(nativeRuleSpecificBindings);
+    ImmutableMap<String, Object> registeredBzlToplevels =
+        createRegisteredBzlToplevels(starlarkAccessibleTopLevels, starlarkBootstraps);
     // If needed, we could allow the version to be customized by the builder e.g. for unit testing,
     // but at the moment it suffices to use the production value unconditionally.
     String version = BlazeVersionInfo.instance().getVersion();
@@ -770,8 +766,7 @@ public /*final*/ class ConfiguredRuleClassProvider
             StarlarkGlobalsImpl.INSTANCE,
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
             buildFileToplevels,
-            /* bzlToplevels= */ environment,
-            /* nativeRuleSpecificBindings= */ nativeRuleSpecificBindings,
+            registeredBzlToplevels,
             /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
                 ruleClassMap, version),
             /* builtinsInternals= */ starlarkBuiltinsInternals);
@@ -869,7 +864,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     return ruleDefinitionMap.get(ruleClassName);
   }
 
-  private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
+  private static ImmutableMap<String, Object> createRegisteredBzlToplevels(
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
@@ -878,18 +873,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       bootstrap.addBindingsToBuilder(bindings);
     }
     return bindings.buildOrThrow();
-  }
-
-  private static ImmutableMap<String, Object> createEnvironment(
-      ImmutableMap<String, Object> nativeRuleSpecificBindings) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    // Add predeclared symbols of the Bazel build language.
-    // TODO(b/280446865): Move knowledge of StarlarkModules to BazelStarlarkEnvironment; i.e.,
-    // eliminate createEnvironment().
-    StarlarkModules.addPredeclared(envBuilder);
-    // Add all the extensions registered with the rule class provider.
-    envBuilder.putAll(nativeRuleSpecificBindings);
-    return envBuilder.buildOrThrow();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
