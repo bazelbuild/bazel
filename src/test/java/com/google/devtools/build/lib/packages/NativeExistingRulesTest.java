@@ -80,7 +80,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     testStarlarkBuiltin = new TestStarlarkBuiltin();
-    builder.addStarlarkAccessibleTopLevels("test", testStarlarkBuiltin);
+    builder.addBzlToplevel("test", testStarlarkBuiltin);
     return builder.build();
   }
 

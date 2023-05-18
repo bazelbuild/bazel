@@ -118,7 +118,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "parametrized_native_aspect",
         TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
     builder.addNativeAspectClass(TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);

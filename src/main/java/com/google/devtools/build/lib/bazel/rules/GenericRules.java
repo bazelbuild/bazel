@@ -63,7 +63,7 @@ public class GenericRules implements RuleSet {
     // place would be as a static method of InternalModule.java in lib.packages, and that package
     // can't accept a ConfiguredRuleClassProvider.Builder. The alternative is to use a Bootstrap,
     // but that idiom should probably be deprecated.
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "_builtins_dummy",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             BuildLanguageOptions.EXPERIMENTAL_BUILTINS_DUMMY, "original value"));

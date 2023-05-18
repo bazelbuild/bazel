@@ -192,8 +192,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         .addRuleDefinition(SANDWICH_RULE)
         .addRuleDefinition(SANDWICH_LOGIC_RULE)
         .addRuleDefinition(SANDWICH_CTX_RULE)
-        .addStarlarkAccessibleTopLevels("overridable_symbol", "original_value")
-        .addStarlarkAccessibleTopLevels(
+        .addBzlToplevel("overridable_symbol", "original_value")
+        .addBzlToplevel(
             "flag_guarded_symbol",
             // For this mock symbol, we reuse the same flag that guards the production
             // _builtins_dummy symbol.

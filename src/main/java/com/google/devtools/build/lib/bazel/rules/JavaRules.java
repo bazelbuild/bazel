@@ -90,7 +90,7 @@ public class JavaRules implements RuleSet {
             JavaPluginInfo.PROVIDER,
             ProguardSpecProvider.PROVIDER));
 
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "experimental_java_library_export_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));

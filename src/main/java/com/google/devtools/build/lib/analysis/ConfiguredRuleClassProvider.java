@@ -94,7 +94,6 @@ public /*final*/ class ConfiguredRuleClassProvider
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
-  // TODO(b/280446865): Consider merging Bootstrap into this interface.
   public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
@@ -356,9 +355,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     /** Registers a new top-level symbol for .bzl files. */
-    // TODO(b/280446865): rename to something like addBzlToplevel()
     @CanIgnoreReturnValue
-    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+    public Builder addBzlToplevel(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }

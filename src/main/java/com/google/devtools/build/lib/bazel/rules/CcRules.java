@@ -65,9 +65,9 @@ public class CcRules implements RuleSet {
     GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     BazelCcModule bazelCcModule = new BazelCcModule();
     builder.addConfigurationFragment(CppConfiguration.class);
-    builder.addStarlarkAccessibleTopLevels("CcSharedLibraryInfo", Starlark.NONE);
-    builder.addStarlarkAccessibleTopLevels("CcSharedLibraryHintInfo", Starlark.NONE);
-    builder.addStarlarkAccessibleTopLevels("cc_proto_aspect", Starlark.NONE);
+    builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
+    builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);
+    builder.addBzlToplevel("cc_proto_aspect", Starlark.NONE);
     builder.addBuildInfoFactory(new CppBuildInfo());
 
     builder.addNativeAspectClass(graphNodeAspect);

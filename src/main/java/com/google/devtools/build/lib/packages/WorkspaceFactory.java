@@ -319,7 +319,10 @@ public class WorkspaceFactory {
     return env.buildOrThrow();
   }
 
-  // TODO(b/280446865): Refactor WORKSPACE env construction into BazelStarlarkEnvironment.
+  // TODO(b/280446865): Ideally the WORKSPACE environment would be determined by a method in
+  // BazelStarlarkEnvironment. The method would accept the values of `__embedded_dir__`, etc., as
+  // arguments, and defer to StarlarkGlobals to get the fixed environment (COMMON, select(), etc.).
+  // But WORKSPACE logic won't live forever so it's probably not worth migrating.
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     env.putAll(StarlarkLibrary.COMMON); // e.g. depset
