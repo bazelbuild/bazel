@@ -256,7 +256,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     return toSingle(() -> remoteCache.findMissingDigests(context, digestsToQuery), executor)
         .onErrorResumeNext(
             error -> {
-              reporterUploadError(error);
+              reportUploadError(error, null, null);
               // Assuming all digests are missing if failed to query
               return Single.just(ImmutableSet.copyOf(digestsToQuery));
             })
@@ -267,13 +267,19 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             });
   }
 
-  private void reporterUploadError(Throwable error) {
+  private void reportUploadError(Throwable error, Path path, Digest digest) {
     if (error instanceof CancellationException) {
       return;
     }
 
-    String errorMessage =
-        "Uploading BEP referenced local files: " + grpcAwareErrorMessage(error, verboseFailures);
+    String errorMessage = "Uploading BEP referenced local file";
+    if (path != null) {
+      errorMessage += " " + path;
+    }
+    if (digest != null) {
+      errorMessage += " " + digest;
+    }
+    errorMessage += ": " + grpcAwareErrorMessage(error, verboseFailures);
 
     reporter.handle(Event.warn(errorMessage));
   }
@@ -298,11 +304,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                               path.isDirectory(),
                               // set remote to true so the PathConverter will use bytestream://
                               // scheme to convert the URI for this file
-                              /*remote=*/ true,
+                              /* remote= */ true,
                               path.isOmitted()))
                   .onErrorResumeNext(
                       error -> {
-                        reporterUploadError(error);
+                        reportUploadError(error, path.getPath(), path.getDigest());
                         return Single.just(path);
                       });
             })
@@ -329,7 +335,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                       try {
                         return readPathMetadata(file);
                       } catch (IOException e) {
-                        reporterUploadError(e);
+                        reportUploadError(e, file, null);
                         return new PathMetadata(
                             file,
                             /* digest= */ null,
