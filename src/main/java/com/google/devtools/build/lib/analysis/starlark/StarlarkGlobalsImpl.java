@@ -15,9 +15,16 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.ActionsProvider;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
+import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
+import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
+import com.google.devtools.build.lib.packages.StructProvider;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Sole implementation of {@link StarlarkGlobals}.
@@ -45,7 +52,17 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
   @Override
   public ImmutableMap<String, Object> getFixedBzlToplevels() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    StarlarkModules.addPredeclared(env);
+    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
+    Starlark.addMethods(env, new BazelBuildApiGlobals()); // e.g. configuration_field
+    Starlark.addMethods(env, new StarlarkRuleClassFunctions()); // e.g. rule
+    Starlark.addMethods(env, SelectorList.SelectLibrary.INSTANCE);
+    env.put("cmd_helper", new StarlarkCommandLine());
+    env.put("attr", new StarlarkAttrModule());
+    env.put("struct", StructProvider.STRUCT);
+    env.put("OutputGroupInfo", OutputGroupInfo.STARLARK_CONSTRUCTOR);
+    env.put("Actions", ActionsProvider.INSTANCE);
+    env.put("DefaultInfo", DefaultInfo.PROVIDER);
+    env.put("RunEnvironmentInfo", RunEnvironmentInfo.PROVIDER);
     return env.buildOrThrow();
   }
 }
