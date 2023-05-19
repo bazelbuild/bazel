@@ -16,18 +16,17 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toListenableFuture;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -38,8 +37,9 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
 import com.google.devtools.build.lib.remote.util.RxUtils;
@@ -575,7 +575,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public void finalizeAction(Action action, OutputMetadataStore outputMetadataStore)
       throws IOException, InterruptedException {
     List<Artifact> outputsToDownload = new ArrayList<>();
-
     for (Artifact output : action.getOutputs()) {
       if (outputMetadataStore.artifactOmitted(output)) {
         continue;
@@ -589,34 +588,23 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       if (output.isTreeArtifact()) {
         var children = outputMetadataStore.getTreeArtifactChildren((SpecialArtifact) output);
         for (var file : children) {
-          if (remoteOutputChecker.shouldDownloadFileAfterActionExecution(file)) {
+          if (remoteOutputChecker.shouldDownloadOutput(file)) {
             outputsToDownload.add(file);
           }
         }
       } else {
-        if (remoteOutputChecker.shouldDownloadFileAfterActionExecution(output)) {
+        if (remoteOutputChecker.shouldDownloadOutput(output)) {
           outputsToDownload.add(output);
         }
       }
     }
 
     if (!outputsToDownload.isEmpty()) {
-      var future =
-          prefetchFiles(outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.LOW);
-      addCallback(
-          future,
-          new FutureCallback<Void>() {
-            @Override
-            public void onSuccess(Void unused) {}
-
-            @Override
-            public void onFailure(Throwable throwable) {
-              reporter.handle(
-                  Event.warn(
-                      String.format("Failed to download outputs: %s", throwable.getMessage())));
-            }
-          },
-          directExecutor());
+      try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
+        getFromFuture(
+            prefetchFiles(
+                outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+      }
     }
   }
 

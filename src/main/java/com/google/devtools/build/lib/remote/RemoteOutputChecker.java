@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 
 import com.google.common.collect.ImmutableList;
@@ -179,13 +178,13 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     return shouldDownloadOutputFor(output, inputsToDownload);
   }
 
-  private boolean shouldDownloadFileForRegex(ActionInput file) {
-    checkArgument(
-        !(file instanceof Artifact && ((Artifact) file).isTreeArtifact()),
-        "file must not be a tree.");
+  private boolean shouldDownloadOutputForRegex(ActionInput output) {
+    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+      return false;
+    }
 
     for (var pattern : patternsToDownload) {
-      if (pattern.matcher(file.getExecPathString()).matches()) {
+      if (pattern.matcher(output.getExecPathString()).matches()) {
         return true;
       }
     }
@@ -208,33 +207,16 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   /**
    * Returns {@code true} if Bazel should download this {@link ActionInput} during spawn execution.
-   *
-   * @param output output of the spawn. Tree is accepted since we can't know the content of tree
-   *     before executing the spawn.
    */
-  public boolean shouldDownloadOutputDuringActionExecution(ActionInput output) {
-    // Download toplevel artifacts within action execution so that when the event TargetComplete is
-    // emitted, related toplevel artifacts are downloaded.
-    //
-    // Download outputs that are inputs to local actions within action execution so that the local
-    // actions don't need to wait for background downloads.
-    return shouldDownloadOutputForToplevel(output) || shouldDownloadOutputForLocalAction(output);
-  }
-
-  /**
-   * Returns {@code true} if Bazel should download this {@link ActionInput} after action execution.
-   *
-   * @param file file output of the action. Tree must be expanded to tree file.
-   */
-  public boolean shouldDownloadFileAfterActionExecution(ActionInput file) {
-    // Download user requested blobs in background to finish action execution sooner so that other
-    // actions can start sooner.
-    return shouldDownloadFileForRegex(file);
+  public boolean shouldDownloadOutput(ActionInput output) {
+    return shouldDownloadOutputForToplevel(output)
+        || shouldDownloadOutputForLocalAction(output)
+        || shouldDownloadOutputForRegex(output);
   }
 
   @Override
   public boolean shouldTrustRemoteArtifact(ActionInput file, RemoteFileArtifactValue metadata) {
-    if (shouldDownloadOutputForToplevel(file) || shouldDownloadFileForRegex(file)) {
+    if (shouldDownloadOutput(file)) {
       // If Bazel should download this file, but it does not exist locally, returns false to rerun
       // the generating action to trigger the download (just like in the normal build, when local
       // outputs are missing).
