@@ -932,20 +932,12 @@ sh_test(
     tags = ["no_windows"],
 )
 
-filegroup(
-    name = "test_WORKSPACE",
-    srcs = [
-        "@test_WORKSPACE_files//:archives",
-    ],
-)
-
 sh_test(
     name = "workspace_resolved_test",
     size = "large",
     srcs = ["workspace_resolved_test.sh"],
     data = [
         ":test-deps",
-        ":test_WORKSPACE",
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 22,

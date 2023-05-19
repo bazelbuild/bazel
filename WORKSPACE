@@ -254,26 +254,6 @@ dist_http_archive(
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
 )
 
-# For testing, have an distdir_tar with all the archives implicit in every
-# WORKSPACE, to that they don't have to be refetched for every test
-# calling `bazel sync`.
-distdir_tar(
-    name = "test_WORKSPACE_files",
-    archives = [
-        "android_tools_pkg-0.28.0.tar",
-    ],
-    dirname = "test_WORKSPACE/distdir",
-    dist_deps = {dep: attrs for dep, attrs in DIST_DEPS.items() if "test_WORKSPACE_files" in attrs["used_in"]},
-    sha256 = {
-        "android_tools_pkg-0.28.0.tar": "db3b02421ae974e0b33573f3e4f658d5f89cc9a0b42baae0ba2ac08e25c0720a",
-    },
-    urls = {
-        "android_tools_pkg-0.28.0.tar": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.28.0.tar",
-        ],
-    },
-)
-
 dist_http_archive(
     name = "io_bazel_skydoc",
 )

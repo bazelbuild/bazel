@@ -33,7 +33,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "0.0.6",
     },
@@ -59,7 +58,6 @@ DIST_DEPS = {
         "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.6/rules_cc-0.0.6.tar.gz"],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "0.0.6",
         "strip_prefix": "rules_cc-0.0.6",
@@ -74,7 +72,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
@@ -91,7 +88,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
@@ -114,7 +110,6 @@ DIST_DEPS = {
         "patches": ["//third_party/protobuf:21.7.patch"],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
@@ -137,7 +132,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "1.48.1",
     },
@@ -155,7 +149,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
     },
     "com_envoyproxy_protoc_gen_validate": {
@@ -172,7 +165,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
     },
     "bazel_gazelle": {
@@ -184,7 +176,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "0.24.0",
     },
@@ -198,7 +189,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
@@ -215,7 +205,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "license_kinds": [
             "@rules_license//licenses/generic:notice",
@@ -231,7 +220,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
     },
     "re2": {
@@ -243,7 +231,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
     },
     "com_google_absl": {
@@ -255,7 +242,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "strip_prefix": "abseil-cpp-20220623.1",
         "license_kinds": [
@@ -296,7 +282,6 @@ DIST_DEPS = {
             "https://maven.google.com/com/android/tools/r8/8.0.40/r8-8.0.40.jar",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
         "package_version": "8.0.40",
     },
@@ -309,7 +294,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "1.3.0",
     },
@@ -334,7 +318,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "0.0.3",
     },
@@ -347,7 +330,6 @@ DIST_DEPS = {
         ],
         "used_in": [
             "additional_distfiles",
-            "test_WORKSPACE_files",
         ],
         "package_version": "0.8.0",
     },
@@ -372,7 +354,7 @@ DIST_DEPS = {
         "strip_prefix": "rules_python-0.19.0",
         "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.19.0/rules_python-0.19.0.tar.gz"],
         "archive": "rules_python-0.19.0.tar.gz",
-        "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
+        "used_in": ["additional_distfiles"],
     },
     "rules_testing": {
         "sha256": "4e21f9aa7996944ce91431f27bca374bff56e680acfe497276074d56bc5d9af2",
@@ -382,7 +364,7 @@ DIST_DEPS = {
             "https://github.com/bazelbuild/rules_testing/releases/download/v0.0.4/rules_testing-v0.0.4.tar.gz",
         ],
         "archive": "rules_testing-v0.0.4.tar.gz",
-        "used_in": ["additional_distfiles", "test_WORKSPACE_files"],
+        "used_in": ["additional_distfiles"],
         "package_version": "0.0.4",
     },
     "desugar_jdk_libs": {
@@ -405,7 +387,6 @@ DIST_DEPS = {
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
         "package_version": "2.6",
     },
@@ -418,7 +399,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
     "openjdk_linux_aarch64_vanilla": {
@@ -430,7 +410,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
     "openjdk_linux_s390x_vanilla": {
@@ -442,7 +421,6 @@ DIST_DEPS = {
             "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
     "openjdk_linux_ppc64le_vanilla": {
@@ -464,7 +442,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
     "openjdk_macos_aarch64_vanilla": {
@@ -476,7 +453,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-macosx_aarch64.tar.gz",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
     "openjdk_win_vanilla": {
@@ -488,7 +464,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
     "openjdk_win_arm64_vanilla": {
@@ -500,7 +475,6 @@ DIST_DEPS = {
             "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
         ],
         "used_in": [
-            "test_WORKSPACE_files",
         ],
     },
 }
