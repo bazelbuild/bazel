@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.common.options.OptionsBase;
 import java.net.URI;
 import java.time.Duration;
 
@@ -35,6 +36,11 @@ public class CredentialModule extends BlazeModule {
   /** Returns the credential cache. */
   public Cache<URI, ImmutableMap<String, ImmutableList<String>>> getCredentialCache() {
     return credentialCache;
+  }
+
+  @Override
+  public Iterable<Class<? extends OptionsBase>> getCommonCommandOptions() {
+    return ImmutableList.of(AuthAndTLSOptions.class);
   }
 
   @Override

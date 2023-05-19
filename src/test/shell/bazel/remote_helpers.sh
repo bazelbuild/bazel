@@ -38,8 +38,7 @@ function serve_file() {
   cd -
 }
 
-# Serves $1 as a file on localhost:$nc_port insisting on authentication (but
-# accepting any credentials.
+# Serves $1 as a file on localhost:$nc_port expecting authentication.
 #   * nc_port - the port nc is listening on.
 #   * nc_log - the path to nc's log.
 #   * nc_pid - the PID of nc.
