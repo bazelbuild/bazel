@@ -36,6 +36,26 @@ sh_library(name = 'y')
 sh_library(name = 'z')
 EOF
 
+  # Mock rules_java to avoid having to download it.
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+
+  touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "rules_java",
+    path = "${rules_java_workspace}",
+)
+EOF
+
   "$TESTER" "$install_base" foo bar >& "$TEST_log"
   expect_log //foo:a
   expect_log //foo:b
