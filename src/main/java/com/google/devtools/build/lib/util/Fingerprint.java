@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.lib.util;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.io.ByteStreams;
+import com.google.common.hash.Funnels;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -24,16 +25,14 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.security.DigestException;
-import java.security.DigestOutputStream;
-import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
- * Simplified wrapper for using {@link MessageDigest} to generate fingerprints.
+ * Simplified wrapper for using {@link HashFunction} to generate fingerprints.
  *
  * <p>A fingerprint is a cryptographic hash of a message that encodes the representation of an
  * object. Two objects of the same type have the same fingerprint if and only if they are equal.
@@ -64,24 +63,28 @@ public final class Fingerprint {
 
   // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
   // flushing at the end of each digest we can continue to use the stream.
-  private final CodedOutputStream codedOut;
-  private final MessageDigest messageDigest;
+  private final HashFunction hashFunction;
+  private Hasher hasher;
+  private CodedOutputStream codedOut;
 
   /** Creates and initializes a new instance. */
   public Fingerprint(DigestHashFunction digestFunction) {
-    messageDigest = digestFunction.cloneOrCreateMessageDigest();
-    // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
-    // strings to bytes without creating a whole bunch of garbage, which pays off.
-    codedOut =
-        CodedOutputStream.newInstance(
-            new DigestOutputStream(ByteStreams.nullOutputStream(), messageDigest),
-            /*bufferSize=*/ 1024);
+    hashFunction = digestFunction.getHashFunction();
+    reset();
   }
 
   public Fingerprint() {
     // TODO(b/112460990): Use the value from DigestHashFunction.getDefault(), but check for
     // contention.
     this(DigestHashFunction.SHA256);
+  }
+
+  private void reset() {
+    hasher = hashFunction.newHasher();
+    // This is a lot of indirection, but CodedOutputStream does a reasonable job of converting
+    // strings to bytes without creating a whole bunch of garbage, which pays off.
+    codedOut =
+        CodedOutputStream.newInstance(Funnels.asOutputStream(hasher), /* bufferSize= */ 1024);
   }
 
   /**
@@ -97,7 +100,9 @@ public final class Fingerprint {
     } catch (IOException e) {
       throw new IllegalStateException("failed to flush", e);
     }
-    return messageDigest.digest();
+    byte[] digest = hasher.hash().asBytes();
+    reset();
+    return digest;
   }
 
   /**
@@ -112,12 +117,12 @@ public final class Fingerprint {
   public void digestAndReset(byte[] buf, int offset, int len) {
     try {
       codedOut.flush();
-      messageDigest.digest(buf, offset, len);
     } catch (IOException e) {
       throw new IllegalStateException("failed to flush", e);
-    } catch (DigestException e) {
-      throw new IllegalStateException("failed to digest", e);
     }
+
+    hasher.hash().writeBytesTo(buf, offset, len);
+    reset();
   }
 
   /** Same as {@link #digestAndReset()}, except returns the digest in hex string form. */
@@ -343,7 +348,9 @@ public final class Fingerprint {
     // use the value from DigestHashFunction.getDefault(). However, this gets called during class
     // loading in a few places, before setDefault() has been called, so these call-sites should be
     // removed before this can be done safely.
-    return hexDigest(
-        DigestHashFunction.SHA256.cloneOrCreateMessageDigest().digest(input.getBytes(UTF_8)));
+    return DigestHashFunction.SHA256
+        .getHashFunction()
+        .hashString(input, StandardCharsets.UTF_8)
+        .toString();
   }
 }
