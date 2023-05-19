@@ -10,7 +10,10 @@ filegroup(
 
 java_library(
     name = "credential_module",
-    srcs = ["CredentialModule.java"],
+    srcs = [
+        "CredentialModule.java",
+        "SystemMillisTicker.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
@@ -23,7 +26,10 @@ java_library(
     name = "credentialhelper",
     srcs = glob(
         ["*.java"],
-        exclude = ["CredentialModule.java"],
+        exclude = [
+            "CredentialModule.java",
+            "SystemMillisTicker.java",
+        ],
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
