@@ -84,11 +84,12 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
     if (bytesRead > 0) {
       if (totalBytes.isPresent()) {
         double totalBytesDouble = this.totalBytes.getAsLong();
+        double ratio = totalBytesDouble != 0 ? bytesRead / totalBytesDouble : 1;
         // 10.1 MiB (20.2%)
         return String.format(
             "%s (%s)",
             Utils.bytesCountToDisplayString(bytesRead),
-            PERCENTAGE_FORMAT.format(bytesRead / totalBytesDouble));
+            PERCENTAGE_FORMAT.format(ratio));
       } else {
         // 10.1 MiB (10,590,000B)
         return String.format("%s (%,dB)", Utils.bytesCountToDisplayString(bytesRead), bytesRead);

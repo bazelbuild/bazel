@@ -92,7 +92,7 @@ final class HttpStream extends FilterInputStream {
         try {
           String contentLength = connection.getHeaderField("Content-Length");
           if (contentLength != null) {
-            totalBytes = OptionalLong.of(Long.parseLong(contentLength));
+            totalBytes = OptionalLong.of(Long.parseUnsignedLong(contentLength));
             stream = new CheckContentLengthInputStream(stream, totalBytes.getAsLong());
           }
         } catch (NumberFormatException ignored) {

@@ -174,4 +174,12 @@ public class ProgressInputStreamTest {
             url, url, 25 * 1024 * 1024, OptionalLong.of(100 * 1024 * 1024), false);
     assertThat(event.getProgress()).isEqualTo("25.0 MiB (25.0%)");
   }
+
+  @Test
+  public void percentualProgress_zeroTotalBytes() {
+    DownloadProgressEvent event =
+        new DownloadProgressEvent(
+            url, url, 25 * 1024 * 1024, OptionalLong.of(0), false);
+    assertThat(event.getProgress()).isEqualTo("25.0 MiB (100.0%)");
+  }
 }
