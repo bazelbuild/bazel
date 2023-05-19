@@ -14,14 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.Set;
 import net.starlark.java.eval.Starlark;
 
@@ -59,9 +62,14 @@ public class DecompressorValue implements SkyValue {
       }
 
       public static Optional<String> maybeMakePrefixSuggestion(PathFragment pathFragment) {
-        return pathFragment.isMultiSegment()
-            ? Optional.of(pathFragment.getSegment(0))
-            : Optional.absent();
+        if (!pathFragment.isMultiSegment()) {
+          return Optional.empty();
+        }
+        String rawFirstSegment = pathFragment.getSegment(0);
+        // Users can only specify prefixes from Starlark, where strings always use UTF-8, so we
+        // optimistically decode with it here even though we do not know the original encoding.
+        return Optional.of(new String(rawFirstSegment.getBytes(ISO_8859_1), UTF_8));
+//        return Optional.of(rawFirstSegment);
       }
     }
 

@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.devtools.build.lib.bazel.repository.StripPrefixedPath.maybeDeprefixSymlink;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Optional;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -29,6 +29,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -54,20 +55,21 @@ public abstract class CompressedTarFunction implements Decompressor {
     Map<Path, PathFragment> symlinks = new HashMap<>();
 
     try (InputStream decompressorStream = getDecompressorStream(descriptor)) {
-      TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream);
+      // USTAR tar headers use an unspecified encoding whereas PAX tar headers always use UTF-8.
+      // Since this would result in ambiguity with Bazel forcing the default JVM encoding to be
+      // ISO-8859-1, we explicitly specify the encoding as UTF-8.
+      TarArchiveInputStream tarStream = new TarArchiveInputStream(decompressorStream, UTF_8.name());
       TarArchiveEntry entry;
       while ((entry = tarStream.getNextTarEntry()) != null) {
         String entryName = entry.getName();
         entryName = renameFiles.getOrDefault(entryName, entryName);
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entryName, prefix);
+        StripPrefixedPath entryPath =
+            StripPrefixedPath.maybeDeprefix(entryName.getBytes(UTF_8), prefix);
         foundPrefix = foundPrefix || entryPath.foundPrefix();
 
         if (prefix.isPresent() && !foundPrefix) {
-          Optional<String> suggestion =
-              CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment());
-          if (suggestion.isPresent()) {
-            availablePrefixes.add(suggestion.get());
-          }
+          CouldNotFindPrefixException.maybeMakePrefixSuggestion(entryPath.getPathFragment())
+              .ifPresent(availablePrefixes::add);
         }
 
         if (entryPath.skip()) {
@@ -80,8 +82,9 @@ public abstract class CompressedTarFunction implements Decompressor {
           filePath.createDirectoryAndParents();
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
-            PathFragment targetName = PathFragment.create(entry.getLinkName());
-            targetName = maybeDeprefixSymlink(targetName, prefix, descriptor.destinationPath());
+            PathFragment targetName =
+                maybeDeprefixSymlink(
+                    entry.getLinkName().getBytes(UTF_8), prefix, descriptor.destinationPath());
             if (entry.isSymbolicLink()) {
               symlinks.put(filePath, targetName);
             } else {

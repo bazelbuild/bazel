@@ -451,6 +451,69 @@ function test_extract_rename_files() {
   ensure_output_contains_exactly_once "external/repo/out_dir/renamed-A.txt" "Second file: A"
 }
 
+function test_extract_pax_tar_non_ascii_file_names() {
+  local archive_tar="${TEST_TMPDIR}/pax.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_pax_∅"
+  echo "bar" > "Ä_pax_∅/Ä_foo_∅.txt"
+  tar --format=pax -cvf pax.tar "Ä_pax_∅"
+  popd
+
+  set_workspace_command "
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_pax_∅/')"
+
+  build_and_process_log --exclude_rule "repository @local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
+  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_exactly 'extract_event' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
+}
+
+function test_extract_ustar_tar_non_ascii_file_names() {
+  local archive_tar="${TEST_TMPDIR}/ustar.tar"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_ustar_∅"
+  echo "bar" > "Ä_ustar_∅/Ä_foo_∅.txt"
+  tar --format=ustar -cvf ustar.tar "Ä_ustar_∅"
+  popd
+
+  set_workspace_command "
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_ustar_∅/')"
+
+  build_and_process_log --exclude_rule "repository @local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
+  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_exactly 'extract_event' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
+}
+
+function test_extract_default_zip_non_ascii_file_names() {
+  local archive_tar="${TEST_TMPDIR}/default.zip"
+
+  pushd "${TEST_TMPDIR}"
+  mkdir "Ä_default_∅"
+  echo "bar" > "Ä_default_∅/Ä_foo_∅.txt"
+  zip default.zip -r "Ä_default_∅"
+  popd
+
+  set_workspace_command "
+  repository_ctx.extract('${archive_tar}', 'out_dir', 'Ä_default_∅/')"
+
+  build_and_process_log --exclude_rule "repository @local_config_cc"
+
+  ensure_contains_exactly 'location: .*repos.bzl:3:25' 1
+  ensure_contains_atleast 'context: "repository @repo"' 2
+  ensure_contains_exactly 'extract_event' 1
+
+  ensure_output_contains_exactly_once "external/repo/out_dir/Ä_foo_∅.txt" "bar"
+}
+
 function test_file() {
   set_workspace_command 'repository_ctx.file("filefile.sh", "echo filefile", True)'
 

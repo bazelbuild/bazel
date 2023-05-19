@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map;
+import java.util.Optional;
 
 /** Description of an archive to be decompressed. */
 @AutoValue
