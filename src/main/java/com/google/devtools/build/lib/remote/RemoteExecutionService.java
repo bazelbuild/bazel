@@ -1348,7 +1348,7 @@ public class RemoteExecutionService {
 
     checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
     for (var output : action.getSpawn().getOutputFiles()) {
-      if (remoteOutputChecker.shouldDownloadOutputDuringActionExecution(output)) {
+      if (remoteOutputChecker.shouldDownloadOutput(output)) {
         return true;
       }
     }

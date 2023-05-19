@@ -163,7 +163,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
    *       same build.
    */
   private void maybeInjectMetadataForSymlinkOrDownload(PathFragment linkPath, Artifact output)
-      throws IOException, InterruptedException {
+      throws IOException {
     if (output.isSymlink()) {
       return;
     }
@@ -184,28 +184,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     checkState(
         targetPath.isAbsolute(),
         "non-symlink artifact materialized as symlink must point to absolute path");
-
-    if (isOutput(targetPath)
-        && inputFetcher
-            .getRemoteOutputChecker()
-            .shouldDownloadOutputDuringActionExecution(output)) {
-      var targetActionInput = getInput(targetPath.relativeTo(execRoot).getPathString());
-      if (targetActionInput != null) {
-        if (output.isTreeArtifact()) {
-          var metadata = getRemoteTreeMetadata(targetPath);
-          if (metadata != null) {
-            getFromFuture(
-                inputFetcher.prefetchFiles(
-                    metadata.getChildren(), this::getInputMetadata, Priority.LOW));
-          }
-        } else {
-          getFromFuture(
-              inputFetcher.prefetchFiles(
-                  ImmutableList.of(targetActionInput), this::getInputMetadata, Priority.LOW));
-        }
-      }
-      return;
-    }
 
     if (output.isTreeArtifact()) {
       TreeArtifactValue metadata = getRemoteTreeMetadata(targetPath);
