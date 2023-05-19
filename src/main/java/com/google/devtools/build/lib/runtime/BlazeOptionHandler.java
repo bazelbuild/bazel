@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.util.Collections.emptyList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -80,11 +79,11 @@ public final class BlazeOptionHandler {
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
   // resulting in an error.
-  private static final String ALL_OPTIONS_PSEUDO_COMMAND = "always";
+  private static final String ALWAYS_PSEUDO_COMMAND = "always";
 
   // All options set on this pseudo command are inherited by all commands, with unrecognized options
-  // being ignored.
-  private static final String SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND = "common";
+  // being ignored as long as they are recognized by at least one (other) command.
+  private static final String COMMON_PSEUDO_COMMAND = "common";
 
   // Marks an event to indicate a parsing error.
   static final String BAD_OPTION_TAG = "invalidOption";
@@ -205,8 +204,8 @@ public final class BlazeOptionHandler {
     for (String commandToParse : getCommandNamesToParse(commandAnnotation)) {
       // Get all args defined for this command (or "common"), grouped by rc chunk.
       for (RcChunkOfArgs rcArgs : commandToRcArgs.get(commandToParse)) {
-        List<String> ignoredArgs = emptyList();
-        if (commandToParse.equals(SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND)) {
+        ImmutableList<String> ignoredArgs = ImmutableList.of();
+        if (commandToParse.equals(COMMON_PSEUDO_COMMAND)) {
           // Pass in options data for all commands supported by the runtime so that options that
           // apply to some but not the current command can be ignored.
           //
@@ -510,8 +509,8 @@ public final class BlazeOptionHandler {
 
   private static List<String> getCommandNamesToParse(Command commandAnnotation) {
     List<String> result = new ArrayList<>();
-    result.add(ALL_OPTIONS_PSEUDO_COMMAND);
-    result.add(SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND);
+    result.add(ALWAYS_PSEUDO_COMMAND);
+    result.add(COMMON_PSEUDO_COMMAND);
     getCommandNamesToParseHelper(commandAnnotation, result);
     return result;
   }
@@ -602,8 +601,8 @@ public final class BlazeOptionHandler {
       if (index > 0) {
         command = command.substring(0, index);
       }
-      if (!validCommands.contains(command) && !command.equals(ALL_OPTIONS_PSEUDO_COMMAND)
-          && !command.equals(SUPPORTED_OPTIONS_ONLY_PSEUDO_COMMAND)) {
+      if (!validCommands.contains(command) && !command.equals(ALWAYS_PSEUDO_COMMAND)
+          && !command.equals(COMMON_PSEUDO_COMMAND)) {
         eventHandler.handle(
             Event.warn(
                 "while reading option defaults file '"
