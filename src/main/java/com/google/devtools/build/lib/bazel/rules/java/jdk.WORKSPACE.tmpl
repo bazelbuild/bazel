@@ -1,10 +1,30 @@
 # External dependencies for the java_* rules.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+
 maybe(
     http_archive,
 {rules_java}
 )
+
+# Needed only because of java_tools.
+maybe(
+    http_archive,
+{rules_cc}
+)
+
+# Needed only because of java_tools.
+maybe(
+    http_archive,
+{rules_proto}
+)
+
+# Needed only because of proguard_allowlister in java_tools.
+maybe(
+    http_archive,
+{rules_python}
+)
+
 load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
 rules_java_dependencies()
 rules_java_toolchains()

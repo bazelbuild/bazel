@@ -88,7 +88,12 @@ gen_workspace_stanza(
     strip_prefix = {strip_prefix},
     urls = {urls},
     """,
-    repos = ["rules_java"],
+    repos = [
+        "rules_java",
+        "rules_cc",
+        "rules_proto",
+        "rules_python",
+    ],
     template = "jdk.WORKSPACE.tmpl",
     visibility = ["//:__pkg__"],
 )
