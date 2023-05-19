@@ -150,6 +150,7 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
             .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));
 
+    reporter.removeHandler(failFastHandler);
     EvaluationResult<GetToolchainTypeInfoValue> result = getToolchainTypeInfo(key);
 
     assertThatEvaluationResult(result).hasError();
@@ -160,8 +161,10 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasMessageThat()
-        .contains("no such package 'fake': BUILD file not found");
+        .hasCauseThat()
+        .isInstanceOf(ConfiguredValueCreationException.class);
+
+    assertContainsEvent("no such package 'fake': BUILD file not found");
   }
 
   // Calls ToolchainTypeLookupUtil.getToolchainTypeInfo.
