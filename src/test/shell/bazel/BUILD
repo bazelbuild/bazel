@@ -946,6 +946,7 @@ sh_test(
     data = [
         ":test-deps",
         ":test_WORKSPACE",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 22,
     tags = [

@@ -19,6 +19,25 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+function set_up() {
+  # Set up a mock rules_java workspace to avoid having to download the remote JDKs
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+
+  touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
+EOF
+
+  cat >> "${TEST_TMPDIR}/bazelrc" <<EOF
+common --override_repository=rules_java="${TEST_TMPDIR}/rules_java_workspace"
+EOF
+}
+
 test_result_recorded() {
   mkdir result_recorded && cd result_recorded
   rm -rf fetchrepo
