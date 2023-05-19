@@ -131,10 +131,6 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
-  public void addInputToDownload(ActionInput file) {
-    inputsToDownload.add(file);
-  }
-
   private boolean shouldDownloadToplevelOutputs(@Nullable ConfiguredTarget configuredTarget) {
     switch (commandMode) {
       case RUN:
