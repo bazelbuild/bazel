@@ -15,6 +15,7 @@
 """Utilities related to C++ support."""
 
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 
 cc_common_internal = _builtins.internal.cc_common_internal_do_not_use
 CcNativeLibraryInfo = _builtins.internal.CcNativeLibraryInfo
@@ -859,4 +860,5 @@ cc_common = struct(
     create_compile_action = _create_compile_action,
     loose_hdrs_check_forbidden_by_allowlist = _loose_hdrs_check_forbidden_by_allowlist,
     implementation_deps_allowed_by_allowlist = _implementation_deps_allowed_by_allowlist,
+    CcSharedLibraryHintInfo = CcSharedLibraryHintInfo,
 )

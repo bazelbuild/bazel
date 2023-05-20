@@ -285,12 +285,13 @@ def _forwarding_cc_lib_aspect_impl(target, ctx):
             linker_inputs = depset(linker_inputs),
         ),
     )
-    return [
-        AspectCcInfo(cc_info = cc_info),
-        CcSharedLibraryHintInfo(
+    providers = [AspectCcInfo(cc_info = cc_info)]
+    if hasattr(cc_common, "CcSharedLibraryHintInfo"):
+        providers.append(cc_common.CcSharedLibraryHintInfo(
             owners = [owner],
-        ),
-    ]
+        ))
+
+    return providers
 
 forwarding_cc_lib_aspect = aspect(
     implementation = _forwarding_cc_lib_aspect_impl,
@@ -310,11 +311,17 @@ wrapped_cc_lib = rule(
 )
 
 def _forwarding_cc_lib_impl(ctx):
-    hints = CcSharedLibraryHintInfo(attributes = ["deps"])
+    hints = cc_common.CcSharedLibraryHintInfo(attributes = ["deps"])
     if ctx.attr.deps:
         return [ctx.attr.deps[0][AspectCcInfo].cc_info, hints]
     else:
         return [ctx.attr.do_not_follow_deps[0][AspectCcInfo].cc_info, hints]
+
+def _get_provides_list():
+    provides = [CcInfo]
+    if hasattr(cc_common, "CcSharedLibraryHintInfo"):
+        provides.append(cc_common.CcSharedLibraryHintInfo)
+    return provides
 
 forwarding_cc_lib = rule(
     implementation = _forwarding_cc_lib_impl,
@@ -322,7 +329,7 @@ forwarding_cc_lib = rule(
         "deps": attr.label_list(providers = [WrappedCcInfo], aspects = [forwarding_cc_lib_aspect]),
         "do_not_follow_deps": attr.label_list(providers = [WrappedCcInfo], aspects = [forwarding_cc_lib_aspect]),
     },
-    provides = [CcInfo, CcSharedLibraryHintInfo],
+    provides = _get_provides_list(),
 )
 
 def _nocode_cc_lib_impl(ctx):
