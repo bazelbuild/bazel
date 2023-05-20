@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -577,5 +578,19 @@ public class PackageLoadingTest extends FoundationTestCase {
     Package p = getPackage("p");
     InputFile f = (InputFile) p.getTarget("f.sh");
     assertThat(f.getLocation().line()).isEqualTo(1);
+  }
+
+  @Test
+  public void testDeterminismOfFailureDetailOnMultipleLabelCrossingSubpackageBoundaryErrors()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("p/sub/BUILD");
+    scratch.file("p/BUILD", "sh_library(name = 'sub/a')", "sh_library(name = 'sub/b')");
+    Package p = getPackage("p");
+    assertThat(p.getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+    // We used to non-deterministically pick a target whose label crossed a subpackage boundary, but
+    // now we deterministically pick the first one (alphabetically by target name).
+    assertThat(p.getFailureDetail().getMessage()).startsWith("Label '//p:sub/a' is invalid");
   }
 }
