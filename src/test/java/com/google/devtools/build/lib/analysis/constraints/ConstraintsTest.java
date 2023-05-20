@@ -1401,4 +1401,26 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertContainsEvent("//hello:lib: the current command line flags disqualify all supported "
         + "environments because of incompatible select() paths");
   }
+
+  @Test
+  public void invalidSelectKeyError() throws Exception {
+    scratch.file(
+        "hello/a/BUILD",
+        "java_library(",
+        "    name = 'a',",
+        "    runtime_deps = ['//hello/b'],",
+        ")");
+    scratch.file(
+        "hello/b/BUILD",
+        "java_library(",
+        "    name = 'b',",
+        "    runtime_deps = select({'//hello/c': []}),",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//hello/a")).isNull();
+    assertContainsEvent(
+        "no such package 'hello/c': BUILD file not found in any of the following directories. Add"
+            + " a BUILD file to a directory to mark it as a package");
+    assertContainsEvent("errors encountered resolving select() keys for //hello/b:b");
+  }
 }

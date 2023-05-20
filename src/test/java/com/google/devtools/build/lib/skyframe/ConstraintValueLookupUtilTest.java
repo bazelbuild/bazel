@@ -127,6 +127,7 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
             .build();
     GetConstraintValueInfoKey key = GetConstraintValueInfoKey.create(ImmutableList.of(targetKey));
 
+    reporter.removeHandler(failFastHandler);
     EvaluationResult<GetConstraintValueInfoValue> result = getConstraintValueInfo(key);
 
     assertThatEvaluationResult(result).hasError();
@@ -137,8 +138,10 @@ public class ConstraintValueLookupUtilTest extends ToolchainTestCase {
     assertThatEvaluationResult(result)
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .hasMessageThat()
-        .contains("no such package 'fake': BUILD file not found");
+        .hasCauseThat()
+        .isInstanceOf(ConfiguredValueCreationException.class);
+
+    assertContainsEvent("no such package 'fake': BUILD file not found");
   }
 
   // Calls ConstraintValueLookupUtil.getConstraintValueInfo.
