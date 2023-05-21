@@ -163,7 +163,7 @@ void JarStripperProcessor::Process(const char *filename, const u4 /*attr*/,
     memcpy(q, data, size);
     builder_->FinishFile(size, /* compress: */ false, /* compute_crc: */ true);
   } else {
-    u1 *buf = reinterpret_cast<u1 *>(malloc(size));
+    u1 *buf = reinterpret_cast<u1 *>(malloc(size * 2));
     u1 *classdata_out = buf;
     if (!StripClass(buf, data, size)) {
       free(classdata_out);
@@ -404,7 +404,7 @@ static void OpenFilesAndProcessJar(const char *file_out, const char *file_in,
   output_length +=
       EstimateManifestOutputSize(target_label, injecting_rule_kind);
 
-  std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length));
+  std::unique_ptr<ZipBuilder> out(ZipBuilder::Create(file_out, output_length * 2));
   if (out == NULL) {
     fprintf(stderr, "Unable to open output file %s: %s\n", file_out,
             strerror(errno));
