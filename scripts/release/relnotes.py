@@ -138,9 +138,7 @@ def get_external_authors_between(base, head):
   authors = git("log", f"{base}..{head}", "--format=%aN|%aE")
   authors = set(
       author.partition("|")[0].rstrip()
-      for author in authors
-      if not (author.endswith(("@google.com", "@users.noreply.github.com")))
-  )
+      for author in authors if not (author.endswith(("@google.com"))))
 
   # Get all co-authors
   contributors = git(
@@ -149,9 +147,7 @@ def get_external_authors_between(base, head):
 
   coauthors = []
   for coauthor in contributors:
-    if coauthor and not re.search(
-        "@google.com|@users.noreply.github.com", coauthor
-    ):
+    if coauthor and not re.search("@google.com", coauthor):
       coauthors.append(
           " ".join(re.sub(r"Co-authored-by: |<.*?>", "", coauthor).split())
       )
@@ -162,11 +158,12 @@ if __name__ == "__main__":
   # Get last release and make sure it's consistent with current X.Y.Z release
   # e.g. if current_release is 5.3.3, last_release should be 5.3.2 even if
   # latest release is 6.1.1
-  current_release = git("rev-parse", "--abbrev-ref", "HEAD")
-  current_release = re.sub(
-      r"rc\d", "", current_release[0].removeprefix("release-")
-  )
+  current_release = git("rev-parse", "--abbrev-ref", "HEAD")[0]
+  if not current_release.startswith("release-"):
+    print("Error: Not a release- branch")
+    sys.exit(1)
 
+  current_release = re.sub(r"rc\d", "", current_release[len("release-"):])
   is_major = bool(re.fullmatch(r"\d+.0.0", current_release))
 
   tags = [tag for tag in git("tag", "--sort=refname") if "pre" not in tag]
