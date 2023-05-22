@@ -504,7 +504,7 @@ public class SkydocMain {
   }
 
   private static void addMorePredeclared(ImmutableMap.Builder<String, Object> env) {
-    // Add dummy declarations that would come from packages.StarlarkLibrary.COMMON
+    // Add dummy declarations that would come from packages.StarlarkGlobals#getUtilToplevels()
     // were Skydoc allowed to depend on it. See hack for select below.
     env.put("json", Json.INSTANCE);
     env.put("proto", new ProtoModule());
