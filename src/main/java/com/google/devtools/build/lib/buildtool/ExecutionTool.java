@@ -287,19 +287,8 @@ public class ExecutionTool {
     }
 
     OutputService outputService = env.getOutputService();
-    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
-    if (outputService != null) {
-      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
-        modifiedOutputFiles =
-            outputService.startBuild(
-                env.getReporter(), request.getId(), request.getBuildOptions().finalizeActions);
-      }
-    } else {
-      // TODO(bazel-team): this could be just another OutputService
-      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
-        startLocalOutputBuild();
-      }
-    }
+    ModifiedFileSet modifiedOutputFiles =
+        startBuildAndDetermineModifiedOutputFiles(request.getId(), outputService);
     if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
       createActionLogDirectory();
@@ -381,19 +370,8 @@ public class ExecutionTool {
     ActionGraph actionGraph = analysisResult.getActionGraph();
 
     OutputService outputService = env.getOutputService();
-    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
-    if (outputService != null) {
-      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
-        modifiedOutputFiles =
-            outputService.startBuild(
-                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
-      }
-    } else {
-      // TODO(bazel-team): this could be just another OutputService
-      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
-        startLocalOutputBuild();
-      }
-    }
+    ModifiedFileSet modifiedOutputFiles =
+        startBuildAndDetermineModifiedOutputFiles(buildId, outputService);
 
     if (outputService == null || outputService.actionFileSystemType().supportsLocalActions()) {
       // Must be created after the output path is created above.
@@ -496,6 +474,31 @@ public class ExecutionTool {
       // NOTE: No finalization activities below will run in the event of a catastrophic error!
       nonCatastrophicFinalizations(buildResult, actionCache, explanationHandler, buildCompleted);
     }
+  }
+
+  private ModifiedFileSet startBuildAndDetermineModifiedOutputFiles(
+      UUID buildId, OutputService outputService)
+      throws BuildFailedException, AbruptExitException, InterruptedException {
+    ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
+    if (outputService != null) {
+      try (SilentCloseable c = Profiler.instance().profile("outputService.startBuild")) {
+        modifiedOutputFiles =
+            outputService.startBuild(
+                env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+      }
+    } else {
+      // TODO(bazel-team): this could be just another OutputService
+      try (SilentCloseable c = Profiler.instance().profile("startLocalOutputBuild")) {
+        startLocalOutputBuild();
+      }
+    }
+    if (!request.getPackageOptions().checkOutputFiles
+        // Do not skip invalidation in case the output tree is empty -- this can happen
+        // after it's cleaned or corrupted.
+        && !modifiedOutputFiles.treatEverythingAsDeleted()) {
+      modifiedOutputFiles = ModifiedFileSet.NOTHING_MODIFIED;
+    }
+    return modifiedOutputFiles;
   }
 
   private void announceEnteringDirIfEmacs() {
@@ -937,12 +940,7 @@ public class ExecutionTool {
                 .setVerboseExplanations(options.verboseExplanations)
                 .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
                 .build()),
-        request.getPackageOptions().checkOutputFiles
-                // Do not skip invalidation in case the output tree is empty -- this can happen
-                // after it's cleaned or corrupted.
-                || modifiedOutputFiles.treatEverythingAsDeleted()
-            ? modifiedOutputFiles
-            : ModifiedFileSet.NOTHING_MODIFIED,
+        modifiedOutputFiles,
         env.getFileCache(),
         prefetcher,
         env.getRuntime().getBugReporter());
