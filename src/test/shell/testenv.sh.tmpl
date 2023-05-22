@@ -813,3 +813,27 @@ EOF
     chmod +x tools/python/$PYTHON3_FILENAME
   fi
 }
+
+function mock_rules_java_to_avoid_downloading() {
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+  touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/java/BUILD"
+  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
+def rules_java_dependencies():
+    pass
+def rules_java_toolchains():
+    pass
+EOF
+  cat > "${rules_java_workspace}/java/defs.bzl" <<EOF
+def java_binary(**attrs):
+    native.java_binary(**attrs)
+def java_library(**attrs):
+    native.java_library(**attrs)
+def java_import(**attrs):
+    native.java_import(**attrs)
+def java_test(**attrs):
+    native.java_test(**attrs)
+EOF
+  add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
+}

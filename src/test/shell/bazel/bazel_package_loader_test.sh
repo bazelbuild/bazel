@@ -21,6 +21,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh"
 
 TESTER="$(rlocation io_bazel/src/main/java/com/google/devtools/build/lib/skyframe/packages/testing/BazelPackageLoaderTester)"
 
+mock_rules_java_to_avoid_downloading
 
 function test_bazel_package_loader() {
   install_base="$(bazel info install_base)"
@@ -36,19 +37,8 @@ sh_library(name = 'y')
 sh_library(name = 'z')
 EOF
 
-  # Mock rules_java to avoid having to download it.
+  # Override rules_java in WORKSPACE
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
-  mkdir -p "${rules_java_workspace}/java"
-
-  touch "${rules_java_workspace}/WORKSPACE"
-  touch "${rules_java_workspace}/java/BUILD"
-  cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
-def rules_java_dependencies():
-    pass
-def rules_java_toolchains():
-    pass
-EOF
-
   cat > WORKSPACE <<EOF
 local_repository(
     name = "rules_java",

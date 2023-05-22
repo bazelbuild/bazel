@@ -284,7 +284,7 @@ EOF
 
 
 function test_genrule() {
-  cat << EOF > WORKSPACE
+  cat << EOF >> WORKSPACE
 load("@bazel_tools//tools/jdk:local_java_repository.bzl", "local_java_repository")
 local_java_repository(
     name = "foo_javabase",
