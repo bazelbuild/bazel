@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaCompileAction.ProgressMessage;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collections;
@@ -180,8 +178,6 @@ public final class JavaCompileActionBuilder {
   public JavaCompileAction build() {
     // TODO(bazel-team): all the params should be calculated before getting here, and the various
     // aggregation code below should go away.
-    ImmutableList<String> internedJcopts =
-        javacOpts.stream().map(StringCanonicalizer::intern).collect(toImmutableList());
 
     // Invariant: if strictJavaDeps is OFF, then directJars and
     // dependencyArtifacts are ignored
@@ -230,7 +226,7 @@ public final class JavaCompileActionBuilder {
             plugins.processorClasses(),
             sourceJars,
             sourceFiles,
-            internedJcopts);
+            javacOpts);
 
     // TODO(b/123076347): outputDepsProto should never be null if SJD is enabled
     if (strictJavaDeps == StrictDepsMode.OFF || outputs.depsProto() == null) {
@@ -282,7 +278,7 @@ public final class JavaCompileActionBuilder {
         /* executionInfo= */ executionInfo,
         /* extraActionInfoSupplier= */ extraActionInfoSupplier,
         /* executableLine= */ executableLine,
-        /* flagLine= */ buildParamFileContents(internedJcopts, stripOutputPaths),
+        /* flagLine= */ buildParamFileContents(javacOpts, stripOutputPaths),
         /* configuration= */ ruleContext.getConfiguration(),
         /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
         /* outputDepsProto= */ outputs.depsProto(),

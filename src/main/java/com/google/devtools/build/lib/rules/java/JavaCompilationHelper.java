@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
@@ -62,6 +64,9 @@ import javax.annotation.Nullable;
  * <p>Also supports the creation of resource and source only Jars.
  */
 public final class JavaCompilationHelper {
+
+  private static final Interner<ImmutableList<String>> javacOptsInterner =
+      BlazeInterners.newWeakInterner();
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
@@ -87,7 +92,7 @@ public final class JavaCompilationHelper {
     this.ruleContext = ruleContext;
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.attributes = attributes;
-    this.customJavacOpts = javacOpts;
+    this.customJavacOpts = javacOptsInterner.intern(javacOpts);
     this.semantics = semantics;
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
     this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
@@ -182,8 +187,7 @@ public final class JavaCompilationHelper {
     if (usesAnnotationProcessing()) {
       builder.genClass(deriveOutput(output, "-gen")).genSource(deriveOutput(output, "-gensrc"));
     }
-    JavaCompileOutputs<Artifact> result = builder.build();
-    return result;
+    return builder.build();
   }
 
   public JavaCompileOutputs<Artifact> createOutputs(JavaOutput output) {
@@ -296,12 +300,14 @@ public final class JavaCompilationHelper {
       plugins =
           JavaPluginInfo.JavaPluginData.merge(
               ImmutableList.of(plugins, jspecifyInfo.jspecifyProcessor()));
+      var jspecifyOpts = jspecifyInfo.jspecifyJavacopts();
       javacopts =
-          ImmutableList.<String>builder()
-              .addAll(javacopts)
-              // Add JSpecify options last to discourage overriding them, at least for now.
-              .addAll(jspecifyInfo.jspecifyJavacopts())
-              .build();
+          javacOptsInterner.intern(
+              ImmutableList.<String>builderWithExpectedSize(javacopts.size() + jspecifyOpts.size())
+                  .addAll(javacopts)
+                  // Add JSpecify options last to discourage overriding them, at least for now.
+                  .addAll(jspecifyOpts)
+                  .build());
     }
 
     JavaCompileActionBuilder builder =
