@@ -61,4 +61,7 @@ public interface StarlarkGlobals {
 
   /** Returns the fixed top-levels for .bzl files, excluding the {@code native} object. */
   ImmutableMap<String, Object> getFixedBzlToplevels();
+
+  /** Returns the top-levels for .scl files. */
+  ImmutableMap<String, Object> getSclToplevels();
 }

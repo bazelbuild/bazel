@@ -144,7 +144,9 @@ public class BzlCompileFunction implements SkyFunction {
     }
 
     Map<String, Object> predeclared;
-    if (key.kind == BzlCompileValue.Kind.BUILTINS) {
+    if (key.isSclDialect()) {
+      predeclared = bazelStarlarkEnvironment.getStarlarkGlobals().getSclToplevels();
+    } else if (key.kind == BzlCompileValue.Kind.BUILTINS) {
       predeclared = bazelStarlarkEnvironment.getBuiltinsBzlEnv();
     } else {
       // Use the predeclared environment for BUILD-loaded bzl files, ignoring injection. It is not

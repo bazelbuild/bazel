@@ -102,4 +102,22 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
 
     return env.buildOrThrow();
   }
+
+  @Override
+  public ImmutableMap<String, Object> getSclToplevels() {
+    // TODO(bazel-team): We only want the visibility() symbol from BazelBuildApiGlobals, nothing
+    // else, but Starlark#addMethods doesn't allow that kind of granularity, and the Starlark
+    // interpreter doesn't provide any other way to turn a Java method definition into a
+    // callable symbol. So we hack it by building the map of all symbols in that class and
+    // retrieving just the one we want. The alternative of refactoring the class is more churn than
+    // its worth, given the starlarkbuildapi/ split.
+    ImmutableMap.Builder<String, Object> bazelBuildApiGlobalsSymbols = ImmutableMap.builder();
+    Starlark.addMethods(bazelBuildApiGlobalsSymbols, new BazelBuildApiGlobals());
+    Object visibilitySymbol = bazelBuildApiGlobalsSymbols.buildOrThrow().get("visibility");
+
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    env.put("visibility", visibilitySymbol);
+    env.put("struct", StructProvider.STRUCT);
+    return env.buildOrThrow();
+  }
 }
