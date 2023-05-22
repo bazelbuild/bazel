@@ -555,10 +555,8 @@ def _cc_shared_library_impl(ctx):
     runfiles = ctx.runfiles(
         files = runfiles_files,
     )
-    transitive_debug_files = []
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
-        transitive_debug_files.append(dep[OutputGroupInfo].rule_impl_debug_files)
 
     precompiled_only_dynamic_libraries_runfiles = []
     for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
@@ -571,16 +569,6 @@ def _cc_shared_library_impl(ctx):
 
     for export in deps:
         exports[str(export.label)] = True
-
-    debug_files = []
-    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
-
-    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + curr_link_once_static_libs_set), output = link_once_static_libs_debug_file)
-
-    debug_files.append(exports_debug_file)
-    debug_files.append(link_once_static_libs_debug_file)
 
     if not semantics.get_experimental_link_static_libraries_once(ctx):
         curr_link_once_static_libs_set = {}
@@ -607,7 +595,6 @@ def _cc_shared_library_impl(ctx):
         OutputGroupInfo(
             main_shared_library_output = depset(library),
             interface_library = depset(interface_library),
-            rule_impl_debug_files = depset(direct = debug_files, transitive = transitive_debug_files),
         ),
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,

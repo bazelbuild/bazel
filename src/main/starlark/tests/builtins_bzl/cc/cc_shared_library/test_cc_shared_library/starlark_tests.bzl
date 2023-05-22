@@ -157,25 +157,6 @@ def _paths_test_macro(name):
 
 paths_test = _paths_test_macro
 
-def _debug_files_test_impl(env, target):
-    expected_files = [
-        "bar_so_exports.txt",
-        "bar_so_link_once_static_libs.txt",
-        "diff_pkg_so_exports.txt",
-        "diff_pkg_so_link_once_static_libs.txt",
-        "foo_so_exports.txt",
-        "foo_so_link_once_static_libs.txt",
-        "binary_link_once_static_libs.txt",
-    ]
-
-    actual_files = []
-    for debug_file in target[OutputGroupInfo].rule_impl_debug_files.to_list():
-        actual_files.append(debug_file.basename)
-
-    env.expect.that_collection(expected_files).contains_exactly(actual_files)
-
-debug_files_test = _debug_files_test_impl
-
 def _runfiles_test_impl(env, target):
     if not env.ctx.target_platform_has_constraint(env.ctx.attr._is_linux[platform_common.ConstraintValueInfo]):
         return
