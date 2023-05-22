@@ -11,13 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.toolchains;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.DetailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** Base class for exceptions that happen during toolchain resolution. */
@@ -56,7 +58,7 @@ public abstract class ToolchainException extends Exception implements DetailedEx
    *
    * <p>If one cannot be found, make a new one.
    */
-  ConfiguredValueCreationException asConfiguredValueCreationException(
+  public ConfiguredValueCreationException asConfiguredValueCreationException(
       TargetAndConfiguration targetAndConfiguration) {
     for (Throwable cause = getCause();
         cause != null && cause != cause.getCause();

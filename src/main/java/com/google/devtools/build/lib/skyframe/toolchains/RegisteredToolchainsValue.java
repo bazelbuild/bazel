@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.toolchains;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.platform.DeclaredToolchainInfo;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -23,19 +26,18 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value which represents every execution platform known to Bazel and available to run actions.
+ * A value which represents every toolchain known to Bazel and available for toolchain resolution.
  */
 @AutoValue
-public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
+public abstract class RegisteredToolchainsValue implements SkyValue {
 
-  /** Returns the {@link SkyKey} for {@link RegisteredExecutionPlatformsValue}s. */
-  public static SkyKey key(BuildConfigurationKey configurationKey) {
+  /** Returns the {@link SkyKey} for {@link RegisteredToolchainsValue}s. */
+  public static Key key(BuildConfigurationKey configurationKey) {
     return Key.of(configurationKey);
   }
 
-  /** {@link SkyKey} implementation used for {@link RegisteredExecutionPlatformsFunction}. */
+  /** A {@link SkyKey} for {@code RegisteredToolchainsValue}. */
   @AutoCodec
-  @AutoCodec.VisibleForSerialization
   static class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
@@ -53,11 +55,21 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.REGISTERED_EXECUTION_PLATFORMS;
+      return SkyFunctions.REGISTERED_TOOLCHAINS;
     }
 
     BuildConfigurationKey getConfigurationKey() {
       return configurationKey;
+    }
+
+    @Override
+    public String toString() {
+      return new StringBuilder()
+          .append("RegisteredToolchainsValue.Key{")
+          .append("configurationKey: ")
+          .append(configurationKey)
+          .append("}")
+          .toString();
     }
 
     @Override
@@ -80,11 +92,10 @@ public abstract class RegisteredExecutionPlatformsValue implements SkyValue {
     }
   }
 
-  static RegisteredExecutionPlatformsValue create(
-      Iterable<ConfiguredTargetKey> registeredExecutionPlatformKeys) {
-    return new AutoValue_RegisteredExecutionPlatformsValue(
-        ImmutableList.copyOf(registeredExecutionPlatformKeys));
+  public static RegisteredToolchainsValue create(
+      ImmutableList<DeclaredToolchainInfo> registeredToolchains) {
+    return new AutoValue_RegisteredToolchainsValue(registeredToolchains);
   }
 
-  public abstract ImmutableList<ConfiguredTargetKey> registeredExecutionPlatformKeys();
+  public abstract ImmutableList<DeclaredToolchainInfo> registeredToolchains();
 }

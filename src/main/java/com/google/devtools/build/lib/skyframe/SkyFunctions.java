@@ -123,11 +123,11 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("ACTION_TEMPLATE_EXPANSION");
   public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
       SkyFunctionName.createHermetic("LOCAL_REPOSITORY_LOOKUP");
-  static final SkyFunctionName REGISTERED_EXECUTION_PLATFORMS =
+  public static final SkyFunctionName REGISTERED_EXECUTION_PLATFORMS =
       SkyFunctionName.createHermetic("REGISTERED_EXECUTION_PLATFORMS");
-  static final SkyFunctionName REGISTERED_TOOLCHAINS =
+  public static final SkyFunctionName REGISTERED_TOOLCHAINS =
       SkyFunctionName.createHermetic("REGISTERED_TOOLCHAINS");
-  static final SkyFunctionName SINGLE_TOOLCHAIN_RESOLUTION =
+  public static final SkyFunctionName SINGLE_TOOLCHAIN_RESOLUTION =
       SkyFunctionName.createHermetic("SINGLE_TOOLCHAIN_RESOLUTION");
   public static final SkyFunctionName TOOLCHAIN_RESOLUTION =
       SkyFunctionName.createHermetic("TOOLCHAIN_RESOLUTION");

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
@@ -19,12 +19,11 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
-import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
-import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
+import com.google.devtools.build.lib.skyframe.toolchains.ConstraintValueLookupUtil.InvalidConstraintValueException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -234,7 +233,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
         ToolchainTypeRequirement.create(secondToolchainTypeLabel);
-    ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
     scratch.file("second/BUILD", "toolchain_type(name = 'toolchain_type')");
 
     addToolchain(
@@ -298,7 +296,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
         ToolchainTypeRequirement.builder(secondToolchainTypeLabel).mandatory(false).build();
-    ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
     scratch.file("second/BUILD", "toolchain_type(name = 'toolchain_type')");
 
     addToolchain(
@@ -343,7 +340,6 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     Label secondToolchainTypeLabel = Label.parseCanonicalUnchecked("//second:toolchain_type");
     ToolchainTypeRequirement secondToolchainTypeRequirement =
         ToolchainTypeRequirement.builder(secondToolchainTypeLabel).mandatory(false).build();
-    ToolchainTypeInfo secondToolchainTypeInfo = ToolchainTypeInfo.create(secondToolchainTypeLabel);
     scratch.file("second/BUILD", "toolchain_type(name = 'toolchain_type')");
 
     addToolchain(

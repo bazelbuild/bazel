@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
 
 /**

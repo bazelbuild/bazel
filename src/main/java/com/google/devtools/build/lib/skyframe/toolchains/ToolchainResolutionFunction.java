@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -34,12 +34,14 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.server.FailureDetails.Toolchain.Code;
-import com.google.devtools.build.lib.skyframe.ConstraintValueLookupUtil.InvalidConstraintValueException;
-import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
-import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.InvalidToolchainLabelException;
-import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
-import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ConstraintValueLookupUtil.InvalidConstraintValueException;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction.InvalidExecutionPlatformLabelException;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction.InvalidToolchainLabelException;
+import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -283,8 +285,9 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .build();
 
     // Load the host and target platforms early, to check for errors.
-    PlatformLookupUtil.getPlatformInfo(
-        ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
+    var unused =
+        PlatformLookupUtil.getPlatformInfo(
+            ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }

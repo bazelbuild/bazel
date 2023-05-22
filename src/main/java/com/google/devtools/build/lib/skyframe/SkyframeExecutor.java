@@ -199,6 +199,11 @@ import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryM
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
+import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.SingleToolchainResolutionFunction;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainResolutionFunction;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;

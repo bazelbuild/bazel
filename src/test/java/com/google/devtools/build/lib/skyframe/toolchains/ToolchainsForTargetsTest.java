@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.skyframe;
+package com.google.devtools.build.lib.skyframe.toolchains;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
@@ -44,6 +44,10 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
+import com.google.devtools.build.lib.skyframe.PrerequisiteProducer;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -96,7 +100,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   /**
-   * Returns a {@link ToolchainCollection<UnloadedToolchainContext>} as the result of {@link
+   * Returns a {@link ToolchainCollection< UnloadedToolchainContext >} as the result of {@link
    * PrerequisiteProducer#getDependencyContext}.
    */
   @AutoValue

@@ -43,6 +43,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContextImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
