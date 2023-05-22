@@ -455,6 +455,31 @@ public final class RemoteModuleTest {
   }
 
   @Test
+  public void testCacheCapabilities_propagatedToRemoteCache() throws Exception {
+    CapabilitiesImpl cacheServerCapabilitiesImpl = new CapabilitiesImpl(CACHE_ONLY_CAPS);
+    Server cacheServer = createFakeServer(CACHE_SERVER_NAME, cacheServerCapabilitiesImpl);
+    cacheServer.start();
+
+    try {
+      remoteOptions.remoteCache = CACHE_SERVER_NAME;
+
+      CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
+
+      remoteModule.beforeCommand(env);
+
+      assertThat(Thread.interrupted()).isFalse();
+      RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
+      assertThat(actionContextProvider).isNotNull();
+      assertThat(actionContextProvider.getRemoteCache()).isNotNull();
+      assertThat(actionContextProvider.getRemoteCache().getCacheCapabilities())
+          .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
+    } finally {
+      cacheServer.shutdownNow();
+      cacheServer.awaitTermination();
+    }
+  }
+
+  @Test
   public void testCacheCapabilities_propagatedToRemoteExecutionCache() throws Exception {
     CapabilitiesImpl executionServerCapabilitiesImpl = new CapabilitiesImpl(EXEC_AND_CACHE_CAPS);
     Server executionServer = createFakeServer(EXECUTION_SERVER_NAME, executionServerCapabilitiesImpl);
@@ -537,7 +562,7 @@ public final class RemoteModuleTest {
       circuitBreaker = ((GrpcRemoteExecutor) actionContextProvider.getRemoteExecutionClient())
           .getRetrier().getCircuitBreaker();
     } else {
-      // no assert
+      // no remote cache or execution configured, circuitBreaker is null
       return;
     }
 
