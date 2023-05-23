@@ -150,6 +150,8 @@ upper_tabs:
         path: /configure/attributes
       - title: Integrating with C++ rules
         path: /configure/integrate-cpp
+      - title: Implementing toolchain resolution
+        path: /configure/toolchain-resolution
       - title: Code coverage with Bazel
         path: /configure/coverage
       - heading: Optimizing Bazel
