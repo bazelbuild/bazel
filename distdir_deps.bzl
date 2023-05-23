@@ -616,7 +616,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_linux_for_testing",
             "openjdk17_linux_archive",
-            "openjdk_linux_vanilla",
         ],
         "archive": "zulu17.38.21-ca-jdk17.0.5-linux_x64.tar.gz",
         "sha256": "20c91a922eec795f3181eaa70def8b99d8eac56047c9a14bfb257c85b991df1b",
@@ -745,6 +744,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk20_linux_for_testing",
             "openjdk20_linux_archive",
+            "openjdk_linux_vanilla",
         ],
         "archive": "zulu20.28.85-ca-jdk20.0.0-linux_x64.tar.gz",
         "sha256": "0386418db7f23ae677d05045d30224094fc13423593ce9cd087d455069893bac",
