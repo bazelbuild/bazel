@@ -111,8 +111,6 @@ landing_page:
       path: /configure/attributes
     - heading: Integrating with C++ rules
       path: /configure/integrate-cpp
-    - heading: Implementing toolchain resolution
-      path: /configure/toolchain-resolution
     - heading: Code coverage with Bazel
       path: /configure/coverage
     - heading: "Optimizing Bazel: Best practices"
