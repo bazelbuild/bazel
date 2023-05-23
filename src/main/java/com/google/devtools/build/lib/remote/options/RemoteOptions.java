@@ -673,15 +673,15 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public CircuitBreakerStrategy circuitBreakerStrategy;
 
   @Option(
-      name = "experimental_remote_failure_threshold",
-      defaultValue = "100",
+      name = "experimental_remote_failure_rate_threshold",
+      defaultValue = "10",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
+      converter = Converters.PercentageConverter.class,
       help =
-          "Sets the allowed number of failures in a specific time window after which it stops"
-              + " calling to the remote cache/executor. By default the value is 100. Setting this"
-              + " to 0 or negative means no limitation.")
-  public int remoteFailureThreshold;
+          "Sets the allowed number of failure rate in a specific time window after which it stops calling to the "
+              + "remote cache/executor. By default the value is 10. Setting this to 0 means no limitation.")
+  public int remoteFailureRateThreshold;
 
   @Option(
       name = "experimental_remote_failure_window_interval",
