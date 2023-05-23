@@ -2,6 +2,8 @@ package com.google.devtools.build.lib.hash;
 
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Blake3Hasher extends AbstractHasher {
@@ -11,6 +13,7 @@ public class Blake3Hasher extends AbstractHasher {
   public static final int OUT_LEN = 32;
 
   private final ReentrantLock rl = new ReentrantLock();
+  private static ThreadLocal<ByteBuffer> nativeByteBuffer = new ThreadLocal<ByteBuffer>();
   private long hasher = -1;
 
   public boolean isValid() {
@@ -72,31 +75,40 @@ public class Blake3Hasher extends AbstractHasher {
     }
   }
 
-  public void update(byte[] data) {
-    rl.lock();
-    checkValid();
-
-    try {
-      Blake3JNI.blake3_hasher_update(hasher, data, data.length);
-    } finally {
-      rl.unlock();
-    }
+   public void update(byte[] data) {
+    update(data, 0, data.length);
   }
 
-  public void update(byte[] data, int length) {
+  public void update(byte[] data, int offset, int length) {
+    ByteBuffer inputBuf = nativeByteBuffer.get();
+
+    if (inputBuf == null || inputBuf.capacity() < data.length) {
+      inputBuf = ByteBuffer.allocateDirect(data.length);
+      inputBuf.order(ByteOrder.nativeOrder());
+      nativeByteBuffer.set(inputBuf);
+    }
+    inputBuf.rewind();
+    inputBuf.put(data);
+
     rl.lock();
     checkValid();
 
     try {
-      Blake3JNI.blake3_hasher_update(hasher, data, length);
+      Blake3JNI.blake3_hasher_update(hasher, inputBuf, offset, data.length);
     } finally {
       rl.unlock();
     }
   }
 
   @Override
+  public Hasher putBytes(byte[] bytes, int off, int len) {
+      update(bytes, off, len);
+      return this;
+  }
+
+  @Override
   public Hasher putBytes(byte[] bytes) {
-    update(bytes, bytes.length);
+    update(bytes, 0, bytes.length);
     return this;
   }
 

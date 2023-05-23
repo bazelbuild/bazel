@@ -83,14 +83,14 @@ extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3
   return env->ReleaseStringUTFChars(context, ctx);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1update
-  (JNIEnv *env, jobject obj, jlong self, jbyteArray input, jint input_len)
-{
-  jbyte *input_addr = get_byte_array(env, input);
+extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1update(
+    JNIEnv *env, jobject obj, jlong self, jobject byteBuffer, jint offset, jint input_len) {    
+  void *input =
+      (void *)((char *)env->GetDirectBufferAddress(byteBuffer) + offset);
 
-  blake3_hasher_update(hasher_ptr(self), input_addr, input_len);
+  blake3_hasher_update(hasher_ptr(self), input, input_len);
 
-  return release_byte_array(env, input, input_addr);
+  return;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1finalize

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.hash;
 
 import com.google.devtools.build.lib.jni.JniLoader;
+import java.nio.ByteBuffer;
 
 public class Blake3JNI {
   private Blake3JNI() {}
@@ -33,7 +34,7 @@ public class Blake3JNI {
 
   public static final native void blake3_hasher_init_derive_key(long self, String context);
 
-  public static final native void blake3_hasher_update(long self, byte[] input, int input_len);
+  public static final native void blake3_hasher_update(long self, ByteBuffer inputBuf, int offset, int input_len);
 
   public static final native void blake3_hasher_finalize(long self, byte[] out, int out_len);
 
