@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
+import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -488,7 +490,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               canonicalId,
               Optional.<String>absent(),
               outputPath.getPath(),
-              env.getListener(),
+              allowFail ? NullEventHandler.INSTANCE : env.getListener(),
               envVariables,
               getIdentifyingStringForLogging());
       if (executable) {
