@@ -276,6 +276,16 @@ public class CommonQueryOptions extends OptionsBase {
               + "Starlark call stack at the moment the rule's class was defined.")
   public boolean protoIncludeDefinitionStack;
 
+  @Option(
+      name = "proto:include_attribute_source_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Populate the source_aspect_name proto field of each Attribute with the source aspect "
+              + "that the attribute came from (empty string if it did not).")
+  public boolean protoIncludeAttributeSourceAspects;
+
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {

@@ -294,7 +294,9 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                 attr,
                 attributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
-                /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+                /* encodeBooleanAndTriStateAsIntegerAndString= */ true,
+                /* sourceAspect= */ null,
+                includeAttributeSourceAspects);
         rulePb.addAttribute(serializedAttribute);
       }
     }
