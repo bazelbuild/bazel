@@ -42,7 +42,10 @@ public abstract class SkyValueDirtinessChecker {
   public abstract SkyValue createNewValue(
       SkyKey key, SyscallCache syscallCache, @Nullable TimestampGranularityMonitor tsgm);
 
-  /** Returns the max transitive source version of a {@link SkyKey} for its new {@link SkyValue}. */
+  /**
+   * Returns the max transitive source version (mtsv) of a {@link SkyKey} for its new {@link
+   * SkyValue}.
+   */
   @Nullable
   public Version getMaxTransitiveSourceVersionForNewValue(SkyKey key, SkyValue value) {
     return null;
@@ -54,21 +57,16 @@ public abstract class SkyValueDirtinessChecker {
   public DirtyResult check(
       SkyKey key,
       @Nullable SkyValue oldValue,
+      @Nullable Version oldMtsv,
       SyscallCache syscallCache,
       @Nullable TimestampGranularityMonitor tsgm) {
     SkyValue newValue = createNewValue(key, syscallCache, tsgm);
     if (newValue == null) {
       return DirtyResult.dirty();
     }
-    if (newValue.equals(oldValue)) {
-      return DirtyResult.notDirty();
-    }
-    @Nullable Version mtsv = getMaxTransitiveSourceVersionForNewValue(key, newValue);
-    if (mtsv != null) {
-      return DirtyResult.dirtyWithNewValueAndMaxTransitiveSourceVersion(newValue, mtsv);
-    }
-    // TODO(b/228090733) - handle null MTSV's
-    return DirtyResult.dirtyWithNewValue(newValue);
+    return newValue.equals(oldValue)
+        ? DirtyResult.notDirty()
+        : DirtyResult.dirtyWithNewValue(newValue);
   }
 
   /** An encapsulation of the result of checking to see if a value is up to date. */
