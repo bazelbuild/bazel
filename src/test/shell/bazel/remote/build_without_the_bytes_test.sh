@@ -360,7 +360,7 @@ EOF
 # Test that --remote_download_toplevel fetches inputs to symlink actions. In
 # particular, cc_binary links against a symlinked imported .so file, and only
 # the symlink is in the runfiles.
-function test_downloads_toplevel_symlinks() {
+function test_downloads_toplevel_symlink_action() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
     # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
@@ -409,25 +409,60 @@ EOF
   ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
 }
 
-function test_symlink_outputs_warning_with_minimal() {
-  mkdir -p a
-  cat > a/input.txt <<'EOF'
-Input file
-EOF
-  cat > a/BUILD <<'EOF'
-genrule(
-  name = "foo",
-  srcs = ["input.txt"],
-  outs = ["output.txt", "output_symlink", "output_symlink_2"],
-  cmd = "cp $< $(location :output.txt) && ln -s output.txt $(location output_symlink) && ln -s output.txt $(location output_symlink_2)",
+function setup_symlink_output() {
+  mkdir -p pkg
+
+  cat > pkg/defs.bzl <<EOF
+def _impl(ctx):
+  sym = ctx.actions.declare_symlink(ctx.label.name)
+  ctx.actions.run_shell(
+    outputs = [sym],
+    command = "ln -s {} {}".format(ctx.attr.target, sym.path),
+  )
+  return DefaultInfo(files = depset([sym]))
+
+symlink = rule(
+  implementation = _impl,
+  attrs = {
+    "target": attr.string(),
+  },
 )
 EOF
+
+  cat > pkg/BUILD <<EOF
+load(":defs.bzl", "symlink")
+symlink(
+  name = "sym",
+  target = "target.txt",
+)
+EOF
+}
+
+function test_downloads_toplevel_non_dangling_symlink_output() {
+  setup_symlink_output
+  touch pkg/target.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
+
+  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
+    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
+  fi
+}
+
+function test_downloads_toplevel_dangling_symlink_output() {
+  setup_symlink_output
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    //a:foo >& $TEST_log || fail "Expected build of //a:foo to succeed"
-  expect_log "Symlinks in action outputs are not yet supported"
+    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
+
+  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
+    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
+  fi
 }
 
 # Regression test that --remote_download_toplevel does not crash when the
