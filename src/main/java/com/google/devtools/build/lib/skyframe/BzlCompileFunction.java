@@ -169,6 +169,13 @@ public class BzlCompileFunction implements SkyFunction {
             // statements whose bindings are intended to be visible in all BUILD
             // files. The loadBindsGlobally flag allows us to retrieve them.
             .loadBindsGlobally(key.isBuildPrelude())
+            // .scl files should be ASCII-only in string literals.
+            // TODO(bazel-team): It'd be nice if we could intercept non-ASCII errors from the lexer,
+            // and modify the displayed message to clarify to the user that the string would be
+            // permitted in a .bzl file. But there's no easy way to do that short of either string
+            // matching the error message or reworking the interpreter API to put more structured
+            // detail in errors (i.e. new fields or error subclasses).
+            .stringLiteralsAreAsciiOnly(key.isSclDialect())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
 

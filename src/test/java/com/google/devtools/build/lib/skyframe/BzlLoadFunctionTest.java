@@ -342,6 +342,24 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertContainsEvent("name 'depset' is not defined");
   }
 
+  @Test
+  public void testSclDisallowsNonAsciiStringLiterals() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.bzl", //
+        "'x\377z'"); // xÿz
+    scratch.file(
+        "pkg/ext2.scl", //
+        "'x\377z'");
+
+    checkSuccessfulLookup("//pkg:ext1.bzl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
+    assertContainsEvent("string literal contains non-ASCII character");
+  }
+
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
