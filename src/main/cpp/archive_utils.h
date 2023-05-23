@@ -35,6 +35,13 @@ void ExtractArchiveOrDie(const std::string &archive_path,
                          const std::string &expected_install_md5,
                          const std::string &output_dir);
 
+// Sets the timestamps of the extracted files to the future via
+// blaze_util::IFileMtime::SetToDistanceFuture and ensures that the files we
+// have written are actually on the disk. Later, the blaze client calls
+// blaze_util::IFileMtime::IsUntampered to ensure the files were "blessed" with
+// these distant mtimes.
+void BlessFiles(const std::string &embedded_binaries);
+
 // Retrieves the build label (version string) from `archive_path` into
 // `build_label`.
 void ExtractBuildLabel(const std::string &archive_path,

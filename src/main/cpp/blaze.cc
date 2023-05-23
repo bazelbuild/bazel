@@ -901,58 +901,6 @@ static void StartServerAndConnect(
   delete server_startup;
 }
 
-static void BlessFiles(const string &embedded_binaries) {
-  blaze_util::Path embedded_binaries_(embedded_binaries);
-
-  // Set the timestamps of the extracted files to the future and make sure (or
-  // at least as sure as we can...) that the files we have written are actually
-  // on the disk.
-
-  vector<string> extracted_files;
-
-  // Walks the temporary directory recursively and collects full file paths.
-  blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
-
-  std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
-  set<blaze_util::Path> synced_directories;
-  for (const auto &f : extracted_files) {
-    blaze_util::Path it(f);
-
-    // Set the time to a distantly futuristic value so we can observe tampering.
-    // Note that keeping a static, deterministic timestamp, such as the default
-    // timestamp set by unzip (1970-01-01) and using that to detect tampering is
-    // not enough, because we also need the timestamp to change between Bazel
-    // releases so that the metadata cache knows that the files may have
-    // changed. This is essential for the correctness of actions that use
-    // embedded binaries as artifacts.
-    if (!mtime->SetToDistantFuture(it)) {
-      string err = GetLastErrorString();
-      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
-          << "failed to set timestamp on '" << it.AsPrintablePath()
-          << "': " << err;
-    }
-
-    blaze_util::SyncFile(it);
-
-    blaze_util::Path directory = it.GetParent();
-
-    // Now walk up until embedded_binaries and sync every directory in between.
-    // synced_directories is used to avoid syncing the same directory twice.
-    // The !directory.empty() and !blaze_util::IsRootDirectory(directory)
-    // conditions are not strictly needed, but it makes this loop more robust,
-    // because otherwise, if due to some glitch, directory was not under
-    // embedded_binaries, it would get into an infinite loop.
-    while (directory != embedded_binaries_ && !directory.IsEmpty() &&
-           !blaze_util::IsRootDirectory(directory) &&
-           synced_directories.insert(directory).second) {
-      blaze_util::SyncFile(directory);
-      directory = directory.GetParent();
-    }
-  }
-
-  blaze_util::SyncFile(embedded_binaries_);
-}
-
 // Installs Blaze by extracting the embedded data files, iff necessary.
 // The MD5-named install_base directory on disk is trusted; we assume
 // no-one has modified the extracted files beneath this directory once
