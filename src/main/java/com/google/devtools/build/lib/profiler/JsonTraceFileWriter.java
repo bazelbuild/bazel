@@ -202,8 +202,13 @@ class JsonTraceFileWriter implements Runnable {
               && data instanceof TaskData
               && isCandidateForMerging((TaskData) data)) {
             TaskData taskData = (TaskData) data;
-            eventsPerThread.putIfAbsent(taskData.threadId, new MergedEvent());
-            TaskData mergedTaskData = eventsPerThread.get(taskData.threadId).maybeMerge(taskData);
+            MergedEvent newMergedEvent = new MergedEvent();
+            MergedEvent mergedEvent =
+                eventsPerThread.putIfAbsent(taskData.threadId, newMergedEvent);
+            if (mergedEvent == null) {
+              mergedEvent = newMergedEvent;
+            }
+            TaskData mergedTaskData = mergedEvent.maybeMerge(taskData);
             if (mergedTaskData != null) {
               mergedTaskData.writeTraceData(writer, profileStartTimeNanos);
             }
