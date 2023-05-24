@@ -3543,7 +3543,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     Path workspacePath = directories.getWorkspace();
     EvaluationResult<SkyValue> evaluationResult =
-      evaluateSkyKeys(eventHandler, ImmutableList.of(IgnoredPackagePrefixesValue.key()), false);
+      evaluateSkyKeys(eventHandler, ImmutableList.of(IgnoredPackagePrefixesValue.key()));
     IgnoredPackagePrefixesValue ignoredPackagePrefixesValue = (IgnoredPackagePrefixesValue)
       evaluationResult.get(IgnoredPackagePrefixesValue.key());
 
