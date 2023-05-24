@@ -497,7 +497,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//java/test:custom");
     JavaInfo info = configuredTarget.get(JavaInfo.PROVIDER);
     JavaCompilationArgsProvider compilationArgs =
-        info.getProviders().getProvider(JavaCompilationArgsProvider.class);
+        info.getProvider(JavaCompilationArgsProvider.class);
     JavaCompilationInfoProvider compilationInfo = info.getCompilationInfoProvider();
     JavaSourceJarsProvider sourceJarsProvider = info.getProvider(JavaSourceJarsProvider.class);
 

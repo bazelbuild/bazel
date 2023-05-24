@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -93,35 +91,6 @@ public final class JavaInfo extends NativeInfo
 
   // Whether or not this library should be used only for compilation and not at runtime.
   private final boolean neverlink;
-
-  public TransitiveInfoProviderMap getProviders() {
-    TransitiveInfoProviderMapBuilder builder = new TransitiveInfoProviderMapBuilder();
-    if (providerJavaCompilationArgs != null) {
-      builder.add(providerJavaCompilationArgs);
-    }
-    if (providerJavaSourceJars != null) {
-      builder.add(providerJavaSourceJars);
-    }
-    if (providerJavaRuleOutputJars != null) {
-      builder.add(providerJavaRuleOutputJars);
-    }
-    if (providerJavaGenJars != null) {
-      builder.add(providerJavaGenJars);
-    }
-    if (providerJavaCompilationInfo != null) {
-      builder.add(providerJavaCompilationInfo);
-    }
-    if (providerJavaCcInfo != null) {
-      builder.add(providerJavaCcInfo);
-    }
-    if (providerModuleFlags != null) {
-      builder.add(providerModuleFlags);
-    }
-    if (providerJavaPlugin != null) {
-      builder.put(providerJavaPlugin);
-    }
-    return builder.build();
-  }
 
   @Nullable
   public JavaPluginInfo getJavaPluginInfo() {
