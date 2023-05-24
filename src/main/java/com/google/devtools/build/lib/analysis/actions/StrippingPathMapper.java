@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -103,6 +102,10 @@ public final class StrippingPathMapper {
         args.accept(CommandLineItem.expandToCommandLine(object));
       }
     };
+    // This kind of special handling should not be extended. It is a hack that works around a
+    // limitation of the native implementation of location expansion: The output is just a list of
+    // strings, not a structured command line that would allow transparent path mapping.
+    // Instead, reimplement location expansion in Starlark and have it return an Args object.
     final boolean isJavaAction =
         mnemonic.equals("Javac") || mnemonic.equals("JavacTurbine") || mnemonic.equals("Turbine");
     return new PathMapper() {

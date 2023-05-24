@@ -165,9 +165,15 @@ public abstract class CommandLines {
    */
   public ImmutableList<String> allArguments()
       throws CommandLineExpansionException, InterruptedException {
+    return allArguments(PathMapper.NOOP);
+  }
+
+  /** Variation of {@link #allArguments()} that supports output path stripping. */
+  public ImmutableList<String> allArguments(PathMapper pathMapper)
+      throws CommandLineExpansionException, InterruptedException {
     ImmutableList.Builder<String> arguments = ImmutableList.builder();
     for (CommandLineAndParamFileInfo pair : unpack()) {
-      arguments.addAll(pair.commandLine.arguments(/* artifactExpander= */ null, PathMapper.NOOP));
+      arguments.addAll(pair.commandLine.arguments(/* artifactExpander= */ null, pathMapper));
     }
     return arguments.build();
   }

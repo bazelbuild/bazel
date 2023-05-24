@@ -185,7 +185,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return commandLines.allArguments();
+    return commandLines.allArguments(PathMappers.create(this, outputPathsMode));
   }
 
   @Override
