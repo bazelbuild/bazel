@@ -38,7 +38,7 @@ public final class DiffAwarenessManager {
   // The manager attempts to instantiate these in the order in which they are passed to the
   // constructor; this is critical in the case where a factory always succeeds.
   private final ImmutableList<? extends DiffAwareness.Factory> diffAwarenessFactories;
-  private Map<Root, DiffAwarenessState> currentDiffAwarenessStates = Maps.newHashMap();
+  private Map<Root, Map<ImmutableSet<Path>, DiffAwarenessState>> currentDiffAwarenessStates = Maps.newHashMap();
 
   public DiffAwarenessManager(Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     this.diffAwarenessFactories = ImmutableList.copyOf(diffAwarenessFactories);
@@ -61,9 +61,11 @@ public final class DiffAwarenessManager {
 
   /** Reset internal {@link DiffAwareness} state. */
   public void reset() {
-    for (DiffAwarenessState diffAwarenessState : currentDiffAwarenessStates.values()) {
-      diffAwarenessState.diffAwareness.close();
-    }
+    currentDiffAwarenessStates
+      .values()
+      .stream()
+      .flatMap(rootDiffAwarenessStates -> rootDiffAwarenessStates.values().stream())
+      .forEach(diffAwarenessState -> diffAwarenessState.diffAwareness.close());
     currentDiffAwarenessStates.clear();
   }
 
@@ -139,18 +141,25 @@ public final class DiffAwarenessManager {
    */
   @Nullable
   private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry, ImmutableSet<Path> ignoredPaths) {
-    // TODO: Do we need to add `ignoredPaths` to the key here?
-    DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
-    if (diffAwarenessState != null) {
-      return diffAwarenessState;
+    Map<ImmutableSet<Path>, DiffAwarenessState> rootDiffAwarenessStates = currentDiffAwarenessStates.get(pathEntry);
+    if (rootDiffAwarenessStates != null) {
+      DiffAwarenessState diffAwarenessState = rootDiffAwarenessStates.get(ignoredPaths);
+      if (diffAwarenessState != null) {
+        return diffAwarenessState;
+      }
+    } else {
+      rootDiffAwarenessStates = Maps.newHashMap();
+      currentDiffAwarenessStates.put(pathEntry, rootDiffAwarenessStates);
     }
+
+
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
       DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);
-        diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*baselineView=*/null);
-        currentDiffAwarenessStates.put(pathEntry, diffAwarenessState);
+        DiffAwarenessState diffAwarenessState = new DiffAwarenessState(newDiffAwareness, /*baselineView=*/null);
+        rootDiffAwarenessStates.put(ignoredPaths, diffAwarenessState);
         return diffAwarenessState;
       }
     }
@@ -187,9 +196,11 @@ public final class DiffAwarenessManager {
 
     @Override
     public void markProcessed() {
-      DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
-      if (diffAwarenessState != null) {
-        diffAwarenessState.baselineView = nextView;
+      Map<ImmutableSet<Path>, DiffAwarenessState> rootDiffAwarenessStates = currentDiffAwarenessStates.get(pathEntry);
+      if (rootDiffAwarenessStates != null) {
+        for (DiffAwarenessState diffAwarenessState : rootDiffAwarenessStates.values()) {
+          diffAwarenessState.baselineView = nextView;
+        }
       }
     }
   }
