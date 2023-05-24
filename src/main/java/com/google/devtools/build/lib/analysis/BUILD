@@ -2628,6 +2628,16 @@ java_library(
 )
 
 java_library(
+    name = "test/coverage_action_finished_event",
+    srcs = ["test/CoverageActionFinishedEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "test/execution_info",
     srcs = ["test/ExecutionInfo.java"],
     deps = [

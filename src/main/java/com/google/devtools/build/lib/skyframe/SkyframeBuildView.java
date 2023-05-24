@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
+import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
@@ -660,6 +661,7 @@ public final class SkyframeBuildView {
                           buildResultListener.getAnalyzedTargets(),
                           buildResultListener.getAnalyzedTests())),
                   keepGoing);
+          eventBus.post(new CoverageActionFinishedEvent());
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
