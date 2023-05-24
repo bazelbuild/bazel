@@ -55,14 +55,17 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Functionality specific to the Python rules in Bazel. */
 public class BazelPythonSemantics implements PythonSemantics {
 
+  private static final UUID GUID = UUID.fromString("0211a192-1b1e-40e6-80e9-7352360b12b1");
   public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
-      new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
+      new PythonUtils.GetInitPyFiles(
+          (Predicate<PathFragment> & Serializable) source -> false, GUID);
   private static final Template STUB_TEMPLATE =
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
 

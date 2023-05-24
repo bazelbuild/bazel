@@ -29,6 +29,12 @@ public interface CommandLineItem {
         throws CommandLineExpansionException, InterruptedException;
   }
 
+  /** A {@link CommandLineItem.MapFn} that does not throw. */
+  interface ExceptionlessMapFn<T> extends CommandLineItem.MapFn<T> {
+    @Override
+    void expandToCommandLine(T object, Consumer<String> args);
+  }
+
   /**
    * Use this map function when parametrizing over a limited set of values.
    *
