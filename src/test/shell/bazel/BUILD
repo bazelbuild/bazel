@@ -499,6 +499,7 @@ sh_test(
 [
     sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "_toolchain_released_test",
+        size = "large",
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zip to test
@@ -524,6 +525,7 @@ sh_test(
 [
     sh_test(
         name = "bazel_coverage_java_jdk" + java_version + "_toolchain_head_test",
+        size = "large",
         srcs = ["bazel_coverage_java_test.sh"],
         args = [
             # java_tools zips to test
@@ -1024,7 +1026,7 @@ sh_test(
 
 sh_test(
     name = "bazel_hermetic_sandboxing_test",
-    size = "small",
+    size = "medium",
     srcs = ["bazel_hermetic_sandboxing_test.sh"],
     data = [
         ":test-deps",
