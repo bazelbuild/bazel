@@ -14,7 +14,6 @@
 
 """Script to generate release notes."""
 
-import os
 import re
 import subprocess
 import sys
@@ -87,13 +86,13 @@ def get_relnotes_between(base, head, is_major_release):
 
 def get_label(issue_id):
   """Get team-X label added to issue."""
-  auth = os.system(
+  auth = subprocess.check_output(
       "gsutil cat"
       " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
       " gcloud kms decrypt --project bazel-public --location global"
       " --keyring buildkite --key github-trusted-token --ciphertext-file"
-      " - --plaintext-file -"
-  )
+      " - --plaintext-file -", shell=True
+  ).decode("utf-8").strip().split("\n")[0]
   headers = {
       "Authorization": "Bearer " + auth,
       "Accept": "application/vnd.github+json",
@@ -159,11 +158,16 @@ if __name__ == "__main__":
   # e.g. if current_release is 5.3.3, last_release should be 5.3.2 even if
   # latest release is 6.1.1
   current_release = git("rev-parse", "--abbrev-ref", "HEAD")[0]
-  if not current_release.startswith("release-"):
-    print("Error: Not a release- branch")
-    sys.exit(1)
 
-  current_release = re.sub(r"rc\d", "", current_release[len("release-"):])
+  if current_release.startswith("release-"):
+    current_release = re.sub(r"rc\d", "", current_release[len("release-"):])
+  else:
+    try:
+      current_release = git("describe", "--tags")[0]
+    except Exception:  # pylint: disable=broad-exception-caught
+      print("Error: Not a release branch.")
+      sys.exit(1)
+
   is_major = bool(re.fullmatch(r"\d+.0.0", current_release))
 
   tags = [tag for tag in git("tag", "--sort=refname") if "pre" not in tag]
