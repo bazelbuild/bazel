@@ -80,7 +80,14 @@ public final class JavaInfo extends NativeInfo
           JavaCcInfoProvider.class,
           JavaModuleFlagsProvider.class);
 
-  private final TransitiveInfoProviderMap providers;
+  private final JavaCompilationArgsProvider providerJavaCompilationArgs;
+  private final JavaSourceJarsProvider providerJavaSourceJars;
+  private final JavaRuleOutputJarsProvider providerJavaRuleOutputJars;
+  private final JavaGenJarsProvider providerJavaGenJars;
+  private final JavaCompilationInfoProvider providerJavaCompilationInfo;
+  private final JavaCcInfoProvider providerJavaCcInfo;
+  private final JavaModuleFlagsProvider providerModuleFlags;
+  private final JavaPluginInfo providerJavaPlugin;
 
   /*
    * Contains the .jar files to be put on the runtime classpath by the configured target.
@@ -100,12 +107,37 @@ public final class JavaInfo extends NativeInfo
   private final boolean neverlink;
 
   public TransitiveInfoProviderMap getProviders() {
-    return providers;
+    TransitiveInfoProviderMapBuilder builder = new TransitiveInfoProviderMapBuilder();
+    if (providerJavaCompilationArgs != null) {
+      builder.add(providerJavaCompilationArgs);
+    }
+    if (providerJavaSourceJars != null) {
+      builder.add(providerJavaSourceJars);
+    }
+    if (providerJavaRuleOutputJars != null) {
+      builder.add(providerJavaRuleOutputJars);
+    }
+    if (providerJavaGenJars != null) {
+      builder.add(providerJavaGenJars);
+    }
+    if (providerJavaCompilationInfo != null) {
+      builder.add(providerJavaCompilationInfo);
+    }
+    if (providerJavaCcInfo != null) {
+      builder.add(providerJavaCcInfo);
+    }
+    if (providerModuleFlags != null) {
+      builder.add(providerModuleFlags);
+    }
+    if (providerJavaPlugin != null) {
+      builder.put(providerJavaPlugin);
+    }
+    return builder.build();
   }
 
   @Nullable
   public JavaPluginInfo getJavaPluginInfo() {
-    return providers.get(JavaPluginInfo.PROVIDER);
+    return providerJavaPlugin;
   }
 
   /**
@@ -196,10 +228,25 @@ public final class JavaInfo extends NativeInfo
   /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
   // TODO(adonovan): rename these three overloads of getProvider to avoid
   // confusion with the unrelated no-arg Info.getProvider method.
-  @SuppressWarnings("UngroupedOverloads")
+  @SuppressWarnings({"UngroupedOverloads", "unchecked"})
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
-    return providers.getProvider(providerClass);
+    if (providerClass == JavaCompilationArgsProvider.class) {
+      return (P) providerJavaCompilationArgs;
+    } else if (providerClass == JavaSourceJarsProvider.class) {
+      return (P) providerJavaSourceJars;
+    } else if (providerClass == JavaRuleOutputJarsProvider.class) {
+      return (P) providerJavaRuleOutputJars;
+    } else if (providerClass == JavaGenJarsProvider.class) {
+      return (P) providerJavaGenJars;
+    } else if (providerClass == JavaCompilationInfoProvider.class) {
+      return (P) providerJavaCompilationInfo;
+    } else if (providerClass == JavaCcInfoProvider.class) {
+      return (P) providerJavaCcInfo;
+    } else if (providerClass == JavaModuleFlagsProvider.class) {
+      return (P) providerModuleFlags;
+    }
+    throw new IllegalArgumentException("unexpected provider: " + providerClass);
   }
 
   /**
@@ -248,9 +295,16 @@ public final class JavaInfo extends NativeInfo
       Location creationLocation) {
     super(creationLocation);
     this.directRuntimeJars = directRuntimeJars;
-    this.providers = providers;
     this.neverlink = neverlink;
     this.javaConstraints = javaConstraints;
+    this.providerJavaCompilationArgs = providers.getProvider(JavaCompilationArgsProvider.class);
+    this.providerJavaSourceJars = providers.getProvider(JavaSourceJarsProvider.class);
+    this.providerJavaRuleOutputJars = providers.getProvider(JavaRuleOutputJarsProvider.class);
+    this.providerJavaGenJars = providers.getProvider(JavaGenJarsProvider.class);
+    this.providerJavaCompilationInfo = providers.getProvider(JavaCompilationInfoProvider.class);
+    this.providerJavaCcInfo = providers.getProvider(JavaCcInfoProvider.class);
+    this.providerModuleFlags = providers.getProvider(JavaModuleFlagsProvider.class);
+    this.providerJavaPlugin = providers.get(JavaPluginInfo.PROVIDER);
   }
 
   @Override
@@ -293,7 +347,7 @@ public final class JavaInfo extends NativeInfo
   @Override
   public Sequence<Artifact> getSourceJars() {
     // TODO(#4221) change return type to NestedSet<Artifact>
-    JavaSourceJarsProvider provider = providers.getProvider(JavaSourceJarsProvider.class);
+    JavaSourceJarsProvider provider = providerJavaSourceJars;
     ImmutableList<Artifact> sourceJars =
         provider == null ? ImmutableList.of() : provider.getSourceJars();
     return StarlarkList.immutableCopyOf(sourceJars);
@@ -432,12 +486,27 @@ public final class JavaInfo extends NativeInfo
     }
 
     JavaInfo other = (JavaInfo) otherObject;
-    return providers.equals(other.providers);
+    return Objects.equals(providerJavaCompilationArgs, other.providerJavaCompilationArgs)
+        && Objects.equals(providerJavaSourceJars, other.providerJavaSourceJars)
+        && Objects.equals(providerJavaRuleOutputJars, other.providerJavaRuleOutputJars)
+        && Objects.equals(providerJavaGenJars, other.providerJavaGenJars)
+        && Objects.equals(providerJavaCompilationInfo, other.providerJavaCompilationInfo)
+        && Objects.equals(providerJavaCcInfo, other.providerJavaCcInfo)
+        && Objects.equals(providerModuleFlags, other.providerModuleFlags)
+        && Objects.equals(providerJavaPlugin, other.providerJavaPlugin);
   }
 
   @Override
   public int hashCode() {
-    return providers.hashCode();
+    return Objects.hash(
+        providerJavaCompilationArgs,
+        providerJavaSourceJars,
+        providerJavaRuleOutputJars,
+        providerJavaGenJars,
+        providerJavaCompilationInfo,
+        providerJavaCcInfo,
+        providerModuleFlags,
+        providerJavaPlugin);
   }
 
   /** Provider class for {@link JavaInfo} objects. */
