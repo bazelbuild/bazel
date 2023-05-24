@@ -35,12 +35,14 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -83,7 +85,17 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
 
     Runfiles runfiles =
         new Runfiles.Builder("TESTING", false)
-            .setEmptyFilesSupplier((paths) -> ImmutableList.of(PathFragment.create("dir/empty")))
+            .setEmptyFilesSupplier(
+                new Runfiles.EmptyFilesSupplier() {
+                  @Override
+                  public ImmutableList<PathFragment> getExtraPaths(
+                      Set<PathFragment> manifestPaths) {
+                    return ImmutableList.of(PathFragment.create("dir/empty"));
+                  }
+
+                  @Override
+                  public void fingerprint(Fingerprint fingerprint) {}
+                })
             .addArtifact(runfile)
             .build();
     SymlinkTreeAction action =
@@ -130,7 +142,17 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
 
     Runfiles runfiles =
         new Runfiles.Builder("TESTING", false)
-            .setEmptyFilesSupplier((paths) -> ImmutableList.of(PathFragment.create("dir/empty")))
+            .setEmptyFilesSupplier(
+                new Runfiles.EmptyFilesSupplier() {
+                  @Override
+                  public ImmutableList<PathFragment> getExtraPaths(
+                      Set<PathFragment> manifestPaths) {
+                    return ImmutableList.of(PathFragment.create("dir/empty"));
+                  }
+
+                  @Override
+                  public void fingerprint(Fingerprint fingerprint) {}
+                })
             .addArtifact(runfile)
             .build();
     SymlinkTreeAction action =
@@ -139,12 +161,12 @@ public final class SymlinkTreeStrategyTest extends BuildViewTestCase {
             inputManifest,
             runfiles,
             outputManifest,
-            /*repoMappingManifest=*/ null,
-            /*filesetRoot=*/ null,
+            /* repoMappingManifest= */ null,
+            /* filesetRoot= */ null,
             ActionEnvironment.EMPTY,
-            /*enableRunfiles=*/ true,
-            /*inprocessSymlinkCreation=*/ true,
-            /*skipRunfilesManifests*/ false);
+            /* enableRunfiles= */ true,
+            /* inprocessSymlinkCreation= */ true,
+            /* skipRunfilesManifests= */ false);
 
     action.execute(context);
     // Check that the OutputService is not used.

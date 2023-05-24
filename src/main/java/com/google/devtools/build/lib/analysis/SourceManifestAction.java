@@ -252,7 +252,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       Fingerprint fp) {
     fp.addString(GUID);
     fp.addBoolean(remotableSourceManifestActions);
-    runfiles.fingerprint(fp);
+    runfiles.fingerprint(actionKeyContext, fp);
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {
       fp.addPath(repoMappingManifest.getExecPath());
