@@ -148,6 +148,7 @@ public abstract class CcModule
           PackageIdentifier.createInMainRepo("tools/build_defs/android"),
           PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
           PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
+          PackageIdentifier.createUnchecked("rules_android", ""),
           PackageIdentifier.createInMainRepo("rust/private"),
           PackageIdentifier.createUnchecked("rules_rust", "rust/private"));
 
