@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -199,22 +198,11 @@ public final class JavaInfo extends NativeInfo
     throw new IllegalArgumentException("unexpected provider: " + providerClass);
   }
 
-  /**
-   * Returns a provider of the specified class, fetched from the specified target or, if not found,
-   * from the JavaInfo of the given target. JavaInfo can be found as a declared provider in
-   * StarlarkProviders. Returns null if no such provider exists.
-   *
-   * <p>A target can either have both the specified provider and JavaInfo that encapsulates the same
-   * information, or just one of them.
-   */
+  /** Returns a provider of the specified class, fetched from the JavaInfo of the given target. */
   @Nullable
   public static <T extends TransitiveInfoProvider> T getProvider(
-      Class<T> providerClass, ProviderCollection providers) {
-    T provider = providers.getProvider(providerClass);
-    if (provider != null) {
-      return provider;
-    }
-    JavaInfo javaInfo = (JavaInfo) providers.get(JavaInfo.PROVIDER.getKey());
+      Class<T> providerClass, TransitiveInfoCollection target) {
+    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
     if (javaInfo == null) {
       return null;
     }
