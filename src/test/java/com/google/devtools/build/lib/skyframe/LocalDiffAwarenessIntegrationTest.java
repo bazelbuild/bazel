@@ -122,18 +122,18 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
     // watches for ignored paths.
     assume().that(OS.getCurrent()).isNotEqualTo(OS.DARWIN);
 
+    String notIgnoredFilePath = "foo/BUILD";
+    String ignoredFilePath = "foo/ignored-dir/BUILD";
+
     write(".bazelignore", "foo/ignored-dir");
 
-    write("foo/ignored-dir/BUILD", "");
-    write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
+    write(ignoredFilePath, "");
+    write(notIgnoredFilePath, "genrule(name='foo', outs=['out'], cmd='echo hello > $@')");
     buildTarget("//foo");
     assertContents("hello", "//foo");
 
-    write("foo/BUILD", "genrule(name='foo', outs=['out'], cmd='echo there > $@')");
-    write("foo/ignored-dir/BUILD", "A = 1");
-
-    String notIgnoredFilePath = "foo/BUILD";
-    String ignoredFilePath = "foo/ignored-dir/BUILD";
+    write(notIgnoredFilePath, "genrule(name='foo', outs=['out'], cmd='echo there > $@')");
+    write(ignoredFilePath, "A = 1");
 
     AtomicBoolean ignoredFileChanged = new AtomicBoolean();
     AtomicBoolean notIgnoredFileChanged = new AtomicBoolean();
@@ -163,7 +163,7 @@ public class LocalDiffAwarenessIntegrationTest extends SkyframeIntegrationTestBa
       fail("Didn't observe file change within allowed number of retries");
     }
     if (ignoredFileChanged.get()) {
-      fail("Observed ignored file file change");
+      fail("Observed ignored file change");
     }
   }
 
