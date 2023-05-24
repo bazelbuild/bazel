@@ -49,6 +49,7 @@ java_library(
         ],
     ),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:guava",
