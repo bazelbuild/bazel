@@ -64,6 +64,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.junit.After;
@@ -2184,6 +2185,19 @@ public abstract class AbstractQueryTest<T> {
         "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg",
         "deps(//foo:out)",
         Setting.NO_IMPLICIT_DEPS);
+  }
+
+  @Test
+  public void testDeepNestedLet() throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo')");
+
+    // We used to get a StackOverflowError at this depth. We're still vulnerable to stack overflows
+    // at higher depths, due to how the query engine works.
+    int nestingDepth = 500;
+    String queryString =
+        Joiner.on(" + ").join(Collections.nCopies(nestingDepth, "let x = //foo:foo in $x"));
+
+    assertThat(evalToString(queryString)).isEqualTo("//foo:foo");
   }
 
   protected void writeBzlmodBuildFiles() throws Exception {
