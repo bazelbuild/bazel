@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
@@ -69,16 +67,6 @@ public final class JavaInfo extends NativeInfo
   }
 
   public static final JavaInfo EMPTY = JavaInfo.Builder.create().build();
-
-  private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
-      ImmutableSet.of(
-          JavaCompilationArgsProvider.class,
-          JavaSourceJarsProvider.class,
-          JavaRuleOutputJarsProvider.class,
-          JavaGenJarsProvider.class,
-          JavaCompilationInfoProvider.class,
-          JavaCcInfoProvider.class,
-          JavaModuleFlagsProvider.class);
 
   private final JavaCompilationArgsProvider providerJavaCompilationArgs;
   private final JavaSourceJarsProvider providerJavaSourceJars;
@@ -288,7 +276,14 @@ public final class JavaInfo extends NativeInfo
   }
 
   private JavaInfo(
-      TransitiveInfoProviderMap providers,
+      JavaCcInfoProvider javaCcInfoProvider,
+      JavaCompilationArgsProvider javaCompilationArgsProvider,
+      JavaCompilationInfoProvider javaCompilationInfoProvider,
+      JavaGenJarsProvider javaGenJarsProvider,
+      JavaModuleFlagsProvider javaModuleFlagsProvider,
+      JavaPluginInfo javaPluginInfo,
+      JavaRuleOutputJarsProvider javaRuleOutputJarsProvider,
+      JavaSourceJarsProvider javaSourceJarsProvider,
       ImmutableList<Artifact> directRuntimeJars,
       boolean neverlink,
       ImmutableList<String> javaConstraints,
@@ -297,14 +292,14 @@ public final class JavaInfo extends NativeInfo
     this.directRuntimeJars = directRuntimeJars;
     this.neverlink = neverlink;
     this.javaConstraints = javaConstraints;
-    this.providerJavaCompilationArgs = providers.getProvider(JavaCompilationArgsProvider.class);
-    this.providerJavaSourceJars = providers.getProvider(JavaSourceJarsProvider.class);
-    this.providerJavaRuleOutputJars = providers.getProvider(JavaRuleOutputJarsProvider.class);
-    this.providerJavaGenJars = providers.getProvider(JavaGenJarsProvider.class);
-    this.providerJavaCompilationInfo = providers.getProvider(JavaCompilationInfoProvider.class);
-    this.providerJavaCcInfo = providers.getProvider(JavaCcInfoProvider.class);
-    this.providerModuleFlags = providers.getProvider(JavaModuleFlagsProvider.class);
-    this.providerJavaPlugin = providers.get(JavaPluginInfo.PROVIDER);
+    this.providerJavaCcInfo = javaCcInfoProvider;
+    this.providerJavaCompilationArgs = javaCompilationArgsProvider;
+    this.providerJavaCompilationInfo = javaCompilationInfoProvider;
+    this.providerJavaGenJars = javaGenJarsProvider;
+    this.providerModuleFlags = javaModuleFlagsProvider;
+    this.providerJavaPlugin = javaPluginInfo;
+    this.providerJavaRuleOutputJars = javaRuleOutputJarsProvider;
+    this.providerJavaSourceJars = javaSourceJarsProvider;
   }
 
   @Override
@@ -569,24 +564,41 @@ public final class JavaInfo extends NativeInfo
 
   /** A Builder for {@link JavaInfo}. */
   public static class Builder {
-    TransitiveInfoProviderMapBuilder providerMap;
+
+    private JavaCcInfoProvider providerJavaCcInfo;
+    private JavaCompilationArgsProvider providerJavaCompilationArgs;
+    private JavaCompilationInfoProvider providerJavaCompilationInfo;
+    private JavaGenJarsProvider providerJavaGenJars;
+    private JavaModuleFlagsProvider providerModuleFlags;
+    private JavaPluginInfo providerJavaPlugin;
+    private JavaRuleOutputJarsProvider providerJavaRuleOutputJars;
+    private JavaSourceJarsProvider providerJavaSourceJars;
     private ImmutableList<Artifact> runtimeJars;
     private ImmutableList<String> javaConstraints;
     private boolean neverlink;
     private Location creationLocation = Location.BUILTIN;
 
-    private Builder(TransitiveInfoProviderMapBuilder providerMap) {
-      this.providerMap = providerMap;
+    private Builder(@Nullable JavaInfo other) {
+      if (other != null) {
+        this.providerJavaCcInfo = other.providerJavaCcInfo;
+        this.providerJavaCompilationArgs = other.providerJavaCompilationArgs;
+        this.providerJavaCompilationInfo = other.providerJavaCompilationInfo;
+        this.providerJavaGenJars = other.providerJavaGenJars;
+        this.providerModuleFlags = other.providerModuleFlags;
+        this.providerJavaPlugin = other.providerJavaPlugin;
+        this.providerJavaRuleOutputJars = other.providerJavaRuleOutputJars;
+        this.providerJavaSourceJars = other.providerJavaSourceJars;
+      }
     }
 
     public static Builder create() {
-      return new Builder(new TransitiveInfoProviderMapBuilder())
+      return new Builder(null)
           .setRuntimeJars(ImmutableList.of())
           .setJavaConstraints(ImmutableList.of());
     }
 
     public static Builder copyOf(JavaInfo javaInfo) {
-      return new Builder(new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()))
+      return new Builder(javaInfo)
           .setRuntimeJars(javaInfo.getDirectRuntimeJars())
           .setNeverlink(javaInfo.isNeverlink())
           .setJavaConstraints(javaInfo.getJavaConstraints())
@@ -618,22 +630,70 @@ public final class JavaInfo extends NativeInfo
     }
 
     @CanIgnoreReturnValue
-    public <P extends TransitiveInfoProvider> Builder addProvider(
-        Class<P> providerClass, TransitiveInfoProvider provider) {
-      Preconditions.checkArgument(ALLOWED_PROVIDERS.contains(providerClass));
-      providerMap.put(providerClass, provider);
+    public Builder addProvider(
+        Class<JavaCcInfoProvider> providerClass, JavaCcInfoProvider provider) {
+      this.providerJavaCcInfo = provider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProvider(
+        Class<JavaCompilationArgsProvider> providerClass, JavaCompilationArgsProvider provider) {
+      this.providerJavaCompilationArgs = provider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProvider(
+        Class<JavaCompilationInfoProvider> providerClass, JavaCompilationInfoProvider provider) {
+      this.providerJavaCompilationInfo = provider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProvider(
+        Class<JavaGenJarsProvider> providerClass, JavaGenJarsProvider provider) {
+      this.providerJavaGenJars = provider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProvider(
+        Class<JavaModuleFlagsProvider> providerClass, JavaModuleFlagsProvider provider) {
+      this.providerModuleFlags = provider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProvider(
+        Class<JavaRuleOutputJarsProvider> providerClass, JavaRuleOutputJarsProvider provider) {
+      this.providerJavaRuleOutputJars = provider;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder addProvider(
+        Class<JavaSourceJarsProvider> providerClass, JavaSourceJarsProvider provider) {
+      this.providerJavaSourceJars = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
     public Builder javaPluginInfo(JavaPluginInfo javaPluginInfo) {
-      providerMap.put(javaPluginInfo);
+      this.providerJavaPlugin = javaPluginInfo;
       return this;
     }
 
     public JavaInfo build() {
       return new JavaInfo(
-          providerMap.build(),
+          providerJavaCcInfo,
+          providerJavaCompilationArgs,
+          providerJavaCompilationInfo,
+          providerJavaGenJars,
+          providerModuleFlags,
+          providerJavaPlugin,
+          providerJavaRuleOutputJars,
+          providerJavaSourceJars,
           runtimeJars,
           neverlink,
           javaConstraints,
