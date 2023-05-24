@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -190,10 +189,11 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "java_lite_proto_library(name = 'lite_pb2', deps = [':null_lib'])",
             "proto_library(name = 'null_lib')");
     JavaCompilationArgsProvider compilationArgsProvider =
-        getProvider(JavaCompilationArgsProvider.class, target);
+        JavaInfo.getProvider(JavaCompilationArgsProvider.class, target);
     assertThat(compilationArgsProvider).isNotNull();
     assertThat(compilationArgsProvider.getDirectCompileTimeJars()).isNotNull();
-    JavaSourceJarsProvider sourceJarsProvider = getProvider(JavaSourceJarsProvider.class, target);
+    JavaSourceJarsProvider sourceJarsProvider =
+        JavaInfo.getProvider(JavaSourceJarsProvider.class, target);
     assertThat(sourceJarsProvider).isNotNull();
     assertThat(sourceJarsProvider.getSourceJars()).isNotNull();
   }
@@ -223,7 +223,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
     List<String> directJars =
         prettyArtifactNames(
-            getProvider(JavaCompilationArgsProvider.class, litepb2).getRuntimeJars());
+            JavaInfo.getProvider(JavaCompilationArgsProvider.class, litepb2).getRuntimeJars());
     assertThat(directJars)
         .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
   }
@@ -362,7 +362,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         ")");
 
     JavaCompilationArgsProvider compilationArgsProvider =
-        getProvider(
+        JavaInfo.getProvider(
             JavaCompilationArgsProvider.class, getConfiguredTarget("//x:foo_java_proto_lite"));
 
     Iterable<String> directJars =
@@ -448,9 +448,4 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     assertThat(result).isTrue();
   }
 
-  private static <P extends TransitiveInfoProvider> P getProvider(
-      Class<P> providerClass, ConfiguredTarget target) {
-    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
-    return javaInfo.getProvider(providerClass);
-  }
 }

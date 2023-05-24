@@ -730,8 +730,6 @@ public class JavaCommon {
             activePlugins,
             getDependencies(JavaGenJarsProvider.class));
 
-    builder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
-
     javaInfoBuilder.javaGenJars(genJarsProvider);
   }
 

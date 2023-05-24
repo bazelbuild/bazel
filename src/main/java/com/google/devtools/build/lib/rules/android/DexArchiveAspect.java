@@ -69,7 +69,6 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -333,7 +332,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     if (javaInfo != null) {
       // These are all transitive hjars of dependencies and hjar of the jar itself
       NestedSet<Artifact> compileTimeClasspath =
-          getJavaCompilationArgsProvider(base, ruleContext).getTransitiveCompileTimeJars();
+          getJavaCompilationArgsProvider(base).getTransitiveCompileTimeJars();
       ImmutableSet.Builder<Artifact> jars = ImmutableSet.builder();
       jars.addAll(javaInfo.getDirectRuntimeJars());
 
@@ -376,20 +375,11 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars) {
     if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs").isEmpty()) {
-        JavaRuleOutputJarsProvider outputJarsProvider =
-            base.getProvider(JavaRuleOutputJarsProvider.class);
-        if (outputJarsProvider != null) {
-          // TODO(b/207058960): remove after enabling Starlark java proto libraries
-          return outputJarsProvider.getJavaOutputs().stream()
+        JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+        if (javaInfo != null) {
+          return javaInfo.getJavaOutputs().stream()
               .map(JavaOutput::getClassJar)
               .collect(toImmutableList());
-        } else {
-          JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
-          if (javaInfo != null) {
-            return javaInfo.getJavaOutputs().stream()
-                .map(JavaOutput::getClassJar)
-                .collect(toImmutableList());
-          }
         }
       }
     } else {
@@ -416,14 +406,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   @Nullable
-  private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(
-      ConfiguredTarget base, RuleContext ruleContext) {
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
-    if (provider != null) {
-      return provider;
-    }
-    return isProtoLibrary(ruleContext) ? base.getProvider(JavaCompilationArgsProvider.class) : null;
+  private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base) {
+    return JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
   }
 
   private static boolean isProtoLibrary(RuleContext ruleContext) {
