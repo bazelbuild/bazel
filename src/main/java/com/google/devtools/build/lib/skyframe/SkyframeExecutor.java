@@ -3551,9 +3551,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       // Ignored package prefixes are specified relative to the workspace root
       // by definition of .bazelignore. So, we only use ignored paths when the
       // package root is equal to the workspace path.
-      ImmutableSet<Path> ignorePaths = ImmutableSet.of();
+      ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
       if (workspacePath != null && workspacePath.equals(pathEntry.asPath())) {
-        ignorePaths = ignoredPackagePrefixesValue
+        ignoredPaths = ignoredPackagePrefixesValue
           .getPatterns()
           .stream()
           .map(pathEntry::getRelative)
@@ -3561,7 +3561,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
 
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, pathEntry, ignorePaths, options);
+          diffAwarenessManager.getDiff(eventHandler, pathEntry, ignoredPaths, options);
       if (pkgRoots.size() == 1) {
         workspaceInfo = modifiedFileSet.getWorkspaceInfo();
         workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(

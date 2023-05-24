@@ -54,11 +54,11 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
-  private ImmutableSet<String> ignorePaths;
+  private ImmutableSet<String> ignoredPaths;
 
-  WatchServiceDiffAwareness(String watchRoot, ImmutableSet<String> ignorePaths) {
+  WatchServiceDiffAwareness(String watchRoot, ImmutableSet<String> ignoredPaths) {
     super(watchRoot);
-    this.ignorePaths = ignorePaths;
+    this.ignoredPaths = ignoredPaths;
   }
 
   private void init() {
@@ -264,7 +264,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private void registerSubDirectories(Path rootDir) throws IOException {
     // Note that this does not follow symlinks.
     WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(
-      ignorePaths.stream().map(Path::of).collect(toImmutableSet())
+      ignoredPaths.stream().map(Path::of).collect(toImmutableSet())
     );
     Files.walkFileTree(rootDir, watcherFileVisitor);
   }
@@ -278,7 +278,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     // Note that this does not follow symlinks.
     WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(
       visitedAbsolutePaths,
-      ignorePaths.stream().map(Path::of).collect(toImmutableSet())
+      ignoredPaths.stream().map(Path::of).collect(toImmutableSet())
     );
     Files.walkFileTree(rootDir, watcherFileVisitor);
     return visitedAbsolutePaths;
@@ -288,16 +288,16 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private class WatcherFileVisitor extends SimpleFileVisitor<Path> {
 
     private final Set<Path> visitedAbsolutePaths;
-    private final Set<Path> ignorePaths;
+    private final Set<Path> ignoredPaths;
 
-    private WatcherFileVisitor(Set<Path> visitedPaths, Set<Path> ignorePaths) {
+    private WatcherFileVisitor(Set<Path> visitedPaths, Set<Path> ignoredPaths) {
       this.visitedAbsolutePaths = visitedPaths;
-      this.ignorePaths = ignorePaths;
+      this.ignoredPaths = ignoredPaths;
     }
 
-    private WatcherFileVisitor(Set<Path> ignorePaths) {
+    private WatcherFileVisitor(Set<Path> ignoredPaths) {
       this.visitedAbsolutePaths = new HashSet<>();
-      this.ignorePaths = ignorePaths;
+      this.ignoredPaths = ignoredPaths;
     }
 
     @Override
@@ -310,7 +310,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
-      if (ignorePaths.contains(path)) {
+      if (ignoredPaths.contains(path)) {
         return FileVisitResult.SKIP_SUBTREE;
       }
 

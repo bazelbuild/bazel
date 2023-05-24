@@ -413,7 +413,7 @@ public class IncrementalLoadingTest {
     private class ManualDiffAwarenessFactory implements DiffAwareness.Factory {
       @Nullable
       @Override
-      public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignorePaths) {
+      public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignoredPaths) {
         return pathEntry.asPath().equals(workspace) ? new ManualDiffAwareness() : null;
       }
     }

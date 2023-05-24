@@ -86,9 +86,9 @@ public final class DiffAwarenessManager {
    * ModifiedFileSet.EVERYTHING_MODIFIED} if this is the first such call.
    */
   public ProcessableModifiedFileSet getDiff(
-          EventHandler eventHandler, Root pathEntry, ImmutableSet<Path> ignorePaths, OptionsProvider options)
+          EventHandler eventHandler, Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider options)
       throws InterruptedException {
-    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry, ignorePaths);
+    DiffAwarenessState diffAwarenessState = maybeGetDiffAwarenessState(pathEntry, ignoredPaths);
     if (diffAwarenessState == null) {
       return BrokenProcessableModifiedFileSet.INSTANCE;
     }
@@ -138,14 +138,14 @@ public final class DiffAwarenessManager {
    * current one, or otherwise {@code null} if no factory could make a fresh one.
    */
   @Nullable
-  private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry, ImmutableSet<Path> ignorePaths) {
-    // TODO: Do we need to add `ignorePaths` to the key here?
+  private DiffAwarenessState maybeGetDiffAwarenessState(Root pathEntry, ImmutableSet<Path> ignoredPaths) {
+    // TODO: Do we need to add `ignoredPaths` to the key here?
     DiffAwarenessState diffAwarenessState = currentDiffAwarenessStates.get(pathEntry);
     if (diffAwarenessState != null) {
       return diffAwarenessState;
     }
     for (DiffAwareness.Factory factory : diffAwarenessFactories) {
-      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignorePaths);
+      DiffAwareness newDiffAwareness = factory.maybeCreate(pathEntry, ignoredPaths);
       if (newDiffAwareness != null) {
         logger.atInfo().log(
             "Using %s DiffAwareness strategy for %s", newDiffAwareness.name(), pathEntry);

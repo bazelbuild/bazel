@@ -344,7 +344,7 @@ public class DiffAwarenessManagerTest {
 
     @Override
     @Nullable
-    public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignorePaths) {
+    public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<Path> ignoredPaths) {
       return diffAwarenesses.get(pathEntry);
     }
   }

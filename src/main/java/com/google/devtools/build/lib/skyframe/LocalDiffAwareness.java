@@ -87,7 +87,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
     @Override
     @Nullable
-    public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<com.google.devtools.build.lib.vfs.Path> ignorePaths) {
+    public DiffAwareness maybeCreate(Root pathEntry, ImmutableSet<com.google.devtools.build.lib.vfs.Path> ignoredPaths) {
       com.google.devtools.build.lib.vfs.Path resolvedPathEntry;
       try {
         resolvedPathEntry = pathEntry.asPath().resolveSymbolicLinks();
@@ -109,7 +109,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
       return new WatchServiceDiffAwareness(
         resolvedPathEntryFragment.toString(),
-        ignorePaths.stream().map(p -> p.toString()).collect(toImmutableSet())
+        ignoredPaths.stream().map(p -> p.toString()).collect(toImmutableSet())
       );
     }
   }
