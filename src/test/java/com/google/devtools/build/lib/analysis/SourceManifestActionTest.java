@@ -13,16 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -37,7 +40,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -299,10 +302,20 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             new Runfiles.Builder("TESTING", false)
                 .addSymlink(PathFragment.create("a"), buildFile)
                 .setEmptyFilesSupplier(
-                    paths ->
-                        paths.stream()
+                    new Runfiles.EmptyFilesSupplier() {
+                      @Override
+                      public ImmutableSet<PathFragment> getExtraPaths(
+                          Set<PathFragment> manifestPaths) {
+                        return manifestPaths.stream()
                             .map(p -> p.replaceName(p.getBaseName() + "~"))
-                            .collect(Collectors.toSet()))
+                            .collect(toImmutableSet());
+                      }
+
+                      @Override
+                      public void fingerprint(Fingerprint fingerprint) {
+                        fingerprint.addInt(1);
+                      }
+                    })
                 .build());
 
     SourceManifestAction action2 =
@@ -313,10 +326,20 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             new Runfiles.Builder("TESTING", false)
                 .addSymlink(PathFragment.create("a"), buildFile)
                 .setEmptyFilesSupplier(
-                    paths ->
-                        paths.stream()
+                    new Runfiles.EmptyFilesSupplier() {
+                      @Override
+                      public ImmutableSet<PathFragment> getExtraPaths(
+                          Set<PathFragment> manifestPaths) {
+                        return manifestPaths.stream()
                             .map(p -> p.replaceName(p.getBaseName() + "~~"))
-                            .collect(Collectors.toSet()))
+                            .collect(toImmutableSet());
+                      }
+
+                      @Override
+                      public void fingerprint(Fingerprint fingerprint) {
+                        fingerprint.addInt(2);
+                      }
+                    })
                 .build());
 
     assertThat(computeKey(action2)).isNotEqualTo(computeKey(action1));
@@ -351,7 +374,8 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
                 + "TESTING/relative_symlink ../some/relative/path\n");
   }
 
-  private String computeKey(SourceManifestAction action) {
+  private String computeKey(SourceManifestAction action)
+      throws CommandLineExpansionException, InterruptedException {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();
