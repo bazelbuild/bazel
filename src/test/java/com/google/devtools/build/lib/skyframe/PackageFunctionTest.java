@@ -1679,9 +1679,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     @Test
     public void testPreludeNeedNotBePresent() throws Exception {
-      scratch.file(
-          "pkg/BUILD", //
-          "print('FOO')");
+      scratch.file("pkg/BUILD", "print('FOO')");
 
       getConfiguredTarget("//pkg:BUILD");
       assertContainsEvent("FOO");
