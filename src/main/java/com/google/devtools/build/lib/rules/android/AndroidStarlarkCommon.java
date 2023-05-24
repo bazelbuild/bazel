@@ -60,8 +60,7 @@ public class AndroidStarlarkCommon implements AndroidStarlarkCommonApi<Artifact,
             : JavaCompilationArgsProvider.ClasspathType.BOTH;
     return JavaInfo.Builder.create()
         .setNeverlink(neverlink)
-        .addProvider(
-            JavaCompilationArgsProvider.class,
+        .javaCompilationArgs(
             JavaCompilationArgsProvider.builder()
                 .addExports(javaInfo.getProvider(JavaCompilationArgsProvider.class), type)
                 .build())

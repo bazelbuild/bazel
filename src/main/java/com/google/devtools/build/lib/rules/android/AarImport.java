@@ -220,9 +220,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .setRuntimeJars(ImmutableList.of(mergedJar))
             .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
-            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
+            .javaCompilationArgs(javaCompilationArgsProvider)
+            .javaSourceJars(javaSourceJarsProvider)
+            .javaRuleOutputs(jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);

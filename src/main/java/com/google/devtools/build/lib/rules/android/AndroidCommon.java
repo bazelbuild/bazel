@@ -744,9 +744,9 @@ public class AndroidCommon {
 
     JavaInfo javaInfo =
         javaInfoBuilder
-            .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+            .javaCompilationArgs(compilationArgsProvider)
+            .javaRuleOutputs(ruleOutputJarsProvider)
+            .javaSourceJars(sourceJarsProvider)
             .javaPluginInfo(JavaCommon.getTransitivePlugins(ruleContext))
             .setRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
             .setJavaConstraints(ImmutableList.of("android"))

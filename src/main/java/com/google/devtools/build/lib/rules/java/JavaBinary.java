@@ -602,8 +602,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaInfo javaInfo =
         javaInfoBuilder
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .javaSourceJars(sourceJarsProvider)
+            .javaRuleOutputs(ruleOutputJarsProvider)
             .build();
 
     return builder

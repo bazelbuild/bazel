@@ -437,8 +437,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaInfo javaInfo =
         javaInfoBuilder
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .javaSourceJars(sourceJarsProvider)
+            .javaRuleOutputs(ruleOutputJarsProvider)
             .build();
 
     return builder

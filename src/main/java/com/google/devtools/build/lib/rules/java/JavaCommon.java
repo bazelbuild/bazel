@@ -678,7 +678,7 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
+    javaInfoBuilder.javaCompilationInfo(compilationInfoProvider);
 
     addCcRelatedProviders(javaInfoBuilder);
   }
@@ -696,7 +696,7 @@ public class JavaCommon {
 
     CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
 
-    javaInfoBuilder.addProvider(JavaCcInfoProvider.class, new JavaCcInfoProvider(mergedCcInfo));
+    javaInfoBuilder.javaCcInfo(new JavaCcInfoProvider(mergedCcInfo));
   }
 
   private InstrumentedFilesInfo getInstrumentationFilesProvider(
@@ -732,7 +732,7 @@ public class JavaCommon {
 
     builder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
 
-    javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
+    javaInfoBuilder.javaGenJars(genJarsProvider);
   }
 
   /** Processes the sources of this target, adding them as messages or proper sources. */

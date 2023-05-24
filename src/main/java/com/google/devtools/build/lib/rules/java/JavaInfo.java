@@ -170,24 +170,17 @@ public final class JavaInfo extends NativeInfo
 
     JavaInfo.Builder javaInfoBuilder =
         JavaInfo.Builder.create()
-            .addProvider(
-                JavaCompilationArgsProvider.class,
-                JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
-            .addProvider(
-                JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
-            .addProvider(
-                JavaRuleOutputJarsProvider.class,
-                JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
+            .javaCompilationArgs(JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
+            .javaSourceJars(JavaSourceJarsProvider.merge(javaSourceJarsProviders))
+            .javaRuleOutputs(JavaRuleOutputJarsProvider.merge(javaRuleOutputJarsProviders))
             .javaPluginInfo(JavaPluginInfo.mergeWithoutJavaOutputs(javaPluginInfos))
-            .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(javaCcInfoProviders))
+            .javaCcInfo(JavaCcInfoProvider.merge(javaCcInfoProviders))
             // TODO(b/65618333): add merge function to JavaGenJarsProvider. See #3769
             // TODO(iirina): merge or remove JavaCompilationInfoProvider
             .setRuntimeJars(runtimeJars.build().toList())
             .setJavaConstraints(javaConstraints.build().toList())
             .setNeverlink(neverlink)
-            .addProvider(
-                JavaModuleFlagsProvider.class,
-                JavaModuleFlagsProvider.merge(javaModuleFlagsProviderProviders));
+            .javaModuleFlags(JavaModuleFlagsProvider.merge(javaModuleFlagsProviderProviders));
 
     return javaInfoBuilder.build();
   }
@@ -630,50 +623,43 @@ public final class JavaInfo extends NativeInfo
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaCcInfoProvider> providerClass, JavaCcInfoProvider provider) {
+    public Builder javaCcInfo(JavaCcInfoProvider provider) {
       this.providerJavaCcInfo = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaCompilationArgsProvider> providerClass, JavaCompilationArgsProvider provider) {
+    public Builder javaCompilationArgs(JavaCompilationArgsProvider provider) {
       this.providerJavaCompilationArgs = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaCompilationInfoProvider> providerClass, JavaCompilationInfoProvider provider) {
+    public Builder javaCompilationInfo(JavaCompilationInfoProvider provider) {
       this.providerJavaCompilationInfo = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaGenJarsProvider> providerClass, JavaGenJarsProvider provider) {
+    public Builder javaGenJars(JavaGenJarsProvider provider) {
       this.providerJavaGenJars = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaModuleFlagsProvider> providerClass, JavaModuleFlagsProvider provider) {
+    public Builder javaModuleFlags(JavaModuleFlagsProvider provider) {
       this.providerModuleFlags = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaRuleOutputJarsProvider> providerClass, JavaRuleOutputJarsProvider provider) {
+    public Builder javaRuleOutputs(JavaRuleOutputJarsProvider provider) {
       this.providerJavaRuleOutputJars = provider;
       return this;
     }
 
     @CanIgnoreReturnValue
-    public Builder addProvider(
-        Class<JavaSourceJarsProvider> providerClass, JavaSourceJarsProvider provider) {
+    public Builder javaSourceJars(JavaSourceJarsProvider provider) {
       this.providerJavaSourceJars = provider;
       return this;
     }
