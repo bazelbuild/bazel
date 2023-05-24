@@ -333,7 +333,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
     assertThat(eventHandler.getEvents()).isNotEmpty();
     assertThat(eventHandler.getEvents().get(0).getMessage())
-        .contains("Uploading BEP referenced local files: ");
+        .contains("Uploading BEP referenced local file /file");
 
     artifactUploader.release();
 
