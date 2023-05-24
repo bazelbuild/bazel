@@ -54,9 +54,9 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
 
-  private ImmutableSet<String> ignoredPaths;
+  private final ImmutableSet<Path> ignoredPaths;
 
-  WatchServiceDiffAwareness(String watchRoot, ImmutableSet<String> ignoredPaths) {
+  WatchServiceDiffAwareness(String watchRoot, ImmutableSet<Path> ignoredPaths) {
     super(watchRoot);
     this.ignoredPaths = ignoredPaths;
   }
@@ -263,9 +263,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   /** Traverses directory tree to register subdirectories. */
   private void registerSubDirectories(Path rootDir) throws IOException {
     // Note that this does not follow symlinks.
-    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(
-      ignoredPaths.stream().map(Path::of).collect(toImmutableSet())
-    );
+    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(ignoredPaths);
     Files.walkFileTree(rootDir, watcherFileVisitor);
   }
 
@@ -276,10 +274,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
   private Set<Path> registerSubDirectoriesAndReturnContents(Path rootDir) throws IOException {
     Set<Path> visitedAbsolutePaths = new HashSet<>();
     // Note that this does not follow symlinks.
-    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(
-      visitedAbsolutePaths,
-      ignoredPaths.stream().map(Path::of).collect(toImmutableSet())
-    );
+    WatcherFileVisitor watcherFileVisitor = new WatcherFileVisitor(visitedAbsolutePaths, ignoredPaths);
     Files.walkFileTree(rootDir, watcherFileVisitor);
     return visitedAbsolutePaths;
   }

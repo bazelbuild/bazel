@@ -109,7 +109,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
       return new WatchServiceDiffAwareness(
         resolvedPathEntryFragment.toString(),
-        ignoredPaths.stream().map(p -> p.toString()).collect(toImmutableSet())
+        ignoredPaths.stream().map(p -> Path.of(p.toString())).collect(toImmutableSet())
       );
     }
   }
