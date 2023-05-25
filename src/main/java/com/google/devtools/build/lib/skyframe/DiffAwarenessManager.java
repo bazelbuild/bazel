@@ -122,8 +122,12 @@ public final class DiffAwarenessManager {
       throw new IllegalStateException(pathEntry + " " + baselineView + " " + newView, e);
     }
 
-    ProcessableModifiedFileSet result = new ProcessableModifiedFileSetImpl(diff, pathEntry,
-        newView);
+    ProcessableModifiedFileSet result = new ProcessableModifiedFileSetImpl(
+        diff,
+        pathEntry,
+        ignoredPaths,
+        newView
+    );
     return result;
   }
 
@@ -176,10 +180,13 @@ public final class DiffAwarenessManager {
      */
     private final View nextView;
 
+    private final ImmutableSet<Path> ignoredPaths;
+
     private ProcessableModifiedFileSetImpl(
-        ModifiedFileSet modifiedFileSet, Root pathEntry, View nextView) {
+        ModifiedFileSet modifiedFileSet, Root pathEntry, ImmutableSet<Path> ignoredPaths, View nextView) {
       this.modifiedFileSet = modifiedFileSet;
       this.pathEntry = pathEntry;
+      this.ignoredPaths = ignoredPaths;
       this.nextView = nextView;
     }
 
@@ -198,7 +205,8 @@ public final class DiffAwarenessManager {
     public void markProcessed() {
       Map<ImmutableSet<Path>, DiffAwarenessState> rootDiffAwarenessStates = currentDiffAwarenessStates.get(pathEntry);
       if (rootDiffAwarenessStates != null) {
-        for (DiffAwarenessState diffAwarenessState : rootDiffAwarenessStates.values()) {
+        DiffAwarenessState diffAwarenessState = rootDiffAwarenessStates.get(ignoredPaths);
+        if (diffAwarenessState != null) {
           diffAwarenessState.baselineView = nextView;
         }
       }
