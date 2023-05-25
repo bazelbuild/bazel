@@ -322,7 +322,7 @@ public final class JavaCompileActionBuilder {
     result.addAll(
         "--builtin_processors",
         Sets.intersection(plugins.processorClasses().toSet(), builtinProcessorNames));
-    result.addExecPaths("--source_jars", ImmutableList.copyOf(sourceJars));
+    result.addExecPaths("--source_jars", sourceJars);
     result.addExecPaths("--sources", sourceFiles);
     if (!javacOpts.isEmpty()) {
       if (stripOutputPaths) {
@@ -338,7 +338,7 @@ public final class JavaCompileActionBuilder {
             "--javacopts",
             javacOpts.stream().map(coptStripper::strip).collect(Collectors.toList()));
       } else {
-        result.addAll("--javacopts", javacOpts);
+        result.add("--javacopts").addObject(javacOpts);
       }
       // terminate --javacopts with `--` to support javac flags that start with `--`
       result.add("--");

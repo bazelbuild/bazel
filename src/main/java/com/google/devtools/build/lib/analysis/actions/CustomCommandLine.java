@@ -780,8 +780,15 @@ public class CustomCommandLine extends CommandLine {
     /**
      * Adds a single argument to the command line, which is lazily converted to string.
      *
-     * <p>If the value is null, neither the arg nor the value is added.
+     * <p>If the value is null, this method is a no-op.
+     *
+     * <p>Passing a {@link Collection} containing multiple elements to this method instead of {@link
+     * #addAll(Collection)} and similar is preferable if the caller knows that the given instance
+     * will be retained elsewhere. This method spends a single array slot on the {@link Collection}
+     * instead of copying over all of its elements, potentially saving memory if it is retained
+     * elsewhere.
      */
+    @CanIgnoreReturnValue
     public Builder addObject(@Nullable Object value) {
       return addObjectInternal(value);
     }

@@ -155,7 +155,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     private NestedSet<Artifact> directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private NestedSet<Artifact> compileTimeDependencyArtifacts =
         NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    private final ImmutableList.Builder<String> javacOptsBuilder = ImmutableList.builder();
+    private ImmutableList<String> javacOpts = ImmutableList.of();
+    private boolean addTurbineHjarJavacOpt = false;
     private JavaPluginData plugins = JavaPluginData.empty();
 
     private ImmutableList<Artifact> additionalInputs = ImmutableList.of();
@@ -210,17 +211,20 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
-    /** Adds Java compiler flags. */
+    /** Sets Java compiler flags. */
     @CanIgnoreReturnValue
-    public Builder addAllJavacOpts(Iterable<String> javacOpts) {
-      this.javacOptsBuilder.addAll(javacOpts);
+    public Builder setJavacOpts(ImmutableList<String> javacOpts) {
+      this.javacOpts = checkNotNull(javacOpts);
       return this;
     }
 
-    /** Adds a Java compiler flag. */
+    /**
+     * Adds {@code -Aexperimental_turbine_hjar} to Java compiler flags without creating an entirely
+     * new list.
+     */
     @CanIgnoreReturnValue
-    public Builder addJavacOpt(String javacOpt) {
-      this.javacOptsBuilder.add(javacOpt);
+    public Builder addTurbineHjarJavacOpt() {
+      this.addTurbineHjarJavacOpt = true;
       return this;
     }
 
@@ -342,8 +346,6 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       checkNotNull(
           compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
 
-      ImmutableList<String> javacOpts = javacOptsBuilder.build();
-
       // Invariant: if strictJavaDeps is OFF, then directJars and
       // dependencyArtifacts are ignored
       if (strictJavaDeps == StrictDepsMode.OFF) {
@@ -424,8 +426,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .addExecPaths("--source_jars", sourceJars)
               .add("--injecting_rule_kind", injectingRuleKind);
 
-      if (!javacOpts.isEmpty()) {
-        commandLine.addAll("--javacopts", javacOpts);
+      if (!javacOpts.isEmpty() || addTurbineHjarJavacOpt) {
+        commandLine.add("--javacopts");
+        if (!javacOpts.isEmpty()) {
+          commandLine.addObject(javacOpts);
+        }
+        if (addTurbineHjarJavacOpt) {
+          commandLine.add("-Aexperimental_turbine_hjar");
+        }
         // terminate --javacopts with `--` to support javac flags that start with `--`
         commandLine.add("--");
       }

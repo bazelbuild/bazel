@@ -554,8 +554,8 @@ public final class JavaCompilationHelper {
         .processorClasses()
         .toList()
         .contains("dagger.internal.codegen.ComponentProcessor")) {
-      // see b/31371210
-      builder.addJavacOpt("-Aexperimental_turbine_hjar");
+      // See b/31371210 and b/142059842.
+      builder.addTurbineHjarJavacOpt();
     }
     builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
@@ -566,7 +566,7 @@ public final class JavaCompilationHelper {
 
   private JavaHeaderCompileAction.Builder getJavaHeaderCompileActionBuilder() {
     JavaTargetAttributes attributes = getAttributes();
-    JavaHeaderCompileAction.Builder builder = JavaHeaderCompileAction.newBuilder(getRuleContext());
+    JavaHeaderCompileAction.Builder builder = JavaHeaderCompileAction.newBuilder(ruleContext);
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
@@ -574,7 +574,7 @@ public final class JavaCompilationHelper {
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
-    builder.addAllJavacOpts(getJavacOpts());
+    builder.setJavacOpts(customJavacOpts);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
