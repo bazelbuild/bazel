@@ -12,98 +12,88 @@ public class Blake3Hasher extends AbstractHasher {
   public static final int KEY_LEN = 32;
   public static final int OUT_LEN = 32;
 
+  // To reduce the number of calls made via JNI, buffer up to this many bytes.
+  // If a call to "hash()" is made and less than this much data has been
+  // written, a single JNI call will be made that initializes, hashes, and
+  // cleans up the hasher, rather than making separate calls for each operation.
+  public static final int ONESHOT_THRESHOLD = 8 * 1024;
+
   private final ReentrantLock rl = new ReentrantLock();
-  private static ThreadLocal<ByteBuffer> nativeByteBuffer = new ThreadLocal<ByteBuffer>();
+  private ByteBuffer buffer;
   private long hasher = -1;
 
-  public boolean isValid() {
+  public boolean isAllocated() {
     return (hasher != -1);
   }
 
-  private void checkValid() {
-    if (!isValid()) {
-      throw new IllegalStateException("Native hasher not initialized");
+  private void initOnce() {
+    if (!isAllocated()) {
+      hasher = Blake3JNI.allocate_and_initialize_hasher();
     }
   }
 
-  public Blake3Hasher() throws IllegalStateException {
-    hasher = Blake3JNI.allocate_hasher();
-    checkValid();
-    Blake3JNI.blake3_hasher_init(hasher);
-  }
+  public Blake3Hasher() {}
 
-  public void close() {
-    if (isValid()) {
-      rl.lock();
-      try {
-        Blake3JNI.delete_hasher(hasher);
-      } finally {
-        hasher = -1;
-        rl.unlock();
-      }
+  private void resetBuffer(int minLength) {
+    int length = Math.max(ONESHOT_THRESHOLD, minLength);
+    if (buffer == null || buffer.capacity() < length) {
+      buffer = ByteBuffer.allocateDirect(length);
+      buffer.order(ByteOrder.nativeOrder());
     }
-  }
-
-  public void initDefault() {
-    rl.lock();
-    try {
-      Blake3JNI.blake3_hasher_init(hasher);
-    } finally {
-      rl.unlock();
-    }
-  }
-
-  public void initKeyed(byte[] key) {
-    if (key.length != KEY_LEN) {
-      throw new IllegalArgumentException("Invalid hasher key length");
-    }
-
-    rl.lock();
-    try {
-      Blake3JNI.blake3_hasher_init_keyed(hasher, key);
-    } finally {
-      rl.unlock();
-    }
-  }
-
-  public void initDeriveKey(String context) {
-    rl.lock();
-    try {
-      Blake3JNI.blake3_hasher_init_derive_key(hasher, context);
-    } finally {
-      rl.unlock();
-    }
-  }
-
-   public void update(byte[] data) {
-    update(data, 0, data.length);
+    buffer.clear();
   }
 
   public void update(byte[] data, int offset, int length) {
-    ByteBuffer inputBuf = nativeByteBuffer.get();
-
-    if (inputBuf == null || inputBuf.capacity() < data.length) {
-      inputBuf = ByteBuffer.allocateDirect(data.length);
-      inputBuf.order(ByteOrder.nativeOrder());
-      nativeByteBuffer.set(inputBuf);
-    }
-    inputBuf.rewind();
-    inputBuf.put(data);
-
     rl.lock();
-    checkValid();
+
+    if (buffer == null) {
+      resetBuffer(length);
+    }
 
     try {
-      Blake3JNI.blake3_hasher_update(hasher, inputBuf, offset, data.length);
+      if (buffer.remaining() < length) {
+        initOnce();
+        Blake3JNI.blake3_hasher_update(hasher, buffer, 0, buffer.position());
+        resetBuffer(length);
+      }
+      buffer.put(data, offset, length);
     } finally {
       rl.unlock();
     }
   }
 
+  public void update(byte[] data) {
+    update(data, 0, data.length);
+  }
+
+  public byte[] getOutput(int outputLength) throws IllegalArgumentException {
+    rl.lock();
+    byte[] retByteArray = new byte[outputLength];
+
+    try {
+      if (!isAllocated() && buffer != null) {
+        Blake3JNI.blake3_hasher_oneshot(
+            hasher, buffer, buffer.position(), retByteArray, outputLength);
+      } else {
+        initOnce();
+        if (buffer != null && buffer.position() > 0) {
+          Blake3JNI.blake3_hasher_update(hasher, buffer, 0, buffer.position());
+        }
+        Blake3JNI.blake3_hasher_finalize_and_close(hasher, retByteArray, outputLength);
+        hasher = -1;
+      }
+    } finally {
+      rl.unlock();
+    }
+
+    return retByteArray;
+  }
+
+  // The following overrides allow us to implement Hasher.
   @Override
   public Hasher putBytes(byte[] bytes, int off, int len) {
-      update(bytes, off, len);
-      return this;
+    update(bytes, off, len);
+    return this;
   }
 
   @Override
@@ -120,24 +110,6 @@ public class Blake3Hasher extends AbstractHasher {
 
   @Override
   public HashCode hash() {
-    return HashCode.fromBytes(getOutput());
-  }
-
-  public byte[] getOutput() throws IllegalArgumentException {
-    return getOutput(OUT_LEN);
-  }
-
-  public byte[] getOutput(int outputLength) throws IllegalArgumentException {
-    byte[] retByteArray = new byte[outputLength];
-
-    rl.lock();
-    checkValid();
-    try {
-      Blake3JNI.blake3_hasher_finalize(hasher, retByteArray, outputLength);
-    } finally {
-      rl.unlock();
-    }
-
-    return retByteArray;
+    return HashCode.fromBytes(getOutput(OUT_LEN));
   }
 }

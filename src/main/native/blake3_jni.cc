@@ -21,70 +21,28 @@
 
 namespace blaze_jni {
 
-blake3_hasher* hasher_ptr(jlong self)
-{
-  return (blake3_hasher*)self;
-}
+blake3_hasher *hasher_ptr(jlong self) { return (blake3_hasher *)self; }
 
-jbyte* get_byte_array(JNIEnv *env, jbyteArray java_array)
-{
+jbyte *get_byte_array(JNIEnv *env, jbyteArray java_array) {
   return env->GetByteArrayElements(java_array, nullptr);
 }
 
-void release_byte_array(JNIEnv *env, jbyteArray array, jbyte* addr)
-{
+void release_byte_array(JNIEnv *env, jbyteArray array, jbyte *addr) {
   return env->ReleaseByteArrayElements(array, addr, 0);
 }
 
-extern "C" JNIEXPORT jlong JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_allocate_1hasher
-  (JNIEnv *env, jobject obj)
-{
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_google_devtools_build_lib_hash_Blake3JNI_allocate_1and_1initialize_1hasher(
+    JNIEnv *env, jobject obj) {
   blake3_hasher *hasher = new blake3_hasher;
-
+  blake3_hasher_init(hasher);
   return (jlong)hasher;
 }
 
-
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_delete_1hasher
-  (JNIEnv *env, jobject obj, jlong self)
-{
-  blake3_hasher *hasher = hasher_ptr(self);
-
-  if (hasher != NULL) {
-    delete hasher;
-  }
-
-  return;
-}
-
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1init
-  (JNIEnv *env, jobject obj, jlong self)
-{
-  return blake3_hasher_init(hasher_ptr(self));
-}
-
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1init_1keyed
-  (JNIEnv *env, jobject obj, jlong self, jbyteArray key)
-{
-  jbyte *key_addr = get_byte_array(env, key);
-
-  blake3_hasher_init_keyed(hasher_ptr(self), (uint8_t*)key_addr);
-
-  return release_byte_array(env, key, key_addr);
-}
-
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1init_1derive_1key
-  (JNIEnv *env, jobject obj, jlong self, jstring context)
-{
-  const char *ctx = env->GetStringUTFChars(context, nullptr);
-
-  blake3_hasher_init_derive_key(hasher_ptr(self), ctx);
-
-  return env->ReleaseStringUTFChars(context, ctx);
-}
-
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1update(
-    JNIEnv *env, jobject obj, jlong self, jobject byteBuffer, jint offset, jint input_len) {    
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1update(
+    JNIEnv *env, jobject obj, jlong self, jobject byteBuffer, jint offset,
+    jint input_len) {
   void *input =
       (void *)((char *)env->GetDirectBufferAddress(byteBuffer) + offset);
 
@@ -93,24 +51,36 @@ extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3
   return;
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1finalize
-  (JNIEnv *env, jobject obj, jlong self, jbyteArray out, jint out_len)
-{
-  jbyte *out_addr = get_byte_array(env, out);
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1oneshot(
+    JNIEnv *env, jobject obj, jlong self, jobject byteBuffer, jint input_len,
+    jbyteArray out, jint out_len) {
+  blake3_hasher *hasher = new blake3_hasher;
+  blake3_hasher_init(hasher);
 
-  blake3_hasher_finalize(hasher_ptr(self), (uint8_t*)out_addr, out_len);
+  void *input = (void *)((char *)env->GetDirectBufferAddress(byteBuffer));
+
+  blake3_hasher_update(hasher, input, input_len);
+
+  jbyte *out_addr = get_byte_array(env, out);
+  blake3_hasher_finalize(hasher, (uint8_t *)out_addr, out_len);
+
+  delete hasher;
 
   return release_byte_array(env, out, out_addr);
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1finalize_1seek
-  (JNIEnv *env, jobject obj, jlong self, jlong seek, jbyteArray out, jint out_len)
-{
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_hash_Blake3JNI_blake3_1hasher_1finalize_1and_1close(
+    JNIEnv *env, jobject obj, jlong self, jbyteArray out, jint out_len) {
   jbyte *out_addr = get_byte_array(env, out);
 
-  blake3_hasher_finalize_seek(hasher_ptr(self), seek, (uint8_t*)out_addr, out_len);
+  blake3_hasher_finalize(hasher_ptr(self), (uint8_t *)out_addr, out_len);
+
+  blake3_hasher *hasher = hasher_ptr(self);
+  delete hasher;
 
   return release_byte_array(env, out, out_addr);
 }
 
-}  // namespace blaze_jni
+} // namespace blaze_jni
