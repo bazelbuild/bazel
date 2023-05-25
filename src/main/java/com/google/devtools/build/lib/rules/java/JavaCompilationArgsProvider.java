@@ -18,11 +18,11 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -31,7 +31,7 @@ import java.util.Iterator;
 /** A collection of recursively collected Java build information. */
 @AutoValue
 @Immutable
-public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvider {
+public abstract class JavaCompilationArgsProvider implements JavaInfoInternalProvider {
 
   @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =

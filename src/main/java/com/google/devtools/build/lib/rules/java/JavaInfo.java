@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -57,6 +56,9 @@ public final class JavaInfo extends NativeInfo
   public static final String STARLARK_NAME = "JavaInfo";
 
   public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
+
+  /** Marker interface for encapuslated providers */
+  public interface JavaInfoInternalProvider {}
 
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
@@ -158,7 +160,7 @@ public final class JavaInfo extends NativeInfo
    * JavaInfo}s. Returns an empty list if no providers can be fetched. Returns a list of the same
    * size as the given list if the requested providers are of type JavaCompilationArgsProvider.
    */
-  public static <T extends TransitiveInfoProvider> ImmutableList<T> fetchProvidersFromList(
+  public static <T extends JavaInfoInternalProvider> ImmutableList<T> fetchProvidersFromList(
       Iterable<JavaInfo> javaProviders, Class<T> providerClass) {
     return streamProviders(javaProviders, providerClass).collect(toImmutableList());
   }
@@ -167,7 +169,7 @@ public final class JavaInfo extends NativeInfo
    * Returns a stream of providers of the specified class, fetched from the given list of {@link
    * JavaInfo}.
    */
-  public static <C extends TransitiveInfoProvider> Stream<C> streamProviders(
+  public static <C extends JavaInfoInternalProvider> Stream<C> streamProviders(
       Iterable<JavaInfo> javaProviders, Class<C> providerClass) {
     return Streams.stream(javaProviders)
         .map(javaInfo -> javaInfo.getProvider(providerClass))
@@ -179,7 +181,7 @@ public final class JavaInfo extends NativeInfo
   // confusion with the unrelated no-arg Info.getProvider method.
   @SuppressWarnings({"UngroupedOverloads", "unchecked"})
   @Nullable
-  public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
+  public <P extends JavaInfoInternalProvider> P getProvider(Class<P> providerClass) {
     if (providerClass == JavaCompilationArgsProvider.class) {
       return (P) providerJavaCompilationArgs;
     } else if (providerClass == JavaSourceJarsProvider.class) {
@@ -200,7 +202,7 @@ public final class JavaInfo extends NativeInfo
 
   /** Returns a provider of the specified class, fetched from the JavaInfo of the given target. */
   @Nullable
-  public static <T extends TransitiveInfoProvider> T getProvider(
+  public static <T extends JavaInfoInternalProvider> T getProvider(
       Class<T> providerClass, TransitiveInfoCollection target) {
     JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
     if (javaInfo == null) {
@@ -213,7 +215,7 @@ public final class JavaInfo extends NativeInfo
     return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
   }
 
-  public static <T extends TransitiveInfoProvider> List<T> getProvidersFromListOfTargets(
+  public static <T extends JavaInfoInternalProvider> List<T> getProvidersFromListOfTargets(
       Class<T> providerClass, Iterable<? extends TransitiveInfoCollection> targets) {
     List<T> providersList = new ArrayList<>();
     for (TransitiveInfoCollection target : targets) {
@@ -410,7 +412,7 @@ public final class JavaInfo extends NativeInfo
    * @param <P> type of Provider
    * @param <S> type of returned NestedSet items
    */
-  private <P extends TransitiveInfoProvider, S extends StarlarkValue>
+  private <P extends JavaInfoInternalProvider, S extends StarlarkValue>
       NestedSet<S> getProviderAsNestedSet(
           Class<P> providerClass, Function<P, NestedSet<S>> mapper) {
 
