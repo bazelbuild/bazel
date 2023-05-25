@@ -283,7 +283,10 @@ public final class SkyframeBuildView {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
       if (diff != null) {
         eventHandler.handle(
-            Event.warn(diff + ", discarding analysis cache (this can be expensive)."));
+            Event.warn(
+                diff
+                    + ", discarding analysis cache (this can be expensive, see"
+                    + " https://bazel.build/advanced/performance/iteration-speed)."));
         // Note that clearing the analysis cache is currently required for correctness. It is also
         // helpful to save memory.
         //
