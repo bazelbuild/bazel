@@ -2361,7 +2361,9 @@ public abstract class CcModule
             name = "grep_includes",
             positional = false,
             named = true,
-            documented = false,
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = FileApi.class),
@@ -2884,7 +2886,14 @@ public abstract class CcModule
             doc = "<code>feature_configuration</code> to be queried.",
             positional = false,
             named = true),
-        @Param(name = "grep_includes", documented = false, positional = false, named = true),
+        @Param(
+            name = "grep_includes",
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
+            positional = false,
+            named = true,
+            defaultValue = "None"),
         @Param(name = "source_file", documented = false, positional = false, named = true),
         @Param(name = "output_file", documented = false, positional = false, named = true),
         @Param(name = "compilation_inputs", documented = false, positional = false, named = true),
@@ -2900,7 +2909,7 @@ public abstract class CcModule
       StarlarkActionFactory starlarkActionFactoryApi,
       CcToolchainProvider ccToolchain,
       FeatureConfigurationForStarlark featureConfigurationForStarlark,
-      Artifact grepIncludes,
+      Object grepIncludes,
       Artifact sourceFile,
       Artifact outputFile,
       Depset compilationInputs,
