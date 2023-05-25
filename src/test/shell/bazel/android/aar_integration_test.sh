@@ -147,4 +147,38 @@ EOF
   assert_one_of $apk_contents "lib/armeabi-v7a/libapp.so"
 }
 
+function test_aar_extractor_worker() {
+  create_new_workspace
+  setup_android_sdk_support
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.example"/>
+EOF
+  mkdir -p res/layout
+  cat > res/layout/mylayout.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" />
+EOF
+  mkdir assets
+  echo "some asset" > assets/a
+  zip example.aar AndroidManifest.xml res/layout/mylayout.xml assets/a
+  cat > BUILD <<EOF
+aar_import(
+  name = "example",
+  aar = "example.aar",
+)
+android_binary(
+  name = "app",
+  custom_package = "com.example",
+  manifest = "AndroidManifest.xml",
+  deps = [":example"],
+)
+EOF
+
+  bazel clean
+  bazel build --experimental_persistent_aar_extractor :app || fail "build failed"
+  apk_contents="$(zipinfo -1 bazel-bin/app.apk)"
+  assert_one_of $apk_contents "assets/a"
+  assert_one_of $apk_contents "res/layout/mylayout.xml"
+}
+
 run_suite "aar_import integration tests"

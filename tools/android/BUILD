@@ -88,6 +88,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -123,6 +124,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -138,6 +140,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -153,6 +156,7 @@ py_binary(
     deps = [
         ":junction_lib",
         "//third_party/py/abseil",
+        ":json_worker_wrapper",
     ],
 )
 
@@ -191,6 +195,13 @@ py_library(
     name = "junction_lib",
     srcs = ["junction.py"],
     visibility = ["//visibility:private"],
+)
+
+py_library(
+    name = "json_worker_wrapper",
+    srcs = ["json_worker_wrapper.py"],
+    visibility = ["//visibility:private"],
+    srcs_version = "PY3",
 )
 
 py_test(

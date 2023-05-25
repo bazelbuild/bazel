@@ -31,6 +31,7 @@ from absl import app
 from absl import flags
 
 from tools.android import junction
+from tools.android import json_worker_wrapper
 
 FLAGS = flags.FLAGS
 
@@ -145,5 +146,4 @@ def main(unused_argv):
 
 
 if __name__ == "__main__":
-  FLAGS(sys.argv)
-  app.run(main)
+  json_worker_wrapper.wrap_worker(FLAGS, main, app.run)
