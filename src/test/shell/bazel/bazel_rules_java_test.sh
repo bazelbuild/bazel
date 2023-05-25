@@ -89,15 +89,14 @@ EOF
     fail "Bazel failed to build @rules_java"
 }
 
-# TODO(pcloudy): Probably don't need to exclude this test if we use a release version of rules_java
-# function test_rules_java_repository_builds_itself() {
-#   write_default_bazelrc
-#   setup_skylib_support
+function test_rules_java_repository_builds_itself() {
+  write_default_bazelrc
+  setup_skylib_support
 
-#   # We test that a built-in @rules_java repository is buildable.
-#   bazel build -- @rules_java//... -@rules_java//toolchains/... &> $TEST_log \
-#       || fail "Build failed unexpectedly"
-# }
+  # We test that a built-in @rules_java repository is buildable.
+  bazel build -- @rules_java//... -@rules_java//toolchains/... &> $TEST_log \
+      || fail "Build failed unexpectedly"
+}
 
 
 function test_experimental_java_library_export_do_not_use() {

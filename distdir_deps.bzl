@@ -62,21 +62,17 @@ DIST_DEPS = {
         "package_version": "0.0.6",
         "strip_prefix": "rules_cc-0.0.6",
     },
-    # TODO(pcloudy): DO NOT SUBMIT: Switch to release version of rules_java
     "rules_java": {
-        "archive": "fe9bd0703e255efcf9a27ee7dfe99aa20e3fb7aa.tar.gz",
-        "sha256": "103306d728ff723e933c8fb34d09d145c0085bdbf8a804faeb46be67b122ae23",
-        "strip_prefix": "rules_java-fe9bd0703e255efcf9a27ee7dfe99aa20e3fb7aa",
-        "urls": [
-            "https://github.com/meteorcloudy/rules_java/archive/fe9bd0703e255efcf9a27ee7dfe99aa20e3fb7aa.tar.gz",
-        ],
+        "archive": "rules_java-6.0.0.tar.gz",
+        "sha256": "469b7f3b580b4fcf8112f4d6d0d5a4ce8e1ad5e21fee67d8e8335d5f8b3debab",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.0.0/rules_java-6.0.0.tar.gz"],
         "used_in": [
             "additional_distfiles",
         ],
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        "package_version": "5.4.1",
+        "package_version": "6.0.0",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {
