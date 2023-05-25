@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
@@ -820,7 +821,7 @@ public final class JavaCompilationHelper {
    *
    * @param deps the dependencies to be included as roots of the transitive closure
    */
-  public void addLibrariesToAttributes(Iterable<? extends TransitiveInfoCollection> deps) {
+  public void addLibrariesToAttributes(Collection<? extends TransitiveInfoCollection> deps) {
     // Enforcing strict Java dependencies: when the --strict_java_deps flag is
     // WARN or ERROR, or is DEFAULT and strict_java_deps attribute is unset,
     // we use a stricter javac compiler to perform direct deps checks.
@@ -831,7 +832,12 @@ public final class JavaCompilationHelper {
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
       addDependencyArtifactsToAttributes(
           attributes,
-          JavaInfo.getProvidersFromListOfTargets(JavaCompilationArgsProvider.class, deps));
+          deps.stream()
+              .map(
+                  dep ->
+                      JavaInfo.getCompilationArgsProvider(dep)
+                          .orElse(JavaCompilationArgsProvider.EMPTY))
+              .collect(toImmutableList()));
     }
   }
 

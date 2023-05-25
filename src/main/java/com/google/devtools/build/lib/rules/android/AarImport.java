@@ -206,10 +206,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
       srcJars = ImmutableList.of(srcJar);
       transitiveJavaSourceJarBuilder.add(srcJar);
     }
-    for (JavaSourceJarsProvider other :
-        JavaInfo.getProvidersFromListOfTargets(
-            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports"))) {
-      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    for (TransitiveInfoCollection target : ruleContext.getPrerequisites("exports")) {
+      transitiveJavaSourceJarBuilder.addTransitive(JavaInfo.transitiveSourceJars(target));
     }
     NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
     JavaSourceJarsProvider javaSourceJarsProvider =

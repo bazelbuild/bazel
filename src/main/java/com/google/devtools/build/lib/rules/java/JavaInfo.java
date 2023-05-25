@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -107,6 +106,43 @@ public final class JavaInfo extends NativeInfo
       TransitiveInfoCollection target) {
     return Optional.ofNullable(getJavaInfo(target))
         .map(javaInfo -> javaInfo.providerJavaCompilationArgs);
+  }
+
+  public static NestedSet<Artifact> transitiveFullCompileTimeJars(TransitiveInfoCollection target) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
+    if (javaInfo != null && javaInfo.providerJavaCompilationArgs != null) {
+      return javaInfo.providerJavaCompilationArgs.getTransitiveFullCompileTimeJars();
+    }
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  }
+
+  public static CcInfo ccInfo(TransitiveInfoCollection target) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
+    if (javaInfo != null && javaInfo.providerJavaCcInfo != null) {
+      return javaInfo.providerJavaCcInfo.getCcInfo();
+    }
+    return CcInfo.EMPTY;
+  }
+
+  public static NestedSet<Artifact> transitiveSourceJars(TransitiveInfoCollection target)
+      throws RuleErrorException {
+    return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveSourceJars);
+  }
+
+  public static JavaGenJarsProvider genJarsProvider(TransitiveInfoCollection target) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
+    if (javaInfo != null && javaInfo.providerJavaGenJars != null) {
+      return javaInfo.providerJavaGenJars;
+    }
+    return JavaGenJarsProvider.EMPTY;
+  }
+
+  public static JavaModuleFlagsProvider moduleFlagsProvider(TransitiveInfoCollection target) {
+    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
+    if (javaInfo != null && javaInfo.providerModuleFlags != null) {
+      return javaInfo.providerModuleFlags;
+    }
+    return JavaModuleFlagsProvider.EMPTY;
   }
 
   /** Marker interface for encapuslated providers */
@@ -266,18 +302,6 @@ public final class JavaInfo extends NativeInfo
 
   public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
     return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
-  }
-
-  public static <T extends JavaInfoInternalProvider> List<T> getProvidersFromListOfTargets(
-      Class<T> providerClass, Iterable<? extends TransitiveInfoCollection> targets) {
-    List<T> providersList = new ArrayList<>();
-    for (TransitiveInfoCollection target : targets) {
-      T provider = getProvider(providerClass, target);
-      if (provider != null) {
-        providersList.add(provider);
-      }
-    }
-    return providersList;
   }
 
   private JavaInfo(

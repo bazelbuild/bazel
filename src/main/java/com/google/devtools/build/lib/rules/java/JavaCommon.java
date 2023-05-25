@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -145,13 +144,12 @@ public class JavaCommon {
    * @return the native libraries found in the transitive closure of the deps.
    */
   public static ImmutableList<Artifact> collectNativeLibraries(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Collection<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
         NestedSetBuilder.fromNestedSets(
                 Streams.concat(
-                        JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps)
-                            .stream()
-                            .map(JavaCcInfoProvider::getCcInfo)
+                        deps.stream()
+                            .map(JavaInfo::ccInfo)
                             .map(CcInfo::getCcNativeLibraryInfo)
                             .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries),
                         AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
@@ -316,7 +314,8 @@ public class JavaCommon {
    * @return A nested set containing all of the source jar artifacts on which the current rule
    *     transitively depends.
    */
-  public NestedSet<Artifact> collectTransitiveSourceJars(Artifact... targetSrcJars) {
+  public NestedSet<Artifact> collectTransitiveSourceJars(Artifact... targetSrcJars)
+      throws RuleErrorException {
     return collectTransitiveSourceJars(ImmutableList.copyOf(targetSrcJars));
   }
 
@@ -327,13 +326,13 @@ public class JavaCommon {
    * @return A nested set containing all of the source jar artifacts on which the current rule
    *     transitively depends.
    */
-  public NestedSet<Artifact> collectTransitiveSourceJars(Iterable<Artifact> targetSrcJars) {
+  public NestedSet<Artifact> collectTransitiveSourceJars(Iterable<Artifact> targetSrcJars)
+      throws RuleErrorException {
     NestedSetBuilder<Artifact> builder =
         NestedSetBuilder.<Artifact>stableOrder().addAll(targetSrcJars);
 
-    for (JavaSourceJarsProvider sourceJarsProvider :
-        JavaInfo.getProvidersFromListOfTargets(JavaSourceJarsProvider.class, getDependencies())) {
-      builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
+    for (TransitiveInfoCollection dep : getDependencies()) {
+      builder.addTransitive(JavaInfo.transitiveSourceJars(dep));
     }
 
     return builder.build();
@@ -685,13 +684,13 @@ public class JavaCommon {
 
   /** Adds Cc related providers to a Java target. */
   private void addCcRelatedProviders(JavaInfo.Builder javaInfoBuilder) {
-    Iterable<? extends TransitiveInfoCollection> deps = targetsTreatedAsDeps(ClasspathType.BOTH);
+    ImmutableList<? extends TransitiveInfoCollection> deps =
+        targetsTreatedAsDeps(ClasspathType.BOTH);
 
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream(),
-                JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps).stream()
-                    .map(JavaCcInfoProvider::getCcInfo))
+                deps.stream().map(JavaInfo::ccInfo))
             .collect(toImmutableList());
 
     CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
@@ -728,7 +727,7 @@ public class JavaCommon {
             genClassJar,
             genSourceJar,
             activePlugins,
-            getDependencies(JavaGenJarsProvider.class));
+            getDependencies().stream().map(JavaInfo::genJarsProvider).collect(toImmutableList()));
 
     javaInfoBuilder.javaGenJars(genJarsProvider);
   }
@@ -857,11 +856,6 @@ public class JavaCommon {
   /** Gets all the deps. */
   public final List<? extends TransitiveInfoCollection> getDependencies() {
     return targetsTreatedAsDeps(ClasspathType.BOTH);
-  }
-
-  /** Gets all the deps that implement a particular provider. */
-  public final <P extends JavaInfoInternalProvider> List<P> getDependencies(Class<P> provider) {
-    return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
   }
 
   /**

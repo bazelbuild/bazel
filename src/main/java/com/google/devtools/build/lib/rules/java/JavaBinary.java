@@ -278,9 +278,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaModuleFlagsProvider javaModuleFlagsProvider =
         JavaModuleFlagsProvider.create(
             ruleContext,
-            JavaInfo.getProvidersFromListOfTargets(
-                JavaModuleFlagsProvider.class, common.targetsTreatedAsDeps(ClasspathType.BOTH))
-                .stream());
+            common.targetsTreatedAsDeps(ClasspathType.BOTH).stream()
+                .map(JavaInfo::moduleFlagsProvider));
 
     javaModuleFlagsProvider.toFlags().stream()
         // Share strings in the heap with the equivalent javacopt flags, which are also interned

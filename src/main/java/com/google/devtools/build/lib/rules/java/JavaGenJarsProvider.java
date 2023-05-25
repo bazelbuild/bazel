@@ -44,7 +44,7 @@ public final class JavaGenJarsProvider
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
 
-  private static final JavaGenJarsProvider EMPTY =
+  static final JavaGenJarsProvider EMPTY =
       new JavaGenJarsProvider(
           /* usesAnnotationProcessing= */ false,
           /* genClassJar= */ null,
