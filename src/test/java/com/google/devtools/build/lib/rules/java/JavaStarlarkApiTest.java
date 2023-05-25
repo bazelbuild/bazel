@@ -415,6 +415,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'sourcepath': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -491,6 +492,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'runtime_deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -557,6 +559,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'plugins': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -594,6 +597,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -658,6 +662,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -718,6 +723,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -786,6 +792,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -835,6 +842,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -884,6 +892,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  attrs = {",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -935,6 +944,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.jar']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -986,6 +996,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'additional_inputs': attr.label_list(allow_files=['.bin']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2221,6 +2232,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "     'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2334,6 +2346,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         "  provides = [JavaInfo],",
         ")");
@@ -2395,6 +2408,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2452,6 +2466,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'ccdeps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2780,6 +2795,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
 
@@ -2813,6 +2829,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         ")");
     scratch.file(
@@ -2851,6 +2868,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'deps': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         ")");
     scratch.file(
@@ -2892,6 +2910,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'exports': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'],",
         ")");
     scratch.file(
@@ -2943,6 +2962,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(allow_files=['.java']),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java'])");
 
     reporter.removeHandler(failFastHandler);
@@ -3092,6 +3112,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'plugins': attr.label_list(providers=[JavaPluginInfo]),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3164,6 +3185,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3198,6 +3220,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'classpath_resources': attr.label_list(allow_files = True),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3250,6 +3273,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3282,6 +3306,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3366,6 +3391,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3399,6 +3425,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "    'srcs': attr.label_list(),",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
@@ -3451,6 +3478,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  attrs = {",
         "    '_java_toolchain': attr.label(default = Label('//java/com/google/test:toolchain')),",
         "  },",
+        "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
     scratch.file(
