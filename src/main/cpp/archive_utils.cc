@@ -17,9 +17,11 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <thread>  // NOLINT
 #include <vector>
 
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -101,6 +103,105 @@ struct PartialZipExtractor : public devtools_ijar::ZipExtractorProcessor {
   CallbackType callback_;
   bool done_ = false;
 };
+
+// Installs Blaze by extracting the embedded data files, iff necessary.
+// The MD5-named install_base directory on disk is trusted; we assume
+// no-one has modified the extracted files beneath this directory once
+// it is in place. Concurrency during extraction is handled by
+// extracting in a tmp dir and then renaming it into place where it
+// becomes visible atomically at the new path.
+ExtractionDurationMillis ExtractData(const string &self_path,
+                                     const vector<string> &archive_contents,
+                                     const string &expected_install_md5,
+                                     const StartupOptions &startup_options,
+                                     LoggingInfo *logging_info) {
+  const string &install_base = startup_options.install_base;
+  // If the install dir doesn't exist, create it, if it does, we know it's good.
+  if (!blaze_util::PathExists(install_base)) {
+    uint64_t st = GetMillisecondsMonotonic();
+    // Work in a temp dir to avoid races.
+    string tmp_install = blaze_util::CreateTempDir(install_base + ".tmp.");
+    ExtractArchiveOrDie(self_path, startup_options.product_name,
+                        expected_install_md5, tmp_install);
+    BlessFiles(tmp_install);
+
+    uint64_t et = GetMillisecondsMonotonic();
+    const ExtractionDurationMillis extract_data_duration(
+        et - st, /*archived_extracted=*/true);
+
+    // Now rename the completed installation to its final name.
+    int attempts = 0;
+    while (attempts < 120) {
+      int result = blaze_util::RenameDirectory(tmp_install, install_base);
+      if (result == blaze_util::kRenameDirectorySuccess ||
+          result == blaze_util::kRenameDirectoryFailureNotEmpty) {
+        // If renaming fails because the directory already exists and is not
+        // empty, then we assume another good installation snuck in before us.
+        blaze_util::RemoveRecursively(tmp_install);
+        break;
+      } else {
+        // Otherwise the install directory may still be scanned by the antivirus
+        // (in case we're running on Windows) so we need to wait for that to
+        // finish and try renaming again.
+        ++attempts;
+        BAZEL_LOG(USER) << "install base directory '" << tmp_install
+                        << "' could not be renamed into place after "
+                        << attempts << " second(s), trying again\r";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+    }
+
+    // Give up renaming after 120 failed attempts / 2 minutes.
+    if (attempts == 120) {
+      blaze_util::RemoveRecursively(tmp_install);
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "install base directory '" << tmp_install
+          << "' could not be renamed into place: "
+          << blaze_util::GetLastErrorString();
+    }
+    return extract_data_duration;
+  } else {
+    // This would be detected implicitly below, but checking explicitly lets
+    // us give a better error message.
+    if (!blaze_util::IsDirectory(install_base)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "install base directory '" << install_base
+          << "' could not be created. It exists but is not a directory.";
+    }
+    blaze_util::Path install_dir(install_base);
+    // Check that all files are present and have timestamps from BlessFiles().
+    std::unique_ptr<blaze_util::IFileMtime> mtime(
+        blaze_util::CreateFileMtime());
+    for (const auto &it : archive_contents) {
+      blaze_util::Path path = install_dir.GetRelative(it);
+      if (!mtime->IsUntampered(path)) {
+        BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+            << "corrupt installation: file '" << path.AsPrintablePath()
+            << "' is missing or modified.  Please remove '" << install_base
+            << "' and try again.";
+      }
+    }
+    // Also check that the installed files claim to match this binary.
+    // We check this afterward because the above diagnostic is better
+    // for a missing install_base_key file.
+    blaze_util::Path key_path = install_dir.GetRelative("install_base_key");
+    string on_disk_key;
+    if (!blaze_util::ReadFile(key_path, &on_disk_key)) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "cannot read '" << key_path.AsPrintablePath()
+          << "': " << blaze_util::GetLastErrorString();
+    }
+    if (on_disk_key != expected_install_md5) {
+      BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)
+          << "The install_base directory '" << install_base
+          << "' contains a different " << startup_options.product_name
+          << " version (found " << on_disk_key << " but this binary is "
+          << expected_install_md5
+          << ").  Remove it or specify a different --install_base.";
+    }
+    return ExtractionDurationMillis();
+  }
+}
 
 void DetermineArchiveContents(const string &archive_path, vector<string> *files,
                               string *install_md5) {
