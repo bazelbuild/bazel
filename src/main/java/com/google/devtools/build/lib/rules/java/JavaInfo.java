@@ -145,6 +145,10 @@ public final class JavaInfo extends NativeInfo
     return JavaModuleFlagsProvider.EMPTY;
   }
 
+  public Optional<JavaCompilationArgsProvider> compilationArgsProvider() {
+    return Optional.ofNullable(providerJavaCompilationArgs);
+  }
+
   /** Marker interface for encapuslated providers */
   public interface JavaInfoInternalProvider {}
 
