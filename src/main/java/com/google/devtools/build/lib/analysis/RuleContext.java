@@ -765,6 +765,10 @@ public final class RuleContext extends TargetContext
     return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
+  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
+    return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
+  }
+
   /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.

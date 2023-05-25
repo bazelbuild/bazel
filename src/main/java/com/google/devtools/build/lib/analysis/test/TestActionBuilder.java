@@ -434,6 +434,9 @@ public final class TestActionBuilder {
           }
         }
 
+        Artifact undeclaredOutputsDir =
+            ruleContext.getPackageRelativeTreeArtifact(dir.getRelative("test.outputs"), root);
+
         boolean cancelConcurrentTests =
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
@@ -452,6 +455,7 @@ public final class TestActionBuilder {
                 cacheStatus,
                 coverageArtifact,
                 coverageDirectory,
+                undeclaredOutputsDir,
                 testProperties,
                 runfilesSupport
                     .getActionEnvironment()
