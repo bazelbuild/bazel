@@ -829,15 +829,9 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      List<JavaCompilationArgsProvider> compilationArgsProviders = new ArrayList<>();
-      for (TransitiveInfoCollection dep : deps) {
-        JavaCompilationArgsProvider provider =
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
-        if (provider != null) {
-          compilationArgsProviders.add(provider);
-        }
-      }
-      addDependencyArtifactsToAttributes(attributes, compilationArgsProviders);
+      addDependencyArtifactsToAttributes(
+          attributes,
+          JavaInfo.getProvidersFromListOfTargets(JavaCompilationArgsProvider.class, deps));
     }
   }
 

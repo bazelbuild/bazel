@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
+import java.util.Optional;
 
 /** A collection of recursively collected Java build information. */
 @AutoValue
@@ -119,13 +120,9 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
       Iterable<? extends TransitiveInfoCollection> infos) {
     Builder argsBuilder = builder();
     for (TransitiveInfoCollection info : infos) {
-      JavaCompilationArgsProvider provider = null;
-
-      if (provider == null) {
-        provider = JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
-      }
-      if (provider != null) {
-        argsBuilder.addExports(provider);
+      Optional<JavaCompilationArgsProvider> provider = JavaInfo.getCompilationArgsProvider(info);
+      if (provider.isPresent()) {
+        argsBuilder.addExports(provider.get());
       } else {
         NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
         for (Artifact jar : FileType.filter(filesToBuild.toList(), JavaSemantics.JAR)) {

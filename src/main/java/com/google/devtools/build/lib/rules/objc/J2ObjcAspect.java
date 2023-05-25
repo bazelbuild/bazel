@@ -68,8 +68,6 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -249,7 +247,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     }
     try {
       return java(ct, ruleContext);
-    } catch (EvalException e) {
+    } catch (EvalException | RuleErrorException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
@@ -362,10 +360,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   }
 
   private ConfiguredAspect java(ConfiguredTarget base, RuleContext ruleContext)
-      throws InterruptedException, ActionConflictException, EvalException {
-    JavaCompilationArgsProvider compilationArgsProvider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
-    JavaGenJarsProvider genJarProvider = JavaInfo.getProvider(JavaGenJarsProvider.class, base);
+      throws InterruptedException, ActionConflictException, EvalException, RuleErrorException {
+    NestedSet<Artifact> compileTimeJars = JavaInfo.transitiveCompileTimeJars(base);
     ImmutableSet.Builder<Artifact> javaSourceFilesBuilder = ImmutableSet.builder();
     ImmutableSet.Builder<Artifact> javaSourceJarsBuilder = ImmutableSet.builder();
 
@@ -385,9 +381,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       javaSourceJarsBuilder.add(srcJar);
     }
 
-    if (genJarProvider != null && genJarProvider.getGenSourceJar() != null) {
-      javaSourceJarsBuilder.add(genJarProvider.getGenSourceJar());
-    }
+    JavaInfo.genSourceJar(base).ifPresent(javaSourceJarsBuilder::add);
 
     ImmutableList<Artifact> javaSourceFiles = javaSourceFilesBuilder.build().asList();
     ImmutableList<Artifact> javaSourceJars = javaSourceJarsBuilder.build().asList();
@@ -405,7 +399,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               javaSourceFiles,
               javaSourceJars,
               depJ2ObjcMappingFileProvider,
-              compilationArgsProvider,
+              compileTimeJars,
               j2ObjcSource);
     }
     return buildAspect(
@@ -533,7 +527,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ImmutableList<Artifact> sources,
       ImmutableList<Artifact> sourceJars,
       J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider,
-      JavaCompilationArgsProvider compArgsProvider,
+      NestedSet<Artifact> compileTimeJars,
       J2ObjcSource j2ObjcSource)
       throws EvalException {
     CustomCommandLine.Builder argBuilder = CustomCommandLine.builder();
@@ -612,7 +606,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     argBuilder.add("-d").addPath(j2ObjcSource.getObjcFilePath());
 
-    NestedSet<Artifact> compileTimeJars = compArgsProvider.getTransitiveCompileTimeJars();
     if (!compileTimeJars.isEmpty()) {
       argBuilder.addExecPaths("-classpath", VectorArg.join(":").each(compileTimeJars));
     }

@@ -625,7 +625,7 @@ public class AndroidCommon {
       boolean collectJavaCompilationArgs,
       NestedSetBuilder<Artifact> filesBuilder,
       boolean generateExtensionRegistry)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     if (ruleContext.hasErrors()) {
       // Avoid leaving filesToBuild set to null, otherwise we'll get a NullPointerException masking
       // the real error.

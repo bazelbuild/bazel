@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -332,7 +331,7 @@ public final class AndroidBinaryMobileInstall {
   @Nullable
   private static Artifact getStubDex(
       RuleContext ruleContext, JavaSemantics javaSemantics, boolean split)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     String attribute =
         split ? "$incremental_split_stub_application" : "$incremental_stub_application";
 
@@ -342,16 +341,14 @@ public final class AndroidBinaryMobileInstall {
       return null;
     }
 
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
-    if (provider == null) {
+    if (!JavaInfo.isJavaTarget(dep)) {
       ruleContext.attributeError(attribute, "'" + dep.getLabel() + "' should be a Java target");
       return null;
     }
 
     JavaTargetAttributes attributes =
         new JavaTargetAttributes.Builder(javaSemantics)
-            .addRuntimeClassPathEntries(provider.getRuntimeJars())
+            .addRuntimeClassPathEntries(JavaInfo.transitiveRuntimeJars(dep))
             .build();
 
     Function<Artifact, Artifact> desugaredJars = Functions.identity();
