@@ -27,6 +27,7 @@ import com.google.devtools.starlark.common.DocstringUtils.DocstringParseError;
 import com.google.devtools.starlark.common.DocstringUtils.ParameterDoc;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
@@ -46,10 +47,9 @@ public final class FunctionUtil {
    */
   public static StarlarkFunctionInfo fromNameAndFunction(String functionName, StarlarkFunction fn)
       throws DocstringParseException {
-    String functionDescription = "";
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
-    FunctionReturnInfo retInfo = FunctionReturnInfo.getDefaultInstance();
-    FunctionDeprecationInfo deprInfo = FunctionDeprecationInfo.getDefaultInstance();
+    StarlarkFunctionInfo.Builder functionInfoBuilder =
+        StarlarkFunctionInfo.newBuilder().setFunctionName(functionName);
 
     String doc = fn.getDocumentation();
 
@@ -59,33 +59,35 @@ public final class FunctionUtil {
       if (!parseErrors.isEmpty()) {
         throw new DocstringParseException(functionName, fn.getLocation(), parseErrors);
       }
-      functionDescription += docstringInfo.getSummary();
+      StringBuilder functionDescription = new StringBuilder(docstringInfo.getSummary());
       if (!docstringInfo.getSummary().isEmpty() && !docstringInfo.getLongDescription().isEmpty()) {
-        functionDescription += "\n\n";
+        functionDescription.append("\n\n");
       }
-      functionDescription += docstringInfo.getLongDescription();
+      functionDescription.append(docstringInfo.getLongDescription());
+      functionInfoBuilder.setDocString(functionDescription.toString());
       for (ParameterDoc paramDoc : docstringInfo.getParameters()) {
         paramNameToDocMap.put(paramDoc.getParameterName(), paramDoc.getDescription());
       }
-      retInfo = returnInfo(docstringInfo);
-      deprInfo = deprecationInfo(docstringInfo);
+      String returns = docstringInfo.getReturns();
+      if (!returns.isEmpty()) {
+        functionInfoBuilder.setReturn(
+            FunctionReturnInfo.newBuilder().setDocString(returns).build());
+      }
+      String deprecated = docstringInfo.getDeprecated();
+      if (!deprecated.isEmpty()) {
+        functionInfoBuilder.setDeprecated(
+            FunctionDeprecationInfo.newBuilder().setDocString(deprecated).build());
+      }
     }
-    List<FunctionParamInfo> paramsInfo = parameterInfos(fn, paramNameToDocMap);
-
-    return StarlarkFunctionInfo.newBuilder()
-        .setFunctionName(functionName)
-        .setDocString(functionDescription)
-        .addAllParameter(paramsInfo)
-        .setReturn(retInfo)
-        .setDeprecated(deprInfo)
-        .build();
+    functionInfoBuilder.addAllParameter(parameterInfos(fn, paramNameToDocMap));
+    return functionInfoBuilder.build();
   }
 
   /** Constructor to be used for normal parameters. */
   public static FunctionParamInfo forParam(
-      String name, String docString, @Nullable Object defaultValue) {
-    FunctionParamInfo.Builder paramBuilder =
-        FunctionParamInfo.newBuilder().setName(name).setDocString(docString);
+      String name, Optional<String> docString, @Nullable Object defaultValue) {
+    FunctionParamInfo.Builder paramBuilder = FunctionParamInfo.newBuilder().setName(name);
+    docString.ifPresent(paramBuilder::setDocString);
     if (defaultValue == null) {
       paramBuilder.setMandatory(true);
     } else {
@@ -125,19 +127,11 @@ public final class FunctionUtil {
         info = forSpecialParam(name, doc);
       } else {
         // regular parameter
-        String doc = parameterDoc.getOrDefault(name, "");
+        Optional<String> doc = Optional.ofNullable(parameterDoc.get(name));
         info = forParam(name, doc, fn.getDefaultValue(i));
       }
       infos.add(info);
     }
     return infos.build();
-  }
-
-  private static FunctionReturnInfo returnInfo(DocstringInfo docstringInfo) {
-    return FunctionReturnInfo.newBuilder().setDocString(docstringInfo.getReturns()).build();
-  }
-
-  private static FunctionDeprecationInfo deprecationInfo(DocstringInfo docstringInfo) {
-    return FunctionDeprecationInfo.newBuilder().setDocString(docstringInfo.getDeprecated()).build();
   }
 }

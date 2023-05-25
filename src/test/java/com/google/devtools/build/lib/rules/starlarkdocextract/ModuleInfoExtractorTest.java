@@ -133,25 +133,29 @@ public final class ModuleInfoExtractorTest {
   public void functionDocstring() throws Exception {
     Module module =
         exec(
-            "def with_docstring():",
+            "def with_detailed_docstring():",
+            "    '''My function",
+            "    ",
+            "    This function does things.",
+            "    '''",
+            "    pass",
+            "def with_one_line_docstring():",
             "    '''My function'''",
             "    pass",
             "def without_docstring():",
             "    pass");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
-        // TODO(arostovtsev): remove `ignoringFieldAbsence` below once we stop outputting empty
-        // returns/deprecated blocks as empty strings.
-        .ignoringFieldAbsence()
         .containsExactly(
             StarlarkFunctionInfo.newBuilder()
-                .setFunctionName("with_docstring")
-                .setDocString("My function")
+                .setFunctionName("with_detailed_docstring")
+                .setDocString("My function\n\nThis function does things.")
                 .build(),
             StarlarkFunctionInfo.newBuilder()
-                .setFunctionName("without_docstring")
-                .setDocString("")
-                .build());
+                .setFunctionName("with_one_line_docstring")
+                .setDocString("My function")
+                .build(),
+            StarlarkFunctionInfo.newBuilder().setFunctionName("without_docstring").build());
   }
 
   @Test
@@ -198,7 +202,6 @@ public final class ModuleInfoExtractorTest {
             "    pass");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
-        .ignoringFieldAbsence() // TODO(arostovtsev): do not output empty returns/deprecated blocks
         .containsExactly(
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("with_return")
@@ -227,7 +230,6 @@ public final class ModuleInfoExtractorTest {
             "    pass");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
-        .ignoringFieldAbsence() // TODO(arostovtsev): do not output empty returns/deprecated blocks
         .containsExactly(
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("with_deprecated")
