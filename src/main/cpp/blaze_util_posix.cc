@@ -140,7 +140,7 @@ static void handler(int signum) {
     case SIGINT:
       if (++sigint_count >= 3) {
         SigPrintf(
-            "\n%s caught third interrupt signal; killed.\n\n",
+            "\n%s caught third interrupt signal; server killed.\n\n",
             SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(
@@ -150,13 +150,13 @@ static void handler(int signum) {
         _exit(1);
       }
       SigPrintf(
-          "\n%s caught interrupt signal; shutting down.\n\n",
+          "\n%s caught interrupt signal; cancelling pending invocation.\n\n",
           SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGTERM:
       SigPrintf(
-          "\n%s caught terminate signal; shutting down.\n\n",
+          "\n%s caught terminate signal; cancelling pending invocation.\n\n",
           SignalHandler::Get().GetProductName().c_str());
       SignalHandler::Get().CancelServer();
       break;
