@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -234,7 +233,7 @@ public class Package {
   @Nullable private FailureDetail failureDetail;
 
   /** The package's default "package_metadata" attribute. */
-  private ImmutableSet<Label> defaultPackageMetadata = ImmutableSet.of();
+  private ImmutableList<Label> defaultPackageMetadata = ImmutableList.of();
 
   /**
    * The package's default "licenses" and "distribs" attributes, as specified
@@ -479,7 +478,7 @@ public class Package {
     this.failureDetail = builder.getFailureDetail();
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
-    this.defaultPackageMetadata = ImmutableSortedSet.copyOf(builder.defaultPackageMetadata);
+    this.defaultPackageMetadata = builder.defaultPackageMetadata;
     this.features = builder.features;
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -870,7 +869,7 @@ public class Package {
   }
 
   /** Gets the package metadata list for the default metadata declared by this package. */
-  Set<Label> getDefaultPackageMetadata() {
+  ImmutableList<Label> getDefaultPackageMetadata() {
     return defaultPackageMetadata;
   }
 
