@@ -202,6 +202,55 @@ public class DiffAwarenessManagerTest {
   }
 
   @Test
+  public void testIndependentAwarenessPerIgnoredPaths() throws Exception {
+    Root pathEntry = Root.fromPath(fs.getPath("/path"));
+
+    DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
+
+    ModifiedFileSet diff1 = modifiedFileSet("/path/ignored-path-2/foo");
+    DiffAwareness diffAwareness1 = new DiffAwarenessStub(ImmutableList.of(diff1));
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-1"))))
+        .thenReturn(diffAwareness1);
+
+    ModifiedFileSet diff2 = modifiedFileSet("/path/ignored-path-1/foo");
+    DiffAwareness diffAwareness2 = new DiffAwarenessStub(ImmutableList.of(diff2));
+    when(factory.maybeCreate(pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-2"))))
+        .thenReturn(diffAwareness2);
+
+    DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
+
+    ProcessableModifiedFileSet processedDiff1 = manager.getDiff(
+        events.reporter(),
+        pathEntry,
+        ImmutableSet.of(fs.getPath("/path/ignored-path-1")),
+        OptionsProvider.EMPTY
+    );
+    assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
+    processedDiff1 = manager.getDiff(
+        events.reporter(),
+        pathEntry,
+        ImmutableSet.of(fs.getPath("/path/ignored-path-1")),
+        OptionsProvider.EMPTY
+    );
+    assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(diff1);
+
+    ProcessableModifiedFileSet processedDiff2 = manager.getDiff(
+        events.reporter(),
+        pathEntry,
+        ImmutableSet.of(fs.getPath("/path/ignored-path-2")),
+        OptionsProvider.EMPTY
+    );
+    assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
+    processedDiff2 = manager.getDiff(
+        events.reporter(),
+        pathEntry,
+        ImmutableSet.of(fs.getPath("/path/ignored-path-2")),
+        OptionsProvider.EMPTY
+    );
+    assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(diff2);
+  }
+
+  @Test
   public void getDiff_cleanBuild_propagatesWorkspaceInfo() throws Exception {
     Root pathEntry = Root.fromPath(fs.getPath("/path"));
     WorkspaceInfoFromDiff workspaceInfo = new WorkspaceInfoFromDiff() {};
