@@ -124,14 +124,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .concat("#")
                 .concat(dep.transitionName())
                 .concat(" -> ")
-                .concat(
-                    dep.options().stream()
-                        .map(
-                            options -> {
-                              String checksum = options.checksum();
-                              return shortId(checksum);
-                            })
-                        .collect(joining(", "))));
+                .concat(dep.options().stream().map(BuildOptions::shortId).collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }

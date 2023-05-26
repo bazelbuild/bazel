@@ -111,30 +111,12 @@ public abstract class CqueryThreadsafeCallback
     return configCache.computeIfAbsent(
         configKey, key -> skyframeExecutor.getConfiguration(eventHandler, key));
   }
-  /**
-   * Returns a user-friendly configuration identifier as a prefix of <code>fullId</code>.
-   *
-   * <p>This helps users read and manipulate what are otherwise distractingly long strings, in the
-   * same spirit as Git short commit hashes.
-   */
-  protected static String shortId(String fullId) {
-    // Inherit Git's default commit hash prefix length. It's a principled choice with similar usage
-    // patterns. cquery, which uses this, has access to every configuration in the build. If it
-    // turns out this setting produces ambiguous prefixes, we could always compare configurations
-    // to find the actual minimal unambiguous length.
-    return fullId.substring(0, 7);
-  }
 
   /**
-   * Returns a user-friendly configuration identifier, using special IDs for null configurations and
-   * {@link #shortId(String)} for others.
+   * Returns a user-friendly configuration identifier, using special IDs for null configurations.
    */
   protected static String shortId(@Nullable BuildConfigurationValue config) {
-    if (config == null) {
-      return "null";
-    } else {
-      return shortId(config.checksum());
-    }
+    return config == null ? "null" : config.shortId();
   }
 }
 
