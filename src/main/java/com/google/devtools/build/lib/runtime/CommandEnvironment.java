@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -469,6 +470,15 @@ public class CommandEnvironment {
     return ImmutableMap.copyOf(result);
   }
 
+  private static ImmutableListMultimap<String, String> makeMultiMapFromMapEntries(
+      List<Map.Entry<String, String>> mapEntryList) {
+    ImmutableListMultimap.Builder<String, String> builder = new ImmutableListMultimap.Builder<>();
+    for (Map.Entry<String, String> entry : mapEntryList) {
+      builder.put(entry.getKey(), entry.getValue());
+    }
+    return builder.build();
+  }
+
   private UUID computeCommandId(UUID idFromOptions, List<String> warnings) {
     // TODO(b/67895628): Stop reading ids from the environment after the compatibility window has
     // passed.
@@ -754,7 +764,7 @@ public class CommandEnvironment {
   @VisibleForTesting
   public void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
+    eventBus.post(new BuildMetadataEvent(makeMultiMapFromMapEntries(commonOptions.buildMetadata)));
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
     throwPendingException();
