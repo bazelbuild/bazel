@@ -322,11 +322,13 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
     ("$1" "$TEST_PATH" "${@:3}" 2>&1) <&0 &
   fi
 else
+  set -o pipefail
   if [ -z "$COVERAGE_DIR" ]; then
     ("${TEST_PATH}" "$@" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   else
     ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
   fi
+  set +o pipefail
 fi
 childPid=$!
 
