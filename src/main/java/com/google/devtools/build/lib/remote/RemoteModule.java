@@ -134,7 +134,6 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
-  @Nullable private ToplevelArtifactsDownloader toplevelArtifactsDownloader;
   @Nullable private RemoteOptions remoteOptions;
   @Nullable private RemoteOutputService remoteOutputService;
   @Nullable private TempPathGenerator tempPathGenerator;
@@ -884,7 +883,6 @@ public final class RemoteModule extends BlazeModule {
     remoteDownloaderSupplier.set(null);
     actionContextProvider = null;
     actionInputFetcher = null;
-    toplevelArtifactsDownloader = null;
     remoteOptions = null;
     remoteOutputService = null;
     tempPathGenerator = null;
@@ -1013,20 +1011,6 @@ public final class RemoteModule extends BlazeModule {
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
-
-      toplevelArtifactsDownloader =
-          new ToplevelArtifactsDownloader(
-              actionInputFetcher,
-              env.getExecRoot().asFragment(),
-              (path) -> {
-                FileSystem fileSystem = path.getFileSystem();
-                if (fileSystem instanceof RemoteActionFileSystem) {
-                  RemoteActionFileSystem rafs = (RemoteActionFileSystem) path.getFileSystem();
-                  return rafs::getOutputMetadataForTopLevelArtifactDownloader;
-                }
-                return null;
-              });
-      env.getEventBus().register(toplevelArtifactsDownloader);
 
       var leaseService =
           new LeaseService(

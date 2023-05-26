@@ -560,25 +560,6 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return null;
   }
 
-  public FileArtifactValue getOutputMetadataForTopLevelArtifactDownloader(ActionInput input)
-      throws IOException {
-    RemoteFileInfo remoteFile =
-        remoteOutputTree.getRemoteFileInfo(
-            execRoot.getRelative(input.getExecPath()), /* followSymlinks= */ true);
-    if (remoteFile != null) {
-      return remoteFile.getMetadata();
-    }
-
-    // TODO(tjgq): This should not work.
-    // The astute reader will notice that when this method is called, the artifact to be downloaded
-    // is an *output* artifact from the point of view of this RemoteActionFileSystem. The way this
-    // apparently works is that this is a SingleBuildFileCache, which then stat()s the actual file
-    // system, where the output file is materialized in mysterious ways.
-    //
-    // For further bafflement, see the comment at ToplevelArtifactsDownloader.downloadTestOutput().
-    return fileCache.getInputMetadata(input);
-  }
-
   @Nullable
   @VisibleForTesting
   FileArtifactValue getInputMetadata(ActionInput input) {

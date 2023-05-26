@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
+import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -29,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -95,7 +99,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     var targetsToTest = analysisResult.getTargetsToTest();
     if (targetsToTest != null) {
       for (var target : targetsToTest) {
-        addTopLevelTarget(target, target, analysisResult::getTopLevelContext);
+        addTargetUnderTest(target, analysisResult.getArtifactsToBuild());
       }
     }
   }
@@ -104,7 +108,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       ProviderCollection target,
       @Nullable ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
-    if (shouldDownloadToplevelOutputs(configuredTarget)) {
+    if (shouldAddTopLevelTarget(configuredTarget)) {
       var topLevelArtifactContext = topLevelArtifactContextSupplier.get();
       var artifactsToBuild =
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
@@ -147,14 +151,34 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
+  private void addTargetUnderTest(
+      ProviderCollection target, ImmutableSet<Artifact> artifactsToBuild) {
+    TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
+    if (downloadToplevel && commandMode == CommandMode.TEST) {
+      // In test mode, download the outputs of the test runner action.
+      toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getOutputs());
+    }
+    if (commandMode == CommandMode.COVERAGE) {
+      // In coverage mode, download the per-test and aggregated coverage files.
+      // Do this even for MINIMAL, since coverage (unlike test) doesn't produce any observable
+      // results other than outputs.
+      toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getCoverageArtifacts());
+      for (Artifact artifactToBuild : artifactsToBuild) {
+        if (artifactToBuild.getArtifactOwner().equals(COVERAGE_REPORT_KEY)) {
+          toplevelArtifactsToDownload.add(artifactToBuild);
+        }
+      }
+    }
+  }
+
   public void addInputToDownload(ActionInput file) {
     inputsToDownload.add(file);
   }
 
-  private boolean shouldDownloadToplevelOutputs(@Nullable ConfiguredTarget configuredTarget) {
+  private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
     switch (commandMode) {
       case RUN:
-        // Always download outputs of toplevel targets in RUN mode
+        // Always download outputs of toplevel targets in run mode.
         return true;
       case COVERAGE:
       case TEST:

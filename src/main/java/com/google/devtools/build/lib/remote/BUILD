@@ -35,7 +35,6 @@ java_library(
             "Retrier.java",
             "RemoteOutputChecker.java",
             "AbstractActionInputPrefetcher.java",
-            "ToplevelArtifactsDownloader.java",
             "LeaseService.java",
         ],
     ),
@@ -51,7 +50,6 @@ java_library(
         ":abstract_action_input_prefetcher",
         ":lease_service",
         ":remote_output_checker",
-        ":toplevel_artifacts_downloader",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
@@ -195,6 +193,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -219,25 +218,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",
-    ],
-)
-
-java_library(
-    name = "toplevel_artifacts_downloader",
-    srcs = ["ToplevelArtifactsDownloader.java"],
-    deps = [
-        ":abstract_action_input_prefetcher",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

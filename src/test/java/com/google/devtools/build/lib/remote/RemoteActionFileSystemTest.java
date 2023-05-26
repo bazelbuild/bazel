@@ -330,47 +330,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
   }
 
   @Test
-  public void getMetadata_fromRemoteOutputTree_forDeclaredOutput() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    RemoteActionFileSystem actionFs =
-        (RemoteActionFileSystem)
-            createActionFileSystem(new ActionInputMap(0), ImmutableList.of(artifact));
-
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "content");
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromRemoteOutputTree_forUndeclaredOutput() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "content");
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromFileCache_forOutputFile() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    FileArtifactValue metadata =
-        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 42);
-    RemoteActionFileSystem actionFs =
-        createActionFileSystem(
-            new ActionInputMap(0),
-            ImmutableList.of(),
-            new StaticInputMetadataProvider(ImmutableMap.of(artifact, metadata)));
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
   public void getMetadata_notFound() throws Exception {
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
