@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive")
-load("//:distdir.bzl", "dist_http_archive", "distdir_tar", "dist_http_jar")
+load("//:distdir.bzl", "dist_http_archive", "dist_http_jar", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
 load("//tools/jdk:jdk_build_file.bzl", "JDK_BUILD_TEMPLATE")
@@ -509,7 +509,7 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
 """,
     )
     for version in ("17", "20")
-    for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("linux_s390x", "windows_arm64",) if version != "20" else ())
+    for os in ("linux", "darwin", "darwin_aarch64", "windows") + (("linux_s390x", "windows_arm64") if version != "20" else ())
 ]
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
@@ -654,34 +654,34 @@ maven_install(
         "io.grpc:grpc-protobuf-lite:1.48.1",
         "io.grpc:grpc-protobuf:1.48.1",
         "io.grpc:grpc-stub:1.48.1",
-        "io.netty:netty-buffer:4.1.87.Final",
-        "io.netty:netty-codec-http2:4.1.87.Final",
-        "io.netty:netty-codec-http:4.1.87.Final",
-        "io.netty:netty-codec:4.1.87.Final",
-        "io.netty:netty-common:4.1.87.Final",
-        "io.netty:netty-handler-proxy:4.1.87.Final",
-        "io.netty:netty-handler:4.1.87.Final",
-        "io.netty:netty-resolver-dns:4.1.87.Final",
-        "io.netty:netty-resolver:4.1.87.Final",
+        "io.netty:netty-buffer:4.1.93.Final",
+        "io.netty:netty-codec-http2:4.1.93.Final",
+        "io.netty:netty-codec-http:4.1.93.Final",
+        "io.netty:netty-codec:4.1.93.Final",
+        "io.netty:netty-common:4.1.93.Final",
+        "io.netty:netty-handler-proxy:4.1.93.Final",
+        "io.netty:netty-handler:4.1.93.Final",
+        "io.netty:netty-resolver-dns:4.1.93.Final",
+        "io.netty:netty-resolver:4.1.93.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-classes:2.0.56.Final",
-        "io.netty:netty-transport-classes-epoll:4.1.87.Final",
-        "io.netty:netty-transport-classes-kqueue:4.1.87.Final",
-        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.87.Final",
-        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.87.Final",
-        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.87.Final",
-        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.87.Final",
-        "io.netty:netty-transport-native-unix-common:4.1.87.Final",
-        "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.87.Final",
-        "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.87.Final",
-        "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.87.Final",
-        "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.87.Final",
-        "io.netty:netty-transport-sctp:4.1.87.Final",
-        "io.netty:netty-transport:4.1.87.Final",
+        "io.netty:netty-transport-classes-epoll:4.1.93.Final",
+        "io.netty:netty-transport-classes-kqueue:4.1.93.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.93.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.93.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.93.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.93.Final",
+        "io.netty:netty-transport-native-unix-common:4.1.93.Final",
+        "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.93.Final",
+        "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
+        "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
+        "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
+        "io.netty:netty-transport-sctp:4.1.93.Final",
+        "io.netty:netty-transport:4.1.93.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "javax.activation:javax.activation-api:1.2.0",
         "javax.annotation:javax.annotation-api:1.3.2",
