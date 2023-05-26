@@ -192,9 +192,7 @@ This results in a printed “`Hello world`” message.
 
 Here’s the dependency graph of Stage 1:
 
-![Dependency graph for hello-world displays a single target with a single source file.]
-(/docs/images/cpp-tutorial-stage1.png "Dependency graph for hello-world displays
-a single target with a single source file.")
+![Dependency graph for hello-world displays a single target with a single source file.](/docs/images/cpp-tutorial-stage1.png "Dependency graph for hello-world displays a single target with a single source file.")
 
 
 ### Summary: stage 1
@@ -278,10 +276,10 @@ bazel-bin/main/hello-world
 If you now modify `hello-greet.cc` and rebuild the project, Bazel only recompiles
 that file.
 
-Looking at the dependency graph, you can see that hello-world depends on the
-same inputs as it did before, but the structure of the build is different:
+Looking at the dependency graph, you can see that `hello-world` depends on an extra input
+named `hello-greet`:
 
-![Dependency graph for `hello-world` displays structure changes after modification to the file.](/docs/images/cpp-tutorial-stage2.png "Dependency graph for `hello-world` displays structure changes after modification to the file.")
+![Dependency graph for `hello-world` displays dependency changes after modification to the file.](/docs/images/cpp-tutorial-stage2.png "Dependency graph for `hello-world` displays dependency changes after modification to the file.")
 
 ### Summary: stage 2
 
