@@ -25,21 +25,43 @@ distrib_cc_library(
     name = "blake3",
     srcs = [
         "src/c/blake3.c",
-        "src/c/blake3_avx2_x86-64_unix.S",
-        "src/c/blake3_avx512_x86-64_unix.S",
         "src/c/blake3_dispatch.c",
         "src/c/blake3_portable.c",
-        "src/c/blake3_sse2_x86-64_unix.S",
-        "src/c/blake3_sse41_x86-64_unix.S",
-    ],
+    ] + select({
+        "//src/conditions:linux_x86_64": [
+            "src/c/blake3_avx2_x86-64_unix.S",
+            "src/c/blake3_avx512_x86-64_unix.S",
+            "src/c/blake3_sse2_x86-64_unix.S",
+            "src/c/blake3_sse41_x86-64_unix.S",
+        ],
+        "//src/conditions:windows_x86_64": [
+            "src/c/blake3_avx2_x86-64_windows_msvc.asm",
+            "src/c/blake3_avx512_x86-64_windows_msvc.asm",
+            "src/c/blake3_sse2_x86-64_windows_msvc.asm",
+            "src/c/blake3_sse41_x86-64_windows_msvc.asm",
+        ],
+        "//src/conditions:darwin_arm64": [
+            "src/c/blake3_neon.c",
+        ],
+        "//conditions:default": [],
+    }),
     hdrs = [
         "src/c/blake3.h",
         "src/c/blake3_impl.h",
     ],
-    copts = [
-        "-w",
-        "-Dverbose=-1",
-    ],
+    copts = select({
+        "//src/conditions:linux_x86_64": [],
+        "//src/conditions:windows_x86_64": [],
+        "//src/conditions:darwin_arm64": [
+            "-DBLAKE3_USE_NEON=1",
+        ],
+        "//conditions:default": [
+            "-DBLAKE3_NO_SSE2",
+            "-DBLAKE3_NO_SSE41",
+            "-DBLAKE3_NO_AVX2",
+            "-DBLAKE3_NO_AVX512",
+        ],
+    }),
     enable_distributions = ["debian"],
     includes = ["."],
     visibility = ["//visibility:public"],
@@ -52,7 +74,7 @@ distrib_cc_binary(
     ],
     copts = [
         "-w",
-        "-Dverbose=-1",
+        "-O3",
     ],
     enable_distributions = ["debian"],
     includes = ["."],
