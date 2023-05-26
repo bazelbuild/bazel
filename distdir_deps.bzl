@@ -632,7 +632,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_linux_aarch64_for_testing",
             "openjdk17_linux_aarch64_archive",
-            "openjdk_linux_aarch64_vanilla",
         ],
         "archive": "zulu17.38.21-ca-jdk17.0.5-linux_aarch64.tar.gz",
         "sha256": "dbc6ae9163e7ff469a9ab1f342cd1bc1f4c1fb78afc3c4f2228ee3b32c4f3e43",
@@ -680,7 +679,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_macos_for_testing",
             "openjdk17_darwin_archive",
-            "openjdk_macos_x86_64_vanilla",
         ],
         "archive": "zulu17.38.21-ca-jdk17.0.5-macosx_x64.tar.gz",
         "sha256": "e6317cee4d40995f0da5b702af3f04a6af2bbd55febf67927696987d11113b53",
@@ -697,7 +695,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_macos_aarch64_for_testing",
             "openjdk17_darwin_aarch64_archive",
-            "openjdk_macos_aarch64_vanilla",
         ],
         "archive": "zulu17.38.21-ca-jdk17.0.5-macosx_aarch64",
         "sha256": "515dd56ec99bb5ae8966621a2088aadfbe72631818ffbba6e4387b7ee292ab09",
@@ -714,7 +711,6 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk17_win_for_testing",
             "openjdk17_windows_archive",
-            "openjdk_win_vanilla",
         ],
         "archive": "zulu17.38.21-ca-jdk17.0.5-win_x64.zip",
         "sha256": "9972c5b62a61b45785d3d956c559e079d9e91f144ec46225f5deeda214d48f27",
@@ -729,7 +725,9 @@ DIST_DEPS = {
     },
     "remotejdk20_linux_aarch64": {
         "aliases": [
-            "remotejdk20_linux_for_testing",
+            "remotejdk20_linux_aarch64_for_testing",
+            "openjdk20_linux_aarch64_archive",
+            "openjdk_linux_aarch64_vanilla",
         ],
         "archive": "zulu20.28.85-ca-jdk20.0.0-linux_aarch64.tar.gz",
         "sha256": "47ce58ead9a05d5d53b96706ff6fa0eb2e46755ee67e2b416925e28f5b55038a",
@@ -759,6 +757,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk20_macos_for_testing",
             "openjdk20_darwin_archive",
+            "openjdk_macos_x86_64_vanilla",
         ],
         "archive": "zulu20.28.85-ca-jdk20.0.0-macosx_x64.tar.gz",
         "sha256": "fde6cc17a194ea0d9b0c6c0cb6178199d8edfc282d649eec2c86a9796e843f86",
@@ -773,6 +772,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk20_macos_aarch64_for_testing",
             "openjdk20_darwin_aarch64_archive",
+            "openjdk_macos_aarch64_vanilla",
         ],
         "archive": "zulu20.28.85-ca-jdk20.0.0-macosx_aarch64.tar.gz",
         "sha256": "a2eff6a940c2df3a2352278027e83f5959f34dcfc8663034fe92be0f1b91ce6f",
@@ -787,6 +787,7 @@ DIST_DEPS = {
         "aliases": [
             "remotejdk20_win_for_testing",
             "openjdk20_windows_archive",
+            "openjdk_win_vanilla",
         ],
         "archive": "zulu20.28.85-ca-jdk20.0.0-win_x64.zip",
         "sha256": "ac5f6a7d84dbbb0bb4d376feb331cc4c49a9920562f2a5e85b7a6b4863b10e1e",
