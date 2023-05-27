@@ -250,8 +250,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         // TODO(b/267529852): see if we can remove this. It's not clear the conditions that trigger
         // InconsistentNullConfigException are even possible.
         return new NonRuleConfiguredTargetValue(
-            new EmptyConfiguredTarget(
-                configuredTargetKey.getLabel(), configuredTargetKey.getConfigurationKey()),
+            new EmptyConfiguredTarget(configuredTargetKey),
             state.transitivePackages == null ? null : state.transitivePackages.build());
       }
       // Any `TargetAndConfigurationError` has already been handled, so `result` can only
@@ -263,13 +262,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       // Otherwise, `result` contains a `ConfiguredTargetKey`.
     }
 
+    configuredTargetKey = (ConfiguredTargetKey) state.targetAndConfigurationResult;
     PrerequisiteProducer prereqs =
         new PrerequisiteProducer(computeDependenciesState.targetAndConfiguration);
     try {
       // Perform all analysis through dependency evaluation.
       if (!prereqs.evaluate(
           state.computeDependenciesState,
-          configuredTargetKey.getExecutionPlatformLabel(),
+          configuredTargetKey,
           ruleClassProvider,
           view,
           () -> maybeAcquireSemaphoreWithLogging(key),
@@ -286,6 +286,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Optional<RuleConfiguredTargetValue> incompatibleTarget =
           IncompatibleTargetChecker.createIndirectlyIncompatibleTarget(
               prereqs.getTargetAndConfiguration(),
+              configuredTargetKey,
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               prereqs.getPlatformInfo(),
@@ -321,10 +322,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               view,
               env,
               prereqs.getTargetAndConfiguration(),
-              // If the ConfiguredTarget has no Actions, a DelegatingConfiguredTargetKey passed here
-              // may fall out of the interning pool and lead to additional computation. It might be
-              // worth retaining them in the created ConfiguredTargets instead.
-              (ConfiguredTargetKey) state.targetAndConfigurationResult,
+              configuredTargetKey,
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               toolchainContexts,

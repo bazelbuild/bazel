@@ -269,7 +269,7 @@ public final class PrerequisiteProducer {
    */
   public boolean evaluate(
       State state,
-      @Nullable Label executionPlatformLabel,
+      ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
       SkyframeBuildView view,
       SemaphoreAcquirer semaphoreLocker,
@@ -286,8 +286,7 @@ public final class PrerequisiteProducer {
     semaphoreLocker.acquireSemaphore();
     try {
       var dependencyContext =
-          getDependencyContext(
-              state, executionPlatformLabel, ruleClassProvider, transitiveState, env);
+          getDependencyContext(state, configuredTargetKey, ruleClassProvider, transitiveState, env);
       if (dependencyContext == null) {
         return false;
       }
@@ -361,7 +360,7 @@ public final class PrerequisiteProducer {
   @Nullable // Null when a Skyframe restart is needed.
   public static DependencyContext getDependencyContext(
       State state,
-      @Nullable Label parentExecutionPlatformLabel,
+      ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
       TransitiveDependencyState transitiveState,
       Environment env)
@@ -378,7 +377,7 @@ public final class PrerequisiteProducer {
       var unloadedToolchainContextsInputs =
           getUnloadedToolchainContextsInputs(
               targetAndConfiguration,
-              parentExecutionPlatformLabel,
+              configuredTargetKey.getExecutionPlatformLabel(),
               ruleClassProvider,
               env.getListener());
       state.execGroupCollectionBuilder = unloadedToolchainContextsInputs;
@@ -386,6 +385,7 @@ public final class PrerequisiteProducer {
           new Driver(
               new DependencyContextProducerWithCompatibilityCheck(
                   targetAndConfiguration,
+                  configuredTargetKey,
                   unloadedToolchainContextsInputs,
                   transitiveState,
                   (DependencyContextProducer.ResultSink) state));

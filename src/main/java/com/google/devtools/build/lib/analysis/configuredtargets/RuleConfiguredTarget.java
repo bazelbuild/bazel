@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
@@ -87,8 +87,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Instantiator
   @VisibleForSerialization
   RuleConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -96,16 +95,16 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       String ruleClassString,
       ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Label, Artifact> artifactsByOutputLabel) {
-    super(label, configurationKey, visibility);
+    super(actionLookupKey, visibility);
     this.artifactsByOutputLabel = artifactsByOutputLabel;
 
     // We don't use ImmutableMap.Builder here to allow augmenting the initial list of 'default'
     // providers by passing them in.
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder().addAll(providers);
-    Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class), label);
-    Preconditions.checkState(providerBuilder.contains(FileProvider.class), label);
-    Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class), label);
+    Preconditions.checkState(providerBuilder.contains(RunfilesProvider.class), actionLookupKey);
+    Preconditions.checkState(providerBuilder.contains(FileProvider.class), actionLookupKey);
+    Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class), actionLookupKey);
 
     // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
@@ -128,8 +127,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       ImmutableList<ActionAnalysisMetadata> actions,
       ImmutableMap<Label, Artifact> artifactsByOutputLabel) {
     this(
-        ruleContext.getLabel(),
-        ruleContext.getConfigurationKey(),
+        ruleContext.getOwner(),
         ruleContext.getVisibility(),
         providers,
         ruleContext.getConfigConditions(),
@@ -159,15 +157,13 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** Use this constructor for creating incompatible ConfiguredTarget instances. */
   public RuleConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       String ruleClassString) {
     this(
-        label,
-        configurationKey,
+        actionLookupKey,
         visibility,
         providers,
         configConditions,
@@ -176,7 +172,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         ImmutableList.<ActionAnalysisMetadata>of(),
         ImmutableMap.<Label, Artifact>of());
 
-    Preconditions.checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, label);
+    Preconditions.checkState(
+        providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */

@@ -77,7 +77,11 @@ public final class TestActionBuilder {
 
   static class EmptyPackageProvider extends PackageGroupConfiguredTarget {
     EmptyPackageProvider() {
-      super(null, null, null);
+      // TODO(b/281522692): it's not good to pass a null key here.
+      super(
+          /* actionLookupKey= */ null,
+          (NestedSet<PackageGroupContents>) null,
+          (NestedSet<PackageGroupContents>) null);
     }
 
     @Override

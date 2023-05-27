@@ -651,7 +651,7 @@ public class BuildViewForTesting {
       result =
           getDependencyContext(
               state,
-              /* parentExecutionPlatformLabel= */ null,
+              ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
               ruleClassProvider,
               TransitiveDependencyState.createForTesting(
                   transitiveRootCauses, /* transitivePackages= */ null),

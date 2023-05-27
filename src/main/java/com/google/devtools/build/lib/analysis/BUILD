@@ -712,6 +712,7 @@ java_library(
     deps = [
         ":config/config_matching_provider",
         ":transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/net/starlark/java/eval",

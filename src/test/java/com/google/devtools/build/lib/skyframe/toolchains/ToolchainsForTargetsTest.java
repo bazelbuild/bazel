@@ -140,7 +140,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         result =
             getDependencyContext(
                 state,
-                key.configuredTargetKey().getExecutionPlatformLabel(),
+                key.configuredTargetKey(),
                 stateProvider.lateBoundRuleClassProvider(),
                 TransitiveDependencyState.createForTesting(
                     transitiveRootCauses, /* transitivePackages= */ null),
