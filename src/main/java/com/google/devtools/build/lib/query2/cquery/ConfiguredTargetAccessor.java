@@ -17,9 +17,9 @@ import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getExe
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -57,7 +57,7 @@ import javax.annotation.Nullable;
  *
  * <p>Incomplete; we'll implement getVisibility when needed.
  */
-public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredTarget> {
+public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget> {
 
   private final WalkableGraph walkableGraph;
   private final ConfiguredTargetQueryEnvironment queryEnvironment;
@@ -69,55 +69,56 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
   }
 
   @Override
-  public String getTargetKind(KeyedConfiguredTarget target) {
+  public String getTargetKind(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return actualTarget.getTargetKind();
   }
 
   @Override
-  public String getLabel(KeyedConfiguredTarget target) {
-    return target.getLabel().toString();
+  public String getLabel(ConfiguredTarget target) {
+    return target.getOriginalLabel().toString();
   }
 
   @Override
-  public String getPackage(KeyedConfiguredTarget target) {
-    return target.getLabel().getPackageIdentifier().getPackageFragment().toString();
+  public String getPackage(ConfiguredTarget target) {
+    return target.getOriginalLabel().getPackageIdentifier().getPackageFragment().toString();
   }
 
   @Override
-  public boolean isRule(KeyedConfiguredTarget target) {
+  public boolean isRule(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return actualTarget instanceof Rule;
   }
 
   @Override
-  public boolean isTestRule(KeyedConfiguredTarget target) {
+  public boolean isTestRule(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestRule(actualTarget);
   }
 
   @Override
-  public boolean isTestSuite(KeyedConfiguredTarget target) {
+  public boolean isTestSuite(ConfiguredTarget target) {
     Target actualTarget = getTarget(target);
     return TargetUtils.isTestSuiteRule(actualTarget);
   }
 
   @Override
-  public List<KeyedConfiguredTarget> getPrerequisites(
+  public List<ConfiguredTarget> getPrerequisites(
       QueryExpression caller,
-      KeyedConfiguredTarget keyedConfiguredTarget,
+      ConfiguredTarget keyedConfiguredTarget,
       String attrName,
       String errorMsgPrefix)
       throws QueryException, InterruptedException {
     // Process aliases.
-    KeyedConfiguredTarget actual = keyedConfiguredTarget.getActual();
+    ConfiguredTarget actual = keyedConfiguredTarget.getActual();
 
     Preconditions.checkArgument(
         isRule(actual), "%s %s is not a rule configured target", errorMsgPrefix, getLabel(actual));
 
-    Multimap<Label, KeyedConfiguredTarget> depsByLabel =
+    ImmutableListMultimap<Label, ConfiguredTarget> depsByLabel =
         Multimaps.index(
-            queryEnvironment.getFwdDeps(ImmutableList.of(actual)), KeyedConfiguredTarget::getLabel);
+            queryEnvironment.getFwdDeps(ImmutableList.of(actual)),
+            ConfiguredTarget::getOriginalLabel);
 
     Rule rule = (Rule) getTarget(actual);
     ImmutableMap<Label, ConfigMatchingProvider> configConditions = actual.getConfigConditions();
@@ -135,41 +136,41 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
               errorMsgPrefix, rule.getRuleClass(), attrName),
           ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
-    ImmutableList.Builder<KeyedConfiguredTarget> toReturn = ImmutableList.builder();
+    ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
     attributeMapper.visitLabels(attrName, label -> toReturn.addAll(depsByLabel.get(label)));
     return toReturn.build();
   }
 
   @Override
-  public List<String> getStringListAttr(KeyedConfiguredTarget target, String attrName) {
+  public List<String> getStringListAttr(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringListAttr(actualTarget, attrName);
   }
 
   @Override
-  public String getStringAttr(KeyedConfiguredTarget target, String attrName) {
+  public String getStringAttr(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getStringAttr(actualTarget, attrName);
   }
 
   @Override
-  public Iterable<String> getAttrAsString(KeyedConfiguredTarget target, String attrName) {
+  public Iterable<String> getAttrAsString(ConfiguredTarget target, String attrName) {
     Target actualTarget = getTarget(target);
     return TargetUtils.getAttrAsString(actualTarget, attrName);
   }
 
   @Override
-  public ImmutableSet<QueryVisibility<KeyedConfiguredTarget>> getVisibility(
-      QueryExpression caller, KeyedConfiguredTarget from) throws QueryException {
+  public ImmutableSet<QueryVisibility<ConfiguredTarget>> getVisibility(
+      QueryExpression caller, ConfiguredTarget from) throws QueryException {
     // TODO(bazel-team): implement this if needed.
     throw new QueryException(
         "visible() is not supported on configured targets",
         ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
-  public Target getTarget(KeyedConfiguredTarget keyedConfiguredTarget) {
+  public Target getTarget(ConfiguredTarget configuredTarget) {
     // Dereference any aliases that might be present.
-    Label label = keyedConfiguredTarget.getConfiguredTarget().getOriginalLabel();
+    Label label = configuredTarget.getOriginalLabel();
     try {
       return queryEnvironment.getTarget(label);
     } catch (InterruptedException e) {
@@ -180,18 +181,15 @@ public class ConfiguredTargetAccessor implements TargetAccessor<KeyedConfiguredT
   }
 
   /** Returns the rule that generates the given output file. */
-  RuleConfiguredTarget getGeneratingConfiguredTarget(KeyedConfiguredTarget kct)
+  RuleConfiguredTarget getGeneratingConfiguredTarget(ConfiguredTarget kct)
       throws InterruptedException {
-    Preconditions.checkArgument(kct.getConfiguredTarget() instanceof OutputFileConfiguredTarget);
+    Preconditions.checkArgument(kct instanceof OutputFileConfiguredTarget);
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)
                 walkableGraph.getValue(
                     ConfiguredTargetKey.builder()
-                        .setLabel(
-                            ((OutputFileConfiguredTarget) kct.getConfiguredTarget())
-                                .getGeneratingRule()
-                                .getLabel())
-                        .setConfiguration(queryEnvironment.getConfiguration(kct))
+                        .setLabel(((OutputFileConfiguredTarget) kct).getGeneratingRule().getLabel())
+                        .setConfigurationKey(kct.getConfigurationKey())
                         .build()
                         .toKey()))
             .getConfiguredTarget();

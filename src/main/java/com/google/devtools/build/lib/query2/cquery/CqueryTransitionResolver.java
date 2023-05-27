@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyKind.NonAttributeDependencyKind;
@@ -110,17 +111,17 @@ public class CqueryTransitionResolver {
   }
 
   /**
-   * Return the set of dependencies of a KeyedConfiguredTarget, including information about the
+   * Return the set of dependencies of a ConfiguredTarget, including information about the
    * configuration transitions applied to the dependencies.
    *
    * @see ResolvedTransition for more details.
    * @param keyedConfiguredTarget the configured target whose dependencies are being looked up.
    */
-  public ImmutableSet<ResolvedTransition> dependencies(KeyedConfiguredTarget keyedConfiguredTarget)
+  public ImmutableSet<ResolvedTransition> dependencies(ConfiguredTarget keyedConfiguredTarget)
       throws DependencyResolver.Failure, InconsistentAspectOrderException, InterruptedException {
     ImmutableSet.Builder<ResolvedTransition> resolved = new ImmutableSet.Builder<>();
 
-    if (!(keyedConfiguredTarget.getConfiguredTarget() instanceof RuleConfiguredTarget)) {
+    if (!(keyedConfiguredTarget instanceof RuleConfiguredTarget)) {
       return resolved.build();
     }
 

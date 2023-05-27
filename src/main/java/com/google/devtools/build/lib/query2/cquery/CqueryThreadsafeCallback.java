@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.NamedThreadSafeOutputFormatterCallback;
@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  * focused on completeness, should output full configuration checksums.
  */
 public abstract class CqueryThreadsafeCallback
-    extends NamedThreadSafeOutputFormatterCallback<KeyedConfiguredTarget> {
+    extends NamedThreadSafeOutputFormatterCallback<ConfiguredTarget> {
 
   protected final ExtendedEventHandler eventHandler;
   protected final CqueryOptions options;
@@ -64,7 +64,7 @@ public abstract class CqueryThreadsafeCallback
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
+      TargetAccessor<ConfiguredTarget> accessor,
       boolean uniquifyResults) {
     this.eventHandler = eventHandler;
     this.options = options;

@@ -36,7 +36,7 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
+      TargetAccessor<ConfiguredTarget> accessor,
       TopLevelArtifactContext topLevelArtifactContext) {
     // Different targets may provide the same artifact, so we deduplicate the collection of all
     // results at the end.
@@ -50,10 +50,9 @@ public class FilesOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
+  public void processOutput(Iterable<ConfiguredTarget> partialResult)
       throws IOException, InterruptedException {
-    for (KeyedConfiguredTarget keyedTarget : partialResult) {
-      ConfiguredTarget target = keyedTarget.getConfiguredTarget();
+    for (ConfiguredTarget target : partialResult) {
       if (!TopLevelArtifactHelper.shouldConsiderForDisplay(target)
           && !(target instanceof InputFileConfiguredTarget)) {
         continue;
