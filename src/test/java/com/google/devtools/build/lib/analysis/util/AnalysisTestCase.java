@@ -43,11 +43,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
@@ -61,8 +57,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -553,9 +547,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException e) {
+    } catch (InvalidConfigurationException | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -603,22 +595,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throw new AssertionError(e);
     }
     try {
-      // Need to emulate the activities of the top-level trimming transition since not going
-      // through sufficiently normal evaluation channels.
-      Target target = skyframeExecutor.getPackageManager().getTarget(reporter, parsedLabel);
-      ConfigurationTransition transition =
-          TransitionResolver.evaluateTransition(
-              configuration,
-              NoTransition.INSTANCE,
-              target,
-              ruleClassProvider.getTrimmingTransitionFactory());
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-          reporter, parsedLabel, configuration, transition);
-    } catch (StarlarkTransition.TransitionException
-        | InvalidConfigurationException
-        | InterruptedException
-        | NoSuchPackageException
-        | NoSuchTargetException e) {
+          reporter, parsedLabel, configuration);
+    } catch (InvalidConfigurationException | InterruptedException e) {
       throw new AssertionError(e);
     }
   }

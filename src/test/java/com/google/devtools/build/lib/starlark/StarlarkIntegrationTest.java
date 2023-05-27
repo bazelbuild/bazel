@@ -2987,7 +2987,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("bad transition");
 
     // Try #2: make sure the cache doesn't suppress the error message.
+    invalidatePackages();
+    skyframeExecutor.clearEmittedEventStateForTesting();
     eventCollector.clear();
+
     getConfiguredTarget("//test:mytarget");
     assertContainsEvent("bad transition");
   }

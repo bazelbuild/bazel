@@ -164,27 +164,44 @@ public final class TargetAndConfigurationProducer
     // this. It won't be possible afterwards because null configuration keys will only be used for
     // visibility dependencies.
     BuildConfigurationKey configurationKey = preRuleTransitionKey.getConfigurationKey();
-    if ((configurationKey != null) != target.isConfigurable()) {
-      // We somehow ended up in a target that requires a non-null configuration as a dependency of
-      // one that requires a null configuration or the other way round. This is always an error, but
-      // we need to analyze the dependencies of the latter target to realize that. Short-circuit the
-      // evaluation to avoid doing useless work and running code with a null configuration that's
-      // not prepared for it.
-      sink.acceptTargetAndConfigurationError(
-          TargetAndConfigurationError.of(new InconsistentNullConfigException()));
-      return DONE;
-    }
-
-    // TODO(b/261521010): after removing the rule transition from dependency resolution, the logic
-    // here changes.
-    //
-    // A null configuration key will only be used for visibility dependencies so when that's true, a
-    // check that the target is a PackageGroup will be performed, throwing
-    // InvalidVisibilityDependencyException on failure.
     if (configurationKey == null) {
+      if (target.isConfigurable()) {
+        // We somehow ended up in a target that requires a non-null configuration but with a key
+        // that doesn't have a configuration. This is always an error, but we need to analyze the
+        // dependencies of the latter target to realize that. Short-circuit the evaluation to avoid
+        // doing useless work and running code with a null configuration that's not prepared for it.
+        sink.acceptTargetAndConfigurationError(
+            TargetAndConfigurationError.of(new InconsistentNullConfigException()));
+        return DONE;
+      }
+      // TODO(b/261521010): after removing the rule transition from dependency resolution, the logic
+      // here changes.
+      //
+      // A null configuration key will only be used for visibility dependencies so when that's
+      // true, a check that the target is a PackageGroup will be performed, throwing
+      // InvalidVisibilityDependencyException on failure.
+      //
       // The ConfiguredTargetKey cannot fan-in in this case.
       sink.acceptTargetAndConfiguration(
           new TargetAndConfiguration(target, /* configuration= */ null), preRuleTransitionKey);
+      return DONE;
+    }
+
+    // This may happen for top-level ConfiguredTargets.
+    //
+    // TODO(b/261521010): this may also happen for targets that are not top-level after removing
+    // rule transitions from dependency resolution. Update this comment.
+    if (!target.isConfigurable()) {
+      var nullConfiguredTargetKey =
+          ConfiguredTargetKey.builder().setDelegate(preRuleTransitionKey).build();
+      ActionLookupKey delegate = nullConfiguredTargetKey.toKey();
+      if (!delegate.equals(preRuleTransitionKey)) {
+        // Delegates to the key that already owns the null configuration.
+        delegateTo(tasks, delegate);
+        return DONE;
+      }
+      sink.acceptTargetAndConfiguration(
+          new TargetAndConfiguration(target, /* configuration= */ null), nullConfiguredTargetKey);
       return DONE;
     }
 

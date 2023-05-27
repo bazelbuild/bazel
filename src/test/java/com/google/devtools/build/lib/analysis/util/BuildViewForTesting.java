@@ -71,9 +71,6 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.config.TransitionResolver;
-import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -518,30 +515,6 @@ public class BuildViewForTesting {
     return result;
   }
 
-  private ConfigurationTransition getTopLevelTransitionForTarget(
-      Label label, BuildConfigurationValue config, ExtendedEventHandler handler) {
-    Target target;
-    try {
-      target = skyframeExecutor.getPackageManager().getTarget(handler, label);
-    } catch (NoSuchPackageException | NoSuchTargetException e) {
-      // TODO(bazel-team): refactor this method so we actually throw an exception here (likely
-      // {@link TransitionException}. Every version of getConfiguredTarget runs through this
-      // method and many test cases rely on not erroring out here so be able to reach an error
-      // later on.
-      return NoTransition.INSTANCE;
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new AssertionError("Configuration of " + label + " interrupted");
-    }
-    // Return early if a rule target is in error. We don't want whatever caused the rule error to
-    // also cause problems in computing the transition (e.g. an unchecked exception).
-    if (target instanceof Rule && ((Rule) target).containsErrors()) {
-      return null;
-    }
-    return TransitionResolver.evaluateTransition(
-        config, NoTransition.INSTANCE, target, ruleClassProvider.getTrimmingTransitionFactory());
-  }
-
   /**
    * Returns a configured target for the specified target and configuration. If the target in
    * question has a top-level rule class transition, that transition is applied in the returned
@@ -551,27 +524,14 @@ public class BuildViewForTesting {
    */
   public ConfiguredTarget getConfiguredTargetForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue config)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
-          InterruptedException {
-    ConfigurationTransition transition =
-        getTopLevelTransitionForTarget(label, config, eventHandler);
-    if (transition == null) {
-      return null;
-    }
-    return skyframeExecutor.getConfiguredTargetForTesting(eventHandler, label, config, transition);
+      throws InvalidConfigurationException, InterruptedException {
+    return skyframeExecutor.getConfiguredTargetForTesting(eventHandler, label, config);
   }
 
   ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue config)
-      throws StarlarkTransition.TransitionException, InvalidConfigurationException,
-          InterruptedException {
-    ConfigurationTransition transition =
-        getTopLevelTransitionForTarget(label, config, eventHandler);
-    if (transition == null) {
-      return null;
-    }
-    return skyframeExecutor.getConfiguredTargetAndDataForTesting(
-        eventHandler, label, config, transition);
+      throws InvalidConfigurationException, InterruptedException {
+    return skyframeExecutor.getConfiguredTargetAndDataForTesting(eventHandler, label, config);
   }
 
   /**

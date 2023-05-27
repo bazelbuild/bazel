@@ -1056,9 +1056,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
       return view.getConfiguredTargetForTesting(reporter, label, config);
-    } catch (InvalidConfigurationException
-        | StarlarkTransition.TransitionException
-        | InterruptedException e) {
+    } catch (InvalidConfigurationException | InterruptedException e) {
       throw new AssertionError(e);
     }
   }

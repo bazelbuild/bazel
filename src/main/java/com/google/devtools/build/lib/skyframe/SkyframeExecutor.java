@@ -1747,7 +1747,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue originalConfig,
       Iterable<DependencyKey> keys)
-      throws TransitionException, InvalidConfigurationException, InterruptedException {
+      throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
 
@@ -1996,7 +1996,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    *
    * <p>Skips targets with loading phase errors.
    */
-  // Keep this in sync with {@link PrepareAnalysisPhaseFunction#getConfigurations}.
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   @Override
   public ConfigurationsResult getConfigurations(
@@ -2205,22 +2204,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @VisibleForTesting
   @Nullable
   public ConfiguredTarget getConfiguredTargetForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue configuration)
-      throws TransitionException, InvalidConfigurationException, InterruptedException {
-    return getConfiguredTargetForTesting(eventHandler, label, configuration, NoTransition.INSTANCE);
-  }
-
-  /** Returns a particular configured target after applying the given transition. */
-  @VisibleForTesting
-  @Nullable
-  public ConfiguredTarget getConfiguredTargetForTesting(
       ExtendedEventHandler eventHandler,
       Label label,
-      BuildConfigurationValue configuration,
-      ConfigurationTransition transition)
-      throws TransitionException, InvalidConfigurationException, InterruptedException {
+      @Nullable BuildConfigurationValue configuration)
+      throws InvalidConfigurationException, InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
-        getConfiguredTargetAndDataForTesting(eventHandler, label, configuration, transition);
+        getConfiguredTargetAndDataForTesting(eventHandler, label, configuration);
     return configuredTargetAndData == null ? null : configuredTargetAndData.getConfiguredTarget();
   }
 
@@ -2229,27 +2218,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
       ExtendedEventHandler eventHandler,
       Label label,
-      BuildConfigurationValue configuration,
-      ConfigurationTransition transition)
-      throws TransitionException, InvalidConfigurationException, InterruptedException {
-
-    ConfigurationTransition transition1 =
-        configuration == null ? NullTransition.INSTANCE : transition;
+      @Nullable BuildConfigurationValue configuration)
+      throws InvalidConfigurationException, InterruptedException {
     DependencyKey dependencyKey =
-        DependencyKey.builder().setLabel(label).setTransition(transition1).build();
+        DependencyKey.builder()
+            .setLabel(label)
+            .setTransition(configuration == null ? NullTransition.INSTANCE : NoTransition.INSTANCE)
+            .build();
     return Iterables.getFirst(
         getConfiguredTargetsForTesting(
             eventHandler, configuration, ImmutableList.of(dependencyKey)),
         null);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  public ConfiguredTargetAndData getConfiguredTargetAndDataForTesting(
-      ExtendedEventHandler eventHandler, Label label, BuildConfigurationValue configuration)
-      throws TransitionException, InvalidConfigurationException, InterruptedException {
-    return getConfiguredTargetAndDataForTesting(
-        eventHandler, label, configuration, NoTransition.INSTANCE);
   }
 
   /**
@@ -2821,6 +2800,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @VisibleForTesting
   ActionExecutionStatusReporter getActionExecutionStatusReporterForTesting() {
     return statusReporterRef.get();
+  }
+
+  @VisibleForTesting
+  public void clearEmittedEventStateForTesting() {
+    emittedEventState.clear();
   }
 
   /**
