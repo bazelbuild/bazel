@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -152,14 +153,15 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             PrerequisiteProducer.computeDependencies(
                 state,
-                /* transitivePackages= */ null,
-                /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
-                env,
-                ImmutableList.of(),
-                ImmutableMap.of(),
+                /* aspects= */ ImmutableList.of(),
+                /* configConditions= */ ImmutableMap.of(),
                 toolchainContexts,
                 stateProvider.lateBoundRuleClassProvider(),
-                stateProvider.lateBoundSkyframeBuildView());
+                stateProvider.lateBoundSkyframeBuildView(),
+                TransitiveDependencyState.createForTesting(
+                    /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
+                    /* transitivePackages= */ null),
+                env);
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;

@@ -1447,11 +1447,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if ((owner instanceof ActionLookupKey)) {
+    if (owner instanceof ActionLookupKeyOrProxy) {
       SkyValue skyValue;
       try {
         skyValue =
-            skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner).toKey());
+            skyframeExecutor
+                .getEvaluator()
+                .getExistingValue(((ActionLookupKeyOrProxy) owner).toKey());
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }

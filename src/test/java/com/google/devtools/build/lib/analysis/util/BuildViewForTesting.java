@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChec
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
+import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -651,9 +652,9 @@ public class BuildViewForTesting {
           getDependencyContext(
               state,
               /* parentExecutionPlatformLabel= */ null,
-              transitiveRootCauses,
-              /* transitivePackages= */ null,
               ruleClassProvider,
+              TransitiveDependencyState.createForTesting(
+                  transitiveRootCauses, /* transitivePackages= */ null),
               skyfunctionEnvironment);
     } catch (ConfiguredValueCreationException
         | IncompatibleTargetException

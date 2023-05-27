@@ -26,12 +26,14 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -58,13 +60,13 @@ public final class AspectResolver {
     OrderedSetMultimap<Dependency, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> allAspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
-      allAspectKeys.addAll(getAspectKeys(dep).values());
+      allAspectKeys.addAll(getAspectKeys(dep, configuredTargetMap).values());
     }
 
     SkyframeLookupResult depAspects = env.getValuesAndExceptions(allAspectKeys);
 
     for (Dependency dep : deps) {
-      Map<AspectDescriptor, AspectKey> aspectToKeys = getAspectKeys(dep);
+      Map<AspectDescriptor, AspectKey> aspectToKeys = getAspectKeys(dep, configuredTargetMap);
 
       for (AspectCollection.AspectDeps depAspect : dep.getAspects().getUsedAspects()) {
         AspectKey aspectKey = aspectToKeys.get(depAspect.getAspect());
@@ -138,15 +140,33 @@ public final class AspectResolver {
     return result;
   }
 
-  private static Map<AspectDescriptor, AspectKey> getAspectKeys(Dependency dep) {
+  private static Map<AspectDescriptor, AspectKey> getAspectKeys(
+      Dependency dep, Map<ConfiguredTargetKey, ConfiguredTargetAndData> configuredTargetMap) {
     HashMap<AspectDescriptor, AspectKey> result = new HashMap<>();
     AspectCollection aspects = dep.getAspects();
     for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
-      var unused = buildAspectKey(aspectDeps, result, dep.getConfiguredTargetKey());
+      ConfiguredTargetKey depKey = dep.getConfiguredTargetKey();
+
+      BuildConfigurationKey depConfigurationKey =
+          configuredTargetMap.get(depKey).getConfigurationKey();
+      // The aspect key's base key should match the match the configuration of the underlying
+      // configured target.
+      //
+      // In the current, transitional, state, configuration mismatches should be rare, occurring
+      // when rule transitions are not idempotent, for example, b/280040767. Mismatches becomes more
+      // common once rule transitions are removed from dependency resolution.
+      //
+      // TODO(b/261521010); update this comment.
+      if (!depConfigurationKey.equals(depKey.getConfigurationKey())) {
+        depKey = depKey.toBuilder().setConfigurationKey(depConfigurationKey).build();
+      }
+
+      buildAspectKey(aspectDeps, result, depKey);
     }
     return result;
   }
 
+  @CanIgnoreReturnValue
   private static AspectKey buildAspectKey(
       AspectCollection.AspectDeps aspectDeps,
       HashMap<AspectDescriptor, AspectKey> result,

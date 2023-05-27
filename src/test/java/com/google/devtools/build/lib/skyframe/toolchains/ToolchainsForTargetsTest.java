@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
+import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -140,9 +141,9 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
             getDependencyContext(
                 state,
                 key.configuredTargetKey().getExecutionPlatformLabel(),
-                transitiveRootCauses,
-                /* transitivePackages= */ null,
                 stateProvider.lateBoundRuleClassProvider(),
+                TransitiveDependencyState.createForTesting(
+                    transitiveRootCauses, /* transitivePackages= */ null),
                 env);
       } catch (ToolchainException
           | ConfiguredValueCreationException

@@ -848,6 +848,20 @@ java_library(
 )
 
 java_library(
+    name = "inconsistent_null_config_exception",
+    srcs = ["InconsistentNullConfigException.java"],
+)
+
+java_library(
+    name = "invalid_visibility_dependency_exception",
+    srcs = ["InvalidVisibilityDependencyException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+    ],
+)
+
+java_library(
     name = "label_and_location",
     srcs = ["LabelAndLocation.java"],
     deps = [
