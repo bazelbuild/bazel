@@ -37,6 +37,8 @@ android_ndk_repository(
 For more information on the `android_ndk_repository` rule, see the [Build
 Encyclopedia entry](/reference/be/android#android_ndk_repository).
 
+If you're using a recent version of the Android NDK (r22 and beyond), you'll need to use the Starlark implementation of `android_ndk_repository` instead. Follow the instructions in [its README](https://github.com/bazelbuild/rules_android_ndk).
+
 ## Quick start {:#quick-start}
 
 To build C++ for Android, simply add `cc_library` dependencies to your
