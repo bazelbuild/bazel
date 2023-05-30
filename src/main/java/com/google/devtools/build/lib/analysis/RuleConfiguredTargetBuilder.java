@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -52,7 +51,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -257,23 +255,15 @@ public final class RuleConfiguredTargetBuilder {
     }
 
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-    GeneratingActions generatingActions = null;
+    ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
     try {
-      generatingActions =
-          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getActionKeyContext(),
-              analysisEnvironment.getRegisteredActions(),
-              ruleContext.getOwner(),
-              ((Rule) ruleContext.getTarget()).getOutputFiles());
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
     } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
     }
-    return new RuleConfiguredTarget(
-        ruleContext,
-        providers,
-        generatingActions.getActions(),
-        generatingActions.getArtifactsByOutputLabel());
+    return new RuleConfiguredTarget(ruleContext, providers, actions);
   }
 
   private boolean propagateValidationActionOutputGroup() {

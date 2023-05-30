@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -47,6 +50,12 @@ public class WorkspaceStatusFunction implements SkyFunction {
     WorkspaceStatusAction action =
         workspaceStatusActionFactory.create(workspaceNameValue.getName());
 
-    return new WorkspaceStatusValue(action.getStableStatus(), action.getVolatileStatus(), action);
+    ActionLookupData generatingActionKey =
+        ActionLookupData.createUnshareable(WorkspaceStatusValue.BUILD_INFO_KEY, 0);
+    for (Artifact output : action.getOutputs()) {
+      ((DerivedArtifact) output).setGeneratingActionKey(generatingActionKey);
+    }
+
+    return new WorkspaceStatusValue(action);
   }
 }

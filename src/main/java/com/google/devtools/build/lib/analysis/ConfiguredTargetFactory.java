@@ -238,7 +238,7 @@ public final class ConfiguredTargetFactory {
           && rule.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey()) != null) {
         return rule;
       }
-      Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
+      Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;

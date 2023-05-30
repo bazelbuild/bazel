@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -1279,8 +1278,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     return workspaceStatusActionFactory.createWorkspaceStatusAction(env);
   }
 
-  public void injectCoverageReportData(Actions.GeneratingActions actions) {
-    CoverageReportFunction.COVERAGE_REPORT_KEY.set(injectable(), actions.getActions());
+  public void injectCoverageReportData(ImmutableList<ActionAnalysisMetadata> actions) {
+    CoverageReportFunction.COVERAGE_REPORT_KEY.set(injectable(), actions);
   }
 
   private void setDefaultVisibility(RuleVisibility defaultVisibility) {
