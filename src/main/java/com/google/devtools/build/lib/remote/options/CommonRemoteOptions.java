@@ -13,11 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.options;
 
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.time.Duration;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /** Options for remote execution and distributed caching that shared between Bazel and Blaze. */
 public class CommonRemoteOptions extends OptionsBase {
@@ -33,4 +38,23 @@ public class CommonRemoteOptions extends OptionsBase {
               + " the client to request certain artifacts that might be needed locally (e.g. IDE"
               + " support)")
   public List<String> remoteDownloadRegex;
+
+  /** Returns the specified duration. Assumes seconds if unitless. */
+  public static class RemoteDurationConverter extends Converter.Contextless<Duration> {
+
+    private static final Pattern UNITLESS_REGEX = Pattern.compile("^[0-9]+$");
+
+    @Override
+    public Duration convert(String input) throws OptionsParsingException {
+      if (UNITLESS_REGEX.matcher(input).matches()) {
+        input += "s";
+      }
+      return new Converters.DurationConverter().convert(input, /* conversionContext= */ null);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An immutable length of time.";
+    }
+  }
 }

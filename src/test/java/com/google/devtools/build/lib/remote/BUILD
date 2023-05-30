@@ -9,6 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/downloader:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/http:srcs",
         "//src/test/java/com/google/devtools/build/lib/remote/grpc:srcs",
@@ -74,6 +75,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/remote:abstract_action_input_prefetcher",
+        "//src/main/java/com/google/devtools/build/lib/remote:remote_output_checker",
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
