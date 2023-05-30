@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/downloader:srcs",
@@ -85,6 +86,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",

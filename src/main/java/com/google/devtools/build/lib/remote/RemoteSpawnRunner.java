@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
+import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -655,6 +656,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private static RemoteRetrier createExecuteRetrier(
       RemoteOptions options, ListeningScheduledExecutorService retryService) {
     return new ExecuteRetrier(
-        options.remoteMaxRetryAttempts, retryService, Retrier.ALLOW_ALL_CALLS);
+        options.remoteMaxRetryAttempts,
+        retryService,
+        CircuitBreakerFactory.createCircuitBreaker(options));
   }
 }
