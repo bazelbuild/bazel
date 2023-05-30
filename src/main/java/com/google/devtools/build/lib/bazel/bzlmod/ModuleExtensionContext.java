@@ -124,6 +124,16 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
   }
 
   @StarlarkMethod(
+      name = "is_isolated",
+      doc = "Whether this particular usage of the extension is isolated from all others, in " +
+          "particular those in other modules",
+      structField = true
+  )
+  public boolean isIsolated() {
+    return extensionId.getNamespace().isPresent();
+  }
+
+  @StarlarkMethod(
       name = "extension_metadata",
       doc =
           "Constructs an opaque object that can be returned from the module extension's"

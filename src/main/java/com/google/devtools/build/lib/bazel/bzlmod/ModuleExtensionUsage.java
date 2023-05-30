@@ -35,6 +35,8 @@ public abstract class ModuleExtensionUsage {
   /** The name of the extension. */
   public abstract String getExtensionName();
 
+  public abstract boolean isIsolated();
+
   /** The module that contains this particular extension usage. */
   public abstract ModuleKey getUsingModule();
 
@@ -72,6 +74,8 @@ public abstract class ModuleExtensionUsage {
     public abstract Builder setExtensionBzlFile(String value);
 
     public abstract Builder setExtensionName(String value);
+
+    public abstract Builder setIsolated(boolean value);
 
     public abstract Builder setUsingModule(ModuleKey value);
 

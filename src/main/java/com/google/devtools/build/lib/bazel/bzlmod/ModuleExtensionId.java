@@ -17,15 +17,28 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.Optional;
 
 /** A unique identifier for a {@link ModuleExtension}. */
 @AutoValue
 public abstract class ModuleExtensionId {
+
+  static final class Namespace {
+    final ModuleKey module;
+
+    Namespace(ModuleKey module) {
+      this.module = module;
+    }
+  }
+
   public abstract Label getBzlFileLabel();
 
   public abstract String getExtensionName();
 
-  public static ModuleExtensionId create(Label bzlFileLabel, String extensionName) {
-    return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName);
+  public abstract Optional<Namespace> getNamespace();
+
+  public static ModuleExtensionId create(
+      Label bzlFileLabel, String extensionName, Optional<Namespace> namespace) {
+    return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName, namespace);
   }
 }

@@ -432,12 +432,21 @@ public class ModuleFileGlobals {
             named = true,
             positional = false,
             defaultValue = "False"),
+        @Param(
+            name = "isolated",
+            doc =
+                "If true, this usage of the module extension will be isolated from all other "
+                    + "usages, in particular those in other modules.",
+            named = true,
+            positional = false,
+            defaultValue = "False"),
       },
       useStarlarkThread = true)
   public ModuleExtensionProxy useExtension(
       String rawExtensionBzlFile,
       String extensionName,
       boolean devDependency,
+      boolean isolated,
       StarlarkThread thread) {
     hadNonModuleCall = true;
 
@@ -445,7 +454,7 @@ public class ModuleFileGlobals {
 
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
-            extensionBzlFile, extensionName, thread.getCallerLocation());
+            extensionBzlFile, extensionName, isolated, thread.getCallerLocation());
 
     if (ignoreDevDeps && devDependency) {
       // This is a no-op proxy.
@@ -453,10 +462,12 @@ public class ModuleFileGlobals {
     }
 
     // Find an existing usage builder corresponding to this extension.
-    for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
-      if (usageBuilder.extensionBzlFile.equals(extensionBzlFile)
-          && usageBuilder.extensionName.equals(extensionName)) {
-        return usageBuilder.getProxy(devDependency);
+    if (!isolated) {
+      for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
+        if (usageBuilder.extensionBzlFile.equals(extensionBzlFile)
+            && usageBuilder.extensionName.equals(extensionName)) {
+          return usageBuilder.getProxy(devDependency);
+        }
       }
     }
 
@@ -484,14 +495,17 @@ public class ModuleFileGlobals {
   class ModuleExtensionUsageBuilder {
     private final String extensionBzlFile;
     private final String extensionName;
+    private final boolean isolated;
     private final Location location;
     private final HashBiMap<String, String> imports;
     private final ImmutableSet.Builder<String> devImports;
     private final ImmutableList.Builder<Tag> tags;
 
-    ModuleExtensionUsageBuilder(String extensionBzlFile, String extensionName, Location location) {
+    ModuleExtensionUsageBuilder(
+        String extensionBzlFile, String extensionName, boolean isolated, Location location) {
       this.extensionBzlFile = extensionBzlFile;
       this.extensionName = extensionName;
+      this.isolated = isolated;
       this.location = location;
       this.imports = HashBiMap.create();
       this.devImports = ImmutableSet.builder();
@@ -502,6 +516,7 @@ public class ModuleFileGlobals {
       return ModuleExtensionUsage.builder()
           .setExtensionBzlFile(extensionBzlFile)
           .setExtensionName(extensionName)
+          .setIsolated(isolated)
           .setUsingModule(module.getKey())
           .setLocation(location)
           .setImports(ImmutableBiMap.copyOf(imports))

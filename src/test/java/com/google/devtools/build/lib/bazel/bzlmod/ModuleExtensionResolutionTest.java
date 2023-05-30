@@ -1900,7 +1900,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
 
     ModuleExtensionId extensionId =
-        ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext");
+        ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty());
     reporter.removeHandler(failFastHandler);
     return evaluator.evaluate(
         ImmutableList.of(SingleExtensionEvalValue.key(extensionId)), evaluationContext);
