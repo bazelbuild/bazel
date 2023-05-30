@@ -1945,9 +1945,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       throws ActionConflictException,
           InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    return new BasicActionLookupValue(
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            new ActionKeyContext(), ImmutableList.of(generatingAction), actionLookupKey));
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(generatingAction);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, actionLookupKey);
+    return new BasicActionLookupValue(actions);
   }
 
   @Test
@@ -2118,16 +2118,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       failedArtifacts.add(failureArtifact);
       failedActions.add(new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE));
     }
-    ActionLookupValue nonRuleActionLookupValue =
-        new BasicActionLookupValue(
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                new ActionKeyContext(),
-                ImmutableList.<ActionAnalysisMetadata>builder()
-                    .add(catastrophicAction)
-                    .addAll(failedActions)
-                    .build(),
-                configuredTargetKey,
-                /* outputFiles= */ null));
+    var actions =
+        ImmutableList.<ActionAnalysisMetadata>builder()
+            .add(catastrophicAction)
+            .addAll(failedActions)
+            .build();
+    Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+        new ActionKeyContext(), actions, configuredTargetKey);
+    ActionLookupValue nonRuleActionLookupValue = new BasicActionLookupValue(actions);
     HashSet<ActionLookupData> failedActionKeys = new HashSet<>();
     for (Action failedAction : failedActions) {
       failedActionKeys.add(

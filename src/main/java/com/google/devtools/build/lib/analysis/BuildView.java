@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -920,8 +919,7 @@ public class BuildView {
               CoverageReportValue.COVERAGE_REPORT_KEY,
               loadingResult.getWorkspaceName());
       if (actionsWrapper != null) {
-        Actions.GeneratingActions actions = actionsWrapper.getActions();
-        skyframeExecutor.injectCoverageReportData(actions);
+        skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
         actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
       }
     }

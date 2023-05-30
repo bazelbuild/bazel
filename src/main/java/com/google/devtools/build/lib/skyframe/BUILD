@@ -1204,6 +1204,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -2885,6 +2886,8 @@ java_library(
     deps = [
         ":workspace_name_value",
         ":workspace_status_value",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -2906,6 +2909,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )

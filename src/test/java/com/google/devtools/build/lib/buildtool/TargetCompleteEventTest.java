@@ -152,7 +152,7 @@ public final class TargetCompleteEventTest extends BuildIntegrationTestCase {
     // CompletionContext can confirm it is an output file.
     Artifact main =
         ((RuleConfiguredTarget) fooTarget)
-            .getArtifactByOutputLabel(
+            .findArtifactByOutputLabel(
                 Label.parseCanonicalUnchecked("//validation_actions:foo0.main"));
     FileStateType mainType =
         targetCompleteEventRef.get().getCompletionContext().getFileArtifactValue(main).getType();

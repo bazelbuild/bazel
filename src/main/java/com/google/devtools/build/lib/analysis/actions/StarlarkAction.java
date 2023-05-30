@@ -287,6 +287,13 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
+    public NestedSet<Artifact> getSchedulingDependencies() {
+      return shadowedAction.isPresent()
+          ? shadowedAction.get().getSchedulingDependencies()
+          : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+
+    @Override
     public Optional<Artifact> getUnusedInputsList() {
       return unusedInputsList;
     }

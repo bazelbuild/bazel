@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
@@ -233,16 +234,11 @@ public final class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       throws InterruptedException, ActionConflictException,
           Actions.ArtifactGeneratedByOtherRuleException {
     if (evaluator.getExistingValue(ALL_OWNER) == null) {
+      ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
+      Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+          actionKeyContext, generatingActions, ALL_OWNER);
       differencer.inject(
-          ImmutableMap.of(
-              ALL_OWNER,
-              Delta.justNew(
-                  new BasicActionLookupValue(
-                      Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                          actionKeyContext,
-                          ImmutableList.copyOf(actions),
-                          ALL_OWNER,
-                          /* outputFiles= */ null)))));
+          ImmutableMap.of(ALL_OWNER, Delta.justNew(new BasicActionLookupValue(generatingActions))));
     }
   }
 

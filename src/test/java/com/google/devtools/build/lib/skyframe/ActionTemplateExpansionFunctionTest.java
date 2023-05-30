@@ -391,11 +391,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   }
 
   private static ActionLookupValue createActionLookupValue(ActionTemplate<?> actionTemplate)
-      throws ActionConflictException, InterruptedException,
+      throws ActionConflictException,
+          InterruptedException,
           Actions.ArtifactGeneratedByOtherRuleException {
-    return new BasicActionLookupValue(
-        Actions.assignOwnersAndFindAndThrowActionConflict(
-            new ActionKeyContext(), ImmutableList.of(actionTemplate), CTKEY));
+    ImmutableList<ActionAnalysisMetadata> actions = ImmutableList.of(actionTemplate);
+    Actions.assignOwnersAndThrowIfConflict(new ActionKeyContext(), actions, CTKEY);
+    return new BasicActionLookupValue(actions);
   }
 
   private SpecialArtifact createTreeArtifact(String path) {
