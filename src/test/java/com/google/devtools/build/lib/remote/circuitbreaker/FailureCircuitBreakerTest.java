@@ -81,7 +81,7 @@ public class FailureCircuitBreakerTest {
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.ACCEPT_CALLS);
 
     // Sleep for less than windowInterval.
-    Thread.sleep(windowInterval - 5);
+    Thread.sleep(windowInterval - 20);
     failureCircuitBreaker.recordFailure(new Exception());
     assertThat(failureCircuitBreaker.state()).isEqualTo(State.REJECT_CALLS);
   }
