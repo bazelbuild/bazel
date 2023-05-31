@@ -33,7 +33,7 @@ import java.util.stream.IntStream;
 public class FailureCircuitBreakerTest {
 
   @Test
-  public void testRecordFailure_WithIgnoredErrors() throws InterruptedException {
+  public void testRecordFailure_withIgnoredErrors() throws InterruptedException {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
     FailureCircuitBreaker failureCircuitBreaker =
@@ -67,7 +67,7 @@ public class FailureCircuitBreakerTest {
   }
 
   @Test
-  public void testRecordFailure_MinCallCriteriaNotMet() throws InterruptedException {
+  public void testRecordFailure_minCallCriteriaNotMet() throws InterruptedException {
     final int failureRateThreshold = 10;
     final int windowInterval = 100;
     final int minCallToComputeFailure = CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
