@@ -329,9 +329,9 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalSiblingRepositoryLayout;
 
   @Option(
-      name = "experimental_allow_tags_propagation",
-      oldName = "incompatible_allow_tags_propagation",
-      defaultValue = "false",
+      name = "incompatible_allow_tags_propagation",
+      oldName = "experimental_allow_tags_propagation",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {
@@ -678,7 +678,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, incompatibleRemoveRuleNameParameter)
             .setBool(
                 INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
-            .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
+            .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
@@ -770,8 +770,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_remove_rule_name_parameter";
   public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
       "+incompatible_disallow_symlink_file_to_dir";
-  public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
-      "-experimental_allow_tags_propagation";
+  public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
+      "+incompatible_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
@@ -795,8 +795,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_LAZY_TEMPLATE_EXPANSION =
       "+experimental_lazy_template_expansion";
   public static final String EXPERIMENTAL_ANALYSIS_TEST_CALL = "+experimental_analysis_test_call";
-  public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
-      "-incompatible_allow_tags_propagation";
   public static final String INCOMPATIBLE_ALWAYS_CHECK_DEPSET_ELEMENTS =
       "+incompatible_always_check_depset_elements";
   public static final String INCOMPATIBLE_DEPSET_FOR_LIBRARIES_TO_LINK_GETTER =
