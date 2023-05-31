@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.FdoContext.BranchFdoProfile;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -87,6 +88,7 @@ public final class CcToolchainProvider extends NativeInfo
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final AdditionalBuildVariablesComputer additionalBuildVariablesComputer;
+  private final BuildOptions buildOptions;
   private final CcToolchainVariables buildVariables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
   private final ImmutableList<Artifact> targetBuiltinIncludeFiles;
@@ -160,7 +162,7 @@ public final class CcToolchainProvider extends NativeInfo
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
       AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
-      CcToolchainVariables buildVariables,
+      BuildOptions buildOptions,
       ImmutableList<Artifact> builtinIncludeFiles,
       ImmutableList<Artifact> targetBuiltinIncludeFiles,
       Artifact linkDynamicLibraryTool,
@@ -224,7 +226,13 @@ public final class CcToolchainProvider extends NativeInfo
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
-    this.buildVariables = buildVariables;
+    this.buildOptions = buildOptions;
+    this.buildVariables =
+        constructBuildVariables(
+            sysroot,
+            cppConfiguration.getMinimumOsVersion(),
+            additionalBuildVariablesComputer,
+            buildOptions);
     this.builtinIncludeFiles = builtinIncludeFiles;
     this.targetBuiltinIncludeFiles = targetBuiltinIncludeFiles;
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
@@ -271,8 +279,7 @@ public final class CcToolchainProvider extends NativeInfo
   }
 
   /**
-   * See {@link #usePicForDynamicLibraries(FeatureConfigurationForStarlark)}. This method is there
-   * only to serve Starlark callers.
+   * See {@link #usePicForDynamicLibraries}. This method is there only to serve Starlark callers.
    */
   @Override
   public boolean usePicForDynamicLibrariesFromStarlark(
@@ -749,16 +756,37 @@ public final class CcToolchainProvider extends NativeInfo
   /** Returns build variables to be templated into the crosstool. */
   public CcToolchainVariables getBuildVariables(
       BuildOptions buildOptions, CppConfiguration cppConfiguration) {
-    if (cppConfiguration.enableCcToolchainResolution()) {
-      // With platforms, cc toolchain is analyzed in the exec configuration, so we cannot reuse
-      // build variables instance.
-      return CcToolchainProviderHelper.getBuildVariables(
-          buildOptions,
-          cppConfiguration,
-          getSysrootPathFragment(cppConfiguration),
-          additionalBuildVariablesComputer);
+    if (!cppConfiguration.enableCcToolchainResolution()) {
+      return buildVariables;
     }
-    return buildVariables;
+    // With platforms, cc toolchain is analyzed in the exec configuration, so we can only reuse the
+    // same build variables instance if the inputs to the construction match.
+    PathFragment sysroot = getSysrootPathFragment(cppConfiguration);
+    String minOsVersion = cppConfiguration.getMinimumOsVersion();
+    if (Objects.equals(sysroot, this.sysroot)
+        && Objects.equals(minOsVersion, this.cppConfiguration.getMinimumOsVersion())
+        && (additionalBuildVariablesComputer == AdditionalBuildVariablesComputer.NONE
+            || buildOptions.equals(this.buildOptions))) {
+      return buildVariables;
+    }
+    return constructBuildVariables(
+        sysroot, minOsVersion, additionalBuildVariablesComputer, buildOptions);
+  }
+
+  private static CcToolchainVariables constructBuildVariables(
+      @Nullable PathFragment sysroot,
+      @Nullable String minOsVersion,
+      AdditionalBuildVariablesComputer additionalBuildVariablesComputer,
+      BuildOptions options) {
+    CcToolchainVariables.Builder variables = CcToolchainVariables.builder();
+    if (minOsVersion != null) {
+      variables.addStringVariable(CcCommon.MINIMUM_OS_VERSION_VARIABLE_NAME, minOsVersion);
+    }
+    if (sysroot != null) {
+      variables.addStringVariable(CcCommon.SYSROOT_VARIABLE_NAME, sysroot.getPathString());
+    }
+    variables.addAllNonTransitive(additionalBuildVariablesComputer.apply(options));
+    return variables.build();
   }
 
   @Override
@@ -775,8 +803,6 @@ public final class CcToolchainProvider extends NativeInfo
   /**
    * Return the set of include files that may be included even if they are not mentioned in the
    * source file or any of the headers included by it.
-   *
-   * @param cppConfiguration
    */
   public ImmutableList<Artifact> getBuiltinIncludeFiles(CppConfiguration cppConfiguration) {
     if (cppConfiguration.equals(getCppConfigurationEvenThoughItCanBeDifferentThanWhatTargetHas())) {
@@ -971,7 +997,7 @@ public final class CcToolchainProvider extends NativeInfo
   /**
    * Unused, for compatibility with things internal to Google.
    *
-   * <p>Deprecated: Use platforms.
+   * @deprecated use platforms
    */
   @Deprecated
   public String getTargetOS() {

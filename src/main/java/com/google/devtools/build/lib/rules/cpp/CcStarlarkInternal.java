@@ -212,11 +212,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
         /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
         /* additionalBuildVariablesComputer= */ attributes.getAdditionalBuildVariablesComputer(),
-        /* buildVariables= */ CcToolchainProviderHelper.getBuildVariables(
-            ruleContext.getRuleContext().getConfiguration().getOptions(),
-            cppConfiguration,
-            sysroot,
-            attributes.getAdditionalBuildVariablesComputer()),
+        /* buildOptions= */ ruleContext.getRuleContext().getConfiguration().getOptions(),
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")
             .getImmutableList(),

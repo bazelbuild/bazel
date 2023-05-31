@@ -155,16 +155,19 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return false;
   }
 
-  /** Functional interface for a function that accepts cpu and {@link BuildOptions}. */
-  protected interface AdditionalBuildVariablesComputer {
+  /** Computes additional {@link CcToolchainVariables} based on {@link BuildOptions}. */
+  @FunctionalInterface
+  protected interface AdditionalBuildVariablesComputer extends Serializable {
     CcToolchainVariables apply(BuildOptions buildOptions);
+
+    /** Computes no additional variables. */
+    AdditionalBuildVariablesComputer NONE = options -> CcToolchainVariables.EMPTY;
   }
 
   /** Returns a function that will be called to retrieve root {@link CcToolchainVariables}. */
   protected AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
       RuleContext ruleContextPossiblyInExecConfiguration) {
-    return (AdditionalBuildVariablesComputer & Serializable)
-        (options) -> CcToolchainVariables.EMPTY;
+    return AdditionalBuildVariablesComputer.NONE;
   }
 
   /** Will be called during analysis to ensure target attributes are set correctly. */
