@@ -571,6 +571,15 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op.")
     public boolean generatedProtosInVirtualImports;
+
+    @Option(
+        name = "experimental_java_proto_add_allowed_public_imports",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "This flag is a noop and scheduled for removal.")
+    public boolean experimentalJavaProtoAddAllowedPublicImports;
   }
 
   @Override
