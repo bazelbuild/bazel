@@ -230,7 +230,6 @@ sh_test(
         ":test-deps",
         "//src:java_tools_prebuilt_zip",
         "//src:java_tools_zip",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = ["local"],
@@ -248,7 +247,6 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
@@ -277,7 +275,6 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
-            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
@@ -302,7 +299,6 @@ JAVA_VERSIONS_COVERAGE = ("11", "17")
         ],
         data = [
             ":test-deps",
-            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
         # This test is only run by the java_tools binaries pipeline.
@@ -488,7 +484,6 @@ sh_test(
     ],
     data = [
         ":test-deps",
-        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
     ],
     tags = [
         "no_windows",
@@ -512,7 +507,6 @@ sh_test(
         ],
         data = [
             ":test-deps",
-            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         ],
         tags = [
             "no_windows",
@@ -540,7 +534,6 @@ sh_test(
             ":test-deps",
             "//src:java_tools_prebuilt_zip",
             "//src:java_tools_zip",
-            "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:coverage_output_generator_repo",
         ],
         tags = ["no_windows"],
@@ -939,20 +932,13 @@ sh_test(
     tags = ["no_windows"],
 )
 
-filegroup(
-    name = "test_WORKSPACE",
-    srcs = [
-        "@test_WORKSPACE_files//:archives",
-    ],
-)
-
 sh_test(
     name = "workspace_resolved_test",
     size = "large",
     srcs = ["workspace_resolved_test.sh"],
     data = [
         ":test-deps",
-        ":test_WORKSPACE",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 22,
     tags = [

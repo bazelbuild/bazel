@@ -1693,8 +1693,6 @@ public class FactorialTest {
 EOF
   cd ../..
 
-  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
-
   bazel coverage \
     --test_output=all \
     --experimental_fetch_all_coverage_outputs \
