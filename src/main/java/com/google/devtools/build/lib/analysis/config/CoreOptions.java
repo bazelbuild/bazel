@@ -262,14 +262,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public CompilationMode hostCompilationMode;
 
   @Option(
-      name = "experimental_enable_aspect_hints",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean enableAspectHints;
-
-  @Option(
       name = "incompatible_auto_exec_groups",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -1035,7 +1027,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Pass archived tree artifacts filter.
     exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
-    exec.enableAspectHints = enableAspectHints;
     exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
     return exec;
   }

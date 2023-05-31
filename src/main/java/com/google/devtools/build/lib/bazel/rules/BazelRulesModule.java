@@ -499,6 +499,14 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "experimental_enable_aspect_hints",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL})
+    public boolean enableAspectHints;
+
     // Historically passed to all Bazel commands by certain tools.
     @Option(
         name = "experimental_allow_top_level_aspects_parameters",

@@ -135,7 +135,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testAspectHintsChanged() throws Exception {
-    useConfiguration("--experimental_enable_aspect_hints");
     scratch.file(
         "foo/rule.bzl",
         "def _rule_impl(ctx):",
