@@ -562,6 +562,15 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean useForkJoinPool;
+
+    @Option(
+        name = "incompatible_generated_protos_in_virtual_imports",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op.")
+    public boolean generatedProtosInVirtualImports;
   }
 
   @Override

@@ -118,11 +118,7 @@ def _process_srcs(ctx, srcs, import_prefix, strip_import_prefix):
     Returns:
       (str, [File]) A pair of proto_path and virtual_sources.
     """
-    generate_protos_in_virtual_imports = False
-    if ctx.fragments.proto.generated_protos_in_virtual_imports():
-        generate_protos_in_virtual_imports = any([not src.is_source for src in srcs])
-
-    if import_prefix != "" or strip_import_prefix != "" or generate_protos_in_virtual_imports:
+    if import_prefix != "" or strip_import_prefix != "":
         # Use virtual source roots
         return _symlink_to_virtual_imports(ctx, srcs, import_prefix, strip_import_prefix)
     else:

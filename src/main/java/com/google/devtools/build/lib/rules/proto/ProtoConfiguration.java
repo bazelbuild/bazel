@@ -44,16 +44,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   /** Command line options. */
   public static class Options extends FragmentOptions {
-    @Option(
-        name = "incompatible_generated_protos_in_virtual_imports",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "If set, generated .proto files are put into a virtual import directory. For more "
-                + "information, see https://github.com/bazelbuild/bazel/issues/9215")
-    public boolean generatedProtosInVirtualImports;
 
     @Option(
         name = "protocopt",
@@ -196,7 +186,6 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       exec.strictPublicImports = strictPublicImports;
       exec.ccProtoLibraryHeaderSuffixes = ccProtoLibraryHeaderSuffixes;
       exec.ccProtoLibrarySourceSuffixes = ccProtoLibrarySourceSuffixes;
-      exec.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
       return exec;
     }
   }
@@ -328,20 +317,5 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public List<String> ccProtoLibrarySourceSuffixes() {
     return ccProtoLibrarySourceSuffixes;
-  }
-
-
-  @StarlarkMethod(
-      name = "generated_protos_in_virtual_imports",
-      useStarlarkThread = true,
-      documented = false)
-  public boolean generatedProtosInVirtualImportsForStarlark(StarlarkThread thread)
-      throws EvalException {
-    ProtoCommon.checkPrivateStarlarkificationAllowlist(thread);
-    return generatedProtosInVirtualImports();
-  }
-
-  public boolean generatedProtosInVirtualImports() {
-    return options.generatedProtosInVirtualImports;
   }
 }
