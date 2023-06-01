@@ -93,7 +93,7 @@ public class HttpStreamTest {
     nRetries = 0;
 
     when(connection.getInputStream()).thenReturn(new ByteArrayInputStream(data));
-    when(progress.create(any(InputStream.class), any(), any(URL.class)))
+    when(progress.create(any(InputStream.class), any(), any(URL.class), any()))
         .thenAnswer(
             new Answer<InputStream>() {
               @Override

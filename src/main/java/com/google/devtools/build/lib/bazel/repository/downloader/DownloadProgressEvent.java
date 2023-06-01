@@ -17,6 +17,10 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.util.Utils;
 import java.net.URL;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+import java.util.OptionalLong;
 
 /**
  * Postable event reporting on progress made downloading an URL. It can be used to report the URL
@@ -26,17 +30,20 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
   private final URL originalUrl;
   private final URL actualUrl;
   private final long bytesRead;
+  private final OptionalLong totalBytes;
   private final boolean downloadFinished;
 
-  public DownloadProgressEvent(URL originalUrl, URL actualUrl, long bytesRead, boolean finished) {
+  public DownloadProgressEvent(
+      URL originalUrl, URL actualUrl, long bytesRead, OptionalLong totalBytes, boolean finished) {
     this.originalUrl = originalUrl;
     this.actualUrl = actualUrl;
     this.bytesRead = bytesRead;
+    this.totalBytes = totalBytes;
     this.downloadFinished = finished;
   }
 
   public DownloadProgressEvent(URL originalUrl, long bytesRead, boolean finished) {
-    this(originalUrl, null, bytesRead, finished);
+    this(originalUrl, null, bytesRead, OptionalLong.empty(), finished);
   }
 
   public DownloadProgressEvent(URL url, long bytesRead) {
@@ -69,10 +76,22 @@ public class DownloadProgressEvent implements ExtendedEventHandler.FetchProgress
     return bytesRead;
   }
 
+  private static final DecimalFormat PERCENTAGE_FORMAT =
+      new DecimalFormat("0.0%", new DecimalFormatSymbols(Locale.US));
+
   @Override
   public String getProgress() {
     if (bytesRead > 0) {
-      return String.format("%s (%,dB)", Utils.bytesCountToDisplayString(bytesRead), bytesRead);
+      if (totalBytes.isPresent()) {
+        double totalBytesDouble = this.totalBytes.getAsLong();
+        double ratio = totalBytesDouble != 0 ? bytesRead / totalBytesDouble : 1;
+        // 10.1 MiB (20.2%)
+        return String.format(
+            "%s (%s)", Utils.bytesCountToDisplayString(bytesRead), PERCENTAGE_FORMAT.format(ratio));
+      } else {
+        // 10.1 MiB (10,590,000B)
+        return String.format("%s (%,dB)", Utils.bytesCountToDisplayString(bytesRead), bytesRead);
+      }
     } else {
       return "";
     }

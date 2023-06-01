@@ -37,7 +37,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
-  @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
+  @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.11";
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
 
   private final Optional<DottedVersion> xcodeVersion;
