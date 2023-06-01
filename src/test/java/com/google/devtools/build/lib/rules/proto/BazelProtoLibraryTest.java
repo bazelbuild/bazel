@@ -518,13 +518,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(
             Iterables.transform(
                 a.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
-                s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly("a/_virtual_imports/a");
-    assertThat(
-            Iterables.transform(
-                a.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
-                s -> s.getImportPath().getSafePathString()))
-        .containsExactly("a.proto");
+                s -> s.getRootRelativePathString()))
+        .containsExactly("a/_virtual_imports/a/a.proto");
   }
 
   private void testImportPrefixInExternalRepo(boolean siblingRepoLayout) throws Exception {
@@ -554,10 +549,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("@yolo_repo//yolo_pkg:yolo_proto");
     assertThat(
-            Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
-                s -> s.getImportPath().getPathString()))
-        .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
+            Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
+                .getExecPathString())
+        .endsWith("/_virtual_imports/yolo_proto/bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -599,10 +593,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget target =
         getConfiguredTarget("@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
     assertThat(
-            Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
-                s -> s.getImportPath().getPathString()))
-        .contains("bazel.build/yolo/yolo_pkg/yolo.proto");
+            Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
+                .getExecPathString())
+        .endsWith("/_virtual_imports/yolo_proto/bazel.build/yolo/yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -643,10 +636,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget target =
         getConfiguredTarget("@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
     assertThat(
-            Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
-                s -> s.getImportPath().getPathString()))
-        .contains("yolo_pkg/yolo.proto");
+            Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
+                .getExecPathString())
+        .endsWith("/_virtual_imports/yolo_proto/yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -687,10 +679,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("@yolo_repo//:yolo_proto");
     assertThat(
-            Iterables.transform(
-                target.get(ProtoInfo.PROVIDER).getExportedSources().toList(),
-                s -> s.getImportPath().getPathString()))
-        .contains("yolo_pkg/yolo.proto");
+            Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
+                .getExecPathString())
+        .endsWith("/_virtual_imports/yolo_proto/yolo_pkg/yolo.proto");
   }
 
   @Test
@@ -1115,17 +1106,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     scratch.file("x/BUILD", "proto_library(name='foo', srcs=['a.proto', 'b.proto', 'c.proto'])");
 
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
-        .containsExactly("x/a.proto", "x/b.proto", "x/c.proto");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(".", ".", ".");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
+    assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly("x/a.proto", "x/b.proto", "x/c.proto");
   }
 
@@ -1147,18 +1128,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
+    assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/_virtual_imports/foo/foo/x/a.proto");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly("x/_virtual_imports/foo");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
-        .containsExactly("foo/x/a.proto");
   }
 
   @Test
@@ -1174,18 +1145,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
+    assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/generated.proto");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(".");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
-        .containsExactly("x/generated.proto");
   }
 
   @Test
@@ -1201,17 +1162,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
     ProtoInfo provider = getConfiguredTarget("//x:foo").get(ProtoInfo.PROVIDER);
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceFile().getExecPath().getPathString()))
+    assertThat(Iterables.transform(provider.getDirectSources(), s -> s.getExecPathString()))
         .containsExactly(genfiles + "/x/generated.proto", "x/a.proto");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getSourceRoot().getSafePathString()))
-        .containsExactly(".", ".");
-    assertThat(
-            Iterables.transform(
-                provider.getDirectSources(), s -> s.getImportPath().getPathString()))
-        .containsExactly("x/generated.proto", "x/a.proto");
   }
 }

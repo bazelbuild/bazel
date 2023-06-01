@@ -51,7 +51,9 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
       srcs: ([File]) List of .proto files (possibly under _virtual path)
       deps: ([ProtoInfo]) List of dependencies
       descriptor_set: (File) Descriptor set for this Proto
-      proto_path: (str) Path that should be stripped from files in srcs.
+      proto_path: (str) Path that should be stripped from files in srcs. When
+        stripping is needed, the files should be symlinked into `_virtual_imports/target_name`
+        directory. Only such paths are accepted.
       workspace_root: (str) Set to ctx.workspace_root if this is not the main repository.
       genfiles_dir: (str) Set to ctx.genfiles_dir if _virtual_imports are used.
 
@@ -70,10 +72,15 @@ def _create_proto_info(*, srcs, deps, descriptor_set, proto_path = "", workspace
             fail("srcs parameter expects all files start with %s" % src_prefix)
     if type(descriptor_set) != "File":
         fail("descriptor_set parameter expected to be a File")
-    if "_virtual_imports/" in proto_path and not genfiles_dir:
-        fail("genfiles_dir parameter should be set when _virtual_imports are used")
+    if proto_path:
+        if "_virtual_imports/" not in proto_path:
+            fail("proto_path needs to contain '_virtual_imports' directory")
+        if proto_path.split("/")[-2] != "_virtual_imports":
+            fail("proto_path needs to be formed like '_virtual_imports/target_name'")
+        if not genfiles_dir:
+            fail("genfiles_dir parameter should be set when _virtual_imports are used")
 
-    direct_proto_sources = [_ProtoSourceInfo(_source_file = src, _proto_path = proto_path) for src in srcs]
+    direct_proto_sources = srcs
     transitive_proto_sources = depset(
         direct = direct_proto_sources,
         transitive = [dep._transitive_proto_sources for dep in deps],
@@ -170,21 +177,12 @@ ProtoInfo, _ = provider(
         "transitive_imports": """(depset[File]) Deprecated: use `transitive_sources` instead.""",
 
         # Internal fields:
-        "_direct_proto_sources": """(list[ProtoSourceInfo]) The `ProtoSourceInfo`s from the `srcs`
+        "_direct_proto_sources": """(list[File]) The `ProtoSourceInfo`s from the `srcs`
             attribute.""" + _warning,
-        "_transitive_proto_sources": """(depset[ProtoSourceInfo]) The `ProtoSourceInfo`s from this
+        "_transitive_proto_sources": """(depset[File]) The `ProtoSourceInfo`s from this
             rule and all its dependent protocol buffer rules.""" + _warning,
-        "_exported_sources": """(depset[ProtoSourceInfo]) A set of `ProtoSourceInfo`s that may be
+        "_exported_sources": """(depset[File]) A set of `ProtoSourceInfo`s that may be
             imported by another `proto_library` depending on this one.""" + _warning,
     },
     init = _create_proto_info,
-)
-
-_ProtoSourceInfo = provider(
-    doc = "Represents a single `.proto` source file.",
-    fields = {
-        "_source_file": """(File) The `.proto` file. Possibly virtual to handle additional/stripped
-          path prefix.""" + _warning,
-        "_proto_path": "(str) The root of the virtual location." + _warning,
-    },
 )
