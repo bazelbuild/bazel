@@ -921,6 +921,14 @@ public class BuildConfigurationValue
     return new BuildConfigurationEvent(eventId, builder.build());
   }
 
+  public static BuildEventId.ConfigurationId configurationIdMessage(
+      @Nullable BuildConfigurationValue configuration) {
+    if (configuration == null) {
+      return BuildEventIdUtil.nullConfigurationIdMessage();
+    }
+    return BuildEventIdUtil.configurationIdMessage(configuration.checksum());
+  }
+
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }

@@ -443,6 +443,7 @@ public class BuildView {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
                 eventHandler,
+                labelToTargetMap,
                 topLevelCtKeys,
                 aspectsKeys.build(),
                 memoizedConfigurationLookupSupplier,
@@ -484,7 +485,7 @@ public class BuildView {
               skyframeAnalysisResult,
               /* targetsToSkip= */ ImmutableSet.of(),
               /* labelToTargetMap= */ labelToTargetMap,
-              topLevelTargetsWithConfigsResult,
+              topLevelTargetsWithConfigsResult.hasError(),
               /* includeExecutionPhase= */ true);
     } else {
       ImmutableSet<ConfiguredTarget> targetsToSkip = ImmutableSet.of();
@@ -530,7 +531,7 @@ public class BuildView {
               skyframeAnalysisResult,
               targetsToSkip,
               labelToTargetMap,
-              topLevelTargetsWithConfigsResult,
+              topLevelTargetsWithConfigsResult.hasError(),
               /* includeExecutionPhase= */ false);
     }
     logger.atInfo().log("Finished analysis");
@@ -555,7 +556,7 @@ public class BuildView {
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
-      TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs,
+      boolean hasTopLevelTargetsWithConfigurationError,
       boolean includeExecutionPhase)
       throws InterruptedException {
     Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
@@ -618,7 +619,7 @@ public class BuildView {
 
     FailureDetail failureDetail =
         createAnalysisFailureDetail(
-            loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
+            loadingResult, skyframeAnalysisResult, hasTopLevelTargetsWithConfigurationError);
     if (includeExecutionPhase) {
       SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
           (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
@@ -636,7 +637,7 @@ public class BuildView {
           exclusiveIfLocalTests,
           topLevelOptions,
           loadingResult.getWorkspaceName(),
-          topLevelTargetsWithConfigs.getTargetsAndConfigs());
+          skyframeAnalysisResult.getTargetsWithConfiguration());
     }
 
     WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
@@ -682,7 +683,7 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        topLevelTargetsWithConfigs.getTargetsAndConfigs());
+        skyframeAnalysisResult.getTargetsWithConfiguration());
   }
 
   /**
@@ -693,7 +694,7 @@ public class BuildView {
   public static FailureDetail createAnalysisFailureDetail(
       TargetPatternPhaseValue loadingResult,
       @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
-      @Nullable TopLevelTargetsAndConfigsResult topLevelTargetsAndConfigs) {
+      boolean hasTopLevelTargetsWithConfigurationError) {
     if (loadingResult.hasError()) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but there were errors parsing the target pattern")
@@ -707,7 +708,7 @@ public class BuildView {
           .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.GENERIC_LOADING_PHASE_FAILURE))
           .build();
     }
-    if (topLevelTargetsAndConfigs != null && topLevelTargetsAndConfigs.hasError()) {
+    if (hasTopLevelTargetsWithConfigurationError) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but top level configurations could not be created")
           .setBuildConfiguration(

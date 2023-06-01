@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -147,6 +148,7 @@ import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPol
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -2278,6 +2280,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   @CanIgnoreReturnValue
   protected ConfigureTargetsResult configureTargets(
       ExtendedEventHandler eventHandler,
+      ImmutableMap<Label, Target> labelToTargetMap,
       ImmutableList<ConfiguredTargetKey> configuredTargetKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectKeys,
       boolean keepGoing,
@@ -2301,16 +2304,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             evaluationContext);
     syscallCache.noteAnalysisPhaseEnded();
 
+    var targetsWithConfiguration =
+        ImmutableList.<TargetAndConfiguration>builderWithExpectedSize(configuredTargetKeys.size());
     ImmutableSet.Builder<ConfiguredTarget> configuredTargets = ImmutableSet.builder();
     ImmutableMap.Builder<AspectKey, ConfiguredAspect> aspects = ImmutableMap.builder();
     Root singleSourceRoot = getForcedSingleSourceRootIfNoExecrootSymlinkCreation();
 
+    WalkableGraph graph = result.getWalkableGraph();
     for (ConfiguredTargetKey key : configuredTargetKeys) {
-      ConfiguredTargetValue value = (ConfiguredTargetValue) result.get(key.toKey());
+      var value = (ConfiguredTargetValue) result.get(key.toKey());
       if (value == null) {
         continue;
       }
-      configuredTargets.add(value.getConfiguredTarget());
+      ConfiguredTarget configuredTarget = value.getConfiguredTarget();
+      configuredTargets.add(configuredTarget);
+
+      Target target = labelToTargetMap.get(key.getLabel());
+      BuildConfigurationValue configuration =
+          getConfigurationFromGraph(graph, configuredTarget.getConfigurationKey());
+      targetsWithConfiguration.add(new TargetAndConfiguration(target, configuration));
     }
 
     for (TopLevelAspectsKey key : topLevelAspectKeys) {
@@ -2329,7 +2341,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             : new PackageRootsNoSymlinkCreation(singleSourceRoot);
 
     return new AutoValue_SkyframeExecutor_ConfigureTargetsResult(
-        result, configuredTargets.build(), aspects.buildOrThrow(), packageRoots);
+        result,
+        configuredTargets.build(),
+        aspects.buildOrThrow(),
+        targetsWithConfiguration.build(),
+        packageRoots);
+  }
+
+  @Nullable
+  private static BuildConfigurationValue getConfigurationFromGraph(
+      WalkableGraph graph, @Nullable BuildConfigurationKey key) throws InterruptedException {
+    return key == null ? null : (BuildConfigurationValue) graph.getValue(key);
   }
 
   /** Result of a call to {@link #configureTargets}. */
@@ -2340,6 +2362,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     public abstract ImmutableSet<ConfiguredTarget> configuredTargets();
 
     public abstract ImmutableMap<AspectKey, ConfiguredAspect> aspects();
+
+    public abstract ImmutableList<TargetAndConfiguration> targetsWithConfiguration();
 
     public abstract PackageRoots packageRoots();
   }
