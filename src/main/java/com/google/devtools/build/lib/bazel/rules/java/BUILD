@@ -28,6 +28,7 @@ java_library(
         ],
     ) + [
         ":jdk.WORKSPACE",
+        ":rules_java_builtin.WORKSPACE",
     ],
     deps = [
         ":bazel_java_semantics",
@@ -80,7 +81,7 @@ java_library(
 )
 
 gen_workspace_stanza(
-    name = "workspace_with_rules_java",
+    name = "workspace_with_java_toolchains",
     out = "jdk.WORKSPACE",
     repo_clause = """
     name = "{repo}",
@@ -89,11 +90,34 @@ gen_workspace_stanza(
     urls = {urls},
     """,
     repos = [
-        "rules_cc",
         "rules_java",
+        "rules_cc",
         "rules_proto",
         "rules_python",
     ],
     template = "jdk.WORKSPACE.tmpl",
+    visibility = ["//:__pkg__"],
+)
+
+gen_workspace_stanza(
+    name = "rules_java_builtin",
+    out = "rules_java_builtin.WORKSPACE",
+    postamble = """
+        # WORKSPACE_PREFIX_END (rules_java_builtin)
+    """,
+    preamble = """
+        # WORKSPACE_PREFIX_BEGIN (rules_java_builtin)
+        load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+    """,
+    repo_clause = """
+http_archive(
+    name = "{repo}",
+    sha256 = "{sha256}",
+    strip_prefix = {strip_prefix},
+    urls = {urls},
+    repo_mapping = {{"@rules_java" : "@rules_java_builtin"}},
+)
+    """,
+    repos = ["rules_java_builtin"],
     visibility = ["//:__pkg__"],
 )

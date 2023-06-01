@@ -92,6 +92,7 @@ class TestBase(unittest.TestCase):
       'remotejdk20_win_arm64',
       'rules_cc',
       'rules_java',
+      'rules_java_builtin_for_testing',
       'rules_license',
       'rules_proto',
       'rules_python',

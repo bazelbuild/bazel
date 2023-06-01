@@ -58,7 +58,7 @@ fi
 function test_rules_java_can_be_overridden() {
   # The bazelrc file might contain an --override_repository flag for rules_java,
   # which would cause this test to fail to override the repo via a WORKSPACE file.
-  sed -i.bak '/override_repository=rules_java/d' $TEST_TMPDIR/bazelrc
+  sed -i.bak '/override_repository=rules_java=/d' $TEST_TMPDIR/bazelrc
 
   # We test that a custom repository can override @platforms in their
   # WORKSPACE file.

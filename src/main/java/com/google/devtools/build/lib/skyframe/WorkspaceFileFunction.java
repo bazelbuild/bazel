@@ -187,11 +187,13 @@ public class WorkspaceFileFunction implements SkyFunction {
       userWorkspaceFile = parseWorkspaceFile(workspaceFile, options, env);
     }
 
-    boolean shouldSkipWorkspacePrefix = useWorkspaceBzlmodFile;
+    boolean shouldSkipWorkspacePrefix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
     boolean shouldSkipWorkspaceSuffix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
-    for (Comment comment : userWorkspaceFile.getComments()) {
-      shouldSkipWorkspacePrefix |= comment.getText().contains("__SKIP_WORKSPACE_PREFIX__");
-      shouldSkipWorkspaceSuffix |= comment.getText().contains("__SKIP_WORKSPACE_SUFFIX__");
+    if (userWorkspaceFile != null) {
+      for (Comment comment : userWorkspaceFile.getComments()) {
+        shouldSkipWorkspacePrefix |= comment.getText().contains("__SKIP_WORKSPACE_PREFIX__");
+        shouldSkipWorkspaceSuffix |= comment.getText().contains("__SKIP_WORKSPACE_SUFFIX__");
+      }
     }
 
     // 1. Add WORKSPACE prefix (DEFAULT.WORKSPACE)
@@ -209,7 +211,9 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
 
     // 2. Add user workspace content
-    files.add(userWorkspaceFile);
+    if (userWorkspaceFile != null) {
+      files.add(userWorkspaceFile);
+    }
 
     // 3. Add WORKSPACE suffix (DEFAULT.WORKSPACE.SUFFIX)
     if (!shouldSkipWorkspaceSuffix) {
@@ -363,6 +367,8 @@ public class WorkspaceFileFunction implements SkyFunction {
               ruleClassProvider,
               mu,
               key.getIndex() == 0,
+              // Due to rules_java_builtin in WORKSPACE prefix, we allow workspace() after the first load statement.
+              key.getIndex() <= 1,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace(),
               directories.getLocalJavabase(),

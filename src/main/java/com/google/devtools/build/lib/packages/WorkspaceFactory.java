@@ -75,6 +75,7 @@ public class WorkspaceFactory {
       RuleClassProvider ruleClassProvider,
       Mutability mutability,
       boolean allowOverride,
+      boolean allowWorkspace,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
       @Nullable Path defaultSystemJavabaseDir,
@@ -90,7 +91,7 @@ public class WorkspaceFactory {
         createWorkspaceFunctions(
             allowOverride,
             ruleClassProvider.getRuleClassMap(),
-            new WorkspaceGlobals(allowOverride, ruleClassProvider.getRuleClassMap()),
+            new WorkspaceGlobals(allowWorkspace, ruleClassProvider.getRuleClassMap()),
             starlarkSemantics);
   }
 

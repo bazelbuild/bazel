@@ -69,30 +69,16 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     mockEmbeddedTools(embeddedBinaries);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
 
-    rulesJavaWorkspace = fs.getPath("/rules_java_workspace/");
-    mockRulesJava(rulesJavaWorkspace);
     createWorkspaceFile("");
-    fetchExternalRepo(RepositoryName.create("rules_java"));
   }
 
   private String getDefaultWorkspaceContent() {
-    return "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')";
+    // Skip the WORKSPACE suffix to avoid loading rules_java
+    return "# __SKIP_WORKSPACE_SUFFIX__";
   }
 
   private void createWorkspaceFile(String content) throws Exception {
     file("WORKSPACE", getDefaultWorkspaceContent(), content);
-  }
-
-  private static void mockRulesJava(Path rulesJavaWorkspace) throws IOException {
-    rulesJavaWorkspace.getRelative("java").createDirectoryAndParents();
-    FileSystemUtils.writeIsoLatin1(rulesJavaWorkspace.getRelative("WORKSPACE"), "");
-    FileSystemUtils.writeIsoLatin1(rulesJavaWorkspace.getRelative("java/BUILD"), "");
-    FileSystemUtils.writeIsoLatin1(
-        rulesJavaWorkspace.getRelative("java/repositories.bzl"),
-        "def rules_java_dependencies():",
-        "    pass",
-        "def rules_java_toolchains():",
-        "    pass");
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {

@@ -194,6 +194,9 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder clearWorkspaceFileSuffixForTesting() {
+      int begin = defaultWorkspaceFilePrefix.indexOf("# WORKSPACE_PREFIX_BEGIN (rules_java_builtin)");
+      int end = defaultWorkspaceFilePrefix.indexOf("# WORKSPACE_PREFIX_END (rules_java_builtin)");
+      defaultWorkspaceFilePrefix.delete(begin, end);
       defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
       return this;
     }

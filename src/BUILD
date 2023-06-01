@@ -579,6 +579,7 @@ filegroup(
         "@remotejdk11_win_arm64//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
         "@rules_java//:WORKSPACE",
+        "@rules_java_builtin_for_testing//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
         "@rules_proto//:WORKSPACE",
         "@rules_python//:WORKSPACE",

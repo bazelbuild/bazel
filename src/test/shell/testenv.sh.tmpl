@@ -308,6 +308,7 @@ EOF
         "remotejdk20_win_arm64"
         "rules_cc"
         "rules_java"
+        "rules_java_builtin_for_testing"
         "rules_license"
         "rules_proto"
         "rules_python"
@@ -817,7 +818,16 @@ EOF
 function mock_rules_java_to_avoid_downloading() {
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
   mkdir -p "${rules_java_workspace}/java"
+  mkdir -p "${rules_java_workspace}/toolchains"
   touch "${rules_java_workspace}/WORKSPACE"
+  touch "${rules_java_workspace}/toolchains/BUILD"
+  cat > "${rules_java_workspace}/toolchains/local_java_repository.bzl" <<EOF
+def local_java_repository(**attrs):
+    pass
+EOF
+  cat > "${rules_java_workspace}/toolchains/jdk_build_file.bzl" <<EOF
+JDK_BUILD_TEMPLATE = ''
+EOF
   touch "${rules_java_workspace}/java/BUILD"
   cat > "${rules_java_workspace}/java/repositories.bzl" <<EOF
 def rules_java_dependencies():
@@ -836,4 +846,5 @@ def java_test(**attrs):
     native.java_test(**attrs)
 EOF
   add_to_bazelrc "common --override_repository=rules_java=${rules_java_workspace}"
+  add_to_bazelrc "common --override_repository=rules_java_builtin=${rules_java_workspace}"
 }

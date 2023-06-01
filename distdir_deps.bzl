@@ -63,9 +63,16 @@ DIST_DEPS = {
         "strip_prefix": "rules_cc-0.0.6",
     },
     "rules_java": {
-        "archive": "rules_java-6.0.0.tar.gz",
-        "sha256": "469b7f3b580b4fcf8112f4d6d0d5a4ce8e1ad5e21fee67d8e8335d5f8b3debab",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.0.0/rules_java-6.0.0.tar.gz"],
+        "aliases": [
+            "rules_java_builtin",
+            "rules_java_builtin_for_testing",
+        ],
+        "archive": "86fc21f74dfdbd8a7833fab74defcbe915bd3238.tar.gz",
+        "sha256": "e4dbfc5e9bb6d377b2cf7003e205a3a07e48152bb910dff71abb8be86d7ba713",
+        "strip_prefix": "rules_java-86fc21f74dfdbd8a7833fab74defcbe915bd3238",
+        "urls": [
+            "https://github.com/meteorcloudy/rules_java/archive/86fc21f74dfdbd8a7833fab74defcbe915bd3238.tar.gz",
+        ],
         "used_in": [
             "additional_distfiles",
         ],

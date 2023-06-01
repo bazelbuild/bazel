@@ -133,6 +133,8 @@ TARGET_NAMES = [
     "platformclasspath",
     "remote_jdk11",
     "remote_toolchain",
+    "ijar",
+    "singlejar",
     "toolchain",
 ] + [
     "toolchain_java%d" % version for version in (8, 9, 10, 11)
