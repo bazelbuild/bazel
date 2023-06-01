@@ -143,11 +143,7 @@ public enum LinkBuildVariables {
     }
 
     if (!cppConfiguration.useCcTestFeature()) {
-      if (useTestOnlyFlags) {
-        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-      } else {
-        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
-      }
+      buildVariables.addBooleanValue(IS_CC_TEST.getVariableName(), useTestOnlyFlags);
     }
 
     if (runtimeLibrarySearchDirectories != null) {

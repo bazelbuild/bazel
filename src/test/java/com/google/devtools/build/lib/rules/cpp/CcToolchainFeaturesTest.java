@@ -687,7 +687,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 createStructureVariables(
                     "struct",
                     new CcToolchainVariables.StructureBuilder()
-                        .addField("bool", intValue(1))
+                        .addField("bool", booleanValue(true))
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-AfooValue", "-BbarValue");
@@ -710,36 +710,33 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 createStructureVariables(
                     "struct",
                     new CcToolchainVariables.StructureBuilder()
-                        .addField("bool", intValue(0))
+                        .addField("bool", booleanValue(false))
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-XfooValue", "-YbarValue");
   }
 
-  private static VariableValue intValue(int val) throws ExpansionException {
-    return CcToolchainVariables.builder()
-        .addIntegerVariable("name", val)
-        .build()
-        .getVariable("name");
+  private static VariableValue booleanValue(boolean val) throws ExpansionException {
+    return CcToolchainVariables.builder().addBooleanValue("name", val).build().getVariable("name");
   }
 
   @Test
   public void testExpandIfEqual() throws Exception {
     assertThat(
-        getCommandLineForFlagGroups(
-            "flag_group {"
-                + "  expand_if_equal: { variable: 'var' value: 'equal_value' }"
-                + "  flag: '-foo_%{var}'"
-                + "}"
-                + "flag_group {"
-                + "  expand_if_equal: { variable: 'var' value: 'non_equal_value' }"
-                + "  flag: '-bar_%{var}'"
-                + "}"
-                + "flag_group {"
-                + "  expand_if_equal: { variable: 'non_existing_var' value: 'non_existing' }"
-                + "  flag: '-baz_%{non_existing_var}'"
-                + "}",
-            createVariables("var", "equal_value")))
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_equal: { variable: 'var' value: 'equal_value' }"
+                    + "  flag: '-foo_%{var}'"
+                    + "}"
+                    + "flag_group {"
+                    + "  expand_if_equal: { variable: 'var' value: 'non_equal_value' }"
+                    + "  flag: '-bar_%{var}'"
+                    + "}"
+                    + "flag_group {"
+                    + "  expand_if_equal: { variable: 'non_existing_var' value: 'non_existing' }"
+                    + "  flag: '-baz_%{non_existing_var}'"
+                    + "}",
+                createVariables("var", "equal_value")))
         .containsExactly("-foo_equal_value");
   }
 

@@ -709,7 +709,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       if (TYPE_FIELD_NAME.equals(field)) {
         return new StringValue(getTypeName());
       } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
-        return new IntegerValue(getIsWholeArchive() ? 1 : 0);
+        return BooleanValue.of(getIsWholeArchive());
       }
       return null;
     }
@@ -1181,44 +1181,33 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
   }
 
-  /**
-   * The leaves in the variable sequence node tree are simple integer values. Note that this should
-   * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
-   */
   @Immutable
-  private static final class IntegerValue extends VariableValueAdapter {
-    private static final String INTEGER_VALUE_TYPE_NAME = "integer";
-    private final int value;
+  private static final class BooleanValue extends VariableValueAdapter {
+    private static final BooleanValue TRUE = new BooleanValue(true);
+    private static final BooleanValue FALSE = new BooleanValue(false);
 
-    IntegerValue(int value) {
+    private static BooleanValue of(boolean value) {
+      return value ? TRUE : FALSE;
+    }
+
+    private final boolean value;
+
+    BooleanValue(boolean value) {
       this.value = value;
     }
 
     @Override
     public String getStringValue(String variableName) {
-      return Integer.toString(value);
+      return value ? "1" : "0";
     }
 
     @Override
     public String getVariableTypeName() {
-      return INTEGER_VALUE_TYPE_NAME;
+      return "boolean";
     }
 
     @Override
     public boolean isTruthy() {
-      return value != 0;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof IntegerValue)) {
-        return false;
-      }
-      return value == ((IntegerValue) other).value;
-    }
-
-    @Override
-    public int hashCode() {
       return value;
     }
   }
@@ -1242,10 +1231,10 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       this.parent = parent;
     }
 
-    /** Add an integer variable that expands {@code name} to {@code value}. */
+    /** Adds a variable that expands {@code name} to {@code 0} or {@code 1}. */
     @CanIgnoreReturnValue
-    public Builder addIntegerVariable(String name, int value) {
-      variablesMap.put(name, new IntegerValue(value));
+    public Builder addBooleanValue(String name, boolean value) {
+      variablesMap.put(name, BooleanValue.of(value));
       return this;
     }
 
