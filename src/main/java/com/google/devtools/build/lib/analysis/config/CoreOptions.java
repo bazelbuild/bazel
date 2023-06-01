@@ -563,7 +563,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
     /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
-    DIFF_AGAINST_BASELINE
+    DIFF_AGAINST_BASELINE,
+    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
+    DIFF_AGAINST_DYNAMIC_BASELINE
   }
 
   /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
@@ -588,6 +590,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
               + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
+
+  public boolean useBaselineForOutputDirectoryNamingScheme() {
+    switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE:
+      case DIFF_AGAINST_DYNAMIC_BASELINE:
+        return true;
+      case LEGACY:
+        return false;
+    }
+    throw new IllegalStateException("unreachable");
+  }
 
   @Option(
       name = "is exec configuration",
