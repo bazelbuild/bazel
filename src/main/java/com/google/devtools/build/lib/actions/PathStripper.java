@@ -140,7 +140,8 @@ public final class PathStripper {
         if (!starlarkMnemonic.contains("Android")
             && !starlarkMnemonic.equals("MergeManifests")
             && !starlarkMnemonic.equals("StarlarkRClassGenerator")
-            && !starlarkMnemonic.equals("StarlarkAARGenerator")) {
+            && !starlarkMnemonic.equals("StarlarkAARGenerator")
+            && !starlarkMnemonic.equals("JetifySrcs")) {
           return args;
         }
         // Add your favorite arg to custom-process here. When Bazel finds one of these in the
@@ -154,7 +155,8 @@ public final class PathStripper {
                 "--data",
                 "--resources",
                 "--mergeeManifests",
-                "--library");
+                "--library",
+                "-i");
         for (int i = 1; i < args.size(); i++) {
           if (starlarkArgsToStrip.contains(args.get(i - 1))) {
             args.set(i, argStripper.strip(args.get(i)));
