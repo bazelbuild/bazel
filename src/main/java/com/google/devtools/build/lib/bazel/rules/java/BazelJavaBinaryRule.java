@@ -122,7 +122,7 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
   The wrapper shell script uses a classpath that includes, among other things, a jar file for each
   library on which the binary depends. When running the wrapper shell script, any nonempty
   <code>JAVABIN</code> environment variable will take precedence over the version specified via
-  Bazel's configured <code>--java_runtime_version</code>.
+  Bazel's <code>--java_runtime_version</code> flag.
 </p>
 <p>
   The wrapper script accepts several unique flags. Refer to
