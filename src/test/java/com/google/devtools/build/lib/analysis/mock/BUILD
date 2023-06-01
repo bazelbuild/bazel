@@ -20,7 +20,6 @@ java_library(
     ]),
     data = [
         "//tools/jdk:srcs",
-        "@rules_java//toolchains:srcs",
     ],
     resources = [
         "cc_toolchain_config.bzl",

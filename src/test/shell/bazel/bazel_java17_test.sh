@@ -99,6 +99,7 @@ http_archive(
     urls = ["${JAVA_TOOLS_PREBUILT_ZIP_FILE_URL}"]
 )
 EOF
+    cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
 # Java source files version shall match --java_language_version_flag version.

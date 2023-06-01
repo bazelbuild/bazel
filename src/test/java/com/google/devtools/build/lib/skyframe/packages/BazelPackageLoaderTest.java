@@ -55,7 +55,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private Path installBase;
   private Path outputBase;
-  private Path rulesJavaWorkspace;
 
   @Before
   public void setUp() throws Exception {
@@ -68,31 +67,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
     mockEmbeddedTools(embeddedBinaries);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
-
-    rulesJavaWorkspace = fs.getPath("/rules_java_workspace/");
-    mockRulesJava(rulesJavaWorkspace);
-    createWorkspaceFile("");
-    fetchExternalRepo(RepositoryName.create("rules_java"));
-  }
-
-  private String getDefaultWorkspaceContent() {
-    return "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')";
-  }
-
-  private void createWorkspaceFile(String content) throws Exception {
-    file("WORKSPACE", getDefaultWorkspaceContent(), content);
-  }
-
-  private static void mockRulesJava(Path rulesJavaWorkspace) throws IOException {
-    rulesJavaWorkspace.getRelative("java").createDirectoryAndParents();
-    FileSystemUtils.writeIsoLatin1(rulesJavaWorkspace.getRelative("WORKSPACE"), "");
-    FileSystemUtils.writeIsoLatin1(rulesJavaWorkspace.getRelative("java/BUILD"), "");
-    FileSystemUtils.writeIsoLatin1(
-        rulesJavaWorkspace.getRelative("java/repositories.bzl"),
-        "def rules_java_dependencies():",
-        "    pass",
-        "def rules_java_toolchains():",
-        "    pass");
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -170,7 +144,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void simpleLocalRepositoryPackage() throws Exception {
-    createWorkspaceFile("local_repository(name = 'r', path='r')");
+    file("WORKSPACE", "local_repository(name = 'r', path='r')");
     file("r/WORKSPACE", "workspace(name = 'r')");
     file("r/good/BUILD", "sh_library(name = 'good')");
     RepositoryName rRepoName = RepositoryName.create("r");
@@ -189,7 +163,8 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void newLocalRepository() throws Exception {
-    createWorkspaceFile(
+    file(
+        "WORKSPACE",
         "new_local_repository(name = 'r', path = '/r', "
             + "build_file_content = 'sh_library(name = \"good\")')");
     fs.getPath("/r").createDirectoryAndParents();

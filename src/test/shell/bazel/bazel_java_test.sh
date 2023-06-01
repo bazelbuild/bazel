@@ -141,6 +141,8 @@ http_archive(
 )
 EOF
   fi
+
+  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 }
 
 function tear_down() {
