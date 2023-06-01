@@ -155,10 +155,8 @@ public class XcodeConfigInfo extends NativeInfo
             DottedVersion.fromString(macosMinimumOsVersion),
             DottedVersion.fromString(xcodeVersion),
             Availability.UNKNOWN,
-            /** xcodeVersionFlagValue= */
-            "",
-            /** includeXcodeReqs= */
-            false);
+            /* xcodeVersionFlagValue= */ "",
+            /* includeXcodeReqs= */ false);
       } catch (DottedVersion.InvalidDottedVersionException e) {
         throw new EvalException(e);
       }
