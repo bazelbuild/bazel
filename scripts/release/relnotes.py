@@ -209,11 +209,13 @@ if __name__ == "__main__":
         print("+", note)
       print()
   else:
+    print()
     for note in filtered_relnotes:
       print("+", note)
 
   print()
   print("Acknowledgements:")
   external_authors = get_external_authors_between(merge_base, "HEAD")
+  print()
   print("This release contains contributions from many people at Google" +
         ("." if not external_authors else f", as well as {external_authors}."))
