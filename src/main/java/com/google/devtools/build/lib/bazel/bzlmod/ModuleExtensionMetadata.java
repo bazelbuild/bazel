@@ -188,7 +188,7 @@ public class ModuleExtensionMetadata implements StarlarkValue {
             .collect(toImmutableSet());
     var actualImports =
         rootUsages.stream()
-            .flatMap(usage -> usage.getImports().keySet().stream())
+            .flatMap(usage -> usage.getImports().values().stream())
             .filter(repo -> !actualDevImports.contains(repo))
             .collect(toImmutableSet());
 
