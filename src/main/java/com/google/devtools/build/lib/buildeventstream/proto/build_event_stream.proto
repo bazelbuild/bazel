@@ -129,6 +129,9 @@ message BuildEventId {
     // Identifier of the configuration; users of the protocol should not make
     // any assumptions about it having any structure, or equality of the
     // identifier between different streams.
+    //
+    // A value of "none" means the null configuration. It is used for targets
+    // that are not configurable, for example, source files.
     string id = 1;
   }
 
