@@ -14,8 +14,10 @@
 
 """Redirect symbols from rules_java to keep backward-compatibility."""
 
-load("@rules_java//toolchains:local_java_repository.bzl", _local_java_repository = "local_java_repository")
+load("@rules_java//toolchains:local_java_repository.bzl", _local_java_repository = "local_java_repository", _local_java_runtime = "local_java_runtime")
 
 def local_java_repository(name, **kwargs):
     _local_java_repository(name, **kwargs)
     native.register_toolchains("@" + name + "//:runtime_toolchain_definition")
+
+local_java_runtime = _local_java_runtime
