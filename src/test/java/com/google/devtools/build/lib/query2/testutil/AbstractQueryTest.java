@@ -1592,6 +1592,11 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile(
         "/workspace/platforms_workspace/MODULE.bazel",
         "module(name = \"platforms\", version = \"\")");
+    helper.writeFile("/workspace/rules_java_workspace/BUILD");
+    helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/rules_java_workspace/MODULE.bazel",
+        "module(name = \"rules_java\", version = \"\")");
   }
 
   @Test
