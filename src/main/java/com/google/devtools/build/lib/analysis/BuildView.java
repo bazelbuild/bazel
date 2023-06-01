@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -251,21 +252,22 @@ public class BuildView {
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
 
     // Prepare the analysis phase
-    BuildConfigurationValue configuration;
+    BuildConfigurationValue topLevelConfig;
     TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigsResult;
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
-      configuration = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+      topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+      eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }
     if (buildConfigurationsCreatedCallback != null) {
-      buildConfigurationsCreatedCallback.run(configuration);
+      buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
     try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
       topLevelTargetsWithConfigsResult =
           AnalysisUtils.getTargetsWithConfigs(
-              configuration,
+              topLevelConfig,
               labelToTargetMap.values(),
               eventHandler,
               ruleClassProvider,
@@ -273,10 +275,10 @@ public class BuildView {
     }
 
     skyframeBuildView.setConfiguration(
-        eventHandler, configuration, viewOptions.maxConfigChangesToShow);
+        eventHandler, topLevelConfig, viewOptions.maxConfigChangesToShow);
 
-    eventBus.post(new MakeEnvironmentEvent(configuration.getMakeEnvironment()));
-    eventBus.post(configuration.toBuildEvent());
+    eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
+    eventBus.post(topLevelConfig.toBuildEvent());
 
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
@@ -285,6 +287,10 @@ public class BuildView {
     Multimap<Label, BuildConfigurationValue> byLabel = ArrayListMultimap.create();
     for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
       byLabel.put(pair.getLabel(), pair.getConfiguration());
+      if (pair.getConfiguration() != null && !pair.getConfiguration().equals(topLevelConfig)) {
+        // Log top-level rule transitioned configurations.
+        eventBus.post(new ConfigRequestedEvent(pair.getConfiguration(), topLevelConfig.checksum()));
+      }
     }
     for (Target target : labelToTargetMap.values()) {
       eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
@@ -479,7 +485,7 @@ public class BuildView {
               eventHandler,
               eventBus,
               loadingResult,
-              configuration,
+              topLevelConfig,
               topLevelOptions,
               viewOptions,
               skyframeAnalysisResult,
@@ -525,7 +531,7 @@ public class BuildView {
               eventHandler,
               eventBus,
               loadingResult,
-              configuration,
+              topLevelConfig,
               topLevelOptions,
               viewOptions,
               skyframeAnalysisResult,

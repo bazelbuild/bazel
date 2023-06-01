@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -281,6 +282,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         return null;
       }
       Preconditions.checkNotNull(prereqs.getDepValueMap());
+
+      // If this CT applied an incoming rule transition, log it.
+      BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
+      if (config != null && !config.getKey().equals(configuredTargetKey.getConfigurationKey())) {
+        env.getListener()
+            .post(
+                new ConfigRequestedEvent(
+                    config, configuredTargetKey.getConfigurationKey().getOptionsChecksum()));
+      }
 
       // If one of our dependencies is platform-incompatible with this build, so are we.
       Optional<RuleConfiguredTargetValue> incompatibleTarget =

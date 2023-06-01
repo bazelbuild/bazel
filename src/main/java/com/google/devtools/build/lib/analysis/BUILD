@@ -1659,6 +1659,7 @@ java_library(
     srcs = [
         "config/BuildConfigurationInfo.java",
         "config/BuildConfigurationValue.java",
+        "config/ConfigRequestedEvent.java",
         "config/OutputDirectories.java",
     ],
     deps = [
