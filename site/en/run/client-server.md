@@ -17,17 +17,24 @@ based on the output base, which by default is determined by the path of the base
 workspace directory and your userid, so if you build in multiple workspaces,
 you'll have multiple output bases and thus multiple Bazel server processes.
 Multiple users on the same workstation can build concurrently in the same
-workspace because their output bases will differ (different userids). If the
-client cannot find a running server instance, it starts a new one. The server
-process will stop after a period of inactivity (3 hours, by default, which can
-be modified using the startup option `--max_idle_secs`).
+workspace because their output bases will differ (different userids).
 
-For the most part, the fact that there is a server running is invisible to the
-user, but sometimes it helps to bear this in mind. For example, if you're
-running scripts that perform a lot of automated builds in different directories,
-it's important to ensure that you don't accumulate a lot of idle servers; you
-can do this by explicitly shutting them down when you're finished with them, or
-by specifying a short timeout period.
+If the client cannot find a running server instance, it starts a new one. It
+does this by checking if the output base already exists, implying the blaze
+archive has already been unpacked. Otherwise if the output base doesn't exist,
+the client unzips the archive's files and sets their `mtime`s to a date 9 years
+in the future. Once installed, the client confirms that the `mtime`s of the
+unzipped files are equal to the far off date to ensure no installation tampering
+has occurred.
+
+The server process will stop after a period of inactivity (3 hours, by default,
+which can be modified using the startup option `--max_idle_secs`). For the most
+part, the fact that there is a server running is invisible to the user, but
+sometimes it helps to bear this in mind. For example, if you're running scripts
+that perform a lot of automated builds in different directories, it's important
+to ensure that you don't accumulate a lot of idle servers; you can do this by
+explicitly shutting them down when you're finished with them, or by specifying
+a short timeout period.
 
 The name of a Bazel server process appears in the output of `ps x` or `ps -e f`
 as <code>bazel(<i>dirname</i>)</code>, where _dirname_ is the basename of the
