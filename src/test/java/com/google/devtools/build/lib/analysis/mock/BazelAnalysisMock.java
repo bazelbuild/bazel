@@ -65,6 +65,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         config.getPath("local_config_platform_workspace").getPathString();
 
     return ImmutableList.of(
+        "# __SKIP_WORKSPACE_PREFIX__",
         "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
         "local_repository(name = 'platforms', path = '" + bazelPlatformsWorkspace + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",

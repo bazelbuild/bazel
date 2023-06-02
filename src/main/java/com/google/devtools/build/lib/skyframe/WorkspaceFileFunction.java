@@ -70,6 +70,7 @@ import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.ParserInput;
 import net.starlark.java.syntax.StarlarkFile;
+import net.starlark.java.syntax.Comment;
 
 /**
  * A SkyFunction to read, parse, and resolve a WORKSPACE file, divide it into chunks, then execute a
@@ -167,8 +168,34 @@ public class WorkspaceFileFunction implements SkyFunction {
     // Accumulate workspace files (prefix + main + suffix).
     ArrayList<StarlarkFile> files = new ArrayList<>();
 
-    // 1. Workspace prefix (DEFAULT.WORKSPACE): Only added when not using the WORKSPACE.bzlmod file
-    if (!useWorkspaceBzlmodFile) {
+    // Calculate user workspace file content
+    StarlarkFile userWorkspaceFile = null;
+    if (useWorkspaceResolvedFile) {
+      // WORKSPACE.resolved file.
+      userWorkspaceFile =
+          StarlarkFile.parse(
+              ParserInput.fromString(
+                  workspaceFromResolvedFile, resolvedFile.get().asPath().toString()),
+              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
+              options.toBuilder().allowLoadPrivateSymbols(true).build());
+    } else if (useWorkspaceBzlmodFile) {
+      // If Bzlmod is enabled and WORKSPACE.bzlmod exists, then use this file instead of the
+      // original WORKSPACE file.
+      userWorkspaceFile = parseWorkspaceFile(workspaceBzlmodFile, options, env);
+    } else if (workspaceFileValue.exists()) {
+      // normal WORKSPACE file
+      userWorkspaceFile = parseWorkspaceFile(workspaceFile, options, env);
+    }
+
+    boolean shouldSkipWorkspacePrefix = useWorkspaceBzlmodFile;
+    boolean shouldSkipWorkspaceSuffix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
+    for (Comment comment : userWorkspaceFile.getComments()) {
+      shouldSkipWorkspacePrefix |= comment.getText().contains("__SKIP_WORKSPACE_PREFIX__");
+      shouldSkipWorkspaceSuffix |= comment.getText().contains("__SKIP_WORKSPACE_SUFFIX__");
+    }
+
+    // 1. Add WORKSPACE prefix (DEFAULT.WORKSPACE)
+    if (!shouldSkipWorkspacePrefix) {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
@@ -181,27 +208,11 @@ public class WorkspaceFileFunction implements SkyFunction {
       files.add(file);
     }
 
-    // 2. Main workspace content
-    if (useWorkspaceResolvedFile) {
-      // WORKSPACE.resolved file.
-      StarlarkFile file =
-          StarlarkFile.parse(
-              ParserInput.fromString(
-                  workspaceFromResolvedFile, resolvedFile.get().asPath().toString()),
-              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
-              options.toBuilder().allowLoadPrivateSymbols(true).build());
-      files.add(file);
-    } else if (useWorkspaceBzlmodFile) {
-      // If Bzlmod is enabled and WORKSPACE.bzlmod exists, then use this file instead of the
-      // original WORKSPACE file.
-      files.add(parseWorkspaceFile(workspaceBzlmodFile, options, env));
-    } else if (workspaceFileValue.exists()) {
-      // normal WORKSPACE file
-      files.add(parseWorkspaceFile(workspaceFile, options, env));
-    }
+    // 2. Add user workspace content
+    files.add(userWorkspaceFile);
 
-    // 3. Workspace suffix (DEFAULT.WORKSPACE.SUFFIX): Only added when using the WORKSPACE file.
-    if (!useWorkspaceResolvedFile && !useWorkspaceBzlmodFile) {
+    // 3. Add WORKSPACE suffix (DEFAULT.WORKSPACE.SUFFIX)
+    if (!shouldSkipWorkspaceSuffix) {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
