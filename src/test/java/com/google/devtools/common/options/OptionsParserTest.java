@@ -2449,6 +2449,33 @@ public final class OptionsParserTest {
                 OptionsParser.getFallbackOptionsData(
                     ImmutableList.of(ExampleFoo.class, ExampleIncompatibleWithFoo.class)));
     assertThat(e).hasCauseThat().isInstanceOf(DuplicateOptionDeclarationException.class);
+
+  public void negativeTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parser.parse("//foo", "-//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-//bar");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
+  }
+
+  @Test
+  public void negativeExternalTargetPatternsInOptions_failsDistinctively() {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(ExampleFoo.class).build();
+    OptionsParsingException e =
+        assertThrows(
+            OptionsParsingException.class, () -> parser.parse("//foo", "-@repo//bar", "//baz"));
+    assertThat(e).hasMessageThat().contains("-@repo//bar");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Negative target patterns can only appear after the end of options marker");
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Flags corresponding to Starlark-defined build settings always start with '--'");
   }
 
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {
