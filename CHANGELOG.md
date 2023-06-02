@@ -1,3 +1,21 @@
+## Release 6.2.1 (2023-06-02)
+
+```
+Baseline:  758b44dab552f31b378874b5bf4c0609bfef6f5d
+
+Release Notes:
+
++ Automatic code cleanup. (#18504)
++ Update relnotes scripts (#18503)
++ Fix https://github.com/bazelbuild/bazel/issues/18493. (#18512)
++ Fix formatting of release notes (#18533)
++ Use extension rather than local names in ModuleExtensionMetadata (#18535)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Pavan Singh.
+```
+
 ## Release 7.0.0-pre.20230517.4 (2023-05-26)
 
 ```
