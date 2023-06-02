@@ -1266,6 +1266,8 @@ The contract is:
     Bazel always outputs the following volatile keys:
       *   `BUILD_TIMESTAMP`: time of the build in seconds since the Unix Epoch (the value
         of `System.currentTimeMillis()` divided by a thousand)
+      *   `FORMATTED_DATE`: time of the build Formatted as
+        `yyyy MMM d HH mm ss EEE`(for example 2023 Jun 2 01 44 29 Fri) in UTC.
 
 On Linux/macOS you can pass `--workspace_status_command=/bin/true` to
 disable retrieving workspace status, because `true` does nothing, successfully (exits
