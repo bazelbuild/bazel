@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkLoading.Code;
-import com.google.devtools.build.lib.skyframe.PackageLookupValue.NoRepositoryPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -64,7 +63,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -646,103 +644,45 @@ public class BzlLoadFunction implements SkyFunction {
       return key.getCompileKey(getBuiltinsRoot(builtinsBzlPath));
     }
 
-    // The block below derives all (sub)directories that could possibly contain (sub)packages and
-    // add them to a list of PackageLookup keys. These (sub)directories include the label path, and
-    // all subdirectories from label path to the bzl file. For example,
-    // 1. If the label is //a/b/c:d.bzl, allPackageLookupKeys only contains //a/b/c. There is no
-    // subdirectory under label path.
-    // 2. If the label name contains '/', for example, //a/b/c:d/e/f.bzl, allPackageLookupKeys
-    // contain //a/b/c, //a/b/c/d and //a/b/c/d/e.
-    List<PackageLookupValue.Key> allPackageLookupKeys = new ArrayList<>();
-    allPackageLookupKeys.add(PackageLookupValue.key(label.getPackageIdentifier()));
-    RepositoryName labelRepository = label.getRepository();
-    PathFragment subpkgPath = label.getPackageFragment();
-    PathFragment labelAsRelativePath = PathFragment.create(label.getName()).getParentDirectory();
-    for (String segment : labelAsRelativePath.segments()) {
-      subpkgPath = subpkgPath.getRelative(segment);
-      PackageLookupValue.Key currentPackageLookupKey =
-          PackageLookupValue.key(PackageIdentifier.create(labelRepository, subpkgPath));
-      allPackageLookupKeys.add(currentPackageLookupKey);
+    // Do package lookup.
+    PathFragment dir = Label.getContainingDirectory(label);
+    PackageIdentifier dirId = PackageIdentifier.create(label.getRepository(), dir);
+    ContainingPackageLookupValue packageLookup;
+    try {
+      packageLookup =
+          (ContainingPackageLookupValue)
+              env.getValueOrThrow(
+                  ContainingPackageLookupValue.key(dirId),
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
+      throw BzlLoadFailedException.errorFindingContainingPackage(label.toPathFragment(), e);
+    }
+    if (packageLookup == null) {
+      return null;
     }
 
-    SkyframeLookupResult packageLookupResults = env.getValuesAndExceptions(allPackageLookupKeys);
-
-    // We intentionally choose not to check `env.valuesMissing()` here. It is possible that all
-    // PackageLookupValues are already not null but `env.valuesMissing()` is still true from a prior
-    // request. Returning `null` in this case causes unnecessary Skyframe restarts.
-
-    PackageLookupValue.Key candidateKey = null;
-    PackageLookupValue candidateValue = null;
-    for (PackageLookupValue.Key packageLookupKey : allPackageLookupKeys) {
-      // Iterate in order of the directory structure so that the candidate{Key,Value} will end up as
-      // the deepest package, in other words the "containing package".
-      PackageLookupValue packageLookupValue;
-      try {
-        packageLookupValue =
-            (PackageLookupValue)
-                packageLookupResults.getOrThrow(
-                    packageLookupKey,
-                    BuildFileNotFoundException.class,
-                    InconsistentFilesystemException.class);
-      } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
-        throw BzlLoadFailedException.errorFindingContainingPackage(label.toPathFragment(), e);
-      }
-
-      if (packageLookupValue == null) {
-        return null;
-      }
-
-      if (packageLookupValue instanceof NoRepositoryPackageLookupValue) {
-        throw BzlLoadFailedException.noBuildFile(label, packageLookupValue.getErrorMsg());
-      }
-
-      if (packageLookupValue.packageExists()) {
-        candidateKey = packageLookupKey;
-        candidateValue = packageLookupValue;
-      }
-    }
-
-    if (candidateKey != null && candidateKey.argument().equals(label.getPackageIdentifier())) {
-      if (candidateValue.packageExists()) {
-        return key.getCompileKey(candidateValue.getRoot());
-      } else {
-        throw BzlLoadFailedException.noBuildFile(label, candidateValue.getErrorMsg());
-      }
+    // Resolve to compile key or error.
+    BzlCompileValue.Key compileKey;
+    boolean packageOk =
+        packageLookup.hasContainingPackage()
+            && packageLookup.getContainingPackageName().equals(label.getPackageIdentifier());
+    if (key.isBuildPrelude() && !packageOk) {
+      // Ignore the prelude, its package doesn't exist.
+      compileKey = BzlCompileValue.EMPTY_PRELUDE_KEY;
     } else {
-      if (key.isBuildPrelude()) {
-        return BzlCompileValue.EMPTY_PRELUDE_KEY;
-      }
-      if (candidateKey == null) {
-        // If we cannot find any subpackage below label's package directory, it is still possible
-        // that the label's package is a subpackage itself. This case should be rare, so we choose
-        // to still handle it using ContainingPackageLookup node.
-        ContainingPackageLookupValue containingPackageLookup;
-        try {
-          containingPackageLookup =
-              (ContainingPackageLookupValue)
-                  env.getValueOrThrow(
-                      ContainingPackageLookupValue.key(label.getPackageIdentifier()),
-                      BuildFileNotFoundException.class,
-                      InconsistentFilesystemException.class);
-        } catch (BuildFileNotFoundException | InconsistentFilesystemException e) {
-          throw BzlLoadFailedException.errorFindingContainingPackage(label.toPathFragment(), e);
-        }
-
-        if (containingPackageLookup == null) {
-          return null;
-        }
-
-        if (containingPackageLookup.hasContainingPackage()) {
-          throw BzlLoadFailedException.labelSubpackageCrossesBoundary(
-              label, containingPackageLookup);
-        } else {
-          throw BzlLoadFailedException.noBuildFile(label, /* reason= */ null);
-        }
+      if (packageOk) {
+        compileKey = key.getCompileKey(packageLookup.getContainingPackageRoot());
       } else {
-        throw BzlLoadFailedException.subpackageCrossesLabelPackageBoundary(
-            label, candidateKey.argument(), candidateValue);
+        if (!packageLookup.hasContainingPackage()) {
+          throw BzlLoadFailedException.noBuildFile(
+              label, packageLookup.getReasonForNoContainingPackage());
+        } else {
+          throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+        }
       }
     }
+    return compileKey;
   }
 
   private Root getBuiltinsRoot(String builtinsBzlPath) {
@@ -1643,21 +1583,17 @@ public class BzlLoadFunction implements SkyFunction {
           Code.PACKAGE_NOT_FOUND);
     }
 
-    static BzlLoadFailedException labelSubpackageCrossesBoundary(
+    static BzlLoadFailedException labelCrossesPackageBoundary(
         Label label, ContainingPackageLookupValue containingPackageLookupValue) {
       return new BzlLoadFailedException(
-          ContainingPackageLookupValue.getErrorMessageForLabelSubpackageCrossesBoundary(
-              containingPackageLookupValue, label),
-          Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
-    }
-
-    static BzlLoadFailedException subpackageCrossesLabelPackageBoundary(
-        Label label,
-        PackageIdentifier subpackageIdentifier,
-        PackageLookupValue packageLookupValue) {
-      return new BzlLoadFailedException(
-          PackageLookupValue.getErrorMessageForSubpackageCrossesLabelPackageBoundary(
-              packageLookupValue.getRoot(), label, subpackageIdentifier, packageLookupValue),
+          ContainingPackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
+              // We don't actually know the proper Root to pass in here (since we don't e.g. know
+              // the root of the bzl/BUILD file that is trying to load 'label'). Therefore we just
+              // pass in the Root of the containing package in order to still get a useful error
+              // message for the user.
+              containingPackageLookupValue.getContainingPackageRoot(),
+              label,
+              containingPackageLookupValue),
           Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
     }
 
