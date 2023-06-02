@@ -490,6 +490,8 @@ message File {
     string uri = 2;
     // The contents of the file, if they are guaranteed to be short.
     bytes contents = 3;
+    // The symlink target path, if the file is an unresolved symlink.
+    string symlink_target_path = 7;
   }
 
   // Digest of the file, using the build tool's configured digest algorithm,
