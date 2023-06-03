@@ -476,7 +476,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
-                        .setIsolated(false)
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
                         .setLocation(
                             Location.fromFileLineColumn(
@@ -501,7 +501,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
-                        .setIsolated(false)
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
                         .setLocation(
                             Location.fromFileLineColumn(
@@ -539,7 +539,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
-                        .setIsolated(false)
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
                         .setLocation(
                             Location.fromFileLineColumn(
@@ -610,7 +610,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
-                        .setIsolated(false)
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(ModuleKey.ROOT)
                         .setLocation(Location.fromFileLineColumn("/workspace/MODULE.bazel", 1, 23))
                         .setImports(
@@ -708,7 +708,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     ModuleExtensionUsage.builder()
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
-                        .setIsolated(false)
+                        .setIsolationKey(Optional.empty())
                         .setUsingModule(myMod)
                         .setLocation(
                             Location.fromFileLineColumn(

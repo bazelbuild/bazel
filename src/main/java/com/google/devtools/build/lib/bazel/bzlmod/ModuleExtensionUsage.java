@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
+import java.util.Optional;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -35,7 +36,11 @@ public abstract class ModuleExtensionUsage {
   /** The name of the extension. */
   public abstract String getExtensionName();
 
-  public abstract boolean isIsolated();
+  /**
+   * The isolation key of this module extension usage. This is present if and only if the usage is
+   * created with {@code isolate = True}.
+   */
+  public abstract Optional<ModuleExtensionId.IsolationKey> getIsolationKey();
 
   /** The module that contains this particular extension usage. */
   public abstract ModuleKey getUsingModule();
@@ -75,7 +80,7 @@ public abstract class ModuleExtensionUsage {
 
     public abstract Builder setExtensionName(String value);
 
-    public abstract Builder setIsolated(boolean value);
+    public abstract Builder setIsolationKey(Optional<ModuleExtensionId.IsolationKey> value);
 
     public abstract Builder setUsingModule(ModuleKey value);
 

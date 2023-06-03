@@ -23,11 +23,24 @@ import java.util.Optional;
 @AutoValue
 public abstract class ModuleExtensionId {
 
-  static final class Namespace {
-    final ModuleKey module;
+  /** A unique identifier for a single isolated usage of a fixed module extension. */
+  @AutoValue
+  abstract static class IsolationKey {
+    /** The module which contains this isolated usage of a module extension. */
+    public abstract ModuleKey getModule();
 
-    Namespace(ModuleKey module) {
-      this.module = module;
+    /** Whether this isolated usage specified {@code dev_dependency = True}. */
+    public abstract boolean isDevUsage();
+
+    /**
+     * The 0-based index of this isolated usage within the module's isolated usages of the same
+     * module extension and with the same {@link #isDevUsage()} value.
+     */
+    public abstract int getIsolatedUsageIndex();
+
+    public static IsolationKey create(
+        ModuleKey module, boolean isDevUsage, int isolatedUsageIndex) {
+      return new AutoValue_ModuleExtensionId_IsolationKey(module, isDevUsage, isolatedUsageIndex);
     }
   }
 
@@ -35,10 +48,10 @@ public abstract class ModuleExtensionId {
 
   public abstract String getExtensionName();
 
-  public abstract Optional<Namespace> getNamespace();
+  public abstract Optional<IsolationKey> getIsolationKey();
 
   public static ModuleExtensionId create(
-      Label bzlFileLabel, String extensionName, Optional<Namespace> namespace) {
-    return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName, namespace);
+      Label bzlFileLabel, String extensionName, Optional<IsolationKey> isolationKey) {
+    return new AutoValue_ModuleExtensionId(bzlFileLabel, extensionName, isolationKey);
   }
 }

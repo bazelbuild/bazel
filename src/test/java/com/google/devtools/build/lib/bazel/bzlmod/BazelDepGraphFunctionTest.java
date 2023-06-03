@@ -215,7 +215,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
-        .setIsolated(false)
+        .setIsolationKey(Optional.empty())
         .setImports(importsBuilder.buildOrThrow())
         .setDevImports(ImmutableSet.of())
         .setUsingModule(ModuleKey.ROOT)
@@ -291,7 +291,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
             maven, "rules_jvm_external~1.0~maven",
             pip, "rules_python~2.0~pip",
             myext, "dep~2.0~myext",
-            myext2, "dep~2.0~myext2");
+            myext2, "dep~2.0~myext~2");
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
@@ -322,7 +322,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 "oneext",
                 "dep~2.0~myext~myext",
                 "twoext",
-                "dep~2.0~myext2~myext"));
+                "dep~2.0~myext~2~myext"));
   }
 
   @Test

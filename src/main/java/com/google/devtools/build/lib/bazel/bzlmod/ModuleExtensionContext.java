@@ -125,12 +125,12 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
 
   @StarlarkMethod(
       name = "is_isolated",
-      doc = "Whether this particular usage of the extension is isolated from all others, in " +
-          "particular those in other modules",
+      doc = "Whether this particular usage of the extension had <code>isolate = True</code> " +
+          "specified and is thus isolated from all other usages.",
       structField = true
   )
   public boolean isIsolated() {
-    return extensionId.getNamespace().isPresent();
+    return extensionId.getIsolationKey().isPresent();
   }
 
   @StarlarkMethod(
@@ -194,6 +194,6 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
       Object rootModuleDirectDepsUnchecked, Object rootModuleDirectDevDepsUnchecked)
       throws EvalException {
     return ModuleExtensionMetadata.create(
-        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked);
+        rootModuleDirectDepsUnchecked, rootModuleDirectDevDepsUnchecked, extensionId);
   }
 }
