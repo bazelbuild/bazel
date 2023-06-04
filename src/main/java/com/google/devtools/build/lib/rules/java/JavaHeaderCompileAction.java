@@ -132,7 +132,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
   public static final class Builder {
 
     private static final ParamFileInfo PARAM_FILE_INFO =
-        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).build();
+        ParamFileInfo.builder(UNQUOTED).setCharset(ISO_8859_1).setUseAlways(true).build();
 
     private final RuleContext ruleContext;
 
@@ -457,6 +457,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
                 ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
                 outputDepsProto.getExecPathString());
       }
+      executionInfo = ImmutableMap.<String, String>builder()
+          .putAll(executionInfo)
+          .putAll(ExecutionRequirements.WORKER_MODE_ENABLED)
+          .putAll(ExecutionRequirements.WORKER_MULTIPLEX_MODE_ENABLED)
+          .build();
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         if (!directJars.isEmpty() || classpathEntries.isEmpty()) {
@@ -485,7 +490,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
                 /* owner= */ ruleContext.getActionOwner(),
-                /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+                /* tools= */ headerCompiler.tool().getFilesToRun(),
                 /* inputs= */ allInputs,
                 /* outputs= */ outputs.build(),
                 /* resourceSetOrBuilder= */ AbstractAction.DEFAULT_RESOURCE_SET,
