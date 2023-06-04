@@ -37,6 +37,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
+import com.google.devtools.build.lib.remote.common.OutOfRangeException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -516,8 +517,14 @@ final class ByteStreamUploader {
     @Override
     public void onError(Throwable t) {
       requestObserver.cancel("failed", t);
-      uploadResult.setException(
-          (Status.fromThrowable(t).getCode() == Code.ALREADY_EXISTS) ? new AlreadyExists() : t);
+      Status status = Status.fromThrowable(t);
+      if (status.getCode() == Code.ALREADY_EXISTS) {
+        uploadResult.setException(new AlreadyExists());
+      } else if (status.getCode() == Code.OUT_OF_RANGE) {
+        uploadResult.setException(new OutOfRangeException(resourceName));
+      } else {
+        uploadResult.setException(t);
+      }
     }
   }
 
