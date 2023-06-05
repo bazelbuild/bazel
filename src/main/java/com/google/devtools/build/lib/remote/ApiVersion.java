@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.remote;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.semver.SemVer;
 
-/**
- * Represents a version of the Remote Execution API.
- */
+/** Represents a version of the Remote Execution API. */
 public class ApiVersion implements Comparable<ApiVersion> {
   public final int major;
   public final int minor;
@@ -28,7 +26,12 @@ public class ApiVersion implements Comparable<ApiVersion> {
 
   // The current version of the Remote Execution API. This field will need to be updated
   // together with all version changes.
-  public static final ApiVersion current = new ApiVersion(SemVer.newBuilder().setMajor(2).build());
+  public static final ApiVersion current =
+      new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(1).build());
+  // The version of the Remote Execution API that starts supporting the
+  // Command.output_paths and ActionResult.output_symlinks fields.
+  public static final ApiVersion twoPointOne =
+      new ApiVersion(SemVer.newBuilder().setMajor(2).setMinor(1).build());
 
   public ApiVersion(int major, int minor, int patch, String prerelease) {
     this.major = major;
@@ -100,6 +103,7 @@ public class ApiVersion implements Comparable<ApiVersion> {
       UNSUPPORTED,
       DEPRECATED,
     }
+
     private final String message;
     private final State state;
 

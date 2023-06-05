@@ -271,24 +271,17 @@ final class ExecutionServer extends ExecutionImplBase {
     Path workingDirectory = execRoot.getRelative(command.getWorkingDirectory());
     workingDirectory.createDirectoryAndParents();
 
-    List<Path> outputs =
-        new ArrayList<>(command.getOutputDirectoriesCount() + command.getOutputFilesCount());
+    List<Path> outputs = new ArrayList<>(command.getOutputPathsCount());
 
-    for (String output : command.getOutputFilesList()) {
+    for (String output : command.getOutputPathsList()) {
       Path file = workingDirectory.getRelative(output);
-      if (file.exists()) {
+      // Since https://github.com/bazelbuild/bazel/pull/15818,
+      // Bazel includes all expected output directories as part of Action's inputs.
+      //
+      // Ensure no output file exists before execution happen.
+      // Ignore if output directories pre-exist.
+      if (file.exists() && !file.isDirectory()) {
         throw new FileAlreadyExistsException("Output file already exists: " + file);
-      }
-      file.getParentDirectory().createDirectoryAndParents();
-      outputs.add(file);
-    }
-    for (String output : command.getOutputDirectoriesList()) {
-      Path file = workingDirectory.getRelative(output);
-      if (file.exists()) {
-        if (!file.isDirectory()) {
-          throw new FileAlreadyExistsException(
-              "Non-directory exists at output directory path: " + file);
-        }
       }
       file.getParentDirectory().createDirectoryAndParents();
       outputs.add(file);
@@ -419,8 +412,8 @@ final class ExecutionServer extends ExecutionImplBase {
     com.google.devtools.build.lib.shell.Command cmd =
         new com.google.devtools.build.lib.shell.Command(
             new String[] {"id", "-u"},
-            /*environmentVariables=*/ null,
-            /*workingDirectory=*/ null,
+            /* environmentVariables= */ null,
+            /* workingDirectory= */ null,
             uidTimeout);
     try {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();

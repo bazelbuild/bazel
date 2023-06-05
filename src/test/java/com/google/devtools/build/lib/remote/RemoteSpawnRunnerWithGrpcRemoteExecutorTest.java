@@ -302,6 +302,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             });
     ServerCapabilities caps =
         ServerCapabilities.newBuilder()
+            .setLowApiVersion(ApiVersion.current.toSemVer())
+            .setHighApiVersion(ApiVersion.current.toSemVer())
             .setExecutionCapabilities(
                 ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
             .build();
@@ -353,7 +355,6 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
                     .setName("VARIABLE")
                     .setValue("value")
                     .build())
-            .addAllOutputFiles(ImmutableList.of("bar", "foo"))
             .addAllOutputPaths(ImmutableList.of("bar", "foo"))
             .build();
     cmdDigest = DIGEST_UTIL.compute(command);
