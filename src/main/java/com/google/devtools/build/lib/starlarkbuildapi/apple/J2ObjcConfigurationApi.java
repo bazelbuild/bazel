@@ -37,4 +37,7 @@ public interface J2ObjcConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "remove_dead_code", documented = false, useStarlarkThread = true)
   boolean getRemoveDeadCodeForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "j2objc_library_migration", documented = false, useStarlarkThread = true)
+  boolean j2objcLibraryMigrationForStarlark(StarlarkThread thread) throws EvalException;
 }

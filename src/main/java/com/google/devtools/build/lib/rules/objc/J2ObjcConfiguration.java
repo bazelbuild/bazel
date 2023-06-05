@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.cpp.CcModule;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.J2ObjcConfigurationApi;
 import java.util.Collections;
 import javax.annotation.Nullable;
@@ -75,6 +76,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   private final boolean removeDeadCode;
   private final boolean experimentalJ2ObjcHeaderMap;
   private final boolean experimentalShorterHeaderPath;
+  private final boolean j2objcLibraryMigration;
   @Nullable private final Label deadCodeReport;
 
   public J2ObjcConfiguration(BuildOptions buildOptions) {
@@ -89,6 +91,7 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
     this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
     this.experimentalShorterHeaderPath = j2ObjcOptions.experimentalShorterHeaderPath;
     this.deadCodeReport = j2ObjcOptions.deadCodeReport;
+    this.j2objcLibraryMigration = j2ObjcOptions.j2objcLibraryMigration;
   }
 
   /**
@@ -163,6 +166,16 @@ public class J2ObjcConfiguration extends Fragment implements J2ObjcConfiguration
   /** Returns whether objc_library should build generated files using ARC (-fobjc-arc). */
   public boolean compileWithARC() {
     return translationFlags.contains(J2OBJC_USE_ARC_FLAG);
+  }
+
+  public boolean j2objcLibraryMigration() {
+    return j2objcLibraryMigration;
+  }
+
+  @Override
+  public boolean j2objcLibraryMigrationForStarlark(StarlarkThread thread) throws EvalException {
+    CcModule.checkPrivateStarlarkificationAllowlist(thread);
+    return j2objcLibraryMigration();
   }
 
   @Override

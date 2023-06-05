@@ -61,10 +61,27 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  private static void j2objcLibraryLockdown(RuleContext ruleContext) throws RuleErrorException {
+    if (!ruleContext.getFragment(J2ObjcConfiguration.class).j2objcLibraryMigration()) {
+      return;
+    }
+
+    if (!ruleContext
+        .getRule()
+        .getRuleTags()
+        .contains("__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__")) {
+      throw ruleContext.throwWithRuleError(
+          "j2objc_library is locked. Please do not use this rule since it will be deleted in the"
+              + " future.");
+    }
+  }
+
   @Override
   @Nullable
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
+    j2objcLibraryLockdown(ruleContext);
+
     checkAttributes(ruleContext);
 
     if (ruleContext.hasErrors()) {
