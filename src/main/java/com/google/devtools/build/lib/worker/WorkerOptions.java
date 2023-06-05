@@ -149,13 +149,13 @@ public class WorkerOptions extends OptionsBase {
   public boolean workerSandboxing;
 
   @Option(
-      name = "experimental_worker_multiplex",
+      name = "worker_multiplex",
+      oldName = "experimental_worker_multiplex",
+      oldNameWarning = false,
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If enabled, workers that support the experimental multiplexing feature will use that"
-              + " feature.")
+      help = "If enabled, workers will use multiplexing if they support it. ")
   public boolean workerMultiplex;
 
   @Option(
