@@ -60,14 +60,13 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     super(actionLookupKey, visibility);
 
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
-    FileProvider fileProvider = new FileProvider(filesToBuild);
     FilesToRunProvider filesToRunProvider =
         FilesToRunProvider.fromSingleExecutableArtifact(artifact);
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(VisibilityProvider.class, this)
             .put(LicensesProvider.class, this)
-            .add(fileProvider)
+            .add(FileProvider.of(filesToBuild))
             .add(filesToRunProvider);
 
     if (instrumentedFilesInfo != null) {

@@ -128,7 +128,7 @@ public final class RuleConfiguredTargetBuilder {
     FilesToRunProvider filesToRunProvider =
         FilesToRunProvider.create(
             buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
-    addProvider(new FileProvider(filesToBuild));
+    addProvider(FileProvider.of(filesToBuild));
     addProvider(filesToRunProvider);
 
     if (runfilesSupport != null) {
