@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.RamResourceConverter;
 import com.google.devtools.build.lib.util.ResourceConverter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -237,4 +239,14 @@ public class WorkerOptions extends OptionsBase {
               + "worker exceeds the limit. If not used together with dynamic execution and "
               + "`--experimental_dynamic_ignore_local_signals=9`, this may crash your build.")
   public int workerMemoryLimitMb;
+
+  @Option(
+      name = "experimental_worker_allowlist",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If non-empty, only allow using persistent workers with the given worker key mnemonic.")
+  public ImmutableList<String> allowlist;
 }

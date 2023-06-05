@@ -140,6 +140,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
     if (!Spawns.supportsWorkers(spawn) && !Spawns.supportsMultiplexWorkers(spawn)) {
       return false;
     }
+    // Note: `allowlist` is sorted, we could binary search.
+    if (workerOptions.allowlist != null
+        && !workerOptions.allowlist.isEmpty()
+        && !workerOptions.allowlist.contains(Spawns.getWorkerKeyMnemonic(spawn))) {
+      return false;
+    }
     if (spawn.getToolFiles().isEmpty()) {
       return false;
     }

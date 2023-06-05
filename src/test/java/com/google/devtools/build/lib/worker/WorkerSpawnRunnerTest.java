@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.clock.JavaClock;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -78,6 +80,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.stubbing.Answer;
 
 /** Unit tests for the WorkerSpawnRunner. */
 @RunWith(JUnit4.class)
@@ -128,21 +131,7 @@ public class WorkerSpawnRunnerTest {
 
   @Test
   public void testExecInWorker_happyPath() throws ExecException, InterruptedException, IOException {
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(),
-            fs.getPath("/execRoot"),
-            ImmutableList.of(),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools= */ null,
-            resourceManager,
-            /* runfilesTreeUpdater= */ null,
-            new WorkerOptions(),
-            metricsCollector,
-            SyscallCache.NO_CACHE,
-            new JavaClock());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(0))
@@ -233,21 +222,7 @@ public class WorkerSpawnRunnerTest {
   @Test
   public void testExecInWorker_finishesAsyncOnInterrupt()
       throws InterruptedException, IOException, ExecException {
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(),
-            fs.getPath("/execRoot"),
-            ImmutableList.of(),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools= */ null,
-            resourceManager,
-            /* runfilesTreeUpdater= */ null,
-            new WorkerOptions(),
-            metricsCollector,
-            SyscallCache.NO_CACHE,
-            new JavaClock());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(anyInt()))
@@ -282,21 +257,7 @@ public class WorkerSpawnRunnerTest {
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
     when(worker.isSandboxed()).thenReturn(true);
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(),
-            fs.getPath("/execRoot"),
-            ImmutableList.of(),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools= */ null,
-            resourceManager,
-            /* runfilesTreeUpdater= */ null,
-            workerOptions,
-            metricsCollector,
-            SyscallCache.NO_CACHE,
-            new JavaClock());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     Semaphore secondResponseRequested = new Semaphore(0);
@@ -348,21 +309,7 @@ public class WorkerSpawnRunnerTest {
     workerOptions.workerSandboxing = false;
     when(spawn.getExecutionInfo())
         .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKER_CANCELLATION, "1"));
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(),
-            fs.getPath("/execRoot"),
-            ImmutableList.of(),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools= */ null,
-            resourceManager,
-            /* runfilesTreeUpdater= */ null,
-            workerOptions,
-            metricsCollector,
-            SyscallCache.NO_CACHE,
-            new JavaClock());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getResponse(anyInt())).thenThrow(new InterruptedException());
@@ -396,21 +343,7 @@ public class WorkerSpawnRunnerTest {
       throws ExecException, InterruptedException, IOException {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerMultiplex = true;
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(),
-            fs.getPath("/execRoot"),
-            ImmutableList.of(),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools= */ null,
-            resourceManager,
-            /* runfilesTreeUpdater= */ null,
-            workerOptions,
-            metricsCollector,
-            SyscallCache.NO_CACHE,
-            new JavaClock());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     // This worker key just so happens to be multiplex and require sandboxing.
     WorkerKey key = createWorkerKey(WorkerProtocolFormat.JSON, fs, true);
     Path logFile = fs.getPath("/worker.log");
@@ -443,21 +376,7 @@ public class WorkerSpawnRunnerTest {
   private void assertRecordedResponsethrowsException(String recordedResponse, String exceptionText)
       throws Exception {
     WorkerOptions workerOptions = new WorkerOptions();
-    WorkerSpawnRunner runner =
-        new WorkerSpawnRunner(
-            new SandboxHelpers(),
-            fs.getPath("/execRoot"),
-            ImmutableList.of(),
-            createWorkerPool(),
-            reporter,
-            localEnvProvider,
-            /* binTools= */ null,
-            resourceManager,
-            /* runfilesTreeUpdater= */ null,
-            workerOptions,
-            metricsCollector,
-            SyscallCache.NO_CACHE,
-            new JavaClock());
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
     when(worker.getLogFile()).thenReturn(logFile);
@@ -540,6 +459,109 @@ public class WorkerSpawnRunnerTest {
             () -> WorkerSpawnRunner.expandArgument(fs.getPath("/dir/"), "@file", requestBuilder));
     assertThat(e).hasMessageThat().contains("file");
     assertThat(e).hasMessageThat().contains("/dir/file");
+  }
+
+  @Test
+  public void testCanExec_checksRequirements() throws Exception {
+    WorkerOptions workerOptions = new WorkerOptions();
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
+    when(spawn.getMnemonic()).thenReturn("Mnemonic");
+
+    // Missing "supports-workers"
+    when(spawn.getExecutionInfo()).thenReturn(ImmutableMap.of());
+    assertThat(runner.canExec(spawn)).isFalse();
+
+    // Missing toolFiles
+    when(spawn.getExecutionInfo())
+        .thenReturn(ImmutableMap.of(ExecutionRequirements.SUPPORTS_WORKERS, "1"));
+    when(spawn.getToolFiles())
+        .thenAnswer(
+            (Answer<NestedSet<ActionInput>>)
+                invocation -> NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+    assertThat(runner.canExec(spawn)).isFalse();
+
+    // Minimum requirements met
+    NestedSet<ActionInput> toolFiles =
+        NestedSetBuilder.create(
+            Order.STABLE_ORDER,
+            ActionInputHelper.fromPath("myTools/tool1"),
+            ActionInputHelper.fromPath("myTools/tool2"));
+    // Using `thenAnswer` to work around Mockito type capture issues.
+    when(spawn.getToolFiles()).thenAnswer((Answer<NestedSet<ActionInput>>) invocation -> toolFiles);
+    assertThat(runner.canExec(spawn)).isTrue();
+  }
+
+  @Test
+  public void testCanExec_obeysAllowlist() throws Exception {
+    WorkerOptions workerOptions = new WorkerOptions();
+    WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
+    when(spawn.getMnemonic()).thenReturn("Mnemonic");
+    NestedSet<ActionInput> toolFiles =
+        NestedSetBuilder.create(
+            Order.STABLE_ORDER,
+            ActionInputHelper.fromPath("myTools/tool1"),
+            ActionInputHelper.fromPath("myTools/tool2"));
+    // Using `thenAnswer` to work around Mockito type capture issues.
+    when(spawn.getToolFiles()).thenAnswer((Answer<NestedSet<ActionInput>>) invocation -> toolFiles);
+
+    // Allowed due to no allowlist
+    when(spawn.getExecutionInfo())
+        .thenReturn(
+            ImmutableMap.of(
+                ExecutionRequirements.SUPPORTS_WORKERS,
+                "1",
+                ExecutionRequirements.WORKER_KEY_MNEMONIC,
+                "WKM2"));
+    assertThat(runner.canExec(spawn)).isTrue();
+
+    workerOptions.allowlist = ImmutableList.of("WKM1", "Mnemonic");
+
+    // Blocked by allowlist
+    when(spawn.getExecutionInfo())
+        .thenReturn(
+            ImmutableMap.of(
+                ExecutionRequirements.SUPPORTS_WORKERS,
+                "1",
+                ExecutionRequirements.WORKER_KEY_MNEMONIC,
+                "WKM2"));
+    assertThat(runner.canExec(spawn)).isFalse();
+
+    // On allowlist
+    when(spawn.getExecutionInfo())
+        .thenReturn(
+            ImmutableMap.of(
+                ExecutionRequirements.SUPPORTS_WORKERS,
+                "1",
+                ExecutionRequirements.WORKER_KEY_MNEMONIC,
+                "WKM1"));
+    assertThat(runner.canExec(spawn)).isTrue();
+
+    // On allowlist
+    when(spawn.getExecutionInfo())
+        .thenReturn(
+            ImmutableMap.of(
+                ExecutionRequirements.SUPPORTS_WORKERS,
+                "1",
+                ExecutionRequirements.WORKER_KEY_MNEMONIC,
+                "WKM1"));
+    assertThat(runner.canExec(spawn)).isTrue();
+  }
+
+  private WorkerSpawnRunner createWorkerSpawnRunner(WorkerOptions workerOptions) {
+    return new WorkerSpawnRunner(
+        new SandboxHelpers(),
+        fs.getPath("/execRoot"),
+        ImmutableList.of(),
+        createWorkerPool(),
+        reporter,
+        localEnvProvider,
+        /* binTools= */ null,
+        resourceManager,
+        /* runfilesTreeUpdater= */ null,
+        workerOptions,
+        metricsCollector,
+        SyscallCache.NO_CACHE,
+        new JavaClock());
   }
 
   private static String logMarker(String text) {
