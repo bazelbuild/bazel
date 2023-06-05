@@ -194,15 +194,15 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
-  private boolean shouldDownloadOutputForToplevel(ActionInput output) {
-    return shouldDownloadOutputFor(output, toplevelArtifactsToDownload);
+  private boolean isTopLevelArtifact(ActionInput output) {
+    return isPartOfCollectedSet(output, toplevelArtifactsToDownload);
   }
 
-  private boolean shouldDownloadOutputForLocalAction(ActionInput output) {
-    return shouldDownloadOutputFor(output, inputsToDownload);
+  private boolean isInputToLocalAction(ActionInput output) {
+    return isPartOfCollectedSet(output, inputsToDownload);
   }
 
-  private boolean shouldDownloadOutputForRegex(ActionInput output) {
+  private boolean matchesRegex(ActionInput output) {
     if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
       return false;
     }
@@ -216,26 +216,19 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     return false;
   }
 
-  private static boolean shouldDownloadOutputFor(
-      ActionInput output, Set<ActionInput> artifactCollection) {
-    if (output instanceof TreeFileArtifact) {
-      if (artifactCollection.contains(((Artifact) output).getParent())) {
-        return true;
-      }
-    } else if (artifactCollection.contains(output)) {
-      return true;
-    }
-
-    return false;
+  private static boolean isPartOfCollectedSet(
+      ActionInput actionInput, Set<ActionInput> artifactSet) {
+    return artifactSet.contains(
+        actionInput instanceof TreeFileArtifact
+            ? ((Artifact) actionInput).getParent()
+            : actionInput);
   }
 
   /**
    * Returns {@code true} if Bazel should download this {@link ActionInput} during spawn execution.
    */
   public boolean shouldDownloadOutput(ActionInput output) {
-    return shouldDownloadOutputForToplevel(output)
-        || shouldDownloadOutputForLocalAction(output)
-        || shouldDownloadOutputForRegex(output);
+    return isTopLevelArtifact(output) || isInputToLocalAction(output) || matchesRegex(output);
   }
 
   @Override
