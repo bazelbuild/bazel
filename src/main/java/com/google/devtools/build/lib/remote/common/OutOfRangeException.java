@@ -1,7 +1,5 @@
 package com.google.devtools.build.lib.remote.common;
 
-import build.bazel.remote.execution.v2.Digest;
-
 import java.io.IOException;
 
 /**
