@@ -93,8 +93,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    if (!SandboxStash.stashSandbox(sandboxPath, mnemonic)) {
-      super.delete();
-    }
+    SandboxStash.stashSandbox(sandboxPath, mnemonic);
+    super.delete();
   }
 }
