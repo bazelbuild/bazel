@@ -1,3 +1,17 @@
+## Release 7.0.0-pre.20230524.3 (2023-06-05)
+
+```
+Baseline: ea2d5043113a34ce341c53168141f13f14053240
+
+Cherry picks:
+
+   + 2e34965242280d861f688628ed2bbc5209350d9f:
+     Have `Package#defaultPackageMetadata` be in the same order that
+     the `package.default_applicable_licenses` list was in.
+```
+
+Initial release.
+
 ## Release 6.2.1 (2023-06-02)
 
 ```
