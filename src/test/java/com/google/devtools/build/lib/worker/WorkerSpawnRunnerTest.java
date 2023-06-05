@@ -61,6 +61,9 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.worker.WorkerPoolImpl.WorkerPoolConfig;
@@ -435,7 +438,16 @@ public class WorkerSpawnRunnerTest {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@file2\nmulti arg\n");
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file2"), "arg2\narg3");
-    WorkerSpawnRunner.expandArgument(fs.getPath("/"), "@file", requestBuilder);
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(
+                    PathFragment.create("file"),
+                    asRootedPath("/file"),
+                    PathFragment.create("file2"),
+                    asRootedPath("/file2")),
+                ImmutableMap.of(),
+            ImmutableMap.of(), ImmutableMap.of());
+    WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
     assertThat(requestBuilder.getArgumentsList())
         .containsExactly("arg1", "arg2", "arg3", "multi arg", "");
   }
@@ -445,18 +457,28 @@ public class WorkerSpawnRunnerTest {
       throws IOException, InterruptedException {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
-    WorkerSpawnRunner.expandArgument(fs.getPath("/"), "@file", requestBuilder);
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(PathFragment.create("file"), asRootedPath("/file")), ImmutableMap.of(),
+            ImmutableMap.of(), ImmutableMap.of());
+    WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder);
     assertThat(requestBuilder.getArgumentsList())
         .containsExactly("arg1", "@@nonfile", "@foo//bar", "arg2");
   }
 
   @Test
-  public void testExpandArgument_failsOnMissingFile() throws IOException {
+  public void testExpandArgument_failsOnMissingFile() {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(PathFragment.create("file"), asRootedPath("/dir/file")),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            ImmutableMap.of());
     IOException e =
         assertThrows(
             IOException.class,
-            () -> WorkerSpawnRunner.expandArgument(fs.getPath("/dir/"), "@file", requestBuilder));
+            () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder));
     assertThat(e).hasMessageThat().contains("file");
     assertThat(e).hasMessageThat().contains("/dir/file");
   }
@@ -562,6 +584,24 @@ public class WorkerSpawnRunnerTest {
         metricsCollector,
         SyscallCache.NO_CACHE,
         new JavaClock());
+  }
+
+  @Test
+  public void testExpandArgument_failsOnUndeclaredInput() {
+    WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+    IOException e =
+        assertThrows(
+            IOException.class,
+            () -> WorkerSpawnRunner.expandArgument(inputs, "@file", requestBuilder));
+    assertThat(e).hasMessageThat().contains("file");
+    assertThat(e).hasMessageThat().contains("declared input");
+  }
+
+  private RootedPath asRootedPath(String path) {
+    return RootedPath.toRootedPath(Root.absoluteRoot(fs), fs.getPath(path));
   }
 
   private static String logMarker(String text) {
