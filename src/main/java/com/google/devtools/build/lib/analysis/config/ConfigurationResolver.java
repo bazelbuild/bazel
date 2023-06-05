@@ -184,7 +184,19 @@ public final class ConfigurationResolver {
       return ImmutableList.of(resolvedDep);
     }
 
-    return resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
+    var ans = resolveGenericTransition(dependencyBuilder, dependencyKey, eventHandler);
+    if (ans != null) {
+      ans.stream()
+          .filter(d -> d.getConfiguration() != null)
+          // No need to log no-op transitions.
+          .filter(d -> !d.getConfiguration().equals(ctgValue.getConfiguration()))
+          .forEach(
+              d ->
+                  eventHandler.post(
+                      new ConfigRequestedEvent(
+                          d.getConfiguration(), ctgValue.getConfiguration().checksum())));
+    }
+    return ans;
   }
 
   @Nullable

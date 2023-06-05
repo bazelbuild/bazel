@@ -475,8 +475,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
       expansion = {
         "--nobuild_runfile_links",
         "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
@@ -493,12 +491,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_toplevel",
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
-      expansion = {
-        "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
-        "--remote_download_outputs=toplevel"
-      },
+      expansion = {"--action_cache_store_output_metadata", "--remote_download_outputs=toplevel"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},

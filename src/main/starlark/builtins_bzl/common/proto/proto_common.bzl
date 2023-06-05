@@ -35,7 +35,7 @@ def _proto_path_flag(path):
     return "--proto_path=%s" % path
 
 def _Iimport_path_equals_fullpath(proto_source):
-    return "-I%s=%s" % (get_import_path(proto_source), proto_source._source_file.path)
+    return "-I%s=%s" % (get_import_path(proto_source), proto_source.path)
 
 def _remove_repo(file):
     """Removes `../repo/` prefix from path, e.g. `../repo/package/path -> package/path`"""
@@ -55,11 +55,12 @@ def get_import_path(proto_source):
     Returns:
       (str) import path
     """
-    proto_path = proto_source._proto_path
-    short_path = _remove_repo(proto_source._source_file)
-    if proto_path and not short_path.startswith(proto_path + "/"):
-        fail("Bad proto_path %s for proto %s" % (proto_path, short_path))
-    return short_path.removeprefix(proto_path + "/")
+    repo_path = _remove_repo(proto_source)
+    index = repo_path.find("_virtual_imports/")
+    if index >= 0:
+        index = repo_path.find("/", index + len("_virtual_imports/"))
+        repo_path = repo_path[index + 1:]
+    return repo_path
 
 def _compile(
         actions,
@@ -151,7 +152,7 @@ def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
     provided_proto_sources = proto_lang_toolchain_info.provided_proto_sources
     provided_paths = {}
     for src in provided_proto_sources:
-        path = src._source_file.path
+        path = src.path
 
         # For listed protos bundled with the Bazel tools repository, their exec paths start
         # with external/bazel_tools/. This prefix needs to be removed first, because the protos in
@@ -162,7 +163,7 @@ def _experimental_filter_sources(proto_info, proto_lang_toolchain_info):
             provided_paths[path] = None
 
     # Filter proto files
-    proto_files = [src._source_file for src in proto_info._direct_proto_sources]
+    proto_files = proto_info._direct_proto_sources
     excluded = []
     included = []
     for proto_file in proto_files:

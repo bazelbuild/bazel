@@ -281,7 +281,9 @@ forwarding_cc_lib_aspect = aspect(
 )
 
 def _wrapped_cc_lib_impl(ctx):
-    return [WrappedCcInfo(cc_info = ctx.attr.deps[0][CcInfo]), ProtoInfo()]
+    descriptor_set = ctx.actions.declare_file("fake.descriptor_set")
+    ctx.actions.write(descriptor_set, "")
+    return [WrappedCcInfo(cc_info = ctx.attr.deps[0][CcInfo]), ProtoInfo(srcs = [], deps = [], descriptor_set = descriptor_set)]
 
 wrapped_cc_lib = rule(
     implementation = _wrapped_cc_lib_impl,

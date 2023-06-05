@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
@@ -281,16 +280,12 @@ public class IncompatibleTargetChecker {
       @Nullable NestedSetBuilder<Package> transitivePackages) {
     // Create dummy instances of the necessary data for a configured target. None of this data will
     // actually be used because actions associated with incompatible targets must not be evaluated.
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    FileProvider fileProvider = new FileProvider(filesToBuild);
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
-
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(incompatiblePlatformProvider)
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
-            .add(fileProvider)
-            .add(filesToRunProvider)
+            .add(FileProvider.EMPTY)
+            .add(FilesToRunProvider.EMPTY)
             .add(
                 new SupportedEnvironments(
                     EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));

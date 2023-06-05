@@ -278,10 +278,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         "%s not in same package as %s",
         outputLabel,
         this);
-    PathFragment namePart = PathFragment.create(outputLabel.getName());
+    PathFragment relativeOutputPath = outputLabel.toPathFragment();
     for (ActionAnalysisMetadata action : actions) {
       for (Artifact output : action.getOutputs()) {
-        if (output.getExecPath().endsWith(namePart)) {
+        if (output.getExecPath().endsWith(relativeOutputPath)) {
           return output;
         }
       }

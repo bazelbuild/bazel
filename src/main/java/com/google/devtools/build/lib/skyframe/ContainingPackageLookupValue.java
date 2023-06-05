@@ -59,27 +59,48 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     return Key.create(id);
   }
 
-  /**
-   * Creates the error message for the input {@linkplain Label label} if label itself is a
-   * subpackage crosses boundary when an outer package exists.
-   */
-  static String getErrorMessageForLabelSubpackageCrossesBoundary(
-      ContainingPackageLookupValue containingPkgLookupValue, Label label) {
+  static String getErrorMessageForLabelCrossingPackageBoundary(
+      Root pkgRoot,
+      Label label,
+      ContainingPackageLookupValue containingPkgLookupValue) {
     PackageIdentifier containingPkg = containingPkgLookupValue.getContainingPackageName();
-    Preconditions.checkState(
-        label.getPackageIdentifier().getSourceRoot().startsWith(containingPkg.getSourceRoot()),
-        "Label's path should start with outer package's path.");
-
-    String message =
-        String.format(
-            "Label '%s' is invalid because '%s' is not a package", label, label.getPackageName());
-    PathFragment labelNameInContainingPackage =
-        label.toPathFragment().relativeTo(containingPkg.getPackageFragment());
-    message += "; perhaps you meant to put the colon here: '";
-    if (containingPkg.getRepository().isMain()) {
-      message += "//";
+    boolean crossesPackageBoundaryBelow =
+        containingPkg.getSourceRoot().startsWith(label.getPackageIdentifier().getSourceRoot());
+    PathFragment labelNameFragment = PathFragment.create(label.getName());
+    String message;
+    if (crossesPackageBoundaryBelow) {
+      message =
+          String.format("Label '%s' is invalid because '%s' is a subpackage", label, containingPkg);
+    } else {
+      message =
+          String.format(
+              "Label '%s' is invalid because '%s' is not a package", label, label.getPackageName());
     }
-    message += containingPkg + ":" + labelNameInContainingPackage + "'?";
+
+    Root containingRoot = containingPkgLookupValue.getContainingPackageRoot();
+    if (pkgRoot.equals(containingRoot)) {
+      PathFragment containingPkgFragment = containingPkg.getPackageFragment();
+      PathFragment labelNameInContainingPackage =
+          crossesPackageBoundaryBelow
+              ? labelNameFragment.subFragment(
+                  containingPkgFragment.segmentCount()
+                      - label.getPackageFragment().segmentCount(),
+                  labelNameFragment.segmentCount())
+              : label.toPathFragment().relativeTo(containingPkgFragment);
+      message += "; perhaps you meant to put the colon here: '";
+      if (containingPkg.getRepository().isMain()) {
+        message += "//";
+      }
+      message += containingPkg + ":" + labelNameInContainingPackage + "'?";
+    } else {
+      message +=
+          "; have you deleted "
+              + containingPkg
+              + "/BUILD? "
+              + "If so, use the --deleted_packages="
+              + containingPkg
+              + " option";
+    }
     return message;
   }
 

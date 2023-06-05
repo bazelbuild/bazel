@@ -17,7 +17,9 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -434,5 +436,22 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
         .isNull();
     assertThat(getConfiguredTarget("//a:config").getProvider(RequiredConfigFragmentsProvider.class))
         .isNull();
+  }
+
+  @Test
+  public void findArtifactByOutputLabel_twoOutputsWithSameBasename() throws Exception {
+    scratch.file(
+        "foo/BUILD", "genrule(name = 'gen', outs = ['sub/out', 'out'], cmd = 'touch $(OUTS)')");
+    RuleConfiguredTarget foo = (RuleConfiguredTarget) getConfiguredTarget("//foo:gen");
+    assertThat(
+            foo.findArtifactByOutputLabel(Label.parseCanonical("//foo:sub/out"))
+                .getRepositoryRelativePath()
+                .getPathString())
+        .isEqualTo("foo/sub/out");
+    assertThat(
+            foo.findArtifactByOutputLabel(Label.parseCanonical("//foo:out"))
+                .getRepositoryRelativePath()
+                .getPathString())
+        .isEqualTo("foo/out");
   }
 }

@@ -388,7 +388,6 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   public void generateCode_directGeneratedProtos() throws Exception {
-    useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -419,7 +418,6 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   public void generateCode_inDirectGeneratedProtos() throws Exception {
-    useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -450,34 +448,18 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   @TestParameters({
-    "{virtual: false, sibling: false, generated: false, expectedFlags:"
+    "{sibling: false, generated: false, expectedFlags:"
         + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
-    "{virtual: false, sibling: false, generated: true, expectedFlags:"
+    "{sibling: false, generated: true, expectedFlags:"
         + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo',"
         + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/E.proto']}",
-    "{virtual: true, sibling: false, generated: false,expectedFlags:"
-        + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
-    "{virtual: true, sibling: false, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e',"
-        + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e/e/E.proto']}",
-    "{virtual: true, sibling: true, generated: false,expectedFlags:"
+    "{sibling: true, generated: false,expectedFlags:"
         + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
-    "{virtual: true, sibling: true, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e',"
-        + " '-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e/e/E.proto']}",
-    "{virtual: false, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
-    "{virtual: false, sibling: true, generated: true, expectedFlags:"
+    "{sibling: true, generated: true, expectedFlags:"
         + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin','-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/E.proto']}",
   })
   public void generateCode_externalProtoLibrary(
-      boolean virtual, boolean sibling, boolean generated, List<String> expectedFlags)
-      throws Exception {
-    if (virtual) {
-      useConfiguration("--incompatible_generated_protos_in_virtual_imports");
-    } else {
-      useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
-    }
+      boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
     if (sibling) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }

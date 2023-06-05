@@ -1352,6 +1352,21 @@ java_library(
     ],
 )
 
+java_library(
+    name = "config/transitions/baseline_options_value",
+    srcs = [
+        "config/transitions/BaselineOptionsValue.java",
+    ],
+    deps = [
+        ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
+    ],
+)
+
 # TODO(b/144899336): This should be analysis/actions/BUILD
 java_library(
     name = "actions/abstract_file_write_action",
@@ -1659,6 +1674,7 @@ java_library(
     srcs = [
         "config/BuildConfigurationInfo.java",
         "config/BuildConfigurationValue.java",
+        "config/ConfigRequestedEvent.java",
         "config/OutputDirectories.java",
     ],
     deps = [

@@ -89,6 +89,8 @@ public final class LinuxSandboxCommandLineBuilderTest {
 
     Duration timeout = Duration.ofSeconds(10);
     Duration killDelay = Duration.ofSeconds(2);
+
+    Path sandboxDebugPath = testFS.getPath("/debug.out");
     Path statisticsPath = testFS.getPath("/stats.out");
 
     Path workingDirectory = testFS.getPath("/all-work-and-no-play");
@@ -101,7 +103,6 @@ public final class LinuxSandboxCommandLineBuilderTest {
 
     boolean createNetworkNamespace = true;
     boolean useFakeHostname = true;
-    boolean useDebugMode = true;
 
     FileSystem fileSystem = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path workDir = fileSystem.getPath("/work");
@@ -154,7 +155,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .add("-H")
             .add("-N")
             .add("-U")
-            .add("-D")
+            .add("-D", sandboxDebugPath.getPathString())
             .add("-p")
             .add("-C", cgroupsDir)
             .add("--")
@@ -176,7 +177,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setUseFakeRoot(useFakeRoot)
             .setStatisticsPath(statisticsPath)
             .setUseFakeUsername(useFakeUsername)
-            .setUseDebugMode(useDebugMode)
+            .setSandboxDebugPath(sandboxDebugPath.getPathString())
             .setPersistentProcess(true)
             .setCgroupsDir(cgroupsDir)
             .build();

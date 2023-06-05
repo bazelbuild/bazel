@@ -512,6 +512,13 @@ static void SpawnChild() {
     // Unblock all signals, restore default handlers.
     ClearSignalMask();
 
+    // Close the file PRINT_DEBUG writes to.
+    // Must happen late enough so we don't lose any debugging output.
+    if (global_debug) {
+      fclose(global_debug);
+      global_debug = nullptr;
+    }
+
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.
     umask(022);
@@ -623,7 +630,7 @@ static void MountAllMounts() {
         opt.working_dir.c_str());
   }
   for (int i = 0; i < (signed)opt.bind_mount_sources.size(); i++) {
-    if (opt.debug) {
+    if (global_debug) {
       if (strcmp(opt.bind_mount_sources[i].c_str(),
                  opt.bind_mount_targets[i].c_str()) == 0) {
         // The file is mounted to the same path inside the sandbox, as outside

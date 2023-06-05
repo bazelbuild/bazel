@@ -538,7 +538,12 @@ public final class SkydocTest {
     DocstringParseException expected =
         assertThrows(
             DocstringParseException.class,
-            () -> FunctionUtil.fromNameAndFunction("check_sources", checkSourcesFn));
+            () ->
+                FunctionUtil.fromNameAndFunction(
+                    "check_sources",
+                    checkSourcesFn,
+                    /* withOriginKey= */ false,
+                    /* repositoryMapping= */ null));
     assertThat(expected)
         .hasMessageThat()
         .contains(

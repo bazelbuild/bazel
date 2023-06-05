@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.rules.apple.XcodeConfig;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigInfo;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
-import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -65,8 +64,7 @@ public class AppleCcToolchain extends CcToolchain {
   /** Returns {@link AdditionalBuildVariablesComputer} lambda without capturing instance state. */
   private static AdditionalBuildVariablesComputer getAdditionalBuildVariablesComputer(
       XcodeConfigInfo xcodeConfig) {
-    return (AdditionalBuildVariablesComputer & Serializable)
-        (BuildOptions buildOptions) -> computeCcToolchainVariables(xcodeConfig, buildOptions);
+    return buildOptions -> computeCcToolchainVariables(xcodeConfig, buildOptions);
   }
 
   private static CcToolchainVariables computeCcToolchainVariables(

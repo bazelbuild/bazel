@@ -69,12 +69,19 @@ public class SandboxStash {
         return false;
       }
       Collection<Path> stashes = sandboxes.getDirectoryEntries();
-      // We have to remove the sandbox root to move a stash there, but it is currently empty
-      // and we reinstate it if we don't get a sandbox.
-      sandboxPath.deleteTree();
+      if (stashes.isEmpty()) {
+        return false;
+      }
+      // We have to remove the sandbox execroot dir to move a stash there, but it is currently empty
+      // and we reinstate it later if we don't get a sandbox. We can't just move the stash dir
+      // fully, as we would then lose siblings of the execroot dir, such as hermetic-tmp dirs.
+      Path sandboxExecroot = sandboxPath.getChild("execroot");
+      sandboxExecroot.deleteTree();
       for (Path stash : stashes) {
         try {
-          stash.renameTo(sandboxPath);
+          Path stashExecroot = stash.getChild("execroot");
+          stashExecroot.renameTo(sandboxExecroot);
+          stash.deleteTree();
           return true;
         } catch (FileNotFoundException e) {
           // Try the next one, somebody else took this one.
@@ -91,17 +98,17 @@ public class SandboxStash {
   }
 
   /** Atomically moves the sandboxPath directory aside for later reuse. */
-  static boolean stashSandbox(Path path, String mnemonic) {
+  static void stashSandbox(Path path, String mnemonic) {
     if (instance == null) {
-      return false;
+      return;
     }
-    return instance.stashSandboxInternal(path, mnemonic);
+    instance.stashSandboxInternal(path, mnemonic);
   }
 
-  private boolean stashSandboxInternal(Path path, String mnemonic) {
+  private void stashSandboxInternal(Path path, String mnemonic) {
     Path sandboxes = getSandboxStashDir(mnemonic);
     if (sandboxes == null) {
-      return false;
+      return;
     }
     String stashName;
     synchronized (stash) {
@@ -109,17 +116,16 @@ public class SandboxStash {
     }
     Path stashPath = sandboxes.getChild(stashName);
     if (!path.exists()) {
-      return false;
+      return;
     }
     try {
-      path.renameTo(stashPath);
+      stashPath.createDirectory();
+      path.getChild("execroot").renameTo(stashPath.getChild("execroot"));
     } catch (IOException e) {
       // Since stash names are unique, this IOException indicates some other problem with stashing,
       // so we turn it off.
       turnOffReuse("Error stashing sandbox at %s: %s", stashPath, e);
-      return false;
     }
-    return true;
   }
 
   /**

@@ -77,24 +77,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
   }
 
   @Override
-  @Test
-  public void testFilesetPackageDeps() {
-    // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testRegressionBug1686119() {
-    // Fileset doesn't exist in Bazel.
-  }
-
-  @Override
-  @Test
-  public void testHdrsCheck() throws Exception {
-    // There's no hdrs_check attribute in Bazel.
-  }
-
-  @Override
   protected QueryHelper<Target> createQueryHelper() {
     return new SkyframeQueryHelper() {
       @Override

@@ -35,6 +35,10 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
     return false;
   }
 
+  /** Returns the path that sandbox debug output is written to, if any. */
+  @Nullable
+  Path getSandboxDebugPath();
+
   /** Returns the path where statistics about subprocess execution are written, if any. */
   @Nullable
   Path getStatisticsPath();

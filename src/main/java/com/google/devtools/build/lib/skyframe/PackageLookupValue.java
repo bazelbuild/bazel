@@ -401,13 +401,13 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   /**
-   * Creates the error message for the input {@linkplain Label label} if it contains a subpackage
-   * crossing boundary.
+   * Creates the error message for the input {@linkplain Label label} has a subpackage crossing
+   * boundary.
    *
    * <p>Returns {@code null} if no subpackage is discovered or the subpackage is marked as DELETED.
    */
   @Nullable
-  static String getErrorMessageForSubpackageCrossesLabelPackageBoundary(
+  static String getErrorMessageForLabelCrossingPackageBoundary(
       Root pkgRoot,
       Label label,
       PackageIdentifier subpackageIdentifier,
@@ -422,19 +422,19 @@ public abstract class PackageLookupValue implements SkyValue {
       if (pkgRoot.equals(subPackageRoot)) {
         PathFragment labelRootPathFragment = label.getPackageIdentifier().getSourceRoot();
         PathFragment subpackagePathFragment = subpackageIdentifier.getSourceRoot();
-        Preconditions.checkState(
-            subpackagePathFragment.startsWith(labelRootPathFragment),
-            "Subpackage should start with label's package path when they share the same package"
-                + " root");
-        PathFragment labelNameInSubpackage =
-            PathFragment.create(label.getName())
-                .subFragment(
-                    subpackagePathFragment.segmentCount() - labelRootPathFragment.segmentCount());
-        message += "; perhaps you meant to put the" + " colon here: '";
-        if (subpackageIdentifier.getRepository().isMain()) {
-          message += "//";
+        if (subpackagePathFragment.startsWith(labelRootPathFragment)) {
+          PathFragment labelNameInSubpackage =
+              PathFragment.create(label.getName())
+                  .subFragment(
+                      subpackagePathFragment.segmentCount() - labelRootPathFragment.segmentCount());
+          message += "; perhaps you meant to put the" + " colon here: '";
+          if (subpackageIdentifier.getRepository().isMain()) {
+            message += "//";
+          }
+          message += subpackageIdentifier + ":" + labelNameInSubpackage + "'?";
+        } else {
+          // TODO: Is this a valid case? How do we handle this case?
         }
-        message += subpackageIdentifier + ":" + labelNameInSubpackage + "'?";
       } else {
         message +=
             "; have you deleted "

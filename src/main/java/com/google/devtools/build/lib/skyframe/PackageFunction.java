@@ -881,7 +881,7 @@ public class PackageFunction implements SkyFunction {
       return true;
     }
     String errMsg =
-        PackageLookupValue.getErrorMessageForSubpackageCrossesLabelPackageBoundary(
+        PackageLookupValue.getErrorMessageForLabelCrossingPackageBoundary(
             pkgRoot, target.getLabel(), subpackageIdentifier, packageLookupValue);
     if (errMsg != null) {
       Event error =

@@ -140,7 +140,9 @@ static void handler(int signum) {
     case SIGINT:
       if (++sigint_count >= 3) {
         SigPrintf(
-            "\n%s caught third interrupt signal; server killed.\n\n",
+            "\n%s caught third interrupt signal; server killed. (This may be "
+            "expensive, see https://bazel.build/advanced/performance/"
+            "iteration-speed#avoid-ctrl-c.)\n\n",
             SignalHandler::Get().GetProductName().c_str());
         if (SignalHandler::Get().GetServerProcessInfo()->server_pid_ != -1) {
           KillServerProcess(

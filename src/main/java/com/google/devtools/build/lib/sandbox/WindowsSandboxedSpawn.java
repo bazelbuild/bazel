@@ -56,6 +56,13 @@ public class WindowsSandboxedSpawn implements SandboxedSpawn {
 
   @Override
   @Nullable
+  public Path getSandboxDebugPath() {
+    // On Windows, sandbox debugging output is written to stderr rather than a separate file.
+    return null;
+  }
+
+  @Override
+  @Nullable
   public Path getStatisticsPath() {
     // On Windows, Bazel currently does not support per-process statistics.
     return null;

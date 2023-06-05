@@ -9,7 +9,7 @@ Book: /_book.yaml
 This page describes how to optimize Bazel's build performance when running Bazel
 repeatedly.
 
-## Bazel's Runtime State
+## Bazel's Runtime State {:#bazel-runtime-state}
 
 A Bazel invocation involves several interacting parts.
 
@@ -34,7 +34,7 @@ A Bazel invocation involves several interacting parts.
 
 *   The result of the Bazel invocation is made available in the output tree.
 
-## Running Bazel Iteratively
+## Running Bazel Iteratively {:#run-iteratively}
 
 In a typical developer workflow, it is common to build (or run) a piece of code
 repeatedly, often at a very high frequency (e.g. to resolve some compilation
@@ -60,6 +60,14 @@ graph (e.g. because of
 changes can also cause the Bazel server to be restarted (e.g. changing
 [startup options](https://bazel.build/docs/user-manual#startup-options)).
 
+A good execution cache is also valuable for build performance. An execution
+cache can be kept locally
+[on disk](https://bazel.build/remote/caching#disk-cache), or
+[remotely](https://bazel.build/remote/caching). The cache can be shared among
+Bazel servers, and indeed among developers.
+
+## Avoid discarding the analysis cache {:#avoid-discarding-cache}
+
 Bazel will print a warning if either the analysis cache was discarded or the
 server was restarted. Either of these should be avoided during iterative use:
 
@@ -74,12 +82,11 @@ server was restarted. Either of these should be avoided during iterative use:
     bazelrc file to suit your needs. The server also restarted when startup
     flags change, so, again, avoid changing those flags if possible.
 
+*   <a id="avoid-ctrl-c">Beware</a> that the Bazel server is killed if you press
+    Ctrl-C repeatedly while Bazel is running. It is tempting to try to save time
+    by interrupting a running build that is no longer needed, but only press
+    Ctrl-C once to request a graceful end of the current invocation.
+
 *   If you want to use multiple sets of flags from the same workspace, you can
     use multiple, distinct output bases, switched with the `--output_base`
     flag. Each output base gets its own Bazel server.
-
-A good execution cache is also valuable for build performance. An execution
-cache can be kept locally
-[on disk](https://bazel.build/remote/caching#disk-cache), or
-[remotely](https://bazel.build/remote/caching). The cache can be shared among
-Bazel servers, and indeed among developers.

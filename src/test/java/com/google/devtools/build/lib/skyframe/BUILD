@@ -24,6 +24,7 @@ EXCLUDED_FROM_SKYFRAME_TESTS = [
     "BuildDriverFunctionTest.java",
     "SkyFunctionEnvironmentForTesting.java",
     "TrackSourceDirectoriesIntegrationTest.java",
+    "SkyframeFilesystemIntegrationTest.java",
 ]
 
 java_library(
@@ -461,6 +462,27 @@ java_test(
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:truth",
+        "@com_google_testparameterinjector//:testparameterinjector",
+    ],
+)
+
+java_test(
+    name = "SkyframeFilesystemIntegrationTest",
+    srcs = ["SkyframeFilesystemIntegrationTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/protobuf:failure_details_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/events:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
         "@com_google_testparameterinjector//:testparameterinjector",
     ],

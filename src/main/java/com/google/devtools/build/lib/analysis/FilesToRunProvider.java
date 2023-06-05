@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
@@ -28,43 +29,53 @@ import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
-public final class FilesToRunProvider
-    implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
-  /** The name of the field in Starlark used to access this class. */
-  public static final String STARLARK_NAME = "files_to_run";
+public interface FilesToRunProvider
+    extends TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
 
-  public static final FilesToRunProvider EMPTY =
-      new FilesToRunProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER), null, null);
+  /** The name of the field in Starlark used to access a {@link FilesToRunProvider}. */
+  String STARLARK_NAME = "files_to_run";
 
-  private final NestedSet<Artifact> filesToRun;
-  @Nullable private final RunfilesSupport runfilesSupport;
-  @Nullable private final Artifact executable;
+  FilesToRunProvider EMPTY =
+      new BasicFilesToRunProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
-  public FilesToRunProvider(
+  /** Creates an instance that contains one single executable and no other files. */
+  static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
+    return new SingleExecutableFilesToRunProvider(
+        NestedSetBuilder.create(Order.STABLE_ORDER, artifact));
+  }
+
+  static FilesToRunProvider create(
       NestedSet<Artifact> filesToRun,
       @Nullable RunfilesSupport runfilesSupport,
       @Nullable Artifact executable) {
-    this.filesToRun = filesToRun;
-    this.runfilesSupport = runfilesSupport;
-    this.executable  = executable;
-  }
-
-  /**
-   * Creates an instance that contains one single executable and no other files.
-   */
-  public static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
-    return new FilesToRunProvider(
-        NestedSetBuilder.create(Order.STABLE_ORDER, artifact), null, artifact);
+    if (filesToRun.isEmpty()) {
+      checkArgument(runfilesSupport == null, "No files to run with runfiles: %s", runfilesSupport);
+      checkArgument(executable == null, "No files to run with executable: %s", executable);
+      return EMPTY;
+    }
+    if (runfilesSupport == null && executable == null) {
+      return new BasicFilesToRunProvider(filesToRun);
+    }
+    if (filesToRun.isSingleton()
+        && runfilesSupport == null
+        && filesToRun.getSingleton().equals(executable)) {
+      return new SingleExecutableFilesToRunProvider(filesToRun);
+    }
+    return new FullFilesToRunProvider(filesToRun, runfilesSupport, executable);
   }
 
   @Override
-  public boolean isImmutable() {
+  default boolean isImmutable() {
     return true; // immutable and Starlark-hashable
   }
 
   /** Returns artifacts needed to run the executable for this target. */
-  public NestedSet<Artifact> getFilesToRun() {
-    return filesToRun;
+  NestedSet<Artifact> getFilesToRun();
+
+  @Override
+  @Nullable
+  default Artifact getExecutable() {
+    return null;
   }
 
   /**
@@ -72,29 +83,73 @@ public final class FilesToRunProvider
    * exist.
    */
   @Nullable
-  public RunfilesSupport getRunfilesSupport() {
-    return runfilesSupport;
+  default RunfilesSupport getRunfilesSupport() {
+    return null;
   }
 
-  /** Returns the Executable or null if it does not exist. */
   @Override
   @Nullable
-  public Artifact getExecutable() {
-    return executable;
-  }
-
-  /**
-   * Returns the RunfilesManifest or null if it does not exist. It is a shortcut to
-   * getRunfilesSupport().getRunfilesManifest().
-   */
-  @Override
-  @Nullable
-  public Artifact getRunfilesManifest() {
+  default Artifact getRunfilesManifest() {
+    var runfilesSupport = getRunfilesSupport();
     return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
   }
 
-  /** Return a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
-  public RunfilesSupplier getRunfilesSupplier() {
-    return firstNonNull(runfilesSupport, EmptyRunfilesSupplier.INSTANCE);
+  /** Returns a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
+  default RunfilesSupplier getRunfilesSupplier() {
+    return firstNonNull(getRunfilesSupport(), EmptyRunfilesSupplier.INSTANCE);
+  }
+
+  /** A {@link FilesToRunProvider} with no {@link RunfilesSupport} or executable. */
+  class BasicFilesToRunProvider implements FilesToRunProvider {
+    private final NestedSet<Artifact> filesToRun;
+
+    private BasicFilesToRunProvider(NestedSet<Artifact> filesToRun) {
+      this.filesToRun = filesToRun;
+    }
+
+    @Override
+    public NestedSet<Artifact> getFilesToRun() {
+      return filesToRun;
+    }
+  }
+
+  /** A single executable. */
+  final class SingleExecutableFilesToRunProvider extends BasicFilesToRunProvider {
+
+    private SingleExecutableFilesToRunProvider(NestedSet<Artifact> filesToRun) {
+      super(filesToRun);
+    }
+
+    @Override
+    public Artifact getExecutable() {
+      return getFilesToRun().getSingleton();
+    }
+  }
+
+  /** A {@link FilesToRunProvider} possible with {@link RunfilesSupport} and/or an executable. */
+  final class FullFilesToRunProvider extends BasicFilesToRunProvider {
+    @Nullable private final RunfilesSupport runfilesSupport;
+    @Nullable private final Artifact executable;
+
+    private FullFilesToRunProvider(
+        NestedSet<Artifact> filesToRun,
+        @Nullable RunfilesSupport runfilesSupport,
+        @Nullable Artifact executable) {
+      super(filesToRun);
+      this.runfilesSupport = runfilesSupport;
+      this.executable = executable;
+    }
+
+    @Override
+    @Nullable
+    public RunfilesSupport getRunfilesSupport() {
+      return runfilesSupport;
+    }
+
+    @Override
+    @Nullable
+    public Artifact getExecutable() {
+      return executable;
+    }
   }
 }

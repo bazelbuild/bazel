@@ -158,7 +158,10 @@ public final class AnalysisAndExecutionPhaseRunner {
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
       FailureDetail failureDetail =
-          BuildView.createAnalysisFailureDetail(loadingResult, null, null);
+          BuildView.createAnalysisFailureDetail(
+              loadingResult,
+              /* skyframeAnalysisResult= */ null,
+              /* hasTopLevelTargetsWithConfigurationError= */ false);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
