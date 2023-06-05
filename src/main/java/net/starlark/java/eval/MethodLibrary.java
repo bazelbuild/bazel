@@ -75,6 +75,33 @@ class MethodLibrary {
   }
 
   @StarlarkMethod(
+      name = "abs",
+      doc =
+          "Returns the absolute value of a number (a non-negative number with the same magnitude)."
+              + "<pre class=\"language-python\">abs(-2.3) == 2.3</pre>",
+      parameters = {
+        @Param(
+            name = "x",
+            allowedTypes = {
+              @ParamType(type = StarlarkInt.class),
+              @ParamType(type = StarlarkFloat.class),
+            },
+            doc = "A number (int or float)")
+      })
+  public Object abs(Object x) throws EvalException {
+    if (x instanceof StarlarkInt) {
+      StarlarkInt starlarkInt = (StarlarkInt) x;
+      if (starlarkInt.signum() < 0) {
+        return StarlarkInt.uminus(starlarkInt);
+      }
+      return x;
+    }
+
+    double value = ((StarlarkFloat) x).toDouble();
+    return StarlarkFloat.of(Math.abs(value));
+  }
+
+  @StarlarkMethod(
       name = "all",
       doc =
           "Returns true if all elements evaluate to True or if the collection is empty. "
