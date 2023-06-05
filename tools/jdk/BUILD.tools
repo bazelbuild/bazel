@@ -96,7 +96,7 @@ alias(
 
 filegroup(
     name = "bzl_srcs",
-    srcs = glob(["*.bzl"]),
+    srcs = glob(["*.bzl"]) + ["@rules_java//toolchains:bzl_srcs"],
     visibility = ["//tools:__pkg__"],
 )
 

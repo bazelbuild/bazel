@@ -67,11 +67,11 @@ DIST_DEPS = {
             "rules_java_builtin",
             "rules_java_builtin_for_testing",
         ],
-        "archive": "86fc21f74dfdbd8a7833fab74defcbe915bd3238.tar.gz",
-        "sha256": "e4dbfc5e9bb6d377b2cf7003e205a3a07e48152bb910dff71abb8be86d7ba713",
-        "strip_prefix": "rules_java-86fc21f74dfdbd8a7833fab74defcbe915bd3238",
+        "archive": "56220853b2d75c478dd1ee71ba7cd0e46363700f.tar.gz",
+        "sha256": "0f65c471b99c79e97dd18a3571d3707b4dbfc31ff8e9bf7083a09aae0adb7b5e",
+        "strip_prefix": "rules_java-56220853b2d75c478dd1ee71ba7cd0e46363700f",
         "urls": [
-            "https://github.com/meteorcloudy/rules_java/archive/86fc21f74dfdbd8a7833fab74defcbe915bd3238.tar.gz",
+            "https://github.com/meteorcloudy/rules_java/archive/56220853b2d75c478dd1ee71ba7cd0e46363700f.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
