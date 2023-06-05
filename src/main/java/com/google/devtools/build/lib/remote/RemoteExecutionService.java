@@ -221,37 +221,30 @@ public class RemoteExecutionService {
   }
 
   static Command buildCommand(
-      boolean useOutputPaths,
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
       RemotePathResolver remotePathResolver) {
     Command.Builder command = Command.newBuilder();
-    if (useOutputPaths) {
-      var outputPaths = new ArrayList<String>();
-      for (ActionInput output : outputs) {
-        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-        outputPaths.add(pathString);
+    ArrayList<String> outputFiles = new ArrayList<>();
+    ArrayList<String> outputDirectories = new ArrayList<>();
+    ArrayList<String> outputPaths = new ArrayList<>();
+    for (ActionInput output : outputs) {
+      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+      if (output.isDirectory()) {
+        outputDirectories.add(pathString);
+      } else {
+        outputFiles.add(pathString);
       }
-      Collections.sort(outputPaths);
-      command.addAllOutputPaths(outputPaths);
-    } else {
-      var outputFiles = new ArrayList<String>();
-      var outputDirectories = new ArrayList<String>();
-      for (ActionInput output : outputs) {
-        String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
-        if (output.isDirectory()) {
-          outputDirectories.add(pathString);
-        } else {
-          outputFiles.add(pathString);
-        }
-      }
-      Collections.sort(outputFiles);
-      Collections.sort(outputDirectories);
-      command.addAllOutputFiles(outputFiles);
-      command.addAllOutputDirectories(outputDirectories);
+      outputPaths.add(pathString);
     }
+    Collections.sort(outputFiles);
+    Collections.sort(outputDirectories);
+    Collections.sort(outputPaths);
+    command.addAllOutputFiles(outputFiles);
+    command.addAllOutputDirectories(outputDirectories);
+    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -549,17 +542,8 @@ public class RemoteExecutionService {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
 
-      var useOutputPaths = true;
-      if (mayBeExecutedRemotely(spawn)) {
-        var capabilities = remoteExecutor.getServerCapabilities();
-        if (capabilities != null) {
-          var highApiVersion = new ApiVersion(capabilities.getHighApiVersion());
-          useOutputPaths = highApiVersion.compareTo(ApiVersion.twoPointOne) >= 0;
-        }
-      }
       Command command =
           buildCommand(
-              useOutputPaths,
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
