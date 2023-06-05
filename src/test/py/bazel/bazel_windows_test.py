@@ -451,6 +451,41 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertTrue(os.path.exists(output_file))
     self.assertFalse(os.path.exists(output_zip))
 
+  def testTestShardStatusFile(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            '  shard_count = 2,',
+            ')',
+        ],
+    )
+    self.ScratchFile('foo.sh')
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--incompatible_check_sharding_support', '//:foo_test'],
+        allow_failure=True,
+    )
+    # Check for "tests failed" exit code
+    self.AssertExitCode(exit_code, 3, stderr, stdout)
+    self.assertTrue(
+        any(
+            'Sharding requested, but the test runner did not advertise support'
+            ' for it by touching TEST_SHARD_STATUS_FILE.'
+            in line
+            for line in stderr
+        )
+    )
+
+    self.ScratchFile('foo.sh', ['touch "$TEST_SHARD_STATUS_FILE"'])
+
+    self.RunBazel(
+        ['test', '--incompatible_check_sharding_support', '//:foo_test']
+    )
+
 
 if __name__ == '__main__':
   unittest.main()
