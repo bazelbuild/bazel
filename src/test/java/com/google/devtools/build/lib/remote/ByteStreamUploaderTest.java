@@ -1572,7 +1572,7 @@ public class ByteStreamUploaderTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(
             () -> new FixedBackoff(1, 0),
-            e -> Status.fromThrowable(e).getCode() == Code.INTERNAL,
+            e -> false, // non-retriable error.
             retryService);
     ByteStreamUploader uploader =
         new ByteStreamUploader(
@@ -1595,7 +1595,7 @@ public class ByteStreamUploaderTest {
         new ByteStreamImplBase() {
           @Override
           public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
-            return new StreamObserver<WriteRequest>() {
+            return new StreamObserver<>() {
               @Override
               public void onNext(WriteRequest writeRequest) {
                 streamObserver.onError(Status.OUT_OF_RANGE.asException());

@@ -10,6 +10,6 @@ import java.io.IOException;
 public final class OutOfRangeException extends IOException {
 
   public OutOfRangeException(String resourceName) {
-    super(String.format("Resource %s size exceeds the limit by remote-cache.", resourceName));
+    super(String.format("Resource %s size exceeds the limit set by remote-cache.", resourceName));
   }
 }
