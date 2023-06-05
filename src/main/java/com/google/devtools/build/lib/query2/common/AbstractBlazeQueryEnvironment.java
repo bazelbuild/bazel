@@ -366,7 +366,15 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       // stack overflow on deeply nested expressions whose evaluation involves #transformAsync.
       //
       // TODO(b/283225081): Do something more effective and more pervasive.
-      return function.apply(futureImpl.getIfSuccessful());
+      T1 t1;
+      try {
+        t1 = futureImpl.getChecked();
+      } catch (QueryException e) {
+        return immediateFailedFuture(e);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      return function.apply(t1);
     }
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(

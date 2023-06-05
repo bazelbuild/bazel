@@ -2154,6 +2154,18 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
+  public void testUnsuccessfulInnerFutureInNestedLetTransformAsyncFastPath() throws Exception {
+    // Not actually needed for the behavior being tested, but needed for the cquery and aquery test
+    // subclasses that infer and load a universe.
+    writeFile("foo/BUILD", "sh_library(name = 'foo')");
+    EvalThrowsResult result =
+        evalThrows("let x = let y = //foo in $nope in $x", /* unconditionallyThrows= */ true);
+    assertThat(result.getMessage()).contains("undefined variable 'nope'");
+    assertThat(result.getMessage()).doesNotContain("java.lang.IllegalStateException");
+    assertQueryCode(result.getFailureDetail(), Query.Code.VARIABLE_UNDEFINED);
+  }
+
+  @Test
   public void testUnconditionalQueryException() throws Exception {
     // The query expression being evaluated needs to be of the form "e1 + e2", where evaluation of
     // "e1" throws a QueryException even in keepGoing mode. See cl/141772584.
