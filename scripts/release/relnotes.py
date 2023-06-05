@@ -171,13 +171,13 @@ if __name__ == "__main__":
   is_major = bool(re.fullmatch(r"\d+.0.0", current_release))
 
   tags = [tag for tag in git("tag", "--sort=refname") if "pre" not in tag]
+
+  # Get the baseline for RCs (before release tag is created)
   if current_release not in tags:
     tags.append(current_release)
-    tags.sort()
-    last_release = tags[tags.index(current_release) - 1]
-  else:
-    print("Error: release tag already exists")
-    sys.exit(1)
+
+  tags.sort()
+  last_release = tags[tags.index(current_release) - 1]
 
   # Assuming HEAD is on the current (to-be-released) release, find the merge
   # base with the last release so that we know which commits to generate notes
