@@ -46,7 +46,8 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   final SandboxOutputs outputs;
   private final Set<Path> writableDirs;
   private final TreeDeleter treeDeleter;
-  private final Path statisticsPath;
+  @Nullable private final Path sandboxDebugPath;
+  @Nullable private final Path statisticsPath;
   private final String mnemonic;
 
   public AbstractContainerizingSandboxedSpawn(
@@ -58,6 +59,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
       String mnemonic) {
     this.sandboxPath = sandboxPath;
@@ -68,6 +70,7 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
     this.outputs = outputs;
     this.writableDirs = writableDirs;
     this.treeDeleter = treeDeleter;
+    this.sandboxDebugPath = sandboxDebugPath;
     this.statisticsPath = statisticsPath;
     this.mnemonic = mnemonic;
   }
@@ -85,6 +88,12 @@ public abstract class AbstractContainerizingSandboxedSpawn implements SandboxedS
   @Override
   public ImmutableMap<String, String> getEnvironment() {
     return environment;
+  }
+
+  @Override
+  @Nullable
+  public Path getSandboxDebugPath() {
+    return sandboxDebugPath;
   }
 
   @Override

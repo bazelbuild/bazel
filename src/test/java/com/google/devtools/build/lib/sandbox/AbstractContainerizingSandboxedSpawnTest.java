@@ -354,6 +354,7 @@ public class AbstractContainerizingSandboxedSpawnTest {
         sandboxOutputs,
         /* writableDirs= */ ImmutableSet.of(),
         mock(TreeDeleter.class),
+        /* sandboxDebugPath= */ null,
         /* statisticsPath= */ null,
         "Mnemonic") {
 

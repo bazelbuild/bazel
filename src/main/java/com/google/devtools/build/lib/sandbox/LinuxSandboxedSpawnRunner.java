@@ -332,8 +332,13 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             .setUseFakeHostname(getSandboxOptions().sandboxFakeHostname)
             .setEnablePseudoterminal(getSandboxOptions().sandboxExplicitPseudoterminal)
             .setCreateNetworkNamespace(createNetworkNamespace ? NETNS_WITH_LOOPBACK : NO_NETNS)
-            .setUseDebugMode(sandboxOptions.sandboxDebug)
             .setKillDelay(timeoutKillDelay);
+
+    Path sandboxDebugPath = null;
+    if (sandboxOptions.sandboxDebug) {
+      sandboxDebugPath = sandboxPath.getRelative("debug.out");
+      commandLineBuilder.setSandboxDebugPath(sandboxDebugPath.getPathString());
+    }
 
     if (sandboxOptions.memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
@@ -375,6 +380,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           sandboxfsMapSymlinkTargets,
           treeDeleter,
           spawn.getMnemonic(),
+          sandboxDebugPath,
           statisticsPath);
     } else if (sandboxOptions.useHermetic) {
       commandLineBuilder.setHermeticSandboxPath(sandboxPath);
@@ -387,6 +393,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          sandboxDebugPath,
           statisticsPath,
           sandboxOptions.sandboxDebug,
           spawn.getMnemonic());
@@ -400,6 +407,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           outputs,
           writableDirs,
           treeDeleter,
+          sandboxDebugPath,
           statisticsPath,
           spawn.getMnemonic());
     }
