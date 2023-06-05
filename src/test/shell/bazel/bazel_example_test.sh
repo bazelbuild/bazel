@@ -57,13 +57,6 @@ function set_up() {
 #
 # Native rules
 #
-function test_cpp() {
-  assert_build "//examples/cpp:hello-world"
-  assert_bazel_run "//examples/cpp:hello-world foo" "Hello foo"
-  assert_test_ok "//examples/cpp:hello-success_test"
-  assert_test_fails "//examples/cpp:hello-fail_test"
-}
-
 # An assertion that execute a binary from a sub directory (to test runfiles)
 function assert_binary_run_from_subdir() {
     ( # Needed to make execution from a different path work.
