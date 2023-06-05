@@ -126,7 +126,7 @@ public final class RuleConfiguredTargetBuilder {
     }
     NestedSet<Artifact> runfilesMiddlemen = runfilesMiddlemenBuilder.build();
     FilesToRunProvider filesToRunProvider =
-        new FilesToRunProvider(
+        FilesToRunProvider.create(
             buildFilesToRun(runfilesMiddlemen, filesToBuild), runfilesSupport, executable);
     addProvider(new FileProvider(filesToBuild));
     addProvider(filesToRunProvider);

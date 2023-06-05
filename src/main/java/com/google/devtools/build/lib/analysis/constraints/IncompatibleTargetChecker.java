@@ -283,14 +283,13 @@ public class IncompatibleTargetChecker {
     // actually be used because actions associated with incompatible targets must not be evaluated.
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     FileProvider fileProvider = new FileProvider(filesToBuild);
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
 
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(incompatiblePlatformProvider)
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
             .add(fileProvider)
-            .add(filesToRunProvider)
+            .add(FilesToRunProvider.EMPTY)
             .add(
                 new SupportedEnvironments(
                     EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));
