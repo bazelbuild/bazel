@@ -42,7 +42,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.syntax.Location;
 
 /**
  * {@code ConfiguredTarget}s implementing this interface can provide artifacts that <b>can</b> be
@@ -159,7 +158,6 @@ public final class OutputGroupInfo extends StructImpl
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(Location.BUILTIN);
     this.outputGroups = outputGroups;
   }
 
