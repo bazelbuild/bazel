@@ -21,7 +21,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction.BazelDepGraphFunctionException;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
@@ -35,7 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.gson.JsonIOException;
+import com.google.gson.JsonSyntaxException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -81,8 +80,14 @@ public class BazelLockFileFunction implements SkyFunction {
       bazelLockFileValue = LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
     } catch (FileNotFoundException e) {
       bazelLockFileValue = EMPTY_LOCKFILE;
-    } catch (IOException ex) {
-      throw new JsonIOException("Failed to read or parse module-lock file", ex);
+    } catch (IOException | JsonSyntaxException | NullPointerException e) {
+      throw new BazelLockfileFunctionException(
+          ExternalDepsException.withMessage(
+              Code.BAD_MODULE,
+              "Failed to read and parse the MODULE.bazel.lock file with error: %s."
+                  + " Try deleting it and rerun the build.",
+              e.getMessage()),
+          Transience.PERSISTENT);
     }
     return bazelLockFileValue;
   }
@@ -99,7 +104,7 @@ public class BazelLockFileFunction implements SkyFunction {
       BzlmodFlagsAndEnvVars flags,
       ImmutableMap<String, String> localOverrideHashes,
       ImmutableMap<ModuleKey, Module> resolvedDepGraph)
-      throws BazelDepGraphFunctionException {
+      throws BazelLockfileFunctionException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
 
@@ -113,10 +118,17 @@ public class BazelLockFileFunction implements SkyFunction {
     try {
       FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(value));
     } catch (IOException e) {
-      throw new BazelDepGraphFunctionException(
+      throw new BazelLockfileFunctionException(
           ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE, e, "Unable to update module-lock file"),
+              Code.BAD_MODULE, e, "Unable to update the MODULE.bazel.lock file"),
           Transience.PERSISTENT);
+    }
+  }
+
+  static final class BazelLockfileFunctionException extends SkyFunctionException {
+
+    BazelLockfileFunctionException(Exception cause, Transience transience) {
+      super(cause, transience);
     }
   }
 }
