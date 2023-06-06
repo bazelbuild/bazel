@@ -332,15 +332,17 @@ public abstract class CcModule
       Object stripOpts,
       Object inputFile,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
     ImmutableList<VariablesExtension> variablesExtensions =
         asDict(variablesExtension).isEmpty()
             ? ImmutableList.of()
             : ImmutableList.of(new UserVariablesExtension(asDict(variablesExtension)));
+
     CcToolchainVariables.Builder variables =
         CcToolchainVariables.builder(
                 CompileBuildVariables.setupVariablesOrThrowEvalException(
+                    thread,
                     featureConfiguration.getFeatureConfiguration(),
                     ccToolchainProvider,
                     featureConfiguration
@@ -354,8 +356,8 @@ public abstract class CcModule
                     /* dwoFile= */ null,
                     /* ltoIndexingFile= */ null,
                     convertFromNoneable(thinLtoIndex, /* defaultValue= */ null),
-                    convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue=*/ null),
-                    convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue=*/ null),
+                    convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue= */ null),
+                    convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue= */ null),
                     /* includes= */ ImmutableList.of(),
                     userFlagsToIterable(userCompileFlags),
                     /* cppModuleMap= */ null,
@@ -376,7 +378,6 @@ public abstract class CcModule
                     Depset.noneableCast(defines, String.class, "preprocessor_defines").toList(),
                     ImmutableList.of()))
             .addStringSequenceVariable("stripopts", asClassImmutableList(stripOpts));
-
     String inputFileString = convertFromNoneable(inputFile, null);
     if (inputFileString != null) {
       variables.addStringVariable("input_file", inputFileString);
@@ -400,12 +401,13 @@ public abstract class CcModule
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
       throw Starlark.errorf("FDO instrumentation not supported");
     }
     return LinkBuildVariables.setupVariables(
+        thread,
         isUsingLinkerNotArchiver,
         /* binDirectoryPath= */ null,
         convertFromNoneable(outputFile, /* defaultValue= */ null),
@@ -951,7 +953,7 @@ public abstract class CcModule
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkRuleContext.getRuleContext();
     PathFragment ltoOutputRootPrefix = PathFragment.create(ltoOutputRootPrefixString);
@@ -959,6 +961,7 @@ public abstract class CcModule
     try {
       ltoBackendArtifacts =
           new LtoBackendArtifacts(
+              ruleContext.getStarlarkThread(),
               ruleContext,
               ruleContext.getConfiguration().getOptions(),
               ruleContext.getConfiguration().getFragment(CppConfiguration.class),
@@ -2917,7 +2920,7 @@ public abstract class CcModule
       String labelReplacement,
       String outputReplacement,
       StarlarkThread thread)
-      throws EvalException, InterruptedException, TypeException {
+      throws EvalException, InterruptedException, TypeException, RuleErrorException {
     isCalledFromStarlarkCcCommon(thread);
     RuleContext ruleContext = starlarkActionFactoryApi.getRuleContext();
     CppConfiguration cppConfiguration =

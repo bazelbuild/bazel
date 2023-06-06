@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcModule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCcTestRule;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CcToolchainRequiringRule;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcHostToolchainAliasRule;
 import com.google.devtools.build.lib.rules.cpp.CcImportRule;
@@ -64,6 +65,11 @@ public class CcRules implements RuleSet {
   public void init(ConfiguredRuleClassProvider.Builder builder) {
     GraphNodeAspect graphNodeAspect = new GraphNodeAspect();
     BazelCcModule bazelCcModule = new BazelCcModule();
+    // TODO(gnish): This is only required for cc_toolchain_suite rule,
+    // because it does not have AppleConfiguration fragment.
+    // After legacy C++ toolchain resolution is removed the rule is going away
+    // and we should delete this.
+    builder.addConfigurationFragment(AppleConfiguration.class);
     builder.addConfigurationFragment(CppConfiguration.class);
     builder.addBzlToplevel("CcSharedLibraryInfo", Starlark.NONE);
     builder.addBzlToplevel("CcSharedLibraryHintInfo", Starlark.NONE);

@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
-import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -99,53 +98,10 @@ public class CppHelper {
     return mallocForTarget(ruleContext, "malloc");
   }
 
-  /**
-   * Expands Make variables in a list of string and tokenizes the result. If the package feature
-   * no_copts_tokenization is set, tokenize only items consisting of a single make variable.
-   *
-   * @param ruleContext the ruleContext to be used as the context of Make variable expansion
-   * @param attributeName the name of the attribute to use in error reporting
-   * @param input the list of strings to expand
-   * @return a list of strings containing the expanded and tokenized values for the attribute
-   */
-  private static List<String> expandMakeVariables(
-      RuleContext ruleContext, String attributeName, List<String> input) {
-    boolean tokenization = !ruleContext.getFeatures().contains("no_copts_tokenization");
-
-    List<String> tokens = new ArrayList<>();
-    Expander expander = ruleContext.getExpander().withDataExecLocations();
-    for (String token : input) {
-      // Legacy behavior: tokenize all items.
-      if (tokenization) {
-        expander.tokenizeAndExpandMakeVars(tokens, attributeName, token);
-      } else {
-        String exp = expander.expandSingleMakeVariable(attributeName, token);
-        if (exp != null) {
-          try {
-            ShellUtils.tokenize(tokens, exp);
-          } catch (ShellUtils.TokenizationException e) {
-            ruleContext.attributeError(attributeName, e.getMessage());
-          }
-        } else {
-          tokens.add(expander.expand(attributeName, token));
-        }
-      }
-    }
-    return ImmutableList.copyOf(tokens);
-  }
-
-  /** Returns the tokenized values of the copts attribute to copts. */
-  // Called from CcCommon and CcSupport (Google's internal version of proto_library).
-  public static ImmutableList<String> getAttributeCopts(RuleContext ruleContext) {
-    String attr = "copts";
-    Preconditions.checkArgument(ruleContext.getRule().isAttrDefined(attr, Type.STRING_LIST));
-    List<String> unexpanded = ruleContext.attributes().get(attr, Type.STRING_LIST);
-    return ImmutableList.copyOf(expandMakeVariables(ruleContext, attr, unexpanded));
-  }
-
   /** Tokenizes and expands make variables. */
   public static List<String> expandLinkopts(
-      RuleContext ruleContext, String attrName, Iterable<String> values) {
+      RuleContext ruleContext, String attrName, Iterable<String> values)
+      throws InterruptedException {
     List<String> result = new ArrayList<>();
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> builder = ImmutableMap.builder();
 
@@ -166,7 +122,8 @@ public class CppHelper {
   }
 
   /** Returns the linkopts for the rule context. */
-  public static ImmutableList<String> getLinkopts(RuleContext ruleContext) {
+  public static ImmutableList<String> getLinkopts(RuleContext ruleContext)
+      throws InterruptedException {
     if (ruleContext.attributes().has("linkopts", Type.STRING_LIST)) {
       Iterable<String> linkopts = ruleContext.attributes().get("linkopts", Type.STRING_LIST);
       if (linkopts != null) {
@@ -446,7 +403,7 @@ public class CppHelper {
       Artifact input,
       Artifact output,
       FeatureConfiguration featureConfiguration)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     if (featureConfiguration.isEnabled(CppRuleClasses.NO_STRIPPING)) {
       ruleContext.registerAction(
           SymlinkAction.toArtifact(
@@ -462,10 +419,19 @@ public class CppHelper {
       return;
     }
 
+    CcToolchainVariables baseVars;
+    try {
+      baseVars =
+          toolchain.getBuildVariables(
+              ruleContext.getStarlarkThread(),
+              ruleContext.getConfiguration().getOptions(),
+              cppConfiguration);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
+
     CcToolchainVariables variables =
-        CcToolchainVariables.builder(
-                toolchain.getBuildVariables(
-                    ruleContext.getConfiguration().getOptions(), cppConfiguration))
+        CcToolchainVariables.builder(baseVars)
             .addStringVariable(
                 StripBuildVariables.OUTPUT_FILE.getVariableName(), output.getExecPathString())
             .addStringSequenceVariable(

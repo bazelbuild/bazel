@@ -299,7 +299,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       name = "var",
       structField = true,
       doc = "Dictionary (String to String) of configuration variables.")
-  Dict<String, String> var() throws EvalException;
+  Dict<String, String> var() throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "toolchains",
@@ -434,7 +434,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       String attributeName,
       String command,
       final Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "info_file",
@@ -675,7 +675,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "resolve_tools",

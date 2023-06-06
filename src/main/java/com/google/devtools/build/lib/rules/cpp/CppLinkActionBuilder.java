@@ -332,14 +332,16 @@ public class CppLinkActionBuilder {
       PathFragment ltoOutputRootPrefix,
       boolean createSharedNonLto,
       List<String> argv)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     // Depending on whether LTO indexing is allowed, generate an LTO backend
     // that will be fed the results of the indexing step, or a dummy LTO backend
     // that simply compiles the bitcode into native code without any index-based
     // cross module optimization.
+    Preconditions.checkArgument(actionConstructionContext instanceof RuleContext);
     LtoBackendArtifacts ltoArtifact =
         createSharedNonLto
             ? new LtoBackendArtifacts(
+                ((RuleContext) actionConstructionContext).getStarlarkThread(),
                 ruleErrorConsumer,
                 configuration.getOptions(),
                 cppConfiguration,
@@ -356,6 +358,7 @@ public class CppLinkActionBuilder {
                 toolchain.shouldCreatePerObjectDebugInfo(featureConfiguration, cppConfiguration),
                 argv)
             : new LtoBackendArtifacts(
+                ((RuleContext) actionConstructionContext).getStarlarkThread(),
                 ruleErrorConsumer,
                 configuration.getOptions(),
                 cppConfiguration,
@@ -398,7 +401,7 @@ public class CppLinkActionBuilder {
       NestedSet<LinkerInputs.LibraryToLink> uniqueLibraries,
       boolean allowLtoIndexing,
       boolean includeLinkStaticInLtoIndexing)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     Set<Artifact> compiled = new LinkedHashSet<>();
     for (LinkerInputs.LibraryToLink lib : uniqueLibraries.toList()) {
       compiled.addAll(lib.getLtoCompilationContext().getBitcodeFiles());
@@ -481,7 +484,7 @@ public class CppLinkActionBuilder {
   }
 
   private ImmutableMap<Artifact, LtoBackendArtifacts> createSharedNonLtoArtifacts(
-      boolean isLtoIndexing) throws RuleErrorException {
+      boolean isLtoIndexing) throws RuleErrorException, InterruptedException {
     // Only create the shared LTO artifacts for a statically linked library that has bitcode files.
     if (ltoCompilationContext == null
         || isLtoIndexing
@@ -771,9 +774,19 @@ public class CppLinkActionBuilder {
             : null;
 
     // Add build variables necessary to template link args into the crosstool.
+    CcToolchainVariables ccToolchainVariables;
+    Preconditions.checkArgument(actionConstructionContext instanceof RuleContext);
+    try {
+      ccToolchainVariables =
+          toolchain.getBuildVariables(
+              ((RuleContext) actionConstructionContext).getStarlarkThread(),
+              configuration.getOptions(),
+              cppConfiguration);
+    } catch (EvalException e) {
+      throw new RuleErrorException(e.getMessage());
+    }
     CcToolchainVariables.Builder buildVariablesBuilder =
-        CcToolchainVariables.builder(
-            toolchain.getBuildVariables(configuration.getOptions(), cppConfiguration));
+        CcToolchainVariables.builder(ccToolchainVariables);
     Preconditions.checkState(!isLtoIndexing || allowLtoIndexing);
     Preconditions.checkState(allowLtoIndexing || thinltoParamFile == null);
     Preconditions.checkState(allowLtoIndexing || thinltoMergedObjectFile == null);
@@ -782,6 +795,7 @@ public class CppLinkActionBuilder {
             .getBinDirectory(repositoryName)
             .getExecPath()
             .getRelative(toolchain.getSolibDirectory());
+    Preconditions.checkArgument(actionConstructionContext instanceof RuleContext);
     LibrariesToLinkCollector librariesToLinkCollector =
         new LibrariesToLinkCollector(
             isNativeDeps,
@@ -819,6 +833,7 @@ public class CppLinkActionBuilder {
 
       variables =
           LinkBuildVariables.setupVariables(
+              ((RuleContext) actionConstructionContext).getStarlarkThread(),
               getLinkType().linkerOrArchiver().equals(LinkerOrArchiver.LINKER),
               configuration.getBinDirectory(repositoryName).getExecPath(),
               output.getExecPathString(),
@@ -1162,7 +1177,7 @@ public class CppLinkActionBuilder {
     if (cppLinkExecGroupOwner != null) {
       return cppLinkExecGroupOwner;
     }
-
+    Preconditions.checkArgument(actionConstructionContext instanceof RuleContext);
     if (((RuleContext) actionConstructionContext).useAutoExecGroups()) {
       ActionOwner autoExecGroupOwner =
           actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());

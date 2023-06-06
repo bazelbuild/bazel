@@ -71,7 +71,7 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         @Param(name = "ctx", positional = false, named = true),
       })
   public CompilationAttributes createCompilationAttributes(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CompilationAttributes.Builder builder = new CompilationAttributes.Builder();
 
     CompilationAttributes.Builder.addHeadersFromRuleContext(
@@ -106,7 +106,8 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         @Param(name = "flags", positional = false, defaultValue = "[]", named = true),
       })
   public Sequence<String> expandToolchainAndRuleContextVariables(
-      StarlarkRuleContext starlarkRuleContext, Sequence<?> flags) throws EvalException {
+      StarlarkRuleContext starlarkRuleContext, Sequence<?> flags)
+      throws EvalException, InterruptedException {
     if (flags.isEmpty()) {
       return Sequence.cast(flags, String.class, "flags");
     }

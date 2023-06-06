@@ -116,7 +116,8 @@ public class StampedAndroidManifest extends AndroidManifest {
     return new StampedAndroidManifest(stubManifest, getPackage(), isExported());
   }
 
-  public static Map<String, String> getManifestValues(RuleContext context) {
+  public static Map<String, String> getManifestValues(RuleContext context)
+      throws InterruptedException {
     if (!context.attributes().isAttributeValueExplicitlySpecified("manifest_values")) {
       return ImmutableMap.of();
     }
@@ -132,7 +133,7 @@ public class StampedAndroidManifest extends AndroidManifest {
   }
 
   public StampedAndroidManifest createSplitManifest(
-      RuleContext ruleContext, String splitName, boolean hasCode) {
+      RuleContext ruleContext, String splitName, boolean hasCode) throws InterruptedException {
     // aapt insists that manifests be called AndroidManifest.xml, even though they have to be
     // explicitly designated as manifests on the command line
     Artifact splitManifest =

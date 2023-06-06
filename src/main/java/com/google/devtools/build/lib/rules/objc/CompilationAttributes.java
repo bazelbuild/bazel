@@ -58,10 +58,8 @@ final class CompilationAttributes implements StarlarkValue {
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
 
-    /**
-     * Adds the default values available through the rule's context.
-     */
-    static Builder fromRuleContext(RuleContext ruleContext) {
+    /** Adds the default values available through the rule's context. */
+    static Builder fromRuleContext(RuleContext ruleContext) throws InterruptedException {
       Builder builder = new Builder();
 
       addHeadersFromRuleContext(builder, ruleContext);
@@ -258,12 +256,14 @@ final class CompilationAttributes implements StarlarkValue {
       }
     }
 
-    private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext) {
+    private static void addCompileOptionsFromRuleContext(Builder builder, RuleContext ruleContext)
+        throws InterruptedException {
       addCompileOptionsFromRuleContext(builder, ruleContext, /* copts= */ null);
     }
 
     static void addCompileOptionsFromRuleContext(
-        Builder builder, RuleContext ruleContext, Iterable<String> copts) {
+        Builder builder, RuleContext ruleContext, Iterable<String> copts)
+        throws InterruptedException {
       if (ruleContext.attributes().has("copts", Type.STRING_LIST)) {
         if (copts == null) {
           builder.addCopts(ruleContext.getExpander().withDataLocations().tokenized("copts"));
