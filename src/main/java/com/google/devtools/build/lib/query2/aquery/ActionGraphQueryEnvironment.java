@@ -152,6 +152,13 @@ public class ActionGraphQueryEnvironment
             aqueryOptions,
             out,
             accessor,
+            StreamedOutputHandler.OutputType.DELIMITED_BINARY,
+            actionFilters),
+        new ActionGraphProtoOutputFormatterCallback(
+            eventHandler,
+            aqueryOptions,
+            out,
+            accessor,
             StreamedOutputHandler.OutputType.TEXT,
             actionFilters),
         new ActionGraphProtoOutputFormatterCallback(
