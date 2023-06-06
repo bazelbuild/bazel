@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.Locale;
+import java.util.OptionalLong;
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,7 +54,8 @@ public class ProgressInputStreamTest {
   private final InputStream delegate = mock(InputStream.class);
   private final URL url = makeUrl("http://lol.example");
   private ProgressInputStream stream =
-      new ProgressInputStream(Locale.US, clock, extendedEventHandler, 1, delegate, url, url);
+      new ProgressInputStream(
+          Locale.US, clock, extendedEventHandler, 1, delegate, url, url, OptionalLong.empty());
 
   @After
   public void after() throws Exception {
@@ -126,7 +128,15 @@ public class ProgressInputStreamTest {
   @Test
   public void bufferReadsAfterIntervalInGermany_usesPeriodAsSeparator() throws Exception {
     stream =
-        new ProgressInputStream(Locale.GERMANY, clock, extendedEventHandler, 1, delegate, url, url);
+        new ProgressInputStream(
+            Locale.GERMANY,
+            clock,
+            extendedEventHandler,
+            1,
+            delegate,
+            url,
+            url,
+            OptionalLong.empty());
     byte[] buffer = new byte[1024];
     when(delegate.read(any(byte[].class), anyInt(), anyInt())).thenReturn(1024);
     clock.advanceMillis(1);
@@ -145,14 +155,30 @@ public class ProgressInputStreamTest {
             1,
             delegate,
             new URL("http://cdn.example/foo"),
-            url);
+            url,
+            OptionalLong.empty());
     when(delegate.read()).thenReturn(42);
     assertThat(stream.read()).isEqualTo(42);
     clock.advanceMillis(1);
     assertThat(stream.read()).isEqualTo(42);
     assertThat(stream.read()).isEqualTo(42);
     verify(delegate, times(3)).read();
-    verify(eventHandler).handle(
-        Event.progress("Downloading http://lol.example via cdn.example: 2 bytes"));
+    verify(eventHandler)
+        .handle(Event.progress("Downloading http://lol.example via cdn.example: 2 bytes"));
+  }
+
+  @Test
+  public void percentualProgress() {
+    DownloadProgressEvent event =
+        new DownloadProgressEvent(
+            url, url, 25 * 1024 * 1024, OptionalLong.of(100 * 1024 * 1024), false);
+    assertThat(event.getProgress()).isEqualTo("25.0 MiB (25.0%)");
+  }
+
+  @Test
+  public void percentualProgress_zeroTotalBytes() {
+    DownloadProgressEvent event =
+        new DownloadProgressEvent(url, url, 25 * 1024 * 1024, OptionalLong.of(0), false);
+    assertThat(event.getProgress()).isEqualTo("25.0 MiB (100.0%)");
   }
 }

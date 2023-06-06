@@ -200,7 +200,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
           ModuleExtensionMetadata metadata = (ModuleExtensionMetadata) returnValue;
           metadata.evaluate(
               usagesValue.getExtensionUsages().values(),
-              threadContext.getGeneratedRepos().keySet(),
+              threadContext.getGeneratedRepoSpecs().keySet(),
               env.getListener());
         }
       } catch (NeedsSkyframeRestartException e) {
@@ -228,7 +228,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     // Check that all imported repos have been actually generated
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
       for (Entry<String, String> repoImport : usage.getImports().entrySet()) {
-        if (!threadContext.getGeneratedRepos().containsKey(repoImport.getValue())) {
+        if (!threadContext.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withMessage(
                   Code.BAD_MODULE,
@@ -240,15 +240,15 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   repoImport.getKey(),
                   usage.getLocation(),
                   SpellChecker.didYouMean(
-                      repoImport.getValue(), threadContext.getGeneratedRepos().keySet())),
+                      repoImport.getValue(), threadContext.getGeneratedRepoSpecs().keySet())),
               Transience.PERSISTENT);
         }
       }
     }
 
     return SingleExtensionEvalValue.create(
-        threadContext.getGeneratedRepos(),
-        threadContext.getGeneratedRepos().keySet().stream()
+        threadContext.getGeneratedRepoSpecs(),
+        threadContext.getGeneratedRepoSpecs().keySet().stream()
             .collect(
                 toImmutableBiMap(
                     e ->

@@ -94,7 +94,9 @@ class Handler(BaseHTTPRequestHandler):
       self.serve_file()
     else:
       self.do_AUTHHEAD()
-      self.wfile.write(b'Login required.' + str(auth_header))
+      self.wfile.write(
+          'Bad authorization header: {}'.format(auth_header).encode('ascii')
+      )
 
   def serve_file(self):
     path_to_serve = self.path[1:]

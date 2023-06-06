@@ -280,6 +280,19 @@ public class TestConfiguration extends Fragment {
         help = "If true, undeclared test outputs will be archived in a zip file.")
     public boolean zipUndeclaredTestOutputs;
 
+    @Option(
+        name = "incompatible_check_sharding_support",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If true, Bazel will fail a sharded test if the test runner does not indicate that it "
+                + "supports sharding by touching the file at the path in TEST_SHARD_STATUS_FILE. "
+                + "If false, a test runner that does not support sharding will lead to all tests "
+                + "running in each shard.")
+    public boolean checkShardingSupport;
+
     @Override
     public FragmentOptions getHost() {
       // Options here are either:
@@ -378,6 +391,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean getZipUndeclaredTestOutputs() {
     return options.zipUndeclaredTestOutputs;
+  }
+
+  public boolean checkShardingSupport() {
+    return options.checkShardingSupport;
   }
 
   /**

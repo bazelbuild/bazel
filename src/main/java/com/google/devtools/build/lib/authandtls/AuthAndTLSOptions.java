@@ -148,24 +148,26 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures Credential Helpers to use for retrieving credentials for the provided scope"
-              + " (domain).\n\n"
-              + "Credentials from Credential Helpers take precedence over credentials from"
-              + " <code>--google_default_credentials</code>, `--google_credentials`, or"
-              + " <code>.netrc</code>.\n\n"
+          "Configures a credential helper to use for retrieving authorization credentials for "
+              + " repository fetching, remote caching and execution, and the build event"
+              + " service.\n\n"
+              + "Credentials supplied by a helper take precedence over credentials supplied by"
+              + " --google_default_credentials, --google_credentials, a .netrc file, or the auth"
+              + " parameter to repository_ctx.download and repository_ctx.download_and_extract.\n\n"
+              + "May be specified multiple times to set up multiple helpers.\n\n"
               + "See https://github.com/bazelbuild/proposals/blob/main/designs/2022-06-07-bazel-credential-helpers.md"
               + " for details.")
   public List<UnresolvedScopedCredentialHelper> credentialHelpers;
 
   @Option(
       name = "experimental_credential_helper_timeout",
-      defaultValue = "5s",
+      defaultValue = "10s",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures the timeout for the Credential Helper.\n\n"
-              + "Credential Helpers failing to respond within this timeout will fail the"
+          "Configures the timeout for a credential helper.\n\n"
+              + "Credential helpers failing to respond within this timeout will fail the"
               + " invocation.")
   public Duration credentialHelperTimeout;
 
@@ -176,13 +178,13 @@ public class AuthAndTLSOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "Configures the duration for which credentials from Credential Helpers are cached.\n\n"
+          "The duration for which credentials supplied by a credential helper are cached.\n\n"
               + "Invoking with a different value will adjust the lifetime of preexisting entries;"
               + " pass zero to clear the cache. A clean command always clears the cache, regardless"
               + " of this flag.")
   public Duration credentialHelperCacheTimeout;
 
-  /** One of the values of the `--credential_helper` flag. */
+  /** One of the values of the `--experimental_credential_helper` flag. */
   @AutoValue
   public abstract static class UnresolvedScopedCredentialHelper {
     /** Returns the scope of the credential helper (if any). */
@@ -192,7 +194,7 @@ public class AuthAndTLSOptions extends OptionsBase {
     public abstract String getPath();
   }
 
-  /** A {@link Converter} for the `--credential_helper` flag. */
+  /** A {@link Converter} for the `--experimental_credential_helper` flag. */
   public static final class UnresolvedScopedCredentialHelperConverter
       extends Converter.Contextless<UnresolvedScopedCredentialHelper> {
     public static final UnresolvedScopedCredentialHelperConverter INSTANCE =
@@ -200,7 +202,11 @@ public class AuthAndTLSOptions extends OptionsBase {
 
     @Override
     public String getTypeDescription() {
-      return "An (unresolved) path to a credential helper for a scope.";
+      return "Path to a credential helper. It may be absolute, relative to the PATH environment"
+          + " variable, or %workspace%-relative. The path be optionally prefixed by a scope "
+          + " followed by an '='. The scope is a domain name, optionally with a single leading '*'"
+          + " wildcard component. A helper applies to URIs matching its scope, with more specific"
+          + " scopes preferred. If a helper has no scope, it applies to every URI.";
     }
 
     @Override
