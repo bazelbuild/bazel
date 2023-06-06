@@ -38,12 +38,6 @@ public interface FilesToRunProvider
   FilesToRunProvider EMPTY =
       new BasicFilesToRunProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
-  /** Creates an instance that contains one single executable and no other files. */
-  static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
-    return new SingleExecutableFilesToRunProvider(
-        NestedSetBuilder.create(Order.STABLE_ORDER, artifact));
-  }
-
   static FilesToRunProvider create(
       NestedSet<Artifact> filesToRun,
       @Nullable RunfilesSupport runfilesSupport,

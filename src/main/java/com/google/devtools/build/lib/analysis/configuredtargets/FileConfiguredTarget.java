@@ -61,7 +61,8 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
 
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
     FilesToRunProvider filesToRunProvider =
-        FilesToRunProvider.fromSingleExecutableArtifact(artifact);
+        FilesToRunProvider.create(
+            filesToBuild, /* runfilesSupport= */ null, /* executable= */ artifact);
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(VisibilityProvider.class, this)
