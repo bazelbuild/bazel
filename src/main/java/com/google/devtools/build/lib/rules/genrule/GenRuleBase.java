@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.genrule;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.constraints.ConstraintConstants.OS_TO_CONSTRAINTS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -94,8 +95,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static Pair<CommandType, String> determineCommandTypeAndAttribute(
       RuleContext ruleContext) {
     AttributeMap attributeMap = ruleContext.attributes();
-    // TODO(pcloudy): This should match the execution platform instead of using OS.getCurrent()
-    if (OS.getCurrent() == OS.WINDOWS) {
+    if (ruleContext.getExecutionPlatform().constraints()
+        .hasConstraintValue(OS_TO_CONSTRAINTS.get(OS.WINDOWS))) {
       if (attributeMap.isAttributeValueExplicitlySpecified("cmd_ps")) {
         return Pair.of(CommandType.WINDOWS_POWERSHELL, "cmd_ps");
       }
