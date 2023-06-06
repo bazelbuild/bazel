@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.base.Ascii;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import java.util.Base64;
@@ -44,7 +45,7 @@ public class Checksum {
     if (!keyType.isValid(hash)) {
       throw new InvalidChecksumException(keyType, hash);
     }
-    return new Checksum(keyType, HashCode.fromString(hash));
+    return new Checksum(keyType, HashCode.fromString(Ascii.toLowerCase(hash)));
   }
 
   /** Constructs a new Checksum from a hash in Subresource Integrity format. */

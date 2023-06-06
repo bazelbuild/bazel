@@ -140,7 +140,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     if (internalRepo == null) {
       return BzlmodRepoRuleValue.REPO_RULE_NOT_FOUND_VALUE;
     }
-    Package pkg = extensionEval.getGeneratedRepos().get(internalRepo);
+    RepoSpec extRepoSpec = extensionEval.getGeneratedRepoSpecs().get(internalRepo);
+    Package pkg = createRuleFromSpec(extRepoSpec, starlarkSemantics, env).getRule().getPackage();
     Preconditions.checkNotNull(pkg);
 
     return new BzlmodRepoRuleValue(pkg, repositoryName.getName());
@@ -238,8 +239,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
 
     // Load the .bzl module.
     try {
-      // TODO(b/22193153, wyv): Determine whether .bzl load visibility should apply at all to this
-      // type of .bzl load. As it stands, this call checks that bzlFile is visible to package @//.
+      // No need to check visibility for an extension repospec that is always public
       return PackageFunction.loadBzlModules(
           env,
           PackageIdentifier.EMPTY_PACKAGE_ID,
@@ -247,7 +247,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
           programLoads,
           keys,
           starlarkSemantics,
-          null);
+          null,
+          /* checkVisibility= */ false);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }

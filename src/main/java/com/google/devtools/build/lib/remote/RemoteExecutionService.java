@@ -848,12 +848,6 @@ public class RemoteExecutionService {
 
     for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
       DirectoryMetadata directory = entry.getValue();
-      if (!directory.symlinks().isEmpty()) {
-        throw new IOException(
-            "Symlinks in action outputs are not yet supported by "
-                + "--experimental_remote_download_outputs=minimal");
-      }
-
       for (FileMetadata file : directory.files()) {
         remoteActionFileSystem.injectRemoteFile(
             file.path().asFragment(),
@@ -1101,7 +1095,8 @@ public class RemoteExecutionService {
 
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
-    boolean downloadOutputs = shouldDownloadOutputsFor(result, metadata);
+
+    boolean downloadOutputs = shouldDownloadOutputsFor(result);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
@@ -1121,10 +1116,6 @@ public class RemoteExecutionService {
       checkState(
           result.getExitCode() == 0,
           "injecting remote metadata is only supported for successful actions (exit code 0).");
-      checkState(
-          metadata.symlinks.isEmpty(),
-          "Symlinks in action outputs are not yet supported by"
-              + " --remote_download_outputs=minimal");
     }
 
     FileOutErr tmpOutErr = outErr.childOutErr();
@@ -1158,31 +1149,6 @@ public class RemoteExecutionService {
 
     if (downloadOutputs) {
       moveOutputsToFinalLocation(downloads, realToTmpPath);
-
-      List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
-      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
-          // Symlinks should not be allowed inside directories because their semantics are unclear:
-          // tree artifacts are defined as a collection of regular files, and resolving the symlinks
-          // locally is asking for trouble. Sadly, we did start permitting relative symlinks at some
-          // point, so we can only ban the absolute ones.
-          // See https://github.com/bazelbuild/bazel/issues/16361.
-          if (symlink.target().isAbsolute()) {
-            throw new IOException(
-                String.format(
-                    "Unsupported absolute symlink '%s' inside tree artifact '%s'",
-                    symlink.path(), entry.getKey()));
-          }
-          symlinksInDirectories.add(symlink);
-        }
-      }
-
-      Iterable<SymlinkMetadata> symlinks =
-          Iterables.concat(metadata.symlinks(), symlinksInDirectories);
-
-      // Create the symbolic links after all downloads are finished, because dangling symlinks
-      // might not be supported on all platforms.
-      createSymlinks(symlinks);
     } else {
       ActionInput inMemoryOutput = null;
       Digest inMemoryOutputDigest = null;
@@ -1215,6 +1181,31 @@ public class RemoteExecutionService {
         }
       }
     }
+
+    List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
+    for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      for (SymlinkMetadata symlink : entry.getValue().symlinks()) {
+        // Symlinks should not be allowed inside directories because their semantics are unclear:
+        // tree artifacts are defined as a collection of regular files, and resolving the symlinks
+        // locally is asking for trouble. Sadly, we did start permitting relative symlinks at some
+        // point, so we can only ban the absolute ones.
+        // See https://github.com/bazelbuild/bazel/issues/16361.
+        if (symlink.target().isAbsolute()) {
+          throw new IOException(
+              String.format(
+                  "Unsupported absolute symlink '%s' inside tree artifact '%s'",
+                  symlink.path(), entry.getKey()));
+        }
+        symlinksInDirectories.add(symlink);
+      }
+    }
+
+    Iterable<SymlinkMetadata> symlinks =
+        Iterables.concat(metadata.symlinks(), symlinksInDirectories);
+
+    // Create the symbolic links after all downloads are finished, because dangling symlinks
+    // might not be supported on all platforms.
+    createSymlinks(symlinks);
 
     if (result.success()) {
       // Check that all mandatory outputs are created.
@@ -1256,24 +1247,13 @@ public class RemoteExecutionService {
     return null;
   }
 
-  private boolean shouldDownloadOutputsFor(
-      RemoteActionResult result, ActionResultMetadata metadata) {
+  private boolean shouldDownloadOutputsFor(RemoteActionResult result) {
     if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       return true;
     }
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
     if (result.getExitCode() != 0) {
-      return true;
-    }
-    // Symlinks in actions output are not yet supported with BwoB.
-    if (!metadata.symlinks().isEmpty()) {
-      report(
-          Event.warn(
-              String.format(
-                  "Symlinks in action outputs are not yet supported by --remote_download_minimal,"
-                      + " falling back to downloading all action outputs due to output symlink %s",
-                  Iterables.get(metadata.symlinks(), 0).path())));
       return true;
     }
     return false;
