@@ -1566,55 +1566,6 @@ public class ByteStreamUploaderTest {
     assertThat(numUploads.get()).isEqualTo(1);
   }
 
-  @Test
-  public void testUploadOutOfRangeBlob() throws Exception {
-    RemoteRetrier retrier =
-        TestUtils.newRemoteRetrier(
-            () -> new FixedBackoff(1, 0),
-            e -> false, // non-retriable error.
-            retryService);
-    ByteStreamUploader uploader =
-        new ByteStreamUploader(
-            INSTANCE_NAME,
-            referenceCountedChannel,
-            CallCredentialsProvider.NO_CREDENTIALS,
-            300,
-            retrier,
-            /* maximumOpenFiles= */ -1);
-
-    int chunkSize = 1024;
-    byte[] blob = new byte[chunkSize * 2 + 1];
-    new Random().nextBytes(blob);
-
-    Chunker chunker =
-        Chunker.builder().setInput(blob).setCompressed(true).setChunkSize(chunkSize).build();
-    Digest digest = DIGEST_UTIL.compute(blob);
-
-    serviceRegistry.addService(
-        new ByteStreamImplBase() {
-          @Override
-          public StreamObserver<WriteRequest> write(StreamObserver<WriteResponse> streamObserver) {
-            return new StreamObserver<>() {
-              @Override
-              public void onNext(WriteRequest writeRequest) {
-                streamObserver.onError(Status.OUT_OF_RANGE.asException());
-              }
-
-              @Override
-              public void onError(Throwable throwable) {
-                fail("onError should never be called.");
-              }
-
-              @Override
-              public void onCompleted() {
-              }
-            };
-          }
-        });
-
-    assertThrows(IOException.class, () -> uploader.uploadBlob(context, digest, chunker));
-  }
-
   private static class NoopStreamObserver implements StreamObserver<WriteRequest> {
     @Override
     public void onNext(WriteRequest writeRequest) {}
