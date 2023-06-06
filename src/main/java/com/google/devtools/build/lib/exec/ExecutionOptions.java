@@ -515,7 +515,11 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "The maximum number of attempts to retry if the build encountered remote cache eviction"
               + " error. A non-zero value will implicitly set"
-              + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true.")
+              + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true. A new invocation"
+              + " id will be generated for each attempt. If you generate invocation id and provide"
+              + " it to Bazel with --invocation_id, you should not use this flag. Instead, set flag"
+              + " --incompatible_remote_use_new_exit_code_for_lost_inputs and check for the exit"
+              + " code 39.")
   public int remoteRetryOnCacheEviction;
 
   /** An enum for specifying different formats of test output. */
