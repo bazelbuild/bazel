@@ -253,6 +253,23 @@ public final class FileArtifactValueTest {
   }
 
   @Test
+  public void testUptodateUnresolvedSymlink() throws Exception {
+    Path path = fs.getPath("/dir/symlink");
+    path.getParentDirectory().createDirectoryAndParents();
+    path.createSymbolicLink(PathFragment.create("target_path"));
+    FileArtifactValue value = FileArtifactValue.createForUnresolvedSymlink(path);
+
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isFalse();
+
+    path.delete();
+    path.createSymbolicLink(PathFragment.create("modified_target_path"));
+
+    clock.advanceMillis(1);
+    assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+  }
+
+  @Test
   public void addToFingerprint_equalByDigest() throws Exception {
     FileArtifactValue value1 =
         FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content"));

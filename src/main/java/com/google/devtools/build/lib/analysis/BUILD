@@ -2181,6 +2181,12 @@ java_library(
 java_library(
     name = "constraints/constraint_constants",
     srcs = ["constraints/ConstraintConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

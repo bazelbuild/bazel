@@ -339,7 +339,8 @@ public class JavaCommon {
   }
 
   /** Computes javacopts for the current rule. */
-  private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
+  private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts)
+      throws InterruptedException {
     ImmutableList.Builder<String> javacOpts =
         ImmutableList.<String>builder()
             .addAll(javaToolchain.getJavacOptions(ruleContext))
@@ -484,7 +485,7 @@ public class JavaCommon {
    * Gets the value of the "jvm_flags" attribute combining it with the default options and expanding
    * any make variables and $(location) tags.
    */
-  public static List<String> getJvmFlags(RuleContext ruleContext) {
+  public static List<String> getJvmFlags(RuleContext ruleContext) throws InterruptedException {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
     jvmFlags.addAll(ruleContext.getExpander().withDataLocations().list("jvm_flags"));
@@ -501,7 +502,7 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException {
+  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException, InterruptedException {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
   }
 
@@ -514,7 +515,8 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws RuleErrorException {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts)
+      throws RuleErrorException, InterruptedException {
     Preconditions.checkState(javacOpts == null);
     activePlugins = collectPlugins();
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));

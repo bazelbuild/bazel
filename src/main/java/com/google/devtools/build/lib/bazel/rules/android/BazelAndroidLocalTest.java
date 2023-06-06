@@ -54,7 +54,7 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
 
   @Override
   protected ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)
-      throws RuleErrorException {
+      throws RuleErrorException, InterruptedException {
     Artifact androidAllJarsPropertiesFile = getAndroidAllJarsPropertiesFile(ruleContext);
 
     return ImmutableList.<String>builder()

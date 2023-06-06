@@ -161,7 +161,7 @@ public class ModuleExtensionContext extends StarlarkBaseExternalContext {
                     + " repositories or does not import all of these repositories via <a"
                     + " href=\"../globals/module.html#use_repo\"><code>use_repo</code></a> on an"
                     + " extension proxy created with <code><a"
-                    + " href=\"../globals/module.html#use_extension>use_extension</a>(...,"
+                    + " href=\"../globals/module.html#use_extension\">use_extension</a>(...,"
                     + " dev_dependency = True)</code>, Bazel will print a warning and a fixup"
                     + " command when the extension is evaluated.<p>If one of"
                     + " <code>root_module_direct_deps</code> and"

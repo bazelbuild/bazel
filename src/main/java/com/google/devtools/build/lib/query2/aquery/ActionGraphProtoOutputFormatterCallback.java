@@ -93,15 +93,20 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       OutputType outputType, OutputStream out, PrintStream printStream, boolean parallelized) {
     switch (outputType) {
       case BINARY:
+      case DELIMITED_BINARY:
       case TEXT:
         return parallelized
             ? new StreamedConsumingOutputHandler(
                 outputType,
+                out,
                 CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
                 printStream,
                 new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE))
             : new StreamedOutputHandler(
-                outputType, CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE), printStream);
+                outputType,
+                out,
+                CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
+                printStream);
       case JSON:
         return new MonolithicOutputHandler(printStream);
     }

@@ -85,8 +85,9 @@ public class CcToolchainSuite implements RuleConfiguredTargetFactory {
           ruleContext.callStarlarkOrThrowRuleError(
               getCcToolchainProvider,
               ImmutableList.of(
-                  /* ctx */ ruleContext.getStarlarkRuleContext(), /* attributes */
-                  selectedAttributes),
+                  /* ctx */ ruleContext.getStarlarkRuleContext(),
+                  /* attributes */ selectedAttributes,
+                  /* has_apple_fragment */ true),
               ImmutableMap.of());
       ccToolchainProvider =
           starlarkCcToolchainProvider != Starlark.NONE

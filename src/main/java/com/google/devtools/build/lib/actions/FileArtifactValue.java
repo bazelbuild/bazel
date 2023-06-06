@@ -735,8 +735,12 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
     @Override
     public boolean wasModifiedSinceDigest(Path path) {
-      // We could store an mtime but I have no clue where to get one from createFromMetadata
-      return true;
+      try {
+        var newMetadata = FileArtifactValue.createForUnresolvedSymlink(path);
+        return !Arrays.equals(digest, newMetadata.getDigest());
+      } catch (IOException e) {
+        return true;
+      }
     }
   }
 
