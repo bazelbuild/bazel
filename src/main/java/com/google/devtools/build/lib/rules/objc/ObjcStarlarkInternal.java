@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
+import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -171,6 +173,21 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   public IntermediateArtifacts createIntermediateArtifacts(
       StarlarkRuleContext starlarkRuleContext) {
     return new IntermediateArtifacts(starlarkRuleContext.getRuleContext());
+  }
+
+  @StarlarkMethod(
+      name = "j2objc_create_intermediate_artifacts",
+      documented = false,
+      parameters = {
+        @Param(name = "ctx", positional = false, named = true),
+      })
+  public IntermediateArtifacts j2objcCreateIntermediateArtifacts(
+      StarlarkRuleContext starlarkRuleContext) {
+    return new IntermediateArtifacts(
+        starlarkRuleContext.getRuleContext(),
+        /* archiveFileNameSuffix= */ "_j2objc",
+        UmbrellaHeaderStrategy.GENERATE,
+        AlwaysLink.TRUE);
   }
 
   @StarlarkMethod(

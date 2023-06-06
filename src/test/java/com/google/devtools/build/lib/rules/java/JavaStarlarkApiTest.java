@@ -3493,45 +3493,6 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testGetRemoveDeadCodeFromJ2ObjcConfigurationForStarlarkIsPrivateAPI()
-      throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.j2objc.remove_dead_code()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['j2objc']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in 'foo' cannot use private API");
-  }
-
-  @Test
-  public void testJ2objcLibraryMigrationForStarlarkIsPrivateAPI() throws Exception {
-    scratch.file(
-        "foo/rule.bzl",
-        "def _impl(ctx):",
-        "  ctx.fragments.j2objc.j2objc_library_migration()",
-        "  return []",
-        "myrule = rule(",
-        "  implementation=_impl,",
-        "  fragments = ['j2objc']",
-        ")");
-    scratch.file("foo/BUILD", "load(':rule.bzl', 'myrule')", "myrule(name='myrule')");
-    reporter.removeHandler(failFastHandler);
-
-    getConfiguredTarget("//foo:myrule");
-
-    assertContainsEvent("Rule in '//foo:rule.bzl' cannot use private API");
-  }
-
-  @Test
   public void testGetBuildInfoArtifacts() throws Exception {
     scratch.file(
         "bazel_internal/test/custom_rule.bzl",
