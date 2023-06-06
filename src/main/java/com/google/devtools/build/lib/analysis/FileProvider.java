@@ -28,37 +28,32 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileProviderApi;
  * <p>Every transitive info collection contains at least this provider.
  */
 @Immutable
-public interface FileProvider extends TransitiveInfoProvider, FileProviderApi {
+public final class FileProvider implements TransitiveInfoProvider, FileProviderApi {
 
-  FileProvider EMPTY = new FileProviderImpl(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  public static final FileProvider EMPTY =
+      new FileProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
-  static FileProvider of(NestedSet<Artifact> filesToBuild) {
-    return filesToBuild.isEmpty() ? EMPTY : new FileProviderImpl(filesToBuild);
+  public static FileProvider of(NestedSet<Artifact> filesToBuild) {
+    return filesToBuild.isEmpty() ? EMPTY : new FileProvider(filesToBuild);
+  }
+
+  private final NestedSet<Artifact> filesToBuild;
+
+  private FileProvider(NestedSet<Artifact> filesToBuild) {
+    this.filesToBuild = filesToBuild;
   }
 
   @Override
-  default boolean isImmutable() {
+  public boolean isImmutable() {
     return true; // immutable and Starlark-hashable
   }
 
   @Override
-  default Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
-    return Depset.of(Artifact.class, getFilesToBuild());
+  public Depset /*<Artifact>*/ getFilesToBuildForStarlark() {
+    return Depset.of(Artifact.class, filesToBuild);
   }
 
-  NestedSet<Artifact> getFilesToBuild();
-
-  /** Simple implementation of {@link FileProvider}. */
-  final class FileProviderImpl implements FileProvider {
-    private final NestedSet<Artifact> filesToBuild;
-
-    private FileProviderImpl(NestedSet<Artifact> filesToBuild) {
-      this.filesToBuild = filesToBuild;
-    }
-
-    @Override
-    public NestedSet<Artifact> getFilesToBuild() {
-      return filesToBuild;
-    }
+  public NestedSet<Artifact> getFilesToBuild() {
+    return filesToBuild;
   }
 }

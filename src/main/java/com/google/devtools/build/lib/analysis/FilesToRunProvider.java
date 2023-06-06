@@ -29,16 +29,15 @@ import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
 @Immutable
-public interface FilesToRunProvider
-    extends TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
+public class FilesToRunProvider implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
 
   /** The name of the field in Starlark used to access a {@link FilesToRunProvider}. */
-  String STARLARK_NAME = "files_to_run";
+  public static final String STARLARK_NAME = "files_to_run";
 
-  FilesToRunProvider EMPTY =
-      new BasicFilesToRunProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  public static final FilesToRunProvider EMPTY =
+      new FilesToRunProvider(NestedSetBuilder.emptySet(Order.STABLE_ORDER));
 
-  static FilesToRunProvider create(
+  public static FilesToRunProvider create(
       NestedSet<Artifact> filesToRun,
       @Nullable RunfilesSupport runfilesSupport,
       @Nullable Artifact executable) {
@@ -48,7 +47,7 @@ public interface FilesToRunProvider
       return EMPTY;
     }
     if (runfilesSupport == null && executable == null) {
-      return new BasicFilesToRunProvider(filesToRun);
+      return new FilesToRunProvider(filesToRun);
     }
     if (filesToRun.isSingleton()
         && runfilesSupport == null
@@ -58,17 +57,25 @@ public interface FilesToRunProvider
     return new FullFilesToRunProvider(filesToRun, runfilesSupport, executable);
   }
 
+  private final NestedSet<Artifact> filesToRun;
+
+  private FilesToRunProvider(NestedSet<Artifact> filesToRun) {
+    this.filesToRun = filesToRun;
+  }
+
   @Override
-  default boolean isImmutable() {
+  public final boolean isImmutable() {
     return true; // immutable and Starlark-hashable
   }
 
   /** Returns artifacts needed to run the executable for this target. */
-  NestedSet<Artifact> getFilesToRun();
+  public final NestedSet<Artifact> getFilesToRun() {
+    return filesToRun;
+  }
 
   @Override
   @Nullable
-  default Artifact getExecutable() {
+  public Artifact getExecutable() {
     return null;
   }
 
@@ -77,38 +84,24 @@ public interface FilesToRunProvider
    * exist.
    */
   @Nullable
-  default RunfilesSupport getRunfilesSupport() {
+  public RunfilesSupport getRunfilesSupport() {
     return null;
   }
 
   @Override
   @Nullable
-  default Artifact getRunfilesManifest() {
+  public final Artifact getRunfilesManifest() {
     var runfilesSupport = getRunfilesSupport();
     return runfilesSupport != null ? runfilesSupport.getRunfilesManifest() : null;
   }
 
   /** Returns a {@link RunfilesSupplier} encapsulating runfiles for this tool. */
-  default RunfilesSupplier getRunfilesSupplier() {
+  public final RunfilesSupplier getRunfilesSupplier() {
     return firstNonNull(getRunfilesSupport(), EmptyRunfilesSupplier.INSTANCE);
   }
 
-  /** A {@link FilesToRunProvider} with no {@link RunfilesSupport} or executable. */
-  class BasicFilesToRunProvider implements FilesToRunProvider {
-    private final NestedSet<Artifact> filesToRun;
-
-    private BasicFilesToRunProvider(NestedSet<Artifact> filesToRun) {
-      this.filesToRun = filesToRun;
-    }
-
-    @Override
-    public NestedSet<Artifact> getFilesToRun() {
-      return filesToRun;
-    }
-  }
-
   /** A single executable. */
-  final class SingleExecutableFilesToRunProvider extends BasicFilesToRunProvider {
+  private static final class SingleExecutableFilesToRunProvider extends FilesToRunProvider {
 
     private SingleExecutableFilesToRunProvider(NestedSet<Artifact> filesToRun) {
       super(filesToRun);
@@ -121,7 +114,7 @@ public interface FilesToRunProvider
   }
 
   /** A {@link FilesToRunProvider} possible with {@link RunfilesSupport} and/or an executable. */
-  final class FullFilesToRunProvider extends BasicFilesToRunProvider {
+  private static final class FullFilesToRunProvider extends FilesToRunProvider {
     @Nullable private final RunfilesSupport runfilesSupport;
     @Nullable private final Artifact executable;
 
