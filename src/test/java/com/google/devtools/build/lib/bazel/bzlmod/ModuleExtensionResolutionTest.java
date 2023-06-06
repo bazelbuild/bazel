@@ -1599,13 +1599,23 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "bazel_dep(name='ext', version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')",
         "ext = use_extension('@ext//:defs.bzl', 'ext')",
-        "use_repo(ext, 'direct_dep', 'indirect_dep', 'invalid_dep')",
+        "use_repo(",
+        "  ext,",
+        "  'indirect_dep',",
+        "  'invalid_dep',",
+        "  my_direct_dep = 'direct_dep',",
+        ")",
         "ext_dev = use_extension('@ext//:defs.bzl', 'ext', dev_dependency = True)",
-        "use_repo(ext_dev, 'direct_dev_dep', 'indirect_dev_dep', 'invalid_dev_dep')");
+        "use_repo(",
+        "  ext_dev,",
+        "  'indirect_dev_dep',",
+        "  'invalid_dev_dep',",
+        "  my_direct_dev_dep = 'direct_dev_dep',",
+        ")");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
-        "load('@direct_dep//:data.bzl', direct_dep_data='data')",
+        "load('@my_direct_dep//:data.bzl', direct_dep_data='data')",
         "data = direct_dep_data");
 
     registry.addModule(

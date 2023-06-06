@@ -21,8 +21,10 @@ import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -133,9 +135,15 @@ public class ExperimentalGrpcRemoteExecutorTest {
               }
             });
 
+    ServerCapabilities caps =
+        ServerCapabilities.newBuilder()
+            .setExecutionCapabilities(
+                ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+            .build();
+
     executor =
         new ExperimentalGrpcRemoteExecutor(
-            remoteOptions, channel, CallCredentialsProvider.NO_CREDENTIALS, retrier);
+            caps, remoteOptions, channel, CallCredentialsProvider.NO_CREDENTIALS, retrier);
   }
 
   @After

@@ -41,6 +41,8 @@ fi
 
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/bazel/remote_helpers.sh")" \
+  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
@@ -77,22 +79,7 @@ function has_utf8_locale() {
 }
 
 function setup_credential_helper_test() {
-  # Each helper call atomically writes one byte to this file.
-  # We can later read the file to determine how many calls were made.
-  cat > "${TEST_TMPDIR}/credhelper_log"
-
-  cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
-#!/usr/bin/env python3
-import os
-
-path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper_log")
-fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
-os.write(fd, b"1")
-os.close(fd)
-
-print("""{"headers":{"Authorization":["Bearer secret_token"]}}""")
-EOF
-  chmod +x "${TEST_TMPDIR}/credhelper"
+  setup_credential_helper
 
   mkdir -p a
 
@@ -105,15 +92,7 @@ EOF
 EOF
 
   stop_worker
-  start_worker --expected_authorization_token=secret_token
-}
-
-function expect_credential_helper_calls() {
-  local -r expected=$1
-  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper_log" | awk '{print $1}')
-  if [[ "$expected" != "$actual" ]]; then
-    fail "expected $expected instead of $actual credential helper calls"
-  fi
+  start_worker --expected_authorization_token=TOKEN
 }
 
 function test_credential_helper_remote_cache() {
@@ -3269,6 +3248,32 @@ function test_external_cc_binary_tool_with_dynamic_deps_sibling_repository_layou
       --experimental_sibling_repository_layout \
       --remote_executor=grpc://localhost:${worker_port} \
       @other_repo//pkg:rule >& $TEST_log || fail "Build should succeed"
+}
+
+function test_shard_status_file_checked_remote_download_minimal() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = 'x',
+    srcs = ['x.sh'],
+    shard_count = 2,
+)
+EOF
+  touch x.sh
+  chmod +x x.sh
+
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --incompatible_check_sharding_support \
+      --remote_download_minimal \
+      //:x  &> $TEST_log && fail "expected failure"
+  expect_log "Sharding requested, but the test runner did not advertise support for it by touching TEST_SHARD_STATUS_FILE."
+
+  echo 'touch "$TEST_SHARD_STATUS_FILE"' > x.sh
+  bazel test \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --incompatible_check_sharding_support \
+      --remote_download_minimal \
+      //:x  &> $TEST_log || fail "expected success"
 }
 
 run_suite "Remote execution and remote cache tests"
