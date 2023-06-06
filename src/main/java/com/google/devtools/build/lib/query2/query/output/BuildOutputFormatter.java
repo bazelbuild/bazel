@@ -121,9 +121,7 @@ public class BuildOutputFormatter extends AbstractUnorderedFormatter {
               .append(lineTerm);
           continue;
         }
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource != AttributeValueSource.RULE) {
+        if (!rule.isAttributeValueExplicitlySpecified(attr)) {
           continue; // Don't print default values.
         }
 
