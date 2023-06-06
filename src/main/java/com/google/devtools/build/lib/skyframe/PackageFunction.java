@@ -636,6 +636,7 @@ public class PackageFunction implements SkyFunction {
    * construction to the caller, so that loadPrelude can become just a call to the factored-out
    * code.
    */
+  // TODO(18422): Cleanup/refactor this method's signature.
   @Nullable
   static ImmutableMap<String, Module> loadBzlModules(
       Environment env,
@@ -644,7 +645,8 @@ public class PackageFunction implements SkyFunction {
       List<Pair<String, Location>> programLoads,
       List<BzlLoadValue.Key> keys,
       StarlarkSemantics semantics,
-      @Nullable BzlLoadFunction bzlLoadFunctionForInlining)
+      @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
+      boolean checkVisibility)
       throws NoSuchPackageException, InterruptedException {
     List<BzlLoadValue> bzlLoads;
     try {
@@ -657,14 +659,17 @@ public class PackageFunction implements SkyFunction {
       }
       // Validate that the current BUILD/WORKSPACE file satisfies each loaded dependency's
       // load visibility.
-      BzlLoadFunction.checkLoadVisibilities(
-          packageId,
-          requestingFileDescription,
-          bzlLoads,
-          keys,
-          programLoads,
-          /*demoteErrorsToWarnings=*/ !semantics.getBool(BuildLanguageOptions.CHECK_BZL_VISIBILITY),
-          env.getListener());
+      if (checkVisibility) {
+        BzlLoadFunction.checkLoadVisibilities(
+            packageId,
+            requestingFileDescription,
+            bzlLoads,
+            keys,
+            programLoads,
+            /* demoteErrorsToWarnings= */ !semantics.getBool(
+                BuildLanguageOptions.CHECK_BZL_VISIBILITY),
+            env.getListener());
+      }
     } catch (BzlLoadFailedException e) {
       Throwable rootCause = Throwables.getRootCause(e);
       throw PackageFunctionException.builder()
@@ -1325,7 +1330,8 @@ public class PackageFunction implements SkyFunction {
                   programLoads,
                   keys.build(),
                   starlarkBuiltinsValue.starlarkSemantics,
-                  bzlLoadFunctionForInlining);
+                  bzlLoadFunctionForInlining,
+                  /* checkVisibility= */ true);
         } catch (NoSuchPackageException e) {
           throw new PackageFunctionException(e, Transience.PERSISTENT);
         }

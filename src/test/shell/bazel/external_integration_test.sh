@@ -221,6 +221,22 @@ EOF
   assert_contains "test content" "${base_external_path}/test_dir/test_file"
 }
 
+function test_http_archive_upper_case_sha() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = 'test_zstd_repo',
+    url = 'file://$(rlocation io_bazel/src/test/shell/bazel/testdata/zstd_test_archive.tar.zst)',
+    sha256 = '12B0116F2A3C804859438E102A8A1D5F494C108D1B026DA9F6CA55FB5107C7E9',
+    build_file_content = 'filegroup(name="x", srcs=glob(["*"]))',
+)
+EOF
+  bazel build @test_zstd_repo//...
+
+  base_external_path=bazel-out/../external/test_zstd_repo
+  assert_contains "test content" "${base_external_path}/test_dir/test_file"
+}
+
 function test_http_archive_no_server() {
   cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

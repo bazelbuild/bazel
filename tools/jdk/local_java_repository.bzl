@@ -62,6 +62,7 @@ def local_java_runtime(name, java_home, version, runtime_name = None, visibility
             name = runtime_name,
             java_home = java_home,
             visibility = visibility,
+            version = int(version) if version.isdigit() else 0,
         )
 
     native.config_setting(
