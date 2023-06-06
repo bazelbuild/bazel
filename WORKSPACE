@@ -64,11 +64,6 @@ bind(
     actual = "//third_party/grpc-java:grpc-jar",
 )
 
-bind(
-    name = "guava",
-    actual = "//third_party:guava",
-)
-
 # We must control the version of rules_license we use, so we load ours before
 # any other repo can bring it in through their deps.
 dist_http_archive(
@@ -777,6 +772,11 @@ maven_install(
 load("@maven//:defs.bzl", "pinned_maven_install")
 
 pinned_maven_install()
+
+bind(
+    name = "guava",
+    actual = "//third_party:guava",
+)
 
 maven_install(
     name = "maven_android",
