@@ -125,6 +125,8 @@ landing_page:
       path: /advanced/performance/json-trace-profile
     - heading: Optimize memory
       path: /advanced/performance/memory
+    - heading: Optimize build iteration speed
+      path: /advanced/performance/iteration-speed
 
   # Remote distrubution row
   - options:
