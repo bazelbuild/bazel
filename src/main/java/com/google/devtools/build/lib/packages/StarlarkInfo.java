@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.HasBinary;
@@ -21,10 +23,6 @@ import net.starlark.java.syntax.Location;
 
 /** Superclass (provider instance) for providers defined in Starlark. */
 public abstract class StarlarkInfo extends StructImpl implements HasBinary {
-
-  StarlarkInfo(@Nullable Location location) {
-    super(location);
-  }
 
   /**
    * Creates a schemaless provider instance with the given provider type and field values.
@@ -38,6 +36,17 @@ public abstract class StarlarkInfo extends StructImpl implements HasBinary {
   public static StarlarkInfo create(
       Provider provider, Map<String, Object> values, @Nullable Location loc) {
     return StarlarkInfoNoSchema.createSchemaless(provider, values, loc);
+  }
+
+  private final Location location;
+
+  StarlarkInfo(@Nullable Location location) {
+    this.location = firstNonNull(location, Location.BUILTIN);
+  }
+
+  @Override
+  public final Location getCreationLocation() {
+    return location;
   }
 
   // Relax visibility to public. getValue() is widely used to directly access fields from native

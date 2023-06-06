@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import javax.annotation.Nullable;
@@ -31,14 +33,21 @@ import net.starlark.java.syntax.Location;
 @Immutable
 public abstract class NativeInfo extends StructImpl {
 
+  private final Location location;
+
   protected NativeInfo() {
     this(Location.BUILTIN);
   }
 
   // TODO(adonovan): most subclasses pass Location.BUILTIN most of the time.
   // Make only those classes that pass a real location pay for it.
-  protected NativeInfo(@Nullable Location loc) {
-    super(loc);
+  protected NativeInfo(@Nullable Location location) {
+    this.location = firstNonNull(location, Location.BUILTIN);
+  }
+
+  @Override
+  public final Location getCreationLocation() {
+    return location;
   }
 
   @Override
