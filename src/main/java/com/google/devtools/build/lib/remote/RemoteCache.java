@@ -379,11 +379,12 @@ public class RemoteCache extends AbstractReferenceCounted {
         () -> {
           try {
             out.close();
-            reporter.finished();
           } catch (IOException e) {
             logger.atWarning().withCause(e).log(
                 "Unexpected exception closing output stream after downloading %s/%d to %s",
                 digest.getHash(), digest.getSizeBytes(), path);
+          } finally {
+            reporter.finished();
           }
         },
         directExecutor());
