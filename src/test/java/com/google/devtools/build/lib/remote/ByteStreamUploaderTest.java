@@ -39,7 +39,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
-import com.google.devtools.build.lib.remote.common.OutOfRangeException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -1613,7 +1612,7 @@ public class ByteStreamUploaderTest {
           }
         });
 
-    assertThrows(OutOfRangeException.class, () -> uploader.uploadBlob(context, digest, chunker));
+    assertThrows(IOException.class, () -> uploader.uploadBlob(context, digest, chunker));
   }
 
   private static class NoopStreamObserver implements StreamObserver<WriteRequest> {

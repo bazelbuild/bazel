@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.Retrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 /**
  * The {@link FailureCircuitBreaker} implementation of the {@link Retrier.CircuitBreaker} prevents
@@ -35,7 +35,7 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
   private final int failureThreshold;
   private final int slidingWindowSize;
   private final ScheduledExecutorService scheduledExecutor;
-  private final ImmutableSet<Class<? extends Exception>> ignoredErrors;
+  private final Predicate<? super Exception> ignoredErrors;
 
   /**
    * Creates a {@link FailureCircuitBreaker}.
@@ -62,7 +62,7 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
 
   @Override
   public void recordFailure(Exception e) {
-    if (!ignoredErrors.contains(e.getClass())) {
+    if (!ignoredErrors.test(e)) {
       int failureCount = failures.incrementAndGet();
       if (slidingWindowSize > 0) {
         var unused =

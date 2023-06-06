@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 public class RemoteRetrier extends Retrier {
 
   @Nullable
-  private static Status fromException(Exception e) {
+   public static Status fromException(Exception e) {
     for (Throwable cause = e; cause != null; cause = cause.getCause()) {
       if (cause instanceof StatusRuntimeException) {
         return ((StatusRuntimeException) cause).getStatus();

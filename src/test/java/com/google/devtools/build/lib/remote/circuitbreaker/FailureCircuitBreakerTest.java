@@ -19,14 +19,24 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
+
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class FailureCircuitBreakerTest {
+
+  private static final List<? extends Exception> IGNORED_ERRORS = Arrays.asList(
+      new CacheNotFoundException(Digest.newBuilder().build()),
+      new StatusRuntimeException(Status.OUT_OF_RANGE)
+  );
 
   @Test
   public void testRecordFailure() throws InterruptedException {
@@ -39,8 +49,9 @@ public class FailureCircuitBreakerTest {
     for (int index = 0; index < failureThreshold; index++) {
       listOfExceptionThrownOnFailure.add(new Exception());
     }
+    Random rand = new Random();
     for (int index = 0; index < failureThreshold * 9; index++) {
-      listOfExceptionThrownOnFailure.add(new CacheNotFoundException(Digest.newBuilder().build()));
+      listOfExceptionThrownOnFailure.add(IGNORED_ERRORS.get(rand.nextInt(IGNORED_ERRORS.size())));
     }
 
     Collections.shuffle(listOfExceptionThrownOnFailure);

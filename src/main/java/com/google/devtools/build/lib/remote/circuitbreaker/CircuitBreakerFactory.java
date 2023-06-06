@@ -13,17 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.Retrier;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.OutOfRangeException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import io.grpc.Status;
+import java.util.function.Predicate;
+
+import static com.google.devtools.build.lib.remote.RemoteRetrier.fromException;
+
 
 /** Factory for {@link Retrier.CircuitBreaker} */
 public class CircuitBreakerFactory {
-
-  public static final ImmutableSet<Class<? extends Exception>> DEFAULT_IGNORED_ERRORS =
-      ImmutableSet.of(CacheNotFoundException.class, OutOfRangeException.class);
+  public static final Predicate<? super Exception> DEFAULT_IGNORED_ERRORS =
+      e -> {
+        Status s = fromException(e);
+        if (s == null) {
+          return e.getClass() == CacheNotFoundException.class;
+        }
+        switch (s.getCode()) {
+          case NOT_FOUND:
+          case OUT_OF_RANGE:
+            System.out.println("out of range");
+            return true;
+          default:
+            return false;
+        }
+      };
 
   private CircuitBreakerFactory() {}
 
