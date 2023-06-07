@@ -23,6 +23,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+mock_rules_java_to_avoid_downloading
+
 # Sets up a workspace with the given commands inserted into the repository rule
 # that will be executed when doing bazel build //:test
 function set_workspace_command() {
