@@ -318,13 +318,13 @@ register_toolchains(
 EOF
 }
 
-function write_rule() {
+function write_rules() {
   local pkg="${1}"
   mkdir -p "${pkg}/rule"
   cat > "${pkg}/rule/rule.bzl" <<EOF
 load("//${pkg}/platform:platform.bzl", "ShowPlatformInfo", "describe_platform_info")
 
-def _sample_impl(ctx):
+def _report(ctx):
     toolchain = ctx.toolchains["//${pkg}/toolchain:toolchain_type"]
     message = ctx.attr.message
     exec_platform = describe_platform_info(ctx.attr._exec[ShowPlatformInfo])
@@ -336,6 +336,10 @@ def _sample_impl(ctx):
         output = log,
         content = str,
     )
+    return log
+
+def _sample_impl(ctx):
+    log = _report(ctx)
     return [DefaultInfo(files = depset([log]))]
 
 sample = rule(
@@ -353,6 +357,41 @@ sample = rule(
     toolchains = ["//${pkg}/toolchain:toolchain_type"],
     incompatible_use_toolchain_transition = True,
 )
+
+def _sample_test_impl(ctx):
+    log = _report(ctx)
+    # Write a fake test executable.
+    executable = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.write(
+        output = executable,
+        content = "\n".join([
+            "#!/usr/bin/env bash",
+            "exit 0",
+        ]),
+        is_executable = True,
+    )
+
+    return [DefaultInfo(
+        executable = executable,
+        files = depset([executable, log]),
+    )]
+
+sample_test = rule(
+    implementation = _sample_test_impl,
+    attrs = {
+        "message": attr.string(),
+        "_exec": attr.label(
+            cfg = "exec",
+            providers = [ShowPlatformInfo],
+            default = Label("//${pkg}/platform")),
+    },
+    outputs = {
+        "log": "%{name}.log",
+    },
+    toolchains = ["//${pkg}/toolchain:toolchain_type"],
+    incompatible_use_toolchain_transition = True,
+    test = True,
+)
 EOF
   cat > "${pkg}/rule/BUILD" <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -365,7 +404,7 @@ function test_toolchain_transition() {
   write_constraints "${pkg}"
   write_platforms "${pkg}"
   write_toolchains "${pkg}"
-  write_rule "${pkg}"
+  write_rules "${pkg}"
 
   mkdir -p "${pkg}"
   cat > "${pkg}/BUILD" <<EOF
@@ -398,6 +437,48 @@ EOF
   expect_log 'extra_lib: message: extra_lib foo, target_dep: target, tool_dep: exec-alpha'
 }
 
+# Regression test for b/284495846.
+# Test rules use the test trimming transition, which means that toolchain
+# dependencies are in a different configuration that the actual parent target,
+# which caused an issue where the execution platform was not correctly forwarded
+# to the toolchain.
+function test_toolchain_transition_test_rule() {
+  local -r pkg="${FUNCNAME[0]}"
+  write_constraints "${pkg}"
+  write_platforms "${pkg}"
+  write_toolchains "${pkg}"
+  write_rules "${pkg}"
+
+  mkdir -p "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
+package(default_visibility = ["//visibility:public"])
+
+load("//${pkg}/rule:rule.bzl", "sample_test")
+
+# Use a test rul to trigger b/284495846
+sample_test(
+    name = "sample_test",
+    exec_compatible_with = [
+        "//${pkg}/constraint:beta",
+    ],
+    message = "Hello",
+)
+EOF
+
+  bazel build \
+    --platforms="//${pkg}/platform:target" \
+    --host_platform="//${pkg}/platform:host" \
+    --use_target_platform_for_tests \
+     "//${pkg}:sample_test" &> $TEST_log || fail "Build failed"
+
+  # Verify contents of sample_test.log.
+  cat "bazel-bin/${pkg}/sample_test.log" >> $TEST_log
+  # The execution platform should be beta.
+  expect_log 'rule message: "Hello", exec platform: "exec-beta"'
+  # The toolchain should have proper target and exec matching the top target.
+  expect_log 'sample_toolchain: message: beta toolchain, target_dep: target, tool_dep: exec-beta'
+}
+
 # Regression test for https://github.com/bazelbuild/bazel/issues/11993
 # This was causing cquery to not correctly generate ConfiguredTargetKeys for
 # toolchains, leading to the message "Targets were missing from graph"
@@ -406,7 +487,7 @@ function test_toolchain_transition_cquery() {
   write_constraints "${pkg}"
   write_platforms "${pkg}"
   write_toolchains "${pkg}"
-  write_rule "${pkg}"
+  write_rules "${pkg}"
 
   mkdir -p "${pkg}"
   cat > "${pkg}/BUILD" <<EOF
