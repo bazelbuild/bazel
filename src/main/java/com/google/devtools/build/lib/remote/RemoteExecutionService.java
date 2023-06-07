@@ -210,7 +210,7 @@ public class RemoteExecutionService {
     this.tempPathGenerator = tempPathGenerator;
     this.captureCorruptedOutputsDir = captureCorruptedOutputsDir;
 
-    this.scheduler = Schedulers.from(executor, /*interruptibleWorker=*/ true);
+    this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
   }
 
   static Command buildCommand(
@@ -222,6 +222,7 @@ public class RemoteExecutionService {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
+    ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
       String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
       if (output.isDirectory()) {
@@ -229,11 +230,14 @@ public class RemoteExecutionService {
       } else {
         outputFiles.add(pathString);
       }
+      outputPaths.add(pathString);
     }
     Collections.sort(outputFiles);
     Collections.sort(outputDirectories);
+    Collections.sort(outputPaths);
     command.addAllOutputFiles(outputFiles);
     command.addAllOutputDirectories(outputDirectories);
+    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -639,6 +643,10 @@ public class RemoteExecutionService {
       return actionResult.getOutputDirectorySymlinksList();
     }
 
+    public List<OutputSymlink> getOutputSymlinks() {
+      return actionResult.getOutputSymlinksList();
+    }
+
     /**
      * Returns the freeform informational message with details on the execution of the action that
      * may be displayed to the user upon failure or when requested explicitly.
@@ -1005,7 +1013,7 @@ public class RemoteExecutionService {
               directExecutor()));
     }
 
-    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt=*/ true);
+    waitForBulkTransfer(dirMetadataDownloads.values(), /* cancelRemainingOnInterrupt= */ true);
 
     ImmutableMap.Builder<Path, DirectoryMetadata> directories = ImmutableMap.builder();
     for (Map.Entry<Path, ListenableFuture<Tree>> metadataDownload :
@@ -1029,18 +1037,33 @@ public class RemoteExecutionService {
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
     }
 
-    ImmutableMap.Builder<Path, SymlinkMetadata> symlinks = ImmutableMap.builder();
-    Iterable<OutputSymlink> outputSymlinks =
-        Iterables.concat(result.getOutputFileSymlinks(), result.getOutputDirectorySymlinks());
-    for (OutputSymlink symlink : outputSymlinks) {
-      Path localPath =
+    var symlinkMap = new HashMap<Path, SymlinkMetadata>();
+    var outputSymlinks =
+        Iterables.concat(
+            result.getOutputFileSymlinks(),
+            result.getOutputDirectorySymlinks(),
+            result.getOutputSymlinks());
+    for (var symlink : outputSymlinks) {
+      var localPath =
           remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
-      symlinks.put(
-          localPath, new SymlinkMetadata(localPath, PathFragment.create(symlink.getTarget())));
+      var target = PathFragment.create(symlink.getTarget());
+      var existingMetadata = symlinkMap.get(localPath);
+      if (existingMetadata != null) {
+        if (!target.equals(existingMetadata.target())) {
+          throw new IOException(
+              String.format(
+                  "Symlink path collision: '%s' is mapped to both '%s' and '%s'. Action Result"
+                      + " should not contain multiple targets for the same symlink.",
+                  localPath, existingMetadata.target(), target));
+        }
+        continue;
+      }
+
+      symlinkMap.put(localPath, new SymlinkMetadata(localPath, target));
     }
 
     return new ActionResultMetadata(
-        files.buildOrThrow(), symlinks.buildOrThrow(), directories.buildOrThrow());
+        files.buildOrThrow(), ImmutableMap.copyOf(symlinkMap), directories.buildOrThrow());
   }
 
   /**
@@ -1156,7 +1179,7 @@ public class RemoteExecutionService {
           ListenableFuture<byte[]> inMemoryOutputDownload =
               remoteCache.downloadBlob(context, inMemoryOutputDigest);
           waitForBulkTransfer(
-              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt=*/ true);
+              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
           byte[] data = getFromFuture(inMemoryOutputDownload);
           return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
         }
