@@ -27,8 +27,8 @@ load(
     "ProtoLangToolchainInfo",
     proto_common = "proto_common_do_not_use",
 )
+load(":common/java/java_info.bzl", "JavaInfo")
 
-JavaInfo = _builtins.toplevel.JavaInfo
 apple_common = _builtins.toplevel.apple_common
 objc_internal = _builtins.internal.objc_internal
 
