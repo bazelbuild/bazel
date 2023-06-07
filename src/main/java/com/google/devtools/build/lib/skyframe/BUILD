@@ -195,6 +195,7 @@ java_library(
         ":top_level_action_lookup_key_wrapper",
         ":top_level_aspects_value",
         ":top_level_status_events",
+        ":track_source_directories_flag",
         ":transitive_base_traversal_function",
         ":transitive_target_key",
         ":transitive_target_value",

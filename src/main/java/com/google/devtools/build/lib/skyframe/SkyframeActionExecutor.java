@@ -1118,6 +1118,8 @@ public final class SkyframeActionExecutor {
         throws LostInputsActionExecutionException, InterruptedException {
       ActionResult result;
       try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+        checkForUnsoundDirectoryInputs(action, actionExecutionContext.getInputMetadataProvider());
+
         result = action.execute(actionExecutionContext);
 
         // An action's result (or intermediate state) may have been affected by lost inputs. If an
@@ -1520,6 +1522,8 @@ public final class SkyframeActionExecutor {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
 
+            checkForUnsoundDirectoryOutput(action, output, metadata);
+
             addOutputToMetrics(
                 output,
                 metadata,
@@ -1588,6 +1592,60 @@ public final class SkyframeActionExecutor {
       if (isActionCacheHit) {
         outputArtifactsFromActionCache.accumulate(treeArtifactValue);
       }
+    }
+  }
+
+  private void checkForUnsoundDirectoryInputs(Action action, InputMetadataProvider metadataProvider)
+      throws ActionExecutionException {
+    if (TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      return;
+    }
+
+    if (action.getMnemonic().equals("FilesetTraversal")) {
+      // Omit warning for filesets (b/1437948).
+      return;
+    }
+
+    // Report "directory dependency checking" warning only for non-generated directories (generated
+    // ones will have been reported earlier, in the checkForUnsoundDirectoryOutput call for the
+    // respective producing action).
+    for (Artifact input : action.getMandatoryInputs().toList()) {
+      // Assume that if the file did not exist, we would not have gotten here.
+      try {
+        if (input.isSourceArtifact()
+            && metadataProvider.getInputMetadata(input).getType().isDirectory()) {
+          // TODO(ulfjack): What about dependency checking of special files?
+          String ownerString = action.getOwner().getLabel().toString();
+          reporter.handle(
+              Event.warn(
+                      action.getOwner().getLocation(),
+                      String.format(
+                          "input '%s' to %s is a directory; "
+                              + "dependency checking of directories is unsound",
+                          input.prettyPrint(), ownerString))
+                  .withTag(ownerString));
+        }
+      } catch (IOException e) {
+        throw ActionExecutionException.fromExecException(
+            new EnvironmentalExecException(
+                e, FailureDetails.Execution.Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION),
+            action);
+      }
+    }
+  }
+
+  private void checkForUnsoundDirectoryOutput(
+      Action action, Artifact output, FileArtifactValue metadata) {
+    if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
+      String ownerString = action.getOwner().getLabel().toString();
+      reporter.handle(
+          Event.warn(
+                  action.getOwner().getLocation(),
+                  String.format(
+                      "output '%s' of %s is a directory; "
+                          + "dependency checking of directories is unsound",
+                      output.prettyPrint(), ownerString))
+              .withTag(ownerString));
     }
   }
 

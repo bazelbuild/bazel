@@ -18,18 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
-import java.util.List;
 
 /**
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
@@ -67,21 +62,5 @@ public final class GenRuleAction extends SpawnAction {
   @Override
   protected CommandLineLimits getCommandLineLimits() {
     return CommandLineLimits.UNLIMITED;
-  }
-
-  @Override
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
-    if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
-      checkInputsForDirectories(
-          actionExecutionContext.getEventHandler(),
-          actionExecutionContext.getInputMetadataProvider());
-    }
-  }
-
-  @Override
-  protected void afterExecute(
-      ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws InterruptedException {
-    checkOutputsForDirectories(actionExecutionContext);
   }
 }
