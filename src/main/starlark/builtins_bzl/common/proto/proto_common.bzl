@@ -29,13 +29,38 @@ ProtoLangToolchainInfo = provider(
     ),
 )
 
-def _proto_path_flag(path):
-    if path == ".":
-        return None
-    return "--proto_path=%s" % path
+def _import_virtual_proto_path(path):
+    """Imports all paths for virtual imports.
 
-def _Iimport_path_equals_fullpath(proto_source):
-    return "-I%s=%s" % (get_import_path(proto_source), proto_source.path)
+      They're of the form:
+      'bazel-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e' or
+      'bazel-out/foo/k8-fastbuild/bin/e/_virtual_imports/e'"""
+    if path.count("/") > 4:
+        return "-I%s" % path
+    return None
+
+def _import_repo_proto_path(path):
+    """Imports all paths for generated files in external repositories.
+
+      They are of the form:
+      'bazel-out/k8-fastbuild/bin/external/foo' or
+      'bazel-out/foo/k8-fastbuild/bin'"""
+    path_count = path.count("/")
+    if path_count > 2 and path_count <= 4:
+        return "-I%s" % path
+    return None
+
+def _import_main_output_proto_path(path):
+    """Imports all paths for generated files or source files in external repositories.
+
+      They're of the form:
+      'bazel-out/k8-fastbuild/bin'
+      'external/foo'
+      '../foo'
+    """
+    if path.count("/") <= 2 and path != ".":
+        return "-I%s" % path
+    return None
 
 def _remove_repo(file):
     """Removes `../repo/` prefix from path, e.g. `../repo/package/path -> package/path`"""
@@ -110,17 +135,20 @@ def _compile(
         tools.append(proto_lang_toolchain_info.plugin)
         args.add(proto_lang_toolchain_info.plugin.executable, format = proto_lang_toolchain_info.plugin_format_flag)
 
-    args.add_all(proto_info.transitive_proto_path, map_each = _proto_path_flag)
-    # Example: `--proto_path=--proto_path=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg`
+    # Protoc searches for .protos -I paths in order they are given and then
+    # uses the path within the directory as the package.
+    # This requires ordering the paths from most specific (longest) to least
+    # specific ones, so that no path in the list is a prefix of any of the
+    # following paths in the list.
+    # For example: 'bazel-out/k8-fastbuild/bin/external/foo' needs to be listed
+    # before 'bazel-out/k8-fastbuild/bin'. If not, protoc will discover file under
+    # the shorter path and use 'external/foo/...' as its package path.
+    args.add_all(proto_info.transitive_proto_path, map_each = _import_virtual_proto_path)
+    args.add_all(proto_info.transitive_proto_path, map_each = _import_repo_proto_path)
+    args.add_all(proto_info.transitive_proto_path, map_each = _import_main_output_proto_path)
+    args.add("-I.")  # Needs to come last
 
     args.add_all(proto_lang_toolchain_info.protoc_opts)
-
-    # Include maps
-    # For each import, include both the import as well as the import relativized against its
-    # protoSourceRoot. This ensures that protos can reference either the full path or the short
-    # path when including other protos.
-    args.add_all(proto_info._transitive_proto_sources, map_each = _Iimport_path_equals_fullpath)
-    # Example: `-Ia.proto=bazel-bin/target/third_party/pkg/_virtual_imports/subpkg/a.proto`
 
     args.add_all(proto_info.direct_sources)
 
