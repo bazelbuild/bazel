@@ -142,7 +142,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "--java_out=lite,immutable,no_enforce_api_compatibility:"
                 + genfilesDir
                 + "/x/protolib-lite-src.jar",
-            "-Ix/file.proto=x/file.proto",
+            "-I.",
             "x/file.proto")
         .inOrder();
   }
@@ -217,7 +217,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
             "--java_out=lite,immutable,no_enforce_api_compatibility:"
                 + genfilesDir
                 + "/cross/bravo-lite-src.jar",
-            "-Icross/bravo.proto=cross/bravo.proto",
+            "-I.",
             "cross/bravo.proto")
         .inOrder();
 
