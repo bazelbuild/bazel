@@ -20,8 +20,7 @@ load(":common/java/java_common.bzl", "basic_java_library", "construct_defaultinf
 load(":common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "JAVA_LIBRARY_IMPLICIT_ATTRS")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
-
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
+load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 
 def bazel_java_plugin_rule(
         ctx,

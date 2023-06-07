@@ -21,8 +21,7 @@ load(":common/rule_util.bzl", "merge_attrs")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/java_info.bzl", "JavaInfo")
-
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
+load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 
 def bazel_java_library_rule(
         ctx,
