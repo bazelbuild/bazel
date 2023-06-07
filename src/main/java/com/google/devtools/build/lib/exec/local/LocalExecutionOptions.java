@@ -43,7 +43,6 @@ public class LocalExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       converter = Converters.RegexPatternConverter.class,
       defaultValue = "null",
-      deprecationWarning = "Deprecated, use --strategy_regexp instead.",
       help =
           "A regex whitelist for action types which may be run locally. If unset, "
               + "all actions are allowed to execute locally")
