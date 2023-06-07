@@ -31,7 +31,7 @@ public interface Registry {
    * Retrieves the contents of the module file of the module identified by {@code key} from the
    * registry. Returns {@code Optional.empty()} when the module is not found in this registry.
    */
-  Optional<byte[]> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
+  Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
 
   /**
