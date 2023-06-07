@@ -1191,7 +1191,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .contains(
             "module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
                 + " \"missing_repo\", yet it is imported as \"my_repo\" in the usage at"
-                + " <root>/MODULE.bazel:1:20");
+                + " /ws/MODULE.bazel:1:20");
   }
 
   @Test
@@ -1658,7 +1658,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     assertEventCount(1, eventCollector);
     assertContainsEvent(
-        "WARNING <root>/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
+        "WARNING /ws/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
             + " reported incorrect imports of repositories via use_repo():\n"
             + "\n"
             + "Imported, but not created by the extension (will cause the build to fail):\n"
@@ -1736,11 +1736,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .isEqualTo(
             "module extension \"ext\" from \"@ext~1.0//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
-                + "<root>/MODULE.bazel:3:20");
+                + "/ws/MODULE.bazel:3:20");
 
     assertEventCount(1, eventCollector);
     assertContainsEvent(
-        "WARNING <root>/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
+        "WARNING /ws/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
             + " reported incorrect imports of repositories via use_repo():\n"
             + "\n"
             + "Imported, but not created by the extension (will cause the build to fail):\n"
@@ -1815,11 +1815,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .isEqualTo(
             "module extension \"ext\" from \"@ext~1.0//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
-                + "<root>/MODULE.bazel:3:20");
+                + "/ws/MODULE.bazel:3:20");
 
     assertEventCount(1, eventCollector);
     assertContainsEvent(
-        "WARNING <root>/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
+        "WARNING /ws/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
             + " reported incorrect imports of repositories via use_repo():\n"
             + "\n"
             + "Imported, but not created by the extension (will cause the build to fail):\n"
