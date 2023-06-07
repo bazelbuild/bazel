@@ -33,62 +33,12 @@ public class Blake3HasherTest {
   }
 
   @Test
-  public void valid() {
-    Blake3Hasher h = new Blake3Hasher();
-    assertEquals(true, h.isValid());
-    h.close();
-    assertEquals(false, h.isValid());
-  }
-
-  @Test
-  public void doubleClose() {
-    Blake3Hasher h = new Blake3Hasher();
-    assertEquals(true, h.isValid());
-    h.close();
-    h.close();
-    assertEquals(false, h.isValid());
-  }
-
-  @Test
-  public void initKeyed() {
-    Blake3Hasher h = new Blake3Hasher();
-    byte[] key = "sothisisarandomstring32byteslong".getBytes(StandardCharsets.US_ASCII);
-    h.initKeyed(key);
-    assertEquals(true, h.isValid());
-
-    byte[] data = new byte[0];
-    h.update(data);
-    byte[] output = h.getOutput();
-    h.close();
-
-    assertEquals(
-        "57c3c9928a850ea5b94ea8fbe6b2283774a9e52918ddf0471997da7272a017f2", hexString(output));
-  }
-
-  @Test
-  public void initDeriveKey() {
-    Blake3Hasher h = new Blake3Hasher();
-    h.initDeriveKey("sothisisarandomstring32byteslong");
-    assertEquals(true, h.isValid());
-
-    byte[] data = new byte[0];
-    h.update(data);
-    byte[] output = h.getOutput();
-    h.close();
-
-    assertEquals(
-        "3189ab35d0798ed6368fdf3dea41a8e047638d2974f6a455c1df0314a4e7794e", hexString(output));
-  }
-
-  @Test
   public void emptyHash() {
     Blake3Hasher h = new Blake3Hasher();
-    assertEquals(true, h.isValid());
 
     byte[] data = new byte[0];
     h.update(data);
-    byte[] output = h.getOutput();
-    h.close();
+    byte[] output = h.getOutput(Blake3Hasher.OUT_LEN);
 
     assertEquals(
         "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262", hexString(output));
@@ -97,12 +47,10 @@ public class Blake3HasherTest {
   @Test
   public void helloWorld() {
     Blake3Hasher h = new Blake3Hasher();
-    assertEquals(true, h.isValid());
 
     byte[] data = "hello world".getBytes(StandardCharsets.US_ASCII);
     h.update(data);
-    byte[] output = h.getOutput();
-    h.close();
+    byte[] output = h.getOutput(Blake3Hasher.OUT_LEN);
 
     assertEquals(
         "d74981efa70a0c880b8d8c1985d075dbcbf679b99a5f9914e5aaf96b831a9e24", hexString(output));
