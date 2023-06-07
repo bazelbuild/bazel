@@ -41,11 +41,12 @@ import net.starlark.java.eval.StarlarkThread;
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
-  private final boolean allowOverride;
+  private final boolean allowWorkspaceFunction;
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
-  public WorkspaceGlobals(boolean allowOverride, ImmutableMap<String, RuleClass> ruleClassMap) {
-    this.allowOverride = allowOverride;
+  public WorkspaceGlobals(
+      boolean allowWorkspaceFunction, ImmutableMap<String, RuleClass> ruleClassMap) {
+    this.allowWorkspaceFunction = allowWorkspaceFunction;
     this.ruleClassMap = ruleClassMap;
   }
 
@@ -54,7 +55,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       String name,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-    if (!allowOverride) {
+    if (!allowWorkspaceFunction) {
       throw Starlark.errorf(
           "workspace() function should be used only at the top of the WORKSPACE file");
     }

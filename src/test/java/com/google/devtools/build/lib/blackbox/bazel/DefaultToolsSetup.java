@@ -31,6 +31,7 @@ public class DefaultToolsSetup implements ToolsSetup {
           .add("rules_cc")
           .add("rules_proto")
           .add("rules_java")
+          .add("rules_java_builtin_for_testing")
           .add("rules_python")
           .build();
 
@@ -48,6 +49,8 @@ public class DefaultToolsSetup implements ToolsSetup {
     ImmutableList.Builder<String> lines = ImmutableList.builder();
     for (String repo : repos) {
       Path sharedRepoPath = sharedRepoHomePath.resolve(repo);
+      String suffix = "_for_testing";
+      repo = repo.endsWith(suffix) ? repo.substring(0, repo.length() - suffix.length()) : repo;
       lines.add(
           "common --override_repository="
               + repo
