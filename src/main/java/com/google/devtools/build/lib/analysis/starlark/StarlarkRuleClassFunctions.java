@@ -991,7 +991,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public void repr(Printer printer) {
-      printer.append("<rule>");
+      if (isExported()) {
+        printer.append("<rule ").append(getRuleClass().getName()).append(">");
+      } else {
+        printer.append("<rule>");
+      }
     }
 
     @Override
