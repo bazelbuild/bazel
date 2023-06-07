@@ -100,6 +100,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /** The mnemonic of this spawn. */
   private final String mnemonic;
 
+  @Nullable private final Path sandboxDebugPath;
   @Nullable private final Path statisticsPath;
 
   /**
@@ -129,6 +130,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       boolean mapSymlinkTargets,
       TreeDeleter treeDeleter,
       String mnemonic,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath) {
     this.process = process;
     this.arguments = arguments;
@@ -155,6 +157,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
     int id = lastId.getAndIncrement();
     this.sandboxName = "" + id;
     this.sandboxIsMapped = false;
+    this.sandboxDebugPath = sandboxDebugPath;
     this.statisticsPath = statisticsPath;
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just
@@ -178,6 +181,11 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   @Override
   public ImmutableMap<String, String> getEnvironment() {
     return environment;
+  }
+
+  @Override
+  public Path getSandboxDebugPath() {
+    return sandboxDebugPath;
   }
 
   @Override

@@ -36,11 +36,14 @@ filegroup(
         "//scripts:srcs",
         "//site:srcs",
         "//src:srcs",
-        "//tools:srcs",
-        "//third_party:srcs",
-        "//src/main/starlark/tests/builtins_bzl:srcs",
         "//src/main/java/com/google/devtools/build/docgen/release:srcs",
-    ] + glob([".bazelci/*"]) + [".bazelrc", ".bazelversion"],
+        "//src/main/starlark/tests/builtins_bzl:srcs",
+        "//third_party:srcs",
+        "//tools:srcs",
+    ] + glob([".bazelci/*"]) + [
+        ".bazelrc",
+        ".bazelversion",
+    ],
     applicable_licenses = ["@io_bazel//:license"],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -133,6 +136,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_license.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:rules_java_builtin.WORKSPACE",
     ],
 )
 

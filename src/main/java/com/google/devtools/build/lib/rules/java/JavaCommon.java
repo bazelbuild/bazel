@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -145,13 +144,12 @@ public class JavaCommon {
    * @return the native libraries found in the transitive closure of the deps.
    */
   public static ImmutableList<Artifact> collectNativeLibraries(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Collection<? extends TransitiveInfoCollection> deps) {
     NestedSet<LibraryToLink> linkerInputs =
         NestedSetBuilder.fromNestedSets(
                 Streams.concat(
-                        JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps)
-                            .stream()
-                            .map(JavaCcInfoProvider::getCcInfo)
+                        deps.stream()
+                            .map(JavaInfo::ccInfo)
                             .map(CcInfo::getCcNativeLibraryInfo)
                             .map(CcNativeLibraryInfo::getTransitiveCcNativeLibraries),
                         AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream()
@@ -316,7 +314,8 @@ public class JavaCommon {
    * @return A nested set containing all of the source jar artifacts on which the current rule
    *     transitively depends.
    */
-  public NestedSet<Artifact> collectTransitiveSourceJars(Artifact... targetSrcJars) {
+  public NestedSet<Artifact> collectTransitiveSourceJars(Artifact... targetSrcJars)
+      throws RuleErrorException {
     return collectTransitiveSourceJars(ImmutableList.copyOf(targetSrcJars));
   }
 
@@ -327,20 +326,21 @@ public class JavaCommon {
    * @return A nested set containing all of the source jar artifacts on which the current rule
    *     transitively depends.
    */
-  public NestedSet<Artifact> collectTransitiveSourceJars(Iterable<Artifact> targetSrcJars) {
+  public NestedSet<Artifact> collectTransitiveSourceJars(Iterable<Artifact> targetSrcJars)
+      throws RuleErrorException {
     NestedSetBuilder<Artifact> builder =
         NestedSetBuilder.<Artifact>stableOrder().addAll(targetSrcJars);
 
-    for (JavaSourceJarsProvider sourceJarsProvider :
-        JavaInfo.getProvidersFromListOfTargets(JavaSourceJarsProvider.class, getDependencies())) {
-      builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
+    for (TransitiveInfoCollection dep : getDependencies()) {
+      builder.addTransitive(JavaInfo.transitiveSourceJars(dep));
     }
 
     return builder.build();
   }
 
   /** Computes javacopts for the current rule. */
-  private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts) {
+  private ImmutableList<String> computeJavacOpts(Collection<String> extraRuleJavacOpts)
+      throws InterruptedException {
     ImmutableList.Builder<String> javacOpts =
         ImmutableList.<String>builder()
             .addAll(javaToolchain.getJavacOptions(ruleContext))
@@ -485,7 +485,7 @@ public class JavaCommon {
    * Gets the value of the "jvm_flags" attribute combining it with the default options and expanding
    * any make variables and $(location) tags.
    */
-  public static List<String> getJvmFlags(RuleContext ruleContext) {
+  public static List<String> getJvmFlags(RuleContext ruleContext) throws InterruptedException {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
     jvmFlags.addAll(ruleContext.getExpander().withDataLocations().list("jvm_flags"));
@@ -502,7 +502,7 @@ public class JavaCommon {
     }
   }
 
-  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException {
+  public JavaTargetAttributes.Builder initCommon() throws RuleErrorException, InterruptedException {
     return initCommon(ImmutableList.of(), getCompatibleJavacOptions());
   }
 
@@ -515,7 +515,8 @@ public class JavaCommon {
    * @return the processed attributes
    */
   public JavaTargetAttributes.Builder initCommon(
-      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) throws RuleErrorException {
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts)
+      throws RuleErrorException, InterruptedException {
     Preconditions.checkState(javacOpts == null);
     activePlugins = collectPlugins();
     javacOpts = computeJavacOpts(ImmutableList.copyOf(extraJavacOpts));
@@ -678,25 +679,25 @@ public class JavaCommon {
                 coverageSupportFiles))
         .addOutputGroup(OutputGroupInfo.FILES_TO_COMPILE, getFilesToCompile(classJar));
 
-    javaInfoBuilder.addProvider(JavaCompilationInfoProvider.class, compilationInfoProvider);
+    javaInfoBuilder.javaCompilationInfo(compilationInfoProvider);
 
     addCcRelatedProviders(javaInfoBuilder);
   }
 
   /** Adds Cc related providers to a Java target. */
   private void addCcRelatedProviders(JavaInfo.Builder javaInfoBuilder) {
-    Iterable<? extends TransitiveInfoCollection> deps = targetsTreatedAsDeps(ClasspathType.BOTH);
+    ImmutableList<? extends TransitiveInfoCollection> deps =
+        targetsTreatedAsDeps(ClasspathType.BOTH);
 
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream(),
-                JavaInfo.getProvidersFromListOfTargets(JavaCcInfoProvider.class, deps).stream()
-                    .map(JavaCcInfoProvider::getCcInfo))
+                deps.stream().map(JavaInfo::ccInfo))
             .collect(toImmutableList());
 
     CcInfo mergedCcInfo = CcInfo.merge(ccInfos);
 
-    javaInfoBuilder.addProvider(JavaCcInfoProvider.class, new JavaCcInfoProvider(mergedCcInfo));
+    javaInfoBuilder.javaCcInfo(new JavaCcInfoProvider(mergedCcInfo));
   }
 
   private InstrumentedFilesInfo getInstrumentationFilesProvider(
@@ -728,11 +729,9 @@ public class JavaCommon {
             genClassJar,
             genSourceJar,
             activePlugins,
-            getDependencies(JavaGenJarsProvider.class));
+            getDependencies().stream().map(JavaInfo::genJarsProvider).collect(toImmutableList()));
 
-    builder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
-
-    javaInfoBuilder.addProvider(JavaGenJarsProvider.class, genJarsProvider);
+    javaInfoBuilder.javaGenJars(genJarsProvider);
   }
 
   /** Processes the sources of this target, adding them as messages or proper sources. */
@@ -859,11 +858,6 @@ public class JavaCommon {
   /** Gets all the deps. */
   public final List<? extends TransitiveInfoCollection> getDependencies() {
     return targetsTreatedAsDeps(ClasspathType.BOTH);
-  }
-
-  /** Gets all the deps that implement a particular provider. */
-  public final <P extends TransitiveInfoProvider> List<P> getDependencies(Class<P> provider) {
-    return JavaInfo.getProvidersFromListOfTargets(provider, getDependencies());
   }
 
   /**

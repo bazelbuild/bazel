@@ -652,7 +652,7 @@ cc_library(
 count_hints(name = "cnt", deps = [":cc_foo"])
 EOF
 
-  bazel build "//${package}:cnt" --experimental_enable_aspect_hints \
+  bazel build "//${package}:cnt" \
     --output_groups=out \
     || fail "Build failed"
   assert_contains "Used hints: 5" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
@@ -663,22 +663,10 @@ function test_aspect_has_access_to_aspect_hints_attribute_in_starlark_rules() {
   mkdir -p "${package}"
   setup_aspect_hints "${package}"
 
-  bazel build "//${package}:cnt" --experimental_enable_aspect_hints \
+  bazel build "//${package}:cnt" \
     --output_groups=out \
     || fail "Build failed"
   assert_contains "Used hints: 22" "./${PRODUCT_NAME}-bin/${package}/cnt_res"
-}
-
-function test_aspect_hints_disabled() {
-  local package="aspect_hints_disabled"
-  mkdir -p "${package}"
-  setup_aspect_hints "${package}"
-
-  bazel build "//${package}:cnt" --noexperimental_enable_aspect_hints \
-    --output_groups=out &>"${TEST_log}" \
-    && fail "The aspect found 'aspect_hints' although it was disabled"
-
-  expect_log "Error: No attribute 'aspect_hints' in attr."
 }
 
 function setup_aspect_hints() {

@@ -813,13 +813,13 @@ message H {
 }
 EOF
 
-  bazel build -s --noexperimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h:h_cc_proto >& $TEST_log || fail "failed"
-  bazel build -s --noexperimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h:h_java_proto >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_cc_proto >& $TEST_log || fail "failed"
+  bazel build -s --noexperimental_sibling_repository_layout //h:h_java_proto >& $TEST_log || fail "failed"
 
-  bazel build -s --experimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h -s >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports //h:h_cc_proto -s >& $TEST_log || fail "failed"
-  bazel build -s --experimental_sibling_repository_layout --noincompatible_generated_protos_in_virtual_imports  //h:h_java_proto  -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_cc_proto -s >& $TEST_log || fail "failed"
+  bazel build -s --experimental_sibling_repository_layout //h:h_java_proto  -s >& $TEST_log || fail "failed"
 
   expect_not_log "warning: directory does not exist." # --proto_path is wrong
 

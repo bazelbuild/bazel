@@ -301,8 +301,7 @@ public class JavaStarlarkCommon
   public JavaInfo makeNonStrict(JavaInfo javaInfo) {
     return JavaInfo.Builder.copyOf(javaInfo)
         // Overwrites the old provider.
-        .addProvider(
-            JavaCompilationArgsProvider.class,
+        .javaCompilationArgs(
             JavaCompilationArgsProvider.makeNonStrict(
                 javaInfo.getProvider(JavaCompilationArgsProvider.class)))
         .build();
@@ -423,25 +422,23 @@ public class JavaStarlarkCommon
             .build();
     JavaInfo.Builder builder = JavaInfo.Builder.create();
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
-      builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
+      builder.javaCompilationInfo(javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
       JavaCompilationArgsProvider compilationArgsProvider =
           javaInfo.getProvider(JavaCompilationArgsProvider.class);
-      builder.addProvider(
-          JavaCompilationInfoProvider.class,
+      builder.javaCompilationInfo(
           new JavaCompilationInfoProvider.Builder()
               .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
               .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
               .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
-      builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
+      builder.javaGenJars(javaInfo.getGenJarsProvider());
     }
     return builder
-        .addProvider(JavaCcInfoProvider.class, javaInfo.getProvider(JavaCcInfoProvider.class))
-        .addProvider(
-            JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
+        .javaCcInfo(javaInfo.getProvider(JavaCcInfoProvider.class))
+        .javaSourceJars(javaInfo.getProvider(JavaSourceJarsProvider.class))
+        .javaRuleOutputs(ruleOutputs)
         .build();
   }
 

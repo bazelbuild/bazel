@@ -164,8 +164,14 @@ public class ConfiguredTargetAndData {
     return new ConfiguredTargetAndData(maybeNew, target, configuration, transitionKeys, false);
   }
 
+  @Nullable
   public BuildConfigurationValue getConfiguration() {
     return configuration;
+  }
+
+  @Nullable
+  public BuildConfigurationKey getConfigurationKey() {
+    return configuredTarget.getConfigurationKey();
   }
 
   public ConfiguredTarget getConfiguredTarget() {

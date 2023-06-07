@@ -61,6 +61,7 @@ public final class ProguardHelper {
     @Nullable private final Artifact seeds;
     @Nullable private final Artifact usage;
     @Nullable private final Artifact constantStringObfuscatedMapping;
+    @Nullable private final Artifact libraryJar;
     private final Artifact config;
 
     public ProguardOutput(
@@ -70,6 +71,7 @@ public final class ProguardHelper {
         @Nullable Artifact seeds,
         @Nullable Artifact usage,
         @Nullable Artifact constantStringObfuscatedMapping,
+        @Nullable Artifact libraryJar,
         Artifact config) {
       this.outputJar = checkNotNull(outputJar);
       this.mapping = mapping;
@@ -77,11 +79,12 @@ public final class ProguardHelper {
       this.seeds = seeds;
       this.usage = usage;
       this.constantStringObfuscatedMapping = constantStringObfuscatedMapping;
+      this.libraryJar = libraryJar;
       this.config = config;
     }
 
     public static ProguardOutput createEmpty(Artifact outputJar) {
-      return new ProguardOutput(outputJar, null, null, null, null, null, null);
+      return new ProguardOutput(outputJar, null, null, null, null, null, null, null);
     }
 
     public Artifact getOutputJar() {
@@ -115,6 +118,11 @@ public final class ProguardHelper {
     @Nullable
     public Artifact getUsage() {
       return usage;
+    }
+
+    @Nullable
+    public Artifact getLibraryJar() {
+      return libraryJar;
     }
 
     public Artifact getConfig() {
@@ -247,7 +255,8 @@ public final class ProguardHelper {
       @Nullable Artifact proguardUsage,
       RuleContext ruleContext,
       JavaSemantics semantics,
-      @Nullable Artifact proguardOutputMap)
+      @Nullable Artifact proguardOutputMap,
+      @Nullable Artifact libraryJar)
       throws InterruptedException {
     boolean mappingRequested = genProguardMapping(ruleContext.attributes());
 
@@ -274,6 +283,7 @@ public final class ProguardHelper {
         proguardSeeds,
         proguardUsage,
         proguardConstantStringMap,
+        libraryJar,
         proguardConfigOutput);
   }
 
@@ -312,14 +322,7 @@ public final class ProguardHelper {
       throws InterruptedException {
     Preconditions.checkArgument(!proguardSpecs.isEmpty());
 
-    ProguardOutput output =
-        getProguardOutputs(
-            proguardOutputJar,
-            proguardSeeds,
-            proguardUsage,
-            ruleContext,
-            semantics,
-            proguardOutputMap);
+    Artifact libraryJar = null;
 
     if (!libraryJars.isEmpty() && !libraryJars.isSingleton()) {
       JavaTargetAttributes attributes = new JavaTargetAttributes.Builder(semantics).build();
@@ -331,6 +334,9 @@ public final class ProguardHelper {
           .addRuntimeJars(libraryJars)
           .build();
       libraryJars = NestedSetBuilder.create(Order.STABLE_ORDER, combinedLibraryJar);
+      libraryJar = combinedLibraryJar;
+    } else if (libraryJars.isSingleton()) {
+      libraryJar = libraryJars.getSingleton();
     }
 
     boolean filterLibraryJarWithProgramJar =
@@ -338,20 +344,31 @@ public final class ProguardHelper {
 
     if (filterLibraryJarWithProgramJar) {
       Preconditions.checkState(libraryJars.isSingleton());
-      Artifact libraryJar = libraryJars.getSingleton();
+      Artifact singletonLibraryJar = libraryJars.getSingleton();
 
       Artifact filteredLibraryJar =
           getProguardTempArtifact(ruleContext, "combined_library_jars_filtered.jar");
 
       new ZipFilterBuilder(ruleContext)
-          .setInputZip(libraryJar)
+          .setInputZip(singletonLibraryJar)
           .setOutputZip(filteredLibraryJar)
           .addFilterZips(ImmutableList.of(programJar))
           .setCheckHashMismatchMode(ZipFilterBuilder.CheckHashMismatchMode.NONE)
           .build();
 
       libraryJars = NestedSetBuilder.create(Order.STABLE_ORDER, filteredLibraryJar);
+      libraryJar = filteredLibraryJar;
     }
+
+    ProguardOutput output =
+        getProguardOutputs(
+            proguardOutputJar,
+            proguardSeeds,
+            proguardUsage,
+            ruleContext,
+            semantics,
+            proguardOutputMap,
+            libraryJar);
 
     JavaConfiguration javaConfiguration =
         ruleContext.getConfiguration().getFragment(JavaConfiguration.class);

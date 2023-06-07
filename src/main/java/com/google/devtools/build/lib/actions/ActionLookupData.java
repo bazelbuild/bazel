@@ -81,7 +81,7 @@ public abstract class ActionLookupData implements ExecutionPhaseSkyKey {
     this.actionLookupKey = Preconditions.checkNotNull(actionLookupKey);
   }
 
-  public ActionLookupKeyOrProxy getActionLookupKey() {
+  public final ActionLookupKeyOrProxy getActionLookupKey() {
     return actionLookupKey;
   }
 

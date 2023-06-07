@@ -17,8 +17,12 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.vfs.FileSystem;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import java.io.File;
@@ -47,9 +51,14 @@ public class WorkerSpawnStrategyTest {
       flags.forEach(pw::println);
     }
 
-    Path execRoot = fs.getPath(folder.getRoot().getAbsolutePath());
+    RootedPath path =
+        RootedPath.toRootedPath(Root.absoluteRoot(fs), fs.getPath(flagfile.getAbsolutePath()));
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
-    WorkerSpawnRunner.expandArgument(execRoot, "@flagfile.txt", requestBuilder);
+    SandboxInputs inputs =
+        new SandboxInputs(
+            ImmutableMap.of(PathFragment.create("flagfile.txt"), path), ImmutableMap.of(),
+            ImmutableMap.of(), ImmutableMap.of());
+    WorkerSpawnRunner.expandArgument(inputs, "@flagfile.txt", requestBuilder);
 
     assertThat(requestBuilder.getArgumentsList()).containsExactlyElementsIn(flags);
   }

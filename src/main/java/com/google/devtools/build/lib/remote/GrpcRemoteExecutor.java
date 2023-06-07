@@ -252,4 +252,8 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
     }
     channel.release();
   }
+
+  RemoteRetrier getRetrier() {
+    return this.retrier;
+  }
 }

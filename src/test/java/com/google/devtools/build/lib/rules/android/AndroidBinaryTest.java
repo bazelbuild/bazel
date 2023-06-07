@@ -358,6 +358,87 @@ public abstract class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testOptimizedDexingWithLegacyMultidex() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    proguard_specs = ['specs.pgcfg'],",
+        "    proguard_generate_mapping = True,",
+        "    multidex = 'legacy')");
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'optimizing_dexer',",
+        "    srcs = ['main.cc'])");
+    useConfiguration("--optimizing_dexer=//tools/fake:optimizing_dexer");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/a:a");
+    Artifact proguardedJar =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "a_proguard.jar");
+    Artifact proguardMap =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "a_proguard.map");
+
+    Artifact dexedZip =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "/_dx/a/classes.dex.zip");
+    SpawnAction proguard = getGeneratingSpawnAction(proguardedJar);
+    SpawnAction dexer = getGeneratingSpawnAction(dexedZip);
+    assertThat(dexer).isEqualTo(getGeneratingSpawnAction(proguardMap));
+    List<String> dexerArgs = dexer.getArguments();
+
+    assertThat(dexerArgs).contains("--release");
+    assertThat(dexerArgs).contains("--no-desugaring");
+    MoreAsserts.assertContainsSublist(dexerArgs, "--lib", getAndroidJarPath());
+    Artifact mainDexList =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
+            "/_dx/a/main_dex_list.txt");
+    MoreAsserts.assertContainsSublist(
+        dexerArgs, "--main-dex-list", mainDexList.getExecPath().getPathString());
+    Artifact proguardMapInput =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)),
+            "/proguard/a/legacy_a_pre_dexing.map");
+    MoreAsserts.assertContainsSublist(
+        dexerArgs, "--pg-map", proguardMapInput.getExecPath().getPathString());
+  }
+
+  @Test
+  public void testOptimizedDexingWithNativeMultidex() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "android_binary(",
+        "    name = 'a',",
+        "    srcs = ['A.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "    proguard_specs = ['specs.pgcfg'],",
+        "    proguard_generate_mapping = True,",
+        "    multidex = 'native')");
+    scratch.file(
+        "tools/fake/BUILD",
+        "cc_binary(",
+        "    name = 'optimizing_dexer',",
+        "    srcs = ['main.cc'])");
+    useConfiguration("--optimizing_dexer=//tools/fake:optimizing_dexer");
+
+    // The behavior should match legacy multidex except for the main dex list and min sdk, so we
+    // only check those flags.
+    ConfiguredTarget binary = getConfiguredTarget("//java/a:a");
+    Artifact dexedZip =
+        ActionsTestUtil.getFirstArtifactEndingWith(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)), "/_dx/a/classes.dex.zip");
+    SpawnAction dexer = getGeneratingSpawnAction(dexedZip);
+    List<String> dexerArgs = dexer.getArguments();
+    assertThat(dexerArgs).doesNotContain("--main-dex-list");
+    MoreAsserts.assertContainsSublist(dexerArgs, "--min-api", "21");
+  }
+
+  @Test
   public void testMainDexListObfuscation() throws Exception {
     useConfiguration("--noincremental_dexing");
     scratch.file("/java/a/list.txt");

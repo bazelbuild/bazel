@@ -57,12 +57,33 @@ public final class TransitiveDependencyState {
     this.prerequisitePackages = prerequisitePackages;
   }
 
+  public static TransitiveDependencyState createForTesting(
+      NestedSetBuilder<Cause> transitiveRootCauses,
+      @Nullable NestedSetBuilder<Package> transitivePackages) {
+    return new TransitiveDependencyState(
+        transitiveRootCauses,
+        transitivePackages,
+        // Passing an empty map here means that there will few, if any, existing prerequisite
+        // Packages. This causes the underlying code to fall back on declaring Package edges for
+        // prerequisites.
+        new ConcurrentHashMap<>());
+  }
+
+  public NestedSetBuilder<Cause> transitiveRootCauses() {
+    return transitiveRootCauses;
+  }
+
+  @Nullable
   public NestedSetBuilder<Package> transitivePackages() {
     return transitivePackages;
   }
 
   public void addTransitiveCauses(NestedSet<Cause> transitiveCauses) {
     transitiveRootCauses.addTransitive(transitiveCauses);
+  }
+
+  public void addTransitiveCause(Cause cause) {
+    transitiveRootCauses.add(cause);
   }
 
   /**
@@ -77,11 +98,30 @@ public final class TransitiveDependencyState {
     transitivePackages.addTransitive(configuredTarget.getTransitivePackages());
   }
 
+  /**
+   * Adds to the set of transitive packages if tracked.
+   *
+   * <p>This is a no-op otherwise.
+   */
+  public void updateTransitivePackages(Package pkg) {
+    if (transitivePackages == null) {
+      return;
+    }
+    transitivePackages.add(pkg);
+  }
+
   @Nullable
   public Package getDependencyPackage(PackageIdentifier packageId) {
     if (prerequisitePackages == null) {
       return null;
     }
     return prerequisitePackages.get(packageId);
+  }
+
+  public void putDependencyPackageIfAbsent(PackageIdentifier packageId, Package pkg) {
+    if (prerequisitePackages == null) {
+      return;
+    }
+    prerequisitePackages.putIfAbsent(packageId, pkg);
   }
 }

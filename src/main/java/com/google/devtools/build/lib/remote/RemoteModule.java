@@ -59,7 +59,9 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
@@ -134,7 +136,6 @@ public final class RemoteModule extends BlazeModule {
   @Nullable private ExecutorService executorService;
   @Nullable private RemoteActionContextProvider actionContextProvider;
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
-  @Nullable private ToplevelArtifactsDownloader toplevelArtifactsDownloader;
   @Nullable private RemoteOptions remoteOptions;
   @Nullable private RemoteOutputService remoteOutputService;
   @Nullable private TempPathGenerator tempPathGenerator;
@@ -443,45 +444,49 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if (enableRemoteExecution) {
-      ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-      interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
-      if (loggingInterceptor != null) {
-        interceptors.add(loggingInterceptor);
-      }
-      execChannel =
-          new ReferenceCountedChannel(
-              new GoogleChannelConnectionFactory(
-                  channelFactory,
-                  remoteOptions.remoteExecutor,
-                  remoteOptions.remoteProxy,
-                  authAndTlsOptions,
-                  interceptors.build(),
-                  maxConcurrencyPerConnection),
-              maxConnections);
+      try (var s = Profiler.instance().profile("init exec channel")) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
+        execChannel =
+            new ReferenceCountedChannel(
+                new GoogleChannelConnectionFactory(
+                    channelFactory,
+                    remoteOptions.remoteExecutor,
+                    remoteOptions.remoteProxy,
+                    authAndTlsOptions,
+                    interceptors.build(),
+                    maxConcurrencyPerConnection),
+                maxConnections);
 
-      // Create a separate channel if --remote_executor and --remote_cache point to different
-      // endpoints.
-      if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
-        cacheChannel = execChannel.retain();
+        // Create a separate channel if --remote_executor and --remote_cache point to different
+        // endpoints.
+        if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+          cacheChannel = execChannel.retain();
+        }
       }
     }
 
     if (cacheChannel == null) {
-      ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-      interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
-      if (loggingInterceptor != null) {
-        interceptors.add(loggingInterceptor);
+      try (var s = Profiler.instance().profile("init cache channel")) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
+        cacheChannel =
+            new ReferenceCountedChannel(
+                new GoogleChannelConnectionFactory(
+                    channelFactory,
+                    remoteOptions.remoteCache,
+                    remoteOptions.remoteProxy,
+                    authAndTlsOptions,
+                    interceptors.build(),
+                    maxConcurrencyPerConnection),
+                maxConnections);
       }
-      cacheChannel =
-          new ReferenceCountedChannel(
-              new GoogleChannelConnectionFactory(
-                  channelFactory,
-                  remoteOptions.remoteCache,
-                  remoteOptions.remoteProxy,
-                  authAndTlsOptions,
-                  interceptors.build(),
-                  maxConcurrencyPerConnection),
-              maxConnections);
     }
 
     if (enableRemoteDownloader) {
@@ -511,12 +516,11 @@ public final class RemoteModule extends BlazeModule {
         GoogleAuthUtils.newCallCredentialsProvider(credentials);
     CallCredentials callCredentials = callCredentialsProvider.getCallCredentials();
 
+    Retrier.CircuitBreaker circuitBreaker =
+        CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     RemoteRetrier retrier =
         new RemoteRetrier(
-            remoteOptions,
-            RemoteRetrier.RETRIABLE_GRPC_ERRORS,
-            retryScheduler,
-            Retrier.ALLOW_ALL_CALLS);
+            remoteOptions, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryScheduler, circuitBreaker);
 
     // We only check required capabilities for a given endpoint.
     //
@@ -527,7 +531,7 @@ public final class RemoteModule extends BlazeModule {
     // capabilities respectively.
     ServerCapabilities executionCapabilities = null;
     ServerCapabilities cacheCapabilities = null;
-    try {
+    try (var s = Profiler.instance().profile("check server capabilities")) {
       if (execChannel != null) {
         if (cacheChannel != execChannel) {
           executionCapabilities =
@@ -637,7 +641,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_ERRORS, // Handle NOT_FOUND internally
                 retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
+                circuitBreaker);
         remoteExecutor =
             new ExperimentalGrpcRemoteExecutor(
                 executionCapabilities,
@@ -651,7 +655,7 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions,
                 RemoteRetrier.RETRIABLE_GRPC_EXEC_ERRORS,
                 retryScheduler,
-                Retrier.ALLOW_ALL_CALLS);
+                circuitBreaker);
         remoteExecutor =
             new GrpcRemoteExecutor(
                 executionCapabilities, execChannel.retain(), callCredentialsProvider, execRetrier);
@@ -884,7 +888,6 @@ public final class RemoteModule extends BlazeModule {
     remoteDownloaderSupplier.set(null);
     actionContextProvider = null;
     actionInputFetcher = null;
-    toplevelArtifactsDownloader = null;
     remoteOptions = null;
     remoteOutputService = null;
     tempPathGenerator = null;
@@ -1013,20 +1016,6 @@ public final class RemoteModule extends BlazeModule {
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);
-
-      toplevelArtifactsDownloader =
-          new ToplevelArtifactsDownloader(
-              actionInputFetcher,
-              env.getExecRoot().asFragment(),
-              (path) -> {
-                FileSystem fileSystem = path.getFileSystem();
-                if (fileSystem instanceof RemoteActionFileSystem) {
-                  RemoteActionFileSystem rafs = (RemoteActionFileSystem) path.getFileSystem();
-                  return rafs::getOutputMetadataForTopLevelArtifactDownloader;
-                }
-                return null;
-              });
-      env.getEventBus().register(toplevelArtifactsDownloader);
 
       var leaseService =
           new LeaseService(

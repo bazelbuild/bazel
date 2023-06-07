@@ -320,7 +320,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setDigest(new byte[] {1})
             .build();
 
-    assertThat(checker.check(key, usual, SyscallCache.NO_CACHE, tsgm).isDirty()).isFalse();
+    assertThat(
+            checker.check(key, usual, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm).isDirty())
+        .isFalse();
 
     SuccessfulRepositoryDirectoryValue fetchDelayed =
         RepositoryDirectoryValue.builder()
@@ -329,7 +331,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             .setDigest(new byte[] {1})
             .build();
 
-    assertThat(checker.check(key, fetchDelayed, SyscallCache.NO_CACHE, tsgm).isDirty()).isTrue();
+    assertThat(
+            checker
+                .check(key, fetchDelayed, /* oldMtsv= */ null, SyscallCache.NO_CACHE, tsgm)
+                .isDirty())
+        .isTrue();
   }
 
   @Test

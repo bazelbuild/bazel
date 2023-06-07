@@ -85,6 +85,7 @@ public class SandboxfsSandboxedSpawnTest {
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
             "Mnemonic",
+            /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null);
 
     spawn.createFileSystem();
@@ -116,6 +117,7 @@ public class SandboxfsSandboxedSpawnTest {
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
             "Mnemonic",
+            /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null);
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -147,6 +149,7 @@ public class SandboxfsSandboxedSpawnTest {
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
             "Mnemonic",
+            /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null);
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -181,6 +184,7 @@ public class SandboxfsSandboxedSpawnTest {
             /* mapSymlinkTargets= */ false,
             new SynchronousTreeDeleter(),
             "Mnemonic",
+            /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null);
     spawn.createFileSystem();
     Path execRoot = spawn.getSandboxExecRoot();
@@ -256,6 +260,7 @@ public class SandboxfsSandboxedSpawnTest {
             mapSymlinkTargets,
             new SynchronousTreeDeleter(),
             "Mnemonic",
+            /* sandboxDebugPath= */ null,
             /* statisticsPath= */ null);
 
     spawn.createFileSystem();

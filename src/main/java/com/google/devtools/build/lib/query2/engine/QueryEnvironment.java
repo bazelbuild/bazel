@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.Package.LoadGraphVisitor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
@@ -562,15 +564,42 @@ public interface QueryEnvironment<T> {
       throws QueryException;
 
   /**
-   * Returns the set of BUILD, and optionally Starlark files that define the given set of targets.
-   * Each such file is itself represented as a target in the result.
+   * Helper for {@link #transitiveLoadFiles}. Encapsulates the differences between the different
+   * {@link QueryEnvironment} implementations.
    */
-  ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<T> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<T> context)
+  interface TransitiveLoadFilesHelper<T> {
+    PackageIdentifier getPkgId(T target);
+
+    void visitLoads(
+        T originalTarget, LoadGraphVisitor<QueryException, InterruptedException> visitor)
+        throws QueryException, InterruptedException;
+
+    T getBuildFileTarget(T originalTarget);
+
+    T getLoadFileTarget(T originalTarget, Label bzlLabel);
+
+    @Nullable
+    T maybeGetBuildFileTargetForLoadFileTarget(T originalTarget, Label bzlLabel)
+        throws QueryException, InterruptedException;
+  }
+
+  TransitiveLoadFilesHelper<T> getTransitiveLoadFilesHelper() throws QueryException;
+
+  /**
+   * Feeds to the given {@code callback} the transitive bzl files loaded (and BUILD files too, if
+   * {@code alsoAddBuildFiles} says to), represented as make-believe targets corresponding to their
+   * load labels, across all unique packages in {@code targets}, using {@code seenPackages} and
+   * {@code seenBzlLabels} to avoid duplicate work and using {@code uniquifier} to avoid feeding
+   * duplicate results.
+   */
+  void transitiveLoadFiles(
+      Iterable<T> targets,
+      boolean alsoAddBuildFiles,
+      Set<PackageIdentifier> seenPackages,
+      Set<Label> seenBzlLabels,
+      Uniquifier<T> uniquifier,
+      TransitiveLoadFilesHelper<T> helper,
+      Callback<T> callback)
       throws QueryException, InterruptedException;
 
   /**

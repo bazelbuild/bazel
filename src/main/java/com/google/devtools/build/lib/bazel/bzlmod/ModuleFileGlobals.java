@@ -396,7 +396,10 @@ public class ModuleFileGlobals {
           @Param(
               name = "toolchain_labels",
               allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
-              doc = "The labels of the toolchains to register."))
+              doc =
+                  "The labels of the toolchains to register. Labels can include "
+                      + "<code>:all</code>, in which case, all toolchain-providing targets in the "
+                      + "package will be registered in lexicographical order by name."))
   public void registerToolchains(boolean devDependency, Sequence<?> toolchainLabels)
       throws EvalException {
     hadNonModuleCall = true;

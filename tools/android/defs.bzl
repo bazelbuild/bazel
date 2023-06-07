@@ -32,6 +32,7 @@ run_ijar = rule(
             providers = [java_common.JavaToolchainInfo],
         ),
     },
+    toolchains = ["@bazel_tools//tools/jdk:toolchain_type"],
 )
 
 def _run_singlejar(ctx):

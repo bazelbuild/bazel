@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttrModule;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -118,7 +118,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "parametrized_native_aspect",
         TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
     builder.addNativeAspectClass(TestAspects.PARAMETRIZED_STARLARK_NATIVE_ASPECT_WITH_PROVIDER);
@@ -2952,8 +2952,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testLabelWithStrictVisibility() throws Exception {
-    ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
-    StarlarkModules.addPredeclared(predeclared);
     RepositoryName currentRepo = RepositoryName.createUnvalidated("module~1.2.3");
     RepositoryName otherRepo = RepositoryName.createUnvalidated("dep~4.5");
     Label bzlLabel =
@@ -2969,7 +2967,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
             /* bzlTransitiveDigest= */ new byte[0]);
     Module module =
         Module.withPredeclaredAndData(
-            StarlarkSemantics.DEFAULT, predeclared.buildOrThrow(), clientData);
+            StarlarkSemantics.DEFAULT,
+            StarlarkGlobalsImpl.INSTANCE.getFixedBzlToplevels(),
+            clientData);
 
     assertThat(eval(module, "Label('//foo:bar').workspace_root"))
         .isEqualTo("external/module~1.2.3");

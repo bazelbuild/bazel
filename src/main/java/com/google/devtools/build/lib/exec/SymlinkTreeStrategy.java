@@ -163,7 +163,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       // If we don't have an input manifest, then create a file containing a fingerprint of
       // the runfiles object.
       Fingerprint fp = new Fingerprint();
-      action.getRunfiles().fingerprint(fp);
+      action.getRunfiles().fingerprint(actionExecutionContext.getActionKeyContext(), fp);
       String hexDigest = fp.hexDigestAndReset();
       try {
         FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);

@@ -64,6 +64,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
@@ -81,6 +84,13 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     private final Artifact volatileStatus;
     private final String username;
     private final String hostname;
+
+    private static final DateTimeFormatter TIME_FORMAT =
+        DateTimeFormatter.ofPattern("yyyy MMM d HH mm ss EEE");
+
+    private static String format(long timestamp) {
+      return Instant.ofEpochMilli(timestamp).atZone(ZoneOffset.UTC).format(TIME_FORMAT);
+    }
 
     BazelWorkspaceStatusAction(
         Artifact stableStatus, Artifact volatileStatus, String username, String hostname) {
@@ -184,6 +194,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       stableMap.put(BuildInfo.BUILD_USER, username);
       volatileMap.put(
           BuildInfo.BUILD_TIMESTAMP, Long.toString(getCurrentTimeMillis(clientEnv) / 1000));
+      volatileMap.put("FORMATTED_DATE", format(getCurrentTimeMillis(clientEnv) / 1000 * 1000));
       try {
         Map<String, String> statusMap =
             parseWorkspaceStatus(getAdditionalWorkspaceStatus(options, actionExecutionContext));

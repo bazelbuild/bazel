@@ -1125,10 +1125,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     return rawLabels == null ? getDefaultVisibility().getDeclaredLabels() : rawLabels;
   }
 
-  public boolean isVisibilitySpecified() {
-    return ruleClass.getName().equals("bind") || isAttributeValueExplicitlySpecified("visibility");
-  }
-
   @Nullable
   @SuppressWarnings("unchecked")
   private List<Label> getRawVisibilityLabels() {

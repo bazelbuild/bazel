@@ -62,7 +62,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       CqueryOptions options,
       OutputStream out,
       SkyframeExecutor skyframeExecutor,
-      TargetAccessor<KeyedConfiguredTarget> accessor,
+      TargetAccessor<ConfiguredTarget> accessor,
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       RepositoryMapping mainRepoMapping) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
@@ -72,8 +72,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTarget> partialResult)
-      throws InterruptedException {
+  public void processOutput(Iterable<ConfiguredTarget> partialResult) throws InterruptedException {
     CqueryOptions.Transitions verbosity = options.transitions;
     if (verbosity.equals(CqueryOptions.Transitions.NONE)) {
       eventHandler.handle(
@@ -82,19 +81,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                   + " flag explicitly to 'lite' or 'full'"));
       return;
     }
-    partialResult.forEach(kct -> partialResultMap.put(kct.getLabel(), accessor.getTarget(kct)));
-    for (KeyedConfiguredTarget keyedConfiguredTarget : partialResult) {
-      Target target = partialResultMap.get(keyedConfiguredTarget.getLabel());
+    partialResult.forEach(
+        kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
+    for (ConfiguredTarget keyedConfiguredTarget : partialResult) {
+      Target target = partialResultMap.get(keyedConfiguredTarget.getOriginalLabel());
       BuildConfigurationValue config =
           getConfiguration(keyedConfiguredTarget.getConfigurationKey());
       addResult(
-          getRuleClassTransition(keyedConfiguredTarget.getConfiguredTarget(), target)
+          getRuleClassTransition(keyedConfiguredTarget, target)
               + String.format(
                   "%s (%s)",
-                  keyedConfiguredTarget
-                      .getConfiguredTarget()
-                      .getOriginalLabel()
-                      .getDisplayForm(mainRepoMapping),
+                  keyedConfiguredTarget.getOriginalLabel().getDisplayForm(mainRepoMapping),
                   shortId(config)));
       KnownTargetsDependencyResolver knownTargetsDependencyResolver =
           new KnownTargetsDependencyResolver(partialResultMap);
@@ -124,14 +121,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .concat("#")
                 .concat(dep.transitionName())
                 .concat(" -> ")
-                .concat(
-                    dep.options().stream()
-                        .map(
-                            options -> {
-                              String checksum = options.checksum();
-                              return shortId(checksum);
-                            })
-                        .collect(joining(", "))));
+                .concat(dep.options().stream().map(BuildOptions::shortId).collect(joining(", "))));
         if (verbosity == CqueryOptions.Transitions.LITE) {
           continue;
         }

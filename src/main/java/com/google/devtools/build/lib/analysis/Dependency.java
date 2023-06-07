@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.auto.value.AutoValue;
+import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -98,13 +99,17 @@ public abstract class Dependency {
 
     protected abstract ImmutableList<String> getTransitionKeys();
 
+    @Nullable
+    protected abstract Label getExecutionPlatformLabel();
+
     /** Returns a copy of this Builder, with the values the same. */
     public Builder copy() {
       return Dependency.builder()
           .setLabel(getLabel())
           .setConfiguration(getConfiguration())
           .setAspects(getAspects())
-          .setTransitionKeys(getTransitionKeys());
+          .setTransitionKeys(getTransitionKeys())
+          .setExecutionPlatformLabel(getExecutionPlatformLabel());
     }
   }
 
@@ -149,6 +154,7 @@ public abstract class Dependency {
   public abstract Label getExecutionPlatformLabel();
 
   /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
+  @Memoized
   public ConfiguredTargetKey getConfiguredTargetKey() {
     ConfiguredTargetKey.Builder configuredTargetKeyBuilder =
         ConfiguredTargetKey.builder().setLabel(getLabel()).setConfiguration(getConfiguration());

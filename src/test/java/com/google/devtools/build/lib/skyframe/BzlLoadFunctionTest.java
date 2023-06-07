@@ -305,6 +305,61 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     assertContainsEvent("in .scl files, load labels must begin with \"//\"");
   }
 
+  @Test
+  public void testSclSupportsStructAndVisibility() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.scl", //
+        "visibility('private')",
+        "a = struct()");
+    scratch.file(
+        "pkg/ext2.scl", //
+        "load('//pkg:ext1.scl', 'a')");
+    scratch.file("pkg2/BUILD");
+    scratch.file(
+        "pkg2/ext3.scl", //
+        "load('//pkg:ext1.scl', 'a')");
+
+    checkSuccessfulLookup("//pkg:ext2.scl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup(
+        "//pkg2:ext3.scl", "module //pkg2:ext3.scl contains .bzl load visibility violations");
+  }
+
+  @Test
+  public void testSclDoesNotSupportOtherBazelSymbols() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext.scl", //
+        "a = depset([])");
+
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext.scl", "compilation of module 'pkg/ext.scl' failed");
+    assertContainsEvent("name 'depset' is not defined");
+  }
+
+  @Test
+  public void testSclDisallowsNonAsciiStringLiterals() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_scl_dialect=true");
+
+    scratch.file("pkg/BUILD");
+    scratch.file(
+        "pkg/ext1.bzl", //
+        "'x\377z'"); // xÿz
+    scratch.file(
+        "pkg/ext2.scl", //
+        "'x\377z'");
+
+    checkSuccessfulLookup("//pkg:ext1.bzl");
+    reporter.removeHandler(failFastHandler);
+    checkFailingLookup("//pkg:ext2.scl", "compilation of module 'pkg/ext2.scl' failed");
+    assertContainsEvent("string literal contains non-ASCII character");
+  }
+
   private EvaluationResult<BzlLoadValue> get(SkyKey skyKey) throws Exception {
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(

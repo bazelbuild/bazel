@@ -12,18 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""This is an experimental implementation of cc_shared_library.
-
-We may change the implementation at any moment or even delete this file. Do not
-rely on this. It requires bazel >1.2  and passing the flag
---experimental_cc_shared_library
-"""
+"""Implementation of cc_shared_library"""
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 
 # TODO(#5200): Add export_define to library_to_link and cc_library
 
@@ -51,42 +47,6 @@ CcSharedLibraryInfo = provider(
                                  "initializers. If we try to link them more than once, " +
                                  "we will throw an error",
         "linker_input": "the resulting linker input artifact for the shared library",
-    },
-)
-
-CcSharedLibraryHintInfo = provider(
-    doc = """
-    This provider should be used by rules that provide C++ linker inputs and
-    want to guide what the cc_shared_library uses. The reason for this may be
-    for example because the rule is not providing a standard provider like
-    CcInfo or ProtoInfo or because the rule does not want certain attributes
-    to be used for linking into shared libraries. It may also be needed if the
-    rule is using non-standard linker_input.owner names.
-
-    Propagation of the cc_shared_library aspect will always happen via all
-    attributes that provide either CcInfo, ProtoInfo or
-    CcSharedLibraryHintInfo, the hints control whether the result of that
-    propagation actually gets used.
-    """,
-    fields = {
-        "attributes": ("[String] - If not set, the aspect will use the result of every " +
-                       "dependency that provides CcInfo, ProtoInfo or CcSharedLibraryHintInfo. " +
-                       "If empty list, the aspect will not use the result of any dependency. If " +
-                       "the list contains a list of attribute names, the aspect will only use the " +
-                       "dependencies corresponding to those attributes as long as they provide CcInfo, " +
-                       "ProtoInfo or CcSharedLibraryHintInfo"),
-        "owners": ("[Label] - cc_shared_library will know which linker_inputs to link based on the owners " +
-                   "field of each linker_input. Most rules will simply use the ctx.label but certain " +
-                   "APIs like cc_common.create_linker_input(owner=) accept any label. " +
-                   "cc_common.create_linking_context_from_compilation_outputs() accepts a `name` which " +
-                   "will then be used to create the owner of the linker_input together with ctx.package." +
-                   "For these cases, since the cc_shared_library cannot guess, the rule author should " +
-                   "provide a hint with the owners of the linker inputs. If the value of owners is not set, then " +
-                   "ctx.label will be used. If the rule author passes a list and they want ctx.label plus some other " +
-                   "label then they will have to add ctx.label explicitly. If you want to use custom owners from C++ " +
-                   "rules keep as close to the original ctx.label as possible, to avoid conflicts with linker_inputs " +
-                   "created by other targets keep the original repository name, the original package name and re-use " +
-                   "the original name as part of your new name, limiting your custom addition to a prefix or suffix."),
     },
 )
 
@@ -595,10 +555,8 @@ def _cc_shared_library_impl(ctx):
     runfiles = ctx.runfiles(
         files = runfiles_files,
     )
-    transitive_debug_files = []
     for dep in ctx.attr.dynamic_deps:
         runfiles = runfiles.merge(dep[DefaultInfo].data_runfiles)
-        transitive_debug_files.append(dep[OutputGroupInfo].rule_impl_debug_files)
 
     precompiled_only_dynamic_libraries_runfiles = []
     for precompiled_dynamic_library in precompiled_only_dynamic_libraries:
@@ -611,16 +569,6 @@ def _cc_shared_library_impl(ctx):
 
     for export in deps:
         exports[str(export.label)] = True
-
-    debug_files = []
-    exports_debug_file = ctx.actions.declare_file(ctx.label.name + "_exports.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + exports.keys()), output = exports_debug_file)
-
-    link_once_static_libs_debug_file = ctx.actions.declare_file(ctx.label.name + "_link_once_static_libs.txt")
-    ctx.actions.write(content = "\n".join(["Owner:" + str(ctx.label)] + curr_link_once_static_libs_set), output = link_once_static_libs_debug_file)
-
-    debug_files.append(exports_debug_file)
-    debug_files.append(link_once_static_libs_debug_file)
 
     if not semantics.get_experimental_link_static_libraries_once(ctx):
         curr_link_once_static_libs_set = {}
@@ -647,7 +595,6 @@ def _cc_shared_library_impl(ctx):
         OutputGroupInfo(
             main_shared_library_output = depset(library),
             interface_library = depset(interface_library),
-            rule_impl_debug_files = depset(direct = debug_files, transitive = transitive_debug_files),
         ),
         CcSharedLibraryInfo(
             dynamic_deps = merged_cc_shared_library_info,

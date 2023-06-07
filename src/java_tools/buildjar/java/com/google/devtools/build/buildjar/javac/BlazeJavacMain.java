@@ -295,7 +295,7 @@ public class BlazeJavacMain {
                 .filter(f -> f.getFileName().toString().equals("module-info.java"))
                 .collect(toImmutableList());
         if (moduleInfos.size() == 1) {
-          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).getParent());
+          sourcePath = ImmutableList.of(getOnlyElement(moduleInfos).toAbsolutePath().getParent());
         }
       }
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, sourcePath);

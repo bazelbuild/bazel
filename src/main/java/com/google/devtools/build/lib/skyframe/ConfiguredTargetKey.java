@@ -320,12 +320,14 @@ public abstract class ConfiguredTargetKey implements ActionLookupKeyOrProxy {
     return new Builder();
   }
 
-  /** Returns a new {@link ConfiguredTargetKey}. */
+  /** Returns the {@link ConfiguredTargetKey} that owns {@code configuredTarget}. */
   public static ConfiguredTargetKey fromConfiguredTarget(ConfiguredTarget configuredTarget) {
-    return builder()
-        .setLabel(configuredTarget.getOriginalLabel())
-        .setConfigurationKey(configuredTarget.getConfigurationKey())
-        .build();
+    // If configuredTarget is a MergedConfiguredTarget unwraps it first. MergedConfiguredTarget is
+    // ephemeral and does not have a directly corresponding entry in Skyframe.
+    //
+    // The cast exists because the key passes through parts of analysis that work on both aspects
+    // and configured targets. This process discards the key's specific type information.
+    return (ConfiguredTargetKey) configuredTarget.unwrapIfMerged().getKeyOrProxy();
   }
 
   /** A helper class to create instances of {@link ConfiguredTargetKey}. */

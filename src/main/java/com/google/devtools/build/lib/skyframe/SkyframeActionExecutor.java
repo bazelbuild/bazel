@@ -221,6 +221,18 @@ public final class SkyframeActionExecutor {
   private DiscoveredModulesPruner discoveredModulesPruner;
 
   @Nullable private Semaphore cacheHitSemaphore;
+  /**
+   * If not null, we use this semaphore to limit the number of concurrent actions instead of
+   * depending on the size of thread pool.
+   *
+   * <p>With internal changes in JDK19, ForkJoinPool can spawn additional threads (work-stealing)
+   * which means we couldn't rely on it if we want the number of concurrent actions to be exactly
+   * equal to --jobs.
+   *
+   * <p>In the future, when async exec is enabled, we also want to use this for limiting parallelism
+   * requested by --jobs.
+   */
+  @Nullable private Semaphore actionExecutionSemaphore;
 
   SkyframeActionExecutor(
       ActionKeyContext actionKeyContext,
@@ -272,6 +284,8 @@ public final class SkyframeActionExecutor {
     this.executorEngine = checkNotNull(executor);
     this.progressSuppressingEventHandler = new ProgressSuppressingEventHandler(reporter);
 
+    var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+
     // Start with a new map each build so there's no issue with internal resizing.
     this.buildActionMap = Maps.newConcurrentMap();
     this.completedAndResetActions = Sets.newConcurrentHashSet();
@@ -281,12 +295,11 @@ public final class SkyframeActionExecutor {
     // Don't cache possibly stale data from the last build.
     this.options = options;
     // Cache some option values for performance, since we consult them on every action.
-    this.finalizeActions = options.getOptions(BuildRequestOptions.class).finalizeActions;
+    this.finalizeActions = buildRequestOptions.finalizeActions;
     this.outputService = outputService;
 
     this.outputDirectoryHelper =
-        new ActionOutputDirectoryHelper(
-            options.getOptions(BuildRequestOptions.class).directoryCreationCacheSpec);
+        new ActionOutputDirectoryHelper(buildRequestOptions.directoryCreationCacheSpec);
 
     // Retaining discovered inputs is only worthwhile for incremental builds or builds with extra
     // actions, which consume their shadowed action's discovered inputs.
@@ -297,6 +310,9 @@ public final class SkyframeActionExecutor {
         options.getOptions(CoreOptions.class).throttleActionCacheCheck
             ? new Semaphore(ResourceUsage.getAvailableProcessors())
             : null;
+
+    this.actionExecutionSemaphore =
+        buildRequestOptions.useSemaphoreForJobs ? new Semaphore(buildRequestOptions.jobs) : null;
   }
 
   public void setActionLogBufferPathGenerator(
@@ -520,10 +536,18 @@ public final class SkyframeActionExecutor {
 
     ActionExecutionValue result = null;
     ActionExecutionException finalException = null;
+
+    if (actionExecutionSemaphore != null) {
+      actionExecutionSemaphore.acquire();
+    }
     try {
       result = activeAction.getResultOrDependOnFuture(env, actionLookupData, action, callback);
     } catch (ActionExecutionException e) {
       finalException = e;
+    } finally {
+      if (actionExecutionSemaphore != null) {
+        actionExecutionSemaphore.release();
+      }
     }
 
     if (result != null || finalException != null) {
@@ -586,7 +610,7 @@ public final class SkyframeActionExecutor {
     } catch (IOException e) {
       String message = "Failed to close action output: " + e.getMessage();
       DetailedExitCode code = createDetailedExitCode(message, Code.ACTION_OUTPUT_CLOSE_FAILURE);
-      throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
+      throw new ActionExecutionException(message, e, action, /* catastrophe= */ false, code);
     }
   }
 
@@ -762,7 +786,7 @@ public final class SkyframeActionExecutor {
           new ActionExecutionException(
               e,
               action,
-              /*catastrophe=*/ false,
+              /* catastrophe= */ false,
               DetailedExitCode.of(
                   FailureDetail.newBuilder()
                       .setMessage(e.getMessage())
@@ -812,7 +836,7 @@ public final class SkyframeActionExecutor {
           actionFileSystem,
           env,
           THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
-          /*filesets=*/ ImmutableMap.of());
+          /* filesets= */ ImmutableMap.of());
       // Note that when not using ActionFS, a global setup of the parent directories of the OutErr
       // streams is sufficient.
       setupActionFsFileOutErr(fileOutErr, action);
@@ -1058,20 +1082,20 @@ public final class SkyframeActionExecutor {
 
     private void maybeSignalLostInputs(ActionExecutionException e, Path primaryOutputPath)
         throws LostInputsActionExecutionException {
-        LostInputsActionExecutionException lostInputsException = null;
-        // Action failures may be caused by lost inputs. Lost input failures have higher priority
-        // because rewinding may be able to restore what was lost and allow the action to complete
-        // without error.
-        if (e instanceof LostInputsActionExecutionException) {
-          lostInputsException = (LostInputsActionExecutionException) e;
-        } else {
-          try {
-            checkActionFileSystemForLostInputs(
-                actionExecutionContext.getActionFileSystem(), action, outputService);
-          } catch (LostInputsActionExecutionException e2) {
-            lostInputsException = e2;
-          }
+      LostInputsActionExecutionException lostInputsException = null;
+      // Action failures may be caused by lost inputs. Lost input failures have higher priority
+      // because rewinding may be able to restore what was lost and allow the action to complete
+      // without error.
+      if (e instanceof LostInputsActionExecutionException) {
+        lostInputsException = (LostInputsActionExecutionException) e;
+      } else {
+        try {
+          checkActionFileSystemForLostInputs(
+              actionExecutionContext.getActionFileSystem(), action, outputService);
+        } catch (LostInputsActionExecutionException e2) {
+          lostInputsException = e2;
         }
+      }
 
       if (lostInputsException == null) {
         return;
@@ -1094,6 +1118,8 @@ public final class SkyframeActionExecutor {
         throws LostInputsActionExecutionException, InterruptedException {
       ActionResult result;
       try (SilentCloseable c = profiler.profile(ProfilerTask.INFO, "Action.execute")) {
+        checkForUnsoundDirectoryInputs(action, actionExecutionContext.getInputMetadataProvider());
+
         result = action.execute(actionExecutionContext);
 
         // An action's result (or intermediate state) may have been affected by lost inputs. If an
@@ -1203,7 +1229,7 @@ public final class SkyframeActionExecutor {
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
-            /*primaryOutputMetadata=*/ null,
+            /* primaryOutputMetadata= */ null,
             action,
             actionResult,
             actionException,
@@ -1215,7 +1241,7 @@ public final class SkyframeActionExecutor {
         reportActionExecution(
             eventHandler,
             primaryOutputPath,
-            /*primaryOutputMetadata=*/ null,
+            /* primaryOutputMetadata= */ null,
             action,
             actionResult,
             new ActionExecutionException(
@@ -1324,7 +1350,7 @@ public final class SkyframeActionExecutor {
               "failed to create output directory '%s': %s", e.directoryPath, e.getMessage()),
           e,
           action,
-          /*actionOutput=*/ null,
+          /* actionOutput= */ null,
           Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
     }
   }
@@ -1373,7 +1399,7 @@ public final class SkyframeActionExecutor {
     reportActionExecution(
         eventHandler,
         primaryOutputPath,
-        /*primaryOutputMetadata=*/ null,
+        /* primaryOutputMetadata= */ null,
         action,
         null,
         e,
@@ -1496,6 +1522,8 @@ public final class SkyframeActionExecutor {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
 
+            checkForUnsoundDirectoryOutput(action, output, metadata);
+
             addOutputToMetrics(
                 output,
                 metadata,
@@ -1564,6 +1592,60 @@ public final class SkyframeActionExecutor {
       if (isActionCacheHit) {
         outputArtifactsFromActionCache.accumulate(treeArtifactValue);
       }
+    }
+  }
+
+  private void checkForUnsoundDirectoryInputs(Action action, InputMetadataProvider metadataProvider)
+      throws ActionExecutionException {
+    if (TrackSourceDirectoriesFlag.trackSourceDirectories()) {
+      return;
+    }
+
+    if (action.getMnemonic().equals("FilesetTraversal")) {
+      // Omit warning for filesets (b/1437948).
+      return;
+    }
+
+    // Report "directory dependency checking" warning only for non-generated directories (generated
+    // ones will have been reported earlier, in the checkForUnsoundDirectoryOutput call for the
+    // respective producing action).
+    for (Artifact input : action.getMandatoryInputs().toList()) {
+      // Assume that if the file did not exist, we would not have gotten here.
+      try {
+        if (input.isSourceArtifact()
+            && metadataProvider.getInputMetadata(input).getType().isDirectory()) {
+          // TODO(ulfjack): What about dependency checking of special files?
+          String ownerString = action.getOwner().getLabel().toString();
+          reporter.handle(
+              Event.warn(
+                      action.getOwner().getLocation(),
+                      String.format(
+                          "input '%s' to %s is a directory; "
+                              + "dependency checking of directories is unsound",
+                          input.prettyPrint(), ownerString))
+                  .withTag(ownerString));
+        }
+      } catch (IOException e) {
+        throw ActionExecutionException.fromExecException(
+            new EnvironmentalExecException(
+                e, FailureDetails.Execution.Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION),
+            action);
+      }
+    }
+  }
+
+  private void checkForUnsoundDirectoryOutput(
+      Action action, Artifact output, FileArtifactValue metadata) {
+    if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
+      String ownerString = action.getOwner().getLabel().toString();
+      reporter.handle(
+          Event.warn(
+                  action.getOwner().getLocation(),
+                  String.format(
+                      "output '%s' of %s is a directory; "
+                          + "dependency checking of directories is unsound",
+                      output.prettyPrint(), ownerString))
+              .withTag(ownerString));
     }
   }
 

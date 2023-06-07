@@ -161,7 +161,7 @@ public class AuthAndTLSOptions extends OptionsBase {
 
   @Option(
       name = "experimental_credential_helper_timeout",
-      defaultValue = "5s",
+      defaultValue = "10s",
       converter = DurationConverter.class,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},

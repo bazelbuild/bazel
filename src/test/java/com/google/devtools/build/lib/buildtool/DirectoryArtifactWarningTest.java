@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
 
   @Test
-  public void testOutputArtifactDirectoryWarning() throws Exception {
+  public void testOutputArtifactDirectoryWarning_forGenrule() throws Exception {
     write(
         "x/BUILD",
         "genrule(name = 'x',",
@@ -40,7 +40,32 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
   }
 
   @Test
-  public void testInputArtifactDirectoryWarning() throws Exception {
+  public void testOutputArtifactDirectoryWarning_forStarlarkRule() throws Exception {
+    write(
+        "x/defs.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.run_shell(",
+        "    outputs = [ctx.outputs.out],",
+        "    command = 'mkdir %s' % ctx.outputs.out.path,",
+        "  )",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'out': attr.output(),",
+        "  },",
+        ")");
+    write("x/BUILD", "load('defs.bzl', 'my_rule')", "my_rule(name = 'x', out = 'dir')");
+
+    buildTarget("//x");
+
+    events.assertContainsWarning(
+        "output 'x/dir' of //x:x is a directory; "
+            + "dependency checking of directories is unsound");
+  }
+
+  @Test
+  public void testInputArtifactDirectoryWarning_forGenrule() throws Exception {
     write(
         "x/BUILD",
         "genrule(name = 'x',",
@@ -55,4 +80,32 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
           + "dependency checking of directories is unsound");
   }
 
+  @Test
+  public void testInputArtifactDirectoryWarning_forStarlarkRule() throws Exception {
+    write(
+        "x/defs.bzl",
+        "def _impl(ctx):",
+        "  ctx.actions.run_shell(",
+        "    inputs = [ctx.file.src],",
+        "    outputs = [ctx.outputs.out],",
+        "    command = 'touch %s' % ctx.outputs.out.path,",
+        "  )",
+        "",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'src': attr.label(allow_single_file = True),",
+        "    'out': attr.output(),",
+        "  },",
+        ")");
+    write(
+        "x/BUILD", "load('defs.bzl', 'my_rule')", "my_rule(name = 'x', src = 'dir', out = 'out')");
+    write("x/dir/empty");
+
+    buildTarget("//x");
+
+    events.assertContainsWarning(
+        "input 'x/dir' to //x:x is a directory; "
+            + "dependency checking of directories is unsound");
+  }
 }

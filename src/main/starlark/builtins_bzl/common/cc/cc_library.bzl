@@ -277,6 +277,9 @@ def _cc_library_impl(ctx):
     for dep in ctx.attr.deps:
         runfiles_list.append(dep[DefaultInfo].default_runfiles)
 
+    for dep in ctx.attr.implementation_deps:
+        runfiles_list.append(dep[DefaultInfo].default_runfiles)
+
     runfiles = ctx.runfiles().merge_all(runfiles_list)
 
     default_runfiles = ctx.runfiles(files = cc_helper.get_dynamic_libraries_for_runtime(linking_context_for_runfiles, True))

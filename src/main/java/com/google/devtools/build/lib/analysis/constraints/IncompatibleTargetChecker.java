@@ -18,7 +18,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
@@ -100,10 +99,8 @@ public class IncompatibleTargetChecker {
    * </ul>
    */
   public static class IncompatibleTargetProducer implements StateMachine, Consumer<SkyValue> {
-
-    private final Target target;
-    @Nullable // Non-null when the target has an associated rule.
-    private final BuildConfigurationValue configuration;
+    private final TargetAndConfiguration targetAndConfiguration;
+    private final ConfiguredTargetKey configuredTargetKey;
     private final ConfigConditions configConditions;
     // Non-null when the target has an associated rule and does not opt out of toolchain resolution.
     @Nullable private final PlatformInfo platformInfo;
@@ -124,15 +121,15 @@ public class IncompatibleTargetChecker {
     }
 
     public IncompatibleTargetProducer(
-        Target target,
-        @Nullable BuildConfigurationValue configuration,
+        TargetAndConfiguration targetAndConfiguration,
+        ConfiguredTargetKey configuredTargetKey,
         ConfigConditions configConditions,
         @Nullable PlatformInfo platformInfo,
         @Nullable NestedSetBuilder<Package> transitivePackages,
         ResultSink sink,
         StateMachine runAfter) {
-      this.target = target;
-      this.configuration = configuration;
+      this.targetAndConfiguration = targetAndConfiguration;
+      this.configuredTargetKey = configuredTargetKey;
       this.configConditions = configConditions;
       this.platformInfo = platformInfo;
       this.transitivePackages = transitivePackages;
@@ -142,12 +139,13 @@ public class IncompatibleTargetChecker {
 
     @Override
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
-      Rule rule = target.getAssociatedRule();
+      Rule rule = targetAndConfiguration.getTarget().getAssociatedRule();
       if (rule == null || !rule.useToolchainResolution() || platformInfo == null) {
         sink.acceptIncompatibleTarget(Optional.empty());
         return runAfter;
       }
 
+      BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
       // Retrieves the label list for the target_compatible_with attribute.
       ConfiguredAttributeMapper attrs =
           ConfiguredAttributeMapper.of(rule, configConditions.asProviders(), configuration);
@@ -192,12 +190,12 @@ public class IncompatibleTargetChecker {
         sink.acceptIncompatibleTarget(
             Optional.of(
                 createIncompatibleRuleConfiguredTarget(
-                    target,
-                    configuration,
+                    configuredTargetKey,
+                    targetAndConfiguration.getConfiguration(),
                     configConditions,
                     IncompatiblePlatformProvider.incompatibleDueToConstraints(
                         platformInfo.label(), invalidConstraintValues),
-                    target.getAssociatedRule().getRuleClass(),
+                    targetAndConfiguration.getTarget().getAssociatedRule().getRuleClass(),
                     transitivePackages)));
         return runAfter;
       }
@@ -224,6 +222,7 @@ public class IncompatibleTargetChecker {
    */
   public static Optional<RuleConfiguredTargetValue> createIndirectlyIncompatibleTarget(
       TargetAndConfiguration targetAndConfiguration,
+      ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap,
       ConfigConditions configConditions,
       @Nullable PlatformInfo platformInfo,
@@ -250,7 +249,7 @@ public class IncompatibleTargetChecker {
     Label platformLabel = platformInfo != null ? platformInfo.label() : null;
     return Optional.of(
         createIncompatibleRuleConfiguredTarget(
-            target,
+            configuredTargetKey,
             configuration,
             configConditions,
             IncompatiblePlatformProvider.incompatibleDueToTargets(platformLabel, incompatibleDeps),
@@ -273,7 +272,7 @@ public class IncompatibleTargetChecker {
 
   /** Creates an incompatible target. */
   private static RuleConfiguredTargetValue createIncompatibleRuleConfiguredTarget(
-      Target target,
+      ConfiguredTargetKey configuredTargetKey,
       BuildConfigurationValue configuration,
       ConfigConditions configConditions,
       IncompatiblePlatformProvider incompatiblePlatformProvider,
@@ -281,16 +280,12 @@ public class IncompatibleTargetChecker {
       @Nullable NestedSetBuilder<Package> transitivePackages) {
     // Create dummy instances of the necessary data for a configured target. None of this data will
     // actually be used because actions associated with incompatible targets must not be evaluated.
-    NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    FileProvider fileProvider = new FileProvider(filesToBuild);
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(filesToBuild, null, null);
-
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(incompatiblePlatformProvider)
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
-            .add(fileProvider)
-            .add(filesToRunProvider)
+            .add(FileProvider.EMPTY)
+            .add(FilesToRunProvider.EMPTY)
             .add(
                 new SupportedEnvironments(
                     EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));
@@ -303,8 +298,7 @@ public class IncompatibleTargetChecker {
 
     RuleConfiguredTarget configuredTarget =
         new RuleConfiguredTarget(
-            target.getLabel(),
-            configuration.getKey(),
+            configuredTargetKey,
             convertVisibility(),
             providerBuilder.build(),
             configConditions.asProviders(),

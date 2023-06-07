@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -231,14 +230,10 @@ public final class ConfiguredAspect implements ProviderCollection {
           createExtraActionProvider(/*actionsWithoutExtraAction=*/ ImmutableSet.of(), ruleContext));
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-      GeneratingActions generatingActions;
+      ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
       try {
-        generatingActions =
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                analysisEnvironment.getActionKeyContext(),
-                analysisEnvironment.getRegisteredActions(),
-                ruleContext.getOwner(),
-                /*outputFiles=*/ null);
+        Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+            analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
       } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
@@ -246,7 +241,7 @@ public final class ConfiguredAspect implements ProviderCollection {
 
       maybeAddRequiredConfigFragmentsProvider();
 
-      return new ConfiguredAspect(generatingActions.getActions(), providers.build());
+      return new ConfiguredAspect(actions, providers.build());
     }
 
     /**

@@ -18,7 +18,8 @@ load("@_builtins//:common/cc/cc_import.bzl", "cc_import")
 load("@_builtins//:common/cc/cc_binary_wrapper.bzl", "cc_binary")
 load("@_builtins//:common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load("@_builtins//:common/cc/cc_test_wrapper.bzl", cc_test = "cc_test_wrapper")
-load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryHintInfo", "CcSharedLibraryInfo", "cc_shared_library")
+load("@_builtins//:common/cc/cc_shared_library.bzl", "CcSharedLibraryInfo", "cc_shared_library")
+load("@_builtins//:common/cc/cc_shared_library_hint_info.bzl", "CcSharedLibraryHintInfo")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
@@ -35,6 +36,8 @@ load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_pr
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
+load(":common/objc/objc_common.bzl", "objc_common")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -83,4 +86,6 @@ exported_to_java = {
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
     "get_cc_toolchain_provider": get_cc_toolchain_provider,
+    "cc_toolchain_build_variables": cc_helper.cc_toolchain_build_variables,
+    "apple_cc_toolchain_build_variables": objc_common.apple_cc_toolchain_build_variables,
 }

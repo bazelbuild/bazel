@@ -92,7 +92,26 @@ public class AttributeFormatter {
         attr.getType(),
         value,
         explicitlySpecified,
-        encodeBooleanAndTriStateAsIntegerAndString);
+        encodeBooleanAndTriStateAsIntegerAndString,
+        /* sourceAspect= */ null,
+        /* includeAttributeSourceAspects */ false);
+  }
+
+  public static Build.Attribute getAttributeProto(
+      Attribute attr,
+      @Nullable Object value,
+      boolean explicitlySpecified,
+      boolean encodeBooleanAndTriStateAsIntegerAndString,
+      @Nullable Aspect sourceAspect,
+      boolean includeAttributeSourceAspects) {
+    return getAttributeProto(
+        attr.getName(),
+        attr.getType(),
+        value,
+        explicitlySpecified,
+        encodeBooleanAndTriStateAsIntegerAndString,
+        sourceAspect,
+        includeAttributeSourceAspects);
   }
 
   private static Build.Attribute getAttributeProto(
@@ -100,7 +119,9 @@ public class AttributeFormatter {
       Type<?> type,
       @Nullable Object value,
       boolean explicitlySpecified,
-      boolean encodeBooleanAndTriStateAsIntegerAndString) {
+      boolean encodeBooleanAndTriStateAsIntegerAndString,
+      @Nullable Aspect sourceAspect,
+      boolean includeAttributeSourceAspects) {
     Build.Attribute.Builder attrPb = Build.Attribute.newBuilder();
     attrPb.setName(name);
     attrPb.setExplicitlySpecified(explicitlySpecified);
@@ -116,6 +137,11 @@ public class AttributeFormatter {
             new AttributeBuilderAdapter(attrPb, encodeBooleanAndTriStateAsIntegerAndString);
         writeAttributeValueToBuilder(adapter, type, value);
       }
+    }
+
+    if (includeAttributeSourceAspects) {
+      attrPb.setSourceAspectName(
+          sourceAspect != null ? sourceAspect.getAspectClass().getName() : "");
     }
 
     return attrPb.build();

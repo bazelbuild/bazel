@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -39,12 +40,15 @@ import javax.annotation.Nullable;
 final class ConfiguredTargetAndDataProducer
     implements StateMachine,
         Consumer<SkyValue>,
-        StateMachine.ValueOrExceptionSink<ConfiguredValueCreationException> {
+        StateMachine.ValueOrException2Sink<
+            ConfiguredValueCreationException, InvalidVisibilityDependencyException> {
   /** Interface for accepting values produced by this class. */
   interface ResultSink {
     void acceptConfiguredTargetAndData(ConfiguredTargetAndData value, int index);
 
     void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error);
+
+    void acceptConfiguredTargetAndDataError(InvalidVisibilityDependencyException error);
   }
 
   // -------------------- Input --------------------
@@ -81,13 +85,18 @@ final class ConfiguredTargetAndDataProducer
     tasks.lookUp(
         key.toKey(),
         ConfiguredValueCreationException.class,
-        (ValueOrExceptionSink<ConfiguredValueCreationException>) this);
+        InvalidVisibilityDependencyException.class,
+        (ValueOrException2Sink<
+                ConfiguredValueCreationException, InvalidVisibilityDependencyException>)
+            this);
     return this::fetchConfigurationAndPackage;
   }
 
   @Override
-  public void acceptValueOrException(
-      @Nullable SkyValue value, @Nullable ConfiguredValueCreationException error) {
+  public void acceptValueOrException2(
+      @Nullable SkyValue value,
+      @Nullable ConfiguredValueCreationException error,
+      @Nullable InvalidVisibilityDependencyException visibilityError) {
     if (value != null) {
       var configuredTargetValue = (ConfiguredTargetValue) value;
       this.configuredTarget = configuredTargetValue.getConfiguredTarget();
@@ -97,6 +106,10 @@ final class ConfiguredTargetAndDataProducer
     if (error != null) {
       transitiveState.addTransitiveCauses(error.getRootCauses());
       sink.acceptConfiguredTargetAndDataError(error);
+      return;
+    }
+    if (visibilityError != null) {
+      sink.acceptConfiguredTargetAndDataError(visibilityError);
       return;
     }
     throw new IllegalArgumentException("both value and error were null");

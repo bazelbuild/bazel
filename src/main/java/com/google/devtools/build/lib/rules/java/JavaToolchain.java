@@ -207,7 +207,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) {
+  private ImmutableList<String> getJavacOpts(RuleContext ruleContext) throws InterruptedException {
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     String source = ruleContext.attributes().get("source_version", Type.STRING);
     if (!isNullOrEmpty(source)) {

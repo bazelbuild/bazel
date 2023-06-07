@@ -163,6 +163,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyFunctionEnvironmentForTesting;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -187,6 +188,7 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -331,6 +333,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories)
+            .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);
@@ -356,6 +359,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     setUpSkyframe();
     this.actionLogBufferPathGenerator =
         new ActionLogBufferPathGenerator(directories.getActionTempsDirectory(getExecRoot()));
+  }
+
+  @ForOverride
+  @Nullable
+  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+    return null;
   }
 
   private static void injectInliningBzlLoadFunction(
@@ -1047,9 +1056,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
       return view.getConfiguredTargetForTesting(reporter, label, config);
-    } catch (InvalidConfigurationException
-        | StarlarkTransition.TransitionException
-        | InterruptedException e) {
+    } catch (InvalidConfigurationException | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -1438,11 +1445,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if ((owner instanceof ActionLookupKey)) {
+    if (owner instanceof ActionLookupKeyOrProxy) {
       SkyValue skyValue;
       try {
         skyValue =
-            skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner).toKey());
+            skyframeExecutor
+                .getEvaluator()
+                .getExistingValue(((ActionLookupKeyOrProxy) owner).toKey());
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }

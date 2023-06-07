@@ -95,7 +95,10 @@ import javax.annotation.Nullable;
 // Not final so that we can mock it in tests.
 public class TestRunnerAction extends AbstractAction
     implements NotifyOnActionCacheHit, CommandAction {
+
   public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
+
+  private static final String UNDECLARED_OUTPUTS_ZIP_NAME = "outputs.zip";
 
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
@@ -118,8 +121,6 @@ public class TestRunnerAction extends AbstractAction
   @Nullable private final PathFragment shExecutable;
   private final PathFragment splitLogsPath;
   private final PathFragment splitLogsDir;
-  private final PathFragment undeclaredOutputsDir;
-  private final PathFragment undeclaredOutputsZipPath;
   private final PathFragment undeclaredOutputsAnnotationsDir;
   private final PathFragment undeclaredOutputsManifestPath;
   private final PathFragment undeclaredOutputsAnnotationsPath;
@@ -136,6 +137,7 @@ public class TestRunnerAction extends AbstractAction
 
   private final Artifact coverageData;
   @Nullable private final Artifact coverageDirectory;
+  private final Artifact undeclaredOutputsDir;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
@@ -196,6 +198,7 @@ public class TestRunnerAction extends AbstractAction
       Artifact cacheStatus,
       Artifact coverageArtifact,
       @Nullable Artifact coverageDirectory,
+      Artifact undeclaredOutputsDir,
       TestTargetProperties testProperties,
       ActionEnvironment extraTestEnv,
       TestTargetExecutionSettings executionSettings,
@@ -209,7 +212,11 @@ public class TestRunnerAction extends AbstractAction
       NestedSetBuilder<Artifact> lcovMergerFilesToRun,
       RunfilesSupplier lcovMergerRunfilesSupplier,
       PackageSpecificationProvider networkAllowlist) {
-    super(owner, inputs, nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory));
+    super(
+        owner,
+        inputs,
+        nonNullAsSet(
+            testLog, cacheStatus, coverageArtifact, coverageDirectory, undeclaredOutputsDir));
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.runfilesSupplier = runfilesSupplier;
     this.testSetupScript = testSetupScript;
@@ -221,6 +228,7 @@ public class TestRunnerAction extends AbstractAction
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
     this.coverageDirectory = coverageDirectory;
+    this.undeclaredOutputsDir = undeclaredOutputsDir;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
     this.testProperties = checkNotNull(testProperties);
@@ -243,8 +251,6 @@ public class TestRunnerAction extends AbstractAction
     this.splitLogsDir = baseDir.getChild("test.raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
     this.splitLogsPath = splitLogsDir.getChild("test.splitlogs");
-    this.undeclaredOutputsDir = baseDir.getChild("test.outputs");
-    this.undeclaredOutputsZipPath = undeclaredOutputsDir.getChild("outputs.zip");
     this.undeclaredOutputsAnnotationsDir = baseDir.getChild("test.outputs_manifest");
     this.undeclaredOutputsManifestPath = undeclaredOutputsAnnotationsDir.getChild("MANIFEST");
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
@@ -293,7 +299,7 @@ public class TestRunnerAction extends AbstractAction
             // Note that splitLogsPath points to a file inside the splitLogsDir so it's not
             // necessary to delete it explicitly.
             splitLogsDir,
-            undeclaredOutputsDir,
+            getUndeclaredOutputsDir(),
             undeclaredOutputsAnnotationsDir,
             baseDir.getRelative("test_attempts"));
   }
@@ -355,7 +361,7 @@ public class TestRunnerAction extends AbstractAction
     if (testConfiguration.getZipUndeclaredTestOutputs()) {
       outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
     } else {
-      outputs.add(ActionInputHelper.fromPathToDirectory(getUndeclaredOutputsDir()));
+      outputs.add(undeclaredOutputsDir);
     }
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
@@ -807,12 +813,12 @@ public class TestRunnerAction extends AbstractAction
   }
 
   public PathFragment getUndeclaredOutputsDir() {
-    return undeclaredOutputsDir;
+    return undeclaredOutputsDir.getExecPath();
   }
 
   /** Returns path to the optional zip file of undeclared test outputs. */
   public PathFragment getUndeclaredOutputsZipPath() {
-    return undeclaredOutputsZipPath;
+    return getUndeclaredOutputsDir().getChild(UNDECLARED_OUTPUTS_ZIP_NAME);
   }
 
   /** Returns path to the undeclared output manifest file. */
@@ -1069,12 +1075,12 @@ public class TestRunnerAction extends AbstractAction
 
     /** Returns path to the optional zip file of undeclared test outputs. */
     public Path getUndeclaredOutputsZipPath() {
-      return getPath(undeclaredOutputsZipPath);
+      return getUndeclaredOutputsDir().getChild(UNDECLARED_OUTPUTS_ZIP_NAME);
     }
 
     /** Returns path to the directory to hold undeclared test outputs. */
     public Path getUndeclaredOutputsDir() {
-      return getPath(undeclaredOutputsDir);
+      return getPath(undeclaredOutputsDir.getExecPath());
     }
 
     /** Returns path to the directory to hold undeclared output annotations parts. */

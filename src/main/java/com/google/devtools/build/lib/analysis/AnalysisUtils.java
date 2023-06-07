@@ -180,7 +180,6 @@ public final class AnalysisUtils {
    *
    * <p>Preserves the original input ordering.
    */
-  // Keep this in sync with PrepareAnalysisPhaseFunction.
   public static TopLevelTargetsAndConfigsResult getTargetsWithConfigs(
       BuildConfigurationValue targetConfiguration,
       Collection<Target> targets,

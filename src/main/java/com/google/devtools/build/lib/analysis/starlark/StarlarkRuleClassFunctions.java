@@ -779,6 +779,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       return Optional.ofNullable(documentation);
     }
 
+    /**
+     * Returns the label of the .bzl module where rule() was called, or null if the rule has not
+     * been exported yet.
+     */
+    @Nullable
+    public Label getExtensionLabel() {
+      return starlarkLabel;
+    }
+
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
@@ -982,7 +991,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     @Override
     public void repr(Printer printer) {
-      printer.append("<rule>");
+      if (isExported()) {
+        printer.append("<rule ").append(getRuleClass().getName()).append(">");
+      } else {
+        printer.append("<rule>");
+      }
     }
 
     @Override

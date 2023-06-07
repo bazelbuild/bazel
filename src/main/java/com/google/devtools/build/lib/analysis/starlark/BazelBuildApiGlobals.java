@@ -33,8 +33,9 @@ import net.starlark.java.eval.StarlarkThread;
  * Bazel implementation of {@link StarlarkBuildApiGlobals}: a collection of global Starlark build
  * API functions that belong in the global namespace.
  */
-// TODO(brandjon): This should probably be refactored into a StarlarkLibrary#BZL field, analogous to
-// StarlarkLibrary#COMMON and StarlarkLibrary#BUILD.
+// TODO(bazel-team): Consider renaming this file BzlGlobals for consistency with BuildGlobals.
+// Maybe wait until after eliminating the StarlarkBuildApiGlobals interface along with the rest of
+// the starlarkbuildapi/ dir.
 public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override

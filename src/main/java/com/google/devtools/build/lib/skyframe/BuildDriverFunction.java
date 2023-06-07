@@ -287,7 +287,6 @@ public class BuildDriverFunction implements SkyFunction {
       requestConfiguredTargetExecution(
           configuredTarget,
           buildDriverKey,
-          actionLookupKey,
           buildConfigurationValue,
           env,
           topLevelArtifactContext,
@@ -446,7 +445,6 @@ public class BuildDriverFunction implements SkyFunction {
   private void requestConfiguredTargetExecution(
       ConfiguredTarget configuredTarget,
       BuildDriverKey buildDriverKey,
-      ActionLookupKeyOrProxy actionLookupKey,
       BuildConfigurationValue buildConfigurationValue,
       Environment env,
       TopLevelArtifactContext topLevelArtifactContext,
@@ -466,7 +464,9 @@ public class BuildDriverFunction implements SkyFunction {
               Artifact.keys(artifactsToBuild.build()),
               Collections.singletonList(
                   TargetCompletionValue.key(
-                      (ConfiguredTargetKey) actionLookupKey, topLevelArtifactContext, false))));
+                      ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+                      topLevelArtifactContext,
+                      false))));
       return;
     }
 
@@ -486,9 +486,9 @@ public class BuildDriverFunction implements SkyFunction {
               artifactsToBuild.build(),
               Collections.singletonList(
                   TestCompletionValue.key(
-                      (ConfiguredTargetKey) actionLookupKey,
+                      ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
                       topLevelArtifactContext,
-                      /*exclusiveTesting=*/ false))));
+                      /* exclusiveTesting= */ false))));
       return;
     }
 

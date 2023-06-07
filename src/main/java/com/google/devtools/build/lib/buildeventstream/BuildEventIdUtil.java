@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ActionCompletedId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -33,6 +34,11 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class BuildEventIdUtil {
+  private static final ConfigurationId NULL_CONFIGURATION_ID_MESSAGE =
+      configurationIdMessage("none");
+  private static final BuildEventId NULL_CONFIGURATION_ID =
+      configurationId(NULL_CONFIGURATION_ID_MESSAGE);
+
   private BuildEventIdUtil() {}
 
   public static BuildEventId unknownBuildEventId(String details) {
@@ -95,13 +101,29 @@ public final class BuildEventIdUtil {
   }
 
   public static BuildEventId configurationId(String id) {
-    BuildEventId.ConfigurationId configurationId =
-        BuildEventId.ConfigurationId.newBuilder().setId(id).build();
-    return BuildEventId.newBuilder().setConfiguration(configurationId).build();
+    return configurationId(configurationIdMessage(id));
+  }
+
+  private static BuildEventId configurationId(ConfigurationId id) {
+    return BuildEventId.newBuilder().setConfiguration(id).build();
+  }
+
+  public static ConfigurationId configurationIdMessage(@Nullable BuildConfigurationKey key) {
+    return key == null
+        ? nullConfigurationIdMessage()
+        : configurationIdMessage(key.getOptions().checksum());
+  }
+
+  public static ConfigurationId configurationIdMessage(String checksum) {
+    return ConfigurationId.newBuilder().setId(checksum).build();
   }
 
   public static BuildEventId nullConfigurationId() {
-    return configurationId("none");
+    return NULL_CONFIGURATION_ID;
+  }
+
+  public static ConfigurationId nullConfigurationIdMessage() {
+    return NULL_CONFIGURATION_ID_MESSAGE;
   }
 
   private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
@@ -128,6 +150,12 @@ public final class BuildEventIdUtil {
     BuildEventId.TargetConfiguredId configuredId =
         BuildEventId.TargetConfiguredId.newBuilder().setLabel(label.toString()).build();
     return BuildEventId.newBuilder().setTargetConfigured(configuredId).build();
+  }
+
+  public static BuildEventId coverageActionsFinished() {
+    return BuildEventId.newBuilder()
+        .setCoverageActionsFinished(BuildEventId.CoverageActionsFinishedId.getDefaultInstance())
+        .build();
   }
 
   public static BuildEventId aspectConfigured(Label label, String aspect) {

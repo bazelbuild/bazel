@@ -34,7 +34,7 @@ import net.starlark.java.syntax.Location;
 public final class ConfiguredValueCreationException extends Exception
     implements SaneAnalysisException {
 
-  private final Location location;
+  @Nullable private final Location location;
   @Nullable private final BuildEventId configuration;
   private final NestedSet<Cause> rootCauses;
   // TODO(b/138456686): if warranted by a need for finer-grained details, replace the constructors
@@ -42,7 +42,7 @@ public final class ConfiguredValueCreationException extends Exception
   private final DetailedExitCode detailedExitCode;
 
   public ConfiguredValueCreationException(
-      Location location,
+      @Nullable Location location,
       String message,
       Label label,
       @Nullable BuildEventId configuration,
@@ -83,6 +83,7 @@ public final class ConfiguredValueCreationException extends Exception
     this(ctgValue, message, /*rootCauses=*/ null, /*detailedExitCode=*/ null);
   }
 
+  @Nullable
   public Location getLocation() {
     return location;
   }

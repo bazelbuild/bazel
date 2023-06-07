@@ -521,6 +521,7 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
         "config_setting(",
         "    name = 'used_flag@other',",
         "    flag_values = {':used_flag': 'other'},",
+        "    transitive_configs = [':used_flag'],",
         ")",
         "config_feature_flag(",
         "    name = 'trimmed_flag',",

@@ -2,7 +2,6 @@ load(
     ":starlark_tests.bzl",
     "additional_inputs_test",
     "build_failure_test",
-    "debug_files_test",
     "interface_library_output_group_test",
     "linking_order_test",
     "paths_test",
@@ -328,7 +327,6 @@ sh_test(
         ":bar_so",
         ":binary",
         ":cc_test",
-        ":debug_files",
         ":foo_so",
     ] + select({
         ":is_bazel": [
@@ -337,12 +335,6 @@ sh_test(
         "//conditions:default": [
         ],
     }),
-)
-
-filegroup(
-    name = "debug_files",
-    srcs = ["binary"],
-    output_group = "rule_impl_debug_files",
 )
 
 linking_order_test(
@@ -445,12 +437,6 @@ build_failure_test(
     name = "two_dynamic_deps_same_export_in_binary_test",
     message = "Two shared libraries in dependencies link the same  library statically",
     target = "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/failing_targets:two_dynamic_deps_same_export_in_binary",
-)
-
-analysis_test(
-    name = "debug_files_test",
-    impl = debug_files_test,
-    target = ":binary",
 )
 
 interface_library_output_group_test(

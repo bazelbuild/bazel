@@ -378,7 +378,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp, getPathStripper());
     fp.addString(mnemonic);
     // We don't need the toolManifests here, because they are a subset of the inputManifests by
     // definition and the output of an action shouldn't change whether something is considered a

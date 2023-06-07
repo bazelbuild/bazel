@@ -35,7 +35,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Predicate;
 
 /** Reports cycles between skyframe values whose keys contains {@link Label}s. */
-abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
+public abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
 
   private final PackageProvider packageProvider;
 
@@ -131,7 +131,7 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
   }
 
   /** Prints the SkyKey-s in cycle into cycleMessage using the print function. */
-  static SkyKey printCycle(
+  public static SkyKey printCycle(
       ImmutableList<SkyKey> cycle,
       StringBuilder cycleMessage,
       Function<Object, String> printFunction) {

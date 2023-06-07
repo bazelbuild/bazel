@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.actions.ActionKeyContext.describeNestedSetFingerprint;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -22,7 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
+import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -49,6 +53,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -70,11 +75,18 @@ import net.starlark.java.syntax.Location;
 public final class Runfiles implements RunfilesApi {
 
   private static class DummyEmptyFilesSupplier implements EmptyFilesSupplier {
+    private static final UUID GUID = UUID.fromString("36437db7-820b-4386-85b4-f7205a2018ae");
+
     private DummyEmptyFilesSupplier() {}
 
     @Override
     public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
       return ImmutableList.of();
+    }
+
+    @Override
+    public void fingerprint(Fingerprint fp) {
+      fp.addUUID(GUID);
     }
   }
 
@@ -151,6 +163,18 @@ public final class Runfiles implements RunfilesApi {
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
   public static final Runfiles EMPTY = new Builder().build();
 
+  private static final CommandLineItem.ExceptionlessMapFn<SymlinkEntry> SYMLINK_ENTRY_MAP_FN =
+      (symlink, args) -> {
+        args.accept(symlink.getPathString());
+        args.accept(symlink.getArtifact().getExecPathString());
+      };
+
+  private static final CommandLineItem.ExceptionlessMapFn<Artifact> RUNFILES_AND_EXEC_PATH_MAP_FN =
+      (artifact, args) -> {
+        args.accept(artifact.getRunfilesPathString());
+        args.accept(artifact.getExecPathString());
+      };
+
   /**
    * The directory to put all runfiles under.
    *
@@ -198,6 +222,8 @@ public final class Runfiles implements RunfilesApi {
   public interface EmptyFilesSupplier {
     /** Calculate additional empty files to add based on the existing manifest paths. */
     Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths);
+
+    void fingerprint(Fingerprint fingerprint);
   }
 
   /** Generates extra (empty file) inputs. */
@@ -1155,65 +1181,34 @@ public final class Runfiles implements RunfilesApi {
     }
   }
 
-  /**
-   * Fingerprint this {@link Runfiles} tree.
-   */
-  public void fingerprint(Fingerprint fp) {
+  /** Fingerprint this {@link Runfiles} tree. */
+  public void fingerprint(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    fp.addInt(conflictPolicy.ordinal());
     fp.addBoolean(legacyExternalRunfiles);
     fp.addPath(suffix);
-    Map<PathFragment, Artifact> symlinks = getSymlinksAsMap(null);
-    fp.addInt(symlinks.size());
-    for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
-      fp.addPath(symlink.getKey());
-      fp.addPath(symlink.getValue().getExecPath());
-    }
-    Map<PathFragment, Artifact> rootSymlinks = getRootSymlinksAsMap(null);
-    fp.addInt(rootSymlinks.size());
-    for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
-      fp.addPath(rootSymlink.getKey());
-      fp.addPath(rootSymlink.getValue().getExecPath());
-    }
 
-    for (Artifact artifact : artifacts.toList()) {
-      fp.addPath(artifact.getRunfilesPath());
-      fp.addPath(artifact.getExecPath());
-    }
+    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
+    actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
+    actionKeyContext.addNestedSetToFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, fp, artifacts);
 
-    for (String name : getEmptyFilenames().toList()) {
-      fp.addString(name);
-    }
+    emptyFilesSupplier.fingerprint(fp);
+
+    // extraMiddlemen does not affect the shape of the runfiles tree described by this instance and
+    // thus does not need to be fingerprinted.
   }
-  /** Describes the inputs {@link fingerprint} uses to aid describeKey() descriptions. */
+
+  /** Describes the inputs {@link #fingerprint} uses to aid describeKey() descriptions. */
   public String describeFingerprint() {
-    StringBuilder sb = new StringBuilder();
-    sb.append(String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles));
-    sb.append(String.format("suffix: %s\n", suffix));
-
-    var symlinks = getSymlinksAsMap(null);
-    sb.append(String.format("symlinksSize: %s\n", symlinks.size()));
-    for (var symlink : symlinks.entrySet()) {
-      sb.append(
-          String.format(
-              "symlink: '%s' to '%s'\n", symlink.getKey(), symlink.getValue().getExecPath()));
-    }
-
-    var rootSymlinks = getRootSymlinksAsMap(null);
-    sb.append(String.format("rootSymlinksSize: %s\n", rootSymlinks.size()));
-    for (var symlink : rootSymlinks.entrySet()) {
-      sb.append(
-          String.format(
-              "rootSymlink: '%s' to '%s'\n", symlink.getKey(), symlink.getValue().getExecPath()));
-    }
-
-    for (Artifact artifact : artifacts.toList()) {
-      sb.append(
-          String.format(
-              "artifact: '%s' '%s'\n", artifact.getRunfilesPath(), artifact.getExecPath()));
-    }
-
-    for (String name : getEmptyFilenames().toList()) {
-      sb.append(String.format("emptyFilename: '%s'\n", name));
-    }
-    return sb.toString();
+    return String.format("conflictPolicy: %s\n", conflictPolicy)
+        + String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles)
+        + String.format("suffix: %s\n", suffix)
+        + String.format(
+            "symlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, symlinks))
+        + String.format(
+            "rootSymlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, rootSymlinks))
+        + String.format(
+            "artifacts: %s\n",
+            describeNestedSetFingerprint(RUNFILES_AND_EXEC_PATH_MAP_FN, artifacts))
+        + String.format("emptyFilesSupplier: %s\n", emptyFilesSupplier.getClass().getName());
   }
 }

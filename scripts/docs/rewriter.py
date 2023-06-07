@@ -51,8 +51,9 @@ def _fix_md_metadata(content, version):
   return _MD_METADATA_PATTERN.sub(r"\1/versions/{}\2".format(version), content)
 
 
-_YAML_PATH_PATTERN = re.compile(r"((book_|image_)?path: ['\"]?)(/.*?)(['\"]?)$",
-                                re.MULTILINE)
+_YAML_PATH_PATTERN = re.compile(
+    r"(((book_|image_)?path|include): ['\"]?)(/.*?)(['\"]?)$", re.MULTILINE
+)
 
 _YAML_IGNORE_LIST = frozenset(
     ["/", "/_project.yaml", "/versions/", "/versions/_toc.yaml"])
@@ -61,7 +62,7 @@ _YAML_IGNORE_LIST = frozenset(
 def _fix_yaml_paths(content, version):
 
   def sub(m):
-    prefix, path, suffix = m.group(1, 3, 4)
+    prefix, path, suffix = m.group(1, 4, 5)
     if path in _YAML_IGNORE_LIST:
       return m.group(0)
 

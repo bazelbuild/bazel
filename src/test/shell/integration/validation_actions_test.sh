@@ -274,11 +274,14 @@ simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
 
   bazel build --experimental_run_validations \
+      --show_result=2 \
       --experimental_use_validation_aspect \
       --aspects=validation_actions/simpleaspect.bzl%simple_aspect \
       --output_groups=+aspect-out \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
 
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
   # Console printout includes other aspect but not validation aspect
   expect_log "Aspect //validation_actions:simpleaspect.bzl%simple_aspect of //validation_actions:foo0 up-to-date:"
   expect_log "validation_actions/foo0.aspect"

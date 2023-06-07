@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.FileType;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -51,25 +50,24 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   private final TransitiveInfoProviderMap providers;
 
   FileConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
+      ActionLookupKeyOrProxy actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
       Artifact artifact,
       @Nullable InstrumentedFilesInfo instrumentedFilesInfo,
       @Nullable RequiredConfigFragmentsProvider configFragmentsProvider,
       @Nullable OutputGroupInfo generatingRuleOutputGroupInfo) {
 
-    super(label, configurationKey, visibility);
+    super(actionLookupKey, visibility);
 
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
-    FileProvider fileProvider = new FileProvider(filesToBuild);
     FilesToRunProvider filesToRunProvider =
-        FilesToRunProvider.fromSingleExecutableArtifact(artifact);
+        FilesToRunProvider.create(
+            filesToBuild, /* runfilesSupport= */ null, /* executable= */ artifact);
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder()
             .put(VisibilityProvider.class, this)
             .put(LicensesProvider.class, this)
-            .add(fileProvider)
+            .add(FileProvider.of(filesToBuild))
             .add(filesToRunProvider);
 
     if (instrumentedFilesInfo != null) {

@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
@@ -62,6 +65,9 @@ import javax.annotation.Nullable;
  * <p>Also supports the creation of resource and source only Jars.
  */
 public final class JavaCompilationHelper {
+
+  private static final Interner<ImmutableList<String>> javacOptsInterner =
+      BlazeInterners.newWeakInterner();
 
   private final RuleContext ruleContext;
   private final JavaToolchainProvider javaToolchain;
@@ -87,7 +93,7 @@ public final class JavaCompilationHelper {
     this.ruleContext = ruleContext;
     this.javaToolchain = Preconditions.checkNotNull(javaToolchainProvider);
     this.attributes = attributes;
-    this.customJavacOpts = javacOpts;
+    this.customJavacOpts = javacOptsInterner.intern(javacOpts);
     this.semantics = semantics;
     this.additionalInputsForDatabinding = additionalInputsForDatabinding;
     this.strictJavaDeps = getJavaConfiguration().getFilteredStrictJavaDeps();
@@ -182,8 +188,7 @@ public final class JavaCompilationHelper {
     if (usesAnnotationProcessing()) {
       builder.genClass(deriveOutput(output, "-gen")).genSource(deriveOutput(output, "-gensrc"));
     }
-    JavaCompileOutputs<Artifact> result = builder.build();
-    return result;
+    return builder.build();
   }
 
   public JavaCompileOutputs<Artifact> createOutputs(JavaOutput output) {
@@ -296,12 +301,14 @@ public final class JavaCompilationHelper {
       plugins =
           JavaPluginInfo.JavaPluginData.merge(
               ImmutableList.of(plugins, jspecifyInfo.jspecifyProcessor()));
+      var jspecifyOpts = jspecifyInfo.jspecifyJavacopts();
       javacopts =
-          ImmutableList.<String>builder()
-              .addAll(javacopts)
-              // Add JSpecify options last to discourage overriding them, at least for now.
-              .addAll(jspecifyInfo.jspecifyJavacopts())
-              .build();
+          javacOptsInterner.intern(
+              ImmutableList.<String>builderWithExpectedSize(javacopts.size() + jspecifyOpts.size())
+                  .addAll(javacopts)
+                  // Add JSpecify options last to discourage overriding them, at least for now.
+                  .addAll(jspecifyOpts)
+                  .build());
     }
 
     JavaCompileActionBuilder builder =
@@ -547,8 +554,8 @@ public final class JavaCompilationHelper {
         .processorClasses()
         .toList()
         .contains("dagger.internal.codegen.ComponentProcessor")) {
-      // see b/31371210
-      builder.addJavacOpt("-Aexperimental_turbine_hjar");
+      // See b/31371210 and b/142059842.
+      builder.addTurbineHjarJavacOpt();
     }
     builder.enableDirectClasspath(enableDirectClasspath);
     builder.build(javaToolchain);
@@ -559,7 +566,7 @@ public final class JavaCompilationHelper {
 
   private JavaHeaderCompileAction.Builder getJavaHeaderCompileActionBuilder() {
     JavaTargetAttributes attributes = getAttributes();
-    JavaHeaderCompileAction.Builder builder = JavaHeaderCompileAction.newBuilder(getRuleContext());
+    JavaHeaderCompileAction.Builder builder = JavaHeaderCompileAction.newBuilder(ruleContext);
     builder.setSourceFiles(attributes.getSourceFiles());
     builder.setSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
@@ -567,7 +574,7 @@ public final class JavaCompilationHelper {
     // Exclude any per-package configured data (see JavaCommon.computePerPackageData).
     // It is used to allow Error Prone checks to load additional data,
     // and Error Prone doesn't run during header compilation.
-    builder.addAllJavacOpts(getJavacOpts());
+    builder.setJavacOpts(customJavacOpts);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
@@ -814,7 +821,7 @@ public final class JavaCompilationHelper {
    *
    * @param deps the dependencies to be included as roots of the transitive closure
    */
-  public void addLibrariesToAttributes(Iterable<? extends TransitiveInfoCollection> deps) {
+  public void addLibrariesToAttributes(Collection<? extends TransitiveInfoCollection> deps) {
     // Enforcing strict Java dependencies: when the --strict_java_deps flag is
     // WARN or ERROR, or is DEFAULT and strict_java_deps attribute is unset,
     // we use a stricter javac compiler to perform direct deps checks.
@@ -823,15 +830,14 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      List<JavaCompilationArgsProvider> compilationArgsProviders = new ArrayList<>();
-      for (TransitiveInfoCollection dep : deps) {
-        JavaCompilationArgsProvider provider =
-            JavaInfo.getProvider(JavaCompilationArgsProvider.class, dep);
-        if (provider != null) {
-          compilationArgsProviders.add(provider);
-        }
-      }
-      addDependencyArtifactsToAttributes(attributes, compilationArgsProviders);
+      addDependencyArtifactsToAttributes(
+          attributes,
+          deps.stream()
+              .map(
+                  dep ->
+                      JavaInfo.getCompilationArgsProvider(dep)
+                          .orElse(JavaCompilationArgsProvider.EMPTY))
+              .collect(toImmutableList()));
     }
   }
 

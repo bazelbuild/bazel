@@ -775,6 +775,15 @@ public class BuildConfigurationValue
     return buildOptions.checksum();
   }
 
+  /**
+   * Returns a user-friendly short configuration identifier.
+   *
+   * <p>See {@link BuildOptions#shortId()} for details.
+   */
+  public String shortId() {
+    return buildOptions.shortId();
+  }
+
   /** Returns a copy of the build configuration options for this configuration. */
   public BuildOptions cloneOptions() {
     return buildOptions.clone();
@@ -910,6 +919,14 @@ public class BuildConfigurationValue
                 .setIsTool(isToolConfiguration())
                 .build());
     return new BuildConfigurationEvent(eventId, builder.build());
+  }
+
+  public static BuildEventId.ConfigurationId configurationIdMessage(
+      @Nullable BuildConfigurationValue configuration) {
+    if (configuration == null) {
+      return BuildEventIdUtil.nullConfigurationIdMessage();
+    }
+    return BuildEventIdUtil.configurationIdMessage(configuration.checksum());
   }
 
   public ImmutableSet<String> getReservedActionMnemonics() {

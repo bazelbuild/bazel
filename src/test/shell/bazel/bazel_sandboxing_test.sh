@@ -134,6 +134,11 @@ EOF
 }
 
 function test_sandbox_debug() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # The process wrapper sandbox used in MacOS doesn't emit debug output.
+    return 0
+  fi
+
   cat > BUILD <<'EOF'
 genrule(
   name = "broken",
@@ -150,8 +155,15 @@ EOF
     && fail "build should have failed" || true
   expect_log "Executing genrule //:broken failed"
   expect_not_log "Use --sandbox_debug to see verbose messages from the sandbox and retain the sandbox build root for debugging"
-  # This will appear a lot in the sandbox failure details.
-  expect_log "/sandbox/"  # Part of the path to the sandbox location.
+  expect_log "child exited normally with code 1"
+
+  bazel build --verbose_failures --sandbox_debug --experimental_use_hermetic_linux_sandbox :broken &> $TEST_log \
+    && fail "build should have failed with hermetic sandbox" || true
+  expect_log "child exited normally with code 1"
+
+  bazel build --verbose_failures --sandbox_debug --incompatible_sandbox_hermetic_tmp :broken &> $TEST_log \
+    && fail "build should have failed with hermetic sandbox /tmp" || true
+  expect_log "child exited normally with code 1"
 }
 
 function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {

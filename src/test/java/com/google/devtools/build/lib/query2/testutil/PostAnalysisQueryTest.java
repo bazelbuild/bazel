@@ -153,8 +153,15 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     getHelper().turnOffFailFast();
     TargetParsingException e =
         assertThrows(TargetParsingException.class, super::testTargetLiteralWithMissingTargets);
-    checkResultOfTargetLiteralWithMissingTargets(
-        e.getMessage(), e.getDetailedExitCode().getFailureDetail());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "no such target '//a:b': target 'b' not declared in package 'a' "
+                + "defined by "
+                + helper.getRootDirectory().getPathString()
+                + "/a/BUILD (Tip: use `query \"//a:*\"` to see all the targets in that package)");
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
 
   @Override
@@ -464,6 +471,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     assertThat(filteredDeps).doesNotContain(implicits);
   }
 
+  @Override
   @Test
   public void testNoImplicitDeps_computedDefault() throws Exception {
     MockRule computedDefaultRule =
@@ -671,15 +679,6 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   @Override
   @Test
   public void testEqualityOfOrderedThreadSafeImmutableSet() {}
-
-  @Override
-  public void testHdrsCheck() {}
-
-  @Override
-  public void testFilesetPackageDeps() {}
-
-  @Override
-  public void testRegressionBug1686119() {}
 
   // The actual crosstool-related targets depended on are not the nominal crosstool label the test
   // expects.

@@ -206,10 +206,8 @@ public class AarImport implements RuleConfiguredTargetFactory {
       srcJars = ImmutableList.of(srcJar);
       transitiveJavaSourceJarBuilder.add(srcJar);
     }
-    for (JavaSourceJarsProvider other :
-        JavaInfo.getProvidersFromListOfTargets(
-            JavaSourceJarsProvider.class, ruleContext.getPrerequisites("exports"))) {
-      transitiveJavaSourceJarBuilder.addTransitive(other.getTransitiveSourceJars());
+    for (TransitiveInfoCollection target : ruleContext.getPrerequisites("exports")) {
+      transitiveJavaSourceJarBuilder.addTransitive(JavaInfo.transitiveSourceJars(target));
     }
     NestedSet<Artifact> transitiveJavaSourceJars = transitiveJavaSourceJarBuilder.build();
     JavaSourceJarsProvider javaSourceJarsProvider =
@@ -220,9 +218,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .setRuntimeJars(ImmutableList.of(mergedJar))
             .setJavaConstraints(ImmutableList.of("android"))
             .setNeverlink(JavaCommon.isNeverLink(ruleContext))
-            .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-            .addProvider(JavaSourceJarsProvider.class, javaSourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build());
+            .javaCompilationArgs(javaCompilationArgsProvider)
+            .javaSourceJars(javaSourceJarsProvider)
+            .javaRuleOutputs(jarProviderBuilder.build());
 
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);

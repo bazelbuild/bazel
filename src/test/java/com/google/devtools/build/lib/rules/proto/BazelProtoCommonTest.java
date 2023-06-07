@@ -180,9 +180,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
-            "bar/A.proto")
+            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin", "-I.", "bar/A.proto")
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("Progress Message //bar:simple");
@@ -205,7 +203,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly("-Ibar/A.proto=bar/A.proto", "bar/A.proto")
+        .containsExactly("-I.", "bar/A.proto")
         .inOrder();
   }
 
@@ -231,7 +229,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .containsExactly(
             "--java_out=param1,param2:foo.srcjar",
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -259,7 +257,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
             "--a",
             "--b",
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -375,9 +373,9 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
+            "-I.",
             "--foo",
             "--bar",
-            "-Ibar/A.proto=bar/A.proto",
             "bar/A.proto")
         .inOrder();
   }
@@ -388,7 +386,6 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   public void generateCode_directGeneratedProtos() throws Exception {
-    useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -405,9 +402,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "--proto_path=bl?azel?-out/k8-fastbuild/bin",
-            "-Ibar/A.proto=bar/A.proto",
-            "-Ibar/G.proto=bl?azel?-out/k8-fastbuild/bin/bar/G.proto",
+            "-Ibl?azel?-out/k8-fastbuild/bin",
+            "-I.",
             "bar/A.proto",
             "bl?azel?-out/k8-fastbuild/bin/bar/G.proto")
         .inOrder();
@@ -419,7 +415,6 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   public void generateCode_inDirectGeneratedProtos() throws Exception {
-    useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
     scratch.file(
         "bar/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -437,9 +432,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "--proto_path=bl?azel?-out/k8-fastbuild/bin",
-            "-Ibar/A.proto=bar/A.proto",
-            "-Ibar/G.proto=bl?azel?-out/k8-fastbuild/bin/bar/G.proto",
+            "-Ibl?azel?-out/k8-fastbuild/bin",
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -450,34 +444,14 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   @TestParameters({
-    "{virtual: false, sibling: false, generated: false, expectedFlags:"
-        + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
-    "{virtual: false, sibling: false, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo',"
-        + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/E.proto']}",
-    "{virtual: true, sibling: false, generated: false,expectedFlags:"
-        + " ['--proto_path=external/foo','-Ie/E.proto=external/foo/e/E.proto']}",
-    "{virtual: true, sibling: false, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e',"
-        + " '-Ie/E.proto=bl?azel?-out/k8-fastbuild/bin/external/foo/e/_virtual_imports/e/e/E.proto']}",
-    "{virtual: true, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
-    "{virtual: true, sibling: true, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e',"
-        + " '-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/_virtual_imports/e/e/E.proto']}",
-    "{virtual: false, sibling: true, generated: false,expectedFlags:"
-        + " ['--proto_path=../foo','-Ie/E.proto=../foo/e/E.proto']}",
-    "{virtual: false, sibling: true, generated: true, expectedFlags:"
-        + " ['--proto_path=bl?azel?-out/foo/k8-fastbuild/bin','-Ie/E.proto=bl?azel?-out/foo/k8-fastbuild/bin/e/E.proto']}",
+    "{sibling: false, generated: false, expectedFlags:" + " ['-Iexternal/foo']}",
+    "{sibling: false, generated: true, expectedFlags:"
+        + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo']}",
+    "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo']}",
+    "{sibling: true, generated: true, expectedFlags:" + " ['-Ibl?azel?-out/foo/k8-fastbuild/bin']}",
   })
   public void generateCode_externalProtoLibrary(
-      boolean virtual, boolean sibling, boolean generated, List<String> expectedFlags)
-      throws Exception {
-    if (virtual) {
-      useConfiguration("--incompatible_generated_protos_in_virtual_imports");
-    } else {
-      useConfiguration("--noincompatible_generated_protos_in_virtual_imports");
-    }
+      boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
     if (sibling) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
@@ -507,8 +481,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .containsExactly(
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
             expectedFlags.get(0),
-            "-Ibar/A.proto=bar/A.proto",
-            expectedFlags.get(1),
+            "-I.",
             "bar/A.proto")
         .inOrder();
   }
@@ -530,9 +503,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-Ibar/A.proto=bar/A.proto",
-            "bar/A.proto")
+            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin", "-I.", "bar/A.proto")
         .inOrder();
     assertThat(spawnAction.getMnemonic()).isEqualTo("MyMnemonic");
     assertThat(spawnAction.getProgressMessage()).isEqualTo("My //bar:simple");

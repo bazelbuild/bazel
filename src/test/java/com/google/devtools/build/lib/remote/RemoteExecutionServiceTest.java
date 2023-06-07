@@ -236,7 +236,7 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void buildRemoteAction_withActionInputFileAsOutput() throws Exception {
+  public void buildRemoteAction_withActionInputAsOutput() throws Exception {
     Spawn spawn =
         new SpawnBuilder("dummy")
             .withOutput(ActionInputHelper.fromPath(PathFragment.create("path/to/file")))
@@ -248,21 +248,6 @@ public class RemoteExecutionServiceTest {
 
     assertThat(remoteAction.getCommand().getOutputFilesList()).containsExactly("path/to/file");
     assertThat(remoteAction.getCommand().getOutputDirectoriesList()).isEmpty();
-  }
-
-  @Test
-  public void buildRemoteAction_withActionInputDirectoryAsOutput() throws Exception {
-    Spawn spawn =
-        new SpawnBuilder("dummy")
-            .withOutput(ActionInputHelper.fromPathToDirectory(PathFragment.create("path/to/dir")))
-            .build();
-    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
-    RemoteExecutionService service = newRemoteExecutionService();
-
-    RemoteAction remoteAction = service.buildRemoteAction(spawn, context);
-
-    assertThat(remoteAction.getCommand().getOutputFilesList()).isEmpty();
-    assertThat(remoteAction.getCommand().getOutputDirectoriesList()).containsExactly("path/to/dir");
   }
 
   @Test

@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.Differencer.DiffWithDelta.Delta;
 import com.google.devtools.build.skyframe.FunctionHermeticity;
+import com.google.devtools.build.skyframe.InMemoryGraph;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -107,8 +109,24 @@ public class FilesystemValueChecker {
   public ImmutableBatchDirtyResult getDirtyKeys(
       Map<SkyKey, SkyValue> valuesMap, SkyValueDirtinessChecker dirtinessChecker)
       throws InterruptedException {
-    return getDirtyValues(new MapBackedValueFetcher(valuesMap), valuesMap.keySet(),
-        dirtinessChecker, /*checkMissingValues=*/false);
+    return getDirtyValues(
+        new MapBackedValueFetcher(valuesMap),
+        valuesMap.keySet(),
+        dirtinessChecker,
+        /* checkMissingValues= */ false,
+        /* inMemoryGraph= */ null);
+  }
+
+  public ImmutableBatchDirtyResult getDirtyKeys(
+      InMemoryGraph inMemoryGraph, SkyValueDirtinessChecker dirtinessChecker)
+      throws InterruptedException {
+    Map<SkyKey, SkyValue> valuesMap = inMemoryGraph.getValues();
+    return getDirtyValues(
+        new MapBackedValueFetcher(valuesMap),
+        valuesMap.keySet(),
+        dirtinessChecker,
+        /* checkMissingValues= */ false,
+        inMemoryGraph);
   }
 
   /**
@@ -120,8 +138,12 @@ public class FilesystemValueChecker {
       Collection<SkyKey> keys,
       SkyValueDirtinessChecker dirtinessChecker)
       throws InterruptedException {
-    return getDirtyValues(new WalkableGraphBackedValueFetcher(walkableGraph), keys,
-        dirtinessChecker, /*checkMissingValues=*/true);
+    return getDirtyValues(
+        new WalkableGraphBackedValueFetcher(walkableGraph),
+        keys,
+        dirtinessChecker,
+        /* checkMissingValues= */ true,
+        /* inMemoryGraph= */ null);
   }
 
   private interface ValueFetcher {
@@ -583,8 +605,9 @@ public class FilesystemValueChecker {
   private ImmutableBatchDirtyResult getDirtyValues(
       ValueFetcher fetcher,
       Collection<SkyKey> keys,
-      final SkyValueDirtinessChecker checker,
-      final boolean checkMissingValues)
+      SkyValueDirtinessChecker checker,
+      boolean checkMissingValues,
+      @Nullable InMemoryGraph inMemoryGraph)
       throws InterruptedException {
     ExecutorService executor =
         Executors.newFixedThreadPool(
@@ -622,9 +645,15 @@ public class FilesystemValueChecker {
               if (!checkMissingValues && value == null) {
                 return;
               }
-
+              @Nullable
+              Version oldMtsv =
+                  inMemoryGraph != null
+                      ? inMemoryGraph
+                          .get(/* requestor= */ null, Reason.OTHER, key)
+                          .getMaxTransitiveSourceVersion()
+                      : null;
               numKeysChecked.incrementAndGet();
-              DirtyResult result = checker.check(key, value, syscallCache, tsgm);
+              DirtyResult result = checker.check(key, value, oldMtsv, syscallCache, tsgm);
               if (result.isDirty()) {
                 batchResult.add(
                     key, value, result.getNewValue(), result.getNewMaxTransitiveSourceVersion());

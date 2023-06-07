@@ -68,6 +68,14 @@ public class BuildRequestOptions extends OptionsBase {
   public int jobs;
 
   @Option(
+      name = "experimental_use_semaphore_for_jobs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS, OptionEffectTag.EXECUTION},
+      help = "If set to true, additionally use semaphore to limit number of concurrent jobs.")
+  public boolean useSemaphoreForJobs;
+
+  @Option(
       name = "progress_report_interval",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -184,13 +192,15 @@ public class BuildRequestOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Show the results of the build.  For each target, state whether or not it was brought "
-              + "up-to-date, and if so, a list of output files that were built.  The printed files "
-              + "are convenient strings for copy+pasting to the shell, to execute them.\n"
-              + "This option requires an integer argument, which is the threshold number of "
-              + "targets above which result information is not printed. Thus zero causes "
-              + "suppression of the message and MAX_INT causes printing of the result to occur "
-              + "always.  The default is one.")
+          "Show the results of the build.  For each target, state whether or not it was brought"
+              + " up-to-date, and if so, a list of output files that were built.  The printed files"
+              + " are convenient strings for copy+pasting to the shell, to execute them.\n"
+              + "This option requires an integer argument, which is the threshold number of targets"
+              + " above which result information is not printed. Thus zero causes suppression of"
+              + " the message and MAX_INT causes printing of the result to occur always. The"
+              + " default is one.\n"
+              + "If nothing was built for a target its results may be omitted to keep the output"
+              + " under the threshold.")
   public int maxResultTargets;
 
   @Option(

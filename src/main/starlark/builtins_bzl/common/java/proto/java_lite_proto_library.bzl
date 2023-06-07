@@ -18,11 +18,11 @@ load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/java/proto/java_proto_library.bzl", "JavaProtoAspectInfo", "bazel_java_proto_library_rule", "java_compile_for_protos")
+load(":common/java/java_info.bzl", "JavaInfo")
 
 PROTO_TOOLCHAIN_ATTR = "_aspect_proto_toolchain_for_javalite"
 
 java_common = _builtins.toplevel.java_common
-JavaInfo = _builtins.toplevel.JavaInfo
 ProguardSpecProvider = _builtins.toplevel.ProguardSpecProvider
 
 def _aspect_impl(target, ctx):

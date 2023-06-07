@@ -136,6 +136,11 @@ public final class ExtraAction extends SpawnAction {
         Order.STABLE_ORDER, Sets.difference(getInputs().toSet(), oldInputs.toSet()));
   }
 
+  @Override
+  public NestedSet<Artifact> getSchedulingDependencies() {
+    return shadowedAction.getSchedulingDependencies();
+  }
+
   private static NestedSet<Artifact> createInputs(
       NestedSet<Artifact> shadowedActionInputs,
       NestedSet<Artifact> inputFilesForExtraAction,

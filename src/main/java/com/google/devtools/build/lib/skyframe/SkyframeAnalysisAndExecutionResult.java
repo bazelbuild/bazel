@@ -13,11 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -34,6 +36,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
       ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      ImmutableList<TargetAndConfiguration> targetsWithConfiguration,
       PackageRoots packageRoots,
       DetailedExitCode representativeExecutionExitCode) {
     super(
@@ -43,6 +46,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
         configuredTargets,
         walkableGraph,
         aspects,
+        targetsWithConfiguration,
         packageRoots);
     this.representativeExecutionExitCode = representativeExecutionExitCode;
   }
@@ -56,16 +60,18 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
       ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      ImmutableList<TargetAndConfiguration> targetsWithConfiguration,
       PackageRoots packageRoots) {
     return new SkyframeAnalysisAndExecutionResult(
-        /*hasLoadingError=*/ false,
-        /*hasAnalysisError=*/ false,
-        /*hasActionConflicts=*/ false,
+        /* hasLoadingError= */ false,
+        /* hasAnalysisError= */ false,
+        /* hasActionConflicts= */ false,
         configuredTargets,
         walkableGraph,
         aspects,
+        targetsWithConfiguration,
         packageRoots,
-        /*representativeExecutionExitCode=*/ null);
+        /* representativeExecutionExitCode= */ null);
   }
 
   public static SkyframeAnalysisAndExecutionResult withErrors(
@@ -75,6 +81,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
       ImmutableSet<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
+      ImmutableList<TargetAndConfiguration> targetsWithConfiguration,
       PackageRoots packageRoots,
       @Nullable DetailedExitCode representativeExecutionExitCode) {
     return new SkyframeAnalysisAndExecutionResult(
@@ -84,6 +91,7 @@ public final class SkyframeAnalysisAndExecutionResult extends SkyframeAnalysisRe
         configuredTargets,
         walkableGraph,
         aspects,
+        targetsWithConfiguration,
         packageRoots,
         representativeExecutionExitCode);
   }

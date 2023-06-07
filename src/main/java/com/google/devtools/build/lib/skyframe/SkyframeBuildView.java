@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -66,6 +67,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
+import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
@@ -282,7 +284,10 @@ public final class SkyframeBuildView {
       String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
       if (diff != null) {
         eventHandler.handle(
-            Event.warn(diff + ", discarding analysis cache (this can be expensive)."));
+            Event.warn(
+                diff
+                    + ", discarding analysis cache (this can be expensive, see"
+                    + " https://bazel.build/advanced/performance/iteration-speed)."));
         // Note that clearing the analysis cache is currently required for correctness. It is also
         // helpful to save memory.
         //
@@ -326,6 +331,7 @@ public final class SkyframeBuildView {
    */
   public SkyframeAnalysisResult configureTargets(
       ExtendedEventHandler eventHandler,
+      ImmutableMap<Label, Target> labelToTargetMap,
       ImmutableList<ConfiguredTargetKey> ctKeys,
       ImmutableList<TopLevelAspectsKey> topLevelAspectsKeys,
       Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier,
@@ -342,7 +348,7 @@ public final class SkyframeBuildView {
     try (SilentCloseable c = Profiler.instance().profile("skyframeExecutor.configureTargets")) {
       result =
           skyframeExecutor.configureTargets(
-              eventHandler, ctKeys, topLevelAspectsKeys, keepGoing, executors);
+              eventHandler, labelToTargetMap, ctKeys, topLevelAspectsKeys, keepGoing, executors);
     } finally {
       enableAnalysis(false);
     }
@@ -395,6 +401,7 @@ public final class SkyframeBuildView {
           cts,
           evaluationResult.getWalkableGraph(),
           aspects,
+          result.targetsWithConfiguration(),
           packageRoots);
     }
 
@@ -514,6 +521,7 @@ public final class SkyframeBuildView {
         cts,
         evaluationResult.getWalkableGraph(),
         aspects,
+        result.targetsWithConfiguration(),
         packageRoots);
   }
 
@@ -660,6 +668,7 @@ public final class SkyframeBuildView {
                           buildResultListener.getAnalyzedTargets(),
                           buildResultListener.getAnalyzedTests())),
                   keepGoing);
+          eventBus.post(new CoverageActionFinishedEvent());
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
@@ -728,18 +737,23 @@ public final class SkyframeBuildView {
                 evaluationResult,
                 buildDriverAspectKeys,
                 /*topLevelActionConflictReport=*/ null);
+        var targetsWithConfiguration =
+            ImmutableList.<TargetAndConfiguration>builderWithExpectedSize(ctKeys.size());
         ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
             getSuccessfulConfiguredTargets(
                 ctKeys.size(),
                 evaluationResult,
                 buildDriverCTKeys,
-                /*topLevelActionConflictReport=*/ null);
+                labelTargetMap,
+                targetsWithConfiguration,
+                /* topLevelActionConflictReport= */ null);
 
         return SkyframeAnalysisAndExecutionResult.success(
             successfulConfiguredTargets,
             evaluationResult.getWalkableGraph(),
             successfulAspects,
-            /*packageRoots=*/ null);
+            targetsWithConfiguration.build(),
+            /* packageRoots= */ null);
       }
 
       ErrorProcessingResult errorProcessingResult =
@@ -774,18 +788,26 @@ public final class SkyframeBuildView {
               evaluationResult,
               buildDriverAspectKeys,
               topLevelActionConflictReport);
+      var targetsWithConfiguration =
+          ImmutableList.<TargetAndConfiguration>builderWithExpectedSize(ctKeys.size());
       ImmutableSet<ConfiguredTarget> successfulConfiguredTargets =
           getSuccessfulConfiguredTargets(
-              ctKeys.size(), evaluationResult, buildDriverCTKeys, topLevelActionConflictReport);
+              ctKeys.size(),
+              evaluationResult,
+              buildDriverCTKeys,
+              labelTargetMap,
+              targetsWithConfiguration,
+              topLevelActionConflictReport);
 
       return SkyframeAnalysisAndExecutionResult.withErrors(
-          /*hasLoadingError=*/ errorProcessingResult.hasLoadingError(),
-          /*hasAnalysisError=*/ errorProcessingResult.hasAnalysisError(),
-          /*hasActionConflicts=*/ foundActionConflictInLatestCheck,
+          /* hasLoadingError= */ errorProcessingResult.hasLoadingError(),
+          /* hasAnalysisError= */ errorProcessingResult.hasAnalysisError(),
+          /* hasActionConflicts= */ foundActionConflictInLatestCheck,
           successfulConfiguredTargets,
           evaluationResult.getWalkableGraph(),
           successfulAspects,
-          /*packageRoots=*/ null,
+          targetsWithConfiguration.build(),
+          /* packageRoots= */ null,
           Collections.max(detailedExitCodes, DetailedExitCodeComparator.INSTANCE));
     }
   }
@@ -800,7 +822,6 @@ public final class SkyframeBuildView {
       long measuredAnalysisTime,
       Supplier<Boolean> shouldPublishBuildGraphMetrics)
       throws InterruptedException {
-
     if (shouldPublishBuildGraphMetrics.get()) {
       // Now that we have the full picture, it's time to collect the metrics of the whole graph.
       BuildGraphMetrics buildGraphMetrics =
@@ -856,7 +877,6 @@ public final class SkyframeBuildView {
       boolean keepGoing,
       ErrorProcessingResult errorProcessingResult)
       throws InterruptedException, ViewCreationFailedException {
-
     try {
       // Here we already have the <TopLevelAspectKey, error> mapping, but what we need to fit into
       // the existing AnalysisFailureEvent is <AspectKey, error>. An extra Skyframe evaluation is
@@ -1047,7 +1067,10 @@ public final class SkyframeBuildView {
       int expectedSize,
       EvaluationResult<SkyValue> evaluationResult,
       Set<BuildDriverKey> buildDriverCTKeys,
-      @Nullable TopLevelActionConflictReport topLevelActionConflictReport) {
+      ImmutableMap<Label, Target> labelToTargetMap,
+      ImmutableList.Builder<TargetAndConfiguration> targetsWithConfiguration,
+      @Nullable TopLevelActionConflictReport topLevelActionConflictReport)
+      throws InterruptedException {
     ImmutableSet.Builder<ConfiguredTarget> cts = ImmutableSet.builderWithExpectedSize(expectedSize);
     for (BuildDriverKey bdCTKey : buildDriverCTKeys) {
       if (topLevelActionConflictReport != null
@@ -1059,8 +1082,17 @@ public final class SkyframeBuildView {
         continue;
       }
       ConfiguredTargetValue ctValue = (ConfiguredTargetValue) value.getWrappedSkyValue();
-
       cts.add(ctValue.getConfiguredTarget());
+
+      BuildConfigurationKey configurationKey = ctValue.getConfiguredTarget().getConfigurationKey();
+      var configuration =
+          configurationKey == null
+              ? null
+              : (BuildConfigurationValue)
+                  evaluationResult.getWalkableGraph().getValue(configurationKey);
+      targetsWithConfiguration.add(
+          new TargetAndConfiguration(
+              labelToTargetMap.get(bdCTKey.getActionLookupKey().getLabel()), configuration));
     }
     return cts.build();
   }

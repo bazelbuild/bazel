@@ -17,6 +17,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+
 #include <string>
 #include <vector>
 
@@ -60,7 +61,7 @@ struct Options {
   // pseudoterminals (-P)
   bool enable_pty;
   // Print debugging messages (-D)
-  bool debug;
+  std::string debug_path;
   // Improved hermetic build using whitelisting strategy (-h)
   bool hermetic;
   // The sandbox root directory (-s)

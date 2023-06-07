@@ -370,7 +370,7 @@ EOF
 # Test that --remote_download_toplevel fetches inputs to symlink actions. In
 # particular, cc_binary links against a symlinked imported .so file, and only
 # the symlink is in the runfiles.
-function test_downloads_toplevel_symlinks() {
+function test_downloads_toplevel_symlink_action() {
   if [[ "$PLATFORM" == "darwin" ]]; then
     # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
     # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
@@ -419,49 +419,60 @@ EOF
   ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
 }
 
-function test_symlink_outputs_warning_with_minimal() {
-  mkdir -p a
-  touch a/file1.txt a/file2.txt
-  cat > a/defs.bzl <<'EOF'
+function setup_symlink_output() {
+  mkdir -p pkg
+
+  cat > pkg/defs.bzl <<EOF
 def _impl(ctx):
-  commands = []
-  outputs = []
-  for target, name in ctx.attr.symlink_map.items():
-    sym = ctx.actions.declare_symlink(name)
-    file = target.files.to_list()[0]
-    outputs.append(sym)
-    commands.append("ln -s {} {}".format(file.path, sym.path))
-
+  sym = ctx.actions.declare_symlink(ctx.label.name)
   ctx.actions.run_shell(
-    outputs = outputs,
-    command = " && ".join(commands),
+    outputs = [sym],
+    command = "ln -s {} {}".format(ctx.attr.target, sym.path),
   )
+  return DefaultInfo(files = depset([sym]))
 
-  return DefaultInfo(files = depset(outputs))
-
-symlinks = rule(
+symlink = rule(
   implementation = _impl,
   attrs = {
-    "symlink_map": attr.label_keyed_string_dict(allow_files = True),
+    "target": attr.string(),
   },
 )
 EOF
-  cat > a/BUILD <<'EOF'
-load(":defs.bzl", "symlinks")
-symlinks(
+
+  cat > pkg/BUILD <<EOF
+load(":defs.bzl", "symlink")
+symlink(
   name = "sym",
-  symlink_map = {
-    "file1.txt": "sym1",
-    "file2.txt": "sym2",
-  },
+  target = "target.txt",
 )
 EOF
+}
+
+function test_downloads_toplevel_non_dangling_symlink_output() {
+  setup_symlink_output
+  touch pkg/target.txt
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
+
+  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
+    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
+  fi
+}
+
+function test_downloads_toplevel_dangling_symlink_output() {
+  setup_symlink_output
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
     --remote_download_minimal \
-    //a:sym >& $TEST_log || fail "Expected build of //a:sym to succeed"
-  expect_log "Symlinks in action outputs are not yet supported"
+    //pkg:sym >& $TEST_log || fail "Expected build of //pkg:sym to succeed"
+
+  if [[ "$(readlink bazel-bin/pkg/sym)" != "target.txt" ]]; then
+    fail "Expected bazel-bin/pkg/sym to be a symlink pointing to target.txt"
+  fi
 }
 
 # Regression test that --remote_download_toplevel does not crash when the
@@ -1610,7 +1621,8 @@ EOF
     //a:test >& $TEST_log || fail "Failed to build"
 
   [[ -e "bazel-bin/a/liblib.jar" ]] || fail "bazel-bin/a/liblib.jar file does not exist!"
-  [[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
+  # TODO(chiwang): Don't download all outputs files of an action if only some of them are requested
+  #[[ ! -e "bazel-bin/a/liblib.jdeps" ]] || fail "bazel-bin/a/liblib.jdeps shouldn't exist"
 }
 
 function test_bazel_run_with_minimal() {
@@ -1680,8 +1692,6 @@ public class FactorialTest {
 }
 EOF
   cd ../..
-
-  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 
   bazel coverage \
     --test_output=all \

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -52,11 +54,11 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextError;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducerWithCompatibilityCheck;
+import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.causes.Cause;
-import com.google.devtools.build.lib.causes.LoadingFailedCause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -73,9 +75,11 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -166,22 +170,15 @@ public final class PrerequisiteProducer {
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependenciesResult;
 
     /**
-     * Non-null if either {@link #resolveConfigurationsResult} or {@link #computeDependenciesResult}
-     * are non-null. This field contains events (from {@link
-     * ConfigurationResolver#resolveConfigurations}) that should be replayed.
+     * Stores events emitted by memoized computations.
      *
-     * <p>When {@link #resolveConfigurationsResult} or {@link #computeDependenciesResult} are
-     * non-null (e.g. populated on a previous call to {@link #computeDependencies} on a previous
-     * call to {@link #evaluate}), we don't freshly do the work that would cause these events to be
-     * freshly emitted. So instead we replay these events from the actual call to {@link
-     * ConfigurationResolver#resolveConfigurations} we did in the past. This is important because
-     * Skyframe retains and uses only the events emitted to {@code env.getListener()} on a call to
-     * {@link #evaluate} that had no missing deps. That is, if our earlier {@link #evaluate}'s call
-     * to {@link ConfigurationResolver#resolveConfigurations} emitted events to {@code
-     * env.getListener()}, and that {@link #evaluate} call returned null, then those events would be
-     * thrown away.
+     * <p>Both the {@link #computeDependencies} and the {@link TargetAndConfigurationProducer} may
+     * perform Starlark transitions that emit events. Skyframe uses only the events emitted to
+     * {@code env.getListener()} on a call to {@link #evaluate} that had no missing deps. Since the
+     * computations are memoized, they do not re-emit events when Skyframe restarts. Therefore
+     * events are stored and replayed when subsequent Skyframe restarts occur.
      */
-    @Nullable private StoredEventHandler storedEventHandlerFromResolveConfigurations;
+    final StoredEventHandler storedEvents = new StoredEventHandler();
 
     @Override
     public void acceptDependencyContext(DependencyContext value) {
@@ -205,19 +202,19 @@ public final class PrerequisiteProducer {
     void acquireSemaphore() throws InterruptedException;
   }
 
-  private TargetAndConfiguration targetAndConfiguration = null;
+  private final TargetAndConfiguration targetAndConfiguration;
   private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap = null;
   private ConfigConditions configConditions = null;
   private PlatformInfo platformInfo = null;
   @Nullable private ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts = null;
 
-  /**
-   * Return this target's {@link TargetAndConfiguration}.
-   *
-   * <p>{@link #evaluate} must be called before this info is available.
-   */
+  public PrerequisiteProducer(TargetAndConfiguration targetAndConfiguration) {
+    this.targetAndConfiguration = Preconditions.checkNotNull(targetAndConfiguration);
+  }
+
+  /** Return this target's {@link TargetAndConfiguration}. */
   TargetAndConfiguration getTargetAndConfiguration() {
-    return Preconditions.checkNotNull(targetAndConfiguration);
+    return targetAndConfiguration;
   }
 
   /**
@@ -271,36 +268,17 @@ public final class PrerequisiteProducer {
    * Skyframe dependencies need to be evaluated, else true.
    */
   public boolean evaluate(
-      ConfiguredTargetKey configuredTargetKey,
       State state,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      @Nullable NestedSetBuilder<Package> transitivePackages,
+      ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
       SkyframeBuildView view,
       SemaphoreAcquirer semaphoreLocker,
+      TransitiveDependencyState transitiveState,
       Environment env)
       throws ReportedException,
           UnreportedException,
-          InconsistentNullConfigException,
           IncompatibleTargetException,
           InterruptedException {
-    this.targetAndConfiguration =
-        computeTargetAndConfiguration(
-            configuredTargetKey, state, transitiveRootCauses, transitivePackages, env);
-    if (targetAndConfiguration == null) {
-      return false;
-    }
-    Target target = targetAndConfiguration.getTarget();
-    if ((target.isConfigurable() && configuredTargetKey.getConfigurationKey() == null)
-        || (!target.isConfigurable() && configuredTargetKey.getConfigurationKey() != null)) {
-      // We somehow ended up in a target that requires a non-null configuration as a dependency of
-      // one that requires a null configuration or the other way round. This is always an error, but
-      // we need to analyze the dependencies of the latter target to realize that. Short-circuit the
-      // evaluation to avoid doing useless work and running code with a null configuration that's
-      // not prepared for it.
-      throw new InconsistentNullConfigException();
-    }
-
     // TODO(janakr): this call may tie up this thread indefinitely, reducing the parallelism of
     //  Skyframe. This is a strict improvement over the prior state of the code, in which we ran
     //  with #processors threads, but ideally we would call #tryAcquire here, and if we failed,
@@ -308,13 +286,7 @@ public final class PrerequisiteProducer {
     semaphoreLocker.acquireSemaphore();
     try {
       var dependencyContext =
-          getDependencyContext(
-              state,
-              configuredTargetKey.getExecutionPlatformLabel(),
-              transitiveRootCauses,
-              transitivePackages,
-              ruleClassProvider,
-              env);
+          getDependencyContext(state, configuredTargetKey, ruleClassProvider, transitiveState, env);
       if (dependencyContext == null) {
         return false;
       }
@@ -330,11 +302,15 @@ public final class PrerequisiteProducer {
       // more root causes during computeDependencies.
       // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
       // attributes.
+      NestedSetBuilder<Cause> transitiveRootCauses = transitiveState.transitiveRootCauses();
       if (!transitiveRootCauses.isEmpty()
           && !Objects.equals(configConditions, ConfigConditions.EMPTY)) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         env.getListener()
-            .handle(Event.error(target.getLocation(), "Cannot compute config conditions"));
+            .handle(
+                Event.error(
+                    targetAndConfiguration.getTarget().getLocation(),
+                    "Cannot compute config conditions"));
         throw new ReportedException(
             new ConfiguredValueCreationException(
                 targetAndConfiguration,
@@ -347,16 +323,15 @@ public final class PrerequisiteProducer {
       depValueMap =
           computeDependencies(
               state,
-              transitivePackages,
-              transitiveRootCauses,
-              env,
-              ImmutableList.of(),
+              /* aspects= */ ImmutableList.of(),
               configConditions.asProviders(),
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
               ruleClassProvider,
-              view);
+              view,
+              transitiveState,
+              env);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -376,7 +351,7 @@ public final class PrerequisiteProducer {
         | AspectCreationException
         | ToolchainException e) {
       // We handle exceptions in a dedicated method to keep this method concise and readable.
-      handleException(env, target, e);
+      handleException(env, targetAndConfiguration.getTarget(), e);
     }
     return true;
   }
@@ -385,10 +360,9 @@ public final class PrerequisiteProducer {
   @Nullable // Null when a Skyframe restart is needed.
   public static DependencyContext getDependencyContext(
       State state,
-      @Nullable Label parentExecutionPlatformLabel,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      @Nullable NestedSetBuilder<Package> transitivePackages,
+      ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
+      TransitiveDependencyState transitiveState,
       Environment env)
       throws InterruptedException,
           ToolchainException,
@@ -403,7 +377,7 @@ public final class PrerequisiteProducer {
       var unloadedToolchainContextsInputs =
           getUnloadedToolchainContextsInputs(
               targetAndConfiguration,
-              parentExecutionPlatformLabel,
+              configuredTargetKey.getExecutionPlatformLabel(),
               ruleClassProvider,
               env.getListener());
       state.execGroupCollectionBuilder = unloadedToolchainContextsInputs;
@@ -411,9 +385,9 @@ public final class PrerequisiteProducer {
           new Driver(
               new DependencyContextProducerWithCompatibilityCheck(
                   targetAndConfiguration,
+                  configuredTargetKey,
                   unloadedToolchainContextsInputs,
-                  new TransitiveDependencyState(
-                      transitiveRootCauses, transitivePackages, /* prerequisitePackages= */ null),
+                  transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
     if (state.dependencyContextProducer.drive(env, env.getListener())) {
@@ -482,11 +456,11 @@ public final class PrerequisiteProducer {
         if (unloadedToolchainContexts != null) {
           ImmutableSet<Label> requiredToolchains =
               unloadedToolchainContexts.getResolvedToolchains();
-          Set<Label> toolchainDependencyErrors =
+          ImmutableSet<Label> toolchainDependencyErrors =
               cvce.getRootCauses().toList().stream()
                   .map(Cause::getLabel)
                   .filter(requiredToolchains::contains)
-                  .collect(ImmutableSet.toImmutableSet());
+                  .collect(toImmutableSet());
 
           if (!toolchainDependencyErrors.isEmpty()) {
             errorMessage = "errors encountered resolving toolchains for " + target.getLabel();
@@ -527,70 +501,6 @@ public final class PrerequisiteProducer {
     }
   }
 
-  @Nullable
-  private static TargetAndConfiguration computeTargetAndConfiguration(
-      ConfiguredTargetKey configuredTargetKey,
-      State state,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      @Nullable NestedSetBuilder<Package> transitivePackages,
-      Environment env)
-      throws InterruptedException, ReportedException {
-    if (state.targetAndConfiguration != null) {
-      return state.targetAndConfiguration;
-    }
-    Label label = configuredTargetKey.getLabel();
-    BuildConfigurationValue configuration = null;
-    ImmutableSet<SkyKey> packageAndMaybeConfiguration;
-    SkyKey packageKey = label.getPackageIdentifier();
-    SkyKey configurationKeyMaybe = configuredTargetKey.getConfigurationKey();
-    if (configurationKeyMaybe == null) {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey);
-    } else {
-      packageAndMaybeConfiguration = ImmutableSet.of(packageKey, configurationKeyMaybe);
-    }
-    SkyframeLookupResult packageAndMaybeConfigurationValues =
-        env.getValuesAndExceptions(packageAndMaybeConfiguration);
-    if (env.valuesMissing()) {
-      return null;
-    }
-    PackageValue packageValue = (PackageValue) packageAndMaybeConfigurationValues.get(packageKey);
-    if (packageValue == null) {
-      return null;
-    }
-    Package pkg = packageValue.getPackage();
-    if (configurationKeyMaybe != null) {
-      configuration =
-          (BuildConfigurationValue) packageAndMaybeConfigurationValues.get(configurationKeyMaybe);
-    }
-    // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
-    // TargetMarkerFunction. Maybe we can merge the two?
-    Target target;
-    try {
-      target = pkg.getTarget(label.getName());
-    } catch (NoSuchTargetException e) {
-      if (!e.getMessage().isEmpty()) {
-        env.getListener().handle(Event.error(pkg.getBuildFile().getLocation(), e.getMessage()));
-      }
-      throw new ReportedException(
-          new ConfiguredValueCreationException(
-              pkg.getBuildFile().getLocation(),
-              e.getMessage(),
-              label,
-              configuration.getEventId(),
-              null,
-              e.getDetailedExitCode()));
-    }
-    if (pkg.containsErrors()) {
-      FailureDetail failureDetail = pkg.contextualizeFailureDetailForTarget(target);
-      transitiveRootCauses.add(new LoadingFailedCause(label, DetailedExitCode.of(failureDetail)));
-    }
-    if (transitivePackages != null) {
-      transitivePackages.add(pkg);
-    }
-    state.targetAndConfiguration = new TargetAndConfiguration(target, configuration);
-    return state.targetAndConfiguration;
-  }
-
   /**
    * Returns the target-specific execution platform constraints, based on the rule definition and
    * any constraints added by the target, including those added for the target on the command line.
@@ -624,35 +534,37 @@ public final class PrerequisiteProducer {
    * caller should also return null to Skyframe.
    *
    * @param state the compute state
-   * @param env the Skyframe environment
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param toolchainContexts the toolchain context for this target
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
    *     to apply to deps
    * @param buildView the build's {@link SkyframeBuildView}
+   * @param env the Skyframe environment
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
   @Nullable
   static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       State state,
-      @Nullable NestedSetBuilder<Package> transitivePackages,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      Environment env,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       RuleClassProvider ruleClassProvider,
-      SkyframeBuildView buildView)
+      SkyframeBuildView buildView,
+      TransitiveDependencyState transitiveState,
+      Environment env)
       throws DependencyEvaluationException,
           ConfiguredValueCreationException,
           AspectCreationException,
           InterruptedException {
-    if (state.computeDependenciesResult != null) {
-      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
-      return state.computeDependenciesResult;
-    }
+    // Replays stored events unless a Skyframe restart is immediately needed and the events would
+    // be unused anyway.
+    boolean shouldReplayStoredEvents = true;
     try {
+      if (state.computeDependenciesResult != null) {
+        return state.computeDependenciesResult;
+      }
+
       TargetAndConfiguration ctgValue = state.targetAndConfiguration;
       OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
       if (state.resolveConfigurationsResult != null) {
@@ -673,7 +585,7 @@ public final class PrerequisiteProducer {
                         aspects,
                         configConditions,
                         toolchainContexts,
-                        transitiveRootCauses,
+                        transitiveState.transitiveRootCauses(),
                         ((ConfiguredRuleClassProvider) ruleClassProvider)
                             .getTrimmingTransitionFactory());
           } catch (DependencyResolver.Failure e) {
@@ -706,12 +618,12 @@ public final class PrerequisiteProducer {
           depValueNames =
               configResolver.resolveConfigurations(initialDependencies, storedEventHandler);
         } catch (ConfiguredValueCreationException e) {
-          storedEventHandler.replayOn(env.getListener());
+          storedEventHandler.replayOn(state.storedEvents);
           throw e;
         }
         if (!env.valuesMissing()) {
           state.resolveConfigurationsResult = depValueNames;
-          state.storedEventHandlerFromResolveConfigurations = storedEventHandler;
+          storedEventHandler.replayOn(state.storedEvents);
 
           // We won't need this anymore.
           state.dependentNodeMapResult = null;
@@ -723,6 +635,7 @@ public final class PrerequisiteProducer {
       // between loading all dependent packages (fast) and configuring some dependent targets (can
       // have a long tail).
       if (env.valuesMissing()) {
+        shouldReplayStoredEvents = false;
         return null;
       }
 
@@ -733,8 +646,13 @@ public final class PrerequisiteProducer {
       } else {
         depValues =
             resolveConfiguredTargetDependencies(
-                env, ctgValue, depValueNames.values(), transitivePackages, transitiveRootCauses);
+                env,
+                ctgValue,
+                depValueNames.values(),
+                transitiveState.transitivePackages(),
+                transitiveState.transitiveRootCauses());
         if (env.valuesMissing()) {
+          shouldReplayStoredEvents = false;
           return null;
         }
         state.resolveConfiguredTargetDependenciesResult = depValues;
@@ -743,8 +661,9 @@ public final class PrerequisiteProducer {
       // Resolve required aspects.
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
           AspectResolver.resolveAspectDependencies(
-              env, depValues, depValueNames.values(), transitivePackages);
+              env, depValues, depValueNames.values(), transitiveState.transitivePackages());
       if (env.valuesMissing()) {
+        shouldReplayStoredEvents = false;
         return null;
       }
 
@@ -758,7 +677,6 @@ public final class PrerequisiteProducer {
             /*depReportedOwnError=*/ false);
       }
       state.computeDependenciesResult = mergeAspectsResult;
-      state.storedEventHandlerFromResolveConfigurations.replayOn(env.getListener());
 
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
@@ -768,12 +686,16 @@ public final class PrerequisiteProducer {
     } catch (InterruptedException e) {
       // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
       // declared for Skyframe value retrievals, which don't throw in reality.
-      if (!transitiveRootCauses.isEmpty()) {
+      if (!transitiveState.transitiveRootCauses().isEmpty()) {
         // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
         Thread.currentThread().interrupt();
         return null;
       }
       throw e;
+    } finally {
+      if (shouldReplayStoredEvents) {
+        state.storedEvents.replayOn(env.getListener());
+      }
     }
   }
 

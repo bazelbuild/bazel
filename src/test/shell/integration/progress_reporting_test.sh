@@ -184,7 +184,10 @@ EOF
   expect_log "FINISH.*: \[2 / [34]\] Executing genrule //${pkg}:y\s*$"
   expect_log "START.*: \[2 / 4\] Executing genrule //${pkg}:x\s*$"
   expect_log "FINISH.*: \[3 / 4\] Executing genrule //${pkg}:x\s*$"
-  expect_log "PROGRESS.*: \[3 / 4\] Still waiting for 1 job to complete:"
+  # No counter here since there's theoretically no guarantee that that workspace
+  # status action would still be running after the above actions have finished.
+  # This is especially true if we're running in Skymeld mode.
+  expect_log "PROGRESS.*: .* Still waiting for 1 job to complete:"
 
   # Open-source Bazel calls this file stable-status.txt, Google internal version
   # calls it build-info.txt.

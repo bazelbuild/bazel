@@ -108,32 +108,6 @@ public final class ActionInputHelper {
   }
 
   /**
-   * Creates an ActionInput with just the given relative path (which must point to a directory) and
-   * no digest.
-   *
-   * @param path the relative path of the input.
-   * @return a ActionInput.
-   */
-  public static ActionInput fromPathToDirectory(PathFragment path) {
-    return new BasicActionInput() {
-      @Override
-      public String getExecPathString() {
-        return path.getPathString();
-      }
-
-      @Override
-      public PathFragment getExecPath() {
-        return path;
-      }
-
-      @Override
-      public boolean isDirectory() {
-        return true;
-      }
-    };
-  }
-
-  /**
    * Expands middleman and tree artifacts in a sequence of {@link ActionInput}s.
    *
    * <p>The constructed list never contains middleman artifacts. If {@code keepEmptyTreeArtifacts}

@@ -24,13 +24,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -38,11 +35,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.vfs.BulkDeleter;
@@ -73,7 +67,6 @@ import net.starlark.java.eval.StarlarkSemantics;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
@@ -538,75 +531,10 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
       }
     }
   }
-
-  /**
-   * If the action might read directories as inputs in a way that is unsound wrt dependency
-   * checking, this method must be called.
-   */
-  protected void checkInputsForDirectories(
-      EventHandler eventHandler, InputMetadataProvider inputMetadataProvider) throws ExecException {
-    // Report "directory dependency checking" warning only for non-generated directories (generated
-    // ones will be reported earlier).
-    for (Artifact input : getMandatoryInputs().toList()) {
-      // Assume that if the file did not exist, we would not have gotten here.
-      try {
-        if (input.isSourceArtifact()
-            && inputMetadataProvider.getInputMetadata(input).getType().isDirectory()) {
-          // TODO(ulfjack): What about dependency checking of special files?
-          eventHandler.handle(
-              Event.warn(
-                  owner.getLocation(),
-                  String.format(
-                      "input '%s' to %s is a directory; "
-                          + "dependency checking of directories is unsound",
-                      input.prettyPrint(), owner.getLabel())));
-        }
-      } catch (IOException e) {
-        throw new EnvironmentalExecException(e, Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION);
-      }
-    }
-  }
-
+    
   @Override
   public MiddlemanType getActionType() {
     return MiddlemanType.NORMAL;
-  }
-
-  /** If the action might create directories as outputs this method must be called. */
-  protected void checkOutputsForDirectories(ActionExecutionContext actionExecutionContext)
-      throws InterruptedException {
-    FileArtifactValue metadata;
-    for (Artifact output : getOutputs()) {
-      OutputMetadataStore outputMetadataStore = actionExecutionContext.getOutputMetadataStore();
-      if (outputMetadataStore.artifactOmitted(output)) {
-        continue;
-      }
-      try {
-        metadata = outputMetadataStore.getOutputMetadata(output);
-      } catch (IOException e) {
-        logger.atWarning().withCause(e).log("Error getting metadata for %s", output);
-        metadata = null;
-      }
-      if (metadata != null) {
-        if (!metadata.getType().isDirectory()) {
-          continue;
-        }
-      } else if (!actionExecutionContext.getInputPath(output).isDirectory()) {
-        continue;
-      }
-      String ownerString = Label.print(owner.getLabel());
-      actionExecutionContext
-          .getEventHandler()
-          .handle(
-              Event.warn(
-                      owner.getLocation(),
-                      "output '"
-                          + output.prettyPrint()
-                          + "' of "
-                          + ownerString
-                          + " is a directory; dependency checking of directories is unsound")
-                  .withTag(ownerString));
-    }
   }
 
   @Override

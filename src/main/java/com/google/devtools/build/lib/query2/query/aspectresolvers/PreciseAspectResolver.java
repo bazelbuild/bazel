@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.query.aspectresolvers;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -49,27 +51,34 @@ public class PreciseAspectResolver implements AspectResolver {
   }
 
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
+  public ImmutableMap<Aspect, ImmutableMultimap<Attribute, Label>> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) throws InterruptedException {
     if (!(target instanceof Rule)) {
-      return ImmutableMultimap.of();
+      return ImmutableMap.of();
     }
     Rule rule = (Rule) target;
     if (!rule.hasAspects()) {
-      return ImmutableMultimap.of();
+      return ImmutableMap.of();
     }
-    Multimap<Attribute, Label> result = LinkedListMultimap.create();
+
+    LinkedHashMap<Aspect, ImmutableMultimap<Attribute, Label>> results = new LinkedHashMap<>();
     Multimap<Attribute, Label> transitions =
         rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
     for (Attribute attribute : transitions.keySet()) {
       for (Aspect aspect : attribute.getAspects(rule)) {
         if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
+          ImmutableSetMultimap.Builder<Attribute, Label> attributeLabelsBuilder =
+              ImmutableSetMultimap.builder();
           AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-              aspect, dependencyFilter, result::put);
+              aspect, dependencyFilter, attributeLabelsBuilder::put);
+          ImmutableSetMultimap<Attribute, Label> attributeLabels = attributeLabelsBuilder.build();
+          if (!attributeLabels.isEmpty()) {
+            results.put(aspect, attributeLabels);
+          }
         }
       }
     }
-    return ImmutableMultimap.copyOf(result);
+    return ImmutableMap.copyOf(results);
   }
 
   private boolean hasDepThatSatisfies(Aspect aspect, Iterable<Label> labelDeps)

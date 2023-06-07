@@ -151,7 +151,6 @@ public final class TargetCompleteEvent
       postedAfterBuilder.add(cause.getIdProto());
     }
     detailedExitCode = mostImportantDetailedExitCode;
-    this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
     this.outputs = outputs;
     this.isTest = isTest;
@@ -174,10 +173,12 @@ public final class TargetCompleteEvent
           instrumentedFilesProvider.getBaselineCoverageArtifacts();
       if (!baselineCoverageArtifacts.isEmpty()) {
         this.baselineCoverageArtifacts = baselineCoverageArtifacts;
+        postedAfterBuilder.add(BuildEventIdUtil.coverageActionsFinished());
       } else {
         this.baselineCoverageArtifacts = null;
       }
     }
+    this.postedAfter = postedAfterBuilder.build();
     this.tags = targetAndData.getRuleTags();
   }
 

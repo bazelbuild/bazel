@@ -135,6 +135,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           sandboxfsMapSymlinkTargets,
           treeDeleter,
           spawn.getMnemonic(),
+          /* sandboxDebugPath= */ null,
           statisticsPath);
     } else {
       return new SymlinkedSandboxedSpawn(
@@ -146,6 +147,7 @@ final class ProcessWrapperSandboxedSpawnRunner extends AbstractSandboxSpawnRunne
           outputs,
           getWritableDirs(sandboxExecRoot, sandboxExecRoot, environment),
           treeDeleter,
+          /* sandboxDebugPath= */ null,
           statisticsPath,
           spawn.getMnemonic());
     }

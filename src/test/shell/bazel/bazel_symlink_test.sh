@@ -137,9 +137,9 @@ load("//symlink:symlink.bzl", "dangling_symlink")
 dangling_symlink(name="a", link_target="non/existent")
 EOF
 
-  bazel build --noexperimental_allow_unresolved_symlinks //a:a >& $TEST_log \
+  bazel build --noallow_unresolved_symlinks //a:a >& $TEST_log \
     && fail "build succeeded, but should have failed"
-  expect_log 'declare_symlink() is not allowed; use the --experimental_allow_unresolved_symlinks'
+  expect_log 'declare_symlink() is not allowed; use the --allow_unresolved_symlinks'
 }
 
 function test_inmemory_cache_symlinks() {

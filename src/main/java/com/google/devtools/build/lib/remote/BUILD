@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/common:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/disk:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote/downloader:srcs",
@@ -35,7 +36,6 @@ java_library(
             "Retrier.java",
             "RemoteOutputChecker.java",
             "AbstractActionInputPrefetcher.java",
-            "ToplevelArtifactsDownloader.java",
             "LeaseService.java",
         ],
     ),
@@ -51,7 +51,6 @@ java_library(
         ":abstract_action_input_prefetcher",
         ":lease_service",
         ":remote_output_checker",
-        ":toplevel_artifacts_downloader",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
@@ -87,6 +86,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec/local",
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/remote/circuitbreaker",
         "//src/main/java/com/google/devtools/build/lib/remote/common",
         "//src/main/java/com/google/devtools/build/lib/remote/common:bulk_transfer_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
@@ -195,6 +195,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -209,6 +210,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/remote/common:cache_not_found_exception",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -218,25 +220,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:rxjava3",
-    ],
-)
-
-java_library(
-    name = "toplevel_artifacts_downloader",
-    srcs = ["ToplevelArtifactsDownloader.java"],
-    deps = [
-        ":abstract_action_input_prefetcher",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
     ],
 )
 

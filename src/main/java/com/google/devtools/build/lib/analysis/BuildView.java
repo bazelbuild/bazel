@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -43,6 +42,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver.TopLevelTargetsAndConfigsResult;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -252,21 +252,22 @@ public class BuildView {
     eventBus.post(new AnalysisPhaseStartedEvent(labelToTargetMap.values()));
 
     // Prepare the analysis phase
-    BuildConfigurationValue configuration;
+    BuildConfigurationValue topLevelConfig;
     TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigsResult;
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
-      configuration = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+      topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
+      eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }
     if (buildConfigurationsCreatedCallback != null) {
-      buildConfigurationsCreatedCallback.run(configuration);
+      buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
     try (SilentCloseable c = Profiler.instance().profile("AnalysisUtils.getTargetsWithConfigs")) {
       topLevelTargetsWithConfigsResult =
           AnalysisUtils.getTargetsWithConfigs(
-              configuration,
+              topLevelConfig,
               labelToTargetMap.values(),
               eventHandler,
               ruleClassProvider,
@@ -274,10 +275,10 @@ public class BuildView {
     }
 
     skyframeBuildView.setConfiguration(
-        eventHandler, configuration, viewOptions.maxConfigChangesToShow);
+        eventHandler, topLevelConfig, viewOptions.maxConfigChangesToShow);
 
-    eventBus.post(new MakeEnvironmentEvent(configuration.getMakeEnvironment()));
-    eventBus.post(configuration.toBuildEvent());
+    eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
+    eventBus.post(topLevelConfig.toBuildEvent());
 
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
@@ -286,6 +287,10 @@ public class BuildView {
     Multimap<Label, BuildConfigurationValue> byLabel = ArrayListMultimap.create();
     for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
       byLabel.put(pair.getLabel(), pair.getConfiguration());
+      if (pair.getConfiguration() != null && !pair.getConfiguration().equals(topLevelConfig)) {
+        // Log top-level rule transitioned configurations.
+        eventBus.post(new ConfigRequestedEvent(pair.getConfiguration(), topLevelConfig.checksum()));
+      }
     }
     for (Target target : labelToTargetMap.values()) {
       eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
@@ -444,6 +449,7 @@ public class BuildView {
         skyframeAnalysisResult =
             skyframeBuildView.configureTargets(
                 eventHandler,
+                labelToTargetMap,
                 topLevelCtKeys,
                 aspectsKeys.build(),
                 memoizedConfigurationLookupSupplier,
@@ -479,13 +485,13 @@ public class BuildView {
               eventHandler,
               eventBus,
               loadingResult,
-              configuration,
+              topLevelConfig,
               topLevelOptions,
               viewOptions,
               skyframeAnalysisResult,
               /* targetsToSkip= */ ImmutableSet.of(),
               /* labelToTargetMap= */ labelToTargetMap,
-              topLevelTargetsWithConfigsResult,
+              topLevelTargetsWithConfigsResult.hasError(),
               /* includeExecutionPhase= */ true);
     } else {
       ImmutableSet<ConfiguredTarget> targetsToSkip = ImmutableSet.of();
@@ -525,13 +531,13 @@ public class BuildView {
               eventHandler,
               eventBus,
               loadingResult,
-              configuration,
+              topLevelConfig,
               topLevelOptions,
               viewOptions,
               skyframeAnalysisResult,
               targetsToSkip,
               labelToTargetMap,
-              topLevelTargetsWithConfigsResult,
+              topLevelTargetsWithConfigsResult.hasError(),
               /* includeExecutionPhase= */ false);
     }
     logger.atInfo().log("Finished analysis");
@@ -556,7 +562,7 @@ public class BuildView {
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
-      TopLevelTargetsAndConfigsResult topLevelTargetsWithConfigs,
+      boolean hasTopLevelTargetsWithConfigurationError,
       boolean includeExecutionPhase)
       throws InterruptedException {
     Set<Label> testsToRun = loadingResult.getTestsToRunLabels();
@@ -619,7 +625,7 @@ public class BuildView {
 
     FailureDetail failureDetail =
         createAnalysisFailureDetail(
-            loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
+            loadingResult, skyframeAnalysisResult, hasTopLevelTargetsWithConfigurationError);
     if (includeExecutionPhase) {
       SkyframeAnalysisAndExecutionResult skyframeAnalysisAndExecutionResult =
           (SkyframeAnalysisAndExecutionResult) skyframeAnalysisResult;
@@ -637,7 +643,7 @@ public class BuildView {
           exclusiveIfLocalTests,
           topLevelOptions,
           loadingResult.getWorkspaceName(),
-          topLevelTargetsWithConfigs.getTargetsAndConfigs());
+          skyframeAnalysisResult.getTargetsWithConfiguration());
     }
 
     WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
@@ -683,7 +689,7 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        topLevelTargetsWithConfigs.getTargetsAndConfigs());
+        skyframeAnalysisResult.getTargetsWithConfiguration());
   }
 
   /**
@@ -694,7 +700,7 @@ public class BuildView {
   public static FailureDetail createAnalysisFailureDetail(
       TargetPatternPhaseValue loadingResult,
       @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
-      @Nullable TopLevelTargetsAndConfigsResult topLevelTargetsAndConfigs) {
+      boolean hasTopLevelTargetsWithConfigurationError) {
     if (loadingResult.hasError()) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but there were errors parsing the target pattern")
@@ -708,7 +714,7 @@ public class BuildView {
           .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.GENERIC_LOADING_PHASE_FAILURE))
           .build();
     }
-    if (topLevelTargetsAndConfigs != null && topLevelTargetsAndConfigs.hasError()) {
+    if (hasTopLevelTargetsWithConfigurationError) {
       return FailureDetail.newBuilder()
           .setMessage("command succeeded, but top level configurations could not be created")
           .setBuildConfiguration(
@@ -920,8 +926,7 @@ public class BuildView {
               CoverageReportValue.COVERAGE_REPORT_KEY,
               loadingResult.getWorkspaceName());
       if (actionsWrapper != null) {
-        Actions.GeneratingActions actions = actionsWrapper.getActions();
-        skyframeExecutor.injectCoverageReportData(actions);
+        skyframeExecutor.injectCoverageReportData(actionsWrapper.getActions());
         actionsWrapper.getCoverageOutputs().forEach(resultBuilder::add);
       }
     }

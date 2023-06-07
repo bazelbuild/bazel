@@ -17,7 +17,7 @@ import com.google.auto.value.AutoOneOf;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 
 /** Tagged union of errors that can be encountered when creating the {@link DependencyContext}. */
 @AutoOneOf(DependencyContextError.Kind.class)

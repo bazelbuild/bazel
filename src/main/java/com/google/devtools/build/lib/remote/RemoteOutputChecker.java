@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
+import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,6 +32,7 @@ import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -96,7 +99,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     var targetsToTest = analysisResult.getTargetsToTest();
     if (targetsToTest != null) {
       for (var target : targetsToTest) {
-        addTopLevelTarget(target, target, analysisResult::getTopLevelContext);
+        addTargetUnderTest(target, analysisResult.getArtifactsToBuild());
       }
     }
   }
@@ -105,7 +108,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       ProviderCollection target,
       @Nullable ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
-    if (shouldDownloadToplevelOutputs(configuredTarget)) {
+    if (shouldAddTopLevelTarget(configuredTarget)) {
       var topLevelArtifactContext = topLevelArtifactContextSupplier.get();
       var artifactsToBuild =
           TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext)
@@ -148,14 +151,34 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
+  private void addTargetUnderTest(
+      ProviderCollection target, ImmutableSet<Artifact> artifactsToBuild) {
+    TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
+    if (downloadToplevel && commandMode == CommandMode.TEST) {
+      // In test mode, download the outputs of the test runner action.
+      toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getOutputs());
+    }
+    if (commandMode == CommandMode.COVERAGE) {
+      // In coverage mode, download the per-test and aggregated coverage files.
+      // Do this even for MINIMAL, since coverage (unlike test) doesn't produce any observable
+      // results other than outputs.
+      toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getCoverageArtifacts());
+      for (Artifact artifactToBuild : artifactsToBuild) {
+        if (artifactToBuild.getArtifactOwner().equals(COVERAGE_REPORT_KEY)) {
+          toplevelArtifactsToDownload.add(artifactToBuild);
+        }
+      }
+    }
+  }
+
   public void addInputToDownload(ActionInput file) {
     inputsToDownload.add(file);
   }
 
-  private boolean shouldDownloadToplevelOutputs(@Nullable ConfiguredTarget configuredTarget) {
+  private boolean shouldAddTopLevelTarget(@Nullable ConfiguredTarget configuredTarget) {
     switch (commandMode) {
       case RUN:
-        // Always download outputs of toplevel targets in RUN mode
+        // Always download outputs of toplevel targets in run mode.
         return true;
       case COVERAGE:
       case TEST:
@@ -171,21 +194,21 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
-  private boolean shouldDownloadOutputForToplevel(ActionInput output) {
-    return shouldDownloadOutputFor(output, toplevelArtifactsToDownload);
+  private boolean isTopLevelArtifact(ActionInput output) {
+    return isPartOfCollectedSet(output, toplevelArtifactsToDownload);
   }
 
-  private boolean shouldDownloadOutputForLocalAction(ActionInput output) {
-    return shouldDownloadOutputFor(output, inputsToDownload);
+  private boolean isInputToLocalAction(ActionInput output) {
+    return isPartOfCollectedSet(output, inputsToDownload);
   }
 
-  private boolean shouldDownloadFileForRegex(ActionInput file) {
-    checkArgument(
-        !(file instanceof Artifact && ((Artifact) file).isTreeArtifact()),
-        "file must not be a tree.");
+  private boolean matchesRegex(ActionInput output) {
+    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
+      return false;
+    }
 
     for (var pattern : patternsToDownload) {
-      if (pattern.matcher(file.getExecPathString()).matches()) {
+      if (pattern.matcher(output.getExecPathString()).matches()) {
         return true;
       }
     }
@@ -193,48 +216,24 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     return false;
   }
 
-  private static boolean shouldDownloadOutputFor(
-      ActionInput output, Set<ActionInput> artifactCollection) {
-    if (output instanceof TreeFileArtifact) {
-      if (artifactCollection.contains(((Artifact) output).getParent())) {
-        return true;
-      }
-    } else if (artifactCollection.contains(output)) {
-      return true;
-    }
-
-    return false;
+  private static boolean isPartOfCollectedSet(
+      ActionInput actionInput, Set<ActionInput> artifactSet) {
+    return artifactSet.contains(
+        actionInput instanceof TreeFileArtifact
+            ? ((Artifact) actionInput).getParent()
+            : actionInput);
   }
 
   /**
    * Returns {@code true} if Bazel should download this {@link ActionInput} during spawn execution.
-   *
-   * @param output output of the spawn. Tree is accepted since we can't know the content of tree
-   *     before executing the spawn.
    */
-  public boolean shouldDownloadOutputDuringActionExecution(ActionInput output) {
-    // Download toplevel artifacts within action execution so that when the event TargetComplete is
-    // emitted, related toplevel artifacts are downloaded.
-    //
-    // Download outputs that are inputs to local actions within action execution so that the local
-    // actions don't need to wait for background downloads.
-    return shouldDownloadOutputForToplevel(output) || shouldDownloadOutputForLocalAction(output);
-  }
-
-  /**
-   * Returns {@code true} if Bazel should download this {@link ActionInput} after action execution.
-   *
-   * @param file file output of the action. Tree must be expanded to tree file.
-   */
-  public boolean shouldDownloadFileAfterActionExecution(ActionInput file) {
-    // Download user requested blobs in background to finish action execution sooner so that other
-    // actions can start sooner.
-    return shouldDownloadFileForRegex(file);
+  public boolean shouldDownloadOutput(ActionInput output) {
+    return isTopLevelArtifact(output) || isInputToLocalAction(output) || matchesRegex(output);
   }
 
   @Override
   public boolean shouldTrustRemoteArtifact(ActionInput file, RemoteFileArtifactValue metadata) {
-    if (shouldDownloadOutputForToplevel(file) || shouldDownloadFileForRegex(file)) {
+    if (shouldDownloadOutput(file)) {
       // If Bazel should download this file, but it does not exist locally, returns false to rerun
       // the generating action to trigger the download (just like in the normal build, when local
       // outputs are missing).

@@ -108,5 +108,5 @@ directly to the Bazel tutorials:
 
 *   [Tutorial: Build a C++ Project](/start/cpp)
 *   [Tutorial: Build a Java Project](/start/java)
-*   [Tutorial: Build an Android Application](/start/android-app )
-*   [Tutorial: Build an iOS Application](/start/ios-app))
+*   [Tutorial: Build an Android Application](/start/android-app)
+*   [Tutorial: Build an iOS Application](/start/ios-app)

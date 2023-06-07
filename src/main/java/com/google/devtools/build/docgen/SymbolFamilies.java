@@ -83,6 +83,22 @@ public class SymbolFamilies {
     return allDocPages;
   }
 
+  /** Collects symbols predefined in BZL files. */
+  private ImmutableMap<String, Object> collectBzlGlobals(ConfiguredRuleClassProvider provider) {
+    // StarlarkNativeModuleApi is faked because we want to inherit the documentation carried in its
+    // annotations, whereas the real "native" object is just a bare struct.
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    env.put("native", new FakeStarlarkNativeModuleApi());
+    for (Map.Entry<String, Object> entry :
+        provider.getBazelStarlarkEnvironment().getUninjectedBuildBzlEnv().entrySet()) {
+      if (entry.getKey().equals("native")) {
+        continue;
+      }
+      env.put(entry);
+    }
+    return env.buildOrThrow();
+  }
+
   /*
    * Collects a list of native rules that are available in BUILD files as top level functions
    * and in BZL files as methods of the native package.
@@ -97,16 +113,6 @@ public class SymbolFamilies {
         new ProtoFileBuildEncyclopediaProcessor(linkExpander, provider);
     processor.generateDocumentation(inputDirs, "", denyList);
     return processor.getNativeRules();
-  }
-
-  /** Collects symbols predefined in BZL files. */
-  private ImmutableMap<String, Object> collectBzlGlobals(ConfiguredRuleClassProvider provider) {
-    // StarlarkNativeModuleApi is faked, because we don't have a PackageFactory here
-    // and we can't use BazelStarlarkEnvironment.
-    return ImmutableMap.<String, Object>builder()
-        .put("native", new FakeStarlarkNativeModuleApi())
-        .putAll(provider.getEnvironment())
-        .buildOrThrow();
   }
 
   private ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)

@@ -110,7 +110,7 @@ final class JavaInfoBuildHelper {
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder().addJavaOutput(javaOutput).build();
-    javaInfoBuilder.addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider);
+    javaInfoBuilder.javaRuleOutputs(javaRuleOutputJarsProvider);
 
     ClasspathType type = neverlink ? COMPILE_ONLY : BOTH;
 
@@ -122,18 +122,15 @@ final class JavaInfoBuildHelper {
     streamProviders(runtimeDeps, JavaCompilationArgsProvider.class)
         .forEach(args -> javaCompilationArgsBuilder.addDeps(args, RUNTIME_ONLY));
 
-    javaInfoBuilder.addProvider(
-        JavaCompilationArgsProvider.class, javaCompilationArgsBuilder.build());
+    javaInfoBuilder.javaCompilationArgs(javaCompilationArgsBuilder.build());
 
     javaInfoBuilder.javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports));
 
-    javaInfoBuilder.addProvider(
-        JavaSourceJarsProvider.class,
+    javaInfoBuilder.javaSourceJars(
         createJavaSourceJarsProvider(
             javaOutput.getSourceJars(), concat(compileTimeDeps, runtimeDeps, exports)));
 
-    javaInfoBuilder.addProvider(
-        JavaGenJarsProvider.class,
+    javaInfoBuilder.javaGenJars(
         JavaGenJarsProvider.create(
             false,
             javaOutput.getGeneratedClassJar(),
@@ -152,11 +149,9 @@ final class JavaInfoBuildHelper {
                 streamProviders(compileTimeDeps, JavaCcInfoProvider.class),
                 Stream.of(new JavaCcInfoProvider(CcInfo.merge(nativeLibraries))))
             .collect(toImmutableList());
-    javaInfoBuilder.addProvider(
-        JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries));
+    javaInfoBuilder.javaCcInfo(JavaCcInfoProvider.merge(transitiveNativeLibraries));
 
-    javaInfoBuilder.addProvider(
-        JavaModuleFlagsProvider.class,
+    javaInfoBuilder.javaModuleFlags(
         JavaModuleFlagsProvider.merge(
             JavaInfo.streamProviders(
                     concat(compileTimeDeps, exports), JavaModuleFlagsProvider.class)
@@ -387,15 +382,13 @@ final class JavaInfoBuildHelper {
             .collect(toImmutableList());
 
     return javaInfoBuilder
-        .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
-        .addProvider(
-            JavaSourceJarsProvider.class,
+        .javaCompilationArgs(javaCompilationArgsProvider)
+        .javaSourceJars(
             createJavaSourceJarsProvider(outputSourceJars, concat(runtimeDeps, exports, deps)))
-        .addProvider(JavaRuleOutputJarsProvider.class, outputJarsBuilder.build())
+        .javaRuleOutputs(outputJarsBuilder.build())
         .javaPluginInfo(mergeExportedJavaPluginInfo(exportedPlugins, exports))
-        .addProvider(JavaCcInfoProvider.class, JavaCcInfoProvider.merge(transitiveNativeLibraries))
-        .addProvider(
-            JavaModuleFlagsProvider.class,
+        .javaCcInfo(JavaCcInfoProvider.merge(transitiveNativeLibraries))
+        .javaModuleFlags(
             createJavaModuleFlagsProvider(addExports, addOpens, concat(runtimeDeps, exports, deps)))
         .setNeverlink(neverlink)
         .build();

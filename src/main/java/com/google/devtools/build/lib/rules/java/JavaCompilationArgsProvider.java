@@ -18,20 +18,21 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
+import java.util.Optional;
 
 /** A collection of recursively collected Java build information. */
 @AutoValue
 @Immutable
-public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvider {
+public abstract class JavaCompilationArgsProvider implements JavaInfoInternalProvider {
 
   @SerializationConstant
   public static final JavaCompilationArgsProvider EMPTY =
@@ -119,13 +120,9 @@ public abstract class JavaCompilationArgsProvider implements TransitiveInfoProvi
       Iterable<? extends TransitiveInfoCollection> infos) {
     Builder argsBuilder = builder();
     for (TransitiveInfoCollection info : infos) {
-      JavaCompilationArgsProvider provider = null;
-
-      if (provider == null) {
-        provider = JavaInfo.getProvider(JavaCompilationArgsProvider.class, info);
-      }
-      if (provider != null) {
-        argsBuilder.addExports(provider);
+      Optional<JavaCompilationArgsProvider> provider = JavaInfo.getCompilationArgsProvider(info);
+      if (provider.isPresent()) {
+        argsBuilder.addExports(provider.get());
       } else {
         NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
         for (Artifact jar : FileType.filter(filesToBuild.toList(), JavaSemantics.JAR)) {

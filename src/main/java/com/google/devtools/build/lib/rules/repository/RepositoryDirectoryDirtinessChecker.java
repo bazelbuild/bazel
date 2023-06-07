@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.Version;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +51,7 @@ public class RepositoryDirectoryDirtinessChecker extends SkyValueDirtinessChecke
   public DirtyResult check(
       SkyKey skyKey,
       SkyValue skyValue,
+      @Nullable Version oldMtsv,
       SyscallCache syscallCache,
       @Nullable TimestampGranularityMonitor tsgm) {
     RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;

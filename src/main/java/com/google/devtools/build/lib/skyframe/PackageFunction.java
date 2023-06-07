@@ -805,7 +805,8 @@ public class PackageFunction implements SkyFunction {
     PathFragment pkgDir = pkgId.getPackageFragment();
     // Contains a key for each package whose label that might have a presence of a subpackage.
     // Values are all potential subpackages of the label.
-    Map<Target, List<PackageLookupValue.Key>> targetSubpackagePackageLookupKeyMap = new HashMap<>();
+    List<Pair<Target, List<PackageLookupValue.Key>>> targetsAndSubpackagePackageLookupKeys =
+        new ArrayList<>();
     Set<PackageLookupValue.Key> allPackageLookupKeys = new HashSet<>();
     for (Target target : pkgBuilder.getTargets()) {
       Label label = target.getLabel();
@@ -813,6 +814,7 @@ public class PackageFunction implements SkyFunction {
       if (dir.equals(pkgDir)) {
         continue;
       }
+      List<PackageLookupValue.Key> subpackagePackageLookupKeys = new ArrayList<>();
       String labelName = label.getName();
       PathFragment labelAsRelativePath = PathFragment.create(labelName).getParentDirectory();
       PathFragment subpackagePath = pkgDir;
@@ -821,14 +823,13 @@ public class PackageFunction implements SkyFunction {
         subpackagePath = subpackagePath.getRelative(segment);
         PackageLookupValue.Key currentPackageLookupKey =
             PackageLookupValue.key(PackageIdentifier.create(pkgId.getRepository(), subpackagePath));
-        targetSubpackagePackageLookupKeyMap
-            .computeIfAbsent(target, t -> new ArrayList<>())
-            .add(currentPackageLookupKey);
+        subpackagePackageLookupKeys.add(currentPackageLookupKey);
         allPackageLookupKeys.add(currentPackageLookupKey);
       }
+      targetsAndSubpackagePackageLookupKeys.add(Pair.of(target, subpackagePackageLookupKeys));
     }
 
-    if (targetSubpackagePackageLookupKeyMap.isEmpty()) {
+    if (targetsAndSubpackagePackageLookupKeys.isEmpty()) {
       return;
     }
 
@@ -837,9 +838,11 @@ public class PackageFunction implements SkyFunction {
       return;
     }
 
-    for (Map.Entry<Target, List<PackageLookupValue.Key>> entry :
-        targetSubpackagePackageLookupKeyMap.entrySet()) {
-      List<PackageLookupValue.Key> targetPackageLookupKeys = entry.getValue();
+    for (Pair<Target, List<PackageLookupValue.Key>> targetAndSubpackagePackageLookupKeys :
+        targetsAndSubpackagePackageLookupKeys) {
+      Target target = targetAndSubpackagePackageLookupKeys.getFirst();
+      List<PackageLookupValue.Key> targetPackageLookupKeys =
+          targetAndSubpackagePackageLookupKeys.getSecond();
       // Iterate from the deepest potential subpackage to the shallowest in that we only want to
       // display the deepest subpackage in the error message for each target.
       for (PackageLookupValue.Key packageLookupKey : Lists.reverse(targetPackageLookupKeys)) {
@@ -858,10 +861,9 @@ public class PackageFunction implements SkyFunction {
           throw new InternalInconsistentFilesystemException(pkgId, e);
         }
 
-        Target target = entry.getKey();
         if (maybeAddEventAboutLabelCrossingSubpackage(
             pkgBuilder, pkgRoot, target, packageLookupKey.argument(), packageLookupValue)) {
-          pkgBuilder.getTargets().remove(entry.getKey());
+          pkgBuilder.getTargets().remove(target);
           pkgBuilder.setContainsErrors();
           break;
         }

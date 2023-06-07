@@ -474,7 +474,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new PyRuntimeRule());
 
           // This symbol is overridden by exports.bzl
-          builder.addStarlarkAccessibleTopLevels(
+          builder.addBzlToplevel(
               "py_internal",
               ContextGuardedValue.onlyInAllowedRepos(
                   Starlark.NONE, PyBootstrap.allowedRepositories));

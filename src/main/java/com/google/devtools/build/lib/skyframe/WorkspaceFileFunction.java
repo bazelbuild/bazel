@@ -65,6 +65,7 @@ import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.syntax.Comment;
 import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.LoadStatement;
 import net.starlark.java.syntax.Location;
@@ -164,11 +165,39 @@ public class WorkspaceFileFunction implements SkyFunction {
             .allowToplevelRebinding(true)
             .build();
 
+    // Calculate user workspace file content
+    StarlarkFile userWorkspaceFile = null;
+    if (useWorkspaceResolvedFile) {
+      // WORKSPACE.resolved file.
+      userWorkspaceFile =
+          StarlarkFile.parse(
+              ParserInput.fromString(
+                  workspaceFromResolvedFile, resolvedFile.get().asPath().toString()),
+              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
+              options.toBuilder().allowLoadPrivateSymbols(true).build());
+    } else if (useWorkspaceBzlmodFile) {
+      // If Bzlmod is enabled and WORKSPACE.bzlmod exists, then use this file instead of the
+      // original WORKSPACE file.
+      userWorkspaceFile = parseWorkspaceFile(workspaceBzlmodFile, options, env);
+    } else if (workspaceFileValue.exists()) {
+      // normal WORKSPACE file
+      userWorkspaceFile = parseWorkspaceFile(workspaceFile, options, env);
+    }
+
+    boolean shouldSkipWorkspacePrefix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
+    boolean shouldSkipWorkspaceSuffix = useWorkspaceResolvedFile || useWorkspaceBzlmodFile;
+    if (userWorkspaceFile != null) {
+      for (Comment comment : userWorkspaceFile.getComments()) {
+        shouldSkipWorkspacePrefix |= comment.getText().contains("__SKIP_WORKSPACE_PREFIX__");
+        shouldSkipWorkspaceSuffix |= comment.getText().contains("__SKIP_WORKSPACE_SUFFIX__");
+      }
+    }
+
     // Accumulate workspace files (prefix + main + suffix).
     ArrayList<StarlarkFile> files = new ArrayList<>();
 
-    // 1. Workspace prefix (DEFAULT.WORKSPACE): Only added when not using the WORKSPACE.bzlmod file
-    if (!useWorkspaceBzlmodFile) {
+    // 1. Add WORKSPACE prefix (DEFAULT.WORKSPACE)
+    if (!shouldSkipWorkspacePrefix) {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
@@ -181,27 +210,13 @@ public class WorkspaceFileFunction implements SkyFunction {
       files.add(file);
     }
 
-    // 2. Main workspace content
-    if (useWorkspaceResolvedFile) {
-      // WORKSPACE.resolved file.
-      StarlarkFile file =
-          StarlarkFile.parse(
-              ParserInput.fromString(
-                  workspaceFromResolvedFile, resolvedFile.get().asPath().toString()),
-              // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
-              options.toBuilder().allowLoadPrivateSymbols(true).build());
-      files.add(file);
-    } else if (useWorkspaceBzlmodFile) {
-      // If Bzlmod is enabled and WORKSPACE.bzlmod exists, then use this file instead of the
-      // original WORKSPACE file.
-      files.add(parseWorkspaceFile(workspaceBzlmodFile, options, env));
-    } else if (workspaceFileValue.exists()) {
-      // normal WORKSPACE file
-      files.add(parseWorkspaceFile(workspaceFile, options, env));
+    // 2. Add user workspace content
+    if (userWorkspaceFile != null) {
+      files.add(userWorkspaceFile);
     }
 
-    // 3. Workspace suffix (DEFAULT.WORKSPACE.SUFFIX): Only added when using the WORKSPACE file.
-    if (!useWorkspaceResolvedFile && !useWorkspaceBzlmodFile) {
+    // 3. Add WORKSPACE suffix (DEFAULT.WORKSPACE.SUFFIX)
+    if (!shouldSkipWorkspaceSuffix) {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.fromString(
@@ -352,6 +367,9 @@ public class WorkspaceFileFunction implements SkyFunction {
               ruleClassProvider,
               mu,
               key.getIndex() == 0,
+              // Due to rules_java_builtin in WORKSPACE prefix, we allow workspace() in the first 2
+              // load statement separated chunks
+              key.getIndex() <= 1,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace(),
               directories.getLocalJavabase(),

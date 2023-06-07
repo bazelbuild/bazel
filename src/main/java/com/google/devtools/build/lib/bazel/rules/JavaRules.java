@@ -90,12 +90,15 @@ public class JavaRules implements RuleSet {
             JavaPluginInfo.PROVIDER,
             ProguardSpecProvider.PROVIDER));
 
-    builder.addStarlarkAccessibleTopLevels(
+    builder.addBzlToplevel(
         "experimental_java_library_export_do_not_use",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));
 
     try {
+      builder.addWorkspaceFilePrefix(
+          ResourceFileLoader.loadResource(
+              BazelJavaRuleClasses.class, "rules_java_builtin.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFileSuffix(

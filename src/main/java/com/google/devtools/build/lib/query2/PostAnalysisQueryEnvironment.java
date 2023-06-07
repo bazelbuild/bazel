@@ -541,13 +541,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
   protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns) {}
 
   @Override
-  public ThreadSafeMutableSet<T> getBuildFiles(
-      QueryExpression caller,
-      ThreadSafeMutableSet<T> nodes,
-      boolean buildFiles,
-      boolean loads,
-      QueryExpressionContext<T> context)
-      throws QueryException {
+  public TransitiveLoadFilesHelper<T> getTransitiveLoadFilesHelper() throws QueryException {
     throw new QueryException(
         "buildfiles() doesn't make sense for the configured target graph",
         ConfigurableQuery.Code.BUILDFILES_FUNCTION_NOT_SUPPORTED);

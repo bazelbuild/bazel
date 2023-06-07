@@ -35,11 +35,11 @@ import net.starlark.java.syntax.Location;
 
 /** A set of miscellaneous APIs that are available to any BUILD file. */
 @GlobalMethods(environment = Environment.BUILD)
-class BuildGlobals {
+public class BuildGlobals {
 
   private BuildGlobals() {}
 
-  static final BuildGlobals INSTANCE = new BuildGlobals();
+  public static final BuildGlobals INSTANCE = new BuildGlobals();
 
   @StarlarkMethod(
       name = "environment_group",

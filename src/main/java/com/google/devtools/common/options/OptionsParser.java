@@ -30,6 +30,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParserImpl.OptionsParserImplResult;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -103,8 +104,8 @@ public class OptionsParser implements OptionsParsingResult {
    * cache is very unlikely to grow to a significant amount of memory, because there's only a fixed
    * set of options classes on the classpath.
    */
-  private static final Map<ImmutableList<Class<? extends OptionsBase>>, OptionsData> optionsData =
-      new HashMap<>();
+  private static final Map<Pair<ImmutableList<Class<? extends OptionsBase>>, Boolean>, OptionsData>
+      optionsData = new HashMap<>();
 
   /** Skipped prefixes for starlark options. */
   public static final ImmutableList<String> STARLARK_SKIPPED_PREFIXES =
@@ -120,30 +121,38 @@ public class OptionsParser implements OptionsParsingResult {
    */
   public static OpaqueOptionsData getOptionsData(
       List<Class<? extends OptionsBase>> optionsClasses) {
-    return getOptionsDataInternal(optionsClasses);
+    return getOptionsDataInternal(optionsClasses, false);
+  }
+
+  public static OpaqueOptionsData getFallbackOptionsData(
+      List<Class<? extends OptionsBase>> optionsClasses) {
+    return getOptionsDataInternal(optionsClasses, true);
   }
 
   /** Returns the {@link OptionsData} associated with the given list of options classes. */
   static synchronized OptionsData getOptionsDataInternal(
-      List<Class<? extends OptionsBase>> optionsClasses) {
+      List<Class<? extends OptionsBase>> optionsClasses,
+      boolean allowDuplicatesParsingEquivalently) {
     ImmutableList<Class<? extends OptionsBase>> immutableOptionsClasses =
         ImmutableList.copyOf(optionsClasses);
-    OptionsData result = optionsData.get(immutableOptionsClasses);
+    Pair<ImmutableList<Class<? extends OptionsBase>>, Boolean> cacheKey =
+        Pair.of(immutableOptionsClasses, allowDuplicatesParsingEquivalently);
+    OptionsData result = optionsData.get(cacheKey);
     if (result == null) {
       try {
-        result = OptionsData.from(immutableOptionsClasses);
+        result = OptionsData.from(immutableOptionsClasses, allowDuplicatesParsingEquivalently);
       } catch (Exception e) {
         Throwables.throwIfInstanceOf(e, ConstructionException.class);
         throw new ConstructionException(e.getMessage(), e);
       }
-      optionsData.put(immutableOptionsClasses, result);
+      optionsData.put(cacheKey, result);
     }
     return result;
   }
 
   /** Returns the {@link OptionsData} associated with the given options class. */
   static OptionsData getOptionsDataInternal(Class<? extends OptionsBase> optionsClass) {
-    return getOptionsDataInternal(ImmutableList.of(optionsClass));
+    return getOptionsDataInternal(ImmutableList.of(optionsClass), false);
   }
 
   /** A helper class to create new instances of {@link OptionsParser}. */
@@ -158,6 +167,7 @@ public class OptionsParser implements OptionsParsingResult {
     /** Directly sets the {@link OptionsData} used by this parser. */
     @CanIgnoreReturnValue
     public Builder optionsData(OptionsData optionsData) {
+      Preconditions.checkArgument(!optionsData.createdWithAllowDuplicatesParsingEquivalently());
       this.implBuilder.optionsData(optionsData);
       return this;
     }
@@ -173,7 +183,7 @@ public class OptionsParser implements OptionsParsingResult {
     @SafeVarargs
     public final Builder optionsClasses(Class<? extends OptionsBase>... optionsClasses) {
       return this.optionsData(
-          (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
+          (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses), false));
     }
 
     /**
@@ -181,7 +191,7 @@ public class OptionsParser implements OptionsParsingResult {
      */
     public Builder optionsClasses(Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
       return this.optionsData(
-          (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses)));
+          (OpaqueOptionsData) getOptionsDataInternal(ImmutableList.copyOf(optionsClasses), false));
     }
 
     /**
@@ -699,7 +709,7 @@ public class OptionsParser implements OptionsParsingResult {
    */
   public void parse(OptionPriority.PriorityCategory priority, String source, List<String> args)
       throws OptionsParsingException {
-    parseWithSourceFunction(priority, o -> source, args);
+    parseWithSourceFunction(priority, o -> source, args, null);
   }
 
   /**
@@ -715,19 +725,28 @@ public class OptionsParser implements OptionsParsingResult {
    *     each option will be given an index to track its position. If parse() has already been
    *     called at this priority, the indexing will continue where it left off, to keep ordering.
    * @param sourceFunction a function that maps option names to the source of the option.
+   * @param fallbackData if provided, the full collection of options that should be parsed and
+   *     ignored without raising an error if they are not recognized by the options classes
+   *     registered with this parser.
    * @param args the arg list to parse. Each element might be an option, a value linked to an
    *     option, or residue.
+   * @return a list of options and values that were parsed but ignored due to only resolving against
+   *     the fallback data
    */
-  public void parseWithSourceFunction(
+  @CanIgnoreReturnValue
+  public ImmutableList<String> parseWithSourceFunction(
       OptionPriority.PriorityCategory priority,
       Function<OptionDefinition, String> sourceFunction,
-      List<String> args)
+      List<String> args,
+      @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
-    OptionsParserImplResult optionsParserImplResult = impl.parse(priority, sourceFunction, args);
+    OptionsParserImplResult optionsParserImplResult =
+        impl.parse(priority, sourceFunction, args, (OptionsData) fallbackData);
     addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
+    return optionsParserImplResult.ignoredArgs;
   }
 
   /**
@@ -739,9 +758,18 @@ public class OptionsParser implements OptionsParsingResult {
    * @param source a description of where the expansion arguments came from.
    * @param args the arguments to parse as the expansion. Order matters, as the value of a flag may
    *     be in the following argument.
+   * @param fallbackData if provided, the full collection of options that should be parsed and
+   *     ignored without raising an error if they are not recognized by the options classes
+   *     registered with this parser.
+   * @return a list of options and values that were parsed but ignored due to only resolving against
+   *     the fallback data
    */
-  public void parseArgsAsExpansionOfOption(
-      ParsedOptionDescription optionToExpand, String source, List<String> args)
+  @CanIgnoreReturnValue
+  public ImmutableList<String> parseArgsAsExpansionOfOption(
+      ParsedOptionDescription optionToExpand,
+      String source,
+      List<String> args,
+      @Nullable OpaqueOptionsData fallbackData)
       throws OptionsParsingException {
     Preconditions.checkNotNull(
         optionToExpand, "Option for expansion not specified for arglist %s", args);
@@ -751,8 +779,10 @@ public class OptionsParser implements OptionsParsingResult {
         "Priority cannot be default, which was specified for arglist %s",
         args);
     OptionsParserImplResult optionsParserImplResult =
-        impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
+        impl.parseArgsAsExpansionOfOption(
+            optionToExpand, o -> source, args, (OptionsData) fallbackData);
     addResidueFromResult(optionsParserImplResult);
+    return optionsParserImplResult.ignoredArgs;
   }
 
   private void addResidueFromResult(OptionsParserImplResult result) throws OptionsParsingException {

@@ -29,8 +29,10 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Map.Entry;
@@ -62,6 +64,14 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.OFF),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, ImmutableList.of()));
+  }
+
+  @Override
+  protected SkyframeExecutorRepositoryHelpersHolder getRepositoryHelpersHolder() {
+    // Transitive packages are needed for RepoMappingManifestAction and are only stored when
+    // external repositories are enabled.
+    return SkyframeExecutorRepositoryHelpersHolder.create(
+        new RepositoryDirectoryDirtinessChecker());
   }
 
   @Before

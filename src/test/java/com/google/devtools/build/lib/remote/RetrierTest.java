@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -93,7 +94,7 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(3);
-    verify(alwaysOpen, times(3)).recordFailure();
+    verify(alwaysOpen, times(3)).recordFailure(any(Exception.class));
     verify(alwaysOpen, never()).recordSuccess();
   }
 
@@ -117,7 +118,7 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(1);
-    verify(alwaysOpen, times(1)).recordFailure();
+    verify(alwaysOpen, times(1)).recordFailure(e);
     verify(alwaysOpen, never()).recordSuccess();
   }
 
@@ -138,7 +139,7 @@ public class RetrierTest {
     });
     assertThat(val).isEqualTo(1);
 
-    verify(alwaysOpen, times(2)).recordFailure();
+    verify(alwaysOpen, times(2)).recordFailure(any(Exception.class));
     verify(alwaysOpen, times(1)).recordSuccess();
   }
 
@@ -350,7 +351,7 @@ public class RetrierTest {
     }
 
     @Override
-    public synchronized void recordFailure() {
+    public synchronized void recordFailure(Exception e) {
       consecutiveFailures++;
       if (consecutiveFailures >= maxConsecutiveFailures) {
         state = State.REJECT_CALLS;

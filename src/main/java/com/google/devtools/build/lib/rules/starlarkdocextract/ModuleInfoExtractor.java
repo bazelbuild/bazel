@@ -19,10 +19,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -34,6 +36,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Aspe
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
@@ -85,6 +88,9 @@ final class ModuleInfoExtractor {
   public ModuleInfo extractFrom(Module module) throws ExtractionException {
     ModuleInfo.Builder builder = ModuleInfo.newBuilder();
     Optional.ofNullable(module.getDocumentation()).ifPresent(builder::setModuleDocstring);
+    Optional.ofNullable(BazelModuleContext.of(module))
+        .map(bazelModuleContext -> bazelModuleContext.label().getDisplayForm(repositoryMapping))
+        .ifPresent(builder::setFile);
     for (var entry : module.getGlobals().entrySet()) {
       String topLevelSymbol = entry.getKey();
       if (isExportableName(topLevelSymbol) && isWantedName.test(topLevelSymbol)) {
@@ -127,7 +133,9 @@ final class ModuleInfoExtractor {
       addProviderInfo(builder, name, (StarlarkProvider) value);
     } else if (value instanceof StarlarkFunction) {
       try {
-        builder.addFuncInfo(FunctionUtil.fromNameAndFunction(name, (StarlarkFunction) value));
+        builder.addFuncInfo(
+            FunctionUtil.fromNameAndFunction(
+                name, (StarlarkFunction) value, /* withOriginKey= */ true, repositoryMapping));
       } catch (DocstringParseException e) {
         throw new ExtractionException(e);
       }
@@ -253,13 +261,7 @@ final class ModuleInfoExtractor {
     builder.setMandatory(attribute.isMandatory());
     for (ImmutableSet<StarlarkProviderIdentifier> providerGroup :
         attribute.getRequiredProviders().getStarlarkProviders()) {
-      ProviderNameGroup.Builder providerNameGroupBuilder = ProviderNameGroup.newBuilder();
-      for (StarlarkProviderIdentifier provider : providerGroup) {
-        // TODO(b/276733504): if this module exports a provider under a different name or in a
-        // namespace, document it under that exported name rather than the provider's key name.
-        providerNameGroupBuilder.addProviderName(provider.toString());
-      }
-      builder.addProviderNameGroup(providerNameGroupBuilder.build());
+      builder.addProviderNameGroup(buildProviderNameGroup(providerGroup));
     }
 
     if (!attribute.isMandatory()) {
@@ -269,12 +271,38 @@ final class ModuleInfoExtractor {
     return builder.build();
   }
 
+  private ProviderNameGroup buildProviderNameGroup(
+      ImmutableSet<StarlarkProviderIdentifier> providerGroup) {
+    ProviderNameGroup.Builder providerNameGroupBuilder = ProviderNameGroup.newBuilder();
+    for (StarlarkProviderIdentifier provider : providerGroup) {
+      // TODO(b/276733504): if this module exports a provider under a different name or in a
+      // namespace, document it under that exported name rather than the provider's key name.
+      providerNameGroupBuilder.addProviderName(provider.toString());
+      OriginKey.Builder providerKeyBuilder = OriginKey.newBuilder().setName(provider.toString());
+      if (!provider.isLegacy()) {
+        if (provider.getKey() instanceof StarlarkProvider.Key) {
+          Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
+          providerKeyBuilder.setFile(definingModule.getDisplayForm(repositoryMapping));
+        } else if (provider.getKey() instanceof BuiltinProvider.Key) {
+          providerKeyBuilder.setFile("<native>");
+        }
+      }
+      providerNameGroupBuilder.addOriginKey(providerKeyBuilder.build());
+    }
+    return providerNameGroupBuilder.build();
+  }
+
   private void addRuleInfo(
       ModuleInfo.Builder moduleInfoBuilder, String exportedName, StarlarkRuleFunction ruleFunction)
       throws ExtractionException {
     RuleInfo.Builder ruleInfoBuilder = RuleInfo.newBuilder();
-    // Allow rules to be exported under a different name (e.g. in a struct).
+    // Allow rules to be exported under a different name (e.g. in a struct)
     ruleInfoBuilder.setRuleName(exportedName);
+    // ... but record the origin rule key for cross references.
+    ruleInfoBuilder.setOriginKey(
+        OriginKey.newBuilder()
+            .setName(ruleFunction.getName())
+            .setFile(ruleFunction.getExtensionLabel().getDisplayForm(repositoryMapping)));
     ruleFunction.getDocumentation().ifPresent(ruleInfoBuilder::setDocString);
     RuleClass ruleClass = ruleFunction.getRuleClass();
     ruleInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
@@ -285,14 +313,24 @@ final class ModuleInfoExtractor {
         ruleInfoBuilder.addAttribute(buildAttributeInfo(attribute, "rule " + exportedName));
       }
     }
+    ImmutableSet<StarlarkProviderIdentifier> advertisedProviders =
+        ruleClass.getAdvertisedProviders().getStarlarkProviders();
+    if (!advertisedProviders.isEmpty()) {
+      ruleInfoBuilder.setAdvertisedProviders(buildProviderNameGroup(advertisedProviders));
+    }
     moduleInfoBuilder.addRuleInfo(ruleInfoBuilder);
   }
 
-  private static void addProviderInfo(
+  private void addProviderInfo(
       ModuleInfo.Builder moduleInfoBuilder, String exportedName, StarlarkProvider provider) {
     ProviderInfo.Builder providerInfoBuilder = ProviderInfo.newBuilder();
-    // Allow providers to be exported under a different name (e.g. in a struct).
+    // Allow providers to be exported under a different name (e.g. in a struct)
     providerInfoBuilder.setProviderName(exportedName);
+    // ... but record the origin provider key for cross references.
+    providerInfoBuilder.setOriginKey(
+        OriginKey.newBuilder()
+            .setName(provider.getName())
+            .setFile(provider.getKey().getExtensionLabel().getDisplayForm(repositoryMapping)));
     provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
     ImmutableMap<String, Optional<String>> schema = provider.getSchema();
     if (schema != null) {
@@ -312,8 +350,14 @@ final class ModuleInfoExtractor {
       ModuleInfo.Builder moduleInfoBuilder, String exportedName, StarlarkDefinedAspect aspect)
       throws ExtractionException {
     AspectInfo.Builder aspectInfoBuilder = AspectInfo.newBuilder();
-    // Allow aspects to be exported under a different name (e.g. in a struct).
+    // Allow aspects to be exported under a different name (e.g. in a struct)
     aspectInfoBuilder.setAspectName(exportedName);
+    // ... but record the origin aspect key for cross references.
+    aspectInfoBuilder.setOriginKey(
+        OriginKey.newBuilder()
+            .setName(aspect.getAspectClass().getExportedName())
+            .setFile(
+                aspect.getAspectClass().getExtensionLabel().getDisplayForm(repositoryMapping)));
     aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
     aspectInfoBuilder.addAllAspectAttribute(aspect.getAttributeAspects());
     aspectInfoBuilder.addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first

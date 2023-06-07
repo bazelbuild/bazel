@@ -437,8 +437,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     JavaInfo javaInfo =
         javaInfoBuilder
-            .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
-            .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+            .javaSourceJars(sourceJarsProvider)
+            .javaRuleOutputs(ruleOutputJarsProvider)
             .build();
 
     return builder
@@ -634,7 +634,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
   /** Set test and robolectric specific jvm flags */
   protected abstract ImmutableList<String> getJvmFlags(RuleContext ruleContext, String testClass)
-      throws RuleErrorException;
+      throws RuleErrorException, InterruptedException;
 
   /**
    * Enables coverage support for Android and Java targets: adds instrumented jar to the classpath

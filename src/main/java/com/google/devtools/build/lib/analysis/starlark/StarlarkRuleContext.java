@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.ShToolchain;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
@@ -123,6 +122,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           PackageIdentifier.createInMainRepo("test"), // for tests
           PackageIdentifier.createInMainRepo("third_party/bazel_rules/rules_android"),
           PackageIdentifier.createUnchecked("build_bazel_rules_android", ""),
+          PackageIdentifier.createUnchecked("rules_android", ""),
           PackageIdentifier.createInMainRepo("tools/build_defs/android"));
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
@@ -282,17 +282,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       StarlarkAttributesCollection.Builder ruleBuilder = StarlarkAttributesCollection.builder(this);
 
       for (Attribute attribute : rule.getAttributes()) {
-        // The aspect_hints attribute is experimental. When not enabled through the
-        // --enable_aspect_hints flag, we don't add it to the list of attributes that the aspect
-        // has access to.
-        if (attribute.getName().equals("aspect_hints")
-            && !ruleContext
-                .getConfiguration()
-                .getOptions()
-                .get(CoreOptions.class)
-                .enableAspectHints) {
-          continue;
-        }
         Object value = ruleContext.attributes().get(attribute.getName(), attribute.getType());
         ruleBuilder.addAttribute(attribute, value);
       }
@@ -711,7 +700,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   @Override
-  public Dict<String, String> var() throws EvalException {
+  public Dict<String, String> var() throws EvalException, InterruptedException {
     checkMutable("var");
     if (cachedMakeVariables == null) {
       Dict.Builder<String, String> vars;
@@ -885,7 +874,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   @Override
   public String expandMakeVariables(
       String attributeName, String command, Dict<?, ?> additionalSubstitutions) // <String, String>
-      throws EvalException {
+      throws EvalException, InterruptedException {
     checkMutable("expand_make_variables");
     final Map<String, String> additionalSubstitutionsMap =
         Dict.cast(additionalSubstitutions, String.class, String.class, "additional_substitutions");
@@ -893,7 +882,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   }
 
   private String expandMakeVariables(
-      String attributeName, String command, Map<String, String> additionalSubstitutionsMap) {
+      String attributeName, String command, Map<String, String> additionalSubstitutionsMap)
+      throws InterruptedException {
     ConfigurationMakeVariableContext makeVariableContext =
         new ConfigurationMakeVariableContext(
             ruleContext,
@@ -901,7 +891,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
             ruleContext.getConfiguration(),
             ImmutableList.of()) {
           @Override
-          public String lookupVariable(String variableName) throws ExpansionException {
+          public String lookupVariable(String variableName)
+              throws ExpansionException, InterruptedException {
             if (additionalSubstitutionsMap.containsKey(variableName)) {
               return additionalSubstitutionsMap.get(variableName);
             } else {
@@ -1069,7 +1060,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       Dict<?, ?> labelDictUnchecked,
       Dict<?, ?> executionRequirementsUnchecked,
       StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     checkMutable("resolve_command");
     Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked);
     // The best way to fix this probably is to convert CommandHelper to Starlark.

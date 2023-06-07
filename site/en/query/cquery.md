@@ -276,24 +276,17 @@ of resolved toolchains.
 
 #### `--include_aspects` (boolean, default=True) {:#include-aspects}
 
-[Aspects](/extending/aspects) can add
-additional dependencies to a build. By default, `cquery` doesn't follow aspects because
-they make the queryable graph bigger, which uses more memory. But following them produces more
-accurate results.
+Include dependencies added by [aspects](/extending/aspects).
 
-If you're not worried about the memory impact of large queries, enable this flag by default in
-your bazelrc.
-
-If you query with aspects disabled, you can experience a problem where target X fails while
-building target Y but `cquery somepath(Y, X)` and `cquery deps(Y) | grep 'X'
-` return no results because the dependency occurs through an aspect.
+If this flag is disabled, `cquery somepath(X, Y)` and
+`cquery deps(X) | grep 'Y'` omit Y if X only depends on it through an aspect.
 
 ## Output formats {:#output-formats}
 
 By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
 There are other options for exposing the results as well.
 
-###  Transitions {:#transitions}
+### Transitions {:#transitions}
 
 <pre>
 --transitions=lite

@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkGlobalsImpl;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -94,7 +94,6 @@ public /*final*/ class ConfiguredRuleClassProvider
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
    * on other such sets.
    */
-  // TODO(b/280446865): Consider merging Bootstrap into this interface.
   public interface RuleSet {
     /** Add stuff to the configured rule class provider builder. */
     void init(ConfiguredRuleClassProvider.Builder builder);
@@ -195,6 +194,14 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder clearWorkspaceFileSuffixForTesting() {
+      // Defining rules_java_builtin requires bazel_tools to be fetched. To avoid triggering
+      // REPOSITORY_DIRECTORY SkyFunction, we clear rules_java_builtin defined in WORKSPACE prefix.
+      int begin =
+          defaultWorkspaceFilePrefix.indexOf("# WORKSPACE_PREFIX_BEGIN (rules_java_builtin)");
+      int end = defaultWorkspaceFilePrefix.indexOf("# WORKSPACE_PREFIX_END (rules_java_builtin)");
+      if (begin != -1 && end != -1) {
+        defaultWorkspaceFilePrefix.delete(begin, end);
+      }
       defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
       return this;
     }
@@ -356,9 +363,8 @@ public /*final*/ class ConfiguredRuleClassProvider
     }
 
     /** Registers a new top-level symbol for .bzl files. */
-    // TODO(b/280446865): rename to something like addBzlToplevel()
     @CanIgnoreReturnValue
-    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+    public Builder addBzlToplevel(String name, Object object) {
       this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
@@ -692,8 +698,6 @@ public /*final*/ class ConfiguredRuleClassProvider
 
   private final PrerequisiteValidator prerequisiteValidator;
 
-  private final ImmutableMap<String, Object> environment;
-
   private final BazelStarlarkEnvironment bazelStarlarkEnvironment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
@@ -758,20 +762,17 @@ public /*final*/ class ConfiguredRuleClassProvider
     this.constraintSemantics = constraintSemantics;
     this.networkAllowlistForTests = networkAllowlistForTests;
 
-    // TODO(b/280446865): See about moving createNativeRuleSpecificBindings to
-    // BazelStarlarkEnvironment, or obviating the need for this method entirely.
-    ImmutableMap<String, Object> nativeRuleSpecificBindings =
-        createNativeRuleSpecificBindings(starlarkAccessibleTopLevels, starlarkBootstraps);
-    this.environment = createEnvironment(nativeRuleSpecificBindings);
+    ImmutableMap<String, Object> registeredBzlToplevels =
+        createRegisteredBzlToplevels(starlarkAccessibleTopLevels, starlarkBootstraps);
     // If needed, we could allow the version to be customized by the builder e.g. for unit testing,
     // but at the moment it suffices to use the production value unconditionally.
     String version = BlazeVersionInfo.instance().getVersion();
     this.bazelStarlarkEnvironment =
         new BazelStarlarkEnvironment(
+            StarlarkGlobalsImpl.INSTANCE,
             /* ruleFunctions= */ RuleFactory.buildRuleFunctions(ruleClassMap),
             buildFileToplevels,
-            /* bzlToplevels= */ environment,
-            /* nativeRuleSpecificBindings= */ nativeRuleSpecificBindings,
+            registeredBzlToplevels,
             /* workspaceBzlNativeBindings= */ WorkspaceFactory.createNativeModuleBindings(
                 ruleClassMap, version),
             /* builtinsInternals= */ starlarkBuiltinsInternals);
@@ -869,7 +870,7 @@ public /*final*/ class ConfiguredRuleClassProvider
     return ruleDefinitionMap.get(ruleClassName);
   }
 
-  private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
+  private static ImmutableMap<String, Object> createRegisteredBzlToplevels(
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
@@ -878,16 +879,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       bootstrap.addBindingsToBuilder(bindings);
     }
     return bindings.buildOrThrow();
-  }
-
-  private static ImmutableMap<String, Object> createEnvironment(
-      ImmutableMap<String, Object> nativeRuleSpecificBindings) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    // Add predeclared symbols of the Bazel build language.
-    StarlarkModules.addPredeclared(envBuilder);
-    // Add all the extensions registered with the rule class provider.
-    envBuilder.putAll(nativeRuleSpecificBindings);
-    return envBuilder.buildOrThrow();
   }
 
   private static ImmutableMap<String, Class<?>> createFragmentMap(
@@ -900,11 +891,6 @@ public /*final*/ class ConfiguredRuleClassProvider
       }
     }
     return mapBuilder.buildOrThrow();
-  }
-
-  @Override
-  public ImmutableMap<String, Object> getEnvironment() {
-    return environment;
   }
 
   @Override

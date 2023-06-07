@@ -20,6 +20,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -29,16 +30,20 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
+import com.google.devtools.build.lib.analysis.config.ConfigRequestedEvent;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
-import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
+import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
+import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.TargetAndConfigurationError;
+import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
@@ -55,9 +60,12 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.DependencyException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -65,6 +73,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.state.Driver;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Semaphore;
@@ -163,7 +172,28 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
   }
 
-  static class State implements SkyKeyComputeState {
+  private static class State
+      implements SkyKeyComputeState, TargetAndConfigurationProducer.ResultSink {
+    /**
+     * Drives a {@link TargetAndConfigurationProducer} that sets the {@link
+     * #targetAndConfigurationResult} when complete.
+     */
+    @Nullable // Non-null while in-flight.
+    private Driver targetAndConfigurationProducer;
+
+    /**
+     * Union-type output of {@link #targetAndConfigurationProducer}.
+     *
+     * <ul>
+     *   <li>{@link ConfiguredTargetKey}: if the result was a {@link TargetAndConfiguration}, set in
+     *       {@link PrerequisiteProducer.State#targetAndConfiguration}.
+     *   <li>{@link ConfiguredTargetValue}: an immediate value. This occurs when applying the rule
+     *       transition to the {@link ConfiguredTargetKey} results in a previously computed key.
+     *   <li>{@link TargetAndConfigurationError}: if an error occurred.
+     * </ul>
+     */
+    private Object targetAndConfigurationResult;
+
     /** Null if ConfiguredTargetFuncton is not storing this information. */
     @Nullable NestedSetBuilder<Package> transitivePackages;
 
@@ -174,17 +204,33 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     State(boolean storeTransitivePackages) {
       this.transitivePackages = storeTransitivePackages ? NestedSetBuilder.stableOrder() : null;
     }
+
+    @Override
+    public void acceptTargetAndConfiguration(
+        TargetAndConfiguration value, ConfiguredTargetKey fullKey) {
+      computeDependenciesState.targetAndConfiguration = value;
+      this.targetAndConfigurationResult = fullKey;
+    }
+
+    @Override
+    public void acceptTargetAndConfigurationDelegatedValue(ConfiguredTargetValue value) {
+      this.targetAndConfigurationResult = value;
+    }
+
+    @Override
+    public void acceptTargetAndConfigurationError(TargetAndConfigurationError error) {
+      this.targetAndConfigurationResult = error;
+    }
   }
 
   @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
-      throws ReportedException, UnreportedException, InterruptedException {
+      throws ReportedException, UnreportedException, DependencyException, InterruptedException {
     State state = env.getState(() -> new State(storeTransitivePackages));
     ConfiguredTargetKey configuredTargetKey = (ConfiguredTargetKey) key.argument();
     Preconditions.checkArgument(!configuredTargetKey.isProxy(), configuredTargetKey);
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
-    PrerequisiteProducer prereqs = new PrerequisiteProducer();
 
     if (shouldUnblockCpuWorkWhenFetchingDeps) {
       // Fetching blocks on other resources, so we don't want to hold on to the semaphore meanwhile.
@@ -197,25 +243,60 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               /* postFetch= */ () -> maybeAcquireSemaphoreWithLogging(key));
     }
 
+    var computeDependenciesState = state.computeDependenciesState;
+    if (computeDependenciesState.targetAndConfiguration == null) {
+      try {
+        computeTargetAndConfiguration(env, state, configuredTargetKey);
+      } catch (InconsistentNullConfigException e) {
+        // TODO(b/267529852): see if we can remove this. It's not clear the conditions that trigger
+        // InconsistentNullConfigException are even possible.
+        return new NonRuleConfiguredTargetValue(
+            new EmptyConfiguredTarget(configuredTargetKey),
+            state.transitivePackages == null ? null : state.transitivePackages.build());
+      }
+      // Any `TargetAndConfigurationError` has already been handled, so `result` can only
+      // be null, a `ConfiguredTargetKey` or a `ConfiguredTargetValue`.
+      Object result = state.targetAndConfigurationResult;
+      if (!(result instanceof ConfiguredTargetKey)) {
+        return (ConfiguredTargetValue) result; // Null or an immediate `ConfiguredTargetValue`.
+      }
+      // Otherwise, `result` contains a `ConfiguredTargetKey`.
+    }
+
+    configuredTargetKey = (ConfiguredTargetKey) state.targetAndConfigurationResult;
+    PrerequisiteProducer prereqs =
+        new PrerequisiteProducer(computeDependenciesState.targetAndConfiguration);
     try {
       // Perform all analysis through dependency evaluation.
       if (!prereqs.evaluate(
-          configuredTargetKey,
           state.computeDependenciesState,
-          state.transitiveRootCauses,
-          state.transitivePackages,
+          configuredTargetKey,
           ruleClassProvider,
           view,
           () -> maybeAcquireSemaphoreWithLogging(key),
+          new TransitiveDependencyState(
+              state.transitiveRootCauses,
+              state.transitivePackages,
+              /* prerequisitePackages= */ null),
           env)) {
         return null;
       }
       Preconditions.checkNotNull(prereqs.getDepValueMap());
 
+      // If this CT applied an incoming rule transition, log it.
+      BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
+      if (config != null && !config.getKey().equals(configuredTargetKey.getConfigurationKey())) {
+        env.getListener()
+            .post(
+                new ConfigRequestedEvent(
+                    config, configuredTargetKey.getConfigurationKey().getOptionsChecksum()));
+      }
+
       // If one of our dependencies is platform-incompatible with this build, so are we.
       Optional<RuleConfiguredTargetValue> incompatibleTarget =
           IncompatibleTargetChecker.createIndirectlyIncompatibleTarget(
               prereqs.getTargetAndConfiguration(),
+              configuredTargetKey,
               prereqs.getDepValueMap(),
               prereqs.getConfigConditions(),
               prereqs.getPlatformInfo(),
@@ -261,14 +342,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
         configuredTargetProgress.doneConfigureTarget();
       }
       return ans;
-    } catch (PrerequisiteProducer.InconsistentNullConfigException e) {
-      // TODO(b/267529852): see if we can remove this. It's not clear the conditions that trigger
-      // InconsistentNullConfigException are even possible.
-      return new NonRuleConfiguredTargetValue(
-          new EmptyConfiguredTarget(
-              configuredTargetKey.getLabel(), configuredTargetKey.getConfigurationKey()),
-          state.transitivePackages == null ? null : state.transitivePackages.build());
-    } catch (IncompatibleTargetException e) {
+    } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
       return e.target();
     } catch (ConfiguredValueCreationException e) {
       if (!e.getMessage().isEmpty()) {
@@ -393,6 +467,67 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           analysisEnvironment.getRegisteredActions(),
           configuredTarget);
       return new NonRuleConfiguredTargetValue(configuredTarget, transitivePackages);
+    }
+  }
+
+  private void computeTargetAndConfiguration(
+      Environment env, State state, ConfiguredTargetKey configuredTargetKey)
+      throws DependencyException,
+          InconsistentNullConfigException,
+          ReportedException,
+          InterruptedException {
+    StoredEventHandler storedEvents = state.computeDependenciesState.storedEvents;
+    Object result = null;
+    boolean completedWithoutExceptions = false;
+    try {
+      if (state.targetAndConfigurationProducer == null) {
+        state.targetAndConfigurationProducer =
+            new Driver(
+                new TargetAndConfigurationProducer(
+                    configuredTargetKey,
+                    ((ConfiguredRuleClassProvider) ruleClassProvider)
+                        .getTrimmingTransitionFactory(),
+                    buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
+                    new TransitiveDependencyState(
+                        state.transitiveRootCauses,
+                        state.transitivePackages,
+                        /* prerequisitePackages= */ null),
+                    (TargetAndConfigurationProducer.ResultSink) state));
+      }
+      if (state.targetAndConfigurationProducer.drive(env, storedEvents)) {
+        state.targetAndConfigurationProducer = null;
+      }
+      result = state.targetAndConfigurationResult;
+      if (result instanceof TargetAndConfigurationError) {
+        var error = (TargetAndConfigurationError) result;
+        switch (error.kind()) {
+          case CONFIGURED_VALUE_CREATION:
+            ConfiguredValueCreationException e = error.configuredValueCreation();
+            if (!e.getMessage().isEmpty()) {
+              // Reports the error to the user on storedEvents to preserve ordering. These will
+              // be immediately replayed in the finally clause.
+              storedEvents.handle(Event.error(e.getLocation(), e.getMessage()));
+            }
+            throw new ReportedException(e);
+          case INVALID_VISIBILITY_DEPENDENCY:
+            // Bubbles the error up to the parent ConfiguredTargetFunction where it will be reported
+            // with additional context.
+            throw new DependencyException(error.invalidVisibilityDependency());
+          case INCONSISTENT_NULL_CONFIG:
+            throw error.inconsistentNullConfig();
+        }
+      }
+      completedWithoutExceptions = true; // Marks the fact that there were no exceptions.
+    } finally {
+      // If there is exception or an immediate value ...
+      if (!completedWithoutExceptions || result instanceof ConfiguredTargetValue) {
+        // ... replays events because `ConfiguredTargetFunction.compute` will promptly end.
+        storedEvents.replayOn(env.getListener());
+      }
+      // Otherwise either:
+      // 1. the result is null for a restart, so replayed events would not be used anyway; or
+      // 2. the result is a `TargetAndConfiguration` value and
+      //    `PrerequisiteProducer.computeDependencies` takes ownership of stored events.
     }
   }
 
