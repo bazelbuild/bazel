@@ -334,20 +334,20 @@ DIST_DEPS = {
         "package_version": "0.8.0",
     },
     "rules_jvm_external": {
-        "archive": "4.5.zip",
-        "sha256": "b17d7388feb9bfa7f2fa09031b32707df529f26c91ab9e5d909eb1676badd9a6",
-        "strip_prefix": "rules_jvm_external-4.5",
+        "archive": "rules_jvm_external-5.2.tar.gz",
+        "sha256": "f86fd42a809e1871ca0aabe89db0d440451219c3ce46c58da240c7dcdc00125f",
+        "strip_prefix": "rules_jvm_external-5.2",
         "patches": [
-            "//third_party:rules_jvm_external.patch",
+            "//third_party:rules_jvm_external_5.2.patch",
         ],
         "patch_args": ["-p1"],
         "urls": [
-            "https://github.com/bazelbuild/rules_jvm_external/archive/4.5.zip",
+            "https://github.com/bazelbuild/rules_jvm_external/releases/download/5.2/rules_jvm_external-5.2.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "4.5",
+        "package_version": "5.2",
     },
     "rules_python": {
         "sha256": "ffc7b877c95413c82bfd5482c017edcf759a6250d8b24e82f41f3c8b8d9e287e",
