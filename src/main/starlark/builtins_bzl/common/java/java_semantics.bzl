@@ -19,7 +19,6 @@ Java Semantics
 load(":common/java/java_info.bzl", "JavaInfo")
 
 java_common = _builtins.toplevel.java_common
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
 def _postprocess(ctx, base_info):
     return base_info.java_info

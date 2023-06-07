@@ -23,11 +23,10 @@ load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
-
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
 def _filter_srcs(srcs, ext):
     return [f for f in srcs if f.extension == ext]
