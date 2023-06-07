@@ -38,6 +38,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.concurrent.ThreadSafe;
+
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -94,7 +97,7 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(3);
-    verify(alwaysOpen, times(3)).recordFailure(any(Exception.class));
+    verify(alwaysOpen, times(3)).recordFailure();
     verify(alwaysOpen, never()).recordSuccess();
   }
 
@@ -118,8 +121,8 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(1);
-    verify(alwaysOpen, times(1)).recordFailure(e);
-    verify(alwaysOpen, never()).recordSuccess();
+    verify(alwaysOpen, never()).recordFailure();
+    verify(alwaysOpen, times(1)).recordSuccess();
   }
 
   @Test
@@ -139,7 +142,7 @@ public class RetrierTest {
     });
     assertThat(val).isEqualTo(1);
 
-    verify(alwaysOpen, times(2)).recordFailure(any(Exception.class));
+    verify(alwaysOpen, times(2)).recordFailure();
     verify(alwaysOpen, times(1)).recordSuccess();
   }
 
@@ -351,7 +354,7 @@ public class RetrierTest {
     }
 
     @Override
-    public synchronized void recordFailure(Exception e) {
+    public synchronized void recordFailure() {
       consecutiveFailures++;
       if (consecutiveFailures >= maxConsecutiveFailures) {
         state = State.REJECT_CALLS;

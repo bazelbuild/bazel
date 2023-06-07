@@ -14,31 +14,11 @@
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
 import com.google.devtools.build.lib.remote.Retrier;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import io.grpc.Status;
-import java.util.function.Predicate;
-
-import static com.google.devtools.build.lib.remote.RemoteRetrier.fromException;
-
 
 /** Factory for {@link Retrier.CircuitBreaker} */
 public class CircuitBreakerFactory {
-  public static final Predicate<? super Exception> DEFAULT_IGNORED_ERRORS =
-      e -> {
-        Status s = fromException(e);
-        if (s == null) {
-          return e.getClass() == CacheNotFoundException.class;
-        }
-        switch (s.getCode()) {
-          case NOT_FOUND:
-          case OUT_OF_RANGE:
-            System.out.println("out of range");
-            return true;
-          default:
-            return false;
-        }
-      };
+  public static final int DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE = 100;
 
   private CircuitBreakerFactory() {}
 
@@ -53,7 +33,7 @@ public class CircuitBreakerFactory {
   public static Retrier.CircuitBreaker createCircuitBreaker(final RemoteOptions remoteOptions) {
     if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       return new FailureCircuitBreaker(
-          remoteOptions.remoteFailureThreshold,
+          remoteOptions.remoteFailureRateThreshold,
           (int) remoteOptions.remoteFailureWindowInterval.toMillis());
     }
     return Retrier.ALLOW_ALL_CALLS;
