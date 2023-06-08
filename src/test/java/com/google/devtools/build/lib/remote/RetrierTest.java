@@ -344,7 +344,7 @@ public class RetrierTest {
     Supplier<Backoff> s = () -> new ZeroBackoff(maxRetries);
     List<Status> retriableGrpcError = Arrays.asList(Status.ABORTED, Status.UNKNOWN, Status.DEADLINE_EXCEEDED);
     List<Status> nonRetriableGrpcError = Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
-    TripAfterNCircuitBreaker cb = new TripAfterNCircuitBreaker(retriableGrpcError.size() * 2);
+    TripAfterNCircuitBreaker cb = new TripAfterNCircuitBreaker(retriableGrpcError.size() * (maxRetries + 1));
     Retrier r = new Retrier(s, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService, cb);
 
 
@@ -356,7 +356,7 @@ public class RetrierTest {
               () -> {
                 throw new StatusRuntimeException(status);
               });
-      expectedConsecutiveFailures += maxRetries;
+      expectedConsecutiveFailures += maxRetries + 1;
       assertThrows(ExecutionException.class, res::get);
       assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
     }
