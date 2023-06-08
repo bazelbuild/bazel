@@ -77,7 +77,7 @@ def _proto_library_impl(ctx):
         descriptor_set = descriptor_set,
         proto_path = proto_path,
         workspace_root = ctx.label.workspace_root,
-        genfiles_dir = ctx.genfiles_dir.path,
+        bin_dir = ctx.bin_dir.path,
     )
 
     _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set)
@@ -237,6 +237,5 @@ proto_library = rule(
     }, **semantics.EXTRA_ATTRIBUTES),
     fragments = ["proto"] + semantics.EXTRA_FRAGMENTS,
     provides = [ProtoInfo],
-    output_to_genfiles = True,  # TODO(b/204266604) move to bin dir
     exec_groups = semantics.EXEC_GROUPS,
 )
