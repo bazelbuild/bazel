@@ -67,7 +67,9 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
     int failureCount = failures.incrementAndGet();
     int totalCallCount = successes.get() + failureCount;
     if (slidingWindowSize > 0) {
-      var unused = scheduledExecutor.schedule(failures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
+      var unused =
+          scheduledExecutor.schedule(
+              failures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
     }
 
     if (totalCallCount < minCallCountToComputeFailureRate) {
@@ -86,7 +88,9 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
   public void recordSuccess() {
     successes.incrementAndGet();
     if (slidingWindowSize > 0) {
-      var unused = scheduledExecutor.schedule(successes::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
+      var unused =
+          scheduledExecutor.schedule(
+              successes::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
     }
   }
 }
