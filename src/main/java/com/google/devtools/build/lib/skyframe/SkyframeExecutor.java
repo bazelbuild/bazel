@@ -90,8 +90,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DuplicateException;
-import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.PartiallyResolvedDependency;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -105,13 +103,15 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
-import com.google.devtools.build.lib.analysis.producers.AspectMergerForTesting;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
+import com.google.devtools.build.lib.analysis.producers.DependencyEvaluatorForTesting;
+import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
@@ -146,12 +146,12 @@ import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFu
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -3926,14 +3926,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData>
       getConfiguredTargetMapForTesting(
           ExtendedEventHandler eventHandler,
-          BuildConfigurationKey configurationKey,
+          ConfiguredTargetKey parentKey,
+          @Nullable Rule associatedRule,
           OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> dependencies)
           throws InvalidConfigurationException, InterruptedException {
     checkActive();
     // Duplicates may be present if the same dependency occurs under different DependencyKind
     // values.
     var dependencyKeys = ImmutableSet.copyOf(dependencies.values());
-    BuildConfigurationValue configuration = getConfiguration(eventHandler, configurationKey);
+    BuildConfigurationValue configuration =
+        getConfiguration(eventHandler, parentKey.getConfigurationKey());
     ListMultimap<BaseDependencySpecification, BuildConfigurationValue> configs;
     if (configuration != null) {
       configs =
@@ -3946,143 +3948,57 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
     }
 
-    final List<SkyKey> skyKeys = new ArrayList<>();
-    for (PartiallyResolvedDependency key : dependencyKeys) {
-      if (!configs.containsKey(key)) {
-        // If we couldn't compute a configuration for this target, the target was in error (e.g.
-        // it couldn't be loaded). Exclude it from the results.
-        continue;
-      }
-      for (BuildConfigurationValue depConfig : configs.get(key)) {
-        ConfiguredTargetKey configuredTargetKey =
-            ConfiguredTargetKey.builder()
-                .setLabel(key.getLabel())
-                .setConfiguration(depConfig)
-                .build();
-        skyKeys.add(configuredTargetKey.toKey());
-      }
-      skyKeys.add(key.getLabel().getPackageIdentifier());
-    }
-
-    EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
-
-    var cts = OrderedSetMultimap.<PartiallyResolvedDependency, ConfiguredTargetAndData>create();
-
-    // Logic copied from ConfiguredTargetFunction#computeDependencies.
-    Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
-    var aliasKeysToRedo = new ArrayList<PartiallyResolvedDependency>();
-    EvaluationResult<SkyValue> aliasPackageValues = null;
-    Iterable<PartiallyResolvedDependency> keysToProcess = dependencyKeys;
-    for (int i = 0; i < 2; i++) {
-      for (PartiallyResolvedDependency key : keysToProcess) {
-        if (!configs.containsKey(key)) {
-          // If we couldn't compute a configuration for this target, the target was in error (e.g.
-          // it couldn't be loaded). Exclude it from the results.
-          continue;
-        }
-        for (BuildConfigurationValue depConfig : configs.get(key)) {
-          ConfiguredTargetKey configuredTargetKey =
-              ConfiguredTargetKey.builder()
-                  .setLabel(key.getLabel())
-                  .setConfiguration(depConfig)
-                  .build();
-          if (result.get(configuredTargetKey.toKey()) == null) {
-            continue;
-          }
-
-          ConfiguredTarget configuredTarget =
-              ((ConfiguredTargetValue) result.get(configuredTargetKey.toKey()))
-                  .getConfiguredTarget();
-          Label label = configuredTarget.getLabel();
-          SkyKey packageKey = label.getPackageIdentifier();
-          PackageValue packageValue;
-          if (i == 0) {
-            packageValue = (PackageValue) result.get(packageKey);
-            if (packageValue == null) {
-              aliasPackagesToFetch.add(packageKey);
-              aliasKeysToRedo.add(key);
-              continue;
-            }
-          } else {
-            packageValue =
-                (PackageValue) checkNotNull(aliasPackageValues.get(packageKey), packageKey);
-          }
-
-          BuildConfigurationKey configKey = configuredTarget.getConfigurationKey();
-          BuildConfigurationValue resolvedConfig = depConfig;
-          if (configKey == null) {
-            // Unfortunately, it's possible to get a configured target with a null configuration
-            // when depConfig is non-null, so we need to explicitly override it in that case.
-            resolvedConfig = null;
-          } else if (!configKey.equals(depConfig.getKey())) {
-            resolvedConfig = getConfiguration(eventHandler, configuredTarget.getConfigurationKey());
-          }
-          try {
-            cts.put(
-                key,
-                new ConfiguredTargetAndData(
-                    configuredTarget,
-                    packageValue.getPackage().getTarget(configuredTarget.getLabel().getName()),
-                    resolvedConfig,
-                    /* transitionKeys= */ ImmutableList.of()));
-          } catch (NoSuchTargetException e) {
-            throw new IllegalStateException(
-                String.format("Error creating %s", configuredTarget.getLabel()), e);
-          }
-        }
-      }
-      if (aliasKeysToRedo.isEmpty()) {
-        break;
-      }
-      aliasPackageValues = evaluateSkyKeys(eventHandler, aliasPackagesToFetch);
-      keysToProcess = aliasKeysToRedo;
-    }
-
-    // We ignore the return value and exceptions here because tests effectively run with
-    // --keep_going, and the loading-phase-error bit is only needed if we're constructing a
-    // SkyframeAnalysisResult.
-    try {
-      var unused =
-          SkyframeErrorProcessor.processAnalysisErrors(
-              result,
-              cyclesReporter,
-              eventHandler,
-              /* keepGoing= */ true,
-              /* eventBus= */ null,
-              bugReporter);
-    } catch (ViewCreationFailedException ignored) {
-      // Ignored.
-    }
-
-    var aspectMergerSink =
-        new AspectMergerForTesting.ResultSink() {
-          private OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData>
-              mergedTargets;
-          private InconsistentAspectOrderException aspectOrderException;
-          private DuplicateException duplicateException;
+    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
+    var sink =
+        new DependencyEvaluatorForTesting.ResultSink() {
+          private OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData> result;
+          private InvalidVisibilityDependencyException visibilityError;
+          private ConfiguredValueCreationException creationError;
+          private DependencyEvaluationException dependencyError;
 
           @Override
-          public void acceptAspectMergerResult(
-              OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData> map) {
-            this.mergedTargets = map;
+          public void acceptDependencyEvaluatorResult(
+              OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData> result) {
+            this.result = result;
           }
 
           @Override
-          public void acceptAspectMergerError(InconsistentAspectOrderException error) {
-            this.aspectOrderException = error;
+          public void acceptDependencyEvaluatorError(InvalidVisibilityDependencyException error) {
+            this.visibilityError = error;
           }
 
           @Override
-          public void acceptAspectMergerError(DuplicateException error) {
-            this.duplicateException = error;
+          public void acceptDependencyEvaluatorError(ConfiguredValueCreationException error) {
+            this.creationError = error;
+          }
+
+          @Override
+          public void acceptDependencyEvaluatorError(DependencyEvaluationException error) {
+            this.dependencyError = error;
           }
         };
-    result =
-        StateMachineEvaluatorForTesting.run(
-            new AspectMergerForTesting(cts, aspectMergerSink),
-            memoizingEvaluator,
-            getEvaluationContextForTesting(eventHandler));
+
+    EvaluationResult<SkyValue> result;
+    try (var closer = new EnableAnalysisScope()) {
+      result =
+          StateMachineEvaluatorForTesting.run(
+              new DependencyEvaluatorForTesting(
+                  new PrerequisiteParameters(
+                      parentKey,
+                      associatedRule,
+                      TransitiveDependencyState.createForTesting(
+                          transitiveRootCauses, /* transitivePackages= */ null)),
+                  dependencyKeys,
+                  configs,
+                  sink),
+              memoizingEvaluator,
+              getEvaluationContextForTesting(eventHandler));
+    }
+
     if (result != null) {
+      // We ignore the return value and exceptions here because tests effectively run with
+      // --keep_going, and the loading-phase-error bit is only needed if we're constructing a
+      // SkyframeAnalysisResult.
       try {
         var unused =
             SkyframeErrorProcessor.processAnalysisErrors(
@@ -4096,15 +4012,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         // Ignored.
       }
     }
-    if (aspectMergerSink.aspectOrderException != null) {
-      throw new IllegalStateException(aspectMergerSink.aspectOrderException);
+
+    if (!transitiveRootCauses.isEmpty()) {
+      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
     }
-    if (aspectMergerSink.duplicateException != null) {
-      throw new IllegalStateException(aspectMergerSink.duplicateException);
+    if (sink.visibilityError != null) {
+      throw new IllegalStateException(sink.visibilityError);
     }
+    if (sink.creationError != null) {
+      throw new IllegalStateException(sink.creationError);
+    }
+    if (sink.dependencyError != null) {
+      throw new IllegalStateException(sink.dependencyError);
+    }
+
     var output = OrderedSetMultimap.<DependencyKind, ConfiguredTargetAndData>create();
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry : dependencies.entries()) {
-      output.putAll(entry.getKey(), aspectMergerSink.mergedTargets.get(entry.getValue()));
+      output.putAll(entry.getKey(), sink.result.get(entry.getValue()));
     }
     return output;
   }

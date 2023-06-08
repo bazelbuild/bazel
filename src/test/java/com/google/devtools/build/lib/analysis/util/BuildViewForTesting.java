@@ -280,7 +280,11 @@ public class BuildViewForTesting {
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
         state.dependencyContext.unloadedToolchainContexts();
     return getPrerequisiteMapForTesting(
-            eventHandler, configuredTarget, unloadedToolchainCollection.asToolchainContexts())
+            eventHandler,
+            configuredTarget,
+            // Cast is safe because prepareDependencyContext always populates this with a Rule.
+            (Rule) state.targetAndConfiguration.getTarget(),
+            unloadedToolchainCollection.asToolchainContexts())
         .values();
   }
 
@@ -400,6 +404,7 @@ public class BuildViewForTesting {
   private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
+      @Nullable Rule associatedRule,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws DependencyResolver.Failure,
           InvalidConfigurationException,
@@ -410,7 +415,10 @@ public class BuildViewForTesting {
         getDirectPrerequisiteDependenciesForTesting(eventHandler, target, toolchainContexts);
 
     return skyframeExecutor.getConfiguredTargetMapForTesting(
-        eventHandler, target.getConfigurationKey(), depNodeNames);
+        eventHandler,
+        ConfiguredTargetKey.fromConfiguredTarget(target),
+        associatedRule,
+        depNodeNames);
   }
 
   /**
@@ -490,7 +498,11 @@ public class BuildViewForTesting {
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
         getPrerequisiteMapForTesting(
-            eventHandler, configuredTarget, unloadedToolchainCollection.asToolchainContexts());
+            eventHandler,
+            configuredTarget,
+            // Cast is safe because prepareDependencyContext always populates this with a Rule.
+            (Rule) target,
+            unloadedToolchainCollection.asToolchainContexts());
     String targetDescription = target.toString();
 
     ToolchainCollection.Builder<ResolvedToolchainContext> resolvedToolchainContext =

@@ -301,6 +301,17 @@ public class ConfiguredTargetAndData {
     return TestTimeout.getTestTimeout(rule);
   }
 
+  public ConfiguredTargetAndData copyWithClearedTransitionKeys() {
+    if (transitionKeys.isEmpty()) {
+      return this;
+    }
+    return copyWithTransitionKeys(ImmutableList.of());
+  }
+
+  public ConfiguredTargetAndData copyWithTransitionKeys(ImmutableList<String> keys) {
+    return new ConfiguredTargetAndData(configuredTarget, target, configuration, keys);
+  }
+
   /**
    * This should only be used in testing.
    *
