@@ -150,7 +150,10 @@ public final class PrerequisiteProducer {
     @Nullable // Non-null when in-flight.
     Driver dependencyContextProducer;
 
-    @Nullable DependencyContext dependencyContext;
+    @VisibleForTesting // package-private
+    @Nullable
+    public DependencyContext dependencyContext;
+
     @Nullable DependencyContextError dependencyContextError;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */

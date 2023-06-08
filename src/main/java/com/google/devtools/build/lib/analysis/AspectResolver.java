@@ -11,15 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
+
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -183,23 +183,5 @@ public final class AspectResolver {
         AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), dependentAspects.build(), depKey);
     result.put(aspectKey.getAspectDescriptor(), aspectKey);
     return aspectKey;
-  }
-
-  public static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
-    if (!aspect.getDefinition().applyToFiles()
-        && !aspect.getDefinition().applyToGeneratingRules()
-        && !isRule) {
-      return false;
-    }
-    if (ct.getConfigurationKey() == null) {
-      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
-      return false;
-    }
-    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
-  }
-
-  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
-    return aspectMatchesConfiguredTarget(ctad.getConfiguredTarget(), ctad.isTargetRule(), aspect);
   }
 }

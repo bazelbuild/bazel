@@ -169,6 +169,7 @@ java_library(
         "AnalysisRootCauseEvent.java",
         "AnalysisUtils.java",
         "AspectCompleteEvent.java",
+        "AspectResolutionHelpers.java",
         "AspectResolver.java",
         "AspectValue.java",
         "BaseRuleClasses.java",
@@ -747,13 +748,19 @@ java_library(
 
 java_library(
     name = "dependency_key",
-    srcs = ["DependencyKey.java"],
+    srcs = [
+        "BaseDependencySpecification.java",
+        "DependencyKey.java",
+        "PartiallyResolvedDependency.java",
+    ],
     deps = [
         ":aspect_collection",
         ":config/transitions/configuration_transition",
         ":dependency",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:auto_value",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
