@@ -548,6 +548,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -609,7 +610,6 @@ java_library(
         ":analysis_cluster",
         ":analysis_options",
         ":analysis_phase_started_event",
-        ":aspect_configured_event",
         ":blaze_directories",
         ":config/build_configuration",
         ":config/build_options",
@@ -621,7 +621,6 @@ java_library(
         ":extra_action_artifacts_provider",
         ":make_environment_event",
         ":target_and_configuration",
-        ":target_configured_event",
         ":test/coverage_report_action_factory",
         ":test/instrumented_files_info",
         ":top_level_artifact_context",
@@ -640,7 +639,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
@@ -1158,6 +1156,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

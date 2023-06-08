@@ -139,7 +139,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     if (action.getOwner() != null) {
       BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
       if (configuration == null) {
-        configuration = new NullConfiguration();
+        configuration = NullConfiguration.INSTANCE;
       }
       return ImmutableList.of(configuration);
     } else {
@@ -218,7 +218,7 @@ public final class ActionExecutedEvent implements BuildEventWithConfiguration {
     if (action.getOwner() != null) {
       BuildEvent configuration = action.getOwner().getBuildConfigurationEvent();
       if (configuration == null) {
-        configuration = new NullConfiguration();
+        configuration = NullConfiguration.INSTANCE;
       }
       actionBuilder.setConfiguration(configuration.getEventId().getConfiguration());
     }

@@ -31,11 +31,13 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
+import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
@@ -177,7 +179,13 @@ public class BuildDriverFunction implements SkyFunction {
     // before the TopLevelEntityAnalysisConcludedEvent: when the last of the analysis work is
     // concluded, we need to have the complete list of analyzed targets ready in
     // BuildResultListener.
-    announceTopLevelTargetOrAspectAnalyzed(env, topLevelSkyValue, postedEventsTypes);
+    if (topLevelSkyValue instanceof ConfiguredTargetValue) {
+      announceTopLevelConfiguredTargetAnalyzed(
+          env, (ConfiguredTargetValue) topLevelSkyValue, postedEventsTypes);
+    } else {
+      announceTopLevelAspectAnalyzed(
+          env, (TopLevelAspectsValue) topLevelSkyValue, postedEventsTypes);
+    }
 
     // We only check for action conflict once per BuildDriverKey.
     if (Preconditions.checkNotNull(shouldCheckForConflict).get()
@@ -319,31 +327,72 @@ public class BuildDriverFunction implements SkyFunction {
   }
 
   /**
-   * ConfiguredTarget/AspectAnalyzedEvents should be sent out before conflict checking to be
+   * {@link TopLevelTargetAnalyzedEvent}s should be sent out before conflict checking to be
    * consistent with the non-skymeld code path.
    */
-  private static void announceTopLevelTargetOrAspectAnalyzed(
+  private static void announceTopLevelConfiguredTargetAnalyzed(
       Environment env,
-      SkyValue topLevelSkyValue,
-      Set<TopLevelStatusEvents.Type> postedEventsTypes) {
-    if (topLevelSkyValue instanceof ConfiguredTargetValue) {
-      ConfiguredTargetValue configuredTargetValue = (ConfiguredTargetValue) topLevelSkyValue;
-      ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
-      postEventIfNecessary(
-          postedEventsTypes, env, TopLevelTargetAnalyzedEvent.create(configuredTarget));
-    } else {
-      TopLevelAspectsValue topLevelAspectsValue = (TopLevelAspectsValue) topLevelSkyValue;
-
-      boolean aspectAnalyzedEventsSent =
-          !postedEventsTypes.add(TopLevelStatusEvents.Type.ASPECT_ANALYZED);
-      for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
-        AspectKey aspectKey = aspectValue.getKey();
-        ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
-        if (!aspectAnalyzedEventsSent) {
-          env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
-        }
+      ConfiguredTargetValue configuredTargetValue,
+      Set<TopLevelStatusEvents.Type> postedEventsTypes)
+      throws InterruptedException {
+    ConfiguredTarget configuredTarget = configuredTargetValue.getConfiguredTarget();
+    if (postedEventsTypes.add(TopLevelStatusEvents.Type.TOP_LEVEL_TARGET_CONFIGURED)) {
+      Target target;
+      try {
+        Label label = configuredTarget.getOriginalLabel();
+        target =
+            ((PackageValue) env.getValue(label.getPackageIdentifier()))
+                .getPackage()
+                .getTarget(label.getName());
+      } catch (NoSuchTargetException e) {
+        throw new IllegalStateException(
+            "Target should already be verified and available for top level ConfiguredTarget: "
+                + configuredTarget,
+            e);
       }
+
+      env.getListener()
+          .post(
+              new TargetConfiguredEvent(
+                  target, getConfigurationValue(env, configuredTarget.getConfigurationKey())));
     }
+    postEventIfNecessary(
+        postedEventsTypes, env, TopLevelTargetAnalyzedEvent.create(configuredTarget));
+  }
+
+  /**
+   * {@link AspectAnalyzedEvents} should be sent out before conflict checking to be consistent with
+   * the non-skymeld code path.
+   */
+  private static void announceTopLevelAspectAnalyzed(
+      Environment env,
+      TopLevelAspectsValue topLevelAspectsValue,
+      Set<TopLevelStatusEvents.Type> postedEventsTypes)
+      throws InterruptedException {
+    if (!postedEventsTypes.add(TopLevelStatusEvents.Type.ASPECT_ANALYZED)) {
+      return;
+    }
+    for (AspectValue aspectValue : topLevelAspectsValue.getTopLevelAspectsValues()) {
+      AspectKey aspectKey = aspectValue.getKey();
+      env.getListener()
+          .post(
+              new AspectConfiguredEvent(
+                  aspectKey.getLabel(),
+                  /* aspectClassName= */ aspectKey.getAspectClass().getName(),
+                  aspectKey.getAspectDescriptor().getDescription(),
+                  getConfigurationValue(env, aspectKey.getConfigurationKey())));
+      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
+      env.getListener().post(AspectAnalyzedEvent.create(aspectKey, configuredAspect));
+    }
+  }
+
+  @Nullable
+  private static BuildConfigurationValue getConfigurationValue(
+      Environment env, @Nullable BuildConfigurationKey key) throws InterruptedException {
+    if (key == null) {
+      return null;
+    }
+    return (BuildConfigurationValue) env.getValue(key);
   }
 
   public void resetStates() {

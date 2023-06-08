@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
-import static java.util.stream.Collectors.toMap;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -81,6 +80,7 @@ import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
+import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
+import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -1911,22 +1912,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       aliasPackageValues = evaluateSkyKeys(eventHandler, aliasPackagesToFetch);
       keysToProcess = aliasKeysToRedo;
     }
-    Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>> configurationLookupSupplier =
-        () ->
-            configs.values().stream()
-                .collect(toMap(BuildConfigurationValue::getKey, Functions.identity()));
     // We ignore the return value and exceptions here because tests effectively run with
     // --keep_going, and the loading-phase-error bit is only needed if we're constructing a
     // SkyframeAnalysisResult.
     try {
-      SkyframeErrorProcessor.processAnalysisErrors(
-          result,
-          configurationLookupSupplier,
-          cyclesReporter,
-          eventHandler,
-          /*keepGoing=*/ true,
-          /*eventBus=*/ null,
-          bugReporter);
+      var unused =
+          SkyframeErrorProcessor.processAnalysisErrors(
+              result,
+              cyclesReporter,
+              eventHandler,
+              /* keepGoing= */ true,
+              /* eventBus= */ null,
+              bugReporter);
     } catch (ViewCreationFailedException ignored) {
       // Ignored.
     }
@@ -2324,6 +2321,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildConfigurationValue configuration =
           getConfigurationFromGraph(graph, configuredTarget.getConfigurationKey());
       targetsWithConfiguration.add(new TargetAndConfiguration(target, configuration));
+      eventHandler.post(new TargetConfiguredEvent(target, configuration));
     }
 
     for (TopLevelAspectsKey key : topLevelAspectKeys) {
@@ -2332,7 +2330,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         continue; // Skip aspects that couldn't be applied to targets.
       }
       for (AspectValue aspectValue : value.getTopLevelAspectsValues()) {
-        aspects.put(aspectValue.getKey(), aspectValue.getConfiguredAspect());
+        AspectKey aspectKey = aspectValue.getKey();
+        aspects.put(aspectKey, aspectValue.getConfiguredAspect());
+        BuildConfigurationValue configuration =
+            getConfigurationFromGraph(graph, aspectKey.getConfigurationKey());
+        eventHandler.post(
+            new AspectConfiguredEvent(
+                aspectKey.getLabel(),
+                /* aspectClassName= */ aspectKey.getAspectClass().getName(),
+                /* aspectDescription= */ aspectKey.getAspectDescriptor().getDescription(),
+                configuration));
       }
     }
 

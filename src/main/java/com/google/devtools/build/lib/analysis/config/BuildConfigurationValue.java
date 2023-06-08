@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.InvalidMnemonicException;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.NullConfiguration;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -927,6 +929,17 @@ public class BuildConfigurationValue
       return BuildEventIdUtil.nullConfigurationIdMessage();
     }
     return BuildEventIdUtil.configurationIdMessage(configuration.checksum());
+  }
+
+  public static BuildEventId configurationId(@Nullable BuildConfigurationValue configuration) {
+    if (configuration == null) {
+      return BuildEventIdUtil.nullConfigurationId();
+    }
+    return configuration.getEventId();
+  }
+
+  public static BuildEvent buildEvent(@Nullable BuildConfigurationValue configuration) {
+    return configuration == null ? NullConfiguration.INSTANCE : configuration.toBuildEvent();
   }
 
   public ImmutableSet<String> getReservedActionMnemonics() {

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
+
 import com.google.auto.value.AutoOneOf;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -24,8 +26,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -307,14 +307,8 @@ public final class TargetAndConfigurationProducer
                 location,
                 message,
                 preRuleTransitionKey.getLabel(),
-                getConfigurationId(preRuleTransitionKey.getConfigurationKey()),
+                configurationId(preRuleTransitionKey.getConfigurationKey()),
                 /* rootCauses= */ null,
                 exitCode)));
-  }
-
-  private static BuildEventId getConfigurationId(@Nullable BuildConfigurationKey configurationKey) {
-    return configurationKey == null
-        ? BuildEventIdUtil.nullConfigurationId()
-        : BuildEventIdUtil.configurationId(configurationKey.getOptions().checksum());
   }
 }
