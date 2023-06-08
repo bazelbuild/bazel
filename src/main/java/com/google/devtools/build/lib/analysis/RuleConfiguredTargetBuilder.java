@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
@@ -76,7 +75,7 @@ public final class RuleConfiguredTargetBuilder {
   private final RuleContext ruleContext;
   private final TransitiveInfoProviderMapBuilder providersBuilder =
       new TransitiveInfoProviderMapBuilder();
-  private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+  private final TreeMap<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
   private final ImmutableList.Builder<Artifact> additionalTestActionTools =
       new ImmutableList.Builder<>();
 
@@ -184,13 +183,7 @@ public final class RuleConfiguredTargetBuilder {
     add(ExtraActionArtifactsProvider.class, extraActionsProvider);
 
     if (!outputGroupBuilders.isEmpty()) {
-      ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
-      for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
-        outputGroups.put(entry.getKey(), entry.getValue().build());
-      }
-
-      OutputGroupInfo outputGroupInfo = new OutputGroupInfo(outputGroups.buildOrThrow());
-      addNativeDeclaredProvider(outputGroupInfo);
+      addNativeDeclaredProvider(OutputGroupInfo.fromBuilders(outputGroupBuilders));
     }
 
     if (ruleContext.getConfiguration().evaluatingForAnalysisTest()) {

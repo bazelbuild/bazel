@@ -30,11 +30,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -155,9 +156,20 @@ public final class OutputGroupInfo extends StructImpl
     ASPECT
   }
 
+  public static OutputGroupInfo singleGroup(String group, NestedSet<Artifact> files) {
+    return new OutputGroupInfo(ImmutableMap.of(group, files));
+  }
+
+  static OutputGroupInfo fromBuilders(SortedMap<String, NestedSetBuilder<Artifact>> builders) {
+    var outputGroups =
+        ImmutableMap.<String, NestedSet<Artifact>>builderWithExpectedSize(builders.size());
+    builders.forEach((group, files) -> outputGroups.put(group, files.build()));
+    return new OutputGroupInfo(outputGroups.buildOrThrow());
+  }
+
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
-  public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
+  private OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
     this.outputGroups = outputGroups;
   }
 
@@ -201,19 +213,15 @@ public final class OutputGroupInfo extends StructImpl
       return providers.get(0);
     }
 
-    ImmutableMap.Builder<String, NestedSet<Artifact>> resultBuilder = new ImmutableMap.Builder<>();
-    Set<String> seenGroups = new HashSet<>();
+    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     for (OutputGroupInfo provider : providers) {
-      for (String outputGroup : provider.outputGroups.keySet()) {
-        if (!seenGroups.add(outputGroup)) {
-          throw new DuplicateException(
-              "Output group " + outputGroup + " provided twice");
+      for (String group : provider.outputGroups.keySet()) {
+        if (outputGroups.put(group, provider.getOutputGroup(group)) != null) {
+          throw new DuplicateException("Output group " + group + " provided twice");
         }
-
-        resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));
       }
     }
-    return new OutputGroupInfo(resultBuilder.buildOrThrow());
+    return new OutputGroupInfo(ImmutableMap.copyOf(outputGroups));
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
@@ -298,7 +306,7 @@ public final class OutputGroupInfo extends StructImpl
 
   @Override
   public Iterator<String> iterator() {
-    return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
+    return outputGroups.keySet().iterator();
   }
 
   @Nullable
@@ -327,14 +335,15 @@ public final class OutputGroupInfo extends StructImpl
 
     @Override
     public OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException {
-      ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
-        builder.put(
+      var outputGroups =
+          ImmutableMap.<String, NestedSet<Artifact>>builderWithExpectedSize(kwargs.size());
+      for (var entry : ImmutableList.sortedCopyOf(Map.Entry.comparingByKey(), kwargs.entrySet())) {
+        outputGroups.put(
             entry.getKey(),
             StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 entry.getKey(), entry.getValue()));
       }
-      return new OutputGroupInfo(builder.buildOrThrow());
+      return new OutputGroupInfo(outputGroups.buildOrThrow());
     }
   }
 }
