@@ -336,6 +336,10 @@ public class TestRunnerAction extends AbstractAction
     return true;
   }
 
+  public boolean checkShardingSupport() {
+    return testConfiguration.checkShardingSupport();
+  }
+
   public List<ActionInput> getSpawnOutputs() {
     final List<ActionInput> outputs = new ArrayList<>();
     outputs.add(ActionInputHelper.fromPath(getXmlOutputPath()));

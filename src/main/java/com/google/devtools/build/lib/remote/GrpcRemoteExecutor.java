@@ -19,6 +19,7 @@ import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutionGrpc;
 import build.bazel.remote.execution.v2.ExecutionGrpc.ExecutionBlockingStub;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.WaitExecutionRequest;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
@@ -43,6 +44,7 @@ import javax.annotation.Nullable;
 @ThreadSafe
 class GrpcRemoteExecutor implements RemoteExecutionClient {
 
+  private final ServerCapabilities serverCapabilities;
   private final ReferenceCountedChannel channel;
   private final CallCredentialsProvider callCredentialsProvider;
   private final RemoteRetrier retrier;
@@ -50,9 +52,11 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
   private final AtomicBoolean closed = new AtomicBoolean();
 
   public GrpcRemoteExecutor(
+      ServerCapabilities serverCapabilities,
       ReferenceCountedChannel channel,
       CallCredentialsProvider callCredentialsProvider,
       RemoteRetrier retrier) {
+    this.serverCapabilities = serverCapabilities;
     this.channel = channel;
     this.callCredentialsProvider = callCredentialsProvider;
     this.retrier = retrier;
@@ -87,6 +91,11 @@ class GrpcRemoteExecutor implements RemoteExecutionClient {
       return resp;
     }
     return null;
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() {
+    return this.serverCapabilities;
   }
 
   /* Execute has two components: the Execute call and (optionally) the WaitExecution call.
