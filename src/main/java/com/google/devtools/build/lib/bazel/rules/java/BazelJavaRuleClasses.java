@@ -107,7 +107,7 @@ public class BazelJavaRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$java_base_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(JavaToolchainBaseRule.class, JavaRuntimeBaseRule.class)
+          .ancestors(JavaToolchainBaseRule.class)
           .build();
     }
   }
@@ -461,6 +461,7 @@ public class BazelJavaRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .ancestors(
               JavaRule.class,
+              JavaRuntimeBaseRule.class,
               // java_binary and java_test require the crosstool C++ runtime
               // libraries (libstdc++.so, libgcc_s.so).
               // TODO(bazel-team): Add tests for Java+dynamic runtime.
