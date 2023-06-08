@@ -112,6 +112,12 @@ public final class TestSuiteRule implements RuleDefinition {
 
   @Override
   public Metadata getMetadata() {
+    try {
+    // Try to load the test_suite rule.
+    Skylark.load("//tools/build_defs/native/utils:test.bzl", "test_suite");
+  } catch (EvalException e) {
+    throw new RuntimeException("Did you mean "native.test_suite?"", e);
+  }
     return RuleDefinition.Metadata.builder()
         .name("test_suite")
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
