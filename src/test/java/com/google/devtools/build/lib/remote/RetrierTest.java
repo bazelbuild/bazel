@@ -357,8 +357,8 @@ public class RetrierTest {
                 throw new StatusRuntimeException(status);
               });
       expectedConsecutiveFailures += maxRetries;
-      assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
       assertThrows(ExecutionException.class, res::get);
+      assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
     }
 
     assertThat(cb.state).isEqualTo(State.REJECT_CALLS);
