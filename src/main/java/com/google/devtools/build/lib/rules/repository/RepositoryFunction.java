@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
+import com.google.devtools.build.lib.repository.RepositoryFetchProgress;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
@@ -131,6 +132,23 @@ public abstract class RepositoryFunction {
               || e instanceof ExternalPackageException,
           e);
     }
+  }
+
+  public static void setupRepoRoot(Path repoRoot) throws RepositoryFunctionException {
+    try {
+      repoRoot.deleteTree();
+      Preconditions.checkNotNull(repoRoot.getParentDirectory()).createDirectoryAndParents();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
+    setupRepoRoot(repoRoot);
+  }
+
+  public void reportSkyframeRestart(Environment env, RepositoryName repoName) {
+    env.getListener().post(RepositoryFetchProgress.ongoing(repoName, "Restarting."));
   }
 
   /**

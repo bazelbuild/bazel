@@ -116,6 +116,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -154,6 +156,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private LockfileMode bazelLockfileMode = LockfileMode.OFF;
   private List<String> allowedYankedVersions = ImmutableList.of();
   private SingleExtensionEvalFunction singleExtensionEvalFunction;
+  private final ExecutorService repoFetchingWorkerThreadPool = Executors.newFixedThreadPool(100);
 
   @Nullable private CredentialModule credentialModule;
 
@@ -312,6 +315,19 @@ public class BazelRepositoryModule extends BlazeModule {
 
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
+      switch (repoOptions.workerForRepoFetching) {
+        case OFF:
+          starlarkRepositoryFunction.setWorkerExecutorService(null);
+          break;
+        case PLATFORM:
+          starlarkRepositoryFunction.setWorkerExecutorService(repoFetchingWorkerThreadPool);
+          break;
+        case VIRTUAL:
+          throw new AbruptExitException(
+              detailedExitCode(
+                  "using a virtual worker thread for repo fetching is not yet supported",
+                  Code.BAD_DOWNLOADER_CONFIG));
+      }
       downloadManager.setDisableDownload(repoOptions.disableDownload);
       if (repoOptions.repositoryDownloaderRetries >= 0) {
         downloadManager.setRetries(repoOptions.repositoryDownloaderRetries);

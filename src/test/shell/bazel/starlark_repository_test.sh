@@ -2358,4 +2358,32 @@ EOF
   bazel build --repository_disable_download //:it || fail "Failed to build"
 }
 
+function test_no_restarts_fetching_with_worker_thread() {
+  setup_starlark_repository
+
+  echo foo > file1
+  echo bar > file2
+
+  cat >test.bzl <<EOF
+def _impl(rctx):
+  print("hello world!")
+  print(rctx.read(Label("//:file1")))
+  print(rctx.read(Label("//:file2")))
+  rctx.file("BUILD", "filegroup(name='bar')")
+
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  # no worker thread, restarts twice
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=off >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 3
+
+  # platform worker thread, never restarts
+  bazel shutdown
+  bazel build @foo//:bar --experimental_worker_for_repo_fetching=platform >& $TEST_log \
+    || fail "Expected build to succeed"
+  expect_log_n "hello world!" 1
+}
+
 run_suite "local repository tests"
