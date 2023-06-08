@@ -13,7 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimaps;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -23,9 +27,16 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -37,13 +48,16 @@ import javax.annotation.Nullable;
 final class TransitionApplier
     implements StateMachine, StateMachine.ValueOrExceptionSink<TransitionException> {
   interface ResultSink {
-    void acceptTransitionedOptions(Map<String, BuildOptions> transitionedOptions);
+    void acceptTransitionedConfigurations(
+        ImmutableMap<String, BuildConfigurationKey> transitionedOptions);
 
     void acceptTransitionError(TransitionException e);
+
+    void acceptTransitionError(OptionsParsingException e);
   }
 
   // -------------------- Input --------------------
-  private final BuildOptions fromOptions;
+  private final BuildConfigurationKey fromConfiguration;
   private final ConfigurationTransition transition;
   private final StarlarkTransitionCache transitionCache;
 
@@ -54,11 +68,11 @@ final class TransitionApplier
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
   TransitionApplier(
-      BuildOptions fromOptions,
+      BuildConfigurationKey fromConfiguration,
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
       ResultSink sink) {
-    this.fromOptions = fromOptions;
+    this.fromConfiguration = fromConfiguration;
     this.transition = transition;
     this.transitionCache = transitionCache;
     this.sink = sink;
@@ -74,9 +88,9 @@ final class TransitionApplier
       return DONE;
     }
     if (!doesStarlarkTransition) {
-      sink.acceptTransitionedOptions(
-          transition.apply(TransitionUtil.restrict(transition, fromOptions), listener));
-      return DONE;
+      return convertOptionsToKeys(
+          transition.apply(
+              TransitionUtil.restrict(transition, fromConfiguration.getOptions()), listener));
     }
 
     ImmutableSet<Label> starlarkBuildSettings =
@@ -112,13 +126,101 @@ final class TransitionApplier
       return DONE; // There was an error.
     }
 
+    Map<String, BuildOptions> transitionedOptions;
     try {
-      sink.acceptTransitionedOptions(
+      transitionedOptions =
           transitionCache.computeIfAbsent(
-              fromOptions, transition, buildSettingsDetailsValue, listener));
+              fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, listener);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
+      return DONE;
     }
-    return DONE;
+    return convertOptionsToKeys(transitionedOptions);
+  }
+
+  private StateMachine convertOptionsToKeys(Map<String, BuildOptions> transitionedOptions) {
+    // If there is a single, unchanged value, just outputs the original key.
+    if (transitionedOptions.size() == 1) {
+      Map.Entry<String, BuildOptions> entry = transitionedOptions.entrySet().iterator().next();
+      BuildOptions options = entry.getValue();
+      if (options.checksum().equals(fromConfiguration.getOptionsChecksum())) {
+        sink.acceptTransitionedConfigurations(ImmutableMap.of(entry.getKey(), fromConfiguration));
+        return DONE;
+      }
+    }
+
+    // Otherwise, applies a platform mapping to the results.
+    return new PlatformMappingApplier(transitionedOptions);
+  }
+
+  /**
+   * Applies the platform mapping to each option.
+   *
+   * <p>The output preserves the iteration order of the input.
+   */
+  private class PlatformMappingApplier implements StateMachine {
+    // -------------------- Input --------------------
+    private final Map<String, BuildOptions> options;
+
+    // -------------------- Internal State --------------------
+    private final Map<String, PlatformMappingValue> platformMappingValues = new HashMap<>();
+
+    private PlatformMappingApplier(Map<String, BuildOptions> options) {
+      this.options = options;
+    }
+
+    @Override
+    public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
+      // Deduplicates the platform mapping paths and collates the transition keys.
+      ImmutableListMultimap<Optional<PathFragment>, String> index =
+          Multimaps.index(
+              options.keySet(),
+              transitionKey ->
+                  Optional.ofNullable(getPlatformMappingsPath(options.get(transitionKey))));
+      for (Map.Entry<Optional<PathFragment>, Collection<String>> entry : index.asMap().entrySet()) {
+        Collection<String> transitionKeys = entry.getValue();
+        tasks.lookUp(
+            PlatformMappingValue.Key.create(entry.getKey().orElse(null)),
+            rawValue -> {
+              var value = (PlatformMappingValue) rawValue;
+              // Maps the value from all transition keys with the same platform mappings path.
+              for (String key : transitionKeys) {
+                platformMappingValues.put(key, value);
+              }
+            });
+      }
+      return this::applyMappings;
+    }
+
+    private StateMachine applyMappings(Tasks tasks, ExtendedEventHandler listener) {
+      if (platformMappingValues.size() < options.size()) {
+        return DONE; // There was an error looking up PlatformMappingValue.
+      }
+
+      var result =
+          ImmutableMap.<String, BuildConfigurationKey>builderWithExpectedSize(options.size());
+      for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {
+        String transitionKey = entry.getKey();
+        BuildConfigurationKey newConfigurationKey;
+        try {
+          newConfigurationKey =
+              BuildConfigurationKey.withPlatformMapping(
+                  platformMappingValues.get(transitionKey), entry.getValue());
+        } catch (OptionsParsingException e) {
+          sink.acceptTransitionError(e);
+          return DONE;
+        }
+        result.put(transitionKey, newConfigurationKey);
+      }
+      sink.acceptTransitionedConfigurations(result.buildOrThrow());
+      return DONE;
+    }
+  }
+
+  @Nullable
+  private static PathFragment getPlatformMappingsPath(BuildOptions fromOptions) {
+    return fromOptions.hasNoConfig()
+        ? null
+        : fromOptions.get(PlatformOptions.class).platformMappings;
   }
 }

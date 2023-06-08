@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -27,18 +26,12 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Map;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Applies the rule and trimming transitions to a {@link BuildConfigurationKey}. */
-final class RuleTransitionApplier
-    implements StateMachine, TransitionApplier.ResultSink, Consumer<SkyValue> {
+final class RuleTransitionApplier implements StateMachine, TransitionApplier.ResultSink {
   interface ResultSink {
     void acceptRuleTransitionResult(BuildConfigurationKey key);
 
@@ -58,10 +51,6 @@ final class RuleTransitionApplier
 
   // -------------------- Sequencing --------------------
   private final StateMachine runAfter;
-
-  // -------------------- Internal State --------------------
-  private BuildOptions transitionedOptions;
-  private PlatformMappingValue platformMappingValue;
 
   RuleTransitionApplier(
       BuildConfigurationKey configurationKey,
@@ -88,26 +77,20 @@ final class RuleTransitionApplier
 
     tasks.enqueue(
         new TransitionApplier(
-            configurationKey.getOptions(),
-            transition,
-            transitionCache,
-            (TransitionApplier.ResultSink) this));
+            configurationKey, transition, transitionCache, (TransitionApplier.ResultSink) this));
 
-    // TODO(b/261521010): consider fetching the platform mappings path eagerly once the rule
-    // transitions are removed from dependency resolution. In the current, temporary state, it
-    // makes sense to do this lazily because rule transitions are mostly applied twice and
-    // rarely need remapping.
-    return this::processTransitionedOptions;
+    return runAfter;
   }
 
   @Override
-  public void acceptTransitionedOptions(Map<String, BuildOptions> transitionResult) {
+  public void acceptTransitionedConfigurations(
+      ImmutableMap<String, BuildConfigurationKey> transitionResult) {
     checkState(transitionResult.size() == 1, "Expected exactly one result: %s", transitionResult);
-    this.transitionedOptions =
+    sink.acceptRuleTransitionResult(
         checkNotNull(
             transitionResult.get(ConfigurationTransition.PATCH_TRANSITION_KEY),
             "Transition result missing patch transition entry: %s",
-            transitionResult);
+            transitionResult));
   }
 
   @Override
@@ -115,43 +98,9 @@ final class RuleTransitionApplier
     sink.acceptRuleTransitionError(e);
   }
 
-  private StateMachine processTransitionedOptions(Tasks tasks, ExtendedEventHandler listener) {
-    if (transitionedOptions == null) {
-      return runAfter; // There was an error.
-    }
-
-    // TODO(b/261521010): consider removing this check once rule transitions are removed from
-    // dependency resolution.
-    if (transitionedOptions.equals(configurationKey.getOptions())) {
-      // Returns the original key if the options are unchanged.
-      sink.acceptRuleTransitionResult(configurationKey);
-      return runAfter;
-    }
-
-    tasks.lookUp(
-        PlatformMappingValue.Key.create(getPlatformMappingsPath(configurationKey.getOptions())),
-        (Consumer<SkyValue>) this);
-
-    return this::composeResult;
-  }
-
   @Override
-  public void accept(SkyValue value) {
-    this.platformMappingValue = (PlatformMappingValue) value;
-  }
-
-  private StateMachine composeResult(Tasks tasks, ExtendedEventHandler listener) {
-    BuildConfigurationKey newConfigurationKey;
-    try {
-      newConfigurationKey =
-          BuildConfigurationKey.withPlatformMapping(platformMappingValue, transitionedOptions);
-    } catch (OptionsParsingException e) {
-      sink.acceptRuleTransitionError(e);
-      return runAfter;
-    }
-
-    sink.acceptRuleTransitionResult(newConfigurationKey);
-    return runAfter;
+  public void acceptTransitionError(OptionsParsingException e) {
+    sink.acceptRuleTransitionError(e);
   }
 
   @Nullable
@@ -177,12 +126,5 @@ final class RuleTransitionApplier
     }
 
     return transition;
-  }
-
-  @Nullable
-  private static PathFragment getPlatformMappingsPath(BuildOptions fromOptions) {
-    return fromOptions.hasNoConfig()
-        ? null
-        : fromOptions.get(PlatformOptions.class).platformMappings;
   }
 }
