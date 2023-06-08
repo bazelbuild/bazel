@@ -55,6 +55,7 @@ import net.starlark.java.syntax.Location;
 public class ConfiguredTargetAndData {
   private final ConfiguredTarget configuredTarget;
   private final Target target;
+  @Nullable // Null iff configuredTarget's configuration key is null.
   private final BuildConfigurationValue configuration;
   private final ImmutableList<String> transitionKeys;
 
@@ -62,7 +63,7 @@ public class ConfiguredTargetAndData {
   public ConfiguredTargetAndData(
       ConfiguredTarget configuredTarget,
       Target target,
-      BuildConfigurationValue configuration,
+      @Nullable BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys) {
     this(configuredTarget, target, configuration, transitionKeys, /*checkConsistency=*/ true);
   }
@@ -70,7 +71,7 @@ public class ConfiguredTargetAndData {
   private ConfiguredTargetAndData(
       ConfiguredTarget configuredTarget,
       Target target,
-      BuildConfigurationValue configuration,
+      @Nullable BuildConfigurationValue configuration,
       ImmutableList<String> transitionKeys,
       boolean checkConsistency) {
     this.configuredTarget = configuredTarget;

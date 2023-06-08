@@ -37,13 +37,13 @@ import javax.annotation.Nullable;
  * <p>The resulting package and configuration are based on the resulting {@link ConfiguredTarget}
  * and may be different from what is in the key, for example, if there is an alias.
  */
-final class ConfiguredTargetAndDataProducer
+public final class ConfiguredTargetAndDataProducer
     implements StateMachine,
         Consumer<SkyValue>,
         StateMachine.ValueOrException2Sink<
             ConfiguredValueCreationException, InvalidVisibilityDependencyException> {
   /** Interface for accepting values produced by this class. */
-  interface ResultSink {
+  public interface ResultSink {
     void acceptConfiguredTargetAndData(ConfiguredTargetAndData value, int index);
 
     void acceptConfiguredTargetAndDataError(ConfiguredValueCreationException error);
