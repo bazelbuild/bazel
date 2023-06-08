@@ -18,11 +18,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computeAspectCollection;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
-import static com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData.SPLIT_DEP_ORDERING;
-import static java.util.Collections.sort;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -81,8 +78,6 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
-import com.google.devtools.build.lib.analysis.AspectCollection;
-import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.AspectConfiguredEvent;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BaseDependencySpecification;
@@ -113,9 +108,9 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.producers.AspectMergerForTesting;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -148,7 +143,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.io.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -4060,71 +4054,57 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       // Ignored.
     }
 
-    // Computes all aspect keys and looks them up in Skyframe.
-    var aspectKeys = ArrayListMultimap.<ConfiguredTargetKey, AspectKey>create();
-    for (PartiallyResolvedDependency key : dependencyKeys) {
-      ImmutableList<Aspect> propagatingAspects = key.getPropagatingAspects();
-      for (ConfiguredTargetAndData target : cts.get(key)) {
-        var targetKey = ConfiguredTargetKey.fromConfiguredTarget(target.getConfiguredTarget());
-        AspectCollection aspects;
-        try {
-          aspects = computeAspectCollection(target, propagatingAspects);
-        } catch (InconsistentAspectOrderException e) {
-          throw new IllegalStateException(e);
-        }
-        for (AspectDeps aspectDeps : aspects.getUsedAspects()) {
-          aspectKeys.put(
-              targetKey, AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), targetKey));
-        }
+    var aspectMergerSink =
+        new AspectMergerForTesting.ResultSink() {
+          private OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData>
+              mergedTargets;
+          private InconsistentAspectOrderException aspectOrderException;
+          private DuplicateException duplicateException;
+
+          @Override
+          public void acceptAspectMergerResult(
+              OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData> map) {
+            this.mergedTargets = map;
+          }
+
+          @Override
+          public void acceptAspectMergerError(InconsistentAspectOrderException error) {
+            this.aspectOrderException = error;
+          }
+
+          @Override
+          public void acceptAspectMergerError(DuplicateException error) {
+            this.duplicateException = error;
+          }
+        };
+    result =
+        StateMachineEvaluatorForTesting.run(
+            new AspectMergerForTesting(cts, aspectMergerSink),
+            memoizingEvaluator,
+            getEvaluationContextForTesting(eventHandler));
+    if (result != null) {
+      try {
+        var unused =
+            SkyframeErrorProcessor.processAnalysisErrors(
+                result,
+                cyclesReporter,
+                eventHandler,
+                /* keepGoing= */ true,
+                /* eventBus= */ null,
+                bugReporter);
+      } catch (ViewCreationFailedException ignored) {
+        // Ignored.
       }
     }
-    result = evaluateSkyKeys(eventHandler, aspectKeys.values());
-    try {
-      var unused =
-          SkyframeErrorProcessor.processAnalysisErrors(
-              result,
-              cyclesReporter,
-              eventHandler,
-              /* keepGoing= */ true,
-              /* eventBus= */ null,
-              bugReporter);
-    } catch (ViewCreationFailedException ignored) {
-      // Ignored.
+    if (aspectMergerSink.aspectOrderException != null) {
+      throw new IllegalStateException(aspectMergerSink.aspectOrderException);
     }
-
-    // Merges the aspect values with the base prerequisite values and outputs them by
-    // DependencyKind.
-    //
-    // Since `PartiallyResolvedDependency` may occur multiple times in `dependencies` the work
-    // below may be duplicated.
+    if (aspectMergerSink.duplicateException != null) {
+      throw new IllegalStateException(aspectMergerSink.duplicateException);
+    }
     var output = OrderedSetMultimap.<DependencyKind, ConfiguredTargetAndData>create();
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry : dependencies.entries()) {
-      Set<ConfiguredTargetAndData> targets = cts.get(entry.getValue());
-      var mergedTargets = new ArrayList<ConfiguredTargetAndData>();
-      for (ConfiguredTargetAndData target : targets) {
-        ConfiguredTarget configuredTarget = target.getConfiguredTarget();
-        var aspects = new ArrayList<ConfiguredAspect>();
-        for (AspectKey aspectKey :
-            aspectKeys.get(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))) {
-          var aspectValue = (AspectValue) result.get(aspectKey);
-          if (aspectValue == null) {
-            continue;
-          }
-          aspects.add(aspectValue.getConfiguredAspect());
-        }
-        ConfiguredTarget mergedTarget;
-        try {
-          mergedTarget = MergedConfiguredTarget.of(configuredTarget, aspects);
-        } catch (DuplicateException e) {
-          throw new IllegalStateException(
-              String.format("Error creating %s", configuredTarget.getLabel()), e);
-        }
-        mergedTargets.add(target.fromConfiguredTarget(mergedTarget));
-      }
-      if (mergedTargets.size() > 1) {
-        sort(mergedTargets, SPLIT_DEP_ORDERING);
-      }
-      output.putAll(entry.getKey(), mergedTargets);
+      output.putAll(entry.getKey(), aspectMergerSink.mergedTargets.get(entry.getValue()));
     }
     return output;
   }

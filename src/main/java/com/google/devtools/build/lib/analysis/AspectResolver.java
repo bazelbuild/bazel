@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -164,24 +162,5 @@ public final class AspectResolver {
       buildAspectKey(aspectDeps, result, depKey);
     }
     return result;
-  }
-
-  @CanIgnoreReturnValue
-  private static AspectKey buildAspectKey(
-      AspectCollection.AspectDeps aspectDeps,
-      HashMap<AspectDescriptor, AspectKey> result,
-      ConfiguredTargetKey depKey) {
-    if (result.containsKey(aspectDeps.getAspect())) {
-      return (AspectKey) result.get(aspectDeps.getAspect()).argument();
-    }
-
-    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
-      dependentAspects.add(buildAspectKey(path, result, depKey));
-    }
-    AspectKey aspectKey =
-        AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), dependentAspects.build(), depKey);
-    result.put(aspectKey.getAspectDescriptor(), aspectKey);
-    return aspectKey;
   }
 }
