@@ -31,6 +31,9 @@ import com.google.devtools.build.lib.remote.Retrier.CircuitBreaker.State;
 import com.google.devtools.build.lib.remote.Retrier.CircuitBreakerException;
 import com.google.devtools.build.lib.remote.Retrier.ZeroBackoff;
 import com.google.devtools.build.lib.testutil.TestUtils;
+
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +41,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.concurrent.ThreadSafe;
+
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -94,7 +100,7 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(3);
-    verify(alwaysOpen, times(3)).recordFailure(any(Exception.class));
+    verify(alwaysOpen, times(3)).recordFailure();
     verify(alwaysOpen, never()).recordSuccess();
   }
 
@@ -118,8 +124,8 @@ public class RetrierTest {
     assertThat(e).hasMessageThat().isEqualTo("call failed");
 
     assertThat(numCalls.get()).isEqualTo(1);
-    verify(alwaysOpen, times(1)).recordFailure(e);
-    verify(alwaysOpen, never()).recordSuccess();
+    verify(alwaysOpen, never()).recordFailure();
+    verify(alwaysOpen, times(1)).recordSuccess();
   }
 
   @Test
@@ -139,7 +145,7 @@ public class RetrierTest {
     });
     assertThat(val).isEqualTo(1);
 
-    verify(alwaysOpen, times(2)).recordFailure(any(Exception.class));
+    verify(alwaysOpen, times(2)).recordFailure();
     verify(alwaysOpen, times(1)).recordSuccess();
   }
 
@@ -332,6 +338,44 @@ public class RetrierTest {
     assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("");
   }
 
+  @Test
+  public void testCircuitBreakerFailureAndSuccessCallOnDifferentGrpcError() {
+    int maxRetries = 2;
+    Supplier<Backoff> s = () -> new ZeroBackoff(maxRetries);
+    List<Status> retriableGrpcError = Arrays.asList(Status.ABORTED, Status.UNKNOWN, Status.DEADLINE_EXCEEDED);
+    List<Status> nonRetriableGrpcError = Arrays.asList(Status.NOT_FOUND, Status.OUT_OF_RANGE, Status.ALREADY_EXISTS);
+    TripAfterNCircuitBreaker cb = new TripAfterNCircuitBreaker(retriableGrpcError.size() * 2);
+    Retrier r = new Retrier(s, RemoteRetrier.RETRIABLE_GRPC_ERRORS, retryService, cb);
+
+
+    int expectedConsecutiveFailures = 0;
+
+    for (Status status : retriableGrpcError) {
+      ListenableFuture<Void> res =
+          r.executeAsync(
+              () -> {
+                throw new StatusRuntimeException(status);
+              });
+      expectedConsecutiveFailures += maxRetries;
+      assertThat(cb.consecutiveFailures).isEqualTo(expectedConsecutiveFailures);
+      assertThrows(ExecutionException.class, res::get);
+    }
+
+    assertThat(cb.state).isEqualTo(State.REJECT_CALLS);
+    cb.trialCall();
+
+    for (Status status : nonRetriableGrpcError) {
+      ListenableFuture<Void> res =
+          r.executeAsync(
+              () -> {
+                throw new StatusRuntimeException(status);
+              });
+      assertThat(cb.consecutiveFailures).isEqualTo(0);
+      assertThrows(ExecutionException.class, res::get);
+    }
+    assertThat(cb.state).isEqualTo(State.ACCEPT_CALLS);
+  }
+
   /** Simple circuit breaker that trips after N consecutive failures. */
   @ThreadSafe
   private static class TripAfterNCircuitBreaker implements CircuitBreaker {
@@ -351,7 +395,7 @@ public class RetrierTest {
     }
 
     @Override
-    public synchronized void recordFailure(Exception e) {
+    public synchronized void recordFailure() {
       consecutiveFailures++;
       if (consecutiveFailures >= maxConsecutiveFailures) {
         state = State.REJECT_CALLS;
