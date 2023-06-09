@@ -95,12 +95,8 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "def _impl(ctx):",
         "  outfile = ctx.actions.declare_file('out')",
         "  kwargs = {}",
-        "  if ctx.attr.plugin_output == 'single':",
-        "    kwargs['plugin_output'] = outfile.path",
-        "  elif ctx.attr.plugin_output == 'multiple':",
-        "    kwargs['plugin_output'] = ctx.genfiles_dir.path",
-        "  elif ctx.attr.plugin_output == 'wrong':",
-        "    kwargs['plugin_output'] = ctx.genfiles_dir.path + '///'",
+        "  if ctx.attr.plugin_output:",
+        "    kwargs['plugin_output'] = ctx.attr.plugin_output",
         "  if ctx.attr.additional_args:",
         "    additional_args = ctx.actions.args()",
         "    additional_args.add_all(ctx.attr.additional_args)",
@@ -213,7 +209,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
 
   /**
    * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
-   * parameter set to file.
+   * parameter.
    */
   @Test
   public void generateCode_withPluginOutput() throws Exception {
@@ -222,7 +218,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         TestConstants.LOAD_PROTO_LIBRARY,
         "load('//foo:generate.bzl', 'generate_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'single')");
+        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'foo.srcjar')");
 
     ConfiguredTarget target = getConfiguredTarget("//bar:simple");
 
@@ -231,61 +227,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
     assertThat(cmdLine)
         .comparingElementsUsing(MATCHES_REGEX)
         .containsExactly(
-            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin/bar/out",
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-I.",
-            "bar/A.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
-   * parameter set to directory.
-   */
-  @Test
-  public void generateCode_withDirectoryPluginOutput() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'multiple')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    List<String> cmdLine =
-        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin",
-            "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
-            "-I.",
-            "bar/A.proto")
-        .inOrder();
-  }
-
-  /**
-   * Verifies usage of <code>proto_common.generate_code</code> with <code>plugin_output</code>
-   * parameter set to incorrect directory.
-   */
-  @Test
-  public void generateCode_withPluginOutputWrong() throws Exception {
-    scratch.file(
-        "bar/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
-        "load('//foo:generate.bzl', 'generate_rule')",
-        "proto_library(name = 'proto', srcs = ['A.proto'])",
-        "generate_rule(name = 'simple', proto_dep = ':proto', plugin_output = 'wrong')");
-
-    ConfiguredTarget target = getConfiguredTarget("//bar:simple");
-
-    List<String> cmdLine =
-        getGeneratingSpawnAction(getBinArtifact("out", target)).getRemainingArguments();
-    assertThat(cmdLine)
-        .comparingElementsUsing(MATCHES_REGEX)
-        .containsExactly(
-            "--java_out=param1,param2:bl?azel?-out/k8-fastbuild/bin",
+            "--java_out=param1,param2:foo.srcjar",
             "--plugin=bl?azel?-out/[^/]*-exec-[^/]*/bin/third_party/x/plugin",
             "-I.",
             "bar/A.proto")
