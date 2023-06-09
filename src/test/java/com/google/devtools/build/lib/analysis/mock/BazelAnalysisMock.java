@@ -131,7 +131,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("local_config_xcode_workspace/WORKSPACE");
     config.create("protobuf_workspace/WORKSPACE");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
-    /** The rest of platforms is initialized in {@link MockPlatformSupport}. */
+    /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
     config.create(
