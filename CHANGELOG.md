@@ -1,3 +1,74 @@
+## Release 7.0.0-pre.20230530.3 (2023-06-09)
+
+```
+Baseline: 67446d625e4daafadcb5918a88ed52f517a8871f
+
+Cherry picks:
+
+   + 4344a0358f44c0290f85f8d90dede5824593ce77:
+     Automated rollback of commit
+     00a4fefe594069d47d1bde99b28c6b8dcca0a7c1.
+```
+
+Incompatible changes:
+
+  - `--incompatible_check_sharding_support` is enabled by default.
+    Sharded tests with test runners that do not properly advertise
+    support for test sharding will fail. Refer to
+    https://github.com/bazelbuild/bazel/issues/18339 for migration
+    advice.
+
+Important changes:
+
+  - Options specified on the pseudo-command `common` in `.rc` files
+    are now ignored by commands that do not support them as long as
+    they are valid options for *any* Bazel command. Previously,
+    commands that did not support all options given for `common`
+    would fail to run. These previous semantics of `common` are now
+    available via the new `always` pseudo-command.
+  - the 'default' param of json.decode can now be used as a keyword
+    parameter.
+  - As a transitional step in a larger refactoring, rule transitions
+    are applied twice. Once during dependency resolution and once
+    right before
+    analysis of those rules. After the refactoring is complete, rule
+    transitions
+    will be applied only once.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jimm chja20, Keith Smiley.
+
+## Release 7.0.0-pre.20230524.3 (2023-06-05)
+
+```
+Baseline: ea2d5043113a34ce341c53168141f13f14053240
+
+Cherry picks:
+
+   + 2e34965242280d861f688628ed2bbc5209350d9f:
+     Have `Package#defaultPackageMetadata` be in the same order that
+     the `package.default_applicable_licenses` list was in.
+```
+
+Initial release.
+
+## Release 6.2.1 (2023-06-02)
+
+```
+Baseline:  758b44dab552f31b378874b5bf4c0609bfef6f5d
+
+Release Notes:
+
++ Automatic code cleanup. (#18504)
++ Update relnotes scripts (#18503)
++ Fix https://github.com/bazelbuild/bazel/issues/18493. (#18512)
++ Fix formatting of release notes (#18533)
++ Use extension rather than local names in ModuleExtensionMetadata (#18535)
+
+Acknowledgements:
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Pavan Singh.
+```
+
 ## Release 7.0.0-pre.20230517.4 (2023-05-26)
 
 ```
