@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.com
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
+import com.google.auto.value.AutoOneOf;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -313,48 +315,23 @@ public abstract class DependencyResolver {
       }
 
       DependencyKind kind = entry.getKey();
+
       ImmutableList<Aspect> propagatingAspects =
           computePropagatingAspects(kind, aspectsList, fromRule);
-      Attribute attribute = kind.getAttribute();
+      ExecutionPlatformResult executionPlatformResult =
+          getExecutionPlatformLabel(kind, toolchainContexts, aspectsList);
       Label executionPlatformLabel = null;
-      // TODO(jcater): refactor this nested if structure into something simpler.
-      if (toolchainContexts != null) {
-        if (attribute.getTransitionFactory() instanceof ExecutionTransitionFactory) {
-          String execGroup =
-              ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
-          if (!toolchainContexts.hasToolchainContext(execGroup)) {
-            AspectClass owningAspect = kind.getOwningAspect();
-            // If {@code aspectsList} is not empty, {@code toolchainContexts} contains only the exec
-            // groups of the main aspect (placed as the last aspect in {@code aspectsList}).
-            // Otherwise, {@code toolchainContexts} contains the exec group of the target's rule.
-            // Therefore, if the {@aspectsList} is not empty and the current entry is not a
-            // dependency of the main aspect, {@code execGroup} will never exist in {@code
-            // toolchainContexts} and this dependency will be skipped.
-            // TODO(b/256617733): Make a decision on whether the exec groups of the target
-            // and the base aspects should be merged in {@code toolchainContexts}.
-            if (aspectsList.isEmpty()
-                || (owningAspect != null
-                    && owningAspect.equals(Iterables.getLast(aspects).getAspectClass()))) {
-              throw new Failure(
-                  fromRule != null ? fromRule.getLocation() : null,
-                  String.format(
-                      "Attr '%s' declares a transition for non-existent exec group '%s'",
-                      attribute.getName(), execGroup));
-            } else {
-              continue;
-            }
-          }
-          if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
-            executionPlatformLabel =
-                toolchainContexts.getToolchainContext(execGroup).executionPlatform().label();
-          }
-        } else {
-          executionPlatformLabel =
-              toolchainContexts
-                  .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
-                  .executionPlatform()
-                  .label();
-        }
+      switch (executionPlatformResult.kind()) {
+        case LABEL:
+          executionPlatformLabel = executionPlatformResult.label();
+          break;
+        case NULL_LABEL:
+          break;
+        case SKIP:
+          continue;
+        case ERROR:
+          throw new Failure(
+              fromRule != null ? fromRule.getLocation() : null, executionPlatformResult.error());
       }
 
       AttributeTransitionData attributeTransitionData =
@@ -363,7 +340,7 @@ public abstract class DependencyResolver {
               .executionPlatform(executionPlatformLabel)
               .build();
       ConfigurationTransition attributeTransition =
-          attribute.getTransitionFactory().create(attributeTransitionData);
+          kind.getAttribute().getTransitionFactory().create(attributeTransitionData);
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.builder()
@@ -373,6 +350,105 @@ public abstract class DependencyResolver {
               .build());
     }
     return partiallyResolvedDeps;
+  }
+
+  /** The results of {@link #getExecutionPlatformLabel} as a tagged union. */
+  @AutoOneOf(DependencyResolver.ExecutionPlatformResult.Kind.class)
+  public abstract static class ExecutionPlatformResult {
+    /** Tags for the possible results. */
+    public enum Kind {
+      /** A label was successfully determined. */
+      LABEL,
+      /**
+       * A label was successfully determined to be null.
+       *
+       * <p>{@link AutoOneOf} does not permit {@code @Nullable} so this is distinct from {@link
+       * #LABEL}.
+       */
+      NULL_LABEL,
+      /**
+       * The dependency should be skipped.
+       *
+       * <p>See comments in {@link #getExecutionPlatformLabel} for details.
+       */
+      SKIP,
+      /** An error message. */
+      ERROR
+    }
+
+    public abstract Kind kind();
+
+    public abstract Label label();
+
+    abstract void nullLabel();
+
+    abstract void skip();
+
+    public abstract String error();
+
+    private static ExecutionPlatformResult ofLabel(Label label) {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.label(label);
+    }
+
+    private static ExecutionPlatformResult ofNullLabel() {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.nullLabel();
+    }
+
+    private static ExecutionPlatformResult ofSkip() {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.skip();
+    }
+
+    private static ExecutionPlatformResult ofError(String message) {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.error(message);
+    }
+  }
+
+  public static ExecutionPlatformResult getExecutionPlatformLabel(
+      DependencyKind kind,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      ImmutableList<Aspect> aspectsList) {
+    if (toolchainContexts == null) {
+      return ExecutionPlatformResult.ofNullLabel();
+    }
+
+    TransitionFactory<AttributeTransitionData> transitionFactory =
+        kind.getAttribute().getTransitionFactory();
+    if (!(transitionFactory instanceof ExecutionTransitionFactory)) {
+      return ExecutionPlatformResult.ofLabel(
+          toolchainContexts
+              .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
+              .executionPlatform()
+              .label());
+    }
+
+    String execGroup = ((ExecutionTransitionFactory) transitionFactory).getExecGroup();
+    if (toolchainContexts.hasToolchainContext(execGroup)) {
+      PlatformInfo platform = toolchainContexts.getToolchainContext(execGroup).executionPlatform();
+      return platform == null
+          ? ExecutionPlatformResult.ofNullLabel()
+          : ExecutionPlatformResult.ofLabel(platform.label());
+    }
+
+    // `execGroup` could not be found. If `aspectsList` is non-empty, `toolchainContexts` only
+    // contains the exec groups of the main aspect. Skips the dependency if it's not the main
+    // aspect.
+    //
+    // TODO(b/256617733): Make a decision on whether the exec groups of the target and the base
+    // aspects should be merged in `toolchainContexts`.
+    if (!aspectsList.isEmpty() && !isMainAspect(aspectsList, kind.getOwningAspect())) {
+      return ExecutionPlatformResult.ofSkip();
+    }
+
+    return ExecutionPlatformResult.ofError(
+        String.format(
+            "Attr '%s' declares a transition for non-existent exec group '%s'",
+            kind.getAttribute().getName(), execGroup));
+  }
+
+  /** True if {@code owningAspect} is the main aspect, the last one in {@code aspectsList}. */
+  private static boolean isMainAspect(
+      ImmutableList<Aspect> aspectsList, @Nullable AspectClass owningAspect) {
+    return Iterables.getLast(aspectsList).getAspectClass().equals(owningAspect);
   }
 
   /**
