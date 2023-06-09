@@ -142,7 +142,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         context.getFileOutErr(),
         xattrProvider);
     if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
-      context.prefetchInputsAndWait();
+      context.prefetchInputsAndWait(context.getId());
     }
     spawnMetrics.addSetupTimeInMs((int) setupTimeStopwatch.elapsed().toMillis());
 
@@ -289,7 +289,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
     @FormatMethod
     private void stepLog(Level level, @FormatString String fmt, Object... args) {
-      stepLog(level, /*cause=*/ null, fmt, args);
+      stepLog(level, /* cause= */ null, fmt, args);
     }
 
     @FormatMethod

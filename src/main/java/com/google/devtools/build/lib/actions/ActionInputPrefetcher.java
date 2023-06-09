@@ -36,6 +36,7 @@ public interface ActionInputPrefetcher {
         public ListenableFuture<Void> prefetchFiles(
             Iterable<? extends ActionInput> inputs,
             MetadataSupplier metadataSupplier,
+            String actionId,
             Priority priority) {
           // Do nothing.
           return immediateVoidFuture();
@@ -79,7 +80,10 @@ public interface ActionInputPrefetcher {
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataSupplier metadataSupplier, Priority priority);
+      Iterable<? extends ActionInput> inputs,
+      MetadataSupplier metadataSupplier,
+      String actionId,
+      Priority priority);
 
   /**
    * Whether the prefetcher requires the metadata for a tree artifact to be available whenever one

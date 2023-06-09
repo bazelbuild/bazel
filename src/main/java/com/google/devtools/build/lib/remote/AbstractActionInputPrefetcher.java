@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
+import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.RxUtils;
 import com.google.devtools.build.lib.remote.util.RxUtils.TransferResult;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
@@ -75,6 +76,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private final AsyncTaskCache.NoResult<Path> downloadCache = AsyncTaskCache.NoResult.create();
   private final TempPathGenerator tempPathGenerator;
   private final OutputPermissions outputPermissions;
+  private final DigestUtil digestUtil;
 
   protected final Path execRoot;
   protected final RemoteOutputChecker remoteOutputChecker;
@@ -95,6 +97,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   private static final class DirectoryState {
     /** The number of ongoing prefetcher calls touching this directory. */
     int numCalls;
+
     /** Whether the output permissions must be set on the directory when prefetching completes. */
     boolean mustSetOutputPermissions;
   }
@@ -228,12 +231,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path execRoot,
       TempPathGenerator tempPathGenerator,
       RemoteOutputChecker remoteOutputChecker,
-      OutputPermissions outputPermissions) {
+      OutputPermissions outputPermissions,
+      DigestUtil digestUtil) {
     this.reporter = reporter;
     this.execRoot = execRoot;
     this.tempPathGenerator = tempPathGenerator;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputPermissions = outputPermissions;
+    this.digestUtil = digestUtil;
   }
 
   private boolean shouldDownloadFile(Path path, FileArtifactValue metadata) {
@@ -267,6 +272,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       Path tempPath,
       PathFragment execPath,
       FileArtifactValue metadata,
+      String actionId,
       Priority priority)
       throws IOException;
 
@@ -287,6 +293,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   public ListenableFuture<Void> prefetchFiles(
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
+      String actionId,
       Priority priority) {
     List<ActionInput> files = new ArrayList<>();
 
@@ -308,7 +315,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
-            .flatMapSingle(input -> prefetchFile(dirCtx, metadataSupplier, input, priority));
+            .flatMapSingle(
+                input -> prefetchFile(dirCtx, metadataSupplier, input, actionId, priority));
 
     Completable prefetch =
         Completable.using(
@@ -321,6 +329,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       DirectoryContext dirCtx,
       MetadataSupplier metadataSupplier,
       ActionInput input,
+      String actionId,
       Priority priority) {
     try {
       if (input instanceof VirtualActionInput) {
@@ -352,6 +361,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
               input,
               metadata,
+              actionId,
               priority);
 
       if (symlink != null) {
@@ -426,6 +436,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       @Nullable Path treeRoot,
       ActionInput actionInput,
       FileArtifactValue metadata,
+      String actionId,
       Priority priority) {
     if (path.isSymbolicLink()) {
       try {
@@ -449,6 +460,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                                     tempPath,
                                     finalPath.relativeTo(execRoot),
                                     metadata,
+                                    actionId,
                                     priority),
                             directExecutor())
                         .doOnComplete(
@@ -600,10 +612,14 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!outputsToDownload.isEmpty()) {
+      var actionKey = digestUtil.computeActionKey(action);
       try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
         getFromFuture(
             prefetchFiles(
-                outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+                outputsToDownload,
+                outputMetadataStore::getOutputMetadata,
+                actionKey.getDigest().getHash(),
+                Priority.HIGH));
       }
     }
   }

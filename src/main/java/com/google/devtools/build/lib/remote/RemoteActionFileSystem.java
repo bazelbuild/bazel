@@ -625,7 +625,10 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
       getFromFuture(
           inputFetcher.prefetchFiles(
-              ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
+              ImmutableList.of(input),
+              this::getInputMetadata,
+              "RemoteActionFSPrefetch",
+              Priority.CRITICAL));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);

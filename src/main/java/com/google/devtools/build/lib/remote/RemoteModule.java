@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AsynchronousFileOutputStream;
-import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -286,6 +285,11 @@ public final class RemoteModule extends BlazeModule {
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
   }
 
+  private DigestUtil newDigestUtil(CommandEnvironment env) {
+    var hashFn = env.getRuntime().getFileSystem().getDigestFunction();
+    return new DigestUtil(env.getXattrProvider(), hashFn);
+  }
+
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
@@ -303,8 +307,7 @@ public final class RemoteModule extends BlazeModule {
     this.remoteOptions = remoteOptions;
 
     AuthAndTLSOptions authAndTlsOptions = env.getOptions().getOptions(AuthAndTLSOptions.class);
-    DigestHashFunction hashFn = env.getRuntime().getFileSystem().getDigestFunction();
-    DigestUtil digestUtil = new DigestUtil(env.getXattrProvider(), hashFn);
+    var digestUtil = newDigestUtil(env);
 
     boolean verboseFailures = false;
     ExecutionOptions executionOptions = env.getOptions().getOptions(ExecutionOptions.class);
@@ -1003,6 +1006,7 @@ public final class RemoteModule extends BlazeModule {
     if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
 
+      var digestUtil = newDigestUtil(env);
       actionInputFetcher =
           new RemoteActionInputFetcher(
               env.getReporter(),
@@ -1012,7 +1016,8 @@ public final class RemoteModule extends BlazeModule {
               env.getExecRoot(),
               tempPathGenerator,
               remoteOutputChecker,
-              outputPermissions);
+              outputPermissions,
+              digestUtil);
       env.getEventBus().register(actionInputFetcher);
       builder.setActionInputPrefetcher(actionInputFetcher);
       actionContextProvider.setActionInputFetcher(actionInputFetcher);

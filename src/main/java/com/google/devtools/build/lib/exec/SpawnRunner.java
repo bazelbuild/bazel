@@ -152,16 +152,17 @@ public interface SpawnRunner {
      * again. I suppose we could require implementations to memoize getInputMapping (but not compute
      * it eagerly), and that may change in the future.
      */
-    ListenableFuture<Void> prefetchInputs() throws IOException, ForbiddenActionInputException;
+    ListenableFuture<Void> prefetchInputs(String actionId)
+        throws IOException, ForbiddenActionInputException;
 
     /**
      * Prefetches the Spawns input files to the local machine and wait to finish.
      *
      * @see #prefetchInputs()
      */
-    default void prefetchInputsAndWait()
+    default void prefetchInputsAndWait(String actionId)
         throws IOException, ExecException, InterruptedException, ForbiddenActionInputException {
-      ListenableFuture<Void> future = prefetchInputs();
+      ListenableFuture<Void> future = prefetchInputs(actionId);
       try (SilentCloseable s =
           Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
         future.get();
@@ -175,7 +176,7 @@ public interface SpawnRunner {
         }
         throw new IOException(e);
       } catch (InterruptedException e) {
-        future.cancel(/*mayInterruptIfRunning=*/ true);
+        future.cancel(/* mayInterruptIfRunning= */ true);
         throw e;
       }
     }

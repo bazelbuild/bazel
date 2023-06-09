@@ -211,7 +211,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               ? resultMessage
               : CommandFailureUtils.describeCommandFailure(
                   executionOptions.verboseFailures, cwd, spawn);
-      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/ false);
+      throw new SpawnExecException(message, spawnResult, /* forciblyRunRemotely= */ false);
     }
     return ImmutableList.of(spawnResult);
   }
@@ -245,7 +245,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public ListenableFuture<Void> prefetchInputs()
+    public ListenableFuture<Void> prefetchInputs(String actionId)
         throws IOException, ForbiddenActionInputException {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         return Futures.catchingAsync(
@@ -255,6 +255,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                         .values(),
                     getInputMetadataProvider()::getInputMetadata,
+                    actionId,
                     Priority.MEDIUM),
             BulkTransferException.class,
             (BulkTransferException e) -> {
@@ -284,6 +285,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     public InputMetadataProvider getInputMetadataProvider() {
       return actionExecutionContext.getInputMetadataProvider();
     }
+
     @Override
     public <T extends ActionContext> T getContext(Class<T> identifyingType) {
       return actionExecutionContext.getContext(identifyingType);
