@@ -64,6 +64,9 @@ final class TransitionApplier
   // -------------------- Output --------------------
   private final ResultSink sink;
 
+  // -------------------- Sequencing --------------------
+  private final StateMachine runAfter;
+
   // -------------------- Internal State --------------------
   private StarlarkBuildSettingsDetailsValue buildSettingsDetailsValue;
 
@@ -71,11 +74,13 @@ final class TransitionApplier
       BuildConfigurationKey fromConfiguration,
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
-      ResultSink sink) {
+      ResultSink sink,
+      StateMachine runAfter) {
     this.fromConfiguration = fromConfiguration;
     this.transition = transition;
     this.transitionCache = transitionCache;
     this.sink = sink;
+    this.runAfter = runAfter;
   }
 
   @Override
@@ -85,7 +90,7 @@ final class TransitionApplier
       doesStarlarkTransition = StarlarkTransition.doesStarlarkTransition(transition);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
-      return DONE;
+      return runAfter;
     }
     if (!doesStarlarkTransition) {
       return convertOptionsToKeys(
@@ -103,7 +108,7 @@ final class TransitionApplier
     tasks.lookUp(
         StarlarkBuildSettingsDetailsValue.key(starlarkBuildSettings),
         TransitionException.class,
-        this);
+        (ValueOrExceptionSink<TransitionException>) this);
     return this::applyStarlarkTransition;
   }
 
@@ -123,7 +128,7 @@ final class TransitionApplier
   private StateMachine applyStarlarkTransition(Tasks tasks, ExtendedEventHandler listener)
       throws InterruptedException {
     if (buildSettingsDetailsValue == null) {
-      return DONE; // There was an error.
+      return runAfter; // There was an error.
     }
 
     Map<String, BuildOptions> transitionedOptions;
@@ -133,7 +138,7 @@ final class TransitionApplier
               fromConfiguration.getOptions(), transition, buildSettingsDetailsValue, listener);
     } catch (TransitionException e) {
       sink.acceptTransitionError(e);
-      return DONE;
+      return runAfter;
     }
     return convertOptionsToKeys(transitionedOptions);
   }
@@ -145,7 +150,7 @@ final class TransitionApplier
       BuildOptions options = entry.getValue();
       if (options.checksum().equals(fromConfiguration.getOptionsChecksum())) {
         sink.acceptTransitionedConfigurations(ImmutableMap.of(entry.getKey(), fromConfiguration));
-        return DONE;
+        return runAfter;
       }
     }
 
@@ -193,10 +198,6 @@ final class TransitionApplier
     }
 
     private StateMachine applyMappings(Tasks tasks, ExtendedEventHandler listener) {
-      if (platformMappingValues.size() < options.size()) {
-        return DONE; // There was an error looking up PlatformMappingValue.
-      }
-
       var result =
           ImmutableMap.<String, BuildConfigurationKey>builderWithExpectedSize(options.size());
       for (Map.Entry<String, BuildOptions> entry : options.entrySet()) {
@@ -208,12 +209,12 @@ final class TransitionApplier
                   platformMappingValues.get(transitionKey), entry.getValue());
         } catch (OptionsParsingException e) {
           sink.acceptTransitionError(e);
-          return DONE;
+          return runAfter;
         }
         result.put(transitionKey, newConfigurationKey);
       }
       sink.acceptTransitionedConfigurations(result.buildOrThrow());
-      return DONE;
+      return runAfter;
     }
   }
 
