@@ -37,9 +37,7 @@ public abstract class ModuleKey {
   private static final ImmutableMap<String, RepositoryName> WELL_KNOWN_MODULES =
       ImmutableMap.of(
           "bazel_tools",
-          RepositoryName.BAZEL_TOOLS,
-          "local_config_platform",
-          RepositoryName.createUnvalidated("local_config_platform"));
+          RepositoryName.BAZEL_TOOLS);
 
   public static final ModuleKey ROOT = create("", Version.EMPTY);
 
