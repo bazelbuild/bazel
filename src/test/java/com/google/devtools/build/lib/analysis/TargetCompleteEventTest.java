@@ -74,8 +74,12 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
       for (Artifact a : artifactSet.toListInterruptibly()) {
         fileProtos.add(
-            newFileFromArtifact(null, a, PathFragment.EMPTY_FRAGMENT, FAILED_COMPLETION_CTX)
-                .build());
+            newFileFromArtifact(
+                /* name= */ null,
+                a,
+                PathFragment.EMPTY_FRAGMENT,
+                FAILED_COMPLETION_CTX,
+                /* uri= */ null));
       }
     }
     // Bytes are the same but the encoding is actually UTF-8 as required of a protobuf string.
