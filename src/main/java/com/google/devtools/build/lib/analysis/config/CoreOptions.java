@@ -175,6 +175,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Check for action prefix file path conflicts, regardless of action-specific overrides.")
   public boolean strictConflictChecks;
 
+  @Option(
+      name = "incompatible_disallow_unsound_directory_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, it is an error for an action to materialize an output file as a directory. Does"
+              + " not affect source directories.")
+  public boolean disallowUnsoundDirectoryOutputs;
+
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
   @Option(
@@ -997,6 +1008,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.useAutoExecGroups = useAutoExecGroups;
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
     exec.strictConflictChecks = strictConflictChecks;
+    exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;
