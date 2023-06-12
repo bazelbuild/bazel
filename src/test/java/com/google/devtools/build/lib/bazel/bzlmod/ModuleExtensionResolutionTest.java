@@ -626,7 +626,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(isolated_ext,isolated_ext_repo='ext_repo')",
         "isolated_dev_ext = use_extension('@ext//:defs.bzl','ext',isolate=True,dev_dependency=True)",
         "isolated_dev_ext.tag(data='root_isolated_dev',expect_isolated=True)",
-        "use_repo(isolated_dev_ext,isolated_dev_ext_repo='ext_repo')");
+        "use_repo(isolated_dev_ext,isolated_dev_ext_repo='ext_repo')",
+        "ext2 = use_extension('@ext//:defs.bzl','ext')",
+        "ext2.tag(data='root_2',expect_isolated=False)");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
@@ -641,15 +643,15 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         createModuleKey("foo", "1.0"),
         "module(name='foo',version='1.0')",
         "bazel_dep(name='ext',version='1.0')",
-        "ext = use_extension('@ext//:defs.bzl','ext')",
-        "ext.tag(data='foo@1.0',expect_isolated=False)",
-        "use_repo(ext,'ext_repo')",
         "isolated_ext = use_extension('@ext//:defs.bzl','ext',isolate=True)",
         "isolated_ext.tag(data='foo@1.0_isolated',expect_isolated=True)",
         "use_repo(isolated_ext,isolated_ext_repo='ext_repo')",
         "isolated_dev_ext = use_extension('@ext//:defs.bzl','ext',isolate=True,dev_dependency=True)",
         "isolated_dev_ext.tag(data='foo@1.0_isolated_dev',expect_isolated=True)",
-        "use_repo(isolated_dev_ext,isolated_dev_ext_repo='ext_repo')");
+        "use_repo(isolated_dev_ext,isolated_dev_ext_repo='ext_repo')",
+        "ext = use_extension('@ext//:defs.bzl','ext')",
+        "ext.tag(data='foo@1.0',expect_isolated=False)",
+        "use_repo(ext,'ext_repo')");
     scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
     scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
     scratch.file(
@@ -687,7 +689,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
-        .isEqualTo("root@1.0 (root): root\nfoo@1.0: foo@1.0\n");
+        .isEqualTo("root@1.0 (root): rootroot_2\nfoo@1.0: foo@1.0\n");
     assertThat(result.get(skyKey).getModule().getGlobal("isolated_data"))
         .isEqualTo("root@1.0 (root): root_isolated\n");
     assertThat(result.get(skyKey).getModule().getGlobal("isolated_dev_data"))
@@ -699,7 +701,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
       throw result.getError().getException();
     }
     assertThat(result.get(skyKey).getModule().getGlobal("data"))
-        .isEqualTo("root@1.0 (root): root\nfoo@1.0: foo@1.0\n");
+        .isEqualTo("root@1.0 (root): rootroot_2\nfoo@1.0: foo@1.0\n");
     assertThat(result.get(skyKey).getModule().getGlobal("isolated_data"))
         .isEqualTo("foo@1.0: foo@1.0_isolated\n");
   }

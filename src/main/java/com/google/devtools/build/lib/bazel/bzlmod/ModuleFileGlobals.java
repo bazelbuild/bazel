@@ -487,7 +487,8 @@ public class ModuleFileGlobals {
     if (!isolate) {
       for (ModuleExtensionUsageBuilder usageBuilder : extensionUsageBuilders) {
         if (usageBuilder.extensionBzlFile.equals(extensionBzlFile)
-            && usageBuilder.extensionName.equals(extensionName)) {
+            && usageBuilder.extensionName.equals(extensionName)
+            && usageBuilder.isolationKey.isEmpty()) {
           return usageBuilder.getProxy(devDependency);
         }
       }
