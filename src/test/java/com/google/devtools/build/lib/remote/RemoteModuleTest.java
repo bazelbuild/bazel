@@ -85,8 +85,8 @@ public final class RemoteModuleTest {
   private static final String CACHE_SERVER_NAME = "cache-server";
   private static final ServerCapabilities CACHE_ONLY_CAPS =
       ServerCapabilities.newBuilder()
-          .setLowApiVersion(ApiVersion.current.toSemVer())
-          .setHighApiVersion(ApiVersion.current.toSemVer())
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer())
           .setCacheCapabilities(
               CacheCapabilities.newBuilder()
                   .addDigestFunctions(Value.SHA256)
@@ -98,8 +98,8 @@ public final class RemoteModuleTest {
 
   private static final ServerCapabilities EXEC_AND_CACHE_CAPS =
       ServerCapabilities.newBuilder()
-          .setLowApiVersion(ApiVersion.current.toSemVer())
-          .setHighApiVersion(ApiVersion.current.toSemVer())
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer())
           .setExecutionCapabilities(
               ExecutionCapabilities.newBuilder()
                   .setExecEnabled(true)
@@ -111,8 +111,8 @@ public final class RemoteModuleTest {
 
   private static final ServerCapabilities EXEC_ONLY_CAPS =
       ServerCapabilities.newBuilder()
-          .setLowApiVersion(ApiVersion.current.toSemVer())
-          .setHighApiVersion(ApiVersion.current.toSemVer())
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer())
           .setExecutionCapabilities(
               ExecutionCapabilities.newBuilder()
                   .setExecEnabled(true)
@@ -122,8 +122,8 @@ public final class RemoteModuleTest {
 
   private static final ServerCapabilities NONE_CAPS =
       ServerCapabilities.newBuilder()
-          .setLowApiVersion(ApiVersion.current.toSemVer())
-          .setHighApiVersion(ApiVersion.current.toSemVer())
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer())
           .build();
 
   private static final CapabilitiesImpl INACCESSIBLE_GRPC_REMOTE =

@@ -40,12 +40,11 @@ final class CapabilitiesServer extends CapabilitiesImplBase {
   @Override
   public void getCapabilities(
       GetCapabilitiesRequest request, StreamObserver<ServerCapabilities> responseObserver) {
-    SemVer current = ApiVersion.current.toSemVer();
     DigestFunction.Value df = digestUtil.getDigestFunction();
     ServerCapabilities.Builder response =
         ServerCapabilities.newBuilder()
-            .setLowApiVersion(current)
-            .setHighApiVersion(current)
+            .setLowApiVersion(ApiVersion.low.toSemVer())
+            .setHighApiVersion(ApiVersion.high.toSemVer())
             .setCacheCapabilities(
                 CacheCapabilities.newBuilder()
                     .addDigestFunctions(df)
