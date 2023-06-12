@@ -246,6 +246,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         return actionExecutionContext
             .getActionInputPrefetcher()
             .prefetchFiles(
+                spawn.getResourceOwner(),
                 getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true)
                     .values(),
                 getMetadataProvider());
