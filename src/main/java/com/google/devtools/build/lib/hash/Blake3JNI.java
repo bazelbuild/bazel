@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.hash;
 import com.google.devtools.build.lib.jni.JniLoader;
 import java.nio.ByteBuffer;
 
-public class Blake3JNI {
+final class Blake3JNI {
   private Blake3JNI() {}
 
   static {

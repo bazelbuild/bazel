@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 
-public class Blake3Hasher implements Hasher {
+final class Blake3Hasher implements Hasher {
   // These constants match the native definitions in:
   // https://github.com/BLAKE3-team/BLAKE3/blob/master/c/blake3.h
   public static final int KEY_LEN = 32;
@@ -49,7 +49,7 @@ public class Blake3Hasher implements Hasher {
     buffer.clear();
   }
 
-  public void update(byte[] data, int offset, int length) {
+  private void update(byte[] data, int offset, int length) {
     if (buffer == null) {
       resetBuffer(length);
     }
@@ -62,11 +62,11 @@ public class Blake3Hasher implements Hasher {
     buffer.put(data, offset, length);
   }
 
-  public void update(byte[] data) {
+  private void update(byte[] data) {
     update(data, 0, data.length);
   }
 
-  public byte[] getOutput(int outputLength) throws IllegalArgumentException {
+  private byte[] getOutput(int outputLength) throws IllegalArgumentException {
     byte[] retByteArray = new byte[outputLength];
 
     checkState(!isDone);

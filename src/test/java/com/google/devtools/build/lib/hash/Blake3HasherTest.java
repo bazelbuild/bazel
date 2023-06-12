@@ -24,24 +24,15 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link Blake3Hasher}. */
 @RunWith(JUnit4.class)
 public class Blake3HasherTest {
-  private static String hexString(byte[] byteArray) {
-    StringBuilder stringBuilder = new StringBuilder(byteArray.length * 2);
-    for (byte b : byteArray) {
-      stringBuilder.append(String.format("%02x", b));
-    }
-    return stringBuilder.toString();
-  }
-
   @Test
   public void emptyHash() {
     Blake3Hasher h = new Blake3Hasher();
 
     byte[] data = new byte[0];
-    h.update(data);
-    byte[] output = h.getOutput(Blake3Hasher.OUT_LEN);
+    h.putBytes(data);
 
     assertEquals(
-        "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262", hexString(output));
+        "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262", h.hash().toString());
   }
 
   @Test
@@ -49,10 +40,9 @@ public class Blake3HasherTest {
     Blake3Hasher h = new Blake3Hasher();
 
     byte[] data = "hello world".getBytes(StandardCharsets.US_ASCII);
-    h.update(data);
-    byte[] output = h.getOutput(Blake3Hasher.OUT_LEN);
+    h.putBytes(data);
 
     assertEquals(
-        "d74981efa70a0c880b8d8c1985d075dbcbf679b99a5f9914e5aaf96b831a9e24", hexString(output));
+        "d74981efa70a0c880b8d8c1985d075dbcbf679b99a5f9914e5aaf96b831a9e24", h.hash().toString());
   }
 }
