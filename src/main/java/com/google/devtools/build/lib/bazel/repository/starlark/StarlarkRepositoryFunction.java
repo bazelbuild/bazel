@@ -198,11 +198,6 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       } catch (NeedsSkyframeRestartException e) {
         // Missing values are expected; just restart before we actually start the rule
         return null;
-      } catch (EvalException e) {
-        // EvalExceptions indicate labels not referring to existing files. This is fine,
-        // as long as they are never resolved to files in the execution of the rule; we allow
-        // non-strict rules. So now we have to start evaluating the actual rule, even if that
-        // means the rule might get restarted for legitimate reasons.
       }
 
       // This rule is mainly executed for its side effect. Nevertheless, the return value is
