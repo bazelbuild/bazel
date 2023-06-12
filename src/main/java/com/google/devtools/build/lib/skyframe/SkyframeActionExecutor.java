@@ -382,11 +382,13 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
+      Action action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector metadataInjector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    outputService.updateActionFileSystemContext(actionFileSystem, env, metadataInjector, filesets);
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
@@ -489,7 +491,8 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(actionFileSystem, env, metadataHandler, expandedFilesets);
+      updateActionFileSystemContext(
+          action, actionFileSystem, env, metadataHandler, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -834,6 +837,7 @@ public final class SkyframeActionExecutor {
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
+          action,
           actionFileSystem,
           env,
           THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
