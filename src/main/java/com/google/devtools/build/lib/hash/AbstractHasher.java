@@ -14,16 +14,17 @@
 
 package com.google.devtools.build.lib.hash;
 
-import com.google.common.base.Preconditions;
 import com.google.common.hash.Funnel;
 import com.google.common.hash.Hasher;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
 /**
  * An abstract implementation of {@link Hasher}, which only requires subtypes to implement {@link
  * #putByte}. Subtypes may provide more efficient implementations, however.
+ *
+ * <p>This is AbstractHasher.java from Guava (which is not yet open sourced). See
+ * https://github.com/google/guava/issues/938.
  *
  * @author Dimitris Andreou
  */
@@ -65,30 +66,6 @@ abstract class AbstractHasher implements Hasher {
   @CanIgnoreReturnValue
   public Hasher putBytes(byte[] bytes) {
     return putBytes(bytes, 0, bytes.length);
-  }
-
-  @Override
-  @CanIgnoreReturnValue
-  public Hasher putBytes(byte[] bytes, int off, int len) {
-    Preconditions.checkPositionIndexes(off, off + len, bytes.length);
-    for (int i = 0; i < len; i++) {
-      putByte(bytes[off + i]);
-    }
-    return this;
-  }
-
-  @Override
-  @CanIgnoreReturnValue
-  public Hasher putBytes(ByteBuffer b) {
-    if (b.hasArray()) {
-      putBytes(b.array(), b.arrayOffset() + b.position(), b.remaining());
-      b.position(b.limit());
-    } else {
-      for (int remaining = b.remaining(); remaining > 0; remaining--) {
-        putByte(b.get());
-      }
-    }
-    return this;
   }
 
   @Override

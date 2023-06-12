@@ -28,6 +28,9 @@ import java.nio.charset.Charset;
 /**
  * Skeleton implementation of {@link HashFunction} in terms of {@link #newHasher()}.
  *
+ * <p>This is AbstractHashFunction.java from Guava (which is not yet open sourced). See
+ * https://github.com/google/guava/issues/938.
+ *
  * <p>TODO(lowasser): make public
  */
 @Immutable

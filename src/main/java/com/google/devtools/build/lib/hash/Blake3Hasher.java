@@ -4,7 +4,6 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hasher;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class Blake3Hasher extends AbstractHasher {
   // These constants match the native definitions in:
@@ -18,11 +17,10 @@ public class Blake3Hasher extends AbstractHasher {
   // cleans up the hasher, rather than making separate calls for each operation.
   public static final int ONESHOT_THRESHOLD = 8 * 1024;
 
-  private final ReentrantLock rl = new ReentrantLock();
   private ByteBuffer buffer;
   private long hasher = -1;
 
-  public boolean isAllocated() {
+  private boolean isAllocated() {
     return (hasher != -1);
   }
 
@@ -31,8 +29,6 @@ public class Blake3Hasher extends AbstractHasher {
       hasher = Blake3JNI.allocate_and_initialize_hasher();
     }
   }
-
-  public Blake3Hasher() {}
 
   private void resetBuffer(int minLength) {
     int length = Math.max(ONESHOT_THRESHOLD, minLength);
@@ -44,22 +40,16 @@ public class Blake3Hasher extends AbstractHasher {
   }
 
   public void update(byte[] data, int offset, int length) {
-    rl.lock();
-
     if (buffer == null) {
       resetBuffer(length);
     }
 
-    try {
-      if (buffer.remaining() < length) {
-        initOnce();
-        Blake3JNI.blake3_hasher_update(hasher, buffer, 0, buffer.position());
-        resetBuffer(length);
-      }
-      buffer.put(data, offset, length);
-    } finally {
-      rl.unlock();
+    if (buffer.remaining() < length) {
+      initOnce();
+      Blake3JNI.blake3_hasher_update(hasher, buffer, 0, buffer.position());
+      resetBuffer(length);
     }
+    buffer.put(data, offset, length);
   }
 
   public void update(byte[] data) {
@@ -67,29 +57,30 @@ public class Blake3Hasher extends AbstractHasher {
   }
 
   public byte[] getOutput(int outputLength) throws IllegalArgumentException {
-    rl.lock();
     byte[] retByteArray = new byte[outputLength];
 
-    try {
-      if (!isAllocated() && buffer != null) {
-        Blake3JNI.blake3_hasher_oneshot(
-            hasher, buffer, buffer.position(), retByteArray, outputLength);
-      } else {
-        initOnce();
-        if (buffer != null && buffer.position() > 0) {
-          Blake3JNI.blake3_hasher_update(hasher, buffer, 0, buffer.position());
-        }
-        Blake3JNI.blake3_hasher_finalize_and_close(hasher, retByteArray, outputLength);
-        hasher = -1;
+    if (!isAllocated() && buffer != null) {
+      Blake3JNI.blake3_hasher_oneshot(
+          hasher, buffer, buffer.position(), retByteArray, outputLength);
+    } else {
+      initOnce();
+      if (buffer != null && buffer.position() > 0) {
+        Blake3JNI.blake3_hasher_update(hasher, buffer, 0, buffer.position());
       }
-    } finally {
-      rl.unlock();
+      Blake3JNI.blake3_hasher_finalize_and_close(hasher, retByteArray, outputLength);
+      hasher = -1;
     }
 
     return retByteArray;
   }
 
   // The following overrides allow us to implement Hasher.
+  @Override
+  public Hasher putBytes(ByteBuffer b) {
+    buffer = b;
+    return this;
+  }
+
   @Override
   public Hasher putBytes(byte[] bytes, int off, int len) {
     update(bytes, off, len);
