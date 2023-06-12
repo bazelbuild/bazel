@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -66,7 +65,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -171,11 +169,7 @@ public class Package {
   /** The collection of all targets defined in this package, indexed by name. */
   private ImmutableSortedMap<String, Target> targets;
 
-  /**
-   * Default visibility for rules that do not specify it.
-   */
-  private RuleVisibility defaultVisibility;
-  private boolean defaultVisibilitySet;
+  private PackageArgs packageArgs = PackageArgs.DEFAULT;
 
   /**
    * How to enforce config_setting visibility settings.
@@ -194,16 +188,6 @@ public class Package {
   }
 
   private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
-
-  /**
-   * Default package-level 'testonly' value for rules that do not specify it.
-   */
-  private boolean defaultTestOnly = false;
-
-  /**
-   * Default package-level 'deprecation' value for rules that do not specify it.
-   */
-  private String defaultDeprecation;
 
   /**
    * Default header strictness checking for rules that do not specify it.
@@ -232,18 +216,6 @@ public class Package {
    */
   @Nullable private FailureDetail failureDetail;
 
-  /** The package's default "package_metadata" attribute. */
-  private ImmutableList<Label> defaultPackageMetadata = ImmutableList.of();
-
-  /**
-   * The package's default "licenses" and "distribs" attributes, as specified
-   * in calls to licenses() and distribs() in the BUILD file.
-   */
-  // These sets contain the values specified by the most recent licenses() or
-  // distribs() declarations encountered during package parsing:
-  private License defaultLicense;
-  private Set<License.DistributionType> defaultDistributionSet;
-
   /**
    * The map from each repository to that repository's remappings map. This is only used in the
    * //external package, it is an empty map for all other packages. For example, an entry of {"@foo"
@@ -264,11 +236,6 @@ public class Package {
    * package.
    */
   private RepositoryMapping mainRepositoryMapping;
-
-  private Set<Label> defaultCompatibleWith = ImmutableSet.of();
-  private Set<Label> defaultRestrictedTo = ImmutableSet.of();
-
-  private FeatureSet features;
 
   private ImmutableList<TargetPattern> registeredExecutionPlatforms;
   private ImmutableList<TargetPattern> registeredToolchains;
@@ -370,36 +337,6 @@ public class Package {
   }
 
   /**
-   * Set the default 'testonly' value for this package.
-   */
-  private void setDefaultTestOnly(boolean testOnly) {
-    defaultTestOnly = testOnly;
-  }
-
-  /**
-   * Set the default 'deprecation' value for this package.
-   */
-  private void setDefaultDeprecation(String deprecation) {
-    defaultDeprecation = deprecation;
-  }
-
-  /**
-   * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  private void setDefaultCompatibleWith(Set<Label> environments) {
-    defaultCompatibleWith = environments;
-  }
-
-  /**
-   * Sets the default value to use for a rule's {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-   * attribute when not explicitly specified by the rule.
-   */
-  private void setDefaultRestrictedTo(Set<Label> environments) {
-    defaultRestrictedTo = environments;
-  }
-
-  /**
    * Returns the source root (a directory) beneath which this package's BUILD file was found, or
    * {@link Optional#empty} if this package was derived from a workspace file.
    *
@@ -471,15 +408,10 @@ public class Package {
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
-    this.defaultVisibility = builder.defaultVisibility;
-    this.defaultVisibilitySet = builder.defaultVisibilitySet;
+    this.packageArgs = builder.packageArgs;
     this.configSettingVisibilityPolicy = builder.configSettingVisibilityPolicy;
     this.buildFile = builder.buildFile;
     this.failureDetail = builder.getFailureDetail();
-    this.defaultLicense = builder.defaultLicense;
-    this.defaultDistributionSet = builder.defaultDistributionSet;
-    this.defaultPackageMetadata = builder.defaultPackageMetadata;
-    this.features = builder.features;
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -744,7 +676,7 @@ public class Package {
 
   /** Returns the features specified in the <code>package()</code> declaration. */
   public FeatureSet getFeatures() {
-    return features;
+    return packageArgs.features();
   }
 
   /**
@@ -826,7 +758,7 @@ public class Package {
    * Returns the default visibility for this package.
    */
   public RuleVisibility getDefaultVisibility() {
-    return defaultVisibility;
+    return packageArgs.defaultVisibility();
   }
 
   /**
@@ -841,14 +773,14 @@ public class Package {
    * Returns the default testonly value.
    */
   public Boolean getDefaultTestOnly() {
-    return defaultTestOnly;
+    return packageArgs.defaultTestOnly();
   }
 
   /**
    * Returns the default deprecation value.
    */
   public String getDefaultDeprecation() {
-    return defaultDeprecation;
+    return packageArgs.defaultDeprecation();
   }
 
   /** Gets the default header checking mode. */
@@ -864,23 +796,19 @@ public class Package {
     return defaultHdrsCheck != null;
   }
 
-  public boolean isDefaultVisibilitySet() {
-    return defaultVisibilitySet;
-  }
-
   /** Gets the package metadata list for the default metadata declared by this package. */
   ImmutableList<Label> getDefaultPackageMetadata() {
-    return defaultPackageMetadata;
+    return packageArgs.defaultPackageMetadata();
   }
 
   /** Gets the parsed license object for the default license declared by this package. */
   License getDefaultLicense() {
-    return defaultLicense;
+    return packageArgs.license();
   }
 
   /** Returns the parsed set of distributions declared as the default for this package. */
   Set<License.DistributionType> getDefaultDistribs() {
-    return defaultDistributionSet;
+    return packageArgs.distribs();
   }
 
   /**
@@ -888,7 +816,7 @@ public class Package {
    * attribute when not explicitly specified by the rule.
    */
   public Set<Label> getDefaultCompatibleWith() {
-    return defaultCompatibleWith;
+    return packageArgs.defaultCompatibleWith();
   }
 
   /**
@@ -896,7 +824,7 @@ public class Package {
    * attribute when not explicitly specified by the rule.
    */
   public Set<Label> getDefaultRestrictedTo() {
-    return defaultRestrictedTo;
+    return packageArgs.defaultRestrictedTo();
   }
 
   public ImmutableList<TargetPattern> getRegisteredExecutionPlatforms() {
@@ -1072,10 +1000,8 @@ public class Package {
     // TreeMap so that the iteration order of variables is predictable. This is useful so that the
     // serialized representation is deterministic.
     private final TreeMap<String, String> makeEnv = new TreeMap<>();
-    private RuleVisibility defaultVisibility = RuleVisibility.PRIVATE;
+    private PackageArgs packageArgs = PackageArgs.DEFAULT;
     private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
-    private boolean defaultVisibilitySet;
-    private FeatureSet features = FeatureSet.EMPTY;
     private final List<Event> events = Lists.newArrayList();
     private final List<Postable> posts = Lists.newArrayList();
     @Nullable private String ioExceptionMessage = null;
@@ -1093,10 +1019,6 @@ public class Package {
     // [*] Not in the context of the package, anyway. Skyframe values containing a package may
     // serialize events emitted during its construction/evaluation.
     @Nullable private FailureDetail failureDetailOverride = null;
-
-    private ImmutableList<Label> defaultPackageMetadata = ImmutableList.of();
-    private License defaultLicense = License.NO_LICENSE;
-    private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
     // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
     // Rule targets, for use by native.existing_rules().
@@ -1201,7 +1123,7 @@ public class Package {
       this.mainRepositoryMapping = mainRepositoryMapping;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
       if (pkg.getName().startsWith("javatests/")) {
-        setDefaultTestonly(true);
+        mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
     }
 
@@ -1347,42 +1269,25 @@ public class Package {
       return this;
     }
 
-    /**
-     * Sets the default visibility for this package. Called at most once per package from
-     * PackageFactory.
-     */
     @CanIgnoreReturnValue
-    public Builder setDefaultVisibility(RuleVisibility visibility) {
-      this.defaultVisibility = visibility;
-      this.defaultVisibilitySet = true;
+    public Builder mergePackageArgsFrom(PackageArgs packageArgs) {
+      this.packageArgs = this.packageArgs.mergeWith(packageArgs);
       return this;
     }
 
-    /** Sets whether the default visibility is set in the BUILD file. */
     @CanIgnoreReturnValue
-    public Builder setDefaultVisibilitySet(boolean defaultVisibilitySet) {
-      this.defaultVisibilitySet = defaultVisibilitySet;
-      return this;
+    public Builder mergePackageArgsFrom(PackageArgs.Builder builder) {
+      return mergePackageArgsFrom(builder.build());
+    }
+
+    public PackageArgs getPackageArgs() {
+      return packageArgs;
     }
 
     /** Sets visibility enforcement policy for <code>config_setting</code>. */
     @CanIgnoreReturnValue
     public Builder setConfigSettingVisibilityPolicy(ConfigSettingVisibilityPolicy policy) {
       this.configSettingVisibilityPolicy = policy;
-      return this;
-    }
-
-    /** Sets the default value of 'testonly'. Rule-level 'testonly' will override this. */
-    @CanIgnoreReturnValue
-    Builder setDefaultTestonly(boolean defaultTestonly) {
-      pkg.setDefaultTestOnly(defaultTestonly);
-      return this;
-    }
-
-    /** Sets the default value of 'deprecation'. Rule-level 'deprecation' will append to this. */
-    @CanIgnoreReturnValue
-    Builder setDefaultDeprecation(String defaultDeprecation) {
-      pkg.setDefaultDeprecation(defaultDeprecation);
       return this;
     }
 
@@ -1417,12 +1322,6 @@ public class Package {
       // other code needs the ability to read this info directly from the
       // under-construction package. See {@link Package#setDefaultHdrsCheck}.
       pkg.setDefaultHdrsCheck(hdrsCheck);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addFeatures(Iterable<String> features) {
-      this.features = FeatureSet.merge(this.features, FeatureSet.parse(features));
       return this;
     }
 
@@ -1526,75 +1425,6 @@ public class Package {
           pkg.directLoads == null, "Direct loads already set: %s", pkg.directLoads);
       Preconditions.checkState(
           pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
-    }
-
-    /**
-     * Sets the default value to use for a rule's {@link RuleClass#APPLICABLE_LICENSES_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if any labels
-     * are duplicated.
-     */
-    void setDefaultPackageMetadata(List<Label> licenses, String attrName, Location location) {
-      if (hasDuplicateLabels(
-          licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
-        setContainsErrors();
-      }
-      this.defaultPackageMetadata = ImmutableList.copyOf(licenses);
-    }
-
-    ImmutableList<Label> getDefaultPackageMetadata() {
-      return defaultPackageMetadata;
-    }
-
-    /**
-     * Sets the default license for this package.
-     */
-    void setDefaultLicense(License license) {
-      this.defaultLicense = license;
-    }
-
-    License getDefaultLicense() {
-      return defaultLicense;
-    }
-
-    /**
-     * Initializes the default set of distributions for targets in this package.
-     *
-     * <p> TODO(bazel-team): (2011) consider moving the license & distribs info into Metadata--maybe
-     * even in the Build language.
-     */
-    void setDefaultDistribs(Set<DistributionType> dists) {
-      this.defaultDistributionSet = dists;
-    }
-
-    Set<DistributionType> getDefaultDistribs() {
-      return defaultDistributionSet;
-    }
-
-    /**
-     * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if any labels
-     * are duplicated.
-     */
-    void setDefaultCompatibleWith(List<Label> environments, String attrName, Location location) {
-      if (hasDuplicateLabels(
-          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
-        setContainsErrors();
-      }
-      pkg.setDefaultCompatibleWith(ImmutableSet.copyOf(environments));
-    }
-
-    /**
-     * Sets the default value to use for a rule's {@link RuleClass#RESTRICTED_ENVIRONMENT_ATTR}
-     * attribute when not explicitly specified by the rule. Records a package error if
-     * any labels are duplicated.
-     */
-    void setDefaultRestrictedTo(List<Label> environments, String attrName, Location location) {
-      if (hasDuplicateLabels(
-          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
-        setContainsErrors();
-      }
-
-      pkg.setDefaultRestrictedTo(ImmutableSet.copyOf(environments));
     }
 
     /**
@@ -1989,8 +1819,6 @@ public class Package {
       }
       ruleLabels = null;
       targets = Maps.unmodifiableBiMap(targets);
-      defaultDistributionSet =
-          Collections.unmodifiableSet(defaultDistributionSet);
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
