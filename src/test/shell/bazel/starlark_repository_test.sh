@@ -1803,12 +1803,12 @@ function test_auth_from_credential_helper() {
   bazel build //:it \
       && fail "Expected failure when downloading repo without credential helper"
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper"
 
   expect_credential_helper_calls 1
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper"
 
   expect_credential_helper_calls 1 # expect credentials to have been cached
@@ -1824,7 +1824,7 @@ function test_auth_from_credential_helper_overrides_starlark() {
 
   setup_auth baduser badpass
 
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success when downloading repo with credential helper overriding basic auth"
 }
 
@@ -2219,7 +2219,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
@@ -2266,7 +2266,7 @@ genrule(
   cmd = "cp $< $@",
 )
 EOF
-  bazel build --experimental_credential_helper="${TEST_TMPDIR}/credhelper" //:it \
+  bazel build --credential_helper="${TEST_TMPDIR}/credhelper" //:it \
       || fail "Expected success despite needing a file behind credential helper"
 }
 
