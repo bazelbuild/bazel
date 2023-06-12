@@ -448,7 +448,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
-        EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
+        EventHandler handler =
+            createEventHandler(
+                outErr, eventHandlerOptions, env.withMergedAnalysisAndExecutionSourceOfTruth());
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
@@ -458,7 +460,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // modified.
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
-              createEventHandler(colorfulOutErr, eventHandlerOptions);
+              createEventHandler(
+                  colorfulOutErr,
+                  eventHandlerOptions,
+                  env.withMergedAnalysisAndExecutionSourceOfTruth());
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -794,10 +799,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
   }
 
   /** Returns the event handler to use for this Blaze command. */
-  private UiEventHandler createEventHandler(OutErr outErr, UiOptions eventOptions) {
+  private UiEventHandler createEventHandler(
+      OutErr outErr, UiOptions eventOptions, boolean skymeldMode) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
-    return new UiEventHandler(outErr, eventOptions, runtime.getClock(), workspacePathFragment);
+    return new UiEventHandler(
+        outErr, eventOptions, runtime.getClock(), workspacePathFragment, skymeldMode);
   }
 
   /** Returns the runtime instance shared by the commands that this dispatcher dispatches to. */

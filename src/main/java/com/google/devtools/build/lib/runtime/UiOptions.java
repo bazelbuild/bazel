@@ -272,15 +272,6 @@ public class UiOptions extends OptionsBase {
               + "-1 implies no limit.")
   public int maxStdoutErrBytes;
 
-  @Option(
-      name = "experimental_skymeld_ui",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Displays both analysis and execution phase progress when both are running concurrently.")
-  public boolean skymeldUi;
-
   public boolean useColor() {
     return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
   }
