@@ -108,7 +108,7 @@ public class WorkerPoolImpl implements WorkerPool {
   }
 
   public int getNumIdlePerKey(WorkerKey key) {
-    return getPool(key).getNumIdle();
+    return getPool(key).getNumIdle(key);
   }
 
   @Override
