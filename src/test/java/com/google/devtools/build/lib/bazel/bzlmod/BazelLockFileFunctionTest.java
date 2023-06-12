@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.BazelLockfileFunctionException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -63,7 +64,7 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -164,7 +165,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                       @Nullable
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env)
-                          throws SkyFunctionException, InterruptedException {
+                          throws BazelLockfileFunctionException, InterruptedException {
 
                         UpdateLockFileKey key = (UpdateLockFileKey) skyKey;
                         BzlmodFlagsAndEnvVars flags = BazelDepGraphFunction.getFlagsAndEnvVars(env);
@@ -177,12 +178,16 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        BazelLockFileFunction.updateLockedModule(
-                            rootDirectory,
-                            key.moduleHash(),
-                            flags,
-                            localOverrideHashes,
-                            key.depGraph());
+                        try {
+                          BazelLockFileFunction.updateLockedModule(
+                              rootDirectory,
+                              key.moduleHash(),
+                              flags,
+                              localOverrideHashes,
+                              key.depGraph());
+                        } catch (ExternalDepsException e) {
+                          throw new BazelLockfileFunctionException(e, Transience.PERSISTENT);
+                        }
                         return new SkyValue() {};
                       }
                     })

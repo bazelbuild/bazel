@@ -92,7 +92,7 @@ public class ModuleFileFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws ModuleFileFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
@@ -144,7 +144,7 @@ public class ModuleFileFunction implements SkyFunction {
 
   @Nullable
   private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws ModuleFileFunctionException, InterruptedException {
     RootedPath moduleFilePath =
         RootedPath.toRootedPath(
             Root.fromPath(workspaceRoot), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
@@ -331,7 +331,7 @@ public class ModuleFileFunction implements SkyFunction {
 
   static final class ModuleFileFunctionException extends SkyFunctionException {
 
-    ModuleFileFunctionException(Exception cause) {
+    ModuleFileFunctionException(ExternalDepsException cause) {
       super(cause, Transience.TRANSIENT);
     }
   }

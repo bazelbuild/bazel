@@ -94,7 +94,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws SingleExtensionEvalFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
@@ -297,7 +297,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
 
-    SingleExtensionEvalFunctionException(Exception cause, Transience transience) {
+    SingleExtensionEvalFunctionException(ExternalDepsException cause, Transience transience) {
+      super(cause, transience);
+    }
+
+    SingleExtensionEvalFunctionException(IOException cause, Transience transience) {
       super(cause, transience);
     }
   }

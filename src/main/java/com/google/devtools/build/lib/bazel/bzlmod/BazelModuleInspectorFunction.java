@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
@@ -42,8 +41,7 @@ public class BazelModuleInspectorFunction implements SkyFunction {
 
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
