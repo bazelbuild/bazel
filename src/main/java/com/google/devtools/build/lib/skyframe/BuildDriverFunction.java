@@ -75,7 +75,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -505,17 +504,16 @@ public class BuildDriverFunction implements SkyFunction {
         configuredTarget.getProvider(ExtraActionArtifactsProvider.class),
         artifactsToBuild,
         buildDriverKey.isExtraActionTopLevelOnly());
+    ImmutableSet.Builder<SkyKey> keysToRequest =
+        ImmutableSet.<SkyKey>builder().addAll(Artifact.keys(artifactsToBuild.build()));
     postEventIfNecessary(postedEventsTypes, env, SomeExecutionStartedEvent.create());
     if (testType.equals(NOT_TEST)) {
-      declareDependenciesAndCheckValues(
-          env,
-          Iterables.concat(
-              Artifact.keys(artifactsToBuild.build()),
-              Collections.singletonList(
-                  TargetCompletionValue.key(
-                      ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
-                      topLevelArtifactContext,
-                      false))));
+      keysToRequest.add(
+          TargetCompletionValue.key(
+              ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+              topLevelArtifactContext,
+              /* willTest= */ false));
+      declareDependenciesAndCheckValues(env, keysToRequest.build());
       return;
     }
 
@@ -529,20 +527,22 @@ public class BuildDriverFunction implements SkyFunction {
 
     if (testType.equals(PARALLEL)) {
       // Only run non-exclusive tests here. Exclusive tests need to be run sequentially later.
-      declareDependenciesAndCheckValues(
-          env,
-          Iterables.concat(
-              artifactsToBuild.build(),
-              Collections.singletonList(
-                  TestCompletionValue.key(
-                      ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
-                      topLevelArtifactContext,
-                      /* exclusiveTesting= */ false))));
+      keysToRequest.add(
+          TestCompletionValue.key(
+              ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+              topLevelArtifactContext,
+              /* exclusiveTesting= */ false));
+      declareDependenciesAndCheckValues(env, keysToRequest.build());
       return;
     }
 
     // Exclusive tests will be run with sequential Skyframe evaluations afterwards.
-    declareDependenciesAndCheckValues(env, artifactsToBuild.build());
+    keysToRequest.add(
+        TargetCompletionValue.key(
+            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+            topLevelArtifactContext,
+            /* willTest= */ true));
+    declareDependenciesAndCheckValues(env, keysToRequest.build());
   }
 
   private void announceAspectAnalysisDoneAndRequestExecution(
