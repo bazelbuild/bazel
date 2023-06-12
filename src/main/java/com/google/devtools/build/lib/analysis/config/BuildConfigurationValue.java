@@ -536,6 +536,11 @@ public class BuildConfigurationValue implements BuildConfigurationApi, SkyValue 
     return options.instrumentTestTargets;
   }
 
+  /** Returns a boolean of whether to collect code coverage for generated files or not. */
+  public boolean shouldCollectCodeCoverageForGeneratedFiles() {
+    return options.collectCodeCoverageForGeneratedFiles;
+  }
+
   /**
    * Returns a new, unordered mapping of names to values of "Make" variables defined by this
    * configuration.
