@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
@@ -123,10 +125,26 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the iterable of collections that have the specified provider.
+   * Returns the list of declared providers of the specified Starlark key from a set of transitive
+   * info collections.
    */
-  public static <S extends TransitiveInfoCollection, C extends TransitiveInfoProvider> Iterable<S>
-      filterByProvider(Iterable<S> prerequisites, final Class<C> provider) {
+  public static <T extends Info> ImmutableList<T> getProviders(
+      Iterable<? extends TransitiveInfoCollection> prerequisites,
+      final StarlarkProviderWrapper<T> starlarkKey)
+      throws RuleErrorException {
+    ImmutableList.Builder<T> result = ImmutableList.builder();
+    for (TransitiveInfoCollection prerequisite : prerequisites) {
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
+      if (prerequisiteProvider != null) {
+        result.add(prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /** Returns the iterable of collections that have the specified provider. */
+  public static <S extends TransitiveInfoCollection, C extends TransitiveInfoProvider>
+      Iterable<S> filterByProvider(Iterable<S> prerequisites, final Class<C> provider) {
     return Iterables.filter(prerequisites, target -> target.getProvider(provider) != null);
   }
 
