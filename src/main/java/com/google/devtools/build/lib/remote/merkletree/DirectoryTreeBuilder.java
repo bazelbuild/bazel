@@ -66,7 +66,7 @@ class DirectoryTreeBuilder {
       DigestUtil digestUtil)
       throws IOException {
     return fromActionInputs(
-        inputs, ImmutableSet.of(), metadataProvider, execRoot, artifactPathResolver, digestUtil);
+        inputs, ImmutableSet.of(), metadataProvider, execRoot, artifactPathResolver, digestUtil, ImmutableSet.of());
   }
 
   static DirectoryTree fromActionInputs(
@@ -75,12 +75,13 @@ class DirectoryTreeBuilder {
       MetadataProvider metadataProvider,
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
-      DigestUtil digestUtil)
+      DigestUtil digestUtil,
+      Set<PathFragment> ignoredInputs)
       throws IOException {
     Map<PathFragment, DirectoryNode> tree = new HashMap<>();
     int numFiles =
         buildFromActionInputs(
-            inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil, tree);
+            inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil, ignoredInputs, tree);
     return new DirectoryTree(tree, numFiles);
   }
 
@@ -142,6 +143,7 @@ class DirectoryTreeBuilder {
       Path execRoot,
       ArtifactPathResolver artifactPathResolver,
       DigestUtil digestUtil,
+      Set<PathFragment> ignoredInputs,
       Map<PathFragment, DirectoryNode> tree)
       throws IOException {
     return build(
@@ -170,6 +172,12 @@ class DirectoryTreeBuilder {
             case REGULAR_FILE:
               {
                 Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+
+                if (ignoredInputs.contains(path)) {
+                  // Digest differs per platform, default to 0 for all platforms.
+                  d = Digest.getDefaultInstance();
+                }
+
                 Path inputPath = artifactPathResolver.toPath(input);
                 boolean childAdded =
                     currDir.addChild(
@@ -188,6 +196,7 @@ class DirectoryTreeBuilder {
                   execRoot,
                   artifactPathResolver,
                   digestUtil,
+                  ignoredInputs,
                   tree);
 
             case SYMLINK:

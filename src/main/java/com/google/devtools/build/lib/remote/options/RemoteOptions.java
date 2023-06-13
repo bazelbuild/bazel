@@ -639,6 +639,56 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
 
   @Option(
+          name = "remote_actionkey_salt",
+          defaultValue = "",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.UNKNOWN},
+          help = "Salt used when hashing remote actionkeys. Used for remote cache hits troubleshooting, or invalidating " +
+                  "entire cache when updating files not tracked by actions but causing different artifact outputs (see " +
+                  "support for xplat artifacts")
+  public String remoteActionKeySalt;
+
+  @Option(
+          name = "remote_xplat_supported_mnemonics",
+          converter = Converters.CommaSeparatedOptionListConverter.class,
+          defaultValue = "null",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.UNKNOWN},
+          help =
+                  "Specify the list of mnemonics whose artifact outputs should be treated as platform independant." +
+                          "This is used to support x-platform cache population",
+          allowMultiple = true)
+  public List<String> remoteXPlatSupportedMnemonics;
+
+  @Option(
+          name = "remote_xplat_removed_inputs",
+          converter = Converters.CommaSeparatedOptionListConverter.class,
+          defaultValue = "null",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.UNKNOWN},
+          help =
+                  "Specify the actions inputs that should be removed. They will be removed if their paths contains any " +
+                          "of the specified value here. Removing input from an action can be used to make action key hash " +
+                          "platform independent, at the risk of not rebuilding this action if this input only changes. For such" +
+                          "changes, developers need to bump the salt to re-hash every actions",
+          allowMultiple = true)
+  public List<String> remoteXPlatRemovedInputs;
+
+  @Option(
+          name = "remote_xplat_ignored_inputs",
+          converter = Converters.CommaSeparatedOptionListConverter.class,
+          defaultValue = "null",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.UNKNOWN},
+          help =
+                  "Specify the actions inputs that should be ignored. They will used a default (0) hash as these inputs " +
+                          "exist on different platform, but have different size/hash. Ignoring input from an action can be used to make action key hash " +
+                          "platform independent, at the risk of not rebuilding this action if this input only changes. For such" +
+                          "changes, developers need to bump the salt to re-hash every actions",
+          allowMultiple = true)
+  public List<String> remoteXPlatIgnoredInputs;
+
+  @Option(
       name = "incompatible_remote_downloader_send_all_headers",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,

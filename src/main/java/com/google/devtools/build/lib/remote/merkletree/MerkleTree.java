@@ -245,17 +245,18 @@ public class MerkleTree {
    * @param digestUtil a hashing utility
    */
   public static MerkleTree build(
-      SortedMap<PathFragment, ActionInput> inputs,
-      Set<PathFragment> toolInputs,
-      MetadataProvider metadataProvider,
-      Path execRoot,
-      ArtifactPathResolver artifactPathResolver,
-      DigestUtil digestUtil)
-      throws IOException {
+          SortedMap<PathFragment, ActionInput> inputs,
+          Set<PathFragment> toolInputs,
+          MetadataProvider metadataProvider,
+          Path execRoot,
+          ArtifactPathResolver artifactPathResolver,
+          DigestUtil digestUtil,
+          Set<PathFragment> ignoredInputs)
+          throws IOException {
     try (SilentCloseable c = Profiler.instance().profile("MerkleTree.build(ActionInput)")) {
       DirectoryTree tree =
-          DirectoryTreeBuilder.fromActionInputs(
-              inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil);
+              DirectoryTreeBuilder.fromActionInputs(
+                      inputs, toolInputs, metadataProvider, execRoot, artifactPathResolver, digestUtil, ignoredInputs);
       return build(tree, digestUtil);
     }
   }

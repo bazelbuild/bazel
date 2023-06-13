@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -175,6 +176,25 @@ public class RemoteExecutionService {
   private final AtomicBoolean shutdown = new AtomicBoolean(false);
   private final AtomicBoolean buildInterrupted = new AtomicBoolean(false);
 
+  private boolean isActionCompatibleWithXPlatformCache(Spawn spawn) {
+    String repo = spawn.getResourceOwner().getOwner().getLabel().getPackageIdentifier().getRepository().getName();
+    if (!repo.isEmpty()) {
+      return false;
+    }
+    String mnemonic = spawn.getResourceOwner().getMnemonic();
+    return remoteOptions.remoteXPlatSupportedMnemonics.contains(mnemonic);
+  }
+
+  private boolean isInputRemovedForXPlatform(PathFragment pathFragment) {
+    String path = pathFragment.getPathString();
+    return remoteOptions.remoteXPlatRemovedInputs.stream().anyMatch(s -> path.indexOf(s) >= 0);
+  }
+
+  private boolean isInputIgnoredForXPlatform(PathFragment pathFragment) {
+    String path = pathFragment.getPathString();
+    return remoteOptions.remoteXPlatIgnoredInputs.stream().anyMatch(s -> path.indexOf(s) >= 0);
+  }
+
   public RemoteExecutionService(
       Executor executor,
       Reporter reporter,
@@ -218,7 +238,8 @@ public class RemoteExecutionService {
       List<String> arguments,
       ImmutableMap<String, String> env,
       @Nullable Platform platform,
-      RemotePathResolver remotePathResolver) {
+      RemotePathResolver remotePathResolver,
+      boolean actionCompatibleWithXPlatformCache) {
     Command.Builder command = Command.newBuilder();
     ArrayList<String> outputFiles = new ArrayList<>();
     ArrayList<String> outputDirectories = new ArrayList<>();
@@ -239,6 +260,11 @@ public class RemoteExecutionService {
       command.setPlatform(platform);
     }
     for (String arg : arguments) {
+      if (actionCompatibleWithXPlatformCache) {
+        // Ensure the command line matches linux for M1
+        arg = arg.replace("macos_aarch64", "linux");
+        arg = arg.replace("darwin_arm64", "linux");
+      }
       command.addArguments(decodeBytestringUtf8(arg));
     }
     // Sorting the environment pairs by variable name.
@@ -392,6 +418,17 @@ public class RemoteExecutionService {
       SortedMap<PathFragment, ActionInput> inputMap =
           remotePathResolver.getInputMapping(
               context, /* willAccessRepeatedly= */ !remoteOptions.remoteDiscardMerkleTrees);
+
+      // Compute removed and ignored inputs, to make actionkey hash computation output match between platform.
+      boolean useXPlatformCache = isActionCompatibleWithXPlatformCache(spawn);
+      ImmutableSet<PathFragment> removedInputs = useXPlatformCache ? inputMap.keySet().stream().filter(this::isInputRemovedForXPlatform).collect(toImmutableSet()) : ImmutableSet.of();
+      ImmutableSet<PathFragment> ignoredInputs = useXPlatformCache ? inputMap.keySet().stream().filter(this::isInputIgnoredForXPlatform).collect(toImmutableSet()) : ImmutableSet.of();
+
+      // Remove inputs only present on specific platform, so that they won't contribute to actionkey hash.
+      for (PathFragment fragment : removedInputs) {
+        inputMap.remove(fragment);
+      }
+
       if (!outputDirMap.isEmpty()) {
         // The map returned by getInputMapping is mutable, but must not be mutated here as it is
         // shared with all other strategies.
@@ -406,7 +443,8 @@ public class RemoteExecutionService {
           context.getMetadataProvider(),
           execRoot,
           context.getPathResolver(),
-          digestUtil);
+          digestUtil,
+          ignoredInputs);
     }
   }
 
@@ -470,7 +508,7 @@ public class RemoteExecutionService {
   }
 
   @Nullable
-  private static ByteString buildSalt(Spawn spawn) {
+  private ByteString buildSalt(Spawn spawn) {
     String workspace =
         spawn.getExecutionInfo().get(ExecutionRequirements.DIFFERENTIATE_WORKSPACE_CACHE);
     if (workspace != null) {
@@ -479,10 +517,13 @@ public class RemoteExecutionService {
               .addProperties(
                   Platform.Property.newBuilder().setName("workspace").setValue(workspace).build())
               .build();
-      return platform.toByteString();
+      ByteString salt = platform.toByteString();
+      return remoteOptions.remoteActionKeySalt.isEmpty() ?
+              salt : salt.concat(ByteString.copyFromUtf8(remoteOptions.remoteActionKeySalt));
     }
 
-    return null;
+    return remoteOptions.remoteActionKeySalt.isEmpty() ?
+            null : ByteString.copyFromUtf8(remoteOptions.remoteActionKeySalt);
   }
 
   /**
@@ -528,14 +569,14 @@ public class RemoteExecutionService {
       } else {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
-
       Command command =
           buildCommand(
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
               platform,
-              remotePathResolver);
+              remotePathResolver,
+              isActionCompatibleWithXPlatformCache(spawn));
       Digest commandHash = digestUtil.compute(command);
       Action action =
           Utils.buildAction(
@@ -1400,7 +1441,7 @@ public class RemoteExecutionService {
               });
     } else {
       try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
+          Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs for " + action.getActionKey().getDigest().getHash())) {
         UploadManifest manifest = buildUploadManifest(action, spawnResult);
         manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
       } catch (IOException e) {

@@ -143,7 +143,7 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     ActionKey actionKey = new ActionKey(actionDigest);
     CachedActionResult cachedActionResult;
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
+        Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit for " + actionKey.getDigest().getHash())) {
       cachedActionResult =
           remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
     }

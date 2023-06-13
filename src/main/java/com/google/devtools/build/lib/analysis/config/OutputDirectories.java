@@ -239,10 +239,7 @@ public class OutputDirectories {
       CoreOptions options, @Nullable PlatformOptions platformOptions) {
     if (options.platformInOutputDir && platformOptions != null) {
       Label targetPlatform = platformOptions.computeTargetPlatform();
-      // Only use non-default platforms.
-      if (!PlatformOptions.platformIsDefault(targetPlatform)) {
-        return targetPlatform.getName();
-      }
+      return targetPlatform.getName();
     }
 
     // Fall back to using the CPU.
