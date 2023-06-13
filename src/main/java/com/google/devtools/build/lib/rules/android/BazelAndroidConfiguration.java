@@ -23,9 +23,12 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.errorprone.annotations.CheckReturnValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Configuration fragment for Android rules that is specific to Bazel. */
 @Immutable
+@StarlarkBuiltin(name = "bazel_android")
 @RequiresOptions(options = {BazelAndroidConfiguration.Options.class})
 @CheckReturnValue
 public class BazelAndroidConfiguration extends Fragment {
@@ -56,6 +59,10 @@ public class BazelAndroidConfiguration extends Fragment {
     this.mergeAndroidManifestPermissions = options.mergeAndroidManifestPermissions;
   }
 
+  @StarlarkMethod(
+      name = "merge_android_manifest_permissions",
+      structField = true,
+      doc = "The value of the --merge_android_manifest_permissions flag.")
   public boolean getMergeAndroidManifestPermissions() {
     return this.mergeAndroidManifestPermissions;
   }
