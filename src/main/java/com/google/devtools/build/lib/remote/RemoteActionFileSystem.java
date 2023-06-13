@@ -24,6 +24,7 @@ import static com.google.common.collect.Streams.stream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -77,6 +78,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   private final RemoteActionInputFetcher inputFetcher;
   private final RemoteInMemoryFileSystem remoteOutputTree;
 
+  @Nullable private ActionExecutionMetadata action = null;
   @Nullable private MetadataInjector metadataInjector = null;
 
   RemoteActionFileSystem(
@@ -111,7 +113,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return getRemoteMetadata(path.asFragment()) != null;
   }
 
-  public void updateContext(MetadataInjector metadataInjector) {
+  public void updateContext(ActionExecutionMetadata action, MetadataInjector metadataInjector) {
+    this.action = action;
     this.metadataInjector = metadataInjector;
   }
 
@@ -579,7 +582,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     FileArtifactValue m = getRemoteMetadata(path);
     if (m != null) {
       try {
-        inputFetcher.downloadFile(delegateFs.getPath(path), getActionInput(path), m);
+        inputFetcher.downloadFile(action, delegateFs.getPath(path), getActionInput(path), m);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new IOException(
