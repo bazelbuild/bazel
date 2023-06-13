@@ -63,7 +63,7 @@ public class BazelDepGraphFunction implements SkyFunction {
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws BazelDepGraphFunctionException, InterruptedException {
     RootModuleFileValue root =
         (RootModuleFileValue) env.getValue(ModuleFileValue.KEY_FOR_ROOT_MODULE);
     if (root == null) {
@@ -115,8 +115,12 @@ public class BazelDepGraphFunction implements SkyFunction {
       }
       depGraph = selectionResult.getResolvedDepGraph();
       if (lockfileMode.equals(LockfileMode.UPDATE)) {
-        BazelLockFileFunction.updateLockedModule(
-            rootDirectory, root.getModuleFileHash(), flags, localOverrideHashes, depGraph);
+        try {
+          BazelLockFileFunction.updateLockedModule(
+              rootDirectory, root.getModuleFileHash(), flags, localOverrideHashes, depGraph);
+        } catch (ExternalDepsException e) {
+          throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
+        }
       }
     }
 

@@ -13,7 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.producers;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationId;
+
 import com.google.auto.value.AutoOneOf;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
@@ -22,10 +27,10 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
-import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -205,13 +210,13 @@ public final class TargetAndConfigurationProducer
       return DONE;
     }
 
-    return new RuleTransitionConfigurationProducer();
+    return new RuleTransitionApplier();
   }
 
   /** Applies any requested rule transition before producing the final configuration. */
-  private class RuleTransitionConfigurationProducer
+  private class RuleTransitionApplier
       implements StateMachine,
-          RuleTransitionApplier.ResultSink,
+          TransitionApplier.ResultSink,
           ValueOrExceptionSink<InvalidConfigurationException> {
     // -------------------- Internal State --------------------
     private BuildConfigurationKey configurationKey;
@@ -219,27 +224,39 @@ public final class TargetAndConfigurationProducer
 
     @Override
     public StateMachine step(Tasks tasks, ExtendedEventHandler listener) {
-      return new RuleTransitionApplier(
+      ConfigurationTransition transition =
+          computeTransition(target.getAssociatedRule(), trimmingTransitionFactory);
+      if (transition == null) {
+        this.configurationKey = preRuleTransitionKey.getConfigurationKey();
+        return processTransitionedKey(tasks, listener);
+      }
+
+      return new TransitionApplier(
           preRuleTransitionKey.getConfigurationKey(),
-          target.getAssociatedRule(),
-          trimmingTransitionFactory,
+          transition,
           transitionCache,
-          (RuleTransitionApplier.ResultSink) this,
+          (TransitionApplier.ResultSink) this,
           /* runAfter= */ this::processTransitionedKey);
     }
 
     @Override
-    public void acceptRuleTransitionResult(BuildConfigurationKey result) {
-      this.configurationKey = result;
+    public void acceptTransitionedConfigurations(
+        ImmutableMap<String, BuildConfigurationKey> transitionResult) {
+      checkState(transitionResult.size() == 1, "Expected exactly one result: %s", transitionResult);
+      this.configurationKey =
+          checkNotNull(
+              transitionResult.get(ConfigurationTransition.PATCH_TRANSITION_KEY),
+              "Transition result missing patch transition entry: %s",
+              transitionResult);
     }
 
     @Override
-    public void acceptRuleTransitionError(TransitionException e) {
+    public void acceptTransitionError(TransitionException e) {
       emitTransitionErrorMessage(e.getMessage());
     }
 
     @Override
-    public void acceptRuleTransitionError(OptionsParsingException e) {
+    public void acceptTransitionError(OptionsParsingException e) {
       emitTransitionErrorMessage(e.getMessage());
     }
 
@@ -307,14 +324,33 @@ public final class TargetAndConfigurationProducer
                 location,
                 message,
                 preRuleTransitionKey.getLabel(),
-                getConfigurationId(preRuleTransitionKey.getConfigurationKey()),
+                configurationId(preRuleTransitionKey.getConfigurationKey()),
                 /* rootCauses= */ null,
                 exitCode)));
   }
 
-  private static BuildEventId getConfigurationId(@Nullable BuildConfigurationKey configurationKey) {
-    return configurationKey == null
-        ? BuildEventIdUtil.nullConfigurationId()
-        : BuildEventIdUtil.configurationId(configurationKey.getOptions().checksum());
+  @Nullable
+  private static ConfigurationTransition computeTransition(
+      Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
+    var transitionData = RuleTransitionData.create(rule);
+
+    ConfigurationTransition transition = null;
+
+    TransitionFactory<RuleTransitionData> transitionFactory =
+        rule.getRuleClassObject().getTransitionFactory();
+    if (transitionFactory != null) {
+      transition = transitionFactory.create(transitionData);
+    }
+
+    if (trimmingTransitionFactory != null) {
+      var trimmingTransition = trimmingTransitionFactory.create(transitionData);
+      if (transition != null) {
+        transition = ComposingTransition.of(transition, trimmingTransition);
+      } else {
+        transition = trimmingTransition;
+      }
+    }
+
+    return transition;
   }
 }

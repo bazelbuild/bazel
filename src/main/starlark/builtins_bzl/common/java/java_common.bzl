@@ -182,7 +182,7 @@ def basic_java_library(
         target["ProguardSpecProvider"] = validate_proguard_specs(
             ctx,
             proguard_specs,
-            [deps, runtime_deps, exports, plugins, exported_plugins],
+            [deps, runtime_deps, exports],
         )
         output_groups["_hidden_top_level_INTERNAL_"] = target["ProguardSpecProvider"].specs
 

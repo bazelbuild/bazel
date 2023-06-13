@@ -175,6 +175,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Check for action prefix file path conflicts, regardless of action-specific overrides.")
   public boolean strictConflictChecks;
 
+  @Option(
+      name = "incompatible_disallow_unsound_directory_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, it is an error for an action to materialize an output file as a directory. Does"
+              + " not affect source directories.")
+  public boolean disallowUnsoundDirectoryOutputs;
+
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
   @Option(
@@ -422,6 +433,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " match --instrumentation_filter will be affected. Usually this option should "
               + " not be specified directly - 'bazel coverage' command should be used instead.")
   public boolean collectCodeCoverage;
+
+  @Option(
+      name = "experimental_collect_code_coverage_for_generated_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, Bazel will also generate collect coverage information for generated"
+              + " files.")
+  public boolean collectCodeCoverageForGeneratedFiles;
 
   @Option(
       name = "build_runfile_manifests",
@@ -997,6 +1018,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.useAutoExecGroups = useAutoExecGroups;
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
     exec.strictConflictChecks = strictConflictChecks;
+    exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;

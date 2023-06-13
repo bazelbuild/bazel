@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER;
 
 import com.google.common.collect.Iterables;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -142,12 +142,13 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
           continue;
         }
         @Nullable BuildConfigurationValue configuration = fromNode.getConfiguration();
-        @Nullable ConfigurationId configId = null;
-        if (configuration != null) {
-          configId =  configuration.getEventId().getConfiguration();
-        }
-        env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
-        rootCauses.add(new AnalysisFailedCause(label, configId, e.getDetailedExitCode()));
+        env.getListener()
+            .post(
+                AnalysisRootCauseEvent.withConfigurationValue(
+                    configuration, label, e.getMessage()));
+        rootCauses.add(
+            new AnalysisFailedCause(
+                label, configurationIdMessage(configuration), e.getDetailedExitCode()));
         missingEdgeHook(fromTarget, entry.getKey(), label, e);
         continue;
       }

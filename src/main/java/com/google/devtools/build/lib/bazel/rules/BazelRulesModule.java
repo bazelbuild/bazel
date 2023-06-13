@@ -361,6 +361,14 @@ public final class BazelRulesModule extends BlazeModule {
         converter = Converters.CommaSeparatedOptionListConverter.class,
         help = "Deprecated no-op.")
     public List<String> availabilityInfoExempt;
+
+    @Option(
+        name = "experimental_skymeld_ui",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op. To be removed.")
+    public boolean skymeldUi;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */

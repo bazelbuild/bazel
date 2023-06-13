@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonSkyframeGlobber;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
+import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -1372,12 +1373,10 @@ public class PackageFunction implements SkyFunction {
                   repositoryMapping,
                   mainRepositoryMappingValue.getRepositoryMapping())
               .setFilename(buildFileRootedPath)
-              .setDefaultVisibility(defaultVisibility)
-              // "defaultVisibility" comes from the command line.
-              // Let's give the BUILD file a chance to set default_visibility once,
-              // by resetting the PackageBuilder.defaultVisibilitySet flag.
-              .setDefaultVisibilitySet(false)
               .setConfigSettingVisibilityPolicy(configSettingVisibilityPolicy);
+
+      pkgBuilder.mergePackageArgsFrom(
+          PackageArgs.builder().setDefaultVisibility(defaultVisibility));
 
       Set<SkyKey> globDepKeys = ImmutableSet.of();
 

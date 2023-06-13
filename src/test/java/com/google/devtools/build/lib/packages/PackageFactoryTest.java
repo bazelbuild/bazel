@@ -1136,14 +1136,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testPackageDefaultCompatibilityDuplicates() throws Exception {
     expectEvalError(
-        "'//foo:foo' is duplicated in the 'default_compatible_with' list",
+        "duplicate label(s) in default_compatible_with: //foo:foo",
         "package(default_compatible_with=['//foo', '//bar', '//foo'])");
   }
 
   @Test
   public void testPackageDefaultRestrictionDuplicates() throws Exception {
     expectEvalError(
-        "'//foo:foo' is duplicated in the 'default_restricted_to' list",
+        "duplicate label(s) in default_restricted_to: //foo:foo",
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
   }
 

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
@@ -24,20 +23,12 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.JavaPluginDataApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.StarlarkValue;
 
 /** Info object encapsulating information about Java plugins. */
-@StarlarkBuiltin(
-    name = "JavaPluginInfo",
-    doc =
-        "A provider encapsulating information about Java plugins. "
-            + "<p>At the moment, the only supported kind of plugins are annotation processors.",
-    category = DocCategory.PROVIDER)
 public interface JavaPluginInfoApi<
         FileT extends FileApi,
         JavaPluginDataT extends JavaPluginDataApi,
@@ -66,13 +57,7 @@ public interface JavaPluginInfoApi<
   JavaPluginDataT apiGeneratingPlugins();
 
   /** Info object encapsulating information about a Java compatible plugin. */
-  @StarlarkBuiltin(
-      name = "JavaPluginData",
-      category = DocCategory.PROVIDER,
-      doc =
-          "Information about a Java compatible plugin."
-              + "<p>That is an annotation processor recognized by the Java compiler.")
-  interface JavaPluginDataApi extends StarlarkValue {
+  interface JavaPluginDataApi extends StructApi {
     @StarlarkMethod(
         name = "processor_jars",
         doc = "Returns the jars needed to apply the encapsulated annotation processors.",
@@ -107,7 +92,6 @@ public interface JavaPluginInfoApi<
   ImmutableList<JavaOutputT> getJavaOutputs();
 
   /** Provider class for {@link JavaPluginInfoApi} objects. */
-  @StarlarkBuiltin(name = "Provider", documented = false)
   interface Provider<JavaInfoT extends JavaInfoApi<?, ?, ?>> extends ProviderApi {
 
     @StarlarkMethod(

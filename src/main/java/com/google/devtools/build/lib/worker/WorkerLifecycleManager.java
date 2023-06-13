@@ -165,7 +165,7 @@ final class WorkerLifecycleManager extends Thread {
     // TODO: Remove after b/274608075 is fixed.
     if (!workerMetrics.isEmpty()) {
       logger.atInfo().atMostEvery(1, TimeUnit.MINUTES).log(
-          "total worker memory %dMB below limit of %dMB - details: %s",
+          "total worker memory %dMB while limit is %dMB - details: %s",
           workerMemoryUsage,
           options.totalWorkerMemoryLimitMb,
           workerMetrics.stream()

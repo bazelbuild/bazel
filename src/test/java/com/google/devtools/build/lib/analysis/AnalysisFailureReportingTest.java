@@ -279,15 +279,10 @@ public class AnalysisFailureReportingTest extends AnalysisTestCase {
     private final Multimap<Label, Cause> events = HashMultimap.create();
     private final HashMap<Label, ConfiguredTargetKey> failedTargets = new HashMap<>();
 
-    Multimap<Label, Cause> causesByLabel() {
-      Multimap<Label, Cause> result = HashMultimap.create();
-      return result;
-    }
-
     @Subscribe
     public void failureEvent(AnalysisFailureEvent event) {
       ConfiguredTargetKey failedTarget = event.getFailedTarget();
-      Label label = event.getFailedTarget().getLabel();
+      Label label = failedTarget.getLabel();
       events.putAll(label, event.getRootCauses().toList());
       failedTargets.put(label, failedTarget);
     }

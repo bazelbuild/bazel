@@ -65,7 +65,7 @@ public class BazelLockFileFunction implements SkyFunction {
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws BazelLockfileFunctionException, InterruptedException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
 
@@ -104,7 +104,7 @@ public class BazelLockFileFunction implements SkyFunction {
       BzlmodFlagsAndEnvVars flags,
       ImmutableMap<String, String> localOverrideHashes,
       ImmutableMap<ModuleKey, Module> resolvedDepGraph)
-      throws BazelLockfileFunctionException {
+      throws ExternalDepsException {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(rootDirectory), LabelConstants.MODULE_LOCKFILE_NAME);
 
@@ -118,16 +118,14 @@ public class BazelLockFileFunction implements SkyFunction {
     try {
       FileSystemUtils.writeContent(lockfilePath.asPath(), UTF_8, LOCKFILE_GSON.toJson(value));
     } catch (IOException e) {
-      throw new BazelLockfileFunctionException(
-          ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE, e, "Unable to update the MODULE.bazel.lock file"),
-          Transience.PERSISTENT);
+      throw ExternalDepsException.withCauseAndMessage(
+          Code.BAD_MODULE, e, "Unable to update the MODULE.bazel.lock file");
     }
   }
 
   static final class BazelLockfileFunctionException extends SkyFunctionException {
 
-    BazelLockfileFunctionException(Exception cause, Transience transience) {
+    BazelLockfileFunctionException(ExternalDepsException cause, Transience transience) {
       super(cause, transience);
     }
   }

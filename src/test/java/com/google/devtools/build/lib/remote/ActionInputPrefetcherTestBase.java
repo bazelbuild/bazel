@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.createTreeArtifactWithGeneratingAction;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -24,10 +25,12 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +38,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.MetadataSupplier;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -78,8 +82,14 @@ public abstract class ActionInputPrefetcherTestBase {
   protected ArtifactRoot artifactRoot;
   protected TempPathGenerator tempPathGenerator;
 
+  protected ActionExecutionMetadata action;
+
   @Before
   public void setUp() throws IOException {
+    action = mock(ActionExecutionMetadata.class);
+    when(action.getMnemonic()).thenReturn("DummyAction");
+    when(action.getOwner()).thenReturn(NULL_ACTION_OWNER);
+
     fs = SpiedFileSystem.createInMemorySpy();
     execRoot = fs.getPath("/exec");
     execRoot.createDirectoryAndParents();
@@ -201,9 +211,9 @@ public abstract class ActionInputPrefetcherTestBase {
     FileSystemUtils.writeContent(a.getPath(), "hello world".getBytes(UTF_8));
     AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, metadata.keySet(), metadata::get, Priority.MEDIUM));
 
-    verify(prefetcher, never()).doDownloadFile(any(), any(), any(), any(), any());
+    verify(prefetcher, never()).doDownloadFile(eq(action), any(), any(), any(), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
   }
@@ -217,9 +227,9 @@ public abstract class ActionInputPrefetcherTestBase {
     FileSystemUtils.writeContent(a.getPath(), "hello world local".getBytes(UTF_8));
     AbstractActionInputPrefetcher prefetcher = spy(createPrefetcher(cas));
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, metadata.keySet(), metadata::get, Priority.MEDIUM));
 
-    verify(prefetcher).doDownloadFile(any(), any(), eq(a.getExecPath()), any(), any());
+    verify(prefetcher).doDownloadFile(eq(action), any(), any(), eq(a.getExecPath()), any(), any());
     assertThat(prefetcher.downloadedFiles()).containsExactly(a.getPath());
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
     assertThat(FileSystemUtils.readContent(a.getPath(), UTF_8)).isEqualTo("hello world remote");
@@ -233,7 +243,7 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact a2 = createRemoteArtifact("file2", "fizz buzz", metadata, cas);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, metadata.keySet(), metadata::get, Priority.MEDIUM));
 
     assertThat(FileSystemUtils.readContent(a1.getPath(), UTF_8)).isEqualTo("hello world");
     assertReadableNonWritableAndExecutable(a1.getPath());
@@ -251,7 +261,7 @@ public abstract class ActionInputPrefetcherTestBase {
     Artifact a = createRemoteArtifact("file", "hello world", targetExecPath, metadata, cas);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, metadata.keySet(), metadata::get, Priority.MEDIUM));
 
     assertThat(a.getPath().isSymbolicLink()).isTrue();
     assertThat(a.getPath().readSymbolicLink())
@@ -281,7 +291,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(children, metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, children, metadata::get, Priority.MEDIUM));
 
     assertThat(FileSystemUtils.readContent(firstChild.getPath(), UTF_8)).isEqualTo("content1");
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
@@ -313,7 +323,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     wait(
         prefetcher.prefetchFiles(
-            ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
+            action, ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
 
     assertThat(firstChild.getPath().exists()).isFalse();
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
@@ -342,7 +352,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(children, metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, children, metadata::get, Priority.MEDIUM));
 
     assertThat(tree.getPath().isSymbolicLink()).isTrue();
     assertThat(tree.getPath().readSymbolicLink())
@@ -368,7 +378,10 @@ public abstract class ActionInputPrefetcherTestBase {
 
     assertThrows(
         Exception.class,
-        () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadata::get, Priority.MEDIUM)));
+        () ->
+            wait(
+                prefetcher.prefetchFiles(
+                    action, ImmutableList.of(a), metadata::get, Priority.MEDIUM)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
@@ -385,7 +398,7 @@ public abstract class ActionInputPrefetcherTestBase {
     ImmutableMap<ActionInput, FileArtifactValue> metadata = ImmutableMap.of(a, f);
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(new HashMap<>());
 
-    wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, ImmutableList.of(a), metadata::get, Priority.MEDIUM));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
@@ -411,7 +424,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     AbstractActionInputPrefetcher prefetcher = createPrefetcher(cas);
 
-    wait(prefetcher.prefetchFiles(children, metadata::get, Priority.MEDIUM));
+    wait(prefetcher.prefetchFiles(action, children, metadata::get, Priority.MEDIUM));
 
     assertThat(firstChild.getPath().exists()).isFalse();
     assertThat(FileSystemUtils.readContent(secondChild.getPath(), UTF_8)).isEqualTo("content2");
@@ -439,7 +452,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     wait(
         prefetcher.prefetchFiles(
-            ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
+            action, ImmutableList.of(firstChild, secondChild), metadata::get, Priority.MEDIUM));
 
     verify(fs, times(1)).createWritableDirectory(tree.getPath().asFragment());
     verify(fs, times(1)).createWritableDirectory(tree.getPath().getChild("subdir").asFragment());
@@ -464,7 +477,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
+                        action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
@@ -476,7 +489,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
+                        action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
@@ -514,7 +527,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
+                        action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
               }
@@ -527,7 +540,7 @@ public abstract class ActionInputPrefetcherTestBase {
               try {
                 wait(
                     prefetcher.prefetchFiles(
-                        ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
+                        action, ImmutableList.of(artifact), metadata::get, Priority.MEDIUM));
                 successful.set(true);
               } catch (IOException | ExecException | InterruptedException ignored) {
                 // do nothing
@@ -571,7 +584,7 @@ public abstract class ActionInputPrefetcherTestBase {
 
     ListenableFuture<Void> future =
         prefetcher.prefetchFiles(
-            ImmutableList.of(a1), interruptedMetadataSupplier, Priority.MEDIUM);
+            action, ImmutableList.of(a1), interruptedMetadataSupplier, Priority.MEDIUM);
 
     assertThrows(CancellationException.class, future::get);
   }
@@ -598,7 +611,8 @@ public abstract class ActionInputPrefetcherTestBase {
             () -> {
               try {
                 getFromFuture(
-                    prefetcher.prefetchFiles(ImmutableList.of(a1), metadata::get, Priority.MEDIUM));
+                    prefetcher.prefetchFiles(
+                        action, ImmutableList.of(a1), metadata::get, Priority.MEDIUM));
               } catch (IOException ignored) {
                 // Intentionally left empty
               } catch (InterruptedException e) {
@@ -625,7 +639,10 @@ public abstract class ActionInputPrefetcherTestBase {
 
     assertThrows(
         Exception.class,
-        () -> wait(prefetcher.prefetchFiles(metadata.keySet(), metadata::get, Priority.MEDIUM)));
+        () ->
+            wait(
+                prefetcher.prefetchFiles(
+                    action, metadata.keySet(), metadata::get, Priority.MEDIUM)));
 
     assertThat(prefetcher.getMissingActionInputs()).contains(a);
   }
@@ -656,8 +673,8 @@ public abstract class ActionInputPrefetcherTestBase {
       throws IOException {
     doAnswer(
             invocation -> {
-              Path path = invocation.getArgument(1);
-              FileArtifactValue metadata = invocation.getArgument(3);
+              Path path = invocation.getArgument(2);
+              FileArtifactValue metadata = invocation.getArgument(4);
               byte[] content = cas.get(HashCode.fromBytes(metadata.getDigest()));
               if (content == null) {
                 return Futures.immediateFailedFuture(new IOException("Not found"));
@@ -666,7 +683,7 @@ public abstract class ActionInputPrefetcherTestBase {
               return resultSupplier.get();
             })
         .when(prefetcher)
-        .doDownloadFile(any(), any(), any(), any(), any());
+        .doDownloadFile(any(), any(), any(), any(), any(), any());
   }
 
   private void assertReadableNonWritableAndExecutable(Path path) throws IOException {

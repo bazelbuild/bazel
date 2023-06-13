@@ -1,3 +1,42 @@
+## Release 7.0.0-pre.20230530.3 (2023-06-09)
+
+```
+Baseline: 67446d625e4daafadcb5918a88ed52f517a8871f
+
+Cherry picks:
+
+   + 4344a0358f44c0290f85f8d90dede5824593ce77:
+     Automated rollback of commit
+     00a4fefe594069d47d1bde99b28c6b8dcca0a7c1.
+```
+
+Incompatible changes:
+
+  - `--incompatible_check_sharding_support` is enabled by default.
+    Sharded tests with test runners that do not properly advertise
+    support for test sharding will fail. Refer to
+    https://github.com/bazelbuild/bazel/issues/18339 for migration
+    advice.
+
+Important changes:
+
+  - Options specified on the pseudo-command `common` in `.rc` files
+    are now ignored by commands that do not support them as long as
+    they are valid options for *any* Bazel command. Previously,
+    commands that did not support all options given for `common`
+    would fail to run. These previous semantics of `common` are now
+    available via the new `always` pseudo-command.
+  - the 'default' param of json.decode can now be used as a keyword
+    parameter.
+  - As a transitional step in a larger refactoring, rule transitions
+    are applied twice. Once during dependency resolution and once
+    right before
+    analysis of those rules. After the refactoring is complete, rule
+    transitions
+    will be applied only once.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jimm chja20, Keith Smiley.
+
 ## Release 7.0.0-pre.20230524.3 (2023-06-05)
 
 ```

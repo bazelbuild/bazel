@@ -104,8 +104,7 @@ public final class CppLinkActionTest extends BuildViewTestCase {
                 !contentBasedPaths, "C++ tests don't use content-based outputs");
             return getDerivedArtifact(rootRelativePath, root);
           }
-        },
-        targetConfig);
+        });
   }
 
   private static FeatureConfiguration getMockFeatureConfiguration(

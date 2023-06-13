@@ -701,7 +701,8 @@ public class AndroidCommon {
       Iterable<Artifact> apksUnderTest,
       NativeLibs nativeLibs,
       boolean isNeverlink,
-      boolean isLibrary) {
+      boolean isLibrary)
+      throws RuleErrorException {
 
     idlHelper.addTransitiveInfoProviders(builder, classJar, outputs.manifestProto());
 

@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computePropagatingAspects;
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
-import com.google.auto.value.AutoValue;
+import com.google.auto.value.AutoOneOf;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -73,47 +75,6 @@ import net.starlark.java.syntax.Location;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
-  /**
-   * What we know about a dependency edge after factoring in the properties of the configured target
-   * that the edge originates from, but not the properties of target it points to.
-   */
-  @AutoValue
-  abstract static class PartiallyResolvedDependency {
-    abstract Label getLabel();
-
-    abstract ConfigurationTransition getTransition();
-
-    abstract ImmutableList<Aspect> getPropagatingAspects();
-
-    @Nullable
-    abstract Label getExecutionPlatformLabel();
-
-    /** A Builder to create instances of PartiallyResolvedDependency. */
-    @AutoValue.Builder
-    abstract static class Builder {
-      abstract Builder setLabel(Label label);
-
-      abstract Builder setTransition(ConfigurationTransition transition);
-
-      abstract Builder setPropagatingAspects(List<Aspect> propagatingAspects);
-
-      abstract Builder setExecutionPlatformLabel(@Nullable Label executionPlatformLabel);
-
-      abstract PartiallyResolvedDependency build();
-    }
-
-    static Builder builder() {
-      return new AutoValue_DependencyResolver_PartiallyResolvedDependency.Builder()
-          .setPropagatingAspects(ImmutableList.of());
-    }
-
-    DependencyKey.Builder getDependencyKeyBuilder() {
-      return DependencyKey.builder()
-          .setLabel(getLabel())
-          .setExecutionPlatformLabel(getExecutionPlatformLabel());
-    }
-  }
 
   /**
    * Returns ids for dependent nodes of a given node, sorted by attribute. Note that some
@@ -226,7 +187,8 @@ public abstract class DependencyResolver {
         partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
   }
 
-  private static final class DependencyLabels {
+  /** The tuple {@link #computeDependencyLabels} outputs. */
+  public static final class DependencyLabels {
     private final OrderedSetMultimap<DependencyKind, Label> labels;
     @Nullable private final ConfiguredAttributeMapper attributeMap;
 
@@ -237,17 +199,17 @@ public abstract class DependencyResolver {
       this.attributeMap = attributeMap;
     }
 
-    OrderedSetMultimap<DependencyKind, Label> labels() {
+    public OrderedSetMultimap<DependencyKind, Label> labels() {
       return labels;
     }
 
     @Nullable // Non-null for rules and output files when there are aspects that apply to files.
-    ConfiguredAttributeMapper attributeMap() {
+    public ConfiguredAttributeMapper attributeMap() {
       return attributeMap;
     }
   }
 
-  private static DependencyLabels computeDependencyLabels(
+  public static DependencyLabels computeDependencyLabels(
       TargetAndConfiguration node,
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
@@ -293,7 +255,8 @@ public abstract class DependencyResolver {
    * should <b>NOT</b> get the {@link Target} instances representing the targets of the dependency
    * edges as an argument.
    */
-  private static OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
+  @VisibleForTesting // private
+  public static OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency>
       partiallyResolveDependencies(
           OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
           @Nullable Rule fromRule,
@@ -351,63 +314,24 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      // Compute the set of aspects that could be applied to a dependency. This is composed of two
-      // parts:
-      //
-      // 1. The aspects are visible to this aspect being evaluated, if any (if another aspect is
-      //    visible on the configured target for this one, it should also be visible on the
-      //    dependencies for consistency). This is the argument "aspects".
-      // 2. The aspects propagated by the attributes of this configured target / aspect. This is
-      //    computed by collectPropagatingAspects().
-      //
-      // The presence of an aspect here does not necessarily mean that it will be available on a
-      // dependency: it can still be filtered out because it requires a provider that the configured
-      // target it should be attached to it doesn't advertise. This is taken into account in
-      // computeAspectCollections() once the Target instances for the dependencies are known.
-      Attribute attribute = entry.getKey().getAttribute();
-      ImmutableList.Builder<Aspect> propagatingAspects = ImmutableList.builder();
-      propagatingAspects.addAll(attribute.getAspects(fromRule));
-      AspectClass owningAspect = entry.getKey().getOwningAspect();
-      collectPropagatingAspects(aspectsList, attribute.getName(), owningAspect, propagatingAspects);
+      DependencyKind kind = entry.getKey();
 
+      ImmutableList<Aspect> propagatingAspects =
+          computePropagatingAspects(kind, aspectsList, fromRule);
+      ExecutionPlatformResult executionPlatformResult =
+          getExecutionPlatformLabel(kind, toolchainContexts, aspectsList);
       Label executionPlatformLabel = null;
-      // TODO(jcater): refactor this nested if structure into something simpler.
-      if (toolchainContexts != null) {
-        if (attribute.getTransitionFactory() instanceof ExecutionTransitionFactory) {
-          String execGroup =
-              ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
-          if (!toolchainContexts.hasToolchainContext(execGroup)) {
-            // If {@code aspectsList} is not empty, {@code toolchainContexts} contains only the exec
-            // groups of the main aspect (placed as the last aspect in {@code aspectsList}).
-            // Otherwise, {@code toolchainContexts} contains the exec group of the target's rule.
-            // Therefore, if the {@aspectsList} is not empty and the current entry is not a
-            // dependency of the main aspect, {@code execGroup} will never exist in {@code
-            // toolchainContexts} and this dependency will be skipped.
-            // TODO(b/256617733): Make a decision on whether the exec groups of the target
-            // and the base aspects should be merged in {@code toolchainContexts}.
-            if (aspectsList.isEmpty()
-                || (owningAspect != null
-                    && owningAspect.equals(Iterables.getLast(aspects).getAspectClass()))) {
-              throw new Failure(
-                  fromRule != null ? fromRule.getLocation() : null,
-                  String.format(
-                      "Attr '%s' declares a transition for non-existent exec group '%s'",
-                      attribute.getName(), execGroup));
-            } else {
-              continue;
-            }
-          }
-          if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
-            executionPlatformLabel =
-                toolchainContexts.getToolchainContext(execGroup).executionPlatform().label();
-          }
-        } else {
-          executionPlatformLabel =
-              toolchainContexts
-                  .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
-                  .executionPlatform()
-                  .label();
-        }
+      switch (executionPlatformResult.kind()) {
+        case LABEL:
+          executionPlatformLabel = executionPlatformResult.label();
+          break;
+        case NULL_LABEL:
+          break;
+        case SKIP:
+          continue;
+        case ERROR:
+          throw new Failure(
+              fromRule != null ? fromRule.getLocation() : null, executionPlatformResult.error());
       }
 
       AttributeTransitionData attributeTransitionData =
@@ -416,16 +340,115 @@ public abstract class DependencyResolver {
               .executionPlatform(executionPlatformLabel)
               .build();
       ConfigurationTransition attributeTransition =
-          attribute.getTransitionFactory().create(attributeTransitionData);
+          kind.getAttribute().getTransitionFactory().create(attributeTransitionData);
       partiallyResolvedDeps.put(
           entry.getKey(),
           PartiallyResolvedDependency.builder()
               .setLabel(toLabel)
               .setTransition(attributeTransition)
-              .setPropagatingAspects(propagatingAspects.build())
+              .setPropagatingAspects(propagatingAspects)
               .build());
     }
     return partiallyResolvedDeps;
+  }
+
+  /** The results of {@link #getExecutionPlatformLabel} as a tagged union. */
+  @AutoOneOf(DependencyResolver.ExecutionPlatformResult.Kind.class)
+  public abstract static class ExecutionPlatformResult {
+    /** Tags for the possible results. */
+    public enum Kind {
+      /** A label was successfully determined. */
+      LABEL,
+      /**
+       * A label was successfully determined to be null.
+       *
+       * <p>{@link AutoOneOf} does not permit {@code @Nullable} so this is distinct from {@link
+       * #LABEL}.
+       */
+      NULL_LABEL,
+      /**
+       * The dependency should be skipped.
+       *
+       * <p>See comments in {@link #getExecutionPlatformLabel} for details.
+       */
+      SKIP,
+      /** An error message. */
+      ERROR
+    }
+
+    public abstract Kind kind();
+
+    public abstract Label label();
+
+    abstract void nullLabel();
+
+    abstract void skip();
+
+    public abstract String error();
+
+    private static ExecutionPlatformResult ofLabel(Label label) {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.label(label);
+    }
+
+    private static ExecutionPlatformResult ofNullLabel() {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.nullLabel();
+    }
+
+    private static ExecutionPlatformResult ofSkip() {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.skip();
+    }
+
+    private static ExecutionPlatformResult ofError(String message) {
+      return AutoOneOf_DependencyResolver_ExecutionPlatformResult.error(message);
+    }
+  }
+
+  public static ExecutionPlatformResult getExecutionPlatformLabel(
+      DependencyKind kind,
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      ImmutableList<Aspect> aspectsList) {
+    if (toolchainContexts == null) {
+      return ExecutionPlatformResult.ofNullLabel();
+    }
+
+    TransitionFactory<AttributeTransitionData> transitionFactory =
+        kind.getAttribute().getTransitionFactory();
+    if (!(transitionFactory instanceof ExecutionTransitionFactory)) {
+      return ExecutionPlatformResult.ofLabel(
+          toolchainContexts
+              .getToolchainContext(ExecGroup.DEFAULT_EXEC_GROUP_NAME)
+              .executionPlatform()
+              .label());
+    }
+
+    String execGroup = ((ExecutionTransitionFactory) transitionFactory).getExecGroup();
+    if (toolchainContexts.hasToolchainContext(execGroup)) {
+      PlatformInfo platform = toolchainContexts.getToolchainContext(execGroup).executionPlatform();
+      return platform == null
+          ? ExecutionPlatformResult.ofNullLabel()
+          : ExecutionPlatformResult.ofLabel(platform.label());
+    }
+
+    // `execGroup` could not be found. If `aspectsList` is non-empty, `toolchainContexts` only
+    // contains the exec groups of the main aspect. Skips the dependency if it's not the main
+    // aspect.
+    //
+    // TODO(b/256617733): Make a decision on whether the exec groups of the target and the base
+    // aspects should be merged in `toolchainContexts`.
+    if (!aspectsList.isEmpty() && !isMainAspect(aspectsList, kind.getOwningAspect())) {
+      return ExecutionPlatformResult.ofSkip();
+    }
+
+    return ExecutionPlatformResult.ofError(
+        String.format(
+            "Attr '%s' declares a transition for non-existent exec group '%s'",
+            kind.getAttribute().getName(), execGroup));
+  }
+
+  /** True if {@code owningAspect} is the main aspect, the last one in {@code aspectsList}. */
+  private static boolean isMainAspect(
+      ImmutableList<Aspect> aspectsList, @Nullable AspectClass owningAspect) {
+    return Iterables.getLast(aspectsList).getAspectClass().equals(owningAspect);
   }
 
   /**
@@ -699,44 +722,6 @@ public abstract class DependencyResolver {
     outgoingLabels.putAll(AttributeDependencyKind.forRule(attribute), labels);
   }
 
-  /**
-   * Collects the aspects from {@code aspectsPath} that need to be propagated along the attribute
-   * {@code attributeName}.
-   *
-   * <p>It can happen that some of the aspects cannot be propagated if the dependency doesn't have a
-   * provider that's required by them. These will be filtered out after the rule class of the
-   * dependency is known.
-   */
-  private static void collectPropagatingAspects(
-      ImmutableList<Aspect> aspectsPath,
-      String attributeName,
-      @Nullable AspectClass aspectOwningAttribute,
-      ImmutableList.Builder<Aspect> allFilteredAspects) {
-    int aspectsNum = aspectsPath.size();
-    ArrayList<Aspect> filteredAspectsPath = new ArrayList<>();
-
-    // `aspectsPath` is ordered bottom up. Iterating backwards traverses top-down so the following
-    // loop captures aspects that propagate along the given attribute and all their transitive
-    // requirements.
-    for (int i = aspectsNum - 1; i >= 0; i--) {
-      Aspect aspect = aspectsPath.get(i);
-      if (aspect.getAspectClass().equals(aspectOwningAttribute)) {
-        // Do not propagate over the aspect's own attributes.
-        continue;
-      }
-
-      if (aspect.getDefinition().propagateAlong(attributeName)
-          || isAspectRequired(aspect, filteredAspectsPath)) {
-        // Add the aspect if it can propagate over this {@code attributeName} based on its
-        // attr_aspects or it is required by an aspect already in the {@code filteredAspectsPath}.
-        filteredAspectsPath.add(aspect);
-      }
-    }
-    // Reverse filteredAspectsPath to return it to the same order as the input aspectsPath.
-    Collections.reverse(filteredAspectsPath);
-    allFilteredAspects.addAll(filteredAspectsPath);
-  }
-
   /** Checks if {@code aspect} is required by any aspect in the {@code aspectsPath}. */
   private static boolean isAspectRequired(Aspect aspect, ArrayList<Aspect> aspectsPath) {
     for (Aspect existingAspect : aspectsPath) {
@@ -784,6 +769,7 @@ public abstract class DependencyResolver {
       }
     }
   }
+
   /**
    * Compute the way aspects should be computed for the direct dependencies.
    *
@@ -792,6 +778,7 @@ public abstract class DependencyResolver {
    * that tells how to compute the final set of providers based on the interdependencies between the
    * propagating aspects.
    */
+  // TODO(b/261521010): Delete this and use AspectResolver.computeAspectCollections instead.
   private static AspectCollection computeAspectCollections(
       ImmutableList<Aspect> aspects, Target toTarget) throws InconsistentAspectOrderException {
     if (toTarget instanceof OutputFile) {

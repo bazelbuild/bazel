@@ -189,26 +189,31 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "def my_macro():",
         "    pass",
         "MyInfo = provider()",
+        "MyOtherInfo = provider()",
         "my_rule = rule(",
         "    implementation = lambda ctx: None,",
-        "    attrs = {'a': attr.label(providers = [MyInfo])},",
-        "    provides = [MyInfo],",
+        "    attrs = {'a': attr.label(providers = [MyInfo, MyOtherInfo])},",
+        "    provides = [MyInfo, MyOtherInfo],",
         ")",
         "my_aspect = aspect(implementation = lambda target, ctx: None)");
     scratch.file(
         "renamer.bzl", //
-        "load(':origin.bzl', 'my_macro', 'MyInfo', 'my_rule', 'my_aspect')",
+        "load(':origin.bzl', 'my_macro', 'MyInfo', 'MyOtherInfo', 'my_rule', 'my_aspect')",
         "namespace = struct(",
         "    renamed_macro = my_macro,",
         "    RenamedInfo = MyInfo,",
         "    renamed_rule = my_rule,",
         "    renamed_aspect = my_aspect,",
+        ")",
+        "other_namespace = struct(",
+        "    RenamedOtherInfo = MyOtherInfo,",
         ")");
     scratch.file(
         "BUILD", //
         "starlark_doc_extract(",
         "    name = 'extract_renamed',",
         "    src = 'renamer.bzl',",
+        "    symbol_names = ['namespace'],",
         ")");
 
     ModuleInfo moduleInfo =
@@ -233,8 +238,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         .containsExactly(
             OriginKey.newBuilder().setName("my_rule").setFile("//:origin.bzl").build());
 
-    // TODO(b/276733504): arguably, provider_name in provider_name_group-s here should be
-    // "namespace.RenamedInfo", not "MyInfo".
     assertThat(moduleInfo.getRuleInfo(0).getAttributeList())
         .containsExactly(
             ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
@@ -244,15 +247,21 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                 .setDefaultValue("None")
                 .addProviderNameGroup(
                     ProviderNameGroup.newBuilder()
-                        .addProviderName("MyInfo")
+                        .addProviderName("namespace.RenamedInfo")
+                        .addProviderName("other_namespace.RenamedOtherInfo")
                         .addOriginKey(
-                            OriginKey.newBuilder().setName("MyInfo").setFile("//:origin.bzl")))
+                            OriginKey.newBuilder().setName("MyInfo").setFile("//:origin.bzl"))
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyOtherInfo").setFile("//:origin.bzl")))
                 .build());
     assertThat(moduleInfo.getRuleInfo(0).getAdvertisedProviders())
         .isEqualTo(
             ProviderNameGroup.newBuilder()
-                .addProviderName("MyInfo")
+                .addProviderName("namespace.RenamedInfo")
+                .addProviderName("other_namespace.RenamedOtherInfo")
                 .addOriginKey(OriginKey.newBuilder().setName("MyInfo").setFile("//:origin.bzl"))
+                .addOriginKey(
+                    OriginKey.newBuilder().setName("MyOtherInfo").setFile("//:origin.bzl"))
                 .build());
 
     assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getAspectName))
@@ -272,17 +281,6 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
     Path originRepoPath = moduleRoot.getRelative("origin_repo~0.1");
-
-    rewriteWorkspace(
-        "local_repository(",
-        "    name = 'origin_canonical',",
-        "    path = '/origin_canonical',",
-        ")",
-        "local_repository(",
-        "    name = 'renamer_repo',",
-        "    path = '/renamer_repo',",
-        "    repo_mapping = {'@origin_repo': '@origin_canonical'},",
-        ")");
     scratch.file(originRepoPath.getRelative("WORKSPACE").getPathString());
     scratch.file(
         originRepoPath.getRelative("BUILD").getPathString(), //

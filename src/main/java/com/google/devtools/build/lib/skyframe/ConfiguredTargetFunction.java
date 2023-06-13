@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -423,7 +426,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredValueCreationException(ctgValue, e.getMessage());
     } catch (AnalysisFailurePropagationException e) {
       throw new ConfiguredValueCreationException(
-          ctgValue, e.getMessage(), /* rootCauses = */ null, e.getDetailedExitCode());
+          ctgValue, e.getMessage(), /* rootCauses= */ null, e.getDetailedExitCode());
     }
 
     events.replayOn(env.getListener());
@@ -506,6 +509,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             if (!e.getMessage().isEmpty()) {
               // Reports the error to the user on storedEvents to preserve ordering. These will
               // be immediately replayed in the finally clause.
+              storedEvents.post(
+                  // Even without an error here, the configuration key might not be turned into a
+                  // configuration value by the build because it does not include the rule
+                  // transition. It's therefore marked unavailable.
+                  AnalysisRootCauseEvent.withUnavailableConfiguration(
+                      configurationIdMessage(configuredTargetKey.getConfigurationKey()),
+                      configuredTargetKey.getLabel(),
+                      e.getMessage()));
               storedEvents.handle(Event.error(e.getLocation(), e.getMessage()));
             }
             throw new ReportedException(e);

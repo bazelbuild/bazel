@@ -560,7 +560,7 @@ public final class JavaInfo extends NativeInfo
         Object jdepsApi,
         Sequence<?> nativeLibraries,
         StarlarkThread thread)
-        throws EvalException {
+        throws EvalException, RuleErrorException {
       Artifact outputJar = (Artifact) outputJarApi;
       @Nullable Artifact compileJar = nullIfNone(compileJarApi, Artifact.class);
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
@@ -587,7 +587,7 @@ public final class JavaInfo extends NativeInfo
               Sequence.cast(deps, JavaInfo.class, "deps"),
               Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
               Sequence.cast(exports, JavaInfo.class, "exports"),
-              Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins"),
+              JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
               thread.getCallerLocation());
     }

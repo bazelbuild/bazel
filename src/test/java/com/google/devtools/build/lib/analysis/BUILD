@@ -70,6 +70,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_aware_attribute_mapper",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:aspect_configured_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -58,6 +59,7 @@ import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationPr
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -148,7 +150,10 @@ public final class PrerequisiteProducer {
     @Nullable // Non-null when in-flight.
     Driver dependencyContextProducer;
 
-    @Nullable DependencyContext dependencyContext;
+    @VisibleForTesting // package-private
+    @Nullable
+    public DependencyContext dependencyContext;
+
     @Nullable DependencyContextError dependencyContextError;
 
     /** Null if not yet computed or if {@link #resolveConfigurationsResult} is non-null. */
@@ -406,19 +411,20 @@ public final class PrerequisiteProducer {
           throw error.incompatibleTarget();
         case VALIDATION:
           var targetAndConfiguration = state.targetAndConfiguration;
-          var configuration = targetAndConfiguration.getConfiguration();
+          BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
           Label label = targetAndConfiguration.getLabel();
           var validationException = error.validation();
+          BuildEventId configurationEventId = configurationId(configuration);
           env.getListener()
               .post(
-                  new AnalysisRootCauseEvent(
+                  AnalysisRootCauseEvent.withConfigurationValue(
                       configuration, label, validationException.getMessage()));
           throw new DependencyEvaluationException(
               new ConfiguredValueCreationException(
                   targetAndConfiguration.getTarget().getLocation(),
                   validationException.getMessage(),
                   label,
-                  configuration.getEventId(),
+                  configurationEventId,
                   null,
                   null),
               // These errors occur within DependencyResolver, which is attached to the current
@@ -590,7 +596,9 @@ public final class PrerequisiteProducer {
                             .getTrimmingTransitionFactory());
           } catch (DependencyResolver.Failure e) {
             env.getListener()
-                .post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+                .post(
+                    AnalysisRootCauseEvent.withConfigurationValue(
+                        configuration, label, e.getMessage()));
             throw new DependencyEvaluationException(
                 new ConfiguredValueCreationException(
                     e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),

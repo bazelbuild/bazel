@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -381,11 +382,13 @@ public final class SkyframeActionExecutor {
   }
 
   private void updateActionFileSystemContext(
+      Action action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector metadataInjector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    outputService.updateActionFileSystemContext(actionFileSystem, env, metadataInjector, filesets);
+    outputService.updateActionFileSystemContext(
+        action, actionFileSystem, env, metadataInjector, filesets);
   }
 
   void executionOver() {
@@ -488,7 +491,8 @@ public final class SkyframeActionExecutor {
       boolean hasDiscoveredInputs)
       throws ActionExecutionException, InterruptedException {
     if (actionFileSystem != null) {
-      updateActionFileSystemContext(actionFileSystem, env, metadataHandler, expandedFilesets);
+      updateActionFileSystemContext(
+          action, actionFileSystem, env, metadataHandler, expandedFilesets);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -833,6 +837,7 @@ public final class SkyframeActionExecutor {
             threadStateReceiverFactory.apply(actionLookupData));
     if (actionFileSystem != null) {
       updateActionFileSystemContext(
+          action,
           actionFileSystem,
           env,
           THROWING_METADATA_INJECTOR_FOR_ACTIONFS,
@@ -1504,7 +1509,7 @@ public final class SkyframeActionExecutor {
    * Validates that all action outputs were created or intentionally omitted. This can result in
    * chmod calls on the output files; see {@link ActionMetadataHandler}.
    *
-   * @return false if some outputs are missing, true - otherwise.
+   * @return false if some outputs are missing or invalid, true - otherwise.
    */
   private boolean checkOutputs(
       Action action,
@@ -1522,7 +1527,9 @@ public final class SkyframeActionExecutor {
           try {
             FileArtifactValue metadata = outputMetadataStore.getOutputMetadata(output);
 
-            checkForUnsoundDirectoryOutput(action, output, metadata);
+            if (!checkForUnsoundDirectoryOutput(action, output, metadata)) {
+              return false;
+            }
 
             addOutputToMetrics(
                 output,
@@ -1634,19 +1641,26 @@ public final class SkyframeActionExecutor {
     }
   }
 
-  private void checkForUnsoundDirectoryOutput(
+  private boolean checkForUnsoundDirectoryOutput(
       Action action, Artifact output, FileArtifactValue metadata) {
+    boolean success = true;
     if (!output.isDirectory() && !output.isSymlink() && metadata.getType().isDirectory()) {
+      boolean asError = options.getOptions(CoreOptions.class).disallowUnsoundDirectoryOutputs;
       String ownerString = action.getOwner().getLabel().toString();
       reporter.handle(
-          Event.warn(
+          Event.of(
+                  asError ? EventKind.ERROR : EventKind.WARNING,
                   action.getOwner().getLocation(),
                   String.format(
                       "output '%s' of %s is a directory; "
                           + "dependency checking of directories is unsound",
                       output.prettyPrint(), ownerString))
               .withTag(ownerString));
+      if (asError) {
+        success = false;
+      }
     }
+    return success;
   }
 
   /**

@@ -18,13 +18,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.flogger.GoogleLogger;
@@ -84,7 +80,6 @@ import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
@@ -96,11 +91,9 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTe
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -283,17 +276,11 @@ public class BuildView {
     Collection<TargetAndConfiguration> topLevelTargetsWithConfigs =
         topLevelTargetsWithConfigsResult.getTargetsAndConfigs();
 
-    // Report the generated association of targets to configurations
-    Multimap<Label, BuildConfigurationValue> byLabel = ArrayListMultimap.create();
     for (TargetAndConfiguration pair : topLevelTargetsWithConfigs) {
-      byLabel.put(pair.getLabel(), pair.getConfiguration());
       if (pair.getConfiguration() != null && !pair.getConfiguration().equals(topLevelConfig)) {
         // Log top-level rule transitioned configurations.
         eventBus.post(new ConfigRequestedEvent(pair.getConfiguration(), topLevelConfig.checksum()));
       }
-    }
-    for (Target target : labelToTargetMap.values()) {
-      eventBus.post(new TargetConfiguredEvent(target, byLabel.get(target.getLabel())));
     }
 
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
@@ -301,116 +288,13 @@ public class BuildView {
             .map(BuildView::getConfiguredTargetKey)
             .collect(toImmutableList());
 
-    RepositoryMapping mainRepoMapping;
-    try {
-      mainRepoMapping = skyframeExecutor.getMainRepoMapping(eventHandler);
-    } catch (RepositoryMappingResolutionException e) {
-      String errorMessage =
-          String.format(
-              "Failed to get main repo mapping for aspect label canonicalization: %s",
-              e.getMessage());
-      throw new ViewCreationFailedException(
-          errorMessage,
-          createAnalysisFailureDetail(errorMessage, Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION),
-          e);
-    }
-    ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
-    for (String aspect : aspects) {
-      // Syntax: label%aspect
-      int delimiterPosition = aspect.indexOf('%');
-      if (delimiterPosition >= 0) {
-        // TODO(jfield): For consistency with Starlark loads, the aspect should be specified
-        // as an absolute label.
-        // We convert it for compatibility reasons (this will be removed in the future).
-        String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
-        if (!bzlFileLoadLikeString.startsWith("//") && !bzlFileLoadLikeString.startsWith("@")) {
-          // "Legacy" behavior of '--aspects' parameter.
-          if (bzlFileLoadLikeString.startsWith("/")) {
-            bzlFileLoadLikeString = bzlFileLoadLikeString.substring(1);
-          }
-          int lastSlashPosition = bzlFileLoadLikeString.lastIndexOf('/');
-          if (lastSlashPosition >= 0) {
-            bzlFileLoadLikeString =
-                "//"
-                    + bzlFileLoadLikeString.substring(0, lastSlashPosition)
-                    + ":"
-                    + bzlFileLoadLikeString.substring(lastSlashPosition + 1);
-          } else {
-            bzlFileLoadLikeString = "//:" + bzlFileLoadLikeString;
-          }
-          if (!bzlFileLoadLikeString.endsWith(".bzl")) {
-            bzlFileLoadLikeString = bzlFileLoadLikeString + ".bzl";
-          }
-        }
-        Label starlarkFileLabel;
-        try {
-          starlarkFileLabel =
-              Label.parseWithRepoContext(
-                  bzlFileLoadLikeString,
-                  Label.RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
-        } catch (LabelSyntaxException e) {
-          String errorMessage = String.format("Invalid aspect '%s': %s", aspect, e.getMessage());
-          throw new ViewCreationFailedException(
-              errorMessage,
-              createAnalysisFailureDetail(errorMessage, Analysis.Code.ASPECT_LABEL_SYNTAX_ERROR),
-              e);
-        }
-        String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
-        aspectClassesBuilder.add(new StarlarkAspectClass(starlarkFileLabel, starlarkFunctionName));
-      } else {
-        final NativeAspectClass aspectFactoryClass =
-            ruleClassProvider.getNativeAspectClassMap().get(aspect);
-
-        if (aspectFactoryClass != null) {
-          aspectClassesBuilder.add(aspectFactoryClass);
-        } else {
-          String errorMessage = "Aspect '" + aspect + "' is unknown";
-          throw new ViewCreationFailedException(
-              errorMessage,
-              createAnalysisFailureDetail(errorMessage, Analysis.Code.ASPECT_NOT_FOUND));
-        }
-      }
-    }
-
-    Multimap<Pair<Label, String>, BuildConfigurationValue> aspectConfigurations =
-        ArrayListMultimap.create();
-    ImmutableList<AspectClass> aspectClasses = aspectClassesBuilder.build();
-    ImmutableList.Builder<TopLevelAspectsKey> aspectsKeys = ImmutableList.builder();
-    for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
-      BuildConfigurationValue config = targetSpec.getConfiguration();
-      for (AspectClass aspectClass : aspectClasses) {
-        aspectConfigurations.put(Pair.of(targetSpec.getLabel(), aspectClass.getName()), config);
-      }
-      // For invoking top-level aspects, use the top-level configuration for both the
-      // aspect and the base target while the top-level configuration is untrimmed.
-      if (!aspectClasses.isEmpty()) {
-        aspectsKeys.add(
-            AspectKeyCreator.createTopLevelAspectsKey(
-                aspectClasses, targetSpec.getLabel(), config, aspectsParameters));
-      }
-    }
-
-    for (Pair<Label, String> target : aspectConfigurations.keys()) {
-      eventBus.post(
-          new AspectConfiguredEvent(
-              target.getFirst(), target.getSecond(), aspectConfigurations.get(target)));
-    }
+    ImmutableList<TopLevelAspectsKey> aspectsKeys =
+        createTopLevelAspectKeys(
+            aspects, aspectsParameters, topLevelTargetsWithConfigs, eventHandler);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {
-      Supplier<Map<BuildConfigurationKey, BuildConfigurationValue>>
-          memoizedConfigurationLookupSupplier =
-              Suppliers.memoize(
-                  () -> {
-                    Map<BuildConfigurationKey, BuildConfigurationValue> result = new HashMap<>();
-                    for (TargetAndConfiguration node : topLevelTargetsWithConfigs) {
-                      if (node.getConfiguration() != null) {
-                        result.put(node.getConfiguration().getKey(), node.getConfiguration());
-                      }
-                    }
-                    return result;
-                  });
       if (includeExecutionPhase) {
         skyframeExecutor.setExtraActionFilter(viewOptions.extraActionFilter);
         skyframeExecutor.setRuleContextConstraintSemantics(
@@ -422,10 +306,9 @@ public class BuildView {
             skyframeBuildView.analyzeAndExecuteTargets(
                 eventHandler,
                 topLevelCtKeys,
-                aspectsKeys.build(),
+                aspectsKeys,
                 loadingResult.getTestsToRunLabels(),
                 labelToTargetMap,
-                memoizedConfigurationLookupSupplier,
                 topLevelOptions,
                 explicitTargetPatterns,
                 eventBus,
@@ -451,8 +334,7 @@ public class BuildView {
                 eventHandler,
                 labelToTargetMap,
                 topLevelCtKeys,
-                aspectsKeys.build(),
-                memoizedConfigurationLookupSupplier,
+                aspectsKeys,
                 topLevelOptions,
                 eventBus,
                 bugReporter,
@@ -466,7 +348,7 @@ public class BuildView {
       skyframeBuildView.clearInvalidatedActionLookupKeys();
     }
 
-    int numTargetsToAnalyze = topLevelTargetsWithConfigs.size();
+    int numTargetsToAnalyze = labelToTargetMap.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg =
@@ -550,6 +432,96 @@ public class BuildView {
         .setLabel(targetAndConfiguration.getLabel())
         .setConfiguration(targetAndConfiguration.getConfiguration())
         .build();
+  }
+
+  private ImmutableList<TopLevelAspectsKey> createTopLevelAspectKeys(
+      List<String> aspects,
+      ImmutableMap<String, String> aspectsParameters,
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      ExtendedEventHandler eventHandler)
+      throws InterruptedException, ViewCreationFailedException {
+    RepositoryMapping mainRepoMapping;
+    try {
+      mainRepoMapping = skyframeExecutor.getMainRepoMapping(eventHandler);
+    } catch (RepositoryMappingResolutionException e) {
+      String errorMessage =
+          String.format(
+              "Failed to get main repo mapping for aspect label canonicalization: %s",
+              e.getMessage());
+      throw new ViewCreationFailedException(
+          errorMessage,
+          createAnalysisFailureDetail(errorMessage, Analysis.Code.UNEXPECTED_ANALYSIS_EXCEPTION),
+          e);
+    }
+
+    ImmutableList.Builder<AspectClass> aspectClassesBuilder = ImmutableList.builder();
+    for (String aspect : aspects) {
+      // Syntax: label%aspect
+      int delimiterPosition = aspect.indexOf('%');
+      if (delimiterPosition >= 0) {
+        // TODO(jfield): For consistency with Starlark loads, the aspect should be specified
+        // as an absolute label.
+        // We convert it for compatibility reasons (this will be removed in the future).
+        String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
+        if (!bzlFileLoadLikeString.startsWith("//") && !bzlFileLoadLikeString.startsWith("@")) {
+          // "Legacy" behavior of '--aspects' parameter.
+          if (bzlFileLoadLikeString.startsWith("/")) {
+            bzlFileLoadLikeString = bzlFileLoadLikeString.substring(1);
+          }
+          int lastSlashPosition = bzlFileLoadLikeString.lastIndexOf('/');
+          if (lastSlashPosition >= 0) {
+            bzlFileLoadLikeString =
+                "//"
+                    + bzlFileLoadLikeString.substring(0, lastSlashPosition)
+                    + ":"
+                    + bzlFileLoadLikeString.substring(lastSlashPosition + 1);
+          } else {
+            bzlFileLoadLikeString = "//:" + bzlFileLoadLikeString;
+          }
+          if (!bzlFileLoadLikeString.endsWith(".bzl")) {
+            bzlFileLoadLikeString = bzlFileLoadLikeString + ".bzl";
+          }
+        }
+        Label starlarkFileLabel;
+        try {
+          starlarkFileLabel =
+              Label.parseWithRepoContext(
+                  bzlFileLoadLikeString,
+                  Label.RepoContext.of(RepositoryName.MAIN, mainRepoMapping));
+        } catch (LabelSyntaxException e) {
+          String errorMessage = String.format("Invalid aspect '%s': %s", aspect, e.getMessage());
+          throw new ViewCreationFailedException(
+              errorMessage,
+              createAnalysisFailureDetail(errorMessage, Analysis.Code.ASPECT_LABEL_SYNTAX_ERROR),
+              e);
+        }
+        String starlarkFunctionName = aspect.substring(delimiterPosition + 1);
+        aspectClassesBuilder.add(new StarlarkAspectClass(starlarkFileLabel, starlarkFunctionName));
+      } else {
+        final NativeAspectClass aspectFactoryClass =
+            ruleClassProvider.getNativeAspectClassMap().get(aspect);
+
+        if (aspectFactoryClass != null) {
+          aspectClassesBuilder.add(aspectFactoryClass);
+        } else {
+          String errorMessage = "Aspect '" + aspect + "' is unknown";
+          throw new ViewCreationFailedException(
+              errorMessage,
+              createAnalysisFailureDetail(errorMessage, Analysis.Code.ASPECT_NOT_FOUND));
+        }
+      }
+    }
+    ImmutableList<AspectClass> aspectClasses = aspectClassesBuilder.build();
+    if (aspectClasses.isEmpty()) {
+      return ImmutableList.of();
+    }
+
+    return topLevelTargetsWithConfigs.stream()
+        .map(
+            target ->
+                AspectKeyCreator.createTopLevelAspectsKey(
+                    aspectClasses, target.getLabel(), target.getConfiguration(), aspectsParameters))
+        .collect(toImmutableList());
   }
 
   private AnalysisResult createResult(
