@@ -69,6 +69,8 @@ import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfigured
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
+import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
@@ -276,15 +278,10 @@ public class BuildViewForTesting {
               InvalidConfigurationException,
               InconsistentAspectOrderException,
               StarlarkTransition.TransitionException {
-    PrerequisiteProducer.State state = prepareDependencyContext(eventHandler, configuredTarget);
-    ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
-        state.dependencyContext.unloadedToolchainContexts();
     return getPrerequisiteMapForTesting(
             eventHandler,
             configuredTarget,
-            // Cast is safe because prepareDependencyContext always populates this with a Rule.
-            (Rule) state.targetAndConfiguration.getTarget(),
-            unloadedToolchainCollection.asToolchainContexts())
+            prepareDependencyContext(eventHandler, configuredTarget))
         .values();
   }
 
@@ -404,21 +401,39 @@ public class BuildViewForTesting {
   private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getPrerequisiteMapForTesting(
       final ExtendedEventHandler eventHandler,
       ConfiguredTarget target,
-      @Nullable Rule associatedRule,
-      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
+      PrerequisiteProducer.State state)
       throws DependencyResolver.Failure,
           InvalidConfigurationException,
           InterruptedException,
           InconsistentAspectOrderException,
           StarlarkTransition.TransitionException {
-    OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> depNodeNames =
-        getDirectPrerequisiteDependenciesForTesting(eventHandler, target, toolchainContexts);
+    DependencyContext dependencyContext = state.dependencyContext;
+    ToolchainCollection<ToolchainContext> toolchainContexts = dependencyContext.toolchainContexts();
+    DependencyLabels labels =
+        DependencyResolver.computeDependencyLabels(
+            state.targetAndConfiguration,
+            /* aspects= */ ImmutableList.of(),
+            dependencyContext.configConditions().asProviders(),
+            toolchainContexts);
 
-    return skyframeExecutor.getConfiguredTargetMapForTesting(
-        eventHandler,
-        ConfiguredTargetKey.fromConfiguredTarget(target),
-        associatedRule,
-        depNodeNames);
+    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
+        skyframeExecutor.getConfiguredTargetMapForTesting(
+            eventHandler,
+            new PrerequisiteParameters(
+                ConfiguredTargetKey.fromConfiguredTarget(target),
+                state.targetAndConfiguration.getTarget().getAssociatedRule(),
+                /* aspects= */ ImmutableList.of(),
+                skyframeBuildView.getStarlarkTransitionCache(),
+                toolchainContexts,
+                labels.attributeMap(),
+                TransitiveDependencyState.createForTesting(
+                    transitiveRootCauses, /* transitivePackages= */ null)),
+            labels.labels());
+    if (!transitiveRootCauses.isEmpty()) {
+      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+    }
+    return result;
   }
 
   /**
@@ -490,20 +505,15 @@ public class BuildViewForTesting {
           InvalidExecGroupException {
     PrerequisiteProducer.State state = prepareDependencyContext(eventHandler, configuredTarget);
 
+    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
+        getPrerequisiteMapForTesting(eventHandler, configuredTarget, state);
+
     TargetAndConfiguration targetAndConfiguration = state.targetAndConfiguration;
     Target target = targetAndConfiguration.getTarget();
-    BuildConfigurationValue configuration = targetAndConfiguration.getConfiguration();
+    String targetDescription = target.toString();
+
     ToolchainCollection<UnloadedToolchainContext> unloadedToolchainCollection =
         state.dependencyContext.unloadedToolchainContexts();
-
-    OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap =
-        getPrerequisiteMapForTesting(
-            eventHandler,
-            configuredTarget,
-            // Cast is safe because prepareDependencyContext always populates this with a Rule.
-            (Rule) target,
-            unloadedToolchainCollection.asToolchainContexts());
-    String targetDescription = target.toString();
 
     ToolchainCollection.Builder<ResolvedToolchainContext> resolvedToolchainContext =
         ToolchainCollection.builder();
@@ -519,7 +529,11 @@ public class BuildViewForTesting {
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 
-    return new RuleContext.Builder(env, target, /* aspects= */ ImmutableList.of(), configuration)
+    return new RuleContext.Builder(
+            env,
+            target,
+            /* aspects= */ ImmutableList.of(),
+            targetAndConfiguration.getConfiguration())
         .setRuleClassProvider(ruleClassProvider)
         .setConfigurationFragmentPolicy(
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())

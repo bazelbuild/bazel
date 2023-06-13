@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import javax.annotation.Nullable;
@@ -30,6 +31,14 @@ public abstract class DependencyContext {
   public abstract ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts();
 
   public abstract ConfigConditions configConditions();
+
+  @Nullable
+  public final ToolchainCollection<ToolchainContext> toolchainContexts() {
+    if (unloadedToolchainContexts() == null) {
+      return null;
+    }
+    return unloadedToolchainContexts().asToolchainContexts();
+  }
 
   static DependencyContext create(
       @Nullable ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts,

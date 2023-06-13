@@ -31,7 +31,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -40,7 +39,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
@@ -91,7 +89,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
-import com.google.devtools.build.lib.analysis.PartiallyResolvedDependency;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
@@ -103,14 +100,14 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
-import com.google.devtools.build.lib.analysis.producers.DependencyEvaluatorForTesting;
+import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
+import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.DependencyMapError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -151,7 +148,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.Package.ConfigSettingVisibilityPolicy;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -3926,55 +3922,25 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData>
       getConfiguredTargetMapForTesting(
           ExtendedEventHandler eventHandler,
-          ConfiguredTargetKey parentKey,
-          @Nullable Rule associatedRule,
-          OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> dependencies)
-          throws InvalidConfigurationException, InterruptedException {
+          PrerequisiteParameters parameters,
+          OrderedSetMultimap<DependencyKind, Label> labels)
+          throws InterruptedException {
     checkActive();
-    // Duplicates may be present if the same dependency occurs under different DependencyKind
-    // values.
-    var dependencyKeys = ImmutableSet.copyOf(dependencies.values());
-    BuildConfigurationValue configuration =
-        getConfiguration(eventHandler, parentKey.getConfigurationKey());
-    ListMultimap<BaseDependencySpecification, BuildConfigurationValue> configs;
-    if (configuration != null) {
-      configs =
-          getConfigurations(eventHandler, configuration.getOptions(), dependencyKeys)
-              .getConfigurationMap();
-    } else {
-      configs = ArrayListMultimap.create();
-      for (BaseDependencySpecification key : dependencyKeys) {
-        configs.put(key, null);
-      }
-    }
 
-    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
     var sink =
-        new DependencyEvaluatorForTesting.ResultSink() {
-          private OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData> result;
-          private InvalidVisibilityDependencyException visibilityError;
-          private ConfiguredValueCreationException creationError;
-          private DependencyEvaluationException dependencyError;
+        new DependencyMapProducer.ResultSink() {
+          private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result;
+          private DependencyMapError error;
 
           @Override
-          public void acceptDependencyEvaluatorResult(
-              OrderedSetMultimap<PartiallyResolvedDependency, ConfiguredTargetAndData> result) {
-            this.result = result;
+          public void acceptDependencyMap(
+              OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value) {
+            this.result = value;
           }
 
           @Override
-          public void acceptDependencyEvaluatorError(InvalidVisibilityDependencyException error) {
-            this.visibilityError = error;
-          }
-
-          @Override
-          public void acceptDependencyEvaluatorError(ConfiguredValueCreationException error) {
-            this.creationError = error;
-          }
-
-          @Override
-          public void acceptDependencyEvaluatorError(DependencyEvaluationException error) {
-            this.dependencyError = error;
+          public void acceptDependencyMapError(DependencyMapError error) {
+            this.error = error;
           }
         };
 
@@ -3982,15 +3948,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     try (var closer = new EnableAnalysisScope()) {
       result =
           StateMachineEvaluatorForTesting.run(
-              new DependencyEvaluatorForTesting(
-                  new PrerequisiteParameters(
-                      parentKey,
-                      associatedRule,
-                      TransitiveDependencyState.createForTesting(
-                          transitiveRootCauses, /* transitivePackages= */ null)),
-                  dependencyKeys,
-                  configs,
-                  sink),
+              new DependencyMapProducer(parameters, labels, sink),
               memoizingEvaluator,
               getEvaluationContextForTesting(eventHandler));
     }
@@ -4013,24 +3971,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       }
     }
 
-    if (!transitiveRootCauses.isEmpty()) {
-      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+    if (sink.error != null) {
+      Exception cause = null;
+      switch (sink.error.kind()) {
+        case DEPENDENCY_TRANSITION:
+          cause = sink.error.dependencyTransition();
+          break;
+        case DEPENDENCY_OPTIONS_PARSING:
+          cause = sink.error.dependencyOptionsParsing();
+          break;
+        case INVALID_VISIBILITY:
+          cause = sink.error.invalidVisibility();
+          break;
+        case DEPENDENCY_CREATION:
+          cause = sink.error.dependencyCreation();
+          break;
+        case ASPECT_CREATION:
+          cause = sink.error.aspectCreation();
+          break;
+      }
+      throw new IllegalStateException(cause);
     }
-    if (sink.visibilityError != null) {
-      throw new IllegalStateException(sink.visibilityError);
-    }
-    if (sink.creationError != null) {
-      throw new IllegalStateException(sink.creationError);
-    }
-    if (sink.dependencyError != null) {
-      throw new IllegalStateException(sink.dependencyError);
-    }
-
-    var output = OrderedSetMultimap.<DependencyKind, ConfiguredTargetAndData>create();
-    for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry : dependencies.entries()) {
-      output.putAll(entry.getKey(), sink.result.get(entry.getValue()));
-    }
-    return output;
+    return sink.result;
   }
 
   private EvaluationContext getEvaluationContextForTesting(ExtendedEventHandler eventHandler) {
