@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -313,7 +314,7 @@ public interface JavaCommonApi<
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
       name = "run_ijar",

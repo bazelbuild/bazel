@@ -86,7 +86,7 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
-      Sequence<JavaPluginInfo> exportedPlugins,
+      Iterable<JavaPluginInfo> exportedPlugins,
       Sequence<CcInfo> nativeLibraries,
       Location location) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();

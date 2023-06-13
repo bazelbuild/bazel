@@ -774,7 +774,7 @@ public class JavaCommon {
     attributes.addPlugin(activePlugins);
   }
 
-  private JavaPluginInfo collectPlugins() {
+  private JavaPluginInfo collectPlugins() throws RuleErrorException {
     List<JavaPluginInfo> result = new ArrayList<>();
     Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, ":java_plugins"));
     Iterables.addAll(result, getDirectJavaPluginInfoForAttribute(ruleContext, "plugins"));
@@ -783,12 +783,16 @@ public class JavaCommon {
   }
 
   private static Iterable<JavaPluginInfo> getDirectJavaPluginInfoForAttribute(
-      RuleContext ruleContext, String attribute) {
+      RuleContext ruleContext, String attribute) throws RuleErrorException {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
-      return ruleContext.getPrerequisites(attribute).stream()
-          .map(target -> target.get(JavaPluginInfo.PROVIDER))
-          .filter(Objects::nonNull)
-          .collect(toImmutableList());
+      ImmutableList.Builder<JavaPluginInfo> builder = ImmutableList.builder();
+      for (TransitiveInfoCollection target : ruleContext.getPrerequisites(attribute)) {
+        JavaPluginInfo javaPluginInfo = target.get(JavaPluginInfo.PROVIDER);
+        if (javaPluginInfo != null) {
+          builder.add(javaPluginInfo);
+        }
+      }
+      return builder.build();
     }
     return ImmutableList.of();
   }
@@ -806,7 +810,8 @@ public class JavaCommon {
     return ImmutableList.of();
   }
 
-  public static JavaPluginInfo getTransitivePlugins(RuleContext ruleContext) {
+  public static JavaPluginInfo getTransitivePlugins(RuleContext ruleContext)
+      throws RuleErrorException {
     return JavaPluginInfo.mergeWithoutJavaOutputs(
         Iterables.concat(
             getDirectJavaPluginInfoForAttribute(ruleContext, "exported_plugins"),

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
@@ -45,6 +46,11 @@ public abstract class JavaPluginInfo extends NativeInfo
   private static final JavaPluginInfo EMPTY =
       new AutoValue_JavaPluginInfo(
           ImmutableList.of(), JavaPluginData.empty(), JavaPluginData.empty());
+
+  public static ImmutableList<JavaPluginInfo> wrapSequence(Sequence<?> plugins, String what)
+      throws EvalException, RuleErrorException {
+    return Sequence.cast(plugins, JavaPluginInfo.class, what).getImmutableList();
+  }
 
   @Override
   public Provider getProvider() {

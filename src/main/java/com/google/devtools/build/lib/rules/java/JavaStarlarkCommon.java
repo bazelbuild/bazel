@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -113,7 +114,7 @@ public class JavaStarlarkCommon
       Sequence<?> addExports, // <String> expected
       Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
 
     boolean acceptJavaInfo =
         !starlarkRuleContext
@@ -130,7 +131,7 @@ public class JavaStarlarkCommon
               .filter(Objects::nonNull)
               .collect(toImmutableList());
     } else {
-      pluginsParam = Sequence.cast(plugins, JavaPluginInfo.class, "plugins").getImmutableList();
+      pluginsParam = JavaPluginInfo.wrapSequence(plugins, "plugins");
     }
 
     final ImmutableList<JavaPluginInfo> exportedPluginsParam;
@@ -144,9 +145,7 @@ public class JavaStarlarkCommon
               .filter(Objects::nonNull)
               .collect(toImmutableList());
     } else {
-      exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
-              .getImmutableList();
+      exportedPluginsParam = JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
     }
     // checks for private API access
     if (!enableCompileJarAction
