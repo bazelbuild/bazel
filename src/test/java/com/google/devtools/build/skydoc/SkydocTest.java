@@ -234,64 +234,6 @@ public final class SkydocTest {
   }
 
   @Test
-  public void testRuleExportedWithSpecifiedName() throws Exception {
-    scratchRunfile(
-        "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "rule_one = rule(",
-        "    doc = 'Rule one',",
-        "    implementation = rule_impl,",
-        "    name = 'rule_one_exported_name',",
-        ")");
-
-    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-
-    Module unused =
-        skydocMain.eval(
-            StarlarkSemantics.builder()
-                .setBool(BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, false)
-                .build(),
-            Label.parseCanonicalUnchecked("//test:test.bzl"),
-            ruleInfoMap,
-            ImmutableMap.builder(),
-            ImmutableMap.builder(),
-            ImmutableMap.builder());
-
-    assertThat(ruleInfoMap.buildOrThrow().keySet()).containsExactly("rule_one_exported_name");
-  }
-
-  @Test
-  public void testUnassignedRuleNotDocumented() throws Exception {
-    scratchRunfile(
-        "io_bazel/test/test.bzl",
-        "def rule_impl(ctx):",
-        "  return []",
-        "",
-        "rule(",
-        "    doc = 'Undocumented rule',",
-        "    implementation = rule_impl,",
-        "    name = 'rule_exported_name',",
-        ")");
-
-    ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
-
-    Module unused =
-        skydocMain.eval(
-            StarlarkSemantics.builder()
-                .setBool(BuildLanguageOptions.INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, false)
-                .build(),
-            Label.parseCanonicalUnchecked("//test:test.bzl"),
-            ruleInfoMap,
-            ImmutableMap.builder(),
-            ImmutableMap.builder(),
-            ImmutableMap.builder());
-
-    assertThat(ruleInfoMap.buildOrThrow().keySet()).isEmpty();
-  }
-
-  @Test
   public void testRulesAcrossMultipleFiles() throws Exception {
     scratchRunfile("io_bazel/lib/rule_impl.bzl", "def rule_impl(ctx):", "  return []");
 
