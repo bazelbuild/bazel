@@ -70,15 +70,7 @@ final class DependencyProducer
      */
     void acceptDependencyValues(int index, ConfiguredTargetAndData[] values);
 
-    void acceptDependencyTransitionError(TransitionException e);
-
-    void acceptDependencyTransitionError(OptionsParsingException e);
-
-    void acceptDependencyError(InvalidVisibilityDependencyException e);
-
-    void acceptDependencyCreationError(ConfiguredValueCreationException e);
-
-    void acceptDependencyAspectError(DependencyEvaluationException e);
+    void acceptDependencyError(DependencyError error);
   }
 
   // -------------------- Input --------------------
@@ -178,12 +170,12 @@ final class DependencyProducer
 
   @Override
   public void acceptTransitionError(TransitionException e) {
-    sink.acceptDependencyTransitionError(e);
+    sink.acceptDependencyError(DependencyError.of(e));
   }
 
   @Override
   public void acceptTransitionError(OptionsParsingException e) {
-    sink.acceptDependencyTransitionError(e);
+    sink.acceptDependencyError(DependencyError.of(e));
   }
 
   private StateMachine processTransitionResult(Tasks tasks, ExtendedEventHandler listener) {
@@ -221,17 +213,17 @@ final class DependencyProducer
 
   @Override
   public void acceptPrerequisitesError(InvalidVisibilityDependencyException error) {
-    sink.acceptDependencyError(error);
+    sink.acceptDependencyError(DependencyError.of(error));
   }
 
   @Override
   public void acceptPrerequisitesCreationError(ConfiguredValueCreationException error) {
-    sink.acceptDependencyCreationError(error);
+    sink.acceptDependencyError(DependencyError.of(error));
   }
 
   @Override
   public void acceptPrerequisitesAspectError(DependencyEvaluationException error) {
-    sink.acceptDependencyAspectError(error);
+    sink.acceptDependencyError(DependencyError.of(error));
   }
 
   /**
@@ -266,18 +258,19 @@ final class DependencyProducer
 
     private StateMachine postEvent(Tasks tasks, ExtendedEventHandler listener) {
       listener.post(AnalysisRootCauseEvent.withConfigurationValue(configuration, toLabel, message));
-      sink.acceptDependencyAspectError(
-          new DependencyEvaluationException(
-              new ConfiguredValueCreationException(
-                  parameters.location(),
-                  message,
-                  toLabel,
-                  parameters.eventId(),
-                  /* rootCauses= */ null,
-                  /* detailedExitCode= */ null),
-              // This error originates in dependency resolution, attached to the current target, so
-              // no dependency has reported the error.
-              /* depReportedOwnError= */ false));
+      sink.acceptDependencyError(
+          DependencyError.of(
+              new DependencyEvaluationException(
+                  new ConfiguredValueCreationException(
+                      parameters.location(),
+                      message,
+                      toLabel,
+                      parameters.eventId(),
+                      /* rootCauses= */ null,
+                      /* detailedExitCode= */ null),
+                  // This error originates in dependency resolution, attached to the current target,
+                  // so no dependency has reported the error.
+                  /* depReportedOwnError= */ false)));
       return DONE;
     }
   }

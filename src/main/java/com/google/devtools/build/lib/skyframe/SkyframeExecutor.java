@@ -106,8 +106,8 @@ import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
 import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataProducer;
+import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
-import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.DependencyMapError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
@@ -3930,7 +3930,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     var sink =
         new DependencyMapProducer.ResultSink() {
           private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result;
-          private DependencyMapError error;
+          private DependencyError error;
 
           @Override
           public void acceptDependencyMap(
@@ -3939,7 +3939,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           }
 
           @Override
-          public void acceptDependencyMapError(DependencyMapError error) {
+          public void acceptDependencyMapError(DependencyError error) {
             this.error = error;
           }
         };
@@ -3972,25 +3972,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
 
     if (sink.error != null) {
-      Exception cause = null;
-      switch (sink.error.kind()) {
-        case DEPENDENCY_TRANSITION:
-          cause = sink.error.dependencyTransition();
-          break;
-        case DEPENDENCY_OPTIONS_PARSING:
-          cause = sink.error.dependencyOptionsParsing();
-          break;
-        case INVALID_VISIBILITY:
-          cause = sink.error.invalidVisibility();
-          break;
-        case DEPENDENCY_CREATION:
-          cause = sink.error.dependencyCreation();
-          break;
-        case ASPECT_CREATION:
-          cause = sink.error.aspectCreation();
-          break;
-      }
-      throw new IllegalStateException(cause);
+      throw new IllegalStateException(sink.error.getException());
     }
     return sink.result;
   }

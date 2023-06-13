@@ -14,24 +14,17 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.computePropagatingAspects;
+import static com.google.devtools.build.lib.analysis.producers.DependencyError.isSecondErrorMoreImportant;
 import static java.util.Arrays.asList;
 
-import com.google.auto.value.AutoOneOf;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
-import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.state.StateMachine;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.Map;
 
@@ -48,57 +41,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   public interface ResultSink {
     void acceptDependencyMap(OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> value);
 
-    void acceptDependencyMapError(DependencyMapError error);
-  }
-
-  /** Tagged union of possible errors. */
-  @AutoOneOf(DependencyMapError.Kind.class)
-  public abstract static class DependencyMapError {
-    /**
-     * Tags for different error types.
-     *
-     * <p>The earlier in this list, the higher the priority when there are multiple errors. See
-     * {@link #isSecondErrorMoreImportant}.
-     */
-    public enum Kind {
-      DEPENDENCY_TRANSITION,
-      DEPENDENCY_OPTIONS_PARSING,
-      INVALID_VISIBILITY,
-      DEPENDENCY_CREATION,
-      ASPECT_CREATION,
-    }
-
-    public abstract Kind kind();
-
-    public abstract TransitionException dependencyTransition();
-
-    public abstract OptionsParsingException dependencyOptionsParsing();
-
-    public abstract InvalidVisibilityDependencyException invalidVisibility();
-
-    public abstract ConfiguredValueCreationException dependencyCreation();
-
-    public abstract DependencyEvaluationException aspectCreation();
-
-    private static DependencyMapError of(TransitionException e) {
-      return AutoOneOf_DependencyMapProducer_DependencyMapError.dependencyTransition(e);
-    }
-
-    private static DependencyMapError of(OptionsParsingException e) {
-      return AutoOneOf_DependencyMapProducer_DependencyMapError.dependencyOptionsParsing(e);
-    }
-
-    private static DependencyMapError of(InvalidVisibilityDependencyException e) {
-      return AutoOneOf_DependencyMapProducer_DependencyMapError.invalidVisibility(e);
-    }
-
-    private static DependencyMapError of(ConfiguredValueCreationException e) {
-      return AutoOneOf_DependencyMapProducer_DependencyMapError.dependencyCreation(e);
-    }
-
-    private static DependencyMapError of(DependencyEvaluationException e) {
-      return AutoOneOf_DependencyMapProducer_DependencyMapError.aspectCreation(e);
-    }
+    void acceptDependencyMapError(DependencyError error);
   }
 
   // -------------------- Input --------------------
@@ -126,7 +69,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
    */
   private final ConfiguredTargetAndData[][] results;
 
-  private DependencyMapError lastError;
+  private DependencyError lastError;
 
   public DependencyMapProducer(
       PrerequisiteParameters parameters,
@@ -160,28 +103,8 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
   }
 
   @Override
-  public void acceptDependencyTransitionError(TransitionException e) {
-    emitErrorIfMostImportant(DependencyMapError.of(e));
-  }
-
-  @Override
-  public void acceptDependencyTransitionError(OptionsParsingException e) {
-    emitErrorIfMostImportant(DependencyMapError.of(e));
-  }
-
-  @Override
-  public void acceptDependencyError(InvalidVisibilityDependencyException e) {
-    emitErrorIfMostImportant(DependencyMapError.of(e));
-  }
-
-  @Override
-  public void acceptDependencyCreationError(ConfiguredValueCreationException e) {
-    emitErrorIfMostImportant(DependencyMapError.of(e));
-  }
-
-  @Override
-  public void acceptDependencyAspectError(DependencyEvaluationException e) {
-    emitErrorIfMostImportant(DependencyMapError.of(e));
+  public void acceptDependencyError(DependencyError error) {
+    emitErrorIfMostImportant(error);
   }
 
   private StateMachine buildAndEmitResult(Tasks tasks, ExtendedEventHandler listener) {
@@ -201,33 +124,10 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     return DONE;
   }
 
-  private void emitErrorIfMostImportant(DependencyMapError error) {
+  private void emitErrorIfMostImportant(DependencyError error) {
     if (lastError == null || isSecondErrorMoreImportant(lastError, error)) {
       lastError = error;
       sink.acceptDependencyMapError(error);
     }
-  }
-
-  private static boolean isSecondErrorMoreImportant(
-      DependencyMapError first, DependencyMapError second) {
-    int cmp = first.kind().compareTo(second.kind());
-    if (cmp == 0) {
-      switch (first.kind()) {
-        case INVALID_VISIBILITY:
-        case ASPECT_CREATION:
-        case DEPENDENCY_TRANSITION:
-        case DEPENDENCY_OPTIONS_PARSING:
-          // There isn't a good way to prioritize these so we just keep the first.
-          return false;
-        case DEPENDENCY_CREATION:
-          DetailedExitCode firstExitCode = first.dependencyCreation().getDetailedExitCode();
-          DetailedExitCode secondExitCode = second.dependencyCreation().getDetailedExitCode();
-          return secondExitCode.equals(
-              DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie(
-                  secondExitCode, firstExitCode));
-      }
-      throw new IllegalStateException("unreachable " + first.kind());
-    }
-    return cmp > 0;
   }
 }
