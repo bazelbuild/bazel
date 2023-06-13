@@ -16,4 +16,83 @@
 Definition of JavaPluginInfo provider.
 """
 
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
+java_common = _builtins.toplevel.java_common
+
+_JavaPluginDataInfo = provider(
+    doc = "Provider encapsulating information about a Java compatible plugin.",
+    fields = {
+        "processor_classes": "depset(str) The fully qualified classnames of entry points for the compiler",
+        "processor_jars": "depset(file) Deps containing an annotation processor",
+        "processor_data": "depset(file) Files needed during execution",
+    },
+)
+
+_EMPTY_PLUGIN_DATA = _JavaPluginDataInfo(
+    processor_classes = depset(),
+    processor_jars = depset(),
+    processor_data = depset(),
+)
+
+def _javaplugininfo_init(
+        runtime_deps,
+        processor_class,
+        data = [],
+        generates_api = False):
+    """ Constructs JavaPluginInfo
+
+    Args:
+        runtime_deps: ([JavaInfo]) list of deps containing an annotation
+             processor.
+        processor_class: (String) The fully qualified class name that the Java
+             compiler uses as an entry point to the annotation processor.
+        data: (depset[File]) The files needed by this annotation
+             processor during execution.
+        generates_api: (boolean) Set to true when this annotation processor
+            generates API code. Such an annotation processor is applied to a
+            Java target before producing its header jars (which contains method
+            signatures). When no API plugins are present, header jars are
+            generated from the sources, reducing the critical path.
+            WARNING: This parameter affects build performance, use it only if
+            necessary.
+
+    Returns:
+        (JavaPluginInfo)
+    """
+    java_infos = java_common.merge(runtime_deps)
+    processor_data = data if type(data) == "depset" else depset(data)
+    plugins = _JavaPluginDataInfo(
+        processor_classes = depset([processor_class]) if processor_class else depset(),
+        processor_jars = java_infos.transitive_runtime_jars,
+        processor_data = processor_data,
+    )
+    return {
+        "plugins": plugins,
+        "api_generating_plugins": plugins if generates_api else _EMPTY_PLUGIN_DATA,
+        "java_outputs": java_infos.java_outputs,
+    }
+
+JavaPluginInfo, _new_javaplugininfo = provider(
+    doc = "Provider encapsulating information about Java plugins.",
+    fields = {
+        "plugins": """
+            Returns data about all plugins that a consuming target should apply.
+            This is typically either a <code>java_plugin</code> itself or a
+            <code>java_library</code> exporting one or more plugins.
+            A <code>java_library</code> runs annotation processing with all
+            plugins from this field appearing in <code>deps</code> and
+            <code>plugins</code> attributes.""",
+        "api_generating_plugins": """
+            Returns data about API generating plugins defined or exported by
+            this target.
+            Those annotation processors are applied to a Java target before
+            producing its header jars (which contain method signatures). When
+            no API plugins are present, header jars are generated from the
+            sources, reducing critical path.
+            The <code>api_generating_plugins</code> is a subset of
+            <code>plugins</code>.""",
+        "java_outputs": """
+            Returns information about outputs of this Java/Java-like target.
+        """,
+    },
+    init = _javaplugininfo_init,
+)
