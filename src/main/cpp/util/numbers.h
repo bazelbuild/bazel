@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_UTIL_NUMBERS_H_
 
 #include <string>
+#include <cstdint>
 
 namespace blaze_util {
 
