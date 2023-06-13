@@ -1785,7 +1785,68 @@ EOF
       --experimental_remote_cache_eviction_retries=5 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
+  expect_log 'Failed to fetch blobs because they do not exist remotely.'
   expect_log "Found remote cache eviction error, retrying the build..."
+}
+
+function test_remote_cache_eviction_retries_with_fixed_invocation_id() {
+  mkdir -p a
+
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = 'foo',
+  srcs = ['foo.in'],
+  outs = ['foo.out'],
+  cmd = 'cat $(SRCS) > $@',
+)
+
+genrule(
+  name = 'bar',
+  srcs = ['foo.out', 'bar.in'],
+  outs = ['bar.out'],
+  cmd = 'cat $(SRCS) > $@',
+  tags = ['no-remote-exec'],
+)
+EOF
+
+  echo foo > a/foo.in
+  echo bar > a/bar.in
+
+  # Populate remote cache
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  bazel clean
+
+  # Clean build, foo.out isn't downloaded
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      //a:bar >& $TEST_log || fail "Failed to build"
+
+  if [[ -f bazel-bin/a/foo.out ]]; then
+    fail "Expected intermediate output bazel-bin/a/foo.out to not be downloaded"
+  fi
+
+  # Evict blobs from remote cache
+  stop_worker
+  start_worker
+
+  echo "updated bar" > a/bar.in
+
+  # Incremental build triggers remote cache eviction error and Bazel tries to
+  # retry the build but failed because the invocation id is the same.
+  bazel build \
+      --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
+      --remote_executor=grpc://localhost:${worker_port} \
+      --remote_download_minimal \
+      --experimental_remote_cache_eviction_retries=5 \
+      //a:bar >& $TEST_log && fail "Expected build to fail"
+
+  expect_log 'Failed to fetch blobs because they do not exist remotely.'
+  expect_log 'Failed to retry the build: invocation id `91648f28-6081-4af7-9374-cdfd3cd36ef2` has already been used.'
 }
 
 function test_download_toplevel_symlinks_runfiles() {

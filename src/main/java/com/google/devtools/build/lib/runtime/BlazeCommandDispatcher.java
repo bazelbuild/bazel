@@ -74,10 +74,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -233,7 +237,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             retrievedShutdownReason, FailureDetails.Command.Code.PREVIOUSLY_SHUTDOWN);
       }
       BlazeCommandResult result;
-      int attempt = 0;
+      Set<UUID> attemptedCommandIds = new HashSet<>();
+      BlazeCommandResult lastResult = null;
       while (true) {
         try {
           result =
@@ -248,11 +253,12 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   waitTimeInMs,
                   startupOptionsTaggedWithBazelRc,
                   commandExtensions,
-                  attempt);
+                  attemptedCommandIds,
+                  lastResult);
           break;
         } catch (RemoteCacheEvictedException e) {
-          outErr.printErrLn("Found remote cache eviction error, retrying the build...");
-          attempt += 1;
+          attemptedCommandIds.add(e.getCommandId());
+          lastResult = e.getResult();
         }
       }
       if (result.shutdown()) {
@@ -303,7 +309,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       long waitTimeInMs,
       Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc,
       List<Any> commandExtensions,
-      int attempt)
+      Set<UUID> attemptedCommandIds,
+      @Nullable BlazeCommandResult lastResult)
       throws RemoteCacheEvictedException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
@@ -331,6 +338,19 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             firstContactTime,
             commandExtensions,
             this::setShutdownReason);
+
+    if (!attemptedCommandIds.isEmpty()) {
+      if (attemptedCommandIds.contains(env.getCommandId())) {
+        outErr.printErrLn(
+            String.format(
+                "Failed to retry the build: invocation id `%s` has already been used.",
+                env.getCommandId()));
+        return Preconditions.checkNotNull(lastResult);
+      } else {
+        outErr.printErrLn("Found remote cache eviction error, retrying the build...");
+      }
+    }
+
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     boolean tracerEnabled = false;
     if (commonOptions.enableTracer == TriState.YES) {
@@ -655,8 +675,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attempt < executionOptions.remoteRetryOnCacheEviction) {
-          throw new RemoteCacheEvictedException();
+        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnCacheEviction) {
+          throw new RemoteCacheEvictedException(env.getCommandId(), newResult);
         }
       }
 
@@ -696,7 +716,23 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     }
   }
 
-  private static class RemoteCacheEvictedException extends IOException {}
+  private static class RemoteCacheEvictedException extends IOException {
+    private final UUID commandId;
+    private final BlazeCommandResult result;
+
+    private RemoteCacheEvictedException(UUID commandId, BlazeCommandResult result) {
+      this.commandId = commandId;
+      this.result = result;
+    }
+
+    public UUID getCommandId() {
+      return commandId;
+    }
+
+    public BlazeCommandResult getResult() {
+      return result;
+    }
+  }
 
   private static void replayEarlyExitEvents(
       OutErr outErr,
