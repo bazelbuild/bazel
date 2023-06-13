@@ -18,7 +18,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -124,7 +124,7 @@ public class RuleClass {
 
   /** The name attribute, present for all rules at index 0. */
   static final Attribute NAME_ATTRIBUTE =
-      attr("name", STRING)
+      attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
           .build();
 
