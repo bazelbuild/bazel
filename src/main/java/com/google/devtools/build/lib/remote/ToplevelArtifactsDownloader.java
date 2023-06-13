@@ -25,8 +25,11 @@ import com.google.common.eventbus.Subscribe;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -46,6 +49,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.HashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -122,10 +126,17 @@ public class ToplevelArtifactsDownloader {
     // because test outputs are already downloaded (otherwise it cannot hit the action cache).
     FileArtifactValue metadata = pathToMetadataConverter.getMetadata(path);
     ActionInput actionInput = pathToMetadataConverter.getActionInput(path);
+    ActionExecutionMetadata action;
+    try {
+      action = getAction(actionInput);
+    } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
+      action = null;
+    }
     if (metadata != null) {
       ListenableFuture<Void> future =
           actionInputPrefetcher.downloadFileAsync(
-              path.asFragment(), actionInput, metadata, Priority.LOW);
+              action, path.asFragment(), actionInput, metadata, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {
@@ -222,7 +233,8 @@ public class ToplevelArtifactsDownloader {
   private void downloadTargetOutputs(
       ImmutableMap<String, ArtifactsInOutputGroup> outputGroups, @Nullable Runfiles runfiles) {
 
-    var builder = ImmutableMap.<ActionInput, FileArtifactValue>builder();
+    HashMap<ActionExecutionMetadata, HashMap<ActionInput, FileArtifactValue>> builder =
+        new HashMap<>();
     try {
       for (ArtifactsInOutputGroup outputs : outputGroups.values()) {
         if (!outputs.areImportant()) {
@@ -239,27 +251,31 @@ public class ToplevelArtifactsDownloader {
       return;
     }
 
-    var outputsAndMetadata = builder.buildKeepingLast();
-    ListenableFuture<Void> future =
-        actionInputPrefetcher.prefetchFiles(
-            outputsAndMetadata.keySet().stream()
-                .filter(ToplevelArtifactsDownloader::isNonTreeArtifact)
-                .collect(toImmutableSet()),
-            new StaticMetadataProvider(outputsAndMetadata),
-            Priority.LOW);
+    for (var entry : builder.entrySet()) {
+      var action = entry.getKey();
+      var outputsAndMetadata = entry.getValue();
+      ListenableFuture<Void> future =
+          actionInputPrefetcher.prefetchFiles(
+              action,
+              outputsAndMetadata.keySet().stream()
+                  .filter(ToplevelArtifactsDownloader::isNonTreeArtifact)
+                  .collect(toImmutableSet()),
+              new StaticMetadataProvider(outputsAndMetadata),
+              Priority.LOW);
 
-    addCallback(
-        future,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void unused) {}
+      addCallback(
+          future,
+          new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void unused) {}
 
-          @Override
-          public void onFailure(Throwable throwable) {
-            logger.atWarning().withCause(throwable).log("Failed to download toplevel artifacts.");
-          }
-        },
-        directExecutor());
+            @Override
+            public void onFailure(Throwable throwable) {
+              logger.atWarning().withCause(throwable).log("Failed to download toplevel artifacts.");
+            }
+          },
+          directExecutor());
+    }
   }
 
   private static boolean isNonTreeArtifact(ActionInput actionInput) {
@@ -267,7 +283,8 @@ public class ToplevelArtifactsDownloader {
   }
 
   private void appendRunfiles(
-      @Nullable Runfiles runfiles, ImmutableMap.Builder<ActionInput, FileArtifactValue> builder)
+      @Nullable Runfiles runfiles,
+      HashMap<ActionExecutionMetadata, HashMap<ActionInput, FileArtifactValue>> builder)
       throws InterruptedException {
     if (runfiles == null) {
       return;
@@ -279,17 +296,41 @@ public class ToplevelArtifactsDownloader {
   }
 
   private void appendArtifact(
-      Artifact artifact, ImmutableMap.Builder<ActionInput, FileArtifactValue> builder)
+      Artifact artifact,
+      HashMap<ActionExecutionMetadata, HashMap<ActionInput, FileArtifactValue>> builder)
       throws InterruptedException {
+    var action = getAction(artifact);
+    if (action == null) {
+      return;
+    }
+
+    var builderForAction = builder.computeIfAbsent(action, unused -> new HashMap<>());
+
     SkyValue value = memoizingEvaluator.getExistingValue(Artifact.key(artifact));
     if (value instanceof ActionExecutionValue) {
       FileArtifactValue metadata = ((ActionExecutionValue) value).getAllFileValues().get(artifact);
       if (metadata != null) {
-        builder.put(artifact, metadata);
+        builderForAction.put(artifact, metadata);
       }
     } else if (value instanceof TreeArtifactValue) {
-      builder.put(artifact, ((TreeArtifactValue) value).getMetadata());
-      builder.putAll(((TreeArtifactValue) value).getChildValues());
+      builderForAction.put(artifact, ((TreeArtifactValue) value).getMetadata());
+      builderForAction.putAll(((TreeArtifactValue) value).getChildValues());
     }
+  }
+
+  @Nullable
+  private ActionExecutionMetadata getAction(ActionInput artifact) throws InterruptedException {
+    if (!(artifact instanceof DerivedArtifact)) {
+      return null;
+    }
+    var actionLookupData = ((DerivedArtifact) artifact).getGeneratingActionKey();
+    var actionLookupValue =
+        (ActionLookupValue)
+            memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey());
+    if (actionLookupValue == null) {
+      return null;
+    }
+
+    return actionLookupValue.getAction(actionLookupData.getActionIndex());
   }
 }

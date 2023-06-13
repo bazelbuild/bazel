@@ -98,7 +98,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     VirtualActionInput a = ActionsTestUtil.createVirtualActionInput("file1", "hello world");
 
     // act
-    wait(actionInputFetcher.prefetchFiles(ImmutableList.of(a), metadataProvider));
+    wait(actionInputFetcher.prefetchFiles(action, ImmutableList.of(a), metadataProvider));
 
     // assert
     Path p = execRoot.getRelative(a.getExecPath());
@@ -128,7 +128,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     // act
     wait(
         actionInputFetcher.prefetchFiles(
-            ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider));
+            action, ImmutableList.of(VirtualActionInput.EMPTY_MARKER), metadataProvider));
 
     // assert that nothing happened
     assertThat(actionInputFetcher.downloadedFiles()).isEmpty();
@@ -145,7 +145,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
     var error =
         assertThrows(
             ExecException.class,
-            () -> wait(prefetcher.prefetchFiles(ImmutableList.of(a), metadataProvider)));
+            () -> wait(prefetcher.prefetchFiles(action, ImmutableList.of(a), metadataProvider)));
 
     assertThat(prefetcher.downloadedFiles()).isEmpty();
     assertThat(prefetcher.downloadsInProgress()).isEmpty();
