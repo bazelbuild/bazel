@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
@@ -28,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
 
 /** Configuration fragment for Android rules that is specific to Bazel. */
 @Immutable
-@StarlarkBuiltin(name = "bazel_android")
+@StarlarkBuiltin(name = "bazel_android", category = DocCategory.CONFIGURATION_FRAGMENT)
 @RequiresOptions(options = {BazelAndroidConfiguration.Options.class})
 @CheckReturnValue
 public class BazelAndroidConfiguration extends Fragment {
