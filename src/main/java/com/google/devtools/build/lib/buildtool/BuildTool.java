@@ -243,7 +243,9 @@ public class BuildTool {
             throw new PostExecutionActionGraphDumpException(e);
           } catch (InvalidAqueryOutputFormatException e) {
             throw new PostExecutionActionGraphDumpException(
-                "--skyframe_state must be used with --output=proto|textproto|jsonproto.", e);
+                "--skyframe_state must be used with "
+                    + "--output=proto|streamed_proto|textproto|jsonproto.",
+                e);
           }
         }
       }
@@ -444,6 +446,8 @@ public class BuildTool {
     switch (format) {
       case "proto":
         return "aquery_dump.proto";
+      case "streamed_proto":
+        return "aquery_dump.pb";
       case "textproto":
         return "aquery_dump.textproto";
       case "jsonproto":
