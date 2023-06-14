@@ -251,7 +251,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static NestedSet<Artifact> getCompileTimeJarsFromCollection(
-      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) {
+      ImmutableList<TransitiveInfoCollection> deps, boolean isDirect) throws RuleErrorException {
     JavaCompilationArgsProvider provider = JavaCompilationArgsProvider.legacyFromTargets(deps);
     return isDirect ? provider.getDirectCompileTimeJars() : provider.getTransitiveCompileTimeJars();
   }

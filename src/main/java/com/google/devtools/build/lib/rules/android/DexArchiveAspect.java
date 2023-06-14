@@ -27,6 +27,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -203,7 +204,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
    * <p>Legacy toolchains handle these .jars recursively by propagating the aspect down the
    * ":android_sdk" attribute. So they don't need this method.
    */
-  private static Iterable<Artifact> getPlatformBasedToolchainJars(RuleContext ruleContext) {
+  private static ImmutableList<Artifact> getPlatformBasedToolchainJars(RuleContext ruleContext)
+      throws RuleErrorException {
     if (!ruleContext
         .getConfiguration()
         .getFragment(AndroidConfiguration.class)
@@ -240,17 +242,19 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       throws InterruptedException, ActionConflictException {
     ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
 
-    Iterable<Artifact> extraToolchainJars = getPlatformBasedToolchainJars(ruleContext);
-
     int minSdkVersion = 0;
     if (!params.getAttribute("min_sdk_version").isEmpty()) {
       minSdkVersion = Integer.valueOf(params.getOnlyValueOfAttribute("min_sdk_version"));
     }
 
     Function<Artifact, Artifact> desugaredJars;
+    ImmutableList<Artifact> extraToolchainJars;
+    ImmutableCollection<Artifact> runtimeJars;
     try {
+      extraToolchainJars = getPlatformBasedToolchainJars(ruleContext);
       desugaredJars =
           desugarJarsIfRequested(ct, ruleContext, minSdkVersion, result, extraToolchainJars);
+      runtimeJars = getProducedRuntimeJars(ct, ruleContext, extraToolchainJars);
     } catch (RuleErrorException e) {
       ruleContext.ruleError(e.getMessage());
       return null;
@@ -272,7 +276,6 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     DexArchiveProvider.Builder dexArchives =
         new DexArchiveProvider.Builder()
             .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
-    Iterable<Artifact> runtimeJars = getProducedRuntimeJars(ct, ruleContext, extraToolchainJars);
     if (runtimeJars != null) {
       boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
@@ -377,8 +380,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   @Nullable
-  private static Iterable<Artifact> getProducedRuntimeJars(
-      ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars) {
+  private static ImmutableCollection<Artifact> getProducedRuntimeJars(
+      ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars)
+      throws RuleErrorException {
     if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs").isEmpty()) {
         JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
@@ -456,7 +460,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     return result.build();
   }
 
-  private NestedSet<Artifact> getBootclasspath(ConfiguredTarget base, RuleContext ruleContext) {
+  private NestedSet<Artifact> getBootclasspath(ConfiguredTarget base, RuleContext ruleContext)
+      throws RuleErrorException {
     NestedSet<Artifact> bootClasspath = JavaInfo.bootClasspath(base);
     if (!bootClasspath.isEmpty()) {
       return bootClasspath;

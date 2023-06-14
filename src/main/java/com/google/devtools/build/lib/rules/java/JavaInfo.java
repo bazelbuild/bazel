@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +62,7 @@ public final class JavaInfo extends NativeInfo
 
   public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
-  public static boolean isJavaTarget(TransitiveInfoCollection target) {
+  public static boolean isJavaTarget(TransitiveInfoCollection target) throws RuleErrorException {
     return JavaInfo.getCompilationArgsProvider(target).isPresent();
   }
 
@@ -88,7 +89,8 @@ public final class JavaInfo extends NativeInfo
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  public static NestedSet<Artifact> bootClasspath(TransitiveInfoCollection target) {
+  public static NestedSet<Artifact> bootClasspath(TransitiveInfoCollection target)
+      throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerJavaCompilationInfo != null) {
       return javaInfo.providerJavaCompilationInfo.getBootClasspathAsNestedSet();
@@ -96,19 +98,21 @@ public final class JavaInfo extends NativeInfo
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  public static Optional<Artifact> genSourceJar(TransitiveInfoCollection target) {
+  public static Optional<Artifact> genSourceJar(TransitiveInfoCollection target)
+      throws RuleErrorException {
     return Optional.ofNullable(getJavaInfo(target))
         .map(javaInfo -> javaInfo.providerJavaGenJars)
         .map(JavaGenJarsProvider::getGenSourceJar);
   }
 
   public static Optional<JavaCompilationArgsProvider> getCompilationArgsProvider(
-      TransitiveInfoCollection target) {
+      TransitiveInfoCollection target) throws RuleErrorException {
     return Optional.ofNullable(getJavaInfo(target))
         .map(javaInfo -> javaInfo.providerJavaCompilationArgs);
   }
 
-  public static NestedSet<Artifact> transitiveFullCompileTimeJars(TransitiveInfoCollection target) {
+  public static NestedSet<Artifact> transitiveFullCompileTimeJars(TransitiveInfoCollection target)
+      throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerJavaCompilationArgs != null) {
       return javaInfo.providerJavaCompilationArgs.getTransitiveFullCompileTimeJars();
@@ -116,7 +120,7 @@ public final class JavaInfo extends NativeInfo
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  public static CcInfo ccInfo(TransitiveInfoCollection target) {
+  public static CcInfo ccInfo(TransitiveInfoCollection target) throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerJavaCcInfo != null) {
       return javaInfo.providerJavaCcInfo.getCcInfo();
@@ -129,7 +133,8 @@ public final class JavaInfo extends NativeInfo
     return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveSourceJars);
   }
 
-  public static JavaGenJarsProvider genJarsProvider(TransitiveInfoCollection target) {
+  public static JavaGenJarsProvider genJarsProvider(TransitiveInfoCollection target)
+      throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerJavaGenJars != null) {
       return javaInfo.providerJavaGenJars;
@@ -137,12 +142,41 @@ public final class JavaInfo extends NativeInfo
     return JavaGenJarsProvider.EMPTY;
   }
 
-  public static JavaModuleFlagsProvider moduleFlagsProvider(TransitiveInfoCollection target) {
+  public static JavaModuleFlagsProvider moduleFlagsProvider(TransitiveInfoCollection target)
+      throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
     if (javaInfo != null && javaInfo.providerModuleFlags != null) {
       return javaInfo.providerModuleFlags;
     }
     return JavaModuleFlagsProvider.EMPTY;
+  }
+
+  public static ImmutableList<NestedSet<LibraryToLink>> transitiveCcNativeLibraries(
+      Collection<? extends TransitiveInfoCollection> targets) throws RuleErrorException {
+    ImmutableList.Builder<NestedSet<LibraryToLink>> builder = ImmutableList.builder();
+    for (TransitiveInfoCollection target : targets) {
+      CcInfo ccInfo = ccInfo(target);
+      builder.add(ccInfo.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
+    }
+    return builder.build();
+  }
+
+  public static ImmutableList<CcInfo> ccInfos(Iterable<? extends TransitiveInfoCollection> targets)
+      throws RuleErrorException {
+    ImmutableList.Builder<CcInfo> builder = ImmutableList.builder();
+    for (TransitiveInfoCollection target : targets) {
+      builder.add(JavaInfo.ccInfo(target));
+    }
+    return builder.build();
+  }
+
+  public static ImmutableList<JavaModuleFlagsProvider> moduleFlagsProviders(
+      Iterable<? extends TransitiveInfoCollection> targets) throws RuleErrorException {
+    ImmutableList.Builder<JavaModuleFlagsProvider> builder = ImmutableList.builder();
+    for (TransitiveInfoCollection target : targets) {
+      builder.add(JavaInfo.moduleFlagsProvider(target));
+    }
+    return builder.build();
   }
 
   public Optional<JavaCompilationArgsProvider> compilationArgsProvider() {
@@ -296,16 +330,16 @@ public final class JavaInfo extends NativeInfo
   @Nullable
   @VisibleForTesting
   public static <T extends JavaInfoInternalProvider> T getProvider(
-      Class<T> providerClass, TransitiveInfoCollection target) {
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+      Class<T> providerClass, TransitiveInfoCollection target) throws RuleErrorException {
+    JavaInfo javaInfo = getJavaInfo(target);
     if (javaInfo == null) {
       return null;
     }
     return javaInfo.getProvider(providerClass);
   }
 
-  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) {
-    return (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+  public static JavaInfo getJavaInfo(TransitiveInfoCollection target) throws RuleErrorException {
+    return target.get(JavaInfo.PROVIDER);
   }
 
   private JavaInfo(

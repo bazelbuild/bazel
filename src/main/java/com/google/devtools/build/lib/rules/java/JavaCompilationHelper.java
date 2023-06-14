@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.base.Preconditions;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
@@ -788,7 +788,8 @@ public final class JavaCompilationHelper {
     attributes.merge(args);
   }
 
-  private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps) {
+  private void addLibrariesToAttributesInternal(Iterable<? extends TransitiveInfoCollection> deps)
+      throws RuleErrorException {
     JavaCompilationArgsProvider args = JavaCompilationArgsProvider.legacyFromTargets(deps);
 
     NestedSet<Artifact> directJars =
@@ -801,7 +802,7 @@ public final class JavaCompilationHelper {
   }
 
   private NestedSet<Artifact> getNonRecursiveCompileTimeJarsFromCollection(
-      Iterable<? extends TransitiveInfoCollection> deps) {
+      Iterable<? extends TransitiveInfoCollection> deps) throws RuleErrorException {
     return JavaCompilationArgsProvider.legacyFromTargets(deps).getDirectCompileTimeJars();
   }
 
@@ -821,7 +822,8 @@ public final class JavaCompilationHelper {
    *
    * @param deps the dependencies to be included as roots of the transitive closure
    */
-  public void addLibrariesToAttributes(Collection<? extends TransitiveInfoCollection> deps) {
+  public void addLibrariesToAttributes(Collection<? extends TransitiveInfoCollection> deps)
+      throws RuleErrorException {
     // Enforcing strict Java dependencies: when the --strict_java_deps flag is
     // WARN or ERROR, or is DEFAULT and strict_java_deps attribute is unset,
     // we use a stricter javac compiler to perform direct deps checks.
@@ -830,14 +832,11 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      addDependencyArtifactsToAttributes(
-          attributes,
-          deps.stream()
-              .map(
-                  dep ->
-                      JavaInfo.getCompilationArgsProvider(dep)
-                          .orElse(JavaCompilationArgsProvider.EMPTY))
-              .collect(toImmutableList()));
+      ImmutableList.Builder<JavaCompilationArgsProvider> argsBuilder = ImmutableList.builder();
+      for (TransitiveInfoCollection dep : deps) {
+        JavaInfo.getCompilationArgsProvider(dep).ifPresent(argsBuilder::add);
+      }
+      addDependencyArtifactsToAttributes(attributes, argsBuilder.build());
     }
   }
 

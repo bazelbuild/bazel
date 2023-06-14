@@ -726,7 +726,7 @@ public interface JavaCommonApi<
       documented = false)
   Sequence<String> collectNativeLibsDirs(
       Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "get_runtime_classpath_for_archive",

@@ -464,7 +464,7 @@ public class JavaStarlarkCommon
   @Override
   public Sequence<String> collectNativeLibsDirs(
       Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, RuleErrorException {
     checkPrivateAccess(thread);
     ImmutableList<Artifact> nativeLibs =
         JavaCommon.collectNativeLibraries(

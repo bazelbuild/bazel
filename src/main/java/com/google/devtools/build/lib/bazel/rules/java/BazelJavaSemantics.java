@@ -259,7 +259,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       String coverageStartClass,
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,
-      boolean createCoverageMetadataJar) {
+      boolean createCoverageMetadataJar)
+      throws RuleErrorException {
     Preconditions.checkState(ruleContext.getConfiguration().hasFragment(JavaConfiguration.class));
 
     Preconditions.checkNotNull(jvmFlags);
@@ -406,7 +407,8 @@ public class BazelJavaSemantics implements JavaSemantics {
     return ruleContext.getFragment(JavaConfiguration.class).explicitJavaTestDeps();
   }
 
-  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps) {
+  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps)
+      throws RuleErrorException {
     // The dep may be a simple JAR and not a java rule, hence we can't simply do
     // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
     // so we reuse the logic within JavaCompilationArgsProvider to handle both scenarios.
@@ -415,8 +417,9 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public void addRunfilesForBinary(RuleContext ruleContext, Artifact launcher,
-      Runfiles.Builder runfilesBuilder) {
+  public void addRunfilesForBinary(
+      RuleContext ruleContext, Artifact launcher, Runfiles.Builder runfilesBuilder)
+      throws RuleErrorException {
     TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
     if (testSupport != null) {
       // We assume that the runtime jars will not have conflicting artifacts

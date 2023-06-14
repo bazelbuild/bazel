@@ -605,7 +605,8 @@ public class AndroidCommon {
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes,
       JavaSemantics semantics,
-      ImmutableList<Artifact> additionalArtifacts) {
+      ImmutableList<Artifact> additionalArtifacts)
+      throws RuleErrorException {
     JavaCompilationHelper helper =
         new JavaCompilationHelper(
             ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
@@ -817,7 +818,7 @@ public class AndroidCommon {
    * @param hasSrcs If false, deps are exported (deprecated behaviour)
    */
   private JavaCompilationArgsProvider collectJavaCompilationArgs(
-      boolean isNeverLink, boolean hasSrcs) {
+      boolean isNeverLink, boolean hasSrcs) throws RuleErrorException {
     boolean exportDeps =
         !hasSrcs
             && ruleContext
@@ -855,7 +856,7 @@ public class AndroidCommon {
     return asNeverLink;
   }
 
-  CcInfo getCcInfo() {
+  CcInfo getCcInfo() throws RuleErrorException {
     return getCcInfo(
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
         ImmutableList.of(),
@@ -867,7 +868,8 @@ public class AndroidCommon {
       final Collection<? extends TransitiveInfoCollection> deps,
       final ImmutableList<String> linkOpts,
       Label label,
-      SymbolGenerator<?> symbolGenerator) {
+      SymbolGenerator<?> symbolGenerator)
+      throws RuleErrorException {
 
     CcLinkingContext ccLinkingContext =
         CcLinkingContext.builder()
@@ -880,7 +882,7 @@ public class AndroidCommon {
     ImmutableList<CcInfo> ccInfos =
         Streams.concat(
                 Stream.of(linkoptsCcInfo),
-                deps.stream().map(JavaInfo::ccInfo),
+                JavaInfo.ccInfos(deps).stream(),
                 AnalysisUtils.getProviders(deps, AndroidCcLinkParamsProvider.PROVIDER).stream()
                     .map(AndroidCcLinkParamsProvider::getLinkParams),
                 AnalysisUtils.getProviders(deps, CcInfo.PROVIDER).stream())
