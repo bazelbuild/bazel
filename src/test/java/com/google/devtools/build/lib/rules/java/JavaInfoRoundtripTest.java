@@ -16,16 +16,23 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.Predicate;
 import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.Structure;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,7 +130,42 @@ public class JavaInfoRoundtripTest extends BuildViewTestCase {
             ")");
     @SuppressWarnings("unchecked") // deserialization
     Dict<Object, Object> javaInfo = (Dict<Object, Object>) dictTarget.get("result");
-    return javaInfo;
+    return deepStripAttributes(
+        javaInfo,
+        attr -> attr.startsWith("_") || ImmutableSet.of("to_proto", "to_json").contains(attr));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> T deepStripAttributes(T obj, Predicate<String> shouldRemove)
+      throws EvalException {
+    if (obj == null) {
+      return null;
+    } else if (obj instanceof StarlarkList) {
+      ImmutableList.Builder<Object> builder = ImmutableList.builder();
+      for (Object item : (StarlarkList<Object>) obj) {
+        builder.add(deepStripAttributes(item, shouldRemove));
+      }
+      return (T) StarlarkList.immutableCopyOf(builder.build());
+    } else if (obj instanceof Structure) {
+      for (String fieldName : ((Structure) obj).getFieldNames()) {
+        Dict.Builder<String, Object> builder = Dict.builder();
+        if (!shouldRemove.test(fieldName)) {
+          builder.put(
+              fieldName, deepStripAttributes(((Structure) obj).getValue(fieldName), shouldRemove));
+        }
+        return (T) StructProvider.STRUCT.create(builder.buildImmutable(), "");
+      }
+    } else if (obj instanceof Dict) {
+      Dict.Builder<Object, Object> builder = Dict.builder();
+      for (Entry<Object, Object> e :
+          Dict.cast(obj, Object.class, Object.class, "dict").entrySet()) {
+        if (!(e.getKey() instanceof String && shouldRemove.test((String) e.getKey()))) {
+          builder.put(e.getKey(), deepStripAttributes(e.getValue(), shouldRemove));
+        }
+      }
+      return (T) builder.buildImmutable();
+    }
+    return obj;
   }
 
   private Dict<Object, Object> removeCompilationInfo(Dict<Object, Object> javaInfo) {

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -624,6 +625,13 @@ public final class JavaInfo extends NativeInfo
               JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins"),
               Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
               thread.getCallerLocation());
+    }
+
+    public JavaInfo wrap(Info info) throws RuleErrorException {
+      if (info instanceof JavaInfo) {
+        return (JavaInfo) info;
+      }
+      throw new RuleErrorException("got " + Starlark.type(info) + ", wanted JavaInfo");
     }
   }
 
