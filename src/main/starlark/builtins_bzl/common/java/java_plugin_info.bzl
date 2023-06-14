@@ -96,3 +96,39 @@ JavaPluginInfo, _new_javaplugininfo = provider(
     },
     init = _javaplugininfo_init,
 )
+
+def merge_without_outputs(infos):
+    """ Merge plugin information from a list of JavaPluginInfo or JavaInfo
+
+    Args:
+        infos: ([JavaPluginInfo|JavaInfo]) list of providers to merge
+
+    Returns:
+        (JavaPluginInfo)
+    """
+    plugins = []
+    api_generating_plugins = []
+    for info in infos:
+        if _has_plugin_data(info.plugins):
+            plugins.append(info.plugins)
+        if _has_plugin_data(info.api_generating_plugins):
+            api_generating_plugins.append(info.api_generating_plugins)
+    return _new_javaplugininfo(
+        plugins = _merge_plugin_data(plugins),
+        api_generating_plugins = _merge_plugin_data(api_generating_plugins),
+        java_outputs = [],
+    )
+
+def _has_plugin_data(plugin_data):
+    return plugin_data and (
+        plugin_data.processor_classes or
+        plugin_data.processor_jars or
+        plugin_data.processor_data
+    )
+
+def _merge_plugin_data(datas):
+    return _JavaPluginDataInfo(
+        processor_classes = depset(transitive = [p.processor_classes for p in datas]),
+        processor_jars = depset(transitive = [p.processor_jars for p in datas]),
+        processor_data = depset(transitive = [p.processor_data for p in datas]),
+    )
