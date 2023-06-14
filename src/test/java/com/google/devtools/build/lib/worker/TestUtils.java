@@ -97,6 +97,16 @@ class TestUtils {
     return createWorkerKey(protocolFormat, fs, false);
   }
 
+  static WorkerKey createWorkerKey(String mnemonic, FileSystem fs, boolean sandboxed) {
+    return createWorkerKey(
+        WorkerProtocolFormat.PROTO,
+        fs,
+        mnemonic,
+        /* multiplex= */ false,
+        sandboxed,
+        /* dynamic= */ false);
+  }
+
   static WorkerKey createWorkerKey(String mnemonic, FileSystem fs) {
     return createWorkerKey(
         WorkerProtocolFormat.PROTO,
