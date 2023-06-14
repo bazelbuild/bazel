@@ -46,7 +46,6 @@ sh_test(
         # Intentionally bad test JAR: file count in central directory
         # wrong.
         "libwrongcentraldir.jar",
-        ":dynamic_constant.jar",
         "@bazel_tools//tools/jdk:current_java_runtime",
     ],
     shard_count = 5,
@@ -203,21 +202,6 @@ genrule(
     outs = ["source_debug_extension.jar"],
     cmd = "$(location :gen_source_debug_extension) $@",
     tools = ["gen_source_debug_extension"],
-)
-
-java_binary(
-    name = "gen_dynamic_constant",
-    srcs = ["GenDynamicConstant.java"],
-    main_class = "test.GenDynamicConstant",
-    deps = ["//third_party:asm"],
-)
-
-genrule(
-    name = "gen_dynamic_constant_jar",
-    srcs = [],
-    outs = ["dynamic_constant.jar"],
-    cmd = "$(location :gen_dynamic_constant) $@",
-    tools = [":gen_dynamic_constant"],
 )
 
 java_library(

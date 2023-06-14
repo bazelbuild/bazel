@@ -910,7 +910,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * <p>Skymeld: propagate events to BuildDriverKey nodes, since they cover both analysis &
    * execution.
    */
-  protected static final EventFilter DEFAULT_EVENT_FILTER_WITH_ACTIONS =
+  public static final EventFilter DEFAULT_EVENT_FILTER_WITH_ACTIONS =
       new EventFilter() {
         @Override
         public boolean storeEvents() {
