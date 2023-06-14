@@ -299,7 +299,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "6 processes: 4 internal, 2 remote"
+  expect_log "7 processes: 5 internal, 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -2579,7 +2579,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "5 processes: 3 internal, 2 .*-sandbox"
+  expect_log "6 processes: 4 internal, 2 .*-sandbox"
 
   bazel clean
 
@@ -2587,7 +2587,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "5 processes: 2 disk cache hit, 3 internal"
+  expect_log "6 processes: 2 disk cache hit, 4 internal"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in
