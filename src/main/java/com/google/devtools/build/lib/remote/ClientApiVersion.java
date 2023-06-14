@@ -107,8 +107,7 @@ public class ClientApiVersion {
 
   // highestSupportedVersion compares the client's supported versions against the input low and high
   // versions and returns the highest supported version. If the client's supported versions are not
-  // supported
-  // by the server, it returns null.
+  // supported by the server, it returns null.
   @Nullable
   private ApiVersion highestSupportedVersion(ApiVersion serverLow, ApiVersion serverHigh) {
     var higestLow = this.low.compareTo(serverLow) >= 0 ? this.low : serverLow;
