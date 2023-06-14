@@ -49,13 +49,13 @@ def _check_proto_libraries_in_deps(deps):
 
 def _create_proto_compile_action(ctx, outputs, proto_info):
     proto_root = proto_info.proto_source_root
-    if proto_root.startswith(ctx.genfiles_dir.path):
-        genfiles_path = proto_root
+    if proto_root.startswith(ctx.bin_dir.path):
+        path = proto_root
     else:
-        genfiles_path = ctx.genfiles_dir.path + "/" + proto_root
+        path = ctx.bin_dir.path + "/" + proto_root
 
     if proto_root == ".":
-        genfiles_path = ctx.genfiles_dir.path
+        path = ctx.bin_dir.path
 
     if len(outputs) != 0:
         proto_common.compile(
@@ -63,7 +63,7 @@ def _create_proto_compile_action(ctx, outputs, proto_info):
             proto_info = proto_info,
             proto_lang_toolchain_info = ctx.attr._aspect_cc_proto_toolchain[ProtoLangToolchainInfo],
             generated_files = outputs,
-            plugin_output = genfiles_path,
+            plugin_output = path,
         )
 
 def _get_output_files(ctx, target, suffixes):

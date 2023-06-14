@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import static com.google.common.base.MoreObjects.toStringHelper;
+
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
@@ -36,13 +38,13 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
   /**
    * Performs a lookup directly against the environment.
    *
-   * <p>This is more efficient than {@link Environment#getValuesAndExceptions} when there is only
-   * one key at a time.
+   * <p>This is more efficient than {@link LookupEnvironment#getValuesAndExceptions} when there is
+   * only one key at a time.
    *
    * @return true if a value was available or an exception was handled. Note: this is false for
    *     unhandled exceptions.
    */
-  abstract boolean doLookup(Environment env) throws InterruptedException;
+  abstract boolean doLookup(LookupEnvironment env) throws InterruptedException;
 
   @Override
   public final void acceptValue(SkyKey unusedKey, SkyValue value) {
@@ -72,7 +74,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    boolean doLookup(Environment env) throws InterruptedException {
+    boolean doLookup(LookupEnvironment env) throws InterruptedException {
       var value = env.getValue(key);
       if (value == null) {
         return false;
@@ -107,7 +109,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    boolean doLookup(Environment env) throws InterruptedException {
+    boolean doLookup(LookupEnvironment env) throws InterruptedException {
       SkyValue value;
       try {
         if ((value = env.getValueOrThrow(key(), exceptionClass)) == null) {
@@ -159,7 +161,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    boolean doLookup(Environment env) throws InterruptedException {
+    boolean doLookup(LookupEnvironment env) throws InterruptedException {
       SkyValue value;
       try {
         if ((value = env.getValueOrThrow(key(), exceptionClass1, exceptionClass2)) == null) {
@@ -221,7 +223,7 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
     }
 
     @Override
-    boolean doLookup(Environment env) throws InterruptedException {
+    boolean doLookup(LookupEnvironment env) throws InterruptedException {
       SkyValue value;
       try {
         if ((value = env.getValueOrThrow(key(), exceptionClass1, exceptionClass2, exceptionClass3))
@@ -264,5 +266,10 @@ abstract class Lookup implements SkyframeLookupResult.QueryDepCallback {
       }
       return false;
     }
+  }
+
+  @Override
+  public String toString() {
+    return toStringHelper(this).add("parent", parent).add("key", key).toString();
   }
 }

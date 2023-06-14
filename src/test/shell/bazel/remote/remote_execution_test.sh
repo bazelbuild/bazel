@@ -107,7 +107,7 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # First build should have called helper for 4 distinct URIs.
@@ -115,7 +115,7 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Second build should have hit the credentials cache.
@@ -137,7 +137,7 @@ function test_credential_helper_remote_execution() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # First build should have called helper for 5 distinct URIs.
@@ -146,7 +146,7 @@ function test_credential_helper_remote_execution() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Second build should have hit the credentials cache.
@@ -159,7 +159,7 @@ function test_credential_helper_clear_cache() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   expect_credential_helper_calls 5
@@ -169,7 +169,7 @@ function test_credential_helper_clear_cache() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Build after clean should have called helper again.
@@ -2100,8 +2100,6 @@ public class FactorialTest {
 }
 EOF
   cd ../..
-
-  cat $(rlocation io_bazel/src/test/shell/bazel/testdata/jdk_http_archives) >> WORKSPACE
 
   bazel coverage \
     --test_output=all \

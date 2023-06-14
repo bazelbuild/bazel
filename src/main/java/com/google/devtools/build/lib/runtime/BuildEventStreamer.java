@@ -405,11 +405,8 @@ public class BuildEventStreamer {
     }
   }
 
-  private void maybeReportConfiguration(BuildEvent configuration) {
-    BuildEvent event = configuration;
-    if (configuration == null) {
-      event = new NullConfiguration();
-    }
+  private void maybeReportConfiguration(@Nullable BuildEvent configuration) {
+    BuildEvent event = configuration == null ? NullConfiguration.INSTANCE : configuration;
     BuildEventId id = event.getEventId();
     synchronized (this) {
       if (configurationsPosted.contains(id)) {

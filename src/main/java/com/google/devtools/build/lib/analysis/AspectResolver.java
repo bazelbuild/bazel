@@ -11,21 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.AspectCollection.buildAspectKey;
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
+
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
 import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -58,13 +58,13 @@ public final class AspectResolver {
     OrderedSetMultimap<Dependency, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> allAspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
-      allAspectKeys.addAll(getAspectKeys(dep).values());
+      allAspectKeys.addAll(getAspectKeys(dep, configuredTargetMap).values());
     }
 
     SkyframeLookupResult depAspects = env.getValuesAndExceptions(allAspectKeys);
 
     for (Dependency dep : deps) {
-      Map<AspectDescriptor, AspectKey> aspectToKeys = getAspectKeys(dep);
+      Map<AspectDescriptor, AspectKey> aspectToKeys = getAspectKeys(dep, configuredTargetMap);
 
       for (AspectCollection.AspectDeps depAspect : dep.getAspects().getUsedAspects()) {
         AspectKey aspectKey = aspectToKeys.get(depAspect.getAspect());
@@ -138,48 +138,29 @@ public final class AspectResolver {
     return result;
   }
 
-  private static Map<AspectDescriptor, AspectKey> getAspectKeys(Dependency dep) {
+  private static Map<AspectDescriptor, AspectKey> getAspectKeys(
+      Dependency dep, Map<ConfiguredTargetKey, ConfiguredTargetAndData> configuredTargetMap) {
     HashMap<AspectDescriptor, AspectKey> result = new HashMap<>();
     AspectCollection aspects = dep.getAspects();
     for (AspectCollection.AspectDeps aspectDeps : aspects.getUsedAspects()) {
-      var unused = buildAspectKey(aspectDeps, result, dep.getConfiguredTargetKey());
+      ConfiguredTargetKey depKey = dep.getConfiguredTargetKey();
+
+      BuildConfigurationKey depConfigurationKey =
+          configuredTargetMap.get(depKey).getConfigurationKey();
+      // The aspect key's base key should match the match the configuration of the underlying
+      // configured target.
+      //
+      // In the current, transitional, state, configuration mismatches should be rare, occurring
+      // when rule transitions are not idempotent, for example, b/280040767. Mismatches becomes more
+      // common once rule transitions are removed from dependency resolution.
+      //
+      // TODO(b/261521010); update this comment.
+      if (!depConfigurationKey.equals(depKey.getConfigurationKey())) {
+        depKey = depKey.toBuilder().setConfigurationKey(depConfigurationKey).build();
+      }
+
+      buildAspectKey(aspectDeps, result, depKey);
     }
     return result;
-  }
-
-  private static AspectKey buildAspectKey(
-      AspectCollection.AspectDeps aspectDeps,
-      HashMap<AspectDescriptor, AspectKey> result,
-      ConfiguredTargetKey depKey) {
-    if (result.containsKey(aspectDeps.getAspect())) {
-      return (AspectKey) result.get(aspectDeps.getAspect()).argument();
-    }
-
-    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
-    for (AspectCollection.AspectDeps path : aspectDeps.getUsedAspects()) {
-      dependentAspects.add(buildAspectKey(path, result, depKey));
-    }
-    AspectKey aspectKey =
-        AspectKeyCreator.createAspectKey(aspectDeps.getAspect(), dependentAspects.build(), depKey);
-    result.put(aspectKey.getAspectDescriptor(), aspectKey);
-    return aspectKey;
-  }
-
-  public static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget ct, boolean isRule, Aspect aspect) {
-    if (!aspect.getDefinition().applyToFiles()
-        && !aspect.getDefinition().applyToGeneratingRules()
-        && !isRule) {
-      return false;
-    }
-    if (ct.getConfigurationKey() == null) {
-      // Aspects cannot apply to PackageGroups or InputFiles, the only cases where this is null.
-      return false;
-    }
-    return ct.satisfies(aspect.getDefinition().getRequiredProviders());
-  }
-
-  public static boolean aspectMatchesConfiguredTarget(ConfiguredTargetAndData ctad, Aspect aspect) {
-    return aspectMatchesConfiguredTarget(ctad.getConfiguredTarget(), ctad.isTargetRule(), aspect);
   }
 }

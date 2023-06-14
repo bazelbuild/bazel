@@ -19,12 +19,15 @@ import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RunEnvironmentInfo;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.BuildGlobals;
+import com.google.devtools.build.lib.packages.Proto;
 import com.google.devtools.build.lib.packages.SelectorList;
 import com.google.devtools.build.lib.packages.StarlarkGlobals;
-import com.google.devtools.build.lib.packages.StarlarkLibrary;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.lib.json.Json;
 
 /**
  * Sole implementation of {@link StarlarkGlobals}.
@@ -39,6 +42,32 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
 
   public static final StarlarkGlobalsImpl INSTANCE = new StarlarkGlobalsImpl();
 
+  private void addCommonUtilToplevels(ImmutableMap.Builder<String, Object> env) {
+    // Maintainer's note: Changes to this method are relatively high impact since it's sourced for
+    // BUILD, .bzl, and even cquery environments.
+    Starlark.addMethods(env, Depset.DepsetLibrary.INSTANCE);
+    env.put("json", Json.INSTANCE);
+    env.put("proto", Proto.INSTANCE);
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getUtilToplevels() {
+    // TODO(bazel-team): It's dubious that we include things like depset and select(), but not
+    // struct() here.
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    addCommonUtilToplevels(env);
+    Starlark.addMethods(env, SelectorList.SelectLibrary.INSTANCE);
+    return env.buildOrThrow();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getUtilToplevelsForCquery() {
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    addCommonUtilToplevels(env);
+    env.put("struct", StructProvider.STRUCT);
+    return env.buildOrThrow();
+  }
+
   @Override
   public ImmutableMap<String, Object> getFixedBuildFileToplevelsSharedWithNative() {
     return StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES;
@@ -46,16 +75,23 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
 
   @Override
   public ImmutableMap<String, Object> getFixedBuildFileToplevelsNotInNative() {
-    return StarlarkLibrary.BUILD; // e.g. select, depset
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+
+    env.putAll(getUtilToplevels());
+    Starlark.addMethods(env, BuildGlobals.INSTANCE);
+
+    return env.buildOrThrow();
   }
 
   @Override
   public ImmutableMap<String, Object> getFixedBzlToplevels() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
+
+    env.putAll(getUtilToplevels());
+
     Starlark.addMethods(env, new BazelBuildApiGlobals()); // e.g. configuration_field
     Starlark.addMethods(env, new StarlarkRuleClassFunctions()); // e.g. rule
-    Starlark.addMethods(env, SelectorList.SelectLibrary.INSTANCE);
+
     env.put("cmd_helper", new StarlarkCommandLine());
     env.put("attr", new StarlarkAttrModule());
     env.put("struct", StructProvider.STRUCT);
@@ -63,6 +99,25 @@ public final class StarlarkGlobalsImpl implements StarlarkGlobals {
     env.put("Actions", ActionsProvider.INSTANCE);
     env.put("DefaultInfo", DefaultInfo.PROVIDER);
     env.put("RunEnvironmentInfo", RunEnvironmentInfo.PROVIDER);
+
+    return env.buildOrThrow();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getSclToplevels() {
+    // TODO(bazel-team): We only want the visibility() symbol from BazelBuildApiGlobals, nothing
+    // else, but Starlark#addMethods doesn't allow that kind of granularity, and the Starlark
+    // interpreter doesn't provide any other way to turn a Java method definition into a
+    // callable symbol. So we hack it by building the map of all symbols in that class and
+    // retrieving just the one we want. The alternative of refactoring the class is more churn than
+    // its worth, given the starlarkbuildapi/ split.
+    ImmutableMap.Builder<String, Object> bazelBuildApiGlobalsSymbols = ImmutableMap.builder();
+    Starlark.addMethods(bazelBuildApiGlobalsSymbols, new BazelBuildApiGlobals());
+    Object visibilitySymbol = bazelBuildApiGlobalsSymbols.buildOrThrow().get("visibility");
+
+    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
+    env.put("visibility", visibilitySymbol);
+    env.put("struct", StructProvider.STRUCT);
     return env.buildOrThrow();
   }
 }

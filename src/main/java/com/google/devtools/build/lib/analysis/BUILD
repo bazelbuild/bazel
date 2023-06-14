@@ -169,6 +169,7 @@ java_library(
         "AnalysisRootCauseEvent.java",
         "AnalysisUtils.java",
         "AspectCompleteEvent.java",
+        "AspectResolutionHelpers.java",
         "AspectResolver.java",
         "AspectValue.java",
         "BaseRuleClasses.java",
@@ -447,6 +448,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/lib/json",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
@@ -533,6 +535,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//third_party:auto_value",
         "//third_party:guava",
     ],
@@ -547,6 +551,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -608,7 +613,6 @@ java_library(
         ":analysis_cluster",
         ":analysis_options",
         ":analysis_phase_started_event",
-        ":aspect_configured_event",
         ":blaze_directories",
         ":config/build_configuration",
         ":config/build_options",
@@ -620,7 +624,6 @@ java_library(
         ":extra_action_artifacts_provider",
         ":make_environment_event",
         ":target_and_configuration",
-        ":target_configured_event",
         ":test/coverage_report_action_factory",
         ":test/instrumented_files_info",
         ":top_level_artifact_context",
@@ -639,7 +642,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_result_listener",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
@@ -711,6 +713,7 @@ java_library(
     deps = [
         ":config/config_matching_provider",
         ":transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration",
         "//src/main/java/net/starlark/java/eval",
@@ -747,13 +750,19 @@ java_library(
 
 java_library(
     name = "dependency_key",
-    srcs = ["DependencyKey.java"],
+    srcs = [
+        "BaseDependencySpecification.java",
+        "DependencyKey.java",
+        "PartiallyResolvedDependency.java",
+    ],
     deps = [
         ":aspect_collection",
         ":config/transitions/configuration_transition",
         ":dependency",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:auto_value",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -843,6 +852,20 @@ java_library(
         ":aspect_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/syntax",
+    ],
+)
+
+java_library(
+    name = "inconsistent_null_config_exception",
+    srcs = ["InconsistentNullConfigException.java"],
+)
+
+java_library(
+    name = "invalid_visibility_dependency_exception",
+    srcs = ["InvalidVisibilityDependencyException.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
@@ -1058,9 +1081,9 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -1142,6 +1165,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -1180,7 +1204,7 @@ java_library(
         ":config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_context_key",
         "//third_party:guava",
     ],
 )
@@ -1333,6 +1357,21 @@ java_library(
         "//third_party:auto_value",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "config/transitions/baseline_options_value",
+    srcs = [
+        "config/transitions/BaselineOptionsValue.java",
+    ],
+    deps = [
+        ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/concurrent:thread_safety",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
     ],
 )
 
@@ -1643,6 +1682,7 @@ java_library(
     srcs = [
         "config/BuildConfigurationInfo.java",
         "config/BuildConfigurationValue.java",
+        "config/ConfigRequestedEvent.java",
         "config/OutputDirectories.java",
     ],
     deps = [
@@ -2149,6 +2189,12 @@ java_library(
 java_library(
     name = "constraints/constraint_constants",
     srcs = ["constraints/ConstraintConstants.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:os",
+        "//third_party:guava",
+    ],
 )
 
 java_library(
@@ -2623,6 +2669,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "test/coverage_action_finished_event",
+    srcs = ["test/CoverageActionFinishedEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//third_party:guava",
     ],
 )
 

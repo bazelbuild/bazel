@@ -70,13 +70,22 @@ public abstract class FileOptions {
    */
   public abstract boolean requireLoadStatementsFirst();
 
+  /**
+   * During lexing, whether to ban non-ASCII characters (i.e., characters with code point > U+7F) in
+   * string literals.
+   *
+   * <p>This applies to string literals' raw content as well as escape sequences.
+   */
+  public abstract boolean stringLiteralsAreAsciiOnly();
+
   public static Builder builder() {
     // These are the DEFAULT values.
     return new AutoValue_FileOptions.Builder()
         .allowLoadPrivateSymbols(false)
         .allowToplevelRebinding(false)
         .loadBindsGlobally(false)
-        .requireLoadStatementsFirst(true);
+        .requireLoadStatementsFirst(true)
+        .stringLiteralsAreAsciiOnly(false);
   }
 
   public abstract Builder toBuilder();
@@ -92,6 +101,8 @@ public abstract class FileOptions {
     public abstract Builder loadBindsGlobally(boolean value);
 
     public abstract Builder requireLoadStatementsFirst(boolean value);
+
+    public abstract Builder stringLiteralsAreAsciiOnly(boolean value);
 
     public abstract FileOptions build();
   }

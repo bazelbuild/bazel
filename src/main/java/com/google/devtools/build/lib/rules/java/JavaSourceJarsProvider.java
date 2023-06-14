@@ -18,12 +18,12 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Collection;
@@ -32,7 +32,7 @@ import java.util.Iterator;
 /** The collection of source jars from the transitive closure. */
 @AutoValue
 @Immutable
-public abstract class JavaSourceJarsProvider implements TransitiveInfoProvider {
+public abstract class JavaSourceJarsProvider implements JavaInfoInternalProvider {
 
   @SerializationConstant
   public static final JavaSourceJarsProvider EMPTY =

@@ -158,10 +158,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
       for (Attribute attr : rule.getAttributes()) {
-        AttributeValueSource attributeValueSource =
-            AttributeValueSource.forRuleAndAttribute(rule, attr);
-        if (attributeValueSource == AttributeValueSource.RULE
-            || queryOptions.xmlShowDefaultValues) {
+        if (rule.isAttributeValueExplicitlySpecified(attr) || queryOptions.xmlShowDefaultValues) {
           // TODO(b/162524370): mayTreatMultipleAsNone should be true for types that drop multiple
           //  values.
           Iterable<Object> values =
@@ -181,12 +178,17 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         inputElem.setAttribute("name", label.toString());
         elem.appendChild(inputElem);
       }
-      for (Label label :
-          aspectResolver.computeAspectDependencies(target, dependencyFilter).values()) {
-        Element inputElem = doc.createElement("rule-input");
-        inputElem.setAttribute("name", label.toString());
-        elem.appendChild(inputElem);
-      }
+
+      aspectResolver.computeAspectDependencies(target, dependencyFilter).values().stream()
+          .flatMap(m -> m.values().stream())
+          .distinct()
+          .forEach(
+              label -> {
+                Element inputElem = doc.createElement("rule-input");
+                inputElem.setAttribute("name", label.toString());
+                elem.appendChild(inputElem);
+              });
+
       for (OutputFile outputFile : rule.getOutputFiles()) {
         Element outputElem = doc.createElement("rule-output");
         outputElem.setAttribute("name", outputFile.getLabel().toString());

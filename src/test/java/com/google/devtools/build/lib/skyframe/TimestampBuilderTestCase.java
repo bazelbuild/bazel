@@ -334,16 +334,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
               InterruptedException,
               Actions.ArtifactGeneratedByOtherRuleException {
         if (evaluator.getExistingValue(ACTION_LOOKUP_KEY) == null) {
+          ImmutableList<ActionAnalysisMetadata> generatingActions = ImmutableList.copyOf(actions);
+          Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+              actionKeyContext, generatingActions, ACTION_LOOKUP_KEY);
           differencer.inject(
               ImmutableMap.of(
-                  ACTION_LOOKUP_KEY,
-                  Delta.justNew(
-                      new BasicActionLookupValue(
-                          Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                              actionKeyContext,
-                              ImmutableList.copyOf(actions),
-                              ACTION_LOOKUP_KEY,
-                              /* outputFiles= */ null)))));
+                  ACTION_LOOKUP_KEY, Delta.justNew(new BasicActionLookupValue(generatingActions))));
         }
       }
 

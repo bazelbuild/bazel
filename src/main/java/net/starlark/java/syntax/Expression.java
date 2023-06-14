@@ -64,8 +64,13 @@ public abstract class Expression extends Node {
   }
 
   /** Parses an expression. */
-  public static Expression parse(ParserInput input) throws SyntaxError.Exception {
-    return Parser.parseExpression(input);
+  public static Expression parse(ParserInput input, FileOptions options)
+      throws SyntaxError.Exception {
+    return Parser.parseExpression(input, options);
   }
 
+  /** Parses an expression with default options. */
+  public static Expression parse(ParserInput input) throws SyntaxError.Exception {
+    return parse(input, FileOptions.DEFAULT);
+  }
 }

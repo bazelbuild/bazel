@@ -199,6 +199,7 @@ java_test(
         "no_windows",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:junit4",
     ],

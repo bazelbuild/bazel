@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -765,6 +766,10 @@ public final class RuleContext extends TargetContext
     return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
+  public Artifact getPackageRelativeTreeArtifact(String relative, ArtifactRoot root) {
+    return getPackageRelativeTreeArtifact(PathFragment.create(relative), root);
+  }
+
   /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.
@@ -964,6 +969,15 @@ public final class RuleContext extends TargetContext
       String attributeName, Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName), classType);
+  }
+
+  /**
+   * Returns all the declared Starlark wrapped providers for the specified constructor under the
+   * specified attribute of this target in the BUILD file.
+   */
+  public <T extends Info> ImmutableList<T> getPrerequisites(
+      String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName), starlarkKey);
   }
 
   /**

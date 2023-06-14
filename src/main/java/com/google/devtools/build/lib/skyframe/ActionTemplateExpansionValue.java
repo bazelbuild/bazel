@@ -15,10 +15,11 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -27,7 +28,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 
 /** Value that stores expanded actions from ActionTemplate. */
 public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
-  ActionTemplateExpansionValue(GeneratingActions generatingActions) {
+
+  ActionTemplateExpansionValue(ImmutableList<ActionAnalysisMetadata> generatingActions) {
     super(generatingActions);
   }
 

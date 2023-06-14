@@ -166,8 +166,9 @@ class BazelLockfileTest(test_base.TestBase):
         allow_failure=True,
     )
     self.AssertExitCode(exit_code, 48, stderr)
-    self.assertIn(
-        "ERROR: sss@1.3/MODULE.bazel:1:9: invalid character: '!'", stderr
+    self.assertRegex(
+        '\n'.join(stderr),
+        "ERROR: .*/sss/1.3/MODULE.bazel:1:9: invalid character: '!'",
     )
 
   def testLockfileErrorMode(self):

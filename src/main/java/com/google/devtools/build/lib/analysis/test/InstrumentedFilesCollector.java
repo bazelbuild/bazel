@@ -208,8 +208,8 @@ public final class InstrumentedFilesCollector {
       for (TransitiveInfoCollection dep :
           getPrerequisitesForAttributes(ruleContext, spec.sourceAttributes)) {
         for (Artifact artifact : dep.getProvider(FileProvider.class).getFilesToBuild().toList()) {
-          if (artifact.isSourceArtifact() &&
-              spec.instrumentedFileTypes.matches(artifact.getFilename())) {
+          if (shouldIncludeArtifact(ruleContext.getConfiguration(), artifact)
+              && spec.instrumentedFileTypes.matches(artifact.getFilename())) {
             localSourcesBuilder.add(artifact);
           }
         }
@@ -255,6 +255,14 @@ public final class InstrumentedFilesCollector {
       BuildConfigurationValue config, Label label, boolean isTest) {
     return ((config.shouldInstrumentTestTargets() || !isTest)
         && config.getInstrumentationFilter().isIncluded(label.toString()));
+  }
+
+  /**
+   * Return whether the artifact should be collected based on the origin of the artifact and the
+   * --experimental_collect_code_coverage_for_generated_files config setting.
+   */
+  public static boolean shouldIncludeArtifact(BuildConfigurationValue config, Artifact artifact) {
+    return artifact.isSourceArtifact() || config.shouldCollectCodeCoverageForGeneratedFiles();
   }
 
   /**

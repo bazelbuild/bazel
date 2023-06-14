@@ -25,12 +25,9 @@ import com.google.devtools.build.lib.analysis.TargetContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.OutputFile;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import net.starlark.java.eval.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
@@ -45,32 +42,15 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
       OutputFile outputFile,
       ConfiguredTarget generatingRule,
       Artifact outputArtifact) {
-    this(
-        targetContext.getLabel(),
-        targetContext.getConfigurationKey(),
+    super(
+        targetContext.getAnalysisEnvironment().getOwner(),
         targetContext.getVisibility(),
         outputArtifact,
-        generatingRule);
-    Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-  }
-
-  private OutputFileConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
-      NestedSet<PackageGroupContents> visibility,
-      Artifact artifact,
-      ConfiguredTarget generatingRule) {
-
-    super(
-        label,
-        configurationKey,
-        visibility,
-        artifact,
         instrumentedFilesInfo(generatingRule),
         generatingRule.getProvider(RequiredConfigFragmentsProvider.class),
         Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.STARLARK_CONSTRUCTOR));
-
-    this.artifact = artifact;
+    Preconditions.checkArgument(targetContext.getTarget() == outputFile);
+    this.artifact = outputArtifact;
     this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 

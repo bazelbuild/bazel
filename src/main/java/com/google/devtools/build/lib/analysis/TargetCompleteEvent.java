@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.UnresolvedSymlinkArtifactValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -151,7 +152,6 @@ public final class TargetCompleteEvent
       postedAfterBuilder.add(cause.getIdProto());
     }
     detailedExitCode = mostImportantDetailedExitCode;
-    this.postedAfter = postedAfterBuilder.build();
     this.completionContext = completionContext;
     this.outputs = outputs;
     this.isTest = isTest;
@@ -174,10 +174,12 @@ public final class TargetCompleteEvent
           instrumentedFilesProvider.getBaselineCoverageArtifacts();
       if (!baselineCoverageArtifacts.isEmpty()) {
         this.baselineCoverageArtifacts = baselineCoverageArtifacts;
+        postedAfterBuilder.add(BuildEventIdUtil.coverageActionsFinished());
       } else {
         this.baselineCoverageArtifacts = null;
       }
     }
+    this.postedAfter = postedAfterBuilder.build();
     this.tags = targetAndData.getRuleTags();
   }
 
@@ -323,9 +325,11 @@ public final class TargetCompleteEvent
             String name = artifactNameFunction.apply(artifact);
             String uri =
                 converters.pathConverter().apply(completionContext.pathResolver().toPath(artifact));
-            if (uri != null) {
-              builder.addImportantOutput(
-                  newFileFromArtifact(name, artifact, completionContext).setUri(uri).build());
+            BuildEventStreamProtos.File file =
+                newFileFromArtifact(name, artifact, completionContext, uri);
+            // Omit files with unknown contents (e.g. if uploading failed).
+            if (file.getFileCase() != BuildEventStreamProtos.File.FileCase.FILE_NOT_SET) {
+              builder.addImportantOutput(file);
             }
           }
 
@@ -341,13 +345,12 @@ public final class TargetCompleteEvent
     return Iterables.filter(artifacts, artifact -> !artifact.isFileset());
   }
 
-  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
-      String name, Artifact artifact, CompletionContext completionContext) {
-    return newFileFromArtifact(name, artifact, PathFragment.EMPTY_FRAGMENT, completionContext);
-  }
-
-  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
-      String name, Artifact artifact, PathFragment relPath, CompletionContext completionContext) {
+  public static BuildEventStreamProtos.File newFileFromArtifact(
+      @Nullable String name,
+      Artifact artifact,
+      PathFragment relPath,
+      CompletionContext completionContext,
+      @Nullable String uri) {
     if (name == null) {
       name = artifact.getRootRelativePath().getRelative(relPath).getPathString();
       if (OS.getCurrent() != OS.WINDOWS) {
@@ -366,19 +369,31 @@ public final class TargetCompleteEvent
             .setName(name)
             .addAllPathPrefix(artifact.getRoot().getExecPath().segments());
     FileArtifactValue fileArtifactValue = completionContext.getFileArtifactValue(artifact);
-    if (fileArtifactValue != null && fileArtifactValue.getType().exists()) {
+    if (fileArtifactValue instanceof UnresolvedSymlinkArtifactValue) {
+      file.setSymlinkTargetPath(
+          ((UnresolvedSymlinkArtifactValue) fileArtifactValue).getSymlinkTarget());
+    } else if (fileArtifactValue != null && fileArtifactValue.getType().exists()) {
       byte[] digest = fileArtifactValue.getDigest();
       if (digest != null) {
         file.setDigest(LOWERCASE_HEX_ENCODING.encode(digest));
       }
       file.setLength(fileArtifactValue.getSize());
     }
-    return file;
+    if (uri != null) {
+      file.setUri(uri);
+    }
+    return file.build();
   }
 
-  public static BuildEventStreamProtos.File.Builder newFileFromArtifact(
-      Artifact artifact, CompletionContext completionContext) {
-    return newFileFromArtifact(/* name= */ null, artifact, completionContext);
+  public static BuildEventStreamProtos.File newFileFromArtifact(
+      String name, Artifact artifact, CompletionContext completionContext, @Nullable String uri) {
+    return newFileFromArtifact(name, artifact, PathFragment.EMPTY_FRAGMENT, completionContext, uri);
+  }
+
+  public static BuildEventStreamProtos.File newFileFromArtifact(
+      Artifact artifact, CompletionContext completionContext, @Nullable String uri) {
+    return newFileFromArtifact(
+        /* name= */ null, artifact, PathFragment.EMPTY_FRAGMENT, completionContext, uri);
   }
 
   @Override
@@ -449,7 +464,8 @@ public final class TargetCompleteEvent
     Iterable<Artifact> filteredImportantArtifacts = getLegacyFilteredImportantArtifacts();
     for (Artifact artifact : filteredImportantArtifacts) {
       if (artifact.isDirectory()) {
-        builder.addDirectoryOutput(newFileFromArtifact(artifact, completionContext).build());
+        builder.addDirectoryOutput(
+            newFileFromArtifact(artifact, completionContext, /* uri= */ null));
       }
     }
     // TODO(aehlig): remove direct reporting of artifacts as soon as clients no longer need it.

@@ -154,6 +154,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "j2objc_library(",
         "    name = 'transpile',",
         "    deps = ['test'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
@@ -203,7 +204,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")",
         "j2objc_library(",
         "    name = 'transpile',",
-        "    deps = ['test']",
+        "    deps = ['test'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")");
 
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
@@ -438,8 +440,15 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   @Test
   public void testMissingEntryClassesError() throws Exception {
     useConfiguration("--j2objc_dead_code_removal");
-    checkError("java/com/google/dummy", "transpile", J2ObjcLibrary.NO_ENTRY_CLASS_ERROR_MSG,
-        "j2objc_library(name = 'transpile', deps = ['//java/com/google/dummy/test:test'])");
+    checkError(
+        "java/com/google/dummy",
+        "transpile",
+        J2ObjcLibrary.NO_ENTRY_CLASS_ERROR_MSG,
+        "j2objc_library(",
+        "    name = 'transpile',",
+        "    deps = ['//java/com/google/dummy/test:test'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
+        ")");
   }
 
   @Test
@@ -487,6 +496,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "j2objc_library(",
         "    name = 'test',",
         "    jre_deps = ['no_tag_dep'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")");
     reporter.removeHandler(failFastHandler);
 
@@ -647,6 +657,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    name = 'transpile',",
         "    entry_classes = ['com.google.app.test.test'],",
         "    deps = ['test'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")");
   }
 
@@ -668,7 +679,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")",
         "j2objc_library(",
         "    name = 'transpile',",
-        "    deps = [':test']",
+        "    deps = [':test'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")");
   }
 
@@ -734,6 +746,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "j2objc_library(",
         "    name = 'transpile',",
         "    deps = [':dummyTwo'],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")",
         "objc_library(",
         "    name = 'lib',",
@@ -791,6 +804,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "j2objc_library(",
         "    name = 'j2',",
         "    deps = [ '//java/c/y:ylib' ],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         "    jre_deps = [ '"
             + TestConstants.TOOLS_REPOSITORY
             + "//third_party/java/j2objc:jre_io_lib' ],",
@@ -1016,6 +1030,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "",
         "j2objc_library(",
         "    name = 'transpile',",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         "    deps = [",
         "        ':dummy',",
         "        '//java/com/google/dummy/test:transpile',",
@@ -1074,6 +1089,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    deps = [",
         "        ':outer',",
         "    ],",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         ")",
         "objc_library(",
         "    name = 'lib',",
@@ -1184,6 +1200,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "",
         "j2objc_library(",
         "    name = 'transpile',",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
         "    deps = ['test'])");
 
     ConfiguredTarget j2objcLibraryTarget =
@@ -1343,5 +1360,33 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     for (String expectedArg : expectedArgs) {
       assertThat(commandLine).contains(expectedArg);
     }
+  }
+
+  @Test
+  public void j2objcLibrary_noPropperTag_lockdownError() throws Exception {
+    useConfiguration("--incompatible_j2objc_library_migration");
+    scratch.file("test/BUILD", "j2objc_library(name = 'test')");
+    reporter.removeHandler(failFastHandler);
+
+    getConfiguredTarget("//test");
+
+    assertContainsEvent(
+        "j2objc_library is locked. Please do not use this rule since it will be deleted in the"
+            + " future.");
+  }
+
+  @Test
+  public void j2objcLibrary_withPropperTag_noError() throws Exception {
+    useConfiguration("--incompatible_j2objc_library_migration");
+    scratch.file(
+        "test/BUILD",
+        "j2objc_library(",
+        "    name = 'test',",
+        "    tags = ['__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__'],",
+        ")");
+
+    getConfiguredTarget("//test");
+
+    assertNoEvents();
   }
 }

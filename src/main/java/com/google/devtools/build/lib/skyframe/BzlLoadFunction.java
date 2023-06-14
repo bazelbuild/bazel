@@ -1267,8 +1267,8 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Obtains the predeclared environment for a .bzl file, based on the type of .bzl and (if
-   * applicable) the injected builtins.
+   * Obtains the predeclared environment for a .bzl (or .scl) file, based on the type of .bzl and
+   * (if applicable) the injected builtins.
    *
    * <p>Returns null if there was a missing Skyframe dep or unspecified exception.
    *
@@ -1279,7 +1279,10 @@ public class BzlLoadFunction implements SkyFunction {
   private ImmutableMap<String, Object> getAndDigestPredeclaredEnvironment(
       BzlLoadValue.Key key, StarlarkBuiltinsValue builtins, Fingerprint fp) {
     BazelStarlarkEnvironment starlarkEnv = ruleClassProvider.getBazelStarlarkEnvironment();
-    if (key instanceof BzlLoadValue.KeyForBuild) {
+    if (key.isSclDialect()) {
+      // .scl doesn't use injection and doesn't care what kind of key it is.
+      return starlarkEnv.getStarlarkGlobals().getSclToplevels();
+    } else if (key instanceof BzlLoadValue.KeyForBuild) {
       // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
       if (builtins
           .starlarkSemantics

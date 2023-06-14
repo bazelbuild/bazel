@@ -36,6 +36,9 @@ load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_pr
 load("@_builtins//:common/cc/cc_library.bzl", "cc_library")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
+load(":common/objc/objc_common.bzl", "objc_common")
+load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -51,6 +54,7 @@ exported_toplevels = {
     "py_internal": py_internal,
     "ProtoInfo": ProtoInfo,
     "cc_common": cc_common,
+    "+JavaPluginInfo": JavaPluginInfo,
 }
 
 # A list of Starlarkified native rules.
@@ -84,4 +88,6 @@ exported_to_java = {
     "proto_common_experimental_filter_sources": proto_common_do_not_use.experimental_filter_sources,
     "link_multi_arch_static_library": linking_support.link_multi_arch_static_library,
     "get_cc_toolchain_provider": get_cc_toolchain_provider,
+    "cc_toolchain_build_variables": cc_helper.cc_toolchain_build_variables,
+    "apple_cc_toolchain_build_variables": objc_common.apple_cc_toolchain_build_variables,
 }

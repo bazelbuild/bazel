@@ -64,7 +64,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       ExtendedEventHandler eventHandler,
       AqueryOptions options,
       OutputStream out,
-      TargetAccessor<KeyedConfiguredTargetValue> accessor,
+      TargetAccessor<ConfiguredTargetValue> accessor,
       OutputType outputType,
       AqueryActionFilter actionFilters) {
     super(eventHandler, options, out, accessor);
@@ -93,15 +93,20 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       OutputType outputType, OutputStream out, PrintStream printStream, boolean parallelized) {
     switch (outputType) {
       case BINARY:
+      case DELIMITED_BINARY:
       case TEXT:
         return parallelized
             ? new StreamedConsumingOutputHandler(
                 outputType,
+                out,
                 CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
                 printStream,
                 new LinkedBlockingQueue<>(BLOCKING_QUEUE_SIZE))
             : new StreamedOutputHandler(
-                outputType, CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE), printStream);
+                outputType,
+                out,
+                CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
+                printStream);
       case JSON:
         return new MonolithicOutputHandler(printStream);
     }
@@ -124,7 +129,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
   }
 
   @Override
-  public void processOutput(Iterable<KeyedConfiguredTargetValue> partialResult)
+  public void processOutput(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     if (options.parallelAqueryOutput
         && aqueryOutputHandler instanceof AqueryConsumingOutputHandler) {
@@ -136,21 +141,19 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
       // Enabling includeParamFiles should enable includeCommandline by default.
       options.includeCommandline |= options.includeParamFiles;
 
-      for (KeyedConfiguredTargetValue keyedConfiguredTargetValue : partialResult) {
-        processSingleEntry(keyedConfiguredTargetValue);
+      for (ConfiguredTargetValue configuredTargetValue : partialResult) {
+        processSingleEntry(configuredTargetValue);
       }
     } catch (CommandLineExpansionException | TemplateExpansionException e) {
       throw new IOException(e.getMessage());
     }
   }
 
-  private void processSingleEntry(KeyedConfiguredTargetValue keyedConfiguredTargetValue)
+  private void processSingleEntry(ConfiguredTargetValue configuredTargetValue)
       throws CommandLineExpansionException,
           InterruptedException,
           IOException,
           TemplateExpansionException {
-    ConfiguredTargetValue configuredTargetValue =
-        keyedConfiguredTargetValue.getConfiguredTargetValue();
     if (!(configuredTargetValue instanceof RuleConfiguredTargetValue)) {
       // We have to include non-rule values in the graph to visit their dependencies, but they
       // don't have any actions to print out.
@@ -158,13 +161,13 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     }
     actionGraphDump.dumpConfiguredTarget((RuleConfiguredTargetValue) configuredTargetValue);
     if (options.useAspects) {
-      for (AspectValue aspectValue : accessor.getAspectValues(keyedConfiguredTargetValue)) {
+      for (AspectValue aspectValue : accessor.getAspectValues(configuredTargetValue)) {
         actionGraphDump.dumpAspect(aspectValue, configuredTargetValue);
       }
     }
   }
 
-  private void processOutputInParallel(Iterable<KeyedConfiguredTargetValue> partialResult)
+  private void processOutputInParallel(Iterable<ConfiguredTargetValue> partialResult)
       throws IOException, InterruptedException {
     AqueryConsumingOutputHandler aqueryConsumingOutputHandler =
         (AqueryConsumingOutputHandler) aqueryOutputHandler;
@@ -201,9 +204,9 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
     }
   }
 
-  private ImmutableList<AqueryOutputTask> toTasks(Iterable<KeyedConfiguredTargetValue> values) {
+  private ImmutableList<AqueryOutputTask> toTasks(Iterable<ConfiguredTargetValue> values) {
     ImmutableList.Builder<AqueryOutputTask> tasks = ImmutableList.builder();
-    for (KeyedConfiguredTargetValue value : values) {
+    for (ConfiguredTargetValue value : values) {
       tasks.add(new AqueryOutputTask(value));
     }
     return tasks.build();
@@ -211,10 +214,10 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
 
   private final class AqueryOutputTask implements Callable<Void> {
 
-    private final KeyedConfiguredTargetValue keyedConfiguredTargetValue;
+    private final ConfiguredTargetValue configuredTargetValue;
 
-    AqueryOutputTask(KeyedConfiguredTargetValue keyedConfiguredTargetValue) {
-      this.keyedConfiguredTargetValue = keyedConfiguredTargetValue;
+    AqueryOutputTask(ConfiguredTargetValue configuredTargetValue) {
+      this.configuredTargetValue = configuredTargetValue;
     }
 
     @Override
@@ -223,7 +226,7 @@ public class ActionGraphProtoOutputFormatterCallback extends AqueryThreadsafeCal
             TemplateExpansionException,
             IOException,
             InterruptedException {
-      processSingleEntry(keyedConfiguredTargetValue);
+      processSingleEntry(configuredTargetValue);
       return null;
     }
   }

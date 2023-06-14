@@ -572,22 +572,17 @@ public abstract class AndroidStarlarkData
   private static JavaInfo getJavaInfoForRClassJar(Artifact rClassJar, Artifact rClassSrcJar) {
     return JavaInfo.Builder.create()
         .setNeverlink(true)
-        .addProvider(
-            JavaSourceJarsProvider.class,
-            JavaSourceJarsProvider.builder().addSourceJar(rClassSrcJar).build())
-        .addProvider(
-            JavaRuleOutputJarsProvider.class,
+        .javaSourceJars(JavaSourceJarsProvider.builder().addSourceJar(rClassSrcJar).build())
+        .javaRuleOutputs(
             JavaRuleOutputJarsProvider.builder()
                 .addJavaOutput(
                     JavaOutput.builder().setClassJar(rClassJar).addSourceJar(rClassSrcJar).build())
                 .build())
-        .addProvider(
-            JavaCompilationArgsProvider.class,
+        .javaCompilationArgs(
             JavaCompilationArgsProvider.builder()
                 .addDirectCompileTimeJar(rClassJar, rClassJar)
                 .build())
-        .addProvider(
-            JavaCompilationInfoProvider.class,
+        .javaCompilationInfo(
             new JavaCompilationInfoProvider.Builder()
                 .setCompilationClasspath(NestedSetBuilder.create(Order.NAIVE_LINK_ORDER, rClassJar))
                 .build())

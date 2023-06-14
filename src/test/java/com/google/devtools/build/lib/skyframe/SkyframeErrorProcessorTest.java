@@ -69,7 +69,6 @@ public class SkyframeErrorProcessorTest {
             () ->
                 SkyframeErrorProcessor.processErrors(
                     result,
-                    /*configurationLookupSupplier=*/ null,
                     /*cyclesReporter=*/ new CyclesReporter(),
                     /*eventHandler=*/ mock(ExtendedEventHandler.class),
                     /*keepGoing=*/ false,

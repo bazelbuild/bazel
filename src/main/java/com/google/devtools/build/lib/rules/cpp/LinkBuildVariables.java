@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
@@ -97,6 +98,7 @@ public enum LinkBuildVariables {
   }
 
   public static CcToolchainVariables setupVariables(
+      StarlarkThread thread,
       boolean isUsingLinkerNotArchiver,
       PathFragment binDirectoryPath,
       String outputFile,
@@ -122,10 +124,10 @@ public enum LinkBuildVariables {
       SequenceBuilder librariesToLink,
       NestedSet<String> librarySearchDirectories,
       boolean addIfsoRelatedVariables)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     CcToolchainVariables.Builder buildVariables =
         CcToolchainVariables.builder(
-            ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration));
+            ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration));
 
     // pic
     if (cppConfiguration.forcePic()) {
@@ -143,11 +145,7 @@ public enum LinkBuildVariables {
     }
 
     if (!cppConfiguration.useCcTestFeature()) {
-      if (useTestOnlyFlags) {
-        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 1);
-      } else {
-        buildVariables.addIntegerVariable(IS_CC_TEST.getVariableName(), 0);
-      }
+      buildVariables.addBooleanValue(IS_CC_TEST.getVariableName(), useTestOnlyFlags);
     }
 
     if (runtimeLibrarySearchDirectories != null) {

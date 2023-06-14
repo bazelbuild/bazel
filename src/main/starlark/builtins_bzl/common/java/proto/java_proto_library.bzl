@@ -17,9 +17,9 @@
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "ProtoLangToolchainInfo", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
+load(":common/java/java_info.bzl", "JavaInfo")
 
 java_common = _builtins.toplevel.java_common
-JavaInfo = _builtins.toplevel.JavaInfo
 
 # The provider is used to collect source and runtime jars in the `proto_library` dependency graph.
 JavaProtoAspectInfo = provider("JavaProtoAspectInfo", fields = ["jars"])

@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
@@ -131,13 +132,21 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final Path path;
     private final Digest digest;
     private final boolean directory;
+    private final boolean symlink;
     private final boolean remote;
     private final boolean omitted;
 
-    PathMetadata(Path path, Digest digest, boolean directory, boolean remote, boolean omitted) {
+    PathMetadata(
+        Path path,
+        Digest digest,
+        boolean directory,
+        boolean symlink,
+        boolean remote,
+        boolean omitted) {
       this.path = path;
       this.digest = digest;
       this.directory = directory;
+      this.symlink = symlink;
       this.remote = remote;
       this.omitted = omitted;
     }
@@ -154,6 +163,10 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return directory;
     }
 
+    public boolean isSymlink() {
+      return symlink;
+    }
+
     public boolean isRemote() {
       return remote;
     }
@@ -167,32 +180,44 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
    * Collects metadata for {@code file}. Depending on the underlying filesystem used this method
    * might do I/O.
    */
-  private PathMetadata readPathMetadata(Path file) throws IOException {
-    if (file.isDirectory()) {
+  private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
+    if (file.type == LocalFileType.OUTPUT_DIRECTORY
+        || (file.type == LocalFileType.OUTPUT && path.isDirectory())) {
       return new PathMetadata(
-          file,
+          path,
           /* digest= */ null,
           /* directory= */ true,
+          /* symlink= */ false,
+          /* remote= */ false,
+          /* omitted= */ false);
+    }
+    if (file.type == LocalFileType.OUTPUT_SYMLINK) {
+      return new PathMetadata(
+          path,
+          /* digest= */ null,
+          /* directory= */ false,
+          /* symlink= */ true,
           /* remote= */ false,
           /* omitted= */ false);
     }
 
-    PathFragment filePathFragment = file.asFragment();
+    PathFragment filePathFragment = path.asFragment();
     boolean omitted = false;
     if (omittedFiles.contains(filePathFragment)) {
       omitted = true;
     } else {
       for (PathFragment treeRoot : omittedTreeRoots) {
-        if (file.startsWith(treeRoot)) {
+        if (path.startsWith(treeRoot)) {
           omittedFiles.add(filePathFragment);
           omitted = true;
         }
       }
     }
 
-    DigestUtil digestUtil = new DigestUtil(xattrProvider, file.getFileSystem().getDigestFunction());
-    Digest digest = digestUtil.compute(file);
-    return new PathMetadata(file, digest, /* directory= */ false, isRemoteFile(file), omitted);
+    DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
+    Digest digest = digestUtil.compute(path);
+    return new PathMetadata(
+        path, digest, /* directory= */ false, /* symlink= */ false, isRemoteFile(path), omitted);
   }
 
   private static void processQueryResult(
@@ -208,6 +233,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 file.getPath(),
                 file.getDigest(),
                 file.isDirectory(),
+                file.isSymlink(),
                 /* remote= */ true,
                 file.isOmitted());
         knownRemotePaths.add(remotePathMetadata);
@@ -217,7 +243,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private boolean shouldUpload(PathMetadata path) {
     boolean result =
-        path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isOmitted();
+        path.getDigest() != null
+            && !path.isRemote()
+            && !path.isDirectory()
+            && !path.isSymlink()
+            && !path.isOmitted();
 
     if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
       result = result && (isLog(path) || isProfile(path));
@@ -302,6 +332,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                               path.getPath(),
                               path.getDigest(),
                               path.isDirectory(),
+                              path.isSymlink(),
                               // set remote to true so the PathConverter will use bytestream://
                               // scheme to convert the URI for this file
                               /* remote= */ true,
@@ -315,7 +346,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         .collect(Collectors.toList());
   }
 
-  private Single<PathConverter> upload(Set<Path> files) {
+  private Single<PathConverter> doUpload(Map<Path, LocalFile> files) {
     if (files.isEmpty()) {
       return Single.just(PathConverter.NO_CONVERSION);
     }
@@ -329,17 +360,20 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     return Single.using(
         remoteCache::retain,
         remoteCache ->
-            Flowable.fromIterable(files)
+            Flowable.fromIterable(files.entrySet())
                 .map(
-                    file -> {
+                    entry -> {
+                      Path path = entry.getKey();
+                      LocalFile file = entry.getValue();
                       try {
-                        return readPathMetadata(file);
+                        return readPathMetadata(path, file);
                       } catch (IOException e) {
-                        reportUploadError(e, file, null);
+                        reportUploadError(e, path, null);
                         return new PathMetadata(
-                            file,
+                            path,
                             /* digest= */ null,
                             /* directory= */ false,
+                            /* symlink= */ false,
                             /* remote= */ false,
                             /* omitted= */ false);
                       }
@@ -361,7 +395,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   @Override
   public ListenableFuture<PathConverter> upload(Map<Path, LocalFile> files) {
-    return toListenableFuture(upload(files.keySet()).subscribeOn(scheduler));
+    return toListenableFuture(doUpload(files).subscribeOn(scheduler));
   }
 
   @Override

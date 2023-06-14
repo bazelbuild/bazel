@@ -20,9 +20,6 @@ load(":common/java/java_semantics.bzl", "semantics")
 
 java_common = _builtins.toplevel.java_common
 
-JavaInfo = _builtins.toplevel.JavaInfo
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
-
 def _filter_strict_deps(mode):
     return "error" if mode in ["strict", "default"] else mode
 

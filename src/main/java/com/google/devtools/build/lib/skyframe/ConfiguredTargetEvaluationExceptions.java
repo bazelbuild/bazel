@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 
 /** Exceptions thrown by {@link ConfiguredTargetFunction}. */
@@ -47,6 +48,13 @@ final class ConfiguredTargetEvaluationExceptions {
    */
   static class UnreportedException extends SkyFunctionException {
     UnreportedException(ConfiguredValueCreationException e) {
+      super(e, Transience.PERSISTENT);
+    }
+  }
+
+  /** A dependency error that should be caught and rethrown by the parent with more context. */
+  static class DependencyException extends SkyFunctionException {
+    DependencyException(InvalidVisibilityDependencyException e) {
       super(e, Transience.PERSISTENT);
     }
   }

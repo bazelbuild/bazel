@@ -467,10 +467,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
                 DottedVersion.fromStringUnchecked("1.8"),
                 DottedVersion.fromStringUnchecked("1.9"),
                 XcodeConfigInfo.Availability.UNKNOWN,
-                /** xcodeVersionFlagValue= */
-                "",
-                /** includeXcodeReqs= */
-                false));
+                /* xcodeVersionFlagValue= */ "",
+                /* includeXcodeReqs= */ false));
   }
 
   @Test

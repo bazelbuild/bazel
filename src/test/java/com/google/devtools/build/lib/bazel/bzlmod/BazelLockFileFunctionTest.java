@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.BazelLockfileFunctionException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -63,12 +64,15 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -161,7 +165,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                       @Nullable
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env)
-                          throws SkyFunctionException, InterruptedException {
+                          throws BazelLockfileFunctionException, InterruptedException {
 
                         UpdateLockFileKey key = (UpdateLockFileKey) skyKey;
                         BzlmodFlagsAndEnvVars flags = BazelDepGraphFunction.getFlagsAndEnvVars(env);
@@ -174,12 +178,16 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        BazelLockFileFunction.updateLockedModule(
-                            rootDirectory,
-                            key.moduleHash(),
-                            flags,
-                            localOverrideHashes,
-                            key.depGraph());
+                        try {
+                          BazelLockFileFunction.updateLockedModule(
+                              rootDirectory,
+                              key.moduleHash(),
+                              flags,
+                              localOverrideHashes,
+                              key.depGraph());
+                        } catch (ExternalDepsException e) {
+                          throw new BazelLockfileFunctionException(e, Transience.PERSISTENT);
+                        }
                         return new SkyValue() {};
                       }
                     })
@@ -389,6 +397,140 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
     BazelLockFileValue value = result.get(BazelLockFileValue.KEY);
     assertThat(value.getModuleDepGraph()).isEqualTo(depGraph);
+  }
+
+  @Test
+  public void invalidLockfileEmptyFile() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
+    EvaluationResult<RootModuleFileValue> rootResult =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (rootResult.hasError()) {
+      fail(rootResult.getError().toString());
+    }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+
+    ImmutableMap<ModuleKey, Module> depGraph =
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
+
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
+    EvaluationResult<BazelLockFileValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    scratch.overwriteFile(rootDirectory.getRelative("MODULE.bazel.lock").getPathString(), "{}");
+
+    result = evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
+    if (!result.hasError()) {
+      fail("expected error about missing field in the lockfile, but succeeded");
+    }
+    assertThat(result.getError().toString())
+        .contains(
+            "Failed to read and parse the MODULE.bazel.lock file with error: Null moduleFileHash."
+                + " Try deleting it and rerun the build.");
+  }
+
+  @Test
+  public void invalidLockfileNullFlag() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
+    EvaluationResult<RootModuleFileValue> rootResult =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (rootResult.hasError()) {
+      fail(rootResult.getError().toString());
+    }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+
+    ImmutableMap<ModuleKey, Module> depGraph =
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
+
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
+    EvaluationResult<BazelLockFileValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    JsonObject jsonObject =
+        (JsonObject) JsonParser.parseString(scratch.readFile("MODULE.bazel.lock"));
+    jsonObject.get("flags").getAsJsonObject().remove("directDependenciesMode");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel.lock").getPathString(), jsonObject.toString());
+
+    result = evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
+    if (!result.hasError()) {
+      fail("expected error about missing field in the lockfile, but succeeded");
+    }
+    assertThat(result.getError().toString())
+        .contains(
+            "Failed to read and parse the MODULE.bazel.lock file with error: Null"
+                + " directDependenciesMode. Try deleting it and rerun the build.");
+  }
+
+  @Test
+  public void invalidLockfileMalformed() throws Exception {
+    scratch.file(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "module(name='my_root', version='1.0')");
+
+    EvaluationResult<RootModuleFileValue> rootResult =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    if (rootResult.hasError()) {
+      fail(rootResult.getError().toString());
+    }
+    RootModuleFileValue rootValue = rootResult.get(ModuleFileValue.KEY_FOR_ROOT_MODULE);
+
+    ImmutableMap<ModuleKey, Module> depGraph =
+        ImmutableMap.of(
+            ModuleKey.ROOT,
+            BazelModuleResolutionFunction.moduleFromInterimModule(
+                rootValue.getModule(), null, null));
+
+    UpdateLockFileKey key =
+        UpdateLockFileKey.create("moduleHash", depGraph, rootValue.getOverrides());
+    EvaluationResult<BazelLockFileValue> result =
+        evaluator.evaluate(ImmutableList.of(key), evaluationContext);
+    if (result.hasError()) {
+      fail(result.getError().toString());
+    }
+
+    JsonObject jsonObject =
+        (JsonObject) JsonParser.parseString(scratch.readFile("MODULE.bazel.lock"));
+    jsonObject.get("flags").getAsJsonObject().addProperty("allowedYankedVersions", "string!");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel.lock").getPathString(), jsonObject.toString());
+
+    result = evaluator.evaluate(ImmutableList.of(BazelLockFileValue.KEY), evaluationContext);
+    if (!result.hasError()) {
+      fail("expected error about invalid field value in the lockfile, but succeeded");
+    }
+    Pattern expectedExceptionMessage =
+        Pattern.compile(
+            Pattern.quote(
+                    "Failed to read and parse the MODULE.bazel.lock file with error:"
+                        + " java.lang.IllegalStateException: Expected BEGIN_ARRAY but was STRING at"
+                        + " line 1 column 129 path $.flags.allowedYankedVersions")
+                + ".*"
+                + Pattern.quote("Try deleting it and rerun the build."),
+            Pattern.DOTALL);
+    assertThat(result.getError().toString()).containsMatch(expectedExceptionMessage);
   }
 
   @AutoValue

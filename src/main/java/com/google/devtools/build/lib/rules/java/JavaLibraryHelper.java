@@ -301,8 +301,7 @@ public final class JavaLibraryHelper {
               neverlink,
               javaToolchainProvider.getBootclasspath());
 
-      javaInfoBuilder.addProvider(
-          JavaCompilationInfoProvider.class,
+      javaInfoBuilder.javaCompilationInfo(
           new JavaCompilationInfoProvider.Builder()
               .setJavacOpts(javacOpts)
               .setBootClasspath(classpathFragment.getBootClasspath())
@@ -310,8 +309,7 @@ public final class JavaLibraryHelper {
               .setRuntimeClasspath(classpathFragment.getRuntimeClasspath())
               .build());
 
-      javaInfoBuilder.addProvider(
-          JavaGenJarsProvider.class,
+      javaInfoBuilder.javaGenJars(
           createJavaGenJarsProvider(
               helper, outputs.genClass(), outputs.genSource(), transitiveJavaGenJars));
     }

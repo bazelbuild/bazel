@@ -54,6 +54,7 @@ public class WorkspaceFactory {
   private final Mutability mutability;
 
   private final StarlarkSemantics starlarkSemantics;
+  private final StarlarkGlobals starlarkGlobals;
   private final ImmutableMap<String, Object> workspaceFunctions;
 
   // Values accumulated from all previous WORKSPACE file parts.
@@ -74,6 +75,7 @@ public class WorkspaceFactory {
       RuleClassProvider ruleClassProvider,
       Mutability mutability,
       boolean allowOverride,
+      boolean allowWorkspaceFunction,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
       @Nullable Path defaultSystemJavabaseDir,
@@ -84,11 +86,12 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.defaultSystemJavabaseDir = defaultSystemJavabaseDir;
     this.starlarkSemantics = starlarkSemantics;
+    this.starlarkGlobals = ruleClassProvider.getBazelStarlarkEnvironment().getStarlarkGlobals();
     this.workspaceFunctions =
         createWorkspaceFunctions(
             allowOverride,
             ruleClassProvider.getRuleClassMap(),
-            new WorkspaceGlobals(allowOverride, ruleClassProvider.getRuleClassMap()),
+            new WorkspaceGlobals(allowWorkspaceFunction, ruleClassProvider.getRuleClassMap()),
             starlarkSemantics);
   }
 
@@ -325,8 +328,7 @@ public class WorkspaceFactory {
   // But WORKSPACE logic won't live forever so it's probably not worth migrating.
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(StarlarkLibrary.COMMON); // e.g. depset
-    Starlark.addMethods(env, SelectorList.SelectLibrary.INSTANCE);
+    env.putAll(starlarkGlobals.getUtilToplevels());
     env.putAll(workspaceFunctions);
     if (installDir != null) {
       env.put("__embedded_dir__", installDir.getPathString());
@@ -350,7 +352,7 @@ public class WorkspaceFactory {
       ImmutableMap<String, RuleClass> ruleClassMap, String bazelVersion) {
     // Machinery to build the collection of workspace functions.
     WorkspaceGlobals workspaceGlobals =
-        new WorkspaceGlobals(/* allowOverride= */ false, ruleClassMap);
+        new WorkspaceGlobals(/* allowWorkspaceFunction= */ false, ruleClassMap);
     // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
     // configured by flags. [brandjon: This should be possible now that we create the native module
     // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.

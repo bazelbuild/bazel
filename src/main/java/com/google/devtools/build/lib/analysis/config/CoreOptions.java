@@ -175,6 +175,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Check for action prefix file path conflicts, regardless of action-specific overrides.")
   public boolean strictConflictChecks;
 
+  @Option(
+      name = "incompatible_disallow_unsound_directory_outputs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, it is an error for an action to materialize an output file as a directory. Does"
+              + " not affect source directories.")
+  public boolean disallowUnsoundDirectoryOutputs;
+
   // This option is only used during execution. However, it is a required input to the analysis
   // phase, as otherwise flipping this flag would not invalidate already-executed actions.
   @Option(
@@ -260,14 +271,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Specify the mode the tools used during the build will be built in. Values: "
               + "'fastbuild', 'dbg', 'opt'.")
   public CompilationMode hostCompilationMode;
-
-  @Option(
-      name = "experimental_enable_aspect_hints",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL})
-  public boolean enableAspectHints;
 
   @Option(
       name = "incompatible_auto_exec_groups",
@@ -432,6 +435,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean collectCodeCoverage;
 
   @Option(
+      name = "experimental_collect_code_coverage_for_generated_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, Bazel will also generate collect coverage information for generated"
+              + " files.")
+  public boolean collectCodeCoverageForGeneratedFiles;
+
+  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -571,7 +584,9 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     /** Use `affected by starlark transition` to track configuration changes */
     LEGACY,
     /** Produce name based on diff from some baseline BuildOptions (usually top-level) */
-    DIFF_AGAINST_BASELINE
+    DIFF_AGAINST_BASELINE,
+    /** Like DIFF_AGAINST_BASELINE, but compare against post-exec baseline if isExec is set. */
+    DIFF_AGAINST_DYNAMIC_BASELINE
   }
 
   /** Converter for the {@code --experimental_output_directory_naming_scheme} options. */
@@ -596,6 +611,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " `affected by Starlark transition` is ignored and instead ST hash is determined,"
               + " for all configuration, by diffing against the top-level configuration.")
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
+
+  public boolean useBaselineForOutputDirectoryNamingScheme() {
+    switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE:
+      case DIFF_AGAINST_DYNAMIC_BASELINE:
+        return true;
+      case LEGACY:
+        return false;
+    }
+    throw new IllegalStateException("unreachable");
+  }
 
   @Option(
       name = "is exec configuration",
@@ -705,7 +731,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public Label autoCpuEnvironmentGroup;
 
   @Option(
-      name = "experimental_allow_unresolved_symlinks",
+      name = "allow_unresolved_symlinks",
+      oldName = "experimental_allow_unresolved_symlinks",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {
@@ -991,6 +1018,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.useAutoExecGroups = useAutoExecGroups;
     exec.experimentalWritableOutputs = experimentalWritableOutputs;
     exec.strictConflictChecks = strictConflictChecks;
+    exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
 
     // === Runfiles ===
     exec.buildRunfilesManifests = buildRunfilesManifests;
@@ -1035,7 +1063,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     // Pass archived tree artifacts filter.
     exec.archivedArtifactsMnemonicsFilter = archivedArtifactsMnemonicsFilter;
 
-    exec.enableAspectHints = enableAspectHints;
     exec.allowUnresolvedSymlinks = allowUnresolvedSymlinks;
     return exec;
   }

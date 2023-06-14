@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper.ValidationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
-import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue;
-import com.google.devtools.build.lib.skyframe.ToolchainException;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -47,6 +47,7 @@ public final class DependencyContextProducerWithCompatibilityCheck
         UnloadedToolchainContextsProducer.ResultSink {
   // -------------------- Input --------------------
   private final TargetAndConfiguration targetAndConfiguration;
+  private final ConfiguredTargetKey configuredTargetKey;
   private final UnloadedToolchainContextsInputs unloadedToolchainContextsInputs;
 
   private final TransitiveDependencyState transitiveState;
@@ -63,10 +64,12 @@ public final class DependencyContextProducerWithCompatibilityCheck
 
   public DependencyContextProducerWithCompatibilityCheck(
       TargetAndConfiguration targetAndConfiguration,
+      ConfiguredTargetKey configuredTargetKey,
       UnloadedToolchainContextsInputs unloadedToolchainContextsInputs,
       TransitiveDependencyState transitiveState,
       DependencyContextProducer.ResultSink sink) {
     this.targetAndConfiguration = targetAndConfiguration;
+    this.configuredTargetKey = configuredTargetKey;
     this.unloadedToolchainContextsInputs = unloadedToolchainContextsInputs;
     this.transitiveState = transitiveState;
     this.sink = sink;
@@ -142,8 +145,8 @@ public final class DependencyContextProducerWithCompatibilityCheck
     }
 
     return new IncompatibleTargetProducer(
-        targetAndConfiguration.getTarget(),
-        targetAndConfiguration.getConfiguration(),
+        targetAndConfiguration,
+        configuredTargetKey,
         configConditions,
         targetPlatformInfo,
         transitiveState.transitivePackages(),

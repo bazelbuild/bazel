@@ -22,12 +22,11 @@ load(":common/java/compile_action.bzl", "compile_action")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/java/java_info.bzl", "JavaInfo")
+load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
 
 java_common = _builtins.toplevel.java_common
 coverage_common = _builtins.toplevel.coverage_common
-
-JavaInfo = _builtins.toplevel.JavaInfo
-JavaPluginInfo = _builtins.toplevel.JavaPluginInfo
 
 def _filter_srcs(srcs, ext):
     return [f for f in srcs if f.extension == ext]
@@ -183,7 +182,7 @@ def basic_java_library(
         target["ProguardSpecProvider"] = validate_proguard_specs(
             ctx,
             proguard_specs,
-            [deps, runtime_deps, exports, plugins, exported_plugins],
+            [deps, runtime_deps, exports],
         )
         output_groups["_hidden_top_level_INTERNAL_"] = target["ProguardSpecProvider"].specs
 

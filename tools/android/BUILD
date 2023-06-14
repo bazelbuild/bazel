@@ -176,6 +176,8 @@ py_test(
 py_binary(
     name = "instrumentation_test_check",
     srcs = ["instrumentation_test_check.py"],
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = ["//third_party/py/abseil"],
 )
 

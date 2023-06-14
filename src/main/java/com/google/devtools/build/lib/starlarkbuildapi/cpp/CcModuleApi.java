@@ -184,6 +184,9 @@ public interface CcModuleApi<
             name = "grep_includes",
             positional = false,
             named = true,
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
             defaultValue = "None",
             allowedTypes = {
               @ParamType(type = FileApi.class),
@@ -788,7 +791,7 @@ public interface CcModuleApi<
       Object stripOpts,
       Object inputFile,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "create_link_variables",
@@ -903,7 +906,7 @@ public interface CcModuleApi<
       boolean useTestOnlyFlags,
       boolean isStaticLinkingMode,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(name = "empty_variables", documented = false, useStarlarkThread = true)
   CcToolchainVariablesT getVariables(StarlarkThread thread) throws EvalException;
@@ -1591,6 +1594,9 @@ public interface CcModuleApi<
             positional = false,
             named = true,
             defaultValue = "None",
+            doc =
+                "DO NOT USE - DEPRECATED. grep_includes is now part of cc_toolchain and there is no"
+                    + " need to specify it from the rule itself.",
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
         @Param(
             name = "variables_extension",
@@ -1709,7 +1715,7 @@ public interface CcModuleApi<
       boolean shouldCreatePerObjectDebugInfo,
       Sequence<?> argv,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, InterruptedException;
 
   @StarlarkMethod(
       name = "merge_compilation_contexts",

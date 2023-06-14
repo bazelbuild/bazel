@@ -14,27 +14,36 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi;
-import java.util.HashSet;
+import com.google.errorprone.annotations.ForOverride;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -42,7 +51,6 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkIndexable;
 import net.starlark.java.eval.StarlarkIterable;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.syntax.Location;
 
 /**
  * {@code ConfiguredTarget}s implementing this interface can provide artifacts that <b>can</b> be
@@ -56,9 +64,14 @@ import net.starlark.java.syntax.Location;
  * <p>Output groups starting with an underscore are "not important". This means that artifacts built
  * because such an output group is mentioned in a {@code --output_groups} command line option are
  * not mentioned on the output.
+ *
+ * <p>Implementations are optimized for memory footprint based on common usage, including compact
+ * representations for groups with an empty set of files, a small number of groups (1 or 2), and the
+ * frequently used {@link #DEFAULT_GROUPS}. See detection of special cases in the {@link
+ * #singleGroup} and {@link #createInternal} factory methods.
  */
 @Immutable
-public final class OutputGroupInfo extends StructImpl
+public abstract class OutputGroupInfo extends StructImpl
     implements StarlarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
   public static final String STARLARK_NAME = "output_groups";
 
@@ -130,16 +143,15 @@ public final class OutputGroupInfo extends StructImpl
    */
   public static final String TEMP_FILES = "temp_files" + INTERNAL_SUFFIX;
 
-  /**
-   * The default group of files built by a target when it is mentioned on the command line.
-   */
+  /** The default group of files built by a target when it is mentioned on the command line. */
   public static final String DEFAULT = "default";
 
-  /**
-   * The default set of OutputGroups we typically want to build.
-   */
+  /** The default set of OutputGroups we typically want to build. */
   public static final ImmutableSortedSet<String> DEFAULT_GROUPS =
       ImmutableSortedSet.of(DEFAULT, TEMP_FILES, HIDDEN_TOP_LEVEL);
+
+  private static final NestedSet<Artifact> EMPTY_FILES =
+      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
   /** Request parameter for {@link #determineOutputGroups}. */
   public enum ValidationMode {
@@ -156,46 +168,17 @@ public final class OutputGroupInfo extends StructImpl
     ASPECT
   }
 
-  private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
-
-  public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(Location.BUILTIN);
-    this.outputGroups = outputGroups;
-  }
-
-  @Override
-  public OutputGroupInfoProvider getProvider() {
-    return STARLARK_CONSTRUCTOR;
-  }
-
-  @Override
-  public boolean isImmutable() {
-    return true; // immutable and Starlark-hashable
-  }
-
   @Nullable
   public static OutputGroupInfo get(ProviderCollection collection) {
     return collection.get(STARLARK_CONSTRUCTOR);
   }
 
-  /** Return the artifacts in a particular output group.
-   *
-   * @return the artifacts in the output group with the given name. The return value is never null.
-   *     If the specified output group is not present, the empty set is returned.
-   */
-  public NestedSet<Artifact> getOutputGroup(String outputGroupName) {
-    return outputGroups.getOrDefault(
-        outputGroupName, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-  }
-
   /**
-   * Merges output groups from two output providers. The set of output groups must be disjoint.
-   *
-   * @param providers providers to merge {@code this} with.
+   * Merges output groups from a list of output providers. The set of output groups must be
+   * disjoint.
    */
   @Nullable
-  public static OutputGroupInfo merge(List<OutputGroupInfo> providers)
-      throws DuplicateException {
+  public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws DuplicateException {
     if (providers.isEmpty()) {
       return null;
     }
@@ -203,19 +186,15 @@ public final class OutputGroupInfo extends StructImpl
       return providers.get(0);
     }
 
-    ImmutableMap.Builder<String, NestedSet<Artifact>> resultBuilder = new ImmutableMap.Builder<>();
-    Set<String> seenGroups = new HashSet<>();
+    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     for (OutputGroupInfo provider : providers) {
-      for (String outputGroup : provider.outputGroups.keySet()) {
-        if (!seenGroups.add(outputGroup)) {
-          throw new DuplicateException(
-              "Output group " + outputGroup + " provided twice");
+      for (String group : provider) {
+        if (outputGroups.put(group, provider.getOutputGroup(group)) != null) {
+          throw new DuplicateException("Output group " + group + " provided twice");
         }
-
-        resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));
       }
     }
-    return new OutputGroupInfo(resultBuilder.buildOrThrow());
+    return createInternal(ImmutableMap.copyOf(outputGroups));
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(
@@ -278,65 +257,331 @@ public final class OutputGroupInfo extends StructImpl
     return ImmutableSortedSet.copyOf(current);
   }
 
+  public static OutputGroupInfo singleGroup(String group, NestedSet<Artifact> files) {
+    if (files.isEmpty()) {
+      return EmptyFiles.of(ImmutableSet.of(group));
+    }
+    switch (group) {
+      case HIDDEN_TOP_LEVEL:
+        return new HiddenTopLevelOnly(files);
+      case VALIDATION:
+        return new ValidationOnly(files);
+      case DEFAULT:
+        return new DefaultOnly(files);
+      default:
+        return new OtherGroupOnly(group, files);
+    }
+  }
+
+  static OutputGroupInfo fromBuilders(SortedMap<String, NestedSetBuilder<Artifact>> builders) {
+    var outputGroups =
+        ImmutableMap.<String, NestedSet<Artifact>>builderWithExpectedSize(builders.size());
+    builders.forEach((group, files) -> outputGroups.put(group, files.build()));
+    return createInternal(outputGroups.buildOrThrow());
+  }
+
+  private static OutputGroupInfo createInternal(
+      ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
+    if (outputGroups.values().stream().allMatch(NestedSet::isEmpty)) {
+      @SuppressWarnings("ImmutableSetCopyOfImmutableSet") // keySet retains a reference to the map.
+      ImmutableSet<String> groups = ImmutableSet.copyOf(outputGroups.keySet());
+      return EmptyFiles.of(groups);
+    }
+
+    if (outputGroups.size() == 1) {
+      String onlyGroup = Iterables.getOnlyElement(outputGroups.keySet());
+      return singleGroup(onlyGroup, outputGroups.get(onlyGroup));
+    }
+
+    if (outputGroups.size() == 2) {
+      ImmutableList<String> groups = outputGroups.keySet().asList();
+      if (groups.get(0).equals(HIDDEN_TOP_LEVEL)) {
+        String otherGroup = groups.get(1);
+        return new HiddenTopLevelAndOneOther(
+            outputGroups.get(HIDDEN_TOP_LEVEL), otherGroup, outputGroups.get(otherGroup));
+      }
+    }
+
+    return new ArbitraryGroups(ImmutableSharedKeyMap.copyOf(outputGroups));
+  }
+
+  private OutputGroupInfo() {}
+
   @Override
-  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+  public final OutputGroupInfoProvider getProvider() {
+    return STARLARK_CONSTRUCTOR;
+  }
+
+  @Override
+  public final boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  /**
+   * Returns the artifacts in a particular output group.
+   *
+   * @return the artifacts in the output group with the given name. The return value is never null.
+   *     If the specified output group is not present, the empty set is returned.
+   */
+  public abstract NestedSet<Artifact> getOutputGroup(String name);
+
+  @Override
+  public final Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     if (!(key instanceof String)) {
       throw Starlark.errorf(
           "Output group names must be strings, got %s instead", Starlark.type(key));
     }
-
-    NestedSet<Artifact> result = outputGroups.get(key);
-    if (result != null) {
-      return Depset.of(Artifact.class, result);
-    } else {
+    Depset result = getValue((String) key);
+    if (result == null) {
       throw Starlark.errorf("Output group %s not present", key);
     }
+    return result;
   }
 
   @Override
-  public boolean containsKey(StarlarkSemantics semantics, Object key) {
-    return outputGroups.containsKey(key);
+  public final boolean containsKey(StarlarkSemantics semantics, Object key) {
+    return key instanceof String && containsKey((String) key);
   }
 
-  @Override
-  public Iterator<String> iterator() {
-    return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
-  }
+  @ForOverride
+  abstract boolean containsKey(String name);
 
   @Nullable
   @Override
-  public Object getValue(String name) {
-    NestedSet<Artifact> result = outputGroups.get(name);
-    if (result == null) {
+  public final Depset getValue(String name) {
+    NestedSet<Artifact> result = getOutputGroup(name);
+    if (result.isEmpty() && !containsKey(name)) {
       return null;
     }
     return Depset.of(Artifact.class, result);
   }
 
-  @Override
-  public ImmutableCollection<String> getFieldNames() {
-    return outputGroups.keySet();
+  /** All output groups are empty. */
+  private static final class EmptyFiles extends OutputGroupInfo {
+    private static final Interner<EmptyFiles> interner = BlazeInterners.newWeakInterner();
+
+    static EmptyFiles of(ImmutableSet<String> groups) {
+      return interner.intern(new EmptyFiles(groups));
+    }
+
+    private final ImmutableSet<String> groups;
+
+    private EmptyFiles(ImmutableSet<String> groups) {
+      this.groups = groups;
+    }
+
+    @Override
+    public NestedSet<Artifact> getOutputGroup(String name) {
+      return EMPTY_FILES;
+    }
+
+    @Override
+    boolean containsKey(String name) {
+      return groups.contains(name);
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return groups.iterator();
+    }
+
+    @Override
+    public ImmutableSet<String> getFieldNames() {
+      return groups;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof EmptyFiles)) {
+        return false;
+      }
+      EmptyFiles other = (EmptyFiles) o;
+      return groups.equals(other.groups);
+    }
+
+    @Override
+    public int hashCode() {
+      return groups.hashCode();
+    }
+  }
+
+  private abstract static class SingleGroup extends OutputGroupInfo {
+    private final NestedSet<Artifact> files;
+
+    private SingleGroup(NestedSet<Artifact> files) {
+      this.files = files;
+    }
+
+    @Override
+    public final NestedSet<Artifact> getOutputGroup(String name) {
+      return containsKey(name) ? files : EMPTY_FILES;
+    }
+
+    @Override
+    final boolean containsKey(String name) {
+      return name.equals(groupName());
+    }
+
+    @Override
+    public final Iterator<String> iterator() {
+      return Iterators.singletonIterator(groupName());
+    }
+
+    @Override
+    public final ImmutableSet<String> getFieldNames() {
+      return ImmutableSet.of(groupName());
+    }
+
+    @ForOverride
+    abstract String groupName();
+  }
+
+  /** A single non-empty output group: {@link #HIDDEN_TOP_LEVEL}. */
+  private static final class HiddenTopLevelOnly extends SingleGroup {
+    HiddenTopLevelOnly(NestedSet<Artifact> files) {
+      super(files);
+    }
+
+    @Override
+    String groupName() {
+      return HIDDEN_TOP_LEVEL;
+    }
+  }
+
+  /** A single non-empty output group: {@link #VALIDATION}. */
+  private static final class ValidationOnly extends SingleGroup {
+    ValidationOnly(NestedSet<Artifact> files) {
+      super(files);
+    }
+
+    @Override
+    String groupName() {
+      return VALIDATION;
+    }
+  }
+
+  /** A single non-empty output group: {@link #DEFAULT}. */
+  private static final class DefaultOnly extends SingleGroup {
+    DefaultOnly(NestedSet<Artifact> files) {
+      super(files);
+    }
+
+    @Override
+    String groupName() {
+      return DEFAULT;
+    }
+  }
+
+  /** A single non-empty output group besides the common groups special-cased above. */
+  private static final class OtherGroupOnly extends SingleGroup {
+    private final String groupName;
+
+    OtherGroupOnly(String groupName, NestedSet<Artifact> files) {
+      super(files);
+      this.groupName = groupName;
+    }
+
+    @Override
+    String groupName() {
+      return groupName;
+    }
   }
 
   /**
-   * Provider implementation for {@link OutputGroupInfoApi.OutputGroupInfoApiProvider}.
+   * Two output groups: {@link #HIDDEN_TOP_LEVEL} and one other, at least one of which is non-empty.
    */
-  public static class OutputGroupInfoProvider extends BuiltinProvider<OutputGroupInfo>
+  private static final class HiddenTopLevelAndOneOther extends OutputGroupInfo {
+    private final NestedSet<Artifact> hiddenTopLevelFiles;
+    private final String otherGroup;
+    private final NestedSet<Artifact> otherFiles;
+
+    private HiddenTopLevelAndOneOther(
+        NestedSet<Artifact> hiddenTopLevelFiles,
+        String otherGroup,
+        NestedSet<Artifact> otherFiles) {
+      this.hiddenTopLevelFiles = hiddenTopLevelFiles;
+      this.otherGroup = otherGroup;
+      this.otherFiles = otherFiles;
+    }
+
+    @Override
+    public NestedSet<Artifact> getOutputGroup(String name) {
+      if (name.equals(HIDDEN_TOP_LEVEL)) {
+        return hiddenTopLevelFiles;
+      }
+      if (name.equals(otherGroup)) {
+        return otherFiles;
+      }
+      return EMPTY_FILES;
+    }
+
+    @Override
+    boolean containsKey(String name) {
+      return name.equals(HIDDEN_TOP_LEVEL) || name.equals(otherGroup);
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return Iterators.forArray(HIDDEN_TOP_LEVEL, otherGroup);
+    }
+
+    @Override
+    public ImmutableSet<String> getFieldNames() {
+      return ImmutableSet.of(HIDDEN_TOP_LEVEL, otherGroup);
+    }
+  }
+
+  /** Handles the arbitrary case for when none of the special cases above match. */
+  private static final class ArbitraryGroups extends OutputGroupInfo {
+    private final ImmutableSharedKeyMap<String, NestedSet<Artifact>> map;
+
+    ArbitraryGroups(ImmutableSharedKeyMap<String, NestedSet<Artifact>> map) {
+      this.map = map;
+    }
+
+    @Override
+    public NestedSet<Artifact> getOutputGroup(String name) {
+      return firstNonNull(map.get(name), EMPTY_FILES);
+    }
+
+    @Override
+    boolean containsKey(String name) {
+      return map.containsKey(name);
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+      return map.iterator();
+    }
+
+    @Override
+    public ImmutableSet<String> getFieldNames() {
+      return ImmutableSet.copyOf(map);
+    }
+  }
+
+  /** Provider implementation for {@link OutputGroupInfoApi.OutputGroupInfoApiProvider}. */
+  public static final class OutputGroupInfoProvider extends BuiltinProvider<OutputGroupInfo>
       implements OutputGroupInfoApi.OutputGroupInfoApiProvider {
-    private OutputGroupInfoProvider() {
+
+    OutputGroupInfoProvider() {
       super("OutputGroupInfo", OutputGroupInfo.class);
     }
 
     @Override
     public OutputGroupInfoApi constructor(Dict<String, Object> kwargs) throws EvalException {
-      ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, Object> entry : kwargs.entrySet()) {
-        builder.put(
+      var outputGroups =
+          ImmutableMap.<String, NestedSet<Artifact>>builderWithExpectedSize(kwargs.size());
+      for (var entry : ImmutableList.sortedCopyOf(Map.Entry.comparingByKey(), kwargs.entrySet())) {
+        outputGroups.put(
             entry.getKey(),
             StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
                 entry.getKey(), entry.getValue()));
       }
-      return new OutputGroupInfo(builder.buildOrThrow());
+      return createInternal(outputGroups.buildOrThrow());
     }
   }
 }

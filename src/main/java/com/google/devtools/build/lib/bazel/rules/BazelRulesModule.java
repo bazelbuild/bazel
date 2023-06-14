@@ -361,6 +361,14 @@ public final class BazelRulesModule extends BlazeModule {
         converter = Converters.CommaSeparatedOptionListConverter.class,
         help = "Deprecated no-op.")
     public List<String> availabilityInfoExempt;
+
+    @Option(
+        name = "experimental_skymeld_ui",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op. To be removed.")
+    public boolean skymeldUi;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
@@ -499,6 +507,14 @@ public final class BazelRulesModule extends BlazeModule {
    * want to graveyard an all-command option specific to Blaze or Bazel, create a subclass.
    */
   public static final class AllCommandGraveyardOptions extends OptionsBase {
+    @Option(
+        name = "experimental_enable_aspect_hints",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL})
+    public boolean enableAspectHints;
+
     // Historically passed to all Bazel commands by certain tools.
     @Option(
         name = "experimental_allow_top_level_aspects_parameters",
@@ -562,6 +578,24 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean useForkJoinPool;
+
+    @Option(
+        name = "incompatible_generated_protos_in_virtual_imports",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        metadataTags = {OptionMetadataTag.DEPRECATED},
+        help = "No-op.")
+    public boolean generatedProtosInVirtualImports;
+
+    @Option(
+        name = "experimental_java_proto_add_allowed_public_imports",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "This flag is a noop and scheduled for removal.")
+    public boolean experimentalJavaProtoAddAllowedPublicImports;
   }
 
   @Override

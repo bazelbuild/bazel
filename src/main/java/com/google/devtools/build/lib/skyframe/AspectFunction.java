@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
 import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.createDefaultToolchainContextKey;
 
 import com.google.common.base.Preconditions;
@@ -25,7 +26,6 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
-import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
@@ -81,6 +81,8 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
@@ -275,14 +277,13 @@ final class AspectFunction implements SkyFunction {
     }
 
     try {
-      var dependencyContext =
-          getDependencyContext(
-              computeDependenciesState,
-              key,
-              aspect,
+      var transitiveState =
+          new TransitiveDependencyState(
               state.transitiveRootCauses,
               state.transitivePackages,
-              env);
+              /* prerequisitePackages= */ null);
+      var dependencyContext =
+          getDependencyContext(computeDependenciesState, key, aspect, transitiveState, env);
       if (dependencyContext == null) {
         return null;
       }
@@ -296,16 +297,15 @@ final class AspectFunction implements SkyFunction {
         depValueMap =
             PrerequisiteProducer.computeDependencies(
                 computeDependenciesState,
-                state.transitivePackages,
-                state.transitiveRootCauses,
-                env,
                 topologicalAspectPath,
                 configConditions.asProviders(),
                 unloadedToolchainContexts == null
                     ? null
                     : unloadedToolchainContexts.asToolchainContexts(),
                 ruleClassProvider,
-                buildViewProvider.getSkyframeBuildView());
+                buildViewProvider.getSkyframeBuildView(),
+                transitiveState,
+                env);
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
             e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
@@ -402,8 +402,7 @@ final class AspectFunction implements SkyFunction {
       PrerequisiteProducer.State state,
       AspectKey key,
       Aspect aspect,
-      NestedSetBuilder<Cause> transitiveRootCauses,
-      @Nullable NestedSetBuilder<Package> transitivePackages,
+      TransitiveDependencyState transitiveState,
       Environment env)
       throws InterruptedException, ConfiguredValueCreationException, ToolchainException {
     if (state.dependencyContext != null) {
@@ -422,8 +421,7 @@ final class AspectFunction implements SkyFunction {
               new DependencyContextProducer(
                   unloadedToolchainContextsInputs,
                   targetAndConfiguration,
-                  new TransitiveDependencyState(
-                      transitiveRootCauses, transitivePackages, /* prerequisitePackages= */ null),
+                  transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
     if (state.dependencyContextProducer.drive(env, env.getListener())) {
@@ -768,7 +766,7 @@ final class AspectFunction implements SkyFunction {
       Label label = outputFile.getGeneratingRule().getLabel();
       return createAliasAspect(
           env, associatedTarget, key, aspect, key.withLabel(label), transitivePackages);
-    } else if (AspectResolver.aspectMatchesConfiguredTarget(
+    } else if (aspectMatchesConfiguredTarget(
         associatedConfiguredTarget, associatedTarget instanceof Rule, aspect)) {
       try {
         CurrentRuleTracker.beginConfiguredAspect(aspect.getAspectClass());

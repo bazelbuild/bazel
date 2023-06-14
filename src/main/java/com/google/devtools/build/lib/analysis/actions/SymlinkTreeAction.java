@@ -224,7 +224,7 @@ public final class SymlinkTreeAction extends AbstractAction {
     // safe to add more fields in the future.
     fp.addBoolean(runfiles != null);
     if (runfiles != null) {
-      runfiles.fingerprint(fp);
+      runfiles.fingerprint(actionKeyContext, fp);
     }
     fp.addBoolean(repoMappingManifest != null);
     if (repoMappingManifest != null) {

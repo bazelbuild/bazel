@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtr
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -117,13 +114,11 @@ public final class ConfiguredAspect implements ProviderCollection {
     return new Builder(ruleContext);
   }
 
-  /**
-   * Builder for {@link ConfiguredAspect}.
-   */
+  /** Builder for {@link ConfiguredAspect}. */
   public static class Builder {
     private final TransitiveInfoProviderMapBuilder providers =
         new TransitiveInfoProviderMapBuilder();
-    private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
+    private final TreeMap<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final RuleContext ruleContext;
 
     public Builder(RuleContext ruleContext) {
@@ -215,30 +210,21 @@ public final class ConfiguredAspect implements ProviderCollection {
     @Nullable
     public ConfiguredAspect build() throws ActionConflictException, InterruptedException {
       if (!outputGroupBuilders.isEmpty()) {
-        ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
-        for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
-          outputGroups.put(entry.getKey(), entry.getValue().build());
-        }
-
         if (providers.contains(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }
-        addDeclaredProvider(new OutputGroupInfo(outputGroups.buildOrThrow()));
+        addDeclaredProvider(OutputGroupInfo.fromBuilders(outputGroupBuilders));
       }
 
       addProvider(
           createExtraActionProvider(/*actionsWithoutExtraAction=*/ ImmutableSet.of(), ruleContext));
 
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
-      GeneratingActions generatingActions;
+      ImmutableList<ActionAnalysisMetadata> actions = analysisEnvironment.getRegisteredActions();
       try {
-        generatingActions =
-            Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                analysisEnvironment.getActionKeyContext(),
-                analysisEnvironment.getRegisteredActions(),
-                ruleContext.getOwner(),
-                /*outputFiles=*/ null);
+        Actions.assignOwnersAndThrowIfConflictToleratingSharedActions(
+            analysisEnvironment.getActionKeyContext(), actions, ruleContext.getOwner());
       } catch (Actions.ArtifactGeneratedByOtherRuleException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
@@ -246,7 +232,7 @@ public final class ConfiguredAspect implements ProviderCollection {
 
       maybeAddRequiredConfigFragmentsProvider();
 
-      return new ConfiguredAspect(generatingActions.getActions(), providers.build());
+      return new ConfiguredAspect(actions, providers.build());
     }
 
     /**

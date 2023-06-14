@@ -46,6 +46,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       SandboxOutputs outputs,
       Set<Path> writableDirs,
       TreeDeleter treeDeleter,
+      @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
       String mnemonic) {
     super(
@@ -57,6 +58,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         outputs,
         writableDirs,
         treeDeleter,
+        sandboxDebugPath,
         statisticsPath,
         mnemonic);
     this.mnemonic = isNullOrEmpty(mnemonic) ? mnemonic : "_NoMnemonic_";
@@ -91,8 +93,7 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    if (!SandboxStash.stashSandbox(sandboxPath, mnemonic)) {
-      super.delete();
-    }
+    SandboxStash.stashSandbox(sandboxPath, mnemonic);
+    super.delete();
   }
 }

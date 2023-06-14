@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth8.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -31,6 +32,7 @@ import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.Func
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderFieldInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ProviderNameGroup;
@@ -49,15 +51,18 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ModuleInfoExtractorTest {
 
-  private static final Label FAKE_LABEL = Label.parseCanonicalUnchecked("//test:test.bzl");
+  private String fakeLabelString = null; // set by exec()
 
   private Module exec(String... lines) throws Exception {
     BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
+    Module module = ev.getModule();
+    Label fakeLabel = BazelModuleContext.of(module).label();
+    fakeLabelString = fakeLabel.getCanonicalForm();
     ParserInput input = ParserInput.fromLines(lines);
     StarlarkFile file = StarlarkFile.parse(input, FileOptions.DEFAULT);
-    Program program = Program.compileFile(file, ev.getModule());
+    Program program = Program.compileFile(file, module);
     BzlLoadFunction.execAndExport(
-        program, FAKE_LABEL, ev.getEventHandler(), ev.getModule(), ev.getStarlarkThread());
+        program, fakeLabel, ev.getEventHandler(), module, ev.getStarlarkThread());
     return ev.getModule();
   }
 
@@ -65,8 +70,8 @@ public final class ModuleInfoExtractorTest {
     return new ModuleInfoExtractor(name -> true, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
-  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedName) {
-    return new ModuleInfoExtractor(isWantedName, RepositoryMapping.ALWAYS_FALLBACK);
+  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedGlobal) {
+    return new ModuleInfoExtractor(isWantedGlobal, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   private static ModuleInfoExtractor getExtractor(RepositoryMapping repositoryMapping) {
@@ -84,21 +89,21 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
-  public void extractOnlyWantedExportableNames() throws Exception {
+  public void extractOnlyWantedLoadableNames() throws Exception {
     Module module =
         exec(
-            "def exported_unwanted():",
+            "def loadable_unwanted():",
             "    pass",
-            "def exported_wanted():",
+            "def loadable_wanted():",
             "    pass",
-            "def _nonexported():",
+            "def _nonloadable():",
             "    pass",
-            "def _nonexported_matches_wanted_predicate():",
+            "def _nonloadable_matches_wanted_predicate():",
             "    pass");
 
     ModuleInfo moduleInfo = getExtractor(name -> name.contains("_wanted")).extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
-        .containsExactly("exported_wanted");
+        .containsExactly("loadable_wanted");
   }
 
   @Test
@@ -121,36 +126,75 @@ public final class ModuleInfoExtractorTest {
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("name.spaced.my_func");
+    assertThat(
+            moduleInfo.getFuncInfoList().stream()
+                .map(StarlarkFunctionInfo::getOriginKey)
+                .map(OriginKey::getName))
+        .containsExactly("_my_func");
+
     assertThat(moduleInfo.getRuleInfoList().stream().map(RuleInfo::getRuleName))
         .containsExactly("name.spaced.my_binary");
+    assertThat(
+            moduleInfo.getRuleInfoList().stream()
+                .map(RuleInfo::getOriginKey)
+                .map(OriginKey::getName))
+        .containsExactly("_my_binary");
+
     assertThat(moduleInfo.getAspectInfoList().stream().map(AspectInfo::getAspectName))
         .containsExactly("name.spaced.my_aspect");
+    assertThat(
+            moduleInfo.getAspectInfoList().stream()
+                .map(AspectInfo::getOriginKey)
+                .map(OriginKey::getName))
+        .containsExactly("_my_aspect");
+
     assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
         .containsExactly("name.spaced.MyInfo");
+    assertThat(
+            moduleInfo.getProviderInfoList().stream()
+                .map(ProviderInfo::getOriginKey)
+                .map(OriginKey::getName))
+        .containsExactly("_MyInfo");
   }
 
   @Test
   public void functionDocstring() throws Exception {
     Module module =
         exec(
-            "def with_docstring():",
+            "def with_detailed_docstring():",
+            "    '''My function",
+            "    ",
+            "    This function does things.",
+            "    '''",
+            "    pass",
+            "def with_one_line_docstring():",
             "    '''My function'''",
             "    pass",
             "def without_docstring():",
             "    pass");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
-        // TODO(arostovtsev): remove `ignoringFieldAbsence` below once we stop outputting empty
-        // returns/deprecated blocks as empty strings.
-        .ignoringFieldAbsence()
         .containsExactly(
             StarlarkFunctionInfo.newBuilder()
-                .setFunctionName("with_docstring")
+                .setFunctionName("with_detailed_docstring")
+                .setDocString("My function\n\nThis function does things.")
+                .setOriginKey(
+                    OriginKey.newBuilder()
+                        .setName("with_detailed_docstring")
+                        .setFile(fakeLabelString))
+                .build(),
+            StarlarkFunctionInfo.newBuilder()
+                .setFunctionName("with_one_line_docstring")
                 .setDocString("My function")
+                .setOriginKey(
+                    OriginKey.newBuilder()
+                        .setName("with_one_line_docstring")
+                        .setFile(fakeLabelString))
                 .build(),
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("without_docstring")
-                .setDocString("")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("without_docstring").setFile(fakeLabelString))
                 .build());
   }
 
@@ -198,7 +242,7 @@ public final class ModuleInfoExtractorTest {
             "    pass");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
-        .ignoringFieldAbsence() // TODO(arostovtsev): do not output empty returns/deprecated blocks
+        .ignoringFields(StarlarkFunctionInfo.ORIGIN_KEY_FIELD_NUMBER)
         .containsExactly(
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("with_return")
@@ -227,7 +271,7 @@ public final class ModuleInfoExtractorTest {
             "    pass");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList())
-        .ignoringFieldAbsence() // TODO(arostovtsev): do not output empty returns/deprecated blocks
+        .ignoringFields(StarlarkFunctionInfo.ORIGIN_KEY_FIELD_NUMBER)
         .containsExactly(
             StarlarkFunctionInfo.newBuilder()
                 .setFunctionName("with_deprecated")
@@ -253,8 +297,14 @@ public final class ModuleInfoExtractorTest {
             ProviderInfo.newBuilder()
                 .setProviderName("DocumentedInfo")
                 .setDocString("My doc")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("DocumentedInfo").setFile(fakeLabelString))
                 .build(),
-            ProviderInfo.newBuilder().setProviderName("UndocumentedInfo").build());
+            ProviderInfo.newBuilder()
+                .setProviderName("UndocumentedInfo")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("UndocumentedInfo").setFile(fakeLabelString))
+                .build());
   }
 
   @Test
@@ -267,6 +317,7 @@ public final class ModuleInfoExtractorTest {
             "UndocumentedInfo = provider(fields = ['c', 'a', 'b', '_hidden'])");
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getProviderInfoList())
+        .ignoringFields(ProviderInfo.ORIGIN_KEY_FIELD_NUMBER)
         .containsExactly(
             ProviderInfo.newBuilder()
                 .setProviderName("DocumentedInfo")
@@ -294,8 +345,48 @@ public final class ModuleInfoExtractorTest {
     assertThat(moduleInfo.getRuleInfoList())
         .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
         .containsExactly(
-            RuleInfo.newBuilder().setRuleName("documented_lib").setDocString("My doc").build(),
-            RuleInfo.newBuilder().setRuleName("undocumented_lib").build());
+            RuleInfo.newBuilder()
+                .setRuleName("documented_lib")
+                .setDocString("My doc")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("documented_lib").setFile(fakeLabelString))
+                .build(),
+            RuleInfo.newBuilder()
+                .setRuleName("undocumented_lib")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("undocumented_lib").setFile(fakeLabelString))
+                .build());
+  }
+
+  @Test
+  public void ruleAdvertisedProviders() throws Exception {
+    Module module =
+        exec(
+            "MyInfo = provider()",
+            "def _my_impl(ctx):",
+            "    pass",
+            "my_lib = rule(",
+            "    implementation = _my_impl,",
+            "    provides = [MyInfo, DefaultInfo, 'LegacyStructInfo']",
+            ")");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getRuleInfoList())
+        .ignoringFields(RuleInfo.ATTRIBUTE_FIELD_NUMBER) // ignore implicit attributes
+        .containsExactly(
+            RuleInfo.newBuilder()
+                .setRuleName("my_lib")
+                .setOriginKey(OriginKey.newBuilder().setName("my_lib").setFile(fakeLabelString))
+                .setAdvertisedProviders(
+                    ProviderNameGroup.newBuilder()
+                        .addProviderName("MyInfo")
+                        .addProviderName("DefaultInfo")
+                        .addProviderName("LegacyStructInfo")
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyInfo").setFile(fakeLabelString))
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("DefaultInfo").setFile("<native>"))
+                        .addOriginKey(OriginKey.newBuilder().setName("LegacyStructInfo")))
+                .build());
   }
 
   @Test
@@ -339,7 +430,11 @@ public final class ModuleInfoExtractorTest {
                 .addProviderNameGroup(
                     ProviderNameGroup.newBuilder()
                         .addProviderName("MyInfo1")
-                        .addProviderName("MyInfo2"))
+                        .addProviderName("MyInfo2")
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyInfo1").setFile(fakeLabelString))
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyInfo2").setFile(fakeLabelString)))
                 .build(),
             AttributeInfo.newBuilder()
                 .setName("d")
@@ -348,8 +443,16 @@ public final class ModuleInfoExtractorTest {
                 .addProviderNameGroup(
                     ProviderNameGroup.newBuilder()
                         .addProviderName("MyInfo1")
-                        .addProviderName("MyInfo2"))
-                .addProviderNameGroup(ProviderNameGroup.newBuilder().addProviderName("MyInfo3"))
+                        .addProviderName("MyInfo2")
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyInfo1").setFile(fakeLabelString))
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyInfo2").setFile(fakeLabelString)))
+                .addProviderNameGroup(
+                    ProviderNameGroup.newBuilder()
+                        .addProviderName("MyInfo3")
+                        .addOriginKey(
+                            OriginKey.newBuilder().setName("MyInfo3").setFile(fakeLabelString)))
                 .build());
   }
 
@@ -465,6 +568,42 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
+  public void providerNameGroups_useFirstDocumentableProviderName() throws Exception {
+    Module module =
+        exec(
+            "_MyInfo = provider()",
+            "def _my_impl(ctx):",
+            "    pass",
+            "my_lib = rule(",
+            "    implementation = _my_impl,",
+            "    attrs = {",
+            "        'foo': attr.label(providers = [_MyInfo]),",
+            "    },",
+            "    provides = [_MyInfo],",
+            ")",
+            "namespace1 = struct(_MyUndocumentedInfo = _MyInfo)",
+            "namespace2 = struct(MyInfoB = _MyInfo, MyInfoA = _MyInfo)",
+            "namespace3 = struct(MyInfo = _MyInfo)");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getRuleInfoList().get(0).getAdvertisedProviders().getProviderName(0))
+        // Struct fields are extracted in field name alphabetical order, so namespace2.MyInfoA
+        // (despite being declared after namespace2.MyInfoB) wins.
+        .isEqualTo("namespace2.MyInfoA");
+    assertThat(
+            moduleInfo
+                .getRuleInfoList()
+                .get(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getProviderNameGroup(0)
+                .getProviderName(0))
+        .isEqualTo("namespace2.MyInfoA");
+    assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
+        .containsExactly("namespace2.MyInfoA", "namespace2.MyInfoB", "namespace3.MyInfo");
+    // TODO(arostovtsev): instead of producing a separate ProviderInfo message per each alias, add a
+    // repeated alias name field, and produce a single ProviderInfo message listing its aliases.
+  }
+
+  @Test
   public void labelStringification() throws Exception {
     Module module =
         exec(
@@ -511,8 +650,14 @@ public final class ModuleInfoExtractorTest {
             AspectInfo.newBuilder()
                 .setAspectName("documented_aspect")
                 .setDocString("My doc")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("documented_aspect").setFile(fakeLabelString))
                 .build(),
-            AspectInfo.newBuilder().setAspectName("undocumented_aspect").build());
+            AspectInfo.newBuilder()
+                .setAspectName("undocumented_aspect")
+                .setOriginKey(
+                    OriginKey.newBuilder().setName("undocumented_aspect").setFile(fakeLabelString))
+                .build());
   }
 
   @Test
@@ -535,6 +680,7 @@ public final class ModuleInfoExtractorTest {
         .containsExactly(
             AspectInfo.newBuilder()
                 .setAspectName("my_aspect")
+                .setOriginKey(OriginKey.newBuilder().setName("my_aspect").setFile(fakeLabelString))
                 .addAspectAttribute("deps")
                 .addAspectAttribute("srcs")
                 .addAttribute(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO)

@@ -89,7 +89,6 @@ public class StarlarkTestingModule implements TestingModuleApi {
             /* buildSetting= */ Starlark.NONE,
             /* cfg= */ Starlark.NONE,
             /* execGroups= */ Starlark.NONE,
-            /* name= */ Starlark.NONE,
             thread);
 
     // Export the rule

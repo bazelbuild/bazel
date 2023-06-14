@@ -1465,6 +1465,102 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
                     "//command_line_option:bar=barsball", "//command_line_option:foo=foosball")));
   }
 
+  @Test
+  public void testOutputDirHash_onlyExec_diffDynamic() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def _impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'), ",
+        "  })",
+        "def _basic_impl(ctx):",
+        "  return []",
+        "simple = rule(_basic_impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'simple')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "simple(name = 'dep')");
+
+    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
+
+    assertThat(getTransitionDirectoryNameFragment(test)).isEmpty();
+
+    // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
+    // But, nothing else should be different.
+    assertThat(getTransitionDirectoryNameFragment(dep))
+        .isEqualTo(
+            BuildConfigurationFunction.transitionDirectoryNameFragment(
+                ImmutableList.of(
+                    "//command_line_option:platforms="
+                        + getConfiguration(dep)
+                            .getOptions()
+                            .get(PlatformOptions.class)
+                            .platforms)));
+  }
+
+  @Test
+  public void testOutputDirHash_starlarkRevertedByExec_diffDynamic() throws Exception {
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _some_impl(settings, attr):",
+        "  return {'//command_line_option:set_by_exec': 'at_target'}",
+        "some_transition = transition(implementation = _some_impl, inputs = [],",
+        "  outputs = ['//command_line_option:set_by_exec'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "load('//test:transitions.bzl', 'some_transition')",
+        "def _impl(ctx):",
+        "  return MyInfo(dep = ctx.attr.dep)",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = some_transition,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = 'exec'), ",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })",
+        "def _basic_impl(ctx):",
+        "  return []",
+        "simple = rule(_basic_impl)");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'simple')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "simple(name = 'dep')");
+
+    useConfiguration("--experimental_output_directory_naming_scheme=diff_against_dynamic_baseline");
+    ConfiguredTarget test = getConfiguredTarget("//test");
+
+    ConfiguredTarget dep = (ConfiguredTarget) getMyInfoFromTarget(test).getValue("dep");
+
+    assertThat(getTransitionDirectoryNameFragment(test))
+        .isEqualTo(
+            BuildConfigurationFunction.transitionDirectoryNameFragment(
+                ImmutableList.of("//command_line_option:set_by_exec=at_target")));
+
+    // Until platforms is EXPLICIT_IN_OUTPUT_PATH, it will change here as well.
+    assertThat(getTransitionDirectoryNameFragment(dep))
+        .isEqualTo(
+            BuildConfigurationFunction.transitionDirectoryNameFragment(
+                ImmutableList.of(
+                    "//command_line_option:platforms="
+                        + getConfiguration(dep)
+                            .getOptions()
+                            .get(PlatformOptions.class)
+                            .platforms)));
+  }
+
   // Test that a no-op starlark transition to an already starlark transitioned configuration
   // results in the same configuration.
   @Test

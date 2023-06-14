@@ -713,9 +713,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected final Collection<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
-      throws TransitionException, InvalidConfigurationException, InconsistentAspectOrderException,
+      throws InterruptedException,
+          TransitionException,
+          InvalidConfigurationException,
+          InconsistentAspectOrderException,
           Failure {
-    return view.getDirectPrerequisitesForTesting(reporter, target, targetConfig);
+    return view.getDirectPrerequisitesForTesting(reporter, target);
   }
 
   protected final ConfiguredTarget getDirectPrerequisite(ConfiguredTarget target, String label)
@@ -733,7 +736,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     Label candidateLabel = Label.parseCanonical(label);
     for (ConfiguredTargetAndData candidate :
         view.getConfiguredTargetAndDataDirectPrerequisitesForTesting(
-            reporter, ctad.getConfiguredTarget(), targetConfig)) {
+            reporter, ctad.getConfiguredTarget())) {
       if (candidate.getConfiguredTarget().getLabel().equals(candidateLabel)) {
         return candidate;
       }
@@ -780,13 +783,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * given configured target.
    */
   protected RuleContext getRuleContext(ConfiguredTarget target) throws Exception {
-    return view.getRuleContextForTesting(
-        reporter, target, new StubAnalysisEnvironment(), targetConfig);
+    return view.getRuleContextForTesting(reporter, target, new StubAnalysisEnvironment());
   }
 
   protected RuleContext getRuleContext(
       ConfiguredTarget target, AnalysisEnvironment analysisEnvironment) throws Exception {
-    return view.getRuleContextForTesting(reporter, target, analysisEnvironment, targetConfig);
+    return view.getRuleContextForTesting(reporter, target, analysisEnvironment);
   }
 
   /**
@@ -806,7 +808,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             reporter.handle(e);
           }
         };
-    return view.getRuleContextForTesting(target, eventHandler, targetConfig);
+    return view.getRuleContextForTesting(target, eventHandler);
   }
 
   /**
@@ -1056,9 +1058,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue config) {
     try {
       return view.getConfiguredTargetForTesting(reporter, label, config);
-    } catch (InvalidConfigurationException
-        | StarlarkTransition.TransitionException
-        | InterruptedException e) {
+    } catch (InvalidConfigurationException | InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -1447,11 +1447,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if ((owner instanceof ActionLookupKey)) {
+    if (owner instanceof ActionLookupKeyOrProxy) {
       SkyValue skyValue;
       try {
         skyValue =
-            skyframeExecutor.getEvaluator().getExistingValue(((ActionLookupKey) owner).toKey());
+            skyframeExecutor
+                .getEvaluator()
+                .getExistingValue(((ActionLookupKeyOrProxy) owner).toKey());
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }

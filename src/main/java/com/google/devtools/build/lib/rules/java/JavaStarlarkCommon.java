@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -113,7 +114,7 @@ public class JavaStarlarkCommon
       Sequence<?> addExports, // <String> expected
       Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
 
     boolean acceptJavaInfo =
         !starlarkRuleContext
@@ -130,7 +131,7 @@ public class JavaStarlarkCommon
               .filter(Objects::nonNull)
               .collect(toImmutableList());
     } else {
-      pluginsParam = Sequence.cast(plugins, JavaPluginInfo.class, "plugins").getImmutableList();
+      pluginsParam = JavaPluginInfo.wrapSequence(plugins, "plugins");
     }
 
     final ImmutableList<JavaPluginInfo> exportedPluginsParam;
@@ -144,9 +145,7 @@ public class JavaStarlarkCommon
               .filter(Objects::nonNull)
               .collect(toImmutableList());
     } else {
-      exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
-              .getImmutableList();
+      exportedPluginsParam = JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
     }
     // checks for private API access
     if (!enableCompileJarAction
@@ -301,8 +300,7 @@ public class JavaStarlarkCommon
   public JavaInfo makeNonStrict(JavaInfo javaInfo) {
     return JavaInfo.Builder.copyOf(javaInfo)
         // Overwrites the old provider.
-        .addProvider(
-            JavaCompilationArgsProvider.class,
+        .javaCompilationArgs(
             JavaCompilationArgsProvider.makeNonStrict(
                 javaInfo.getProvider(JavaCompilationArgsProvider.class)))
         .build();
@@ -423,25 +421,23 @@ public class JavaStarlarkCommon
             .build();
     JavaInfo.Builder builder = JavaInfo.Builder.create();
     if (javaInfo.getProvider(JavaCompilationInfoProvider.class) != null) {
-      builder.addProvider(JavaCompilationInfoProvider.class, javaInfo.getCompilationInfoProvider());
+      builder.javaCompilationInfo(javaInfo.getCompilationInfoProvider());
     } else if (javaInfo.getProvider(JavaCompilationArgsProvider.class) != null) {
       JavaCompilationArgsProvider compilationArgsProvider =
           javaInfo.getProvider(JavaCompilationArgsProvider.class);
-      builder.addProvider(
-          JavaCompilationInfoProvider.class,
+      builder.javaCompilationInfo(
           new JavaCompilationInfoProvider.Builder()
               .setCompilationClasspath(compilationArgsProvider.getTransitiveCompileTimeJars())
               .setRuntimeClasspath(compilationArgsProvider.getRuntimeJars())
               .build());
     }
     if (javaInfo.getProvider(JavaGenJarsProvider.class) != null) {
-      builder.addProvider(JavaGenJarsProvider.class, javaInfo.getGenJarsProvider());
+      builder.javaGenJars(javaInfo.getGenJarsProvider());
     }
     return builder
-        .addProvider(JavaCcInfoProvider.class, javaInfo.getProvider(JavaCcInfoProvider.class))
-        .addProvider(
-            JavaSourceJarsProvider.class, javaInfo.getProvider(JavaSourceJarsProvider.class))
-        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputs)
+        .javaCcInfo(javaInfo.getProvider(JavaCcInfoProvider.class))
+        .javaSourceJars(javaInfo.getProvider(JavaSourceJarsProvider.class))
+        .javaRuleOutputs(ruleOutputs)
         .build();
   }
 

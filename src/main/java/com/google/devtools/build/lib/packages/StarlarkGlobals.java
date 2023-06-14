@@ -33,6 +33,24 @@ import com.google.common.collect.ImmutableMap;
 public interface StarlarkGlobals {
 
   /**
+   * Returns a simple environment containing a few general utility modules, {@code depset}, and
+   * {@code select()}.
+   *
+   * <p>In general, if you need a Bazel-y Starlark environment and don't know what to choose, prefer
+   * to use this one for uniformity with as many other contexts as possible.
+   */
+  ImmutableMap<String, Object> getUtilToplevels();
+
+  /**
+   * Similar to {@link #getUtilToplevels} but without {@code select()} and with {@code struct}. Used
+   * for cquery.
+   */
+  // TODO(bazel-team): Consider whether we should replace usage of this with getUtilTopLevels(), at
+  // the cost of the cquery dialect changing slightly, for the sake of uniformity and fewer
+  // kinds of environments.
+  ImmutableMap<String, Object> getUtilToplevelsForCquery();
+
+  /**
    * Returns the fixed top-levels for BUILD files that also happen to be fields of {@code native}.
    * This does not include any native rules.
    */
@@ -43,4 +61,7 @@ public interface StarlarkGlobals {
 
   /** Returns the fixed top-levels for .bzl files, excluding the {@code native} object. */
   ImmutableMap<String, Object> getFixedBzlToplevels();
+
+  /** Returns the top-levels for .scl files. */
+  ImmutableMap<String, Object> getSclToplevels();
 }

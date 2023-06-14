@@ -16,16 +16,16 @@ bazel_dep(name = "stardoc", version = "0.5.3", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.2-3")
 bazel_dep(name = "zlib", version = "1.2.13")
 bazel_dep(name = "rules_cc", version = "0.0.6")
-bazel_dep(name = "rules_java", version = "5.5.0")
+bazel_dep(name = "rules_java", version = "6.1.0")
 bazel_dep(name = "rules_proto", version = "5.3.0-21.7")
-bazel_dep(name = "rules_jvm_external", version = "4.5")
+bazel_dep(name = "rules_jvm_external", version = "5.2")
 bazel_dep(name = "rules_python", version = "0.19.0")
 bazel_dep(name = "rules_testing", version = "0.0.4")
 
 single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
-    patches = ["//third_party:rules_jvm_external.patch"],
+    patches = ["//third_party:rules_jvm_external_5.2.patch"],
 )
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")

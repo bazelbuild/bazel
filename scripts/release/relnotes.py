@@ -14,7 +14,6 @@
 
 """Script to generate release notes."""
 
-import os
 import re
 import subprocess
 import sys
@@ -87,13 +86,13 @@ def get_relnotes_between(base, head, is_major_release):
 
 def get_label(issue_id):
   """Get team-X label added to issue."""
-  auth = os.system(
+  auth = subprocess.check_output(
       "gsutil cat"
       " gs://bazel-trusted-encrypted-secrets/github-trusted-token.enc |"
       " gcloud kms decrypt --project bazel-public --location global"
       " --keyring buildkite --key github-trusted-token --ciphertext-file"
-      " - --plaintext-file -"
-  )
+      " - --plaintext-file -", shell=True
+  ).decode("utf-8").strip().split("\n")[0]
   headers = {
       "Authorization": "Bearer " + auth,
       "Accept": "application/vnd.github+json",
@@ -138,9 +137,7 @@ def get_external_authors_between(base, head):
   authors = git("log", f"{base}..{head}", "--format=%aN|%aE")
   authors = set(
       author.partition("|")[0].rstrip()
-      for author in authors
-      if not (author.endswith(("@google.com", "@users.noreply.github.com")))
-  )
+      for author in authors if not (author.endswith(("@google.com"))))
 
   # Get all co-authors
   contributors = git(
@@ -149,9 +146,7 @@ def get_external_authors_between(base, head):
 
   coauthors = []
   for coauthor in contributors:
-    if coauthor and not re.search(
-        "@google.com|@users.noreply.github.com", coauthor
-    ):
+    if coauthor and not re.search("@google.com", coauthor):
       coauthors.append(
           " ".join(re.sub(r"Co-authored-by: |<.*?>", "", coauthor).split())
       )
@@ -162,21 +157,27 @@ if __name__ == "__main__":
   # Get last release and make sure it's consistent with current X.Y.Z release
   # e.g. if current_release is 5.3.3, last_release should be 5.3.2 even if
   # latest release is 6.1.1
-  current_release = git("rev-parse", "--abbrev-ref", "HEAD")
-  current_release = re.sub(
-      r"rc\d", "", current_release[0].removeprefix("release-")
-  )
+  current_release = git("rev-parse", "--abbrev-ref", "HEAD")[0]
+
+  if current_release.startswith("release-"):
+    current_release = re.sub(r"rc\d", "", current_release[len("release-"):])
+  else:
+    try:
+      current_release = git("describe", "--tags")[0]
+    except Exception:  # pylint: disable=broad-exception-caught
+      print("Error: Not a release branch.")
+      sys.exit(1)
 
   is_major = bool(re.fullmatch(r"\d+.0.0", current_release))
 
   tags = [tag for tag in git("tag", "--sort=refname") if "pre" not in tag]
+
+  # Get the baseline for RCs (before release tag is created)
   if current_release not in tags:
     tags.append(current_release)
-    tags.sort()
-    last_release = tags[tags.index(current_release) - 1]
-  else:
-    print("Error: release tag already exists")
-    sys.exit(1)
+
+  tags.sort()
+  last_release = tags[tags.index(current_release) - 1]
 
   # Assuming HEAD is on the current (to-be-released) release, find the merge
   # base with the last release so that we know which commits to generate notes
@@ -208,11 +209,13 @@ if __name__ == "__main__":
         print("+", note)
       print()
   else:
+    print()
     for note in filtered_relnotes:
       print("+", note)
 
   print()
   print("Acknowledgements:")
   external_authors = get_external_authors_between(merge_base, "HEAD")
+  print()
   print("This release contains contributions from many people at Google" +
         ("." if not external_authors else f", as well as {external_authors}."))

@@ -1191,7 +1191,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .contains(
             "module extension \"ext\" from \"//:defs.bzl\" does not generate repository"
                 + " \"missing_repo\", yet it is imported as \"my_repo\" in the usage at"
-                + " <root>/MODULE.bazel:1:20");
+                + " /ws/MODULE.bazel:1:20");
   }
 
   @Test
@@ -1603,13 +1603,23 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "bazel_dep(name='ext', version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')",
         "ext = use_extension('@ext//:defs.bzl', 'ext')",
-        "use_repo(ext, 'direct_dep', 'indirect_dep', 'invalid_dep')",
+        "use_repo(",
+        "  ext,",
+        "  'indirect_dep',",
+        "  'invalid_dep',",
+        "  my_direct_dep = 'direct_dep',",
+        ")",
         "ext_dev = use_extension('@ext//:defs.bzl', 'ext', dev_dependency = True)",
-        "use_repo(ext_dev, 'direct_dev_dep', 'indirect_dev_dep', 'invalid_dev_dep')");
+        "use_repo(",
+        "  ext_dev,",
+        "  'indirect_dev_dep',",
+        "  'invalid_dev_dep',",
+        "  my_direct_dev_dep = 'direct_dev_dep',",
+        ")");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
-        "load('@direct_dep//:data.bzl', direct_dep_data='data')",
+        "load('@my_direct_dep//:data.bzl', direct_dep_data='data')",
         "data = direct_dep_data");
 
     registry.addModule(
@@ -1648,7 +1658,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     assertEventCount(1, eventCollector);
     assertContainsEvent(
-        "WARNING <root>/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
+        "WARNING /ws/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
             + " reported incorrect imports of repositories via use_repo():\n"
             + "\n"
             + "Imported, but not created by the extension (will cause the build to fail):\n"
@@ -1726,11 +1736,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .isEqualTo(
             "module extension \"ext\" from \"@ext~1.0//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
-                + "<root>/MODULE.bazel:3:20");
+                + "/ws/MODULE.bazel:3:20");
 
     assertEventCount(1, eventCollector);
     assertContainsEvent(
-        "WARNING <root>/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
+        "WARNING /ws/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
             + " reported incorrect imports of repositories via use_repo():\n"
             + "\n"
             + "Imported, but not created by the extension (will cause the build to fail):\n"
@@ -1805,11 +1815,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .isEqualTo(
             "module extension \"ext\" from \"@ext~1.0//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
-                + "<root>/MODULE.bazel:3:20");
+                + "/ws/MODULE.bazel:3:20");
 
     assertEventCount(1, eventCollector);
     assertContainsEvent(
-        "WARNING <root>/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
+        "WARNING /ws/MODULE.bazel:3:20: The module extension ext defined in @ext//:defs.bzl"
             + " reported incorrect imports of repositories via use_repo():\n"
             + "\n"
             + "Imported, but not created by the extension (will cause the build to fail):\n"

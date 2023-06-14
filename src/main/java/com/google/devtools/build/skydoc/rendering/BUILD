@@ -19,6 +19,7 @@ java_library(
         "FunctionUtil.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",

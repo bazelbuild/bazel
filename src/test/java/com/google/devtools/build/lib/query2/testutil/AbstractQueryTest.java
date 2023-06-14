@@ -17,6 +17,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.testutil.TestConstants.GENRULE_SETUP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
@@ -35,14 +36,18 @@ import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.DotOutputVisitor;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -58,12 +63,14 @@ import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.junit.After;
@@ -274,19 +281,13 @@ public abstract class AbstractQueryTest<T> {
   public void testTargetLiteralWithMissingTargets() throws Exception {
     writeFile("a/BUILD");
     EvalThrowsResult evalThrowsResult = evalThrows("//a:b", false);
-    checkResultOfTargetLiteralWithMissingTargets(
-        evalThrowsResult.getMessage(), evalThrowsResult.getFailureDetail());
-  }
-
-  protected final void checkResultOfTargetLiteralWithMissingTargets(
-      String message, FailureDetail failureDetail) {
-    assertThat(message)
+    assertThat(evalThrowsResult.getMessage())
         .isEqualTo(
             "no such target '//a:b': target 'b' not declared in package 'a' "
                 + "defined by "
                 + helper.getRootDirectory().getPathString()
                 + "/a/BUILD (Tip: use `query \"//a:*\"` to see all the targets in that package)");
-    assertThat(failureDetail.getPackageLoading().getCode())
+    assertThat(evalThrowsResult.getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(FailureDetails.PackageLoading.Code.TARGET_MISSING);
   }
 
@@ -1454,53 +1455,6 @@ public abstract class AbstractQueryTest<T> {
     assertThat(result).isEqualTo(eval("//x:x + //x:y + //x:z"));
   }
 
-  // Regression test for bug #1686119,
-  // "blaze query dies with java.lang.IllegalArgumentException".
-  @Test
-  public void testRegressionBug1686119() throws Exception {
-    writeFile(
-        "x/BUILD",
-        "Fileset(name='x',",
-        "        entries=[FilesetEntry(files=['a'])],",
-        "        out='y')");
-    assertEqualsFiltered("//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)");
-    assertEqualsFiltered(
-        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.ONLY_TARGET_DEPS);
-    assertEqualsFiltered(
-        "//x:x + //x:a + //x:x_fileset_entry_1", "deps(//x:x)", Setting.NO_IMPLICIT_DEPS);
-  }
-
-  @Test
-  public void testFilesetPackageDeps() throws Exception {
-    writeFile(
-        "x/BUILD",
-        "Fileset(name='glob',",
-        "        entries=[FilesetEntry()],",
-        "        out='glob')",
-        "Fileset(name='noglob',",
-        "        entries=[FilesetEntry(files=['a'])],",
-        "        out='noglob')");
-
-    Set<T> globResult = eval("deps(//x:glob)");
-    Set<T> noglobResult = eval("deps(//x:noglob)");
-
-    assertContains(globResult, eval("//x:BUILD"));
-    assertNotContains(noglobResult, eval("//x:BUILD"));
-  }
-
-  /** Tests that the default_hdrs_check value is correctly propagated to individual rules. */
-  @Test
-  public void testHdrsCheck() throws Exception {
-    writeFile(
-        "x/BUILD",
-        "package(default_hdrs_check='strict')",
-        "cc_library(name='a')",
-        "cc_library(name='b', hdrs_check='loose')");
-
-    assertThat(eval("attr('hdrs_check', 'strict', //x:all)")).isEqualTo(eval("//x:a"));
-    assertThat(eval("attr('hdrs_check', 'loose', //x:all)")).isEqualTo(eval("//x:b"));
-  }
-
   @Test
   public void testTestSuiteWithFile() throws Exception {
     // Note that test_suite does not restrict the set of targets that can appear here.
@@ -1638,6 +1592,11 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile(
         "/workspace/platforms_workspace/MODULE.bazel",
         "module(name = \"platforms\", version = \"\")");
+    helper.writeFile("/workspace/rules_java_workspace/BUILD");
+    helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/rules_java_workspace/MODULE.bazel",
+        "module(name = \"rules_java\", version = \"\")");
   }
 
   @Test
@@ -2184,6 +2143,102 @@ public abstract class AbstractQueryTest<T> {
         "deps(//foo:gen) + //foo:out + //foo:pg + //foo:other-pg",
         "deps(//foo:out)",
         Setting.NO_IMPLICIT_DEPS);
+  }
+
+  @Test
+  public void testDeepNestedLet() throws Exception {
+    writeFile("foo/BUILD", "sh_library(name = 'foo')");
+
+    // We used to get a StackOverflowError at this depth. We're still vulnerable to stack overflows
+    // at higher depths, due to how the query engine works.
+    int nestingDepth = 500;
+    String queryString =
+        Joiner.on(" + ").join(Collections.nCopies(nestingDepth, "let x = //foo:foo in $x"));
+
+    assertThat(evalToString(queryString)).isEqualTo("//foo:foo");
+  }
+
+  @Test
+  public void testUnsuccessfulInnerFutureInNestedLetTransformAsyncFastPath() throws Exception {
+    // Not actually needed for the behavior being tested, but needed for the cquery and aquery test
+    // subclasses that infer and load a universe.
+    writeFile("foo/BUILD", "sh_library(name = 'foo')");
+    EvalThrowsResult result =
+        evalThrows("let x = let y = //foo in $nope in $x", /* unconditionallyThrows= */ true);
+    assertThat(result.getMessage()).contains("undefined variable 'nope'");
+    assertThat(result.getMessage()).doesNotContain("java.lang.IllegalStateException");
+    assertQueryCode(result.getFailureDetail(), Query.Code.VARIABLE_UNDEFINED);
+  }
+
+  @Test
+  public void testUnconditionalQueryException() throws Exception {
+    // The query expression being evaluated needs to be of the form "e1 + e2", where evaluation of
+    // "e1" throws a QueryException even in keepGoing mode. See cl/141772584.
+    writeFile("foo/BUILD", "sh_library(name = 'foo')");
+    EvalThrowsResult result =
+        evalThrows("some(//foo - //foo) + //foo", /* unconditionallyThrows= */ true);
+    assertThat(result.getMessage()).isEqualTo("argument set is empty");
+    assertQueryCode(result.getFailureDetail(), Query.Code.ARGUMENTS_MISSING);
+  }
+
+  @Test
+  public void testNoImplicitDeps_computedDefault() throws Exception {
+    // This rule cannot be defined in Starlark because the latter requires attributes with a
+    // computed default to be private.
+    MockRule computedDefaultRule =
+        () ->
+            MockRule.define(
+                "computed_default_rule",
+                attr("use_default", Type.BOOLEAN),
+                attr("dep", BuildType.LABEL)
+                    .allowedFileTypes(FileTypeSet.ANY_FILE)
+                    .value(
+                        new Attribute.ComputedDefault("use_default") {
+                          @Override
+                          public Object getDefault(AttributeMap rule) {
+                            return rule.get("use_default", Type.BOOLEAN)
+                                ? Label.parseCanonicalUnchecked("//x:default")
+                                : null;
+                          }
+                        }));
+
+    helper.useRuleClassProvider(setRuleClassProviders(computedDefaultRule).build());
+
+    writeFile(
+        "x/BUILD",
+        "computed_default_rule(name='x1')",
+        "computed_default_rule(name='x2', use_default = True)",
+        "computed_default_rule(name='x3', dep = ':custom')",
+        "computed_default_rule(name='x4', dep = ':custom', use_default = True)",
+        "computed_default_rule(name='x5', dep = '//x:default')",
+        "computed_default_rule(name='x6', dep = '//x:default', use_default = True)",
+        "cc_binary(name='default')",
+        "cc_binary(name='custom')");
+
+    assertDependsNotFiltered("//x:x1", "//x:default");
+    assertDependsFiltered("//x:x2", "//x:default");
+    assertDependsFiltered("//x:x3", "//x:custom");
+    assertDependsFiltered("//x:x4", "//x:custom");
+    assertDependsFiltered("//x:x5", "//x:default");
+    assertDependsFiltered("//x:x6", "//x:default");
+
+    assertDependsNotFiltered("//x:x1", "//x:default", Setting.NO_IMPLICIT_DEPS);
+    assertDependsNotFiltered("//x:x2", "//x:default", Setting.NO_IMPLICIT_DEPS);
+    assertDependsFiltered("//x:x3", "//x:custom", Setting.NO_IMPLICIT_DEPS);
+    assertDependsFiltered("//x:x4", "//x:custom", Setting.NO_IMPLICIT_DEPS);
+    assertDependsFiltered("//x:x5", "//x:default", Setting.NO_IMPLICIT_DEPS);
+    assertDependsFiltered("//x:x6", "//x:default", Setting.NO_IMPLICIT_DEPS);
+  }
+
+  private void assertDependsNotFiltered(String from, String to, Setting... settings)
+      throws Exception {
+    String fromDeps = "deps(" + from + ")";
+    assertEqualsFiltered(fromDeps, fromDeps + '-' + to, settings);
+  }
+
+  private void assertDependsFiltered(String from, String to, Setting... settings) throws Exception {
+    String fromDeps = "deps(" + from + ")";
+    assertEqualsFiltered(to, fromDeps + '^' + to, settings);
   }
 
   protected void writeBzlmodBuildFiles() throws Exception {

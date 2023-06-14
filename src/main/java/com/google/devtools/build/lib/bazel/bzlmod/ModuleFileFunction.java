@@ -92,7 +92,7 @@ public class ModuleFileFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws ModuleFileFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
@@ -110,11 +110,11 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
     String moduleFileHash =
-        new Fingerprint().addBytes(getModuleFileResult.moduleFileContents).hexDigestAndReset();
+        new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
-            getModuleFileResult.moduleFileContents,
+            getModuleFileResult.moduleFile,
             getModuleFileResult.registry,
             moduleKey,
             // Dev dependencies should always be ignored if the current module isn't the root module
@@ -144,15 +144,15 @@ public class ModuleFileFunction implements SkyFunction {
 
   @Nullable
   private SkyValue computeForRootModule(StarlarkSemantics starlarkSemantics, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws ModuleFileFunctionException, InterruptedException {
     RootedPath moduleFilePath =
         RootedPath.toRootedPath(
             Root.fromPath(workspaceRoot), LabelConstants.MODULE_DOT_BAZEL_FILE_NAME);
     if (env.getValue(FileValue.key(moduleFilePath)) == null) {
       return null;
     }
-    byte[] moduleFile = readFile(moduleFilePath.asPath());
-    String moduleFileHash = new Fingerprint().addBytes(moduleFile).hexDigestAndReset();
+    ModuleFile moduleFile = readModuleFile(moduleFilePath.asPath());
+    String moduleFileHash = new Fingerprint().addBytes(moduleFile.getContent()).hexDigestAndReset();
     ModuleFileGlobals moduleFileGlobals =
         execModuleFile(
             moduleFile,
@@ -189,7 +189,7 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   private ModuleFileGlobals execModuleFile(
-      byte[] moduleFile,
+      ModuleFile moduleFile,
       @Nullable Registry registry,
       ModuleKey moduleKey,
       boolean ignoreDevDeps,
@@ -197,7 +197,7 @@ public class ModuleFileFunction implements SkyFunction {
       Environment env)
       throws ModuleFileFunctionException, InterruptedException {
     StarlarkFile starlarkFile =
-        StarlarkFile.parse(ParserInput.fromUTF8(moduleFile, moduleKey + "/MODULE.bazel"));
+        StarlarkFile.parse(ParserInput.fromUTF8(moduleFile.getContent(), moduleFile.getLocation()));
     if (!starlarkFile.ok()) {
       Event.replayEventsOn(env.getListener(), starlarkFile.errors());
       throw errorf(Code.BAD_MODULE, "error parsing MODULE.bazel file for %s", moduleKey);
@@ -224,7 +224,7 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   private static class GetModuleFileResult {
-    byte[] moduleFileContents;
+    ModuleFile moduleFile;
     // `registry` can be null if this module has a non-registry override.
     @Nullable Registry registry;
   }
@@ -249,7 +249,7 @@ public class ModuleFileFunction implements SkyFunction {
         return null;
       }
       GetModuleFileResult result = new GetModuleFileResult();
-      result.moduleFileContents = readFile(moduleFilePath.asPath());
+      result.moduleFile = readModuleFile(moduleFilePath.asPath());
       return result;
     }
 
@@ -285,11 +285,11 @@ public class ModuleFileFunction implements SkyFunction {
     GetModuleFileResult result = new GetModuleFileResult();
     for (Registry registry : registryObjects) {
       try {
-        Optional<byte[]> moduleFile = registry.getModuleFile(key, env.getListener());
-        if (!moduleFile.isPresent()) {
+        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, env.getListener());
+        if (moduleFile.isEmpty()) {
           continue;
         }
-        result.moduleFileContents = moduleFile.get();
+        result.moduleFile = moduleFile.get();
         result.registry = registry;
         return result;
       } catch (IOException e) {
@@ -301,9 +301,10 @@ public class ModuleFileFunction implements SkyFunction {
     throw errorf(Code.MODULE_NOT_FOUND, "module not found in registries: %s", key);
   }
 
-  private static byte[] readFile(Path path) throws ModuleFileFunctionException {
+  private static ModuleFile readModuleFile(Path path) throws ModuleFileFunctionException {
     try {
-      return FileSystemUtils.readWithKnownFileSize(path, path.getFileSize());
+      return ModuleFile.create(
+          FileSystemUtils.readWithKnownFileSize(path, path.getFileSize()), path.getPathString());
     } catch (IOException e) {
       throw errorf(Code.MODULE_NOT_FOUND, "MODULE.bazel expected but not found at %s", path);
     }
@@ -330,7 +331,7 @@ public class ModuleFileFunction implements SkyFunction {
 
   static final class ModuleFileFunctionException extends SkyFunctionException {
 
-    ModuleFileFunctionException(Exception cause) {
+    ModuleFileFunctionException(ExternalDepsException cause) {
       super(cause, Transience.TRANSIENT);
     }
   }

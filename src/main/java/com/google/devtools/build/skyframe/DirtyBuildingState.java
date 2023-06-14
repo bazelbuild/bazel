@@ -250,7 +250,7 @@ public abstract class DirtyBuildingState implements PriorityTracker {
    * <p>Changes in direct deps do <i>not</i> force this to return false. Only the value is
    * considered.
    */
-  final boolean unchangedFromLastBuild(SkyValue newValue) throws InterruptedException {
+  public final boolean unchangedFromLastBuild(SkyValue newValue) throws InterruptedException {
     checkFinishedBuildingWhenAboutToSetValue();
     return !(newValue instanceof NotComparableSkyValue)
         && getLastBuildValue() != null

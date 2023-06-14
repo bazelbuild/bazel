@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
@@ -123,6 +124,7 @@ public class CcStarlarkInternal implements StarlarkValue {
         @Param(name = "strip", positional = false, named = true),
         @Param(name = "ld", positional = false, named = true),
         @Param(name = "gcov", positional = false, named = true),
+        @Param(name = "vars", positional = false, named = true),
       })
   public CcToolchainProvider getCcToolchainProvider(
       StarlarkRuleContext ruleContext,
@@ -156,7 +158,8 @@ public class CcStarlarkInternal implements StarlarkValue {
       String arExecutable,
       String stripExecutable,
       String ldExecutable,
-      String gcovExecutable)
+      String gcovExecutable,
+      Object vars)
       throws EvalException {
     CppConfiguration cppConfiguration = CcModule.convertFromNoneable(cppConfigurationObject, null);
     PathFragment toolsDirectory = PathFragment.create(toolsDirectoryStr);
@@ -211,12 +214,8 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* ccCompilationContext= */ ccCompilationContext,
         /* supportsParamFiles= */ attributes.isSupportsParamFiles(),
         /* supportsHeaderParsing= */ attributes.isSupportsHeaderParsing(),
-        /* additionalBuildVariablesComputer= */ attributes.getAdditionalBuildVariablesComputer(),
-        /* buildVariables= */ CcToolchainProviderHelper.getBuildVariables(
-            ruleContext.getRuleContext().getConfiguration().getOptions(),
-            cppConfiguration,
-            sysroot,
-            attributes.getAdditionalBuildVariablesComputer()),
+        /* buildOptions */ ruleContext.getRuleContext().getConfiguration().getOptions(),
+        /* buildVariables= */ (CcToolchainVariables) vars,
         /* builtinIncludeFiles= */ Sequence.cast(
                 builtinIncludeFiles, Artifact.class, "builtin_include_files")
             .getImmutableList(),
@@ -256,7 +255,23 @@ public class CcStarlarkInternal implements StarlarkValue {
         /* arExecutable= */ arExecutable,
         /* stripExecutable= */ stripExecutable,
         /* ldExecutable= */ ldExecutable,
-        /* gcovExecutable= */ gcovExecutable);
+        /* gcovExecutable= */ gcovExecutable,
+        /* ccToolchainBuildVariablesFunc */ attributes.getCcToolchainBuildVariablesFunc());
+  }
+
+  @StarlarkMethod(
+      name = "cc_toolchain_variables",
+      documented = false,
+      parameters = {
+        @Param(name = "vars", positional = false, named = true),
+      })
+  public CcToolchainVariables getCcToolchainVariables(Object vars) throws EvalException {
+    CcToolchainVariables.Builder ccToolchainVariables = CcToolchainVariables.builder();
+    for (Map.Entry<String, String> entry :
+        Dict.noneableCast(vars, String.class, String.class, "vars").entrySet()) {
+      ccToolchainVariables.addStringVariable(entry.getKey(), entry.getValue());
+    }
+    return ccToolchainVariables.build();
   }
 
   @StarlarkMethod(

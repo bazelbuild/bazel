@@ -72,6 +72,10 @@ public final class BuildConfigurationKey implements SkyKey {
     return SkyFunctions.BUILD_CONFIGURATION;
   }
 
+  public String getOptionsChecksum() {
+    return options.checksum();
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

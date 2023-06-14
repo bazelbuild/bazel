@@ -28,7 +28,7 @@ public class ExternalDepsException extends Exception implements DetailedExceptio
 
   private final DetailedExitCode detailedExitCode;
 
-  public ExternalDepsException(String message, @Nullable Throwable cause, ExternalDeps.Code code) {
+  private ExternalDepsException(String message, @Nullable Throwable cause, ExternalDeps.Code code) {
     super(message, cause);
     detailedExitCode =
         DetailedExitCode.of(

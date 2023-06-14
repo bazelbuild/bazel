@@ -17,7 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import javax.annotation.Nullable;
 
 /**
@@ -48,7 +48,7 @@ public abstract class ValueOrExceptionProducer<V, E extends Exception> implement
    */
   @Nullable
   @SuppressWarnings("unchecked")
-  public final V tryProduceValue(Environment env, ExtendedEventHandler listener)
+  public final V tryProduceValue(LookupEnvironment env, ExtendedEventHandler listener)
       throws InterruptedException, E {
     boolean done = driver.drive(env, listener);
     if (result instanceof Exception) {

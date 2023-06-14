@@ -42,7 +42,7 @@ abstract class AndroidLintTool implements StarlarkValue {
   abstract ImmutableList<JavaPackageConfigurationProvider> packageConfiguration();
 
   @Nullable
-  static AndroidLintTool fromRuleContext(RuleContext ruleContext) {
+  static AndroidLintTool fromRuleContext(RuleContext ruleContext) throws InterruptedException {
     JavaToolchainTool tool =
         JavaToolchainTool.fromRuleContext(
             ruleContext, "android_lint_runner", "android_lint_data", "android_lint_jvm_opts");

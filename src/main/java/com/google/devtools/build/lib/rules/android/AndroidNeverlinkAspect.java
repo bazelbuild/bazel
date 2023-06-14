@@ -23,16 +23,19 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * An aspect that collects neverlink libraries in the transitive closure.
@@ -49,6 +52,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
           "deps", "exports", "runtime_deps", "binary_under_test", "$instrumentation_test_runner");
 
   @Override
+  @Nullable
   public ConfiguredAspect create(
       Label targetLabel,
       ConfiguredTarget ct,
@@ -81,11 +85,16 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
     if (provider != null) {
       runtimeJars.addTransitive(provider.getResourceClassJars());
     }
+    NestedSet<Artifact> neverLinkLibraries;
+    try {
+      neverLinkLibraries =
+          AndroidCommon.collectTransitiveNeverlinkLibraries(ruleContext, deps, runtimeJars.build());
+    } catch (RuleErrorException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
     return new ConfiguredAspect.Builder(ruleContext)
-        .addNativeDeclaredProvider(
-            AndroidNeverLinkLibrariesProvider.create(
-                AndroidCommon.collectTransitiveNeverlinkLibraries(
-                    ruleContext, deps, runtimeJars.build())))
+        .addNativeDeclaredProvider(AndroidNeverLinkLibrariesProvider.create(neverLinkLibraries))
         .build();
   }
 

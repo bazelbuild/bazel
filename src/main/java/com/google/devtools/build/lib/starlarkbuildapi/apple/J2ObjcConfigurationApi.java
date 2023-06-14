@@ -37,4 +37,19 @@ public interface J2ObjcConfigurationApi extends StarlarkValue {
 
   @StarlarkMethod(name = "remove_dead_code", documented = false, useStarlarkThread = true)
   boolean getRemoveDeadCodeForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(name = "j2objc_library_migration", documented = false, useStarlarkThread = true)
+  boolean j2objcLibraryMigrationForStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_shorter_header_path",
+      documented = false,
+      useStarlarkThread = true)
+  boolean experimentalShorterHeaderPathforStarlark(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
+      name = "experimental_j2objc_header_map",
+      documented = false,
+      useStarlarkThread = true)
+  boolean getExperimentalJ2ObjcHeaderMapForStarlark(StarlarkThread thread) throws EvalException;
 }

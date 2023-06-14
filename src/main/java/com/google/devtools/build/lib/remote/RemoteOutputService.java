@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -99,11 +100,12 @@ public class RemoteOutputService implements OutputService {
 
   @Override
   public void updateActionFileSystemContext(
+      ActionExecutionMetadata action,
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    ((RemoteActionFileSystem) actionFileSystem).updateContext(injector);
+    ((RemoteActionFileSystem) actionFileSystem).updateContext(action, injector);
   }
 
   @Override

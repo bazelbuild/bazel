@@ -329,8 +329,8 @@ py_test(
 )
 
 py_test(
-    name = "starlark_options_test",
-    srcs = ["starlark_options_test.py"],
+    name = "options_test",
+    srcs = ["options_test.py"],
     deps = [":test_base"],
 )
 

@@ -184,6 +184,19 @@ public final class BuildOptions implements Cloneable {
     return checksum;
   }
 
+  /**
+   * Returns a user-friendly configuration identifier as a prefix of <code>fullId</code>.
+   *
+   * <p>This eliminates having to manipulate long full hashes, just like Git short commit hashes.
+   */
+  public String shortId() {
+    // Inherit Git's default commit hash prefix length. It's a principled choice with similar usage
+    // patterns. cquery, which uses this, has access to every configuration in the build. If it
+    // turns out this setting produces ambiguous prefixes, we could always compare configurations
+    // to find the actual minimal unambiguous length.
+    return checksum() == null ? "null" : checksum().substring(0, 7);
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
@@ -193,16 +206,20 @@ public final class BuildOptions implements Cloneable {
         .toString();
   }
 
-  /** Returns the options contained in this collection. */
+  /** Returns the options contained in this collection, sorted by {@link FragmentOptions} name. */
   public ImmutableCollection<FragmentOptions> getNativeOptions() {
     return fragmentOptionsMap.values();
   }
 
-  /** Returns the set of fragment classes contained in these options. */
+  /**
+   * Returns the set of fragment classes contained in these options, sorted by {@link
+   * FragmentOptions} name.
+   */
   public ImmutableSet<Class<? extends FragmentOptions>> getFragmentClasses() {
     return fragmentOptionsMap.keySet();
   }
 
+  /** Starlark options, sorted lexicographically by name. */
   public ImmutableMap<Label, Object> getStarlarkOptions() {
     return starlarkOptionsMap;
   }

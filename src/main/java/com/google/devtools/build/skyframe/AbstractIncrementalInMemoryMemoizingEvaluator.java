@@ -27,7 +27,9 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Partial implementation of {@link MemoizingEvaluator} with expanded support for incremental and
@@ -91,13 +93,16 @@ public abstract class AbstractIncrementalInMemoryMemoizingEvaluator
       SkyKey key = entry.getKey();
       SkyValue newValue = entry.getValue().newValue();
       NodeEntry prevEntry = getInMemoryGraph().get(null, Reason.OTHER, key);
+      @Nullable Version newMtsv = entry.getValue().newMaxTransitiveSourceVersion();
       if (prevEntry != null && prevEntry.isDone()) {
+        @Nullable Version oldMtsv = prevEntry.getMaxTransitiveSourceVersion();
         if (keepEdges) {
           try {
             if (!prevEntry.hasAtLeastOneDep()) {
               if (newValue.equals(prevEntry.getValue())
                   && !valuesToDirty.contains(key)
-                  && !valuesToDelete.contains(key)) {
+                  && !valuesToDelete.contains(key)
+                  && Objects.equals(newMtsv, oldMtsv)) {
                 it.remove();
               }
             } else {

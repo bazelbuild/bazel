@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.StarlarkThread;
 
 /** Enum covering all build variables we create for all various {@link CppCompileAction}. */
 public enum CompileBuildVariables {
@@ -136,6 +137,7 @@ public enum CompileBuildVariables {
   }
 
   public static CcToolchainVariables setupVariablesOrReportRuleError(
+      StarlarkThread thread,
       RuleErrorConsumer ruleErrorConsumer,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
@@ -162,7 +164,8 @@ public enum CompileBuildVariables {
       NestedSet<PathFragment> systemIncludeDirs,
       NestedSet<PathFragment> frameworkIncludeDirs,
       Iterable<String> defines,
-      Iterable<String> localDefines) {
+      Iterable<String> localDefines)
+      throws InterruptedException {
     try {
       if (usePic
           && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
@@ -171,7 +174,7 @@ public enum CompileBuildVariables {
       }
       return setupVariables(
           featureConfiguration,
-          ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration),
+          ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration),
           sourceFile,
           outputFile,
           gcnoFile,
@@ -204,6 +207,7 @@ public enum CompileBuildVariables {
   }
 
   public static CcToolchainVariables setupVariablesOrThrowEvalException(
+      StarlarkThread thread,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchainProvider,
       BuildOptions buildOptions,
@@ -233,7 +237,7 @@ public enum CompileBuildVariables {
       NestedSet<String> frameworkIncludeDirs,
       Iterable<String> defines,
       Iterable<String> localDefines)
-      throws EvalException {
+      throws EvalException, InterruptedException {
     if (usePic
         && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
         && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
@@ -241,7 +245,7 @@ public enum CompileBuildVariables {
     }
     return setupVariables(
         featureConfiguration,
-        ccToolchainProvider.getBuildVariables(buildOptions, cppConfiguration),
+        ccToolchainProvider.getBuildVariables(thread, buildOptions, cppConfiguration),
         sourceFile,
         outputFile,
         gcnoFile,

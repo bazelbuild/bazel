@@ -51,6 +51,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
       "\033[31m\033[1mERROR: \033[0mBuild did NOT complete successfully" + System.lineSeparator();
 
   @TestParameter private TestedOutput testedOutput;
+  @TestParameter private boolean skymeldMode;
 
   private UiEventHandler uiEventHandler;
   private FlushCollectingOutputStream output;
@@ -84,7 +85,12 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     }
 
     uiEventHandler =
-        new UiEventHandler(outErr, uiOptions, new ManualClock(), /* workspacePathFragment= */ null);
+        new UiEventHandler(
+            outErr,
+            uiOptions,
+            new ManualClock(),
+            /* workspacePathFragment= */ null,
+            /* skymeldMode= */ skymeldMode);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -45,8 +44,13 @@ import net.starlark.java.eval.StarlarkSemantics;
  * default values.
  */
 public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
-  private final Label label;
-  private final BuildConfigurationKey configurationKey;
+  // This should really never be null, but is null in two cases.
+  // 1. MergedConfiguredTarget: these are ephemeral and never added to the Skyframe graph.
+  // 2. TestActionBuilder.EmptyPackageProvider: it is used here only to inject an empty
+  //    PackageSpecificationProvider.
+  // TODO(b/281522692): The existence of these cases suggest that there should be some additional
+  // abstraction that does not have a key.
+  private final ActionLookupKeyOrProxy actionLookupKey;
 
   private final NestedSet<PackageGroupContents> visibility;
 
@@ -74,17 +78,19 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
-  public AbstractConfiguredTarget(Label label, BuildConfigurationKey configurationKey) {
-    this(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
+  public AbstractConfiguredTarget(ActionLookupKeyOrProxy actionLookupKey) {
+    this(actionLookupKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 
   protected AbstractConfiguredTarget(
-      Label label,
-      BuildConfigurationKey configurationKey,
-      NestedSet<PackageGroupContents> visibility) {
-    this.label = label;
-    this.configurationKey = configurationKey;
+      ActionLookupKeyOrProxy actionLookupKey, NestedSet<PackageGroupContents> visibility) {
+    this.actionLookupKey = actionLookupKey;
     this.visibility = visibility;
+  }
+
+  @Override
+  public ActionLookupKeyOrProxy getKeyOrProxy() {
+    return actionLookupKey;
   }
 
   @Override
@@ -95,16 +101,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   @Override
   public final NestedSet<PackageGroupContents> getVisibility() {
     return visibility;
-  }
-
-  @Override
-  public BuildConfigurationKey getConfigurationKey() {
-    return configurationKey;
-  }
-
-  @Override
-  public Label getLabel() {
-    return label;
   }
 
   @Override

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.checkPrivateAccess;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
-import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -221,7 +220,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     if (!ruleContext.getConfiguration().allowUnresolvedSymlinks()) {
       throw Starlark.errorf(
           "actions.declare_symlink() is not allowed; "
-              + "use the --experimental_allow_unresolved_symlinks command line option");
+              + "use the --allow_unresolved_symlinks command line option");
     }
 
     Artifact result;
@@ -307,11 +306,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
                 + "declare_directory() instead of declare_symlink()?)");
       }
 
-      boolean inputOutputMismatch =
-          getSemantics().getBool(INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR)
-              ? inputArtifact.isDirectory() != outputArtifact.isDirectory()
-              : !inputArtifact.isDirectory() && outputArtifact.isDirectory();
-      if (inputOutputMismatch) {
+      if (inputArtifact.isDirectory() != outputArtifact.isDirectory()) {
         String inputType = inputArtifact.isDirectory() ? "directory" : "file";
         String outputType = outputArtifact.isDirectory() ? "directory" : "file";
         throw Starlark.errorf(

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.repository.NeedsSkyframeRestartException;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -94,7 +94,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws SingleExtensionEvalFunctionException, InterruptedException {
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
       return null;
@@ -115,7 +115,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     } catch (LabelSyntaxException e) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE, e, "invalid module extension label"),
+              ExternalDeps.Code.BAD_MODULE, e, "invalid module extension label"),
           Transience.PERSISTENT);
     }
 
@@ -130,7 +130,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     } catch (BzlLoadFailedException e) {
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE,
+              ExternalDeps.Code.BAD_MODULE,
               e,
               "Error loading '%s' for module extensions, requested by %s: %s",
               extensionId.getBzlFileLabel(),
@@ -156,7 +156,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
               .collect(toImmutableSet());
       throw new SingleExtensionEvalFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
+              ExternalDeps.Code.BAD_MODULE,
               "%s does not export a module extension called %s, yet its use is requested at %s%s",
               extensionId.getBzlFileLabel(),
               extensionId.getExtensionName(),
@@ -188,7 +188,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         if (returnValue != Starlark.NONE && !(returnValue instanceof ModuleExtensionMetadata)) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
+                  ExternalDeps.Code.BAD_MODULE,
                   "expected module extension %s in %s to return None or extension_metadata, got %s",
                   extensionId.getExtensionName(),
                   extensionId.getBzlFileLabel(),
@@ -209,14 +209,20 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleContext.getWorkingDirectory().deleteTree();
           }
         } catch (IOException e1) {
-          throw new SingleExtensionEvalFunctionException(e1, Transience.TRANSIENT);
+          ExternalDepsException externalDepsException =
+              ExternalDepsException.withCauseAndMessage(
+                  ExternalDeps.Code.UNRECOGNIZED,
+                  e1,
+                  "Failed to clean up module context directory");
+          throw new SingleExtensionEvalFunctionException(
+              externalDepsException, Transience.TRANSIENT);
         }
         return null;
       } catch (EvalException e) {
         env.getListener().handle(Event.error(e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
-                Code.BAD_MODULE,
+                ExternalDeps.Code.BAD_MODULE,
                 "error evaluating module extension %s in %s",
                 extensionId.getExtensionName(),
                 extensionId.getBzlFileLabel()),
@@ -230,7 +236,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         if (!threadContext.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withMessage(
-                  Code.BAD_MODULE,
+                  ExternalDeps.Code.BAD_MODULE,
                   "module extension \"%s\" from \"%s\" does not generate repository \"%s\", yet it"
                       + " is imported as \"%s\" in the usage at %s%s",
                   extensionId.getExtensionName(),
@@ -297,7 +303,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
 
   static final class SingleExtensionEvalFunctionException extends SkyFunctionException {
 
-    SingleExtensionEvalFunctionException(Exception cause, Transience transience) {
+    SingleExtensionEvalFunctionException(ExternalDepsException cause, Transience transience) {
       super(cause, transience);
     }
   }

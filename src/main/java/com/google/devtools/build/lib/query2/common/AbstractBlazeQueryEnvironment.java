@@ -359,9 +359,26 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   @Override
   public <T1, T2> QueryTaskFuture<T2> transformAsync(
       QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
+    QueryTaskFutureImpl<T1> futureImpl = (QueryTaskFutureImpl<T1>) future;
+    if (futureImpl.isDone()) {
+      // Due to how our subclasses use single-threaded query engines, in practice
+      // futureImpl will always already be done. Therefore this is a fast-path to make it harder to
+      // stack overflow on deeply nested expressions whose evaluation involves #transformAsync.
+      //
+      // TODO(b/283225081): Do something more effective and more pervasive.
+      T1 t1;
+      try {
+        t1 = futureImpl.getChecked();
+      } catch (QueryException e) {
+        return immediateFailedFuture(e);
+      } catch (InterruptedException e) {
+        return immediateCancelledFuture();
+      }
+      return function.apply(t1);
+    }
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
-            (QueryTaskFutureImpl<T1>) future,
+            futureImpl,
             input -> (QueryTaskFutureImpl<T2>) function.apply(input),
             directExecutor()));
   }

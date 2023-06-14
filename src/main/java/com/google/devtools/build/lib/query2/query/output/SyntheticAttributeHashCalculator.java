@@ -56,7 +56,8 @@ class SyntheticAttributeHashCalculator {
       Rule rule,
       Map<Attribute, Build.Attribute> serializedAttributes,
       Object extraDataForAttrHash,
-      HashFunction hashFunction) {
+      HashFunction hashFunction,
+      boolean includeAttributeSourceAspects) {
     HashingOutputStream hashingOutputStream =
         new HashingOutputStream(hashFunction, ByteStreams.nullOutputStream());
     CodedOutputStream codedOut = CodedOutputStream.newInstance(hashingOutputStream);
@@ -118,7 +119,9 @@ class SyntheticAttributeHashCalculator {
                 attr,
                 valueToHash,
                 /* explicitlySpecified= */ false, // We care about value, not how it was set.
-                /*encodeBooleanAndTriStateAsIntegerAndString=*/ false);
+                /* encodeBooleanAndTriStateAsIntegerAndString= */ false,
+                /* sourceAspect= */ null,
+                includeAttributeSourceAspects);
       } else {
         attrPb = serializedAttributes.get(attr);
       }

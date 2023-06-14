@@ -18,14 +18,12 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.analysis.TargetContext;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.License;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
@@ -41,21 +39,19 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   private final SourceArtifact artifact;
   private final NestedSet<TargetLicense> licenses;
 
-  private InputFileConfiguredTarget(
-      Label label,
-      NestedSet<PackageGroupContents> visibility,
-      SourceArtifact artifact,
-      NestedSet<TargetLicense> licenses) {
-    super(label, null, visibility, artifact, null, null, null);
-    this.artifact = artifact;
-    this.licenses = licenses;
-  }
-
   public InputFileConfiguredTarget(
       TargetContext targetContext, InputFile inputFile, SourceArtifact artifact) {
-    this(inputFile.getLabel(), targetContext.getVisibility(), artifact, makeLicenses(inputFile));
+    super(
+        targetContext.getAnalysisEnvironment().getOwner(),
+        targetContext.getVisibility(),
+        artifact,
+        /* instrumentedFilesInfo= */ null,
+        /* configFragmentsProvider= */ null,
+        /* generatingRuleOutputGroupInfo= */ null);
     Preconditions.checkArgument(getConfigurationKey() == null, getLabel());
     Preconditions.checkArgument(targetContext.getTarget() == inputFile, getLabel());
+    this.artifact = artifact;
+    this.licenses = makeLicenses(inputFile);
   }
 
   private static NestedSet<TargetLicense> makeLicenses(InputFile inputFile) {

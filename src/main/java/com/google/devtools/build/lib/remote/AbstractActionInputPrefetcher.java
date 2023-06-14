@@ -29,6 +29,7 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -263,6 +264,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
+      ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -285,6 +287,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
+      ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataSupplier metadataSupplier,
       Priority priority) {
@@ -308,7 +311,8 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
-            .flatMapSingle(input -> prefetchFile(dirCtx, metadataSupplier, input, priority));
+            .flatMapSingle(
+                input -> prefetchFile(action, dirCtx, metadataSupplier, input, priority));
 
     Completable prefetch =
         Completable.using(
@@ -318,6 +322,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Single<TransferResult> prefetchFile(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       MetadataSupplier metadataSupplier,
       ActionInput input,
@@ -347,6 +352,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       Completable result =
           downloadFileNoCheckRx(
+              action,
               dirCtx,
               execRoot.getRelative(execPath),
               treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
@@ -421,6 +427,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable downloadFileNoCheckRx(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
@@ -445,6 +452,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     toCompletable(
                             () ->
                                 doDownloadFile(
+                                    action,
                                     reporter,
                                     tempPath,
                                     finalPath.relativeTo(execRoot),
@@ -603,7 +611,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
       try (var s = Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "Download outputs")) {
         getFromFuture(
             prefetchFiles(
-                outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
+                action, outputsToDownload, outputMetadataStore::getOutputMetadata, Priority.HIGH));
       }
     }
   }

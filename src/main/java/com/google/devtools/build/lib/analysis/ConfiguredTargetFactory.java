@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
@@ -239,7 +238,7 @@ public final class ConfiguredTargetFactory {
           && rule.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey()) != null) {
         return rule;
       }
-      Artifact artifact = rule.getArtifactByOutputLabel(outputFile.getLabel());
+      Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
       return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
@@ -271,11 +270,9 @@ public final class ConfiguredTargetFactory {
               config,
               prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
               visibility);
-      return new PackageGroupConfiguredTarget(targetContext, packageGroup);
+      return new PackageGroupConfiguredTarget(configuredTargetKey, targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
-      TargetContext targetContext =
-          new TargetContext(analysisEnvironment, target, config, ImmutableSet.of(), visibility);
-      return new EnvironmentGroupConfiguredTarget(targetContext);
+      return new EnvironmentGroupConfiguredTarget(configuredTargetKey);
     } else {
       throw new AssertionError("Unexpected target class: " + target.getClass().getName());
     }

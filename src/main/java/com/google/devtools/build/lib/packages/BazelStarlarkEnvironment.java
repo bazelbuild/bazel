@@ -64,6 +64,9 @@ public final class BazelStarlarkEnvironment {
   // All of the environments stored in these fields exclude the symbols in {@link
   // Starlark#UNIVERSE}, which the interpreter adds automatically.
 
+  // Constructor param, used in this class but also re-exported to clients.
+  private final StarlarkGlobals starlarkGlobals;
+
   // The following fields correspond to the constructor params of the same name. These include only
   // the params that are needed by injection. See the constructor for javadoc.
   private final ImmutableMap<String, ?> ruleFunctions;
@@ -118,6 +121,7 @@ public final class BazelStarlarkEnvironment {
       ImmutableMap<String, Object> workspaceBzlNativeBindings,
       ImmutableMap<String, Object> builtinsInternals) {
 
+    this.starlarkGlobals = starlarkGlobals;
     this.ruleFunctions = ruleFunctions;
     this.registeredBzlToplevels = registeredBzlToplevels;
     this.workspaceBzlNativeBindings = workspaceBzlNativeBindings;
@@ -144,6 +148,17 @@ public final class BazelStarlarkEnvironment {
             uninjectedBuildBzlEnv);
     this.uninjectedBuildEnv =
         createUninjectedBuildEnv(starlarkGlobals, ruleFunctions, registeredBuildFileToplevels);
+  }
+
+  /**
+   * Returns a {@link StarlarkGlobals} instance.
+   *
+   * <p>In practice, {@link StarlarkGlobals} is a singleton, so this accessor is really about
+   * retrieving {@link StarlarkGlobalsImpl#INSTANCE} without requiring a dependency on the
+   * lib/analysis/ package.
+   */
+  public StarlarkGlobals getStarlarkGlobals() {
+    return starlarkGlobals;
   }
 
   /**

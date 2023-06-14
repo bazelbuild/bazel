@@ -41,15 +41,15 @@ final class WorkspaceFactoryTestHelper {
   private Package.Builder builder;
   private StarlarkSemantics starlarkSemantics;
 
-  private final boolean allowOverride;
+  private final boolean allowWorkspace;
 
   WorkspaceFactoryTestHelper(Root root) {
     this(true, root);
   }
 
-  WorkspaceFactoryTestHelper(boolean allowOverride, Root root) {
+  WorkspaceFactoryTestHelper(boolean allowWorkspace, Root root) {
     this.root = root;
-    this.allowOverride = allowOverride;
+    this.allowWorkspace = allowWorkspace;
     this.starlarkSemantics = StarlarkSemantics.DEFAULT;
   }
 
@@ -77,7 +77,8 @@ final class WorkspaceFactoryTestHelper {
             builder,
             TestRuleClassProvider.getRuleClassProvider(),
             Mutability.create("test"),
-            allowOverride,
+            /* allowOverride= */ true,
+            allowWorkspace,
             root.asPath(),
             root.asPath(),
             /* defaultSystemJavabaseDir= */ null,

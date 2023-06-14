@@ -293,7 +293,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "incompatible_check_sharding_support",
-        defaultValue = "false",
+        defaultValue = "true",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         effectTags = {OptionEffectTag.UNKNOWN},

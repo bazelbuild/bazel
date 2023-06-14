@@ -152,7 +152,7 @@ public class AppleRulesTest extends AnalysisTestCase {
         "transition/transition.bzl",
         "def _silly_transition_impl(settings, attr):",
         "    version = str(settings['//command_line_option:ios_minimum_os'])",
-        "    next = version + '.1'",
+        "    next = version if version.endswith('.1') else version + '.1'",
         "    return {'//command_line_option:ios_minimum_os': next}",
         "silly_transition = transition(",
         "    implementation = _silly_transition_impl,",

@@ -63,13 +63,11 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
@@ -232,6 +230,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   @Override
+  @Nullable
   public ConfiguredAspect create(
       Label targetLabel,
       ConfiguredTarget ct,
@@ -248,8 +247,14 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       minSdkVersion = Integer.valueOf(params.getOnlyValueOfAttribute("min_sdk_version"));
     }
 
-    Function<Artifact, Artifact> desugaredJars =
-        desugarJarsIfRequested(ct, ruleContext, minSdkVersion, result, extraToolchainJars);
+    Function<Artifact, Artifact> desugaredJars;
+    try {
+      desugaredJars =
+          desugarJarsIfRequested(ct, ruleContext, minSdkVersion, result, extraToolchainJars);
+    } catch (RuleErrorException e) {
+      ruleContext.ruleError(e.getMessage());
+      return null;
+    }
 
     TriState incrementalAttr =
         TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing"));
@@ -310,7 +315,8 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       RuleContext ruleContext,
       int minSdkVersion,
       ConfiguredAspect.Builder result,
-      Iterable<Artifact> extraToolchainJars) {
+      Iterable<Artifact> extraToolchainJars)
+      throws RuleErrorException {
     if (!getAndroidConfig(ruleContext).desugarJava8()) {
       return Functions.identity();
     }
@@ -332,8 +338,7 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
     JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
     if (javaInfo != null) {
       // These are all transitive hjars of dependencies and hjar of the jar itself
-      NestedSet<Artifact> compileTimeClasspath =
-          getJavaCompilationArgsProvider(base, ruleContext).getTransitiveCompileTimeJars();
+      NestedSet<Artifact> compileTimeClasspath = JavaInfo.transitiveCompileTimeJars(base);
       ImmutableSet.Builder<Artifact> jars = ImmutableSet.builder();
       jars.addAll(javaInfo.getDirectRuntimeJars());
 
@@ -376,20 +381,11 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       ConfiguredTarget base, RuleContext ruleContext, Iterable<Artifact> extraToolchainJars) {
     if (isProtoLibrary(ruleContext)) {
       if (!ruleContext.getPrerequisites("srcs").isEmpty()) {
-        JavaRuleOutputJarsProvider outputJarsProvider =
-            base.getProvider(JavaRuleOutputJarsProvider.class);
-        if (outputJarsProvider != null) {
-          // TODO(b/207058960): remove after enabling Starlark java proto libraries
-          return outputJarsProvider.getJavaOutputs().stream()
+        JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
+        if (javaInfo != null) {
+          return javaInfo.getJavaOutputs().stream()
               .map(JavaOutput::getClassJar)
               .collect(toImmutableList());
-        } else {
-          JavaInfo javaInfo = JavaInfo.getJavaInfo(base);
-          if (javaInfo != null) {
-            return javaInfo.getJavaOutputs().stream()
-                .map(JavaOutput::getClassJar)
-                .collect(toImmutableList());
-          }
         }
       }
     } else {
@@ -413,17 +409,6 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
       return jars.build();
     }
     return null;
-  }
-
-  @Nullable
-  private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(
-      ConfiguredTarget base, RuleContext ruleContext) {
-    JavaCompilationArgsProvider provider =
-        JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
-    if (provider != null) {
-      return provider;
-    }
-    return isProtoLibrary(ruleContext) ? base.getProvider(JavaCompilationArgsProvider.class) : null;
   }
 
   private static boolean isProtoLibrary(RuleContext ruleContext) {
@@ -472,10 +457,9 @@ public class DexArchiveAspect extends NativeAspectClass implements ConfiguredAsp
   }
 
   private NestedSet<Artifact> getBootclasspath(ConfiguredTarget base, RuleContext ruleContext) {
-    JavaCompilationInfoProvider compilationInfo =
-        JavaInfo.getProvider(JavaCompilationInfoProvider.class, base);
-    if (compilationInfo != null && !compilationInfo.getBootClasspath().isEmpty()) {
-      return compilationInfo.getBootClasspathAsNestedSet();
+    NestedSet<Artifact> bootClasspath = JavaInfo.bootClasspath(base);
+    if (!bootClasspath.isEmpty()) {
+      return bootClasspath;
     }
     Artifact androidJar = getAndroidJar(ruleContext);
     if (androidJar != null) {

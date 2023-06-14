@@ -475,8 +475,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
       expansion = {
         "--nobuild_runfile_links",
         "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
         "--remote_download_outputs=minimal"
       },
       category = "remote",
@@ -493,12 +491,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_toplevel",
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
-      expansion = {
-        "--action_cache_store_output_metadata",
-        "--experimental_inmemory_jdeps_files",
-        "--experimental_inmemory_dotd_files",
-        "--remote_download_outputs=toplevel"
-      },
+      expansion = {"--action_cache_store_output_metadata", "--remote_download_outputs=toplevel"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
@@ -660,6 +653,44 @@ public final class RemoteOptions extends CommonRemoteOptions {
               + "cache misses and retries.")
   public boolean remoteDiscardMerkleTrees;
 
+  @Option(
+      name = "experimental_circuit_breaker_strategy",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      defaultValue = "null",
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = CircuitBreakerStrategy.Converter.class,
+      help =
+          "Specifies the strategy for the circuit breaker to use. Available strategies are"
+              + " \"failure\". On invalid value for the option the behavior same as the option is"
+              + " not set.")
+  public CircuitBreakerStrategy circuitBreakerStrategy;
+
+  @Option(
+      name = "experimental_remote_failure_rate_threshold",
+      defaultValue = "10",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = Converters.PercentageConverter.class,
+      help =
+          "Sets the allowed number of failure rate in percentage for a specific time window after"
+              + " which it stops calling to the remote cache/executor. By default the value is 10."
+              + " Setting this to 0 means no limitation.")
+  public int remoteFailureRateThreshold;
+
+  @Option(
+      name = "experimental_remote_failure_window_interval",
+      defaultValue = "60s",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = RemoteDurationConverter.class,
+      help =
+          "The interval in which the failure rate of the remote requests are computed. On zero or"
+              + " negative value the failure duration is computed the whole duration of the"
+              + " execution.Following units can be used: Days (d), hours (h), minutes (m), seconds"
+              + " (s), and milliseconds (ms). If the unit is omitted, the value is interpreted as"
+              + " seconds.")
+  public Duration remoteFailureWindowInterval;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
@@ -747,6 +778,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
       return ((!success && this == ExecutionMessagePrintMode.FAILURE)
           || (success && this == ExecutionMessagePrintMode.SUCCESS)
           || this == ExecutionMessagePrintMode.ALL);
+    }
+  }
+
+  /** An enum for specifying different strategy for circuit breaker. */
+  public enum CircuitBreakerStrategy {
+    FAILURE;
+
+    /** Converts to {@link CircuitBreakerStrategy}. */
+    public static class Converter extends EnumConverter<CircuitBreakerStrategy> {
+      public Converter() {
+        super(CircuitBreakerStrategy.class, "CircuitBreaker strategy");
+      }
     }
   }
 }

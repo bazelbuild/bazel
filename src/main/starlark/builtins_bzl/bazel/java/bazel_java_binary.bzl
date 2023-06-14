@@ -19,8 +19,7 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/paths.bzl", "paths")
-
-JavaInfo = _builtins.toplevel.JavaInfo
+load(":common/java/java_info.bzl", "JavaInfo")
 
 def _bazel_java_binary_impl(ctx):
     return _bazel_base_binary_impl(ctx, is_test_rule_class = False)

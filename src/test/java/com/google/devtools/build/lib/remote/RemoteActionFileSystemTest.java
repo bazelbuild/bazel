@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -105,7 +106,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             outputs,
             fileCache,
             inputFetcher);
-    remoteActionFileSystem.updateContext(metadataInjector);
+    remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class), metadataInjector);
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;
   }
@@ -156,7 +157,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     FileSystem actionFs = createActionFileSystem(inputs);
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -166,7 +167,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -178,7 +179,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, artifact.getPath().asFragment(), "remote contents");
     doAnswer(mockPrefetchFile(artifact.getPath(), "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(artifact.getPath().asFragment());
@@ -188,7 +189,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
     verify(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(artifact)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -201,7 +202,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     injectRemoteFile(actionFs, path.asFragment(), "remote contents");
     doAnswer(mockPrefetchFile(path, "remote contents"))
         .when(inputFetcher)
-        .prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
+        .prefetchFiles(any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
 
     // act
     Path actionFsPath = actionFs.getPath(path.asFragment());
@@ -210,7 +211,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     // assert
     assertThat(actionFsPath.getFileSystem()).isSameInstanceAs(actionFs);
     assertThat(contents).isEqualTo("remote contents");
-    verify(inputFetcher).prefetchFiles(eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
+    verify(inputFetcher)
+        .prefetchFiles(any(), eq(ImmutableList.of(input)), any(), eq(Priority.CRITICAL));
     verifyNoMoreInteractions(inputFetcher);
   }
 
@@ -327,47 +329,6 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem(inputs);
 
     assertThat(actionFs.getInputMetadata(artifact)).isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromRemoteOutputTree_forDeclaredOutput() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    RemoteActionFileSystem actionFs =
-        (RemoteActionFileSystem)
-            createActionFileSystem(new ActionInputMap(0), ImmutableList.of(artifact));
-
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "content");
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromRemoteOutputTree_forUndeclaredOutput() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    RemoteActionFileSystem actionFs = (RemoteActionFileSystem) createActionFileSystem();
-
-    FileArtifactValue metadata =
-        injectRemoteFile(actionFs, artifact.getPath().asFragment(), "content");
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
-  }
-
-  @Test
-  public void getMetadata_fromFileCache_forOutputFile() throws Exception {
-    Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "out");
-    FileArtifactValue metadata =
-        FileArtifactValue.createForNormalFile(new byte[] {1, 2, 3}, /* proxy= */ null, 42);
-    RemoteActionFileSystem actionFs =
-        createActionFileSystem(
-            new ActionInputMap(0),
-            ImmutableList.of(),
-            new StaticInputMetadataProvider(ImmutableMap.of(artifact, metadata)));
-
-    assertThat(actionFs.getOutputMetadataForTopLevelArtifactDownloader(artifact))
-        .isEqualTo(metadata);
   }
 
   @Test

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AspectValue;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.TopLevelAspectsKey;
@@ -30,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -40,30 +42,44 @@ import javax.annotation.Nullable;
  * com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions one after
  * another, so BuildView calls this function to do the work.
  */
-public final class ToplevelStarlarkAspectFunction implements SkyFunction {
-
-  ToplevelStarlarkAspectFunction() {}
-
+final class ToplevelStarlarkAspectFunction implements SkyFunction {
   @Nullable
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws TopLevelStarlarkAspectFunctionException, InterruptedException {
     TopLevelAspectsKey topLevelAspectsKey = (TopLevelAspectsKey) skyKey.argument();
 
-    BuildTopLevelAspectsDetailsValue topLevelAspectsDetails =
-        (BuildTopLevelAspectsDetailsValue)
-            env.getValue(
-                BuildTopLevelAspectsDetailsKey.create(
-                    topLevelAspectsKey.getTopLevelAspectsClasses(),
-                    topLevelAspectsKey.getTopLevelAspectsParameters()));
+    BuildTopLevelAspectsDetailsKey topLevelAspectsDetailsKey =
+        BuildTopLevelAspectsDetailsKey.create(
+            topLevelAspectsKey.getTopLevelAspectsClasses(),
+            topLevelAspectsKey.getTopLevelAspectsParameters());
+    ConfiguredTargetKey baseConfiguredTargetKey = topLevelAspectsKey.getBaseConfiguredTargetKey();
+
+    SkyframeLookupResult initialLookupResult =
+        env.getValuesAndExceptions(
+            ImmutableList.of(topLevelAspectsDetailsKey, baseConfiguredTargetKey.toKey()));
+    var topLevelAspectsDetails =
+        (BuildTopLevelAspectsDetailsValue) initialLookupResult.get(topLevelAspectsDetailsKey);
     if (topLevelAspectsDetails == null) {
       return null; // some aspects details are not ready
     }
+    var baseConfiguredTargetValue =
+        (ConfiguredTargetValue) initialLookupResult.get(baseConfiguredTargetKey.toKey());
+    if (baseConfiguredTargetValue == null) {
+      return null;
+    }
+
+    // Keeps AspectKeys canonical by ensuring that they use the real configuration for the base
+    // configured target key. The ConfiguredTargetFunction could modify it using a rule transition.
+    BuildConfigurationKey realConfiguration =
+        baseConfiguredTargetValue.getConfiguredTarget().getConfigurationKey();
+    if (!Objects.equals(realConfiguration, baseConfiguredTargetKey.getConfigurationKey())) {
+      baseConfiguredTargetKey =
+          baseConfiguredTargetKey.toBuilder().setConfigurationKey(realConfiguration).build();
+    }
 
     Collection<AspectKey> aspectsKeys =
-        getTopLevelAspectsKeys(
-            topLevelAspectsDetails.getAspectsDetails(),
-            topLevelAspectsKey.getBaseConfiguredTargetKey());
+        getTopLevelAspectsKeys(topLevelAspectsDetails.getAspectsDetails(), baseConfiguredTargetKey);
 
     SkyframeLookupResult result = env.getValuesAndExceptions(aspectsKeys);
     if (env.valuesMissing()) {

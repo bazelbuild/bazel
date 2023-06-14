@@ -2006,6 +2006,44 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testImplementationDepsRunfilesArePropagated() throws Exception {
+    useConfiguration("--experimental_cc_implementation_deps");
+    scratch.file(
+        "foo/BUILD",
+        "cc_binary(",
+        "    name = 'bin',",
+        "    srcs = ['bin.cc'],",
+        "    deps = ['lib'],",
+        ")",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = ['lib.cc'],",
+        "    deps = ['public_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'public_dep',",
+        "    srcs = ['public_dep.cc'],",
+        "    hdrs = ['public_dep.h'],",
+        "    implementation_deps = ['implementation_dep'],",
+        "    deps = ['interface_dep'],",
+        ")",
+        "cc_library(",
+        "    name = 'interface_dep',",
+        "    data = ['data/interface.txt'],",
+        ")",
+        "cc_library(",
+        "    name = 'implementation_dep',",
+        "    data = ['data/implementation.txt'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//foo:bin");
+    assertThat(
+            artifactsToStrings(
+                lib.get(DefaultInfo.PROVIDER).getDefaultRunfiles().getAllArtifacts()))
+        .containsAtLeast("src foo/data/interface.txt", "src foo/data/implementation.txt");
+  }
+
+  @Test
   public void testImplementationDepsConfigurationHostSucceeds() throws Exception {
     useConfiguration("--experimental_cc_implementation_deps");
     scratch.file(
