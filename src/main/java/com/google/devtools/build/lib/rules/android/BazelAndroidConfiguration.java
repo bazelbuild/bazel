@@ -63,7 +63,7 @@ public class BazelAndroidConfiguration extends Fragment {
   @StarlarkMethod(
       name = "merge_android_manifest_permissions",
       structField = true,
-      doc = "The value of the --merge_android_manifest_permissions flag.")
+      doc = "The value of --merge_android_manifest_permissions flag.")
   public boolean getMergeAndroidManifestPermissions() {
     return this.mergeAndroidManifestPermissions;
   }
