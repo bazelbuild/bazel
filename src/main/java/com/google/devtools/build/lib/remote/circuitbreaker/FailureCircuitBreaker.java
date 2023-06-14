@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.Retrier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -32,12 +31,10 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
   private State state;
   private final AtomicInteger successes;
   private final AtomicInteger failures;
-  private final AtomicInteger ignoredFailures;
   private final int failureRateThreshold;
   private final int slidingWindowSize;
   private final int minCallCountToComputeFailureRate;
   private final ScheduledExecutorService scheduledExecutor;
-  private final ImmutableSet<Class<? extends Exception>> ignoredErrors;
 
   /**
    * Creates a {@link FailureCircuitBreaker}.
@@ -49,14 +46,12 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
   public FailureCircuitBreaker(int failureRateThreshold, int slidingWindowSize) {
     this.failures = new AtomicInteger(0);
     this.successes = new AtomicInteger(0);
-    this.ignoredFailures = new AtomicInteger(0);
     this.failureRateThreshold = failureRateThreshold;
     this.slidingWindowSize = slidingWindowSize;
     this.minCallCountToComputeFailureRate = CircuitBreakerFactory.DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE;
     this.state = State.ACCEPT_CALLS;
     this.scheduledExecutor =
         slidingWindowSize > 0 ? Executors.newSingleThreadScheduledExecutor() : null;
-    this.ignoredErrors = CircuitBreakerFactory.DEFAULT_IGNORED_ERRORS;
   }
 
   @Override
@@ -65,31 +60,24 @@ public class FailureCircuitBreaker implements Retrier.CircuitBreaker {
   }
 
   @Override
-  public void recordFailure(Exception e) {
-    if (!ignoredErrors.contains(e.getClass())) {
-      int failureCount = failures.incrementAndGet();
-      int totalCallCount = successes.get() + failureCount + ignoredFailures.get();
-      if (slidingWindowSize > 0) {
-        var unused =
-            scheduledExecutor.schedule(
-                failures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
-      }
+  public void recordFailure() {
+    int failureCount = failures.incrementAndGet();
+    int totalCallCount = successes.get() + failureCount;
+    if (slidingWindowSize > 0) {
+      var unused =
+          scheduledExecutor.schedule(
+              failures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
+    }
 
-      if (totalCallCount < minCallCountToComputeFailureRate) {
-        // The remote call count is below the threshold required to calculate the failure rate.
-        return;
-      }
-      double failureRate = (failureCount * 100.0) / totalCallCount;
+    if (totalCallCount < minCallCountToComputeFailureRate) {
+      // The remote call count is below the threshold required to calculate the failure rate.
+      return;
+    }
+    double failureRate = (failureCount * 100.0) / totalCallCount;
 
-      // Since the state can only be changed to the open state, synchronization is not required.
-      if (failureRate > this.failureRateThreshold) {
-        this.state = State.REJECT_CALLS;
-      }
-    } else {
-      ignoredFailures.incrementAndGet();
-      if (slidingWindowSize > 0) {
-        scheduledExecutor.schedule(ignoredFailures::decrementAndGet, slidingWindowSize, TimeUnit.MILLISECONDS);
-      }
+    // Since the state can only be changed to the open state, synchronization is not required.
+    if (failureRate > this.failureRateThreshold) {
+      this.state = State.REJECT_CALLS;
     }
   }
 
