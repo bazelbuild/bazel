@@ -28,6 +28,7 @@ load("@rules_license//rules_gathering:trace.bzl", "TraceInfo")
 load(":user_filtered_rule_kinds.bzl", "user_aspect_filters")
 
 TransitivePackageInfo = provider(
+    """Tostt""",
     fields = {
         "top_level_target": "Label: The top level target label we are examining.",
         "license_info": "depset(LicenseInfo)",
@@ -35,14 +36,10 @@ TransitivePackageInfo = provider(
         "packages": "depset(label)",
 
         "target_under_license": "Label: A target which will be associated with some licenses.",
-        # "deps": "depset(LicensedTargetInfo): The transitive list of dependencies that have licenses.",
         "traces": "list(string) - diagnostic for tracing a dependency relationship to a target.",
     },
 )
 
-# Singleton instance of nothing present. Each level of the aspect must return something,
-# so we use one to save space instead of making a lot of empty ones.
-NULL_INFO = TransitivePackageInfo(license_info = depset(), package_info = depset(), packages=depset())
 
 def should_traverse(ctx, attr):
     """Checks if the dependent attribute should be traversed.
@@ -109,11 +106,11 @@ def _get_transitive_metadata(ctx, trans_license_info, trans_package_info, trans_
                 #        traces.append("(" + ", ".join([str(ctx.label), ctx.rule.kind, name]) + ") -> " + trace)
 
 
-def gather_package_common(target, ctx, provider_factory, metadata_providers, filter_func):
+def gather_package_common(target, ctx, provider_factory, null_provider, metadata_providers, filter_func):
     """Collect license and other metadata info from myself and my deps.
 
-    Any single target might directly depend on a license, or depend on
-    something that transitively depends on a license, or neither.
+    Any single target might directly depend on a license or package_info, or depend on
+    something that transitively depends on a one of those, or neither.
     This aspect bundles all those into a single provider. At each level, we add
     in new direct license deps found and forward up the transitive information
     collected so far.
@@ -123,6 +120,11 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     results. It is configurable to select only a subset of providers. It
     is also configurable to specify which dependency edges should not
     be traced for the purpose of tracing the graph.
+
+    NOTE: This is highly based on @rules_license//rules/licenses_common.bzl
+    So it may look more complex than it needs to be. That is because I am
+    trying to work out some more genearl patterns here and then backport
+    to rules_license.
 
     Args:
       target: The target of the aspect.
@@ -139,7 +141,7 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     # fully resolved. If exec is in the bin_dir path, then the current
     # configuration is probably cfg = exec.
     if "-exec-" in ctx.bin_dir.path:
-        return [NULL_INFO]
+        return [null_provider]
 
     # First we gather my direct license attachments
     licenses = []
@@ -162,7 +164,7 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     target_name = str(target.label)
     if target_name.startswith('@') and target_name[1] != '/':
         packages = [target.label]
-        print(str(target.label))
+        # print(str(target.label))
 
     # Now gather transitive collection of providers from the targets
     # this target depends upon.
@@ -177,7 +179,7 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
         and not trans_license_info
         and not trans_package_info
         and not trans_packages):
-        return [NULL_INFO]
+        return [null_provider]
 
     # If this is the target, start the sequence of traces.
     if ctx.attr._trace[TraceInfo].trace and ctx.attr._trace[TraceInfo].trace in str(ctx.label):
@@ -205,24 +207,26 @@ def gather_package_common(target, ctx, provider_factory, metadata_providers, fil
     """
 
     return [provider_factory(
-        target_under_license = target.label,
+        top_level_target = target.label,
+        # target_under_license = target.label,
         license_info = depset(direct = licenses, transitive = trans_license_info),
         package_info = depset(direct = package_info, transitive = trans_package_info),
         packages = depset(direct = packages, transitive = trans_packages),
         traces = traces,
     )]
 
-
+# Singleton instance of nothing present. Each level of the aspect must return something,
+# so we use one to save space instead of making a lot of empty ones.
+_NULL_INFO = TransitivePackageInfo(license_info = depset(), package_info = depset(), packages=depset())
 
 def _gather_package_impl(target, ctx):
     ret = gather_package_common(
-        target,
-        ctx,
-        TransitivePackageInfo,
-        # [ExperimentalMetadataInfo, PackageInfo],
-        [PackageInfo],
-        should_traverse)
-    # print(ret)
+        target = target,
+        ctx = ctx,
+        provider_factory = TransitivePackageInfo,
+        null_provider = _NULL_INFO,
+        metadata_providers = [PackageInfo],
+        filter_func = should_traverse)
     return ret
 
 gather_package_info = aspect(
@@ -236,3 +240,190 @@ gather_package_info = aspect(
     apply_to_generating_rules = True,
 )
 
+def _write_package_info_impl(target, ctx):
+    """Write transitive package info into a JSON file
+
+    Args:
+      target: The target of the aspect.
+      ctx: The aspect evaluation context.
+
+    Returns:
+      OutputGroupInfo
+    """
+    if not TransitivePackageInfo in target:
+        # buildifier: disable=print
+        print("Missing package_info for", target)
+        return [OutputGroupInfo(package_info = depset())]
+    info = target[TransitivePackageInfo]
+    outs = []
+
+    #XXX # If the result doesn't contain licenses, we simply return the provider
+    #if not hasattr(info, "target_under_license"):
+    #    return [OutputGroupInfo(package_info = depset())]
+
+    # Write the output file for the target
+    name = "%s_package_info.json" % ctx.label.name
+    content = "[\n%s\n]\n" % ",\n".join(package_info_to_json(info))
+    out = ctx.actions.declare_file(name)
+    ctx.actions.write(
+        output = out,
+        content = content,
+    )
+    print("============== wrote", name)
+    outs.append(out)
+    if ctx.attr._trace[TraceInfo].trace:
+        trace = ctx.actions.declare_file("%s_trace_info.json" % ctx.label.name)
+        ctx.actions.write(output = trace, content = "\n".join(info.traces))
+        outs.append(trace)
+
+    return [OutputGroupInfo(package_info = depset(outs))]
+
+gather_package_info_and_write = aspect(
+    doc = """Collects TransitiveMetadataInfo providers and writes JSON representation to a file.
+
+    Usage:
+      bazel build //some:target \
+          --aspects=...:gather_package_info.bzl%gather_package_info_and_write
+          --output_groups=package_info
+    """,
+    implementation = _write_package_info_impl,
+    attrs = {
+        "_trace": attr.label(default = "@rules_license//rules:trace_target"),
+    },
+    provides = [OutputGroupInfo],
+    requires = [gather_package_info],
+    apply_to_generating_rules = True,
+)
+
+###############################################################################
+#
+# When we finish figuring this out, the code below should move to a new source
+# file.
+
+def _strip_null_repo(label):
+    """Removes the null repo name (e.g. @//) from a string.
+
+    The is to make str(label) compatible between bazel 5.x and 6.x
+    """
+    s = str(label)
+    if s.startswith('@//'):
+        return s[1:]
+    elif s.startswith('@@//'):
+        return s[2:]
+    return s
+
+def _bazel_package(label):
+    clean_label = _strip_null_repo(label)
+    return clean_label[0:-(len(label.name) + 1)]
+
+def package_info_to_json(package_info):
+    """Render a TransitivePackageInfo to JSON
+
+    schema:
+      top_level_target: name of the target
+      licenses: list of license target data
+      package_info: list of package_info
+      packages: list of remote packages we depend on
+
+    Args:
+      package_info: A TransitivePackageInfo.
+
+    Returns:
+      [(str)] list of TransitivePackageInfo values rendered as JSON.
+    """
+
+    # licenses: List of license() targets
+    # package_info: List of labels of remote packages we depend on
+    # packages: List of labels of remote packages we depend on
+    main_template = """  {{
+    "top_level_target": "{top_level_target}",
+    "licenses": [{licenses}
+    ],
+    "package_info": [{package_info}
+    ],
+    "packages": [{packages}
+    ]\n  }}"""
+
+    dep_template = """
+      {{
+        "target_under_license": "{target_under_license}",
+        "licenses": [
+          {licenses}
+        ]
+      }}"""
+
+    license_template = """
+      {{
+        "label": "{label}",
+        "bazel_package": "{bazel_package}",
+        "license_kinds": [{kinds}
+        ],
+        "copyright_notice": "{copyright_notice}",
+        "package_name": "{package_name}",
+        "package_url": "{package_url}",
+        "package_version": "{package_version}",
+        "license_text": "{license_text}",
+      }}"""
+
+    kind_template = """
+          {{
+            "target": "{kind_path}",
+            "name": "{kind_name}",
+            "conditions": {kind_conditions}
+          }}"""
+
+    package_info_template = """
+          {{
+            "target": "{label}",
+            "bazel_package": "{bazel_package}",
+            "package_name": "{package_name}",
+            "package_url": "{package_url}",
+            "package_version": "{package_version}"
+          }}"""
+
+    if not hasattr(package_info, "top_level_target"):
+        return ""
+
+    all_licenses = []
+    for license in sorted(package_info.license_info.to_list(), key = lambda x: x.label):
+        kinds = []
+        for kind in sorted(license.license_kinds, key = lambda x: x.name):
+            kinds.append(kind_template.format(
+                kind_name = kind.name,
+                kind_path = kind.label,
+                kind_conditions = kind.conditions,
+            ))
+
+        if license.license_text:
+            # Special handling for synthetic LicenseInfo
+            text_path = (license.license_text.package + "/" + license.license_text.name if type(license.license_text) == "Label" else license.license_text.path)
+            all_licenses.append(license_template.format(
+                copyright_notice = license.copyright_notice,
+                kinds = ",".join(kinds),
+                license_text = text_path,
+                package_name = license.package_name,
+                package_url = license.package_url,
+                package_version = license.package_version,
+                label = _strip_null_repo(license.label),
+                bazel_package =  _bazel_package(license.label),
+            ))
+
+    all_package_info = []
+    for package in sorted(package_info.package_info.to_list(), key = lambda x: x.label):
+        all_package_info.append(package_info_template.format(
+            label = _strip_null_repo(package.label),
+            package_name = package.package_name,
+            package_url = package.package_url,
+            package_version = package.package_version,
+        ))
+
+    all_packages = []
+    for mi in sorted(package_info.packages.to_list(), key = lambda x: str(x)):
+        all_packages.append('"%s"' % str(mi))
+
+    return [main_template.format(
+        top_level_target = _strip_null_repo(package_info.top_level_target),
+        licenses = ",".join(all_licenses),
+        package_info = ",".join(all_package_info),
+        packages = ",".join(all_packages),
+    )]
