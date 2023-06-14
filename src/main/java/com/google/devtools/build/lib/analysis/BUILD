@@ -313,6 +313,7 @@ java_library(
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/starlark_exposed_rule_transition_factory",
+        ":config/transitions/transition_collector",
         ":config/transitions/transition_factory",
         ":configurations_collector",
         ":configured_target",
@@ -2163,6 +2164,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "config/transitions/transition_collector",
+    srcs = ["config/transitions/TransitionCollector.java"],
+    deps = [
+        ":config/transitions/configuration_transition",
+        ":dependency_kind",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
 )
 

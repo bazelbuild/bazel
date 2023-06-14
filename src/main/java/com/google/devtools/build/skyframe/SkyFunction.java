@@ -270,6 +270,25 @@ public interface SkyFunction {
      * re-evaluation. In error bubbling, an error should be present.
      */
     SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps();
+
+    /**
+     * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
+     * dependency. Formally, returns true iff at least one of the following occurred:
+     *
+     * <ul>
+     *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
+     *   <li>A call to {@code result#get[OrThrow](k[, c])} returned {@code null} where result =
+     *       getValuesAndExceptions(ks) for some ks
+     *   <li>A call to {@code result#queryDep(k, cb)} returned {@code false} where result =
+     *       getValuesAndExceptions(ks) for some ks
+     * </ul>
+     *
+     * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
+     * SkyFunctionException} if it detected an error even with values missing.
+     */
+    // TODO(b/261521010): this method is included here temporarily to facilitate migration. Move
+    // this down into `Environment` after the migration is complete.
+    boolean valuesMissing();
   }
 
   /**
@@ -277,23 +296,6 @@ public interface SkyFunction {
    * evaluation framework.
    */
   interface Environment extends LookupEnvironment {
-    /**
-     * Returns whether there was a previous getValue[s][OrThrow] that indicated a missing
-     * dependency. Formally, returns true iff at least one of the following occurred:
-     *
-     * <ul>
-     *   <li>getValue[OrThrow](k[, c]) returned {@code null} for some k
-     *   <li>A call to result#next[OrThrow]([c]) returned {@code null} where result =
-     *       getValuesAndExceptions(ks) for some ks
-     *   <li>A call to result#get[OrThrow](k[, c]) returned {@code null} where result =
-     *       getValuesAndExceptions(ks) for some ks
-     * </ul>
-     *
-     * <p>If this returns true, the {@link SkyFunction} must return {@code null} or throw a {@link
-     * SkyFunctionException} if it detected an error even with values missing.
-     */
-    boolean valuesMissing();
-
     /**
      * Returns the {@link ExtendedEventHandler} that a {@link SkyFunction} should use to print any
      * errors, warnings, or progress messages during execution of {@link SkyFunction#compute}.

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -39,16 +38,16 @@ import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
-import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
@@ -85,8 +84,8 @@ import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContex
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import com.google.devtools.build.skyframe.state.Driver;
@@ -135,7 +134,8 @@ public final class PrerequisiteProducer {
    */
   @VisibleForTesting
   public static class State implements SkyKeyComputeState, DependencyContextProducer.ResultSink {
-    @VisibleForTesting @Nullable public TargetAndConfiguration targetAndConfiguration;
+    /** Must be set before calling {@link #evaluate}. */
+    public TargetAndConfiguration targetAndConfiguration;
 
     /** Set once {@link #dependencyContextProducer} starts. */
     @VisibleForTesting public ExecGroupCollection.Builder execGroupCollectionBuilder;
@@ -227,7 +227,7 @@ public final class PrerequisiteProducer {
    *
    * <p>{@link #evaluate} must be called before this info is available.
    */
-  OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getDepValueMap() {
+  public OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> getDepValueMap() {
     return Preconditions.checkNotNull(depValueMap);
   }
 
@@ -261,7 +261,7 @@ public final class PrerequisiteProducer {
   }
 
   /**
-   * Run's the analysis phase for this target through prerequisite evaluation.
+   * Runs the analysis phase for this target through prerequisite evaluation.
    *
    * <p>See {@link PrerequisiteProducer} javadoc for details.
    *
@@ -276,10 +276,12 @@ public final class PrerequisiteProducer {
       State state,
       ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
-      SkyframeBuildView view,
+      StarlarkTransitionCache transitionCache,
       SemaphoreAcquirer semaphoreLocker,
       TransitiveDependencyState transitiveState,
-      Environment env)
+      TransitionCollector transitionCollector,
+      LookupEnvironment env,
+      ExtendedEventHandler listener)
       throws ReportedException,
           UnreportedException,
           IncompatibleTargetException,
@@ -291,7 +293,8 @@ public final class PrerequisiteProducer {
     semaphoreLocker.acquireSemaphore();
     try {
       var dependencyContext =
-          getDependencyContext(state, configuredTargetKey, ruleClassProvider, transitiveState, env);
+          getDependencyContext(
+              state, configuredTargetKey, ruleClassProvider, transitiveState, env, listener);
       if (dependencyContext == null) {
         return false;
       }
@@ -311,11 +314,10 @@ public final class PrerequisiteProducer {
       if (!transitiveRootCauses.isEmpty()
           && !Objects.equals(configConditions, ConfigConditions.EMPTY)) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
-        env.getListener()
-            .handle(
-                Event.error(
-                    targetAndConfiguration.getTarget().getLocation(),
-                    "Cannot compute config conditions"));
+        listener.handle(
+            Event.error(
+                targetAndConfiguration.getTarget().getLocation(),
+                "Cannot compute config conditions"));
         throw new ReportedException(
             new ConfiguredValueCreationException(
                 targetAndConfiguration,
@@ -329,14 +331,12 @@ public final class PrerequisiteProducer {
           computeDependencies(
               state,
               /* aspects= */ ImmutableList.of(),
-              configConditions.asProviders(),
-              unloadedToolchainContexts == null
-                  ? null
-                  : unloadedToolchainContexts.asToolchainContexts(),
               ruleClassProvider,
-              view,
+              transitionCache,
               transitiveState,
-              env);
+              transitionCollector,
+              env,
+              listener);
       if (!transitiveRootCauses.isEmpty()) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
         // TODO(bazel-team): consider reporting the error in this class vs. exporting it for
@@ -356,7 +356,7 @@ public final class PrerequisiteProducer {
         | AspectCreationException
         | ToolchainException e) {
       // We handle exceptions in a dedicated method to keep this method concise and readable.
-      handleException(env, targetAndConfiguration.getTarget(), e);
+      handleException(listener, targetAndConfiguration.getTarget(), e);
     }
     return true;
   }
@@ -368,7 +368,8 @@ public final class PrerequisiteProducer {
       ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
       TransitiveDependencyState transitiveState,
-      Environment env)
+      LookupEnvironment env,
+      ExtendedEventHandler listener)
       throws InterruptedException,
           ToolchainException,
           ConfiguredValueCreationException,
@@ -384,7 +385,7 @@ public final class PrerequisiteProducer {
               targetAndConfiguration,
               configuredTargetKey.getExecutionPlatformLabel(),
               ruleClassProvider,
-              env.getListener());
+              listener);
       state.execGroupCollectionBuilder = unloadedToolchainContextsInputs;
       state.dependencyContextProducer =
           new Driver(
@@ -395,7 +396,7 @@ public final class PrerequisiteProducer {
                   transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
-    if (state.dependencyContextProducer.drive(env, env.getListener())) {
+    if (state.dependencyContextProducer.drive(env, listener)) {
       state.dependencyContextProducer = null;
     }
 
@@ -415,10 +416,9 @@ public final class PrerequisiteProducer {
           Label label = targetAndConfiguration.getLabel();
           var validationException = error.validation();
           BuildEventId configurationEventId = configurationId(configuration);
-          env.getListener()
-              .post(
-                  AnalysisRootCauseEvent.withConfigurationValue(
-                      configuration, label, validationException.getMessage()));
+          listener.post(
+              AnalysisRootCauseEvent.withConfigurationValue(
+                  configuration, label, validationException.getMessage()));
           throw new DependencyEvaluationException(
               new ConfiguredValueCreationException(
                   targetAndConfiguration.getTarget().getLocation(),
@@ -444,14 +444,14 @@ public final class PrerequisiteProducer {
    * <p>This is its own method because there's a lot of logic here and when directly inlined it
    * makes it harder to follow the calling method's control flow.
    */
-  private void handleException(Environment env, Target target, Exception untyped)
+  private void handleException(ExtendedEventHandler listener, Target target, Exception untyped)
       throws ReportedException {
 
     if (untyped instanceof DependencyEvaluationException) {
       DependencyEvaluationException e = (DependencyEvaluationException) untyped;
       String errorMessage = e.getMessage();
       if (!e.depReportedOwnError()) {
-        env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+        listener.handle(Event.error(e.getLocation(), e.getMessage()));
       }
 
       ConfiguredValueCreationException cvce = null;
@@ -470,7 +470,7 @@ public final class PrerequisiteProducer {
 
           if (!toolchainDependencyErrors.isEmpty()) {
             errorMessage = "errors encountered resolving toolchains for " + target.getLabel();
-            env.getListener().handle(Event.error(target.getLocation(), errorMessage));
+            listener.handle(Event.error(target.getLocation(), errorMessage));
           }
         }
       }
@@ -484,14 +484,14 @@ public final class PrerequisiteProducer {
       ConfiguredValueCreationException e = (ConfiguredValueCreationException) untyped;
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
-        env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+        listener.handle(Event.error(e.getLocation(), e.getMessage()));
       }
       throw new ReportedException(e);
     } else if (untyped instanceof AspectCreationException) {
       AspectCreationException e = (AspectCreationException) untyped;
       if (!e.getMessage().isEmpty()) {
         // Report the error to the user.
-        env.getListener().handle(Event.error(null, e.getMessage()));
+        listener.handle(Event.error(null, e.getMessage()));
       }
       throw new ReportedException(
           new ConfiguredValueCreationException(
@@ -500,7 +500,7 @@ public final class PrerequisiteProducer {
       ToolchainException e = (ToolchainException) untyped;
       ConfiguredValueCreationException cvce =
           e.asConfiguredValueCreationException(targetAndConfiguration);
-      env.getListener().handle(Event.error(target.getLocation(), cvce.getMessage()));
+      listener.handle(Event.error(target.getLocation(), cvce.getMessage()));
       throw new ReportedException(cvce);
     } else {
       throw new IllegalStateException("unexpected exception with no appropriate handler", untyped);
@@ -539,26 +539,25 @@ public final class PrerequisiteProducer {
    * <p>Returns null if Skyframe hasn't evaluated the required dependencies yet. In this case, the
    * caller should also return null to Skyframe.
    *
+   * <p>REQUIRES: {@code state.dependencyContext} is populated.
+   *
    * @param state the compute state
-   * @param configConditions the configuration conditions for evaluating the attributes of the node
-   * @param toolchainContexts the toolchain context for this target
-   * @param ruleClassProvider rule class provider for determining the right configuration fragments
-   *     to apply to deps
-   * @param buildView the build's {@link SkyframeBuildView}
+   * @param ruleClassProvider rule class provider to supply a trimming transition factory
+   * @param transitionCollector a callback that observes attribute transitions for Cquery
    * @param env the Skyframe environment
    */
   // TODO(b/213351014): Make the control flow of this helper function more readable. This will
   //   involve making a corresponding change to State to match the control flow.
   @Nullable
-  static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
+  public static OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependencies(
       State state,
       Iterable<Aspect> aspects,
-      ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       RuleClassProvider ruleClassProvider,
-      SkyframeBuildView buildView,
+      StarlarkTransitionCache transitionCache,
       TransitiveDependencyState transitiveState,
-      Environment env)
+      TransitionCollector transitionCollector,
+      LookupEnvironment env,
+      ExtendedEventHandler listener)
       throws DependencyEvaluationException,
           ConfiguredValueCreationException,
           AspectCreationException,
@@ -578,6 +577,7 @@ public final class PrerequisiteProducer {
       } else {
         // Create the map from attributes to set of (target, transition) pairs.
         OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
+        DependencyContext dependencyContext = state.dependencyContext;
         if (state.dependentNodeMapResult != null) {
           initialDependencies = state.dependentNodeMapResult;
         } else {
@@ -585,20 +585,20 @@ public final class PrerequisiteProducer {
           Label label = ctgValue.getLabel();
           try {
             initialDependencies =
-                new SkyframeDependencyResolver(env)
+                new SkyframeDependencyResolver(env, listener)
                     .dependentNodeMap(
                         ctgValue,
                         aspects,
-                        configConditions,
-                        toolchainContexts,
+                        dependencyContext.configConditions().asProviders(),
+                        dependencyContext.toolchainContexts(),
                         transitiveState.transitiveRootCauses(),
                         ((ConfiguredRuleClassProvider) ruleClassProvider)
-                            .getTrimmingTransitionFactory());
+                            .getTrimmingTransitionFactory(),
+                        transitionCollector);
           } catch (DependencyResolver.Failure e) {
-            env.getListener()
-                .post(
-                    AnalysisRootCauseEvent.withConfigurationValue(
-                        configuration, label, e.getMessage()));
+            listener.post(
+                AnalysisRootCauseEvent.withConfigurationValue(
+                    configuration, label, e.getMessage()));
             throw new DependencyEvaluationException(
                 new ConfiguredValueCreationException(
                     e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),
@@ -617,10 +617,7 @@ public final class PrerequisiteProducer {
         // closure.
         ConfigurationResolver configResolver =
             new ConfigurationResolver(
-                env,
-                ctgValue,
-                configConditions,
-                buildView.getStarlarkTransitionCache());
+                env, ctgValue, dependencyContext.configConditions().asProviders(), transitionCache);
         StoredEventHandler storedEventHandler = new StoredEventHandler();
         try {
           depValueNames =
@@ -702,7 +699,7 @@ public final class PrerequisiteProducer {
       throw e;
     } finally {
       if (shouldReplayStoredEvents) {
-        state.storedEvents.replayOn(env.getListener());
+        state.storedEvents.replayOn(listener);
       }
     }
   }
@@ -825,7 +822,7 @@ public final class PrerequisiteProducer {
   @Nullable
   private static Map<ConfiguredTargetKey, ConfiguredTargetAndData>
       resolveConfiguredTargetDependencies(
-          Environment env,
+          LookupEnvironment env,
           TargetAndConfiguration ctgValue,
           Collection<Dependency> deps,
           @Nullable NestedSetBuilder<Package> transitivePackages,

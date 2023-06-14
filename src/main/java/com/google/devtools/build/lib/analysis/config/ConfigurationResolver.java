@@ -86,13 +86,13 @@ public final class ConfigurationResolver {
           .thenComparing(
               Functions.compose(BuildConfigurationValue::checksum, Dependency::getConfiguration));
 
-  private final SkyFunction.Environment env;
+  private final SkyFunction.LookupEnvironment env;
   private final TargetAndConfiguration ctgValue;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
   private final StarlarkTransitionCache starlarkTransitionCache;
 
   public ConfigurationResolver(
-      SkyFunction.Environment env,
+      SkyFunction.LookupEnvironment env,
       TargetAndConfiguration ctgValue,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       StarlarkTransitionCache starlarkTransitionCache) {
@@ -401,7 +401,7 @@ public final class ConfigurationResolver {
    */
   @Nullable
   private static StarlarkBuildSettingsDetailsValue getStarlarkBuildSettingsDetailsValue(
-      ConfigurationTransition transition, SkyFunction.Environment env)
+      ConfigurationTransition transition, SkyFunction.LookupEnvironment env)
       throws TransitionException, InterruptedException {
     ImmutableSet<Label> starlarkBuildSettings =
         StarlarkTransition.getAllStarlarkBuildSettings(transition);

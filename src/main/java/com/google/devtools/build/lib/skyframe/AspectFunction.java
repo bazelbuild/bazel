@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.AspectResolutionHelpers.aspectMatchesConfiguredTarget;
+import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.createDefaultToolchainContextKey;
 
 import com.google.common.base.Preconditions;
@@ -288,24 +288,18 @@ final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts =
-          dependencyContext.unloadedToolchainContexts();
-      ConfigConditions configConditions = dependencyContext.configConditions();
-
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap;
       try {
         depValueMap =
             PrerequisiteProducer.computeDependencies(
                 computeDependenciesState,
                 topologicalAspectPath,
-                configConditions.asProviders(),
-                unloadedToolchainContexts == null
-                    ? null
-                    : unloadedToolchainContexts.asToolchainContexts(),
                 ruleClassProvider,
-                buildViewProvider.getSkyframeBuildView(),
+                buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
                 transitiveState,
-                env);
+                NULL_TRANSITION_COLLECTOR,
+                env,
+                env.getListener());
       } catch (ConfiguredValueCreationException e) {
         throw new AspectCreationException(
             e.getMessage(), key.getLabel(), configuration, e.getDetailedExitCode());
@@ -323,6 +317,8 @@ final class AspectFunction implements SkyFunction {
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
+      ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts =
+          dependencyContext.unloadedToolchainContexts();
       ToolchainCollection<ResolvedToolchainContext> toolchainContexts = null;
       if (unloadedToolchainContexts != null) {
         String targetDescription =
@@ -351,7 +347,7 @@ final class AspectFunction implements SkyFunction {
           target,
           associatedTarget,
           configuration,
-          configConditions,
+          dependencyContext.configConditions(),
           toolchainContexts,
           computeDependenciesState.execGroupCollectionBuilder,
           depValueMap,

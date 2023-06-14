@@ -50,7 +50,7 @@ public final class AspectResolver {
    */
   @Nullable
   public static OrderedSetMultimap<Dependency, ConfiguredAspect> resolveAspectDependencies(
-      SkyFunction.Environment env,
+      SkyFunction.LookupEnvironment env,
       Map<ConfiguredTargetKey, ConfiguredTargetAndData> configuredTargetMap,
       Iterable<Dependency> deps,
       @Nullable NestedSetBuilder<Package> transitivePackages)

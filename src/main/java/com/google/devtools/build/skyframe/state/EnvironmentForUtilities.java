@@ -39,6 +39,7 @@ public final class EnvironmentForUtilities
   }
 
   private final ResultProvider resultProvider;
+  private boolean valuesMissing;
 
   public EnvironmentForUtilities(ResultProvider resultProvider) {
     this.resultProvider = resultProvider;
@@ -88,6 +89,7 @@ public final class EnvironmentForUtilities
           throws E1, E2, E3, E4 {
     Object result = resultProvider.getValueOrException(depKey);
     if (result == null) {
+      valuesMissing = true;
       return null;
     }
     if (result instanceof SkyValue) {
@@ -105,6 +107,7 @@ public final class EnvironmentForUtilities
     if (exceptionClass4 != null && exceptionClass4.isInstance(result)) {
       throw exceptionClass4.cast(result);
     }
+    valuesMissing = true;
     return null;
   }
 
@@ -116,6 +119,11 @@ public final class EnvironmentForUtilities
   @Override
   public SkyframeLookupResult getLookupHandleForPreviouslyRequestedDeps() {
     return this;
+  }
+
+  @Override
+  public boolean valuesMissing() {
+    return valuesMissing;
   }
 
   // -------------------- SkyframeLookupResult Implementation --------------------
@@ -134,12 +142,17 @@ public final class EnvironmentForUtilities
   public boolean queryDep(SkyKey key, QueryDepCallback resultCallback) {
     Object result = resultProvider.getValueOrException(key);
     if (result == null) {
+      valuesMissing = true;
       return false;
     }
     if (result instanceof SkyValue) {
       resultCallback.acceptValue(key, (SkyValue) result);
       return true;
     }
-    return resultCallback.tryHandleException(key, (Exception) result);
+    if (resultCallback.tryHandleException(key, (Exception) result)) {
+      return true;
+    }
+    valuesMissing = true;
+    return false;
   }
 }

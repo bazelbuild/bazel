@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 
 import com.google.common.base.Preconditions;
@@ -275,13 +276,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           state.computeDependenciesState,
           configuredTargetKey,
           ruleClassProvider,
-          view,
+          view.getStarlarkTransitionCache(),
           () -> maybeAcquireSemaphoreWithLogging(key),
           new TransitiveDependencyState(
               state.transitiveRootCauses,
               state.transitivePackages,
               /* prerequisitePackages= */ null),
-          env)) {
+          NULL_TRANSITION_COLLECTOR,
+          env,
+          env.getListener())) {
         return null;
       }
       Preconditions.checkNotNull(prereqs.getDepValueMap());

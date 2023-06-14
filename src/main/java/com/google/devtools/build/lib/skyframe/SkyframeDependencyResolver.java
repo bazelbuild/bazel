@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -39,7 +40,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.SkyFunction.LookupEnvironment;
 import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.HashMap;
 import java.util.Map;
@@ -50,10 +51,12 @@ import javax.annotation.Nullable;
  */
 public final class SkyframeDependencyResolver extends DependencyResolver {
 
-  private final Environment env;
+  private final LookupEnvironment env;
+  private final ExtendedEventHandler listener;
 
-  public SkyframeDependencyResolver(Environment env) {
+  public SkyframeDependencyResolver(LookupEnvironment env, ExtendedEventHandler listener) {
     this.env = env;
+    this.listener = listener;
   }
 
   private void missingEdgeHook(
@@ -81,7 +84,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
       message = TargetUtils.formatMissingEdge(from, to, e, dependencyKind.getAttribute());
     }
 
-    env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(from), message));
+    listener.handle(Event.error(TargetUtils.getLocationMaybe(from), message));
   }
 
   @Nullable
@@ -132,20 +135,17 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
             repositoryLabel = label;
           }
           rootCauses.add(new LoadingFailedCause(repositoryLabel, e.getDetailedExitCode()));
-          env.getListener()
-              .handle(
-                  Event.error(
-                      TargetUtils.getLocationMaybe(fromTarget),
-                      String.format(
-                          "%s depends on %s in repository %s which failed to fetch. %s",
-                          fromTarget.getLabel(), label, label.getRepository(), e.getMessage())));
+          listener.handle(
+              Event.error(
+                  TargetUtils.getLocationMaybe(fromTarget),
+                  String.format(
+                      "%s depends on %s in repository %s which failed to fetch. %s",
+                      fromTarget.getLabel(), label, label.getRepository(), e.getMessage())));
           continue;
         }
         @Nullable BuildConfigurationValue configuration = fromNode.getConfiguration();
-        env.getListener()
-            .post(
-                AnalysisRootCauseEvent.withConfigurationValue(
-                    configuration, label, e.getMessage()));
+        listener.post(
+            AnalysisRootCauseEvent.withConfigurationValue(configuration, label, e.getMessage()));
         rootCauses.add(
             new AnalysisFailedCause(
                 label, configurationIdMessage(configuration), e.getDetailedExitCode()));

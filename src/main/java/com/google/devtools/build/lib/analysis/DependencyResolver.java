@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.causes.Cause;
@@ -107,7 +108,8 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+      TransitionCollector transitionCollector)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
@@ -117,7 +119,8 @@ public abstract class DependencyResolver {
             configConditions,
             toolchainContexts,
             rootCauses,
-            trimmingTransitionFactory);
+            trimmingTransitionFactory,
+            transitionCollector);
     if (!rootCauses.isEmpty()) {
       throw new IllegalStateException(rootCauses.build().toList().iterator().next().toString());
     }
@@ -151,6 +154,7 @@ public abstract class DependencyResolver {
    * @param trimmingTransitionFactory the transition factory used to trim rules (note: this is a
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
+   * @param transitionCollector a callback that observes attribute transitions for Cquery
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
   public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
@@ -159,7 +163,8 @@ public abstract class DependencyResolver {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       NestedSetBuilder<Cause> rootCauses,
-      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory)
+      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+      TransitionCollector transitionCollector)
       throws Failure, InterruptedException, InconsistentAspectOrderException {
     var dependencyLabels =
         computeDependencyLabels(node, aspects, configConditions, toolchainContexts);
@@ -181,7 +186,12 @@ public abstract class DependencyResolver {
 
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            outgoingLabels, fromRule, dependencyLabels.attributeMap(), toolchainContexts, aspects);
+            outgoingLabels,
+            fromRule,
+            dependencyLabels.attributeMap(),
+            toolchainContexts,
+            aspects,
+            transitionCollector);
 
     return fullyResolveDependencies(
         partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
@@ -262,16 +272,18 @@ public abstract class DependencyResolver {
           @Nullable Rule fromRule,
           @Nullable ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-          Iterable<Aspect> aspects)
+          Iterable<Aspect> aspects,
+          TransitionCollector transitionCollector)
           throws Failure {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
     ImmutableList<Aspect> aspectsList = ImmutableList.copyOf(aspects);
 
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
+      DependencyKind kind = entry.getKey();
       Label toLabel = entry.getValue();
 
-      if (DependencyKind.isToolchain(entry.getKey())) {
+      if (DependencyKind.isToolchain(kind)) {
         // This dependency is a toolchain. Its package has not been loaded and therefore we can't
         // determine which aspects and which rule configuration transition we should use, so just
         // use sensible defaults. Not depending on their package makes the error message reporting
@@ -279,11 +291,11 @@ public abstract class DependencyResolver {
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
         // This logic needs to stay in sync with the dep finding logic in
         // //third_party/bazel/src/main/java/com/google/devtools/build/lib/analysis/Util.java#findImplicitDeps.
-        ToolchainDependencyKind tdk = (ToolchainDependencyKind) entry.getKey();
+        ToolchainDependencyKind tdk = (ToolchainDependencyKind) kind;
         ToolchainContext toolchainContext =
             toolchainContexts.getToolchainContext(tdk.getExecGroupName());
         partiallyResolvedDeps.put(
-            entry.getKey(),
+            kind,
             PartiallyResolvedDependency.builder()
                 .setLabel(toLabel)
                 .setTransition(NoTransition.INSTANCE)
@@ -292,7 +304,7 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      if (entry.getKey() == VISIBILITY_DEPENDENCY) {
+      if (kind == VISIBILITY_DEPENDENCY) {
         partiallyResolvedDeps.put(
             VISIBILITY_DEPENDENCY,
             PartiallyResolvedDependency.builder()
@@ -303,7 +315,7 @@ public abstract class DependencyResolver {
         continue;
       }
 
-      if (entry.getKey() == OUTPUT_FILE_RULE_DEPENDENCY) {
+      if (kind == OUTPUT_FILE_RULE_DEPENDENCY) {
         partiallyResolvedDeps.put(
             OUTPUT_FILE_RULE_DEPENDENCY,
             PartiallyResolvedDependency.builder()
@@ -313,8 +325,6 @@ public abstract class DependencyResolver {
                 .build());
         continue;
       }
-
-      DependencyKind kind = entry.getKey();
 
       ImmutableList<Aspect> propagatingAspects =
           computePropagatingAspects(kind, aspectsList, fromRule);
@@ -342,12 +352,13 @@ public abstract class DependencyResolver {
       ConfigurationTransition attributeTransition =
           kind.getAttribute().getTransitionFactory().create(attributeTransitionData);
       partiallyResolvedDeps.put(
-          entry.getKey(),
+          kind,
           PartiallyResolvedDependency.builder()
               .setLabel(toLabel)
               .setTransition(attributeTransition)
               .setPropagatingAspects(propagatingAspects)
               .build());
+      transitionCollector.acceptTransition(kind, toLabel, attributeTransition);
     }
     return partiallyResolvedDeps;
   }

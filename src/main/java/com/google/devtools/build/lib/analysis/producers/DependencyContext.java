@@ -40,7 +40,7 @@ public abstract class DependencyContext {
     return unloadedToolchainContexts().asToolchainContexts();
   }
 
-  static DependencyContext create(
+  public static DependencyContext create(
       @Nullable ToolchainCollection<UnloadedToolchainContext> unloadedToolchainContexts,
       ConfigConditions configConditions) {
     return new AutoValue_DependencyContext(unloadedToolchainContexts, configConditions);

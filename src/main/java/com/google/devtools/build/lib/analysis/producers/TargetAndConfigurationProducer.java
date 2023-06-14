@@ -329,8 +329,9 @@ public final class TargetAndConfigurationProducer
                 exitCode)));
   }
 
+  // Public for Cquery.
   @Nullable
-  private static ConfigurationTransition computeTransition(
+  public static ConfigurationTransition computeTransition(
       Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
     var transitionData = RuleTransitionData.create(rule);
 

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.skyframe.PrerequisiteProducer.getDependencyContext;
 
 import com.google.common.base.Preconditions;
@@ -357,7 +358,8 @@ public class BuildViewForTesting {
         target.getAssociatedRule(),
         dependencyLabels.attributeMap(),
         toolchainContexts,
-        /* aspects= */ ImmutableList.of());
+        /* aspects= */ ImmutableList.of(),
+        NULL_TRANSITION_COLLECTOR);
   }
 
   /**
@@ -583,7 +585,8 @@ public class BuildViewForTesting {
               ruleClassProvider,
               TransitiveDependencyState.createForTesting(
                   transitiveRootCauses, /* transitivePackages= */ null),
-              skyfunctionEnvironment);
+              skyfunctionEnvironment,
+              eventHandler);
     } catch (ConfiguredValueCreationException
         | IncompatibleTargetException
         | ToolchainException
