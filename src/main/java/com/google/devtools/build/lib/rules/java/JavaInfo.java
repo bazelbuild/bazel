@@ -506,6 +506,24 @@ public final class JavaInfo extends NativeInfo
   }
 
   @Override
+  public Depset getTransitiveFullCompileJars() {
+    return Depset.of(
+        Artifact.class,
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getTransitiveFullCompileTimeJars));
+  }
+
+  @Override
+  public Depset getCompileTimeJavaDependencies() {
+    return Depset.of(
+        Artifact.class,
+        getProviderAsNestedSet(
+            JavaCompilationArgsProvider.class,
+            JavaCompilationArgsProvider::getCompileTimeJavaDependencyArtifacts));
+  }
+
+  @Override
   public JavaPluginData plugins() {
     return providerJavaPlugin == null ? JavaPluginData.empty() : providerJavaPlugin.plugins();
   }

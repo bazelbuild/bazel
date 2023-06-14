@@ -175,6 +175,15 @@ public interface JavaInfoApi<
       structField = true)
   JavaModuleFlagsProviderApi getJavaModuleFlagsInfo();
 
+  @StarlarkMethod(
+      name = "_transitive_full_compile_time_jars",
+      documented = false,
+      structField = true)
+  Depset getTransitiveFullCompileJars();
+
+  @StarlarkMethod(name = "_compile_time_java_dependencies", documented = false, structField = true)
+  Depset getCompileTimeJavaDependencies();
+
   /** Provider class for {@link JavaInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface JavaInfoProviderApi extends ProviderApi {

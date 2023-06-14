@@ -103,10 +103,6 @@ final class JavaInfoBuildHelper {
       javaCompilationArgsBuilder.addDirectCompileTimeJar(
           /* interfaceJar= */ javaOutput.getCompileJar(), /* fullJar= */ javaOutput.getClassJar());
     }
-    if (javaOutput.getCompileJdeps() != null) {
-      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
-          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
-    }
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder().addJavaOutput(javaOutput).build();
@@ -121,6 +117,11 @@ final class JavaInfoBuildHelper {
 
     streamProviders(runtimeDeps, JavaCompilationArgsProvider.class)
         .forEach(args -> javaCompilationArgsBuilder.addDeps(args, RUNTIME_ONLY));
+
+    if (javaOutput.getCompileJdeps() != null) {
+      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
+          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
+    }
 
     javaInfoBuilder.javaCompilationArgs(javaCompilationArgsBuilder.build());
 
