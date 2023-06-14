@@ -443,7 +443,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(javaInfo)
+        .addStarlarkDeclaredProvider(javaInfo)
         .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.withData(

@@ -774,7 +774,7 @@ public class AndroidCommon {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(javaInfo)
+        .addStarlarkDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addNativeDeclaredProvider(
             createAndroidIdeInfoProvider(

@@ -242,7 +242,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
-        .addNativeDeclaredProvider(javaInfoBuilder.build());
+        .addStarlarkDeclaredProvider(javaInfoBuilder.build());
     if (jdepsArtifact != null) {
       // Add the deps check result so that we can unit test it.
       ruleBuilder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, jdepsArtifact);
