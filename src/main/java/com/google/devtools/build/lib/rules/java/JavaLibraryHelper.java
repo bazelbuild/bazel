@@ -216,6 +216,7 @@ public final class JavaLibraryHelper {
   public JavaCompilationArtifacts build(
       JavaSemantics semantics,
       JavaToolchainProvider javaToolchainProvider,
+      BootClassPathInfo bootClassPath,
       JavaRuleOutputJarsProvider.Builder outputJarsBuilder,
       boolean createOutputSourceJar,
       boolean includeCompilationInfo,
@@ -232,6 +233,13 @@ public final class JavaLibraryHelper {
         "outputSourceJar cannot be null when createOutputSourceJar is true");
 
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
+
+    if (bootClassPath != null && !bootClassPath.isEmpty()) {
+      attributes.setBootClassPath(bootClassPath);
+    } else {
+      bootClassPath = javaToolchainProvider.getBootclasspath();
+    }
+
     attributes.addSourceJars(sourceJars);
     attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
@@ -296,10 +304,7 @@ public final class JavaLibraryHelper {
     if (javaInfoBuilder != null && includeCompilationInfo) {
       ClasspathConfiguredFragment classpathFragment =
           new ClasspathConfiguredFragment(
-              javaArtifacts,
-              attributes.build(),
-              neverlink,
-              javaToolchainProvider.getBootclasspath());
+              javaArtifacts, attributes.build(), neverlink, bootClassPath);
 
       javaInfoBuilder.javaCompilationInfo(
           new JavaCompilationInfoProvider.Builder()

@@ -66,6 +66,7 @@ public class JavaStarlarkCommon
         Artifact,
         JavaInfo,
         JavaToolchainProvider,
+        BootClassPathInfo.Provider,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
@@ -101,6 +102,7 @@ public class JavaStarlarkCommon
       Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
+      Object bootClassPath,
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
@@ -190,6 +192,7 @@ public class JavaStarlarkCommon
                 "annotation_processor_additional_outputs"),
             strictDepsMode,
             javaToolchain,
+            bootClassPath == Starlark.NONE ? null : (BootClassPathInfo) bootClassPath,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
             Sequence.cast(resourceJars, Artifact.class, "resource_jars"),

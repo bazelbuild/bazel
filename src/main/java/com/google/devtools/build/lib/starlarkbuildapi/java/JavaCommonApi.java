@@ -50,6 +50,7 @@ public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
+        BootClassPathT extends ProviderApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         StarlarkActionFactoryT extends StarlarkActionFactoryApi>
@@ -191,6 +192,14 @@ public interface JavaCommonApi<
             named = true,
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
+            name = "bootclasspath",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            doc =
+                "A BootClassPathInfo to be used for this compilation. If present, overrides the"
+                    + " bootclasspath associated with the provided java_toolchain. Optional."),
+        @Param(
             name = "host_javabase",
             positional = false,
             named = true,
@@ -301,6 +310,7 @@ public interface JavaCommonApi<
       Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
       JavaToolchainT javaToolchain,
+      Object bootClassPath,
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.

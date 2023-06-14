@@ -264,6 +264,7 @@ final class JavaInfoBuildHelper {
       List<Artifact> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
+      BootClassPathInfo bootClassPath,
       ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       List<Artifact> resourceJars,
@@ -350,6 +351,7 @@ final class JavaInfoBuildHelper {
         helper.build(
             javaSemantics,
             toolchainProvider,
+            bootClassPath,
             outputJarsBuilder,
             createOutputSourceJar,
             includeCompilationInfo,
