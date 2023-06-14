@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
@@ -673,7 +674,8 @@ public final class SkyframeActionExecutor {
         boolean eventPosted = false;
         // Notify BlazeRuntimeStatistics about the action middleman 'execution'.
         if (action.getActionType().isMiddleman()) {
-          eventHandler.post(new ActionMiddlemanEvent(action, actionStartTime));
+          eventHandler.post(
+              new ActionMiddlemanEvent(action, actionStartTime, BlazeClock.nanoTime()));
           eventPosted = true;
         }
 
@@ -723,7 +725,7 @@ public final class SkyframeActionExecutor {
                 /* filesetOutputSymlinksForMetrics= */ null,
                 /* isActionCacheHitForMetrics= */ true);
         if (!eventPosted) {
-          eventHandler.post(new CachedActionEvent(action, actionStartTime));
+          eventHandler.post(new CachedActionEvent(action, actionStartTime, BlazeClock.nanoTime()));
         }
       }
     } catch (UserExecException e) {
@@ -953,7 +955,7 @@ public final class SkyframeActionExecutor {
   private final class ActionRunner extends ActionStep {
     private final Action action;
     private final ActionMetadataHandler metadataHandler;
-    private final long actionStartTime;
+    private final long actionStartTimeNanos;
     private final ActionExecutionContext actionExecutionContext;
     private final ActionLookupData actionLookupData;
     @Nullable private final ActionExecutionStatusReporter statusReporter;
@@ -962,13 +964,13 @@ public final class SkyframeActionExecutor {
     ActionRunner(
         Action action,
         ActionMetadataHandler metadataHandler,
-        long actionStartTime,
+        long actionStartTimeNanos,
         ActionExecutionContext actionExecutionContext,
         ActionLookupData actionLookupData,
         ActionPostprocessing postprocessing) {
       this.action = action;
       this.metadataHandler = metadataHandler;
-      this.actionStartTime = actionStartTime;
+      this.actionStartTimeNanos = actionStartTimeNanos;
       this.actionExecutionContext = actionExecutionContext;
       this.actionLookupData = actionLookupData;
       this.statusReporter = statusReporterRef.get();
@@ -1008,7 +1010,7 @@ public final class SkyframeActionExecutor {
         boolean lostInputs = false;
 
         try {
-          ActionStartedEvent event = new ActionStartedEvent(action, actionStartTime);
+          ActionStartedEvent event = new ActionStartedEvent(action, actionStartTimeNanos);
           if (statusReporter != null) {
             statusReporter.updateStatus(event);
           }
@@ -1074,7 +1076,9 @@ public final class SkyframeActionExecutor {
         statusReporter.remove(action);
       }
       if (postActionCompletionEvent) {
-        eventHandler.post(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
+        eventHandler.post(
+            new ActionCompletionEvent(
+                actionStartTimeNanos, BlazeClock.nanoTime(), action, actionLookupData));
       }
       String message = action.getProgressMessage();
       if (message != null) {

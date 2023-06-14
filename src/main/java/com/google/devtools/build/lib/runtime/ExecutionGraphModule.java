@@ -320,8 +320,9 @@ public class ExecutionGraphModule extends BlazeModule {
   @Subscribe
   @AllowConcurrentEvents
   public void actionComplete(ActionCompletionEvent event) {
+    // TODO(vanja): handle finish time in ActionCompletionEvent
     if (options.logMissedActions) {
-      actionEvent(event.getAction(), event.getRelativeActionStartTime());
+      actionEvent(event.getAction(), event.getRelativeActionStartTimeNanos());
     }
   }
 
