@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompileActionContext;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
@@ -646,18 +647,18 @@ public final class BazelRulesModule extends BlazeModule {
     if (remoteOptions == null) {
       return;
     }
-    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
       JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
       if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
         throw createRemoteExecutionExitException(
-            "--experimental_remote_download_outputs=minimal requires"
+            "--experimental_remote_download_outputs={toplevel,minimal} requires"
                 + " --experimental_inmemory_jdeps_files to be enabled",
             Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
       }
       CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
       if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
         throw createRemoteExecutionExitException(
-            "--experimental_remote_download_outputs=minimal requires"
+            "--experimental_remote_download_outputs={toplevel,minimal} requires"
                 + " --experimental_inmemory_dotd_files to be enabled",
             Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
       }

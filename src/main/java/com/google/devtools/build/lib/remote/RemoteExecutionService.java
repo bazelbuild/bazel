@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -1316,7 +1317,7 @@ public class RemoteExecutionService {
   }
 
   private boolean shouldDownloadOutputsFor(RemoteAction action, RemoteActionResult result) {
-    if (remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.ALL) {
       return true;
     }
     // In case the action failed, download all outputs. It might be helpful for debugging and there

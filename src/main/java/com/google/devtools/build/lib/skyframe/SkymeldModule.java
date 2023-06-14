@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
@@ -100,10 +101,8 @@ public class SkymeldModule extends BlazeModule {
 
     if (effectiveValue
         && env.getOptions().getOptions(RemoteOptions.class) != null
-        && !env.getOptions()
-            .getOptions(RemoteOptions.class)
-            .remoteOutputsMode
-            .downloadAllOutputs()) {
+        && env.getOptions().getOptions(RemoteOptions.class).remoteOutputsMode
+            != RemoteOutputsMode.ALL) {
       env.getReporter()
           .handle(
               Event.warn(

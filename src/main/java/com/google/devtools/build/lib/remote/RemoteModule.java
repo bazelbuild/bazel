@@ -344,7 +344,7 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
       ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
       for (String regex : remoteOptions.remoteDownloadRegex) {
         patternsToDownloadBuilder.add(Pattern.compile(regex));
@@ -354,7 +354,7 @@ public final class RemoteModule extends BlazeModule {
           new RemoteOutputChecker(
               new JavaClock(),
               env.getCommandName(),
-              remoteOptions.remoteOutputsMode.downloadToplevelOutputsOnly(),
+              remoteOptions.remoteOutputsMode,
               patternsToDownloadBuilder.build());
     }
 
@@ -625,7 +625,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
-                  !remoteOptions.remoteOutputsMode.downloadAllOutputs(),
+                  remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL,
                   digestUtil,
                   cacheClient);
         } catch (IOException e) {
@@ -691,7 +691,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
-                  !remoteOptions.remoteOutputsMode.downloadAllOutputs(),
+                  remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL,
                   digestUtil,
                   cacheClient);
         } catch (IOException e) {
@@ -1000,7 +1000,8 @@ public final class RemoteModule extends BlazeModule {
             : OutputPermissions.READONLY;
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
 
-    if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
+    if (remoteOutputsMode != RemoteOutputsMode.ALL
+        && actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
 
       actionInputFetcher =
@@ -1034,7 +1035,7 @@ public final class RemoteModule extends BlazeModule {
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
     if (remoteOptions != null
-        && !remoteOptions.remoteOutputsMode.downloadAllOutputs()
+        && remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL
         && actionContextProvider.getRemoteCache() != null) {
       remoteOutputService = new RemoteOutputService();
     }

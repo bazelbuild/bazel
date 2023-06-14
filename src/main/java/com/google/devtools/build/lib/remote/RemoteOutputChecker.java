@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
@@ -59,7 +60,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   public RemoteOutputChecker(
       Clock clock,
       String commandName,
-      boolean downloadToplevel,
+      RemoteOutputsMode outputsMode,
       ImmutableList<Pattern> patternsToDownload) {
     this.clock = clock;
     switch (commandName) {
@@ -78,7 +79,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       default:
         this.commandMode = CommandMode.UNKNOWN;
     }
-    this.downloadToplevel = downloadToplevel;
+    this.downloadToplevel = outputsMode == RemoteOutputsMode.TOPLEVEL;
     this.patternsToDownload = patternsToDownload;
   }
 

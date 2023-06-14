@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -81,7 +82,7 @@ public final class RemoteCacheClientFactory {
           workingDirectory,
           options.diskCache,
           options.remoteVerifyDownloads,
-          !options.remoteOutputsMode.downloadAllOutputs(),
+          options.remoteOutputsMode != RemoteOutputsMode.ALL,
           digestUtil);
     }
     throw new IllegalArgumentException(
@@ -175,7 +176,7 @@ public final class RemoteCacheClientFactory {
         workingDirectory,
         diskCachePath,
         options.remoteVerifyDownloads,
-        !options.remoteOutputsMode.downloadAllOutputs(),
+        options.remoteOutputsMode != RemoteOutputsMode.ALL,
         digestUtil,
         httpCache);
   }
