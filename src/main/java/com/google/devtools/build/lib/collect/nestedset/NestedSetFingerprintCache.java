@@ -60,6 +60,23 @@ public class NestedSetFingerprintCache {
     addToFingerprint(mapFn, fingerprint, digestMap, children);
   }
 
+  public static <T> String describedNestedSetFingerprint(
+      CommandLineItem.ExceptionlessMapFn<? super T> mapFn, NestedSet<T> nestedSet) {
+    if (nestedSet.isEmpty()) {
+      return "<empty>";
+    }
+    StringBuilder sb = new StringBuilder();
+    sb.append("order: ").append(nestedSet.getOrder()).append('\n');
+    ImmutableList<T> list = nestedSet.toList();
+    sb.append("size: ").append(list.size()).append('\n');
+    for (T item : list) {
+      sb.append("  ");
+      mapFn.expandToCommandLine(item, s -> sb.append(s).append(", "));
+      sb.append('\n');
+    }
+    return sb.toString();
+  }
+
   private <T> void addNestedSetToFingerprintSlow(
       MapFn<? super T> mapFn, Fingerprint fingerprint, NestedSet<T> nestedSet)
       throws CommandLineExpansionException, InterruptedException {
