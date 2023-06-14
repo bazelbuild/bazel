@@ -19,6 +19,7 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
@@ -577,8 +578,8 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addConstraints(JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */)
-      throws EvalException;
+  JavaInfoT addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "get_constraints",
@@ -591,7 +592,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to get constraints from."),
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Sequence<String> getConstraints(JavaInfoT javaInfo);
+  Sequence<String> getConstraints(Info javaInfo) throws RuleErrorException;
 
   @StarlarkMethod(
       name = "set_annotation_processing",
@@ -648,13 +649,13 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT setAnnotationProcessing(
-      JavaInfoT javaInfo,
+      Info javaInfo,
       boolean enabled,
       Sequence<?> processorClassnames /* <String> expected. */,
       Object processorClasspath,
       Object classJar,
       Object sourceJar)
-      throws EvalException;
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "java_toolchain_label",

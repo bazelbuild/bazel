@@ -180,6 +180,15 @@ public final class JavaInfo extends NativeInfo
     return builder.build();
   }
 
+  public static ImmutableList<JavaInfo> wrapSequence(Sequence<?> sequence, String what)
+      throws EvalException {
+    return Sequence.cast(sequence, JavaInfo.class, what).getImmutableList();
+  }
+
+  public static boolean isJavaInfo(Object obj) {
+    return obj instanceof JavaInfo;
+  }
+
   public Optional<JavaCompilationArgsProvider> compilationArgsProvider() {
     return Optional.ofNullable(providerJavaCompilationArgs);
   }
