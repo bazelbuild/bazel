@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -33,20 +34,14 @@ import java.util.Map;
  */
 @AutoValue
 @GenerateTypeAdapter
-public abstract class BazelLockFileValue implements SkyValue {
+public abstract class BazelLockFileValue implements SkyValue, Postable {
 
   public static final int LOCK_FILE_VERSION = 1;
 
   @SerializationConstant public static final SkyKey KEY = () -> SkyFunctions.BAZEL_LOCK_FILE;
 
-  public static BazelLockFileValue create(
-      int lockFileVersion,
-      String moduleFileHash,
-      BzlmodFlagsAndEnvVars flags,
-      ImmutableMap<String, String> localOverrideHashes,
-      ImmutableMap<ModuleKey, Module> moduleDepGraph) {
-    return new AutoValue_BazelLockFileValue(
-        lockFileVersion, moduleFileHash, flags, localOverrideHashes, moduleDepGraph);
+  static Builder builder() {
+    return new AutoValue_BazelLockFileValue.Builder().setLockFileVersion(LOCK_FILE_VERSION);
   }
 
   /** Current version of the lock file */
@@ -63,6 +58,24 @@ public abstract class BazelLockFileValue implements SkyValue {
 
   /** The post-selection dep graph retrieved from the lock file. */
   public abstract ImmutableMap<ModuleKey, Module> getModuleDepGraph();
+
+  public abstract Builder toBuilder();
+
+  /** Builder type for {@link BazelLockFileValue}. */
+  @AutoValue.Builder
+  public abstract static class Builder {
+    public abstract Builder setLockFileVersion(int value);
+
+    public abstract Builder setModuleFileHash(String value);
+
+    public abstract Builder setFlags(BzlmodFlagsAndEnvVars value);
+
+    public abstract Builder setLocalOverrideHashes(ImmutableMap<String, String> value);
+
+    public abstract Builder setModuleDepGraph(ImmutableMap<ModuleKey, Module> value);
+
+    public abstract BazelLockFileValue build();
+  }
 
   /** Returns the difference between the lockfile and the current module & flags */
   public ArrayList<String> getDiffLockfile(
