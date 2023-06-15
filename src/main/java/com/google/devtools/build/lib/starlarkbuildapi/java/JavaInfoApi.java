@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -173,6 +174,15 @@ public interface JavaInfoApi<
       doc = "Returns the Java module flag configuration.",
       structField = true)
   JavaModuleFlagsProviderApi getJavaModuleFlagsInfo();
+
+  @StarlarkMethod(
+      name = "_transitive_full_compile_time_jars",
+      documented = false,
+      structField = true)
+  Depset getTransitiveFullCompileJars();
+
+  @StarlarkMethod(name = "_compile_time_java_dependencies", documented = false, structField = true)
+  Depset getCompileTimeJavaDependencies();
 
   /** Provider class for {@link JavaInfoApi} objects. */
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
@@ -352,6 +362,6 @@ public interface JavaInfoApi<
         Object jdepsApi,
         Sequence<?> nativeLibraries,
         StarlarkThread thread)
-        throws EvalException;
+        throws EvalException, RuleErrorException;
   }
 }

@@ -107,7 +107,7 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # First build should have called helper for 4 distinct URIs.
@@ -115,7 +115,7 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Second build should have hit the credentials cache.
@@ -137,7 +137,7 @@ function test_credential_helper_remote_execution() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # First build should have called helper for 5 distinct URIs.
@@ -146,7 +146,7 @@ function test_credential_helper_remote_execution() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Second build should have hit the credentials cache.
@@ -159,7 +159,7 @@ function test_credential_helper_clear_cache() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:a >& $TEST_log || fail "Build with credentials should have succeeded"
 
   expect_credential_helper_calls 5
@@ -169,7 +169,7 @@ function test_credential_helper_clear_cache() {
   bazel build \
       --spawn_strategy=remote \
       --remote_executor=grpc://localhost:${worker_port} \
-      --experimental_credential_helper="${TEST_TMPDIR}/credhelper" \
+      --credential_helper="${TEST_TMPDIR}/credhelper" \
       //a:b >& $TEST_log || fail "Build with credentials should have succeeded"
 
   # Build after clean should have called helper again.
@@ -299,7 +299,7 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       //a:test >& $TEST_log \
       || fail "Failed to build //a:test with remote execution"
-  expect_log "6 processes: 4 internal, 2 remote"
+  expect_log "7 processes: 5 internal, 2 remote"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
       || fail "Remote execution generated different result"
 }
@@ -2579,7 +2579,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "5 processes: 3 internal, 2 .*-sandbox"
+  expect_log "6 processes: 4 internal, 2 .*-sandbox"
 
   bazel clean
 
@@ -2587,7 +2587,7 @@ EOF
     --disk_cache=$CACHEDIR \
     //a:test >& $TEST_log || fail "Failed to build //a:test"
 
-  expect_log "5 processes: 2 disk cache hit, 3 internal"
+  expect_log "6 processes: 2 disk cache hit, 4 internal"
 }
 
 # Bazel assumes that non-ASCII characters in file contents (and, in

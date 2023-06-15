@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
@@ -547,7 +546,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     }
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(reporter, parsedLabel, config);
-    } catch (InvalidConfigurationException | InterruptedException e) {
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }
@@ -597,7 +596,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     try {
       return skyframeExecutor.getConfiguredTargetAndDataForTesting(
           reporter, parsedLabel, configuration);
-    } catch (InvalidConfigurationException | InterruptedException e) {
+    } catch (InterruptedException e) {
       throw new AssertionError(e);
     }
   }

@@ -278,8 +278,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaModuleFlagsProvider javaModuleFlagsProvider =
         JavaModuleFlagsProvider.create(
             ruleContext,
-            common.targetsTreatedAsDeps(ClasspathType.BOTH).stream()
-                .map(JavaInfo::moduleFlagsProvider));
+            JavaInfo.moduleFlagsProviders(common.targetsTreatedAsDeps(ClasspathType.BOTH))
+                .stream());
 
     javaModuleFlagsProvider.toFlags().stream()
         // Share strings in the heap with the equivalent javacopt flags, which are also interned
@@ -607,7 +607,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addNativeDeclaredProvider(javaInfo)
+        .addStarlarkDeclaredProvider(javaInfo)
         .add(RunfilesProvider.class, runfilesProvider)
         // The executable to run (below) may be different from the executable for runfiles (the one
         // we create the runfiles support object with). On Linux they are the same (it's the same
@@ -724,7 +724,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       JavaCompilationArtifacts javaArtifacts,
       NestedSet<Artifact> filesToBuild,
       Artifact launcher,
-      NestedSet<Artifact> dynamicRuntimeActionInputs) {
+      NestedSet<Artifact> dynamicRuntimeActionInputs)
+      throws RuleErrorException {
     builder.addTransitiveArtifactsWrappedInStableOrder(filesToBuild);
     builder.addArtifacts(javaArtifacts.getRuntimeJars());
     if (launcher != null) {

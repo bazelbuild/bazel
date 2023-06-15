@@ -1190,12 +1190,12 @@ def _copts_filter(ctx, additional_make_variable_substitutions):
     # Expand nocopts and create CoptsFilter.
     return _expand(ctx, nocopts, additional_make_variable_substitutions)
 
-def _proto_output_root(proto_root, genfiles_dir_path, bin_dir_path):
+def _proto_output_root(proto_root, bin_dir_path):
     if proto_root == ".":
         return bin_dir_path
 
-    if proto_root.startswith(genfiles_dir_path):
-        return bin_dir_path + "/" + proto_root[len(genfiles_dir_path):]
+    if proto_root.startswith(bin_dir_path):
+        return proto_root
     else:
         return bin_dir_path + "/" + proto_root
 

@@ -100,12 +100,16 @@ public final class BuildEventIdUtil {
     return BuildEventId.newBuilder().setFetch(fetchId).build();
   }
 
-  public static BuildEventId configurationId(String id) {
-    return configurationId(configurationIdMessage(id));
+  public static BuildEventId configurationId(@Nullable BuildConfigurationKey key) {
+    return configurationId(configurationIdMessage(key));
   }
 
   private static BuildEventId configurationId(ConfigurationId id) {
     return BuildEventId.newBuilder().setConfiguration(id).build();
+  }
+
+  public static BuildEventId configurationId(String id) {
+    return configurationId(configurationIdMessage(id));
   }
 
   public static ConfigurationId configurationIdMessage(@Nullable BuildConfigurationKey key) {
@@ -177,12 +181,12 @@ public final class BuildEventIdUtil {
     return BuildEventId.newBuilder().setTargetCompleted(targetId).build();
   }
 
-  public static BuildEventId configuredLabelId(Label label, BuildEventId configuration) {
-    BuildEventId.ConfigurationId configId = configuration.getConfiguration();
+  public static BuildEventId configuredLabelId(
+      Label label, BuildEventId.ConfigurationId configurationId) {
     BuildEventId.ConfiguredLabelId labelId =
         BuildEventId.ConfiguredLabelId.newBuilder()
             .setLabel(label.toString())
-            .setConfiguration(configId)
+            .setConfiguration(configurationId)
             .build();
     return BuildEventId.newBuilder().setConfiguredLabel(labelId).build();
   }

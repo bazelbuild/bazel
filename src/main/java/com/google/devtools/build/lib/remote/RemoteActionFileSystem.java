@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -81,6 +82,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
   private final RemoteActionInputFetcher inputFetcher;
   private final RemoteInMemoryFileSystem remoteOutputTree;
 
+  @Nullable private ActionExecutionMetadata action = null;
   @Nullable private MetadataInjector metadataInjector = null;
 
   RemoteActionFileSystem(
@@ -121,7 +123,8 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
     return getRemoteMetadata(path) != null;
   }
 
-  public void updateContext(MetadataInjector metadataInjector) {
+  public void updateContext(ActionExecutionMetadata action, MetadataInjector metadataInjector) {
+    this.action = action;
     this.metadataInjector = metadataInjector;
   }
 
@@ -625,7 +628,7 @@ public class RemoteActionFileSystem extends DelegateFileSystem {
       }
       getFromFuture(
           inputFetcher.prefetchFiles(
-              ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
+              action, ImmutableList.of(input), this::getInputMetadata, Priority.CRITICAL));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new IOException(String.format("Received interrupt while fetching file '%s'", path), e);

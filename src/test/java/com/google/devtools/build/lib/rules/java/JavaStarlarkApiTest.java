@@ -1559,7 +1559,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
     ConfiguredTarget topJavaLibraryTarget = getConfiguredTarget("//foo:jl_top");
 
-    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    Object javaProvider = myRuleTarget.get(JavaInfo.PROVIDER);
     assertThat(javaProvider).isInstanceOf(JavaInfo.class);
 
     JavaInfo jlJavaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
@@ -2277,7 +2277,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2314,7 +2314,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2353,7 +2353,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//java/test:somedep");
 
-    JavaInfo javaInfo = (JavaInfo) target.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = target.get(JavaInfo.PROVIDER);
     assertThat(javaInfo.isNeverlink()).isTrue();
   }
 
@@ -2645,7 +2645,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'b', srcs = ['java/B.java'])");
 
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
-    JavaInfo javaInfo = (JavaInfo) myRuleTarget.get(JavaInfo.PROVIDER.getKey());
+    JavaInfo javaInfo = myRuleTarget.get(JavaInfo.PROVIDER);
     List<String> directJars = prettyArtifactNames(javaInfo.getRuntimeOutputJars());
     assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
   }

@@ -1021,9 +1021,9 @@ function test_visibility_indirect() {
   expect_log 'reason: ANALYSIS_FAILURE'
   expect_log '^aborted'
   expect_log '//visibility:cannotsee'
-  # There should be precisely one events with target_completed as event id type
+  # There should be precisely one event with target_configured as event id type
   (echo 'g/^id/+1p'; echo 'q') | ed "${TEST_log}" 2>&1 | tail -n +2 > event_id_types
-  [ `grep target_completed event_id_types | wc -l` -eq 1 ] \
+  [ `grep target_configured event_id_types | wc -l` -eq 1 ] \
       || fail "not precisely one target_completed event id"
 }
 

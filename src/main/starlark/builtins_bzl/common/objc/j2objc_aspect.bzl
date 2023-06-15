@@ -141,7 +141,6 @@ def _proto(target, ctx):
     filtered_proto_sources, _ = proto_common.experimental_filter_sources(target[ProtoInfo], proto_lang_toolchain_info)
     objc_file_path = cc_helper.proto_output_root(
         proto_root = target[ProtoInfo].proto_source_root,
-        genfiles_dir_path = ctx.genfiles_dir.path,
         bin_dir_path = ctx.bin_dir.path,
     )
     j2objc_source = _proto_j2objc_source(ctx, target[ProtoInfo], filtered_proto_sources, objc_file_path)

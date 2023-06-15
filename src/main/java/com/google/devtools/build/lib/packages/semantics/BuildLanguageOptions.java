@@ -91,8 +91,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, `ctx.actions.symlink` will disallow symlinking a file into a directory.")
+      help = "No-op.")
   public boolean incompatibleDisallowSymlinkFileToDir;
 
   @Option(
@@ -676,8 +675,6 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
                 incompatibleStopExportingLanguageModules)
             .setBool(INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER, incompatibleRemoveRuleNameParameter)
-            .setBool(
-                INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR, incompatibleDisallowSymlinkFileToDir)
             .setBool(EXPERIMENTAL_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
@@ -768,8 +765,6 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_stop_exporting_language_modules";
   public static final String INCOMPATIBLE_REMOVE_RULE_NAME_PARAMETER =
       "+incompatible_remove_rule_name_parameter";
-  public static final String INCOMPATIBLE_DISALLOW_SYMLINK_FILE_TO_DIR =
-      "+incompatible_disallow_symlink_file_to_dir";
   public static final String EXPERIMENTAL_ALLOW_TAGS_PROPAGATION =
       "-experimental_allow_tags_propagation";
   public static final String EXPERIMENTAL_BUILTINS_DUMMY = "-experimental_builtins_dummy";

@@ -278,7 +278,10 @@ def _filter_inputs(
         dependency_linker_inputs_sets.append(dep[CcInfo].linking_context.linker_inputs)
         graph_structure_aspect_nodes.append(dep[GraphNodeInfo])
 
-    dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
+    if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
+        dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets).to_list()
+    else:
+        dependency_linker_inputs = depset(transitive = dependency_linker_inputs_sets, order = "topological").to_list()
 
     can_be_linked_dynamically = {}
     for linker_input in dependency_linker_inputs:
@@ -654,6 +657,7 @@ cc_shared_library = rule(
         "additional_linker_inputs": attr.label_list(allow_files = True),
         "shared_lib_name": attr.string(),
         "dynamic_deps": attr.label_list(providers = [CcSharedLibraryInfo]),
+        "experimental_disable_topo_sort_do_not_use_remove_before_7_0": attr.bool(default = False),
         "exports_filter": attr.string_list(),
         "win_def_file": attr.label(allow_single_file = [".def"]),
         "roots": attr.label_list(providers = [CcInfo], aspects = [graph_structure_aspect]),

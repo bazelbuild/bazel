@@ -84,7 +84,7 @@ public class NestedSetFingerprintCache {
     sb.append("size: ").append(list.size()).append('\n');
     for (T item : list) {
       sb.append("  ");
-      mapFn.expandToCommandLine(item, s -> sb.append(sb).append(", "));
+      mapFn.expandToCommandLine(item, s -> sb.append(s).append(", "));
       sb.append('\n');
     }
     return sb.toString();

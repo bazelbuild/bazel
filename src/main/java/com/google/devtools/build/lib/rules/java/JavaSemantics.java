@@ -189,7 +189,7 @@ public interface JavaSemantics {
    *
    * <p>Errors should be signaled through {@link RuleContext}.
    */
-  void checkRule(RuleContext ruleContext, JavaCommon javaCommon);
+  void checkRule(RuleContext ruleContext, JavaCommon javaCommon) throws RuleErrorException;
 
   /**
    * Verifies there are no conflicts in protos.
@@ -281,7 +281,7 @@ public interface JavaSemantics {
       NestedSetBuilder<Artifact> filesBuilder,
       String javaExecutable,
       boolean createCoverageMetadataJar)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /**
    * Returns true if {@code createStubAction} considers {@code javaExecutable} as a substitution.
@@ -319,7 +319,8 @@ public interface JavaSemantics {
 
   /** Adds extra runfiles for a {@code java_binary} rule. */
   void addRunfilesForBinary(
-      RuleContext ruleContext, Artifact launcher, Runfiles.Builder runfilesBuilder);
+      RuleContext ruleContext, Artifact launcher, Runfiles.Builder runfilesBuilder)
+      throws RuleErrorException;
 
   /** Adds extra runfiles for a {@code java_library} rule. */
   void addRunfilesForLibrary(RuleContext ruleContext, Runfiles.Builder runfilesBuilder);
@@ -346,7 +347,7 @@ public interface JavaSemantics {
    * @return new main class
    */
   String addCoverageSupport(JavaCompilationHelper helper, Artifact executable)
-      throws InterruptedException;
+      throws InterruptedException, RuleErrorException;
 
   /** Return the JVM flags to be used in a Java binary. */
   Iterable<String> getJvmFlags(

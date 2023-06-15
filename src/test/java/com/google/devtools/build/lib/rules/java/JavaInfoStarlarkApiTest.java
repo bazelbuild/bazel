@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
@@ -1003,7 +1004,6 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
             myRuleTarget.get(
                 new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
 
-    JavaInfo javaInfo = (JavaInfo) info.getValue("property");
-    return javaInfo;
+    return JavaInfo.PROVIDER.wrap(info.getValue("property", Info.class));
   }
 }

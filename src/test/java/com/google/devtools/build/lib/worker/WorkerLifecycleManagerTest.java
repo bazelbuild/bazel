@@ -243,6 +243,54 @@ public final class WorkerLifecycleManagerTest {
   }
 
   @Test
+  public void testGetEvictionCandidates_evictWorkerWithSameMenmonicButDifferentKeys()
+      throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 3), emptyEntryList()));
+    WorkerKey key1 = createWorkerKey("dummy", fileSystem);
+    WorkerKey key2 = createWorkerKey("dummy", fileSystem, true);
+
+    Worker w1 = workerPool.borrowObject(key1);
+    Worker w2 = workerPool.borrowObject(key2);
+    Worker w3 = workerPool.borrowObject(key2);
+    workerPool.returnObject(key1, w1);
+    workerPool.returnObject(key2, w2);
+    workerPool.returnObject(key2, w3);
+
+    ImmutableList<WorkerMetric> workerMetrics =
+        ImmutableList.of(
+            WorkerMetric.create(
+                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
+                createWorkerStat(3000),
+                true),
+            WorkerMetric.create(
+                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
+                createWorkerStat(3000),
+                true),
+            WorkerMetric.create(
+                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
+                createWorkerStat(1000),
+                true));
+
+    WorkerOptions options = new WorkerOptions();
+    options.totalWorkerMemoryLimitMb = 2;
+    options.workerVerbose = true;
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
+    assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(1);
+    assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(2);
+
+    manager.evictWorkers(workerMetrics);
+
+    assertThat(workerPool.getNumIdlePerKey(key1)).isEqualTo(0);
+    assertThat(workerPool.getNumActive(key1)).isEqualTo(0);
+
+    assertThat(workerPool.getNumIdlePerKey(key2)).isEqualTo(1);
+    assertThat(workerPool.getNumActive(key2)).isEqualTo(0);
+  }
+
+  @Test
   public void testGetEvictionCandidates_evictOnlyIdleWorkers() throws Exception {
     WorkerPoolImpl workerPool =
         new WorkerPoolImpl(

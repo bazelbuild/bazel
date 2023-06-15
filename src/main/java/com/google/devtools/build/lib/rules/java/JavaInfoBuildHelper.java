@@ -86,7 +86,7 @@ final class JavaInfoBuildHelper {
       Sequence<JavaInfo> compileTimeDeps,
       Sequence<JavaInfo> runtimeDeps,
       Sequence<JavaInfo> exports,
-      Sequence<JavaPluginInfo> exportedPlugins,
+      Iterable<JavaPluginInfo> exportedPlugins,
       Sequence<CcInfo> nativeLibraries,
       Location location) {
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
@@ -103,10 +103,6 @@ final class JavaInfoBuildHelper {
       javaCompilationArgsBuilder.addDirectCompileTimeJar(
           /* interfaceJar= */ javaOutput.getCompileJar(), /* fullJar= */ javaOutput.getClassJar());
     }
-    if (javaOutput.getCompileJdeps() != null) {
-      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
-          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
-    }
 
     JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder().addJavaOutput(javaOutput).build();
@@ -121,6 +117,11 @@ final class JavaInfoBuildHelper {
 
     streamProviders(runtimeDeps, JavaCompilationArgsProvider.class)
         .forEach(args -> javaCompilationArgsBuilder.addDeps(args, RUNTIME_ONLY));
+
+    if (javaOutput.getCompileJdeps() != null) {
+      javaCompilationArgsBuilder.addCompileTimeJavaDependencyArtifacts(
+          NestedSetBuilder.create(Order.STABLE_ORDER, javaOutput.getCompileJdeps()));
+    }
 
     javaInfoBuilder.javaCompilationArgs(javaCompilationArgsBuilder.build());
 
@@ -263,6 +264,7 @@ final class JavaInfoBuildHelper {
       List<Artifact> annotationProcessorAdditionalOutputs,
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
+      BootClassPathInfo bootClassPath,
       ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       List<Artifact> resourceJars,
@@ -349,6 +351,7 @@ final class JavaInfoBuildHelper {
         helper.build(
             javaSemantics,
             toolchainProvider,
+            bootClassPath,
             outputJarsBuilder,
             createOutputSourceJar,
             includeCompilationInfo,

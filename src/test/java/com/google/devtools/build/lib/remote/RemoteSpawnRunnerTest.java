@@ -130,7 +130,7 @@ import org.mockito.MockitoAnnotations;
 public class RemoteSpawnRunnerTest {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
       new RemoteOutputChecker(
-          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
+          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
 
   private final Reporter reporter = new Reporter(new EventBus());
   private static final ImmutableMap<String, String> NO_CACHE =
@@ -1080,11 +1080,11 @@ public class RemoteSpawnRunnerTest {
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.create(Order.STABLE_ORDER, input),
-            /*outputs=*/ ImmutableSet.<ActionInput>of(),
+            /* arguments= */ ImmutableList.of(),
+            /* environment= */ ImmutableMap.of(),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.create(Order.STABLE_ORDER, input),
+            /* outputs= */ ImmutableSet.<ActionInput>of(),
             ResourceSet.ZERO);
     SpawnExecutionContext policy = getSpawnContext(spawn);
     SpawnResult res = runner.exec(spawn, policy);
@@ -1551,18 +1551,16 @@ public class RemoteSpawnRunnerTest {
       ImmutableMap<String, String> executionInfo, Artifact... outputs) {
     return new SimpleSpawn(
         new FakeOwner("foo", "bar", "//dummy:label"),
-        /*arguments=*/ ImmutableList.of(),
-        /*environment=*/ ImmutableMap.of(),
-        /*executionInfo=*/ executionInfo,
-        /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-        /*outputs=*/ ImmutableSet.copyOf(outputs),
+        /* arguments= */ ImmutableList.of(),
+        /* environment= */ ImmutableMap.of(),
+        /* executionInfo= */ executionInfo,
+        /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* outputs= */ ImmutableSet.copyOf(outputs),
         ResourceSet.ZERO);
   }
 
   private RemoteSpawnRunner newSpawnRunner() {
-    return newSpawnRunner(
-        executor,
-        RemotePathResolver.createDefault(execRoot));
+    return newSpawnRunner(executor, RemotePathResolver.createDefault(execRoot));
   }
 
   private RemoteSpawnRunner newSpawnRunner(RemotePathResolver remotePathResolver) {
@@ -1570,8 +1568,7 @@ public class RemoteSpawnRunnerTest {
   }
 
   private RemoteSpawnRunner newSpawnRunner(
-      @Nullable RemoteExecutionClient executor,
-      RemotePathResolver remotePathResolver) {
+      @Nullable RemoteExecutionClient executor, RemotePathResolver remotePathResolver) {
     RemoteExecutionService service =
         spy(
             new RemoteExecutionService(

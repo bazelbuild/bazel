@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -534,11 +533,8 @@ public final class RunfilesSupport implements RunfilesSupplier {
   @Nullable
   private static Artifact createRepoMappingManifestAction(
       RuleContext ruleContext, Runfiles runfiles, Artifact owningExecutable) {
-    if (!ruleContext
-        .getAnalysisEnvironment()
-        .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.ENABLE_BZLMOD)) {
-      // If Bzlmod is not enabled, we don't need a repo mapping manifest.
+    if (ruleContext.getTransitivePackagesForRunfileRepoMappingManifest() == null) {
+      // If transitive packages are not tracked for repo mapping manifest, we don't need the action.
       return null;
     }
 

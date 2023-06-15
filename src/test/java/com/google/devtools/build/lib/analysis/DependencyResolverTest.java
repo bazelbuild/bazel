@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -92,8 +93,9 @@ public class DependencyResolverTest extends AnalysisTestCase {
         new TargetAndConfiguration(target, getTargetConfiguration()),
         aspect != null ? Aspect.forNative(aspect) : null,
         ImmutableMap.of(),
-        /*toolchainContexts=*/ null,
-        /*trimmingTransitionFactory=*/ null);
+        /* toolchainContexts= */ null,
+        /* trimmingTransitionFactory= */ null,
+        NULL_TRANSITION_COLLECTOR);
   }
 
   private static void assertDep(

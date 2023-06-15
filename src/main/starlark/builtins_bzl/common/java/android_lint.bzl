@@ -129,7 +129,7 @@ def android_lint_action(ctx, source_files, source_jars, compilation_info):
         execution_requirements = {"supports-workers": "1"},
         toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
         env = {
-            # TODO(b/279025786): replace with setting -XskipJarVerification in AndroidLintRunner
+            # TODO(b/279025786): replace with setting --XskipJarVerification in AndroidLintRunner
             "ANDROID_LINT_SKIP_BYTECODE_VERIFIER": "true",
         },
     )

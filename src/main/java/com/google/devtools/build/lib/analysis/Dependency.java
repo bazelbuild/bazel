@@ -99,13 +99,17 @@ public abstract class Dependency {
 
     protected abstract ImmutableList<String> getTransitionKeys();
 
+    @Nullable
+    protected abstract Label getExecutionPlatformLabel();
+
     /** Returns a copy of this Builder, with the values the same. */
     public Builder copy() {
       return Dependency.builder()
           .setLabel(getLabel())
           .setConfiguration(getConfiguration())
           .setAspects(getAspects())
-          .setTransitionKeys(getTransitionKeys());
+          .setTransitionKeys(getTransitionKeys())
+          .setExecutionPlatformLabel(getExecutionPlatformLabel());
     }
   }
 

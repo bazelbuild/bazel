@@ -123,19 +123,6 @@ public final class Allowlist {
   }
 
   /**
-   * Returns whether the given label is in the allowlist provided.
-   *
-   * @param allowlist the allowlist provided
-   * @param relevantLabel the label to check for in the allowlist.
-   */
-  public static boolean isAvailableForAllowlist(
-      TransitiveInfoCollection allowlist, Label relevantLabel) {
-    PackageSpecificationProvider packageSpecificationProvider =
-        allowlist.get(PackageGroupConfiguredTarget.PROVIDER);
-    return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
-  }
-
-  /**
    * Returns whether the rule from the given rule context has a allowlist by the given name.
    *
    * @param ruleContext The rule context to check

@@ -130,7 +130,7 @@ import org.junit.runners.JUnit4;
 public class RemoteExecutionServiceTest {
   private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
       new RemoteOutputChecker(
-          new JavaClock(), "build", /* downloadToplevel= */ false, ImmutableList.of());
+          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   private final DigestUtil digestUtil =

@@ -67,7 +67,7 @@ public class BazelModuleResolutionFunction implements SkyFunction {
   @Override
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws SkyFunctionException, InterruptedException {
+      throws BazelModuleResolutionFunctionException, InterruptedException {
 
     ClientEnvironmentValue allowedYankedVersionsFromEnv =
         (ClientEnvironmentValue)

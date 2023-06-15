@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -117,7 +118,7 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
   // TODO(b/11285003): disallow jar files in deps, require java_import instead
   @Deprecated
   public static JavaCompilationArgsProvider legacyFromTargets(
-      Iterable<? extends TransitiveInfoCollection> infos) {
+      Iterable<? extends TransitiveInfoCollection> infos) throws RuleErrorException {
     Builder argsBuilder = builder();
     for (TransitiveInfoCollection info : infos) {
       Optional<JavaCompilationArgsProvider> provider = JavaInfo.getCompilationArgsProvider(info);

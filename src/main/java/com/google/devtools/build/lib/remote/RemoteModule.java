@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
@@ -343,7 +344,7 @@ public final class RemoteModule extends BlazeModule {
 
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
-    if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
+    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
       ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
       for (String regex : remoteOptions.remoteDownloadRegex) {
         patternsToDownloadBuilder.add(Pattern.compile(regex));
@@ -353,7 +354,7 @@ public final class RemoteModule extends BlazeModule {
           new RemoteOutputChecker(
               new JavaClock(),
               env.getCommandName(),
-              remoteOptions.remoteOutputsMode.downloadToplevelOutputsOnly(),
+              remoteOptions.remoteOutputsMode,
               patternsToDownloadBuilder.build());
     }
 
@@ -443,45 +444,49 @@ public final class RemoteModule extends BlazeModule {
     }
 
     if (enableRemoteExecution) {
-      ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-      interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
-      if (loggingInterceptor != null) {
-        interceptors.add(loggingInterceptor);
-      }
-      execChannel =
-          new ReferenceCountedChannel(
-              new GoogleChannelConnectionFactory(
-                  channelFactory,
-                  remoteOptions.remoteExecutor,
-                  remoteOptions.remoteProxy,
-                  authAndTlsOptions,
-                  interceptors.build(),
-                  maxConcurrencyPerConnection),
-              maxConnections);
+      try (var s = Profiler.instance().profile("init exec channel")) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
+        execChannel =
+            new ReferenceCountedChannel(
+                new GoogleChannelConnectionFactory(
+                    channelFactory,
+                    remoteOptions.remoteExecutor,
+                    remoteOptions.remoteProxy,
+                    authAndTlsOptions,
+                    interceptors.build(),
+                    maxConcurrencyPerConnection),
+                maxConnections);
 
-      // Create a separate channel if --remote_executor and --remote_cache point to different
-      // endpoints.
-      if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
-        cacheChannel = execChannel.retain();
+        // Create a separate channel if --remote_executor and --remote_cache point to different
+        // endpoints.
+        if (remoteOptions.remoteCache.equals(remoteOptions.remoteExecutor)) {
+          cacheChannel = execChannel.retain();
+        }
       }
     }
 
     if (cacheChannel == null) {
-      ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
-      interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
-      if (loggingInterceptor != null) {
-        interceptors.add(loggingInterceptor);
+      try (var s = Profiler.instance().profile("init cache channel")) {
+        ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
+        interceptors.add(TracingMetadataUtils.newCacheHeadersInterceptor(remoteOptions));
+        if (loggingInterceptor != null) {
+          interceptors.add(loggingInterceptor);
+        }
+        cacheChannel =
+            new ReferenceCountedChannel(
+                new GoogleChannelConnectionFactory(
+                    channelFactory,
+                    remoteOptions.remoteCache,
+                    remoteOptions.remoteProxy,
+                    authAndTlsOptions,
+                    interceptors.build(),
+                    maxConcurrencyPerConnection),
+                maxConnections);
       }
-      cacheChannel =
-          new ReferenceCountedChannel(
-              new GoogleChannelConnectionFactory(
-                  channelFactory,
-                  remoteOptions.remoteCache,
-                  remoteOptions.remoteProxy,
-                  authAndTlsOptions,
-                  interceptors.build(),
-                  maxConcurrencyPerConnection),
-              maxConnections);
     }
 
     if (enableRemoteDownloader) {
@@ -526,7 +531,7 @@ public final class RemoteModule extends BlazeModule {
     // capabilities respectively.
     ServerCapabilities executionCapabilities = null;
     ServerCapabilities cacheCapabilities = null;
-    try {
+    try (var s = Profiler.instance().profile("check server capabilities")) {
       if (execChannel != null) {
         if (cacheChannel != execChannel) {
           executionCapabilities =
@@ -620,7 +625,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
-                  !remoteOptions.remoteOutputsMode.downloadAllOutputs(),
+                  remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL,
                   digestUtil,
                   cacheClient);
         } catch (IOException e) {
@@ -686,7 +691,7 @@ public final class RemoteModule extends BlazeModule {
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
                   remoteOptions.remoteVerifyDownloads,
-                  !remoteOptions.remoteOutputsMode.downloadAllOutputs(),
+                  remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL,
                   digestUtil,
                   cacheClient);
         } catch (IOException e) {
@@ -995,7 +1000,8 @@ public final class RemoteModule extends BlazeModule {
             : OutputPermissions.READONLY;
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
 
-    if (!remoteOutputsMode.downloadAllOutputs() && actionContextProvider.getRemoteCache() != null) {
+    if (remoteOutputsMode != RemoteOutputsMode.ALL
+        && actionContextProvider.getRemoteCache() != null) {
       Preconditions.checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
 
       actionInputFetcher =
@@ -1029,7 +1035,7 @@ public final class RemoteModule extends BlazeModule {
   public OutputService getOutputService() {
     Preconditions.checkState(remoteOutputService == null, "remoteOutputService must be null");
     if (remoteOptions != null
-        && !remoteOptions.remoteOutputsMode.downloadAllOutputs()
+        && remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL
         && actionContextProvider.getRemoteCache() != null) {
       remoteOutputService = new RemoteOutputService();
     }

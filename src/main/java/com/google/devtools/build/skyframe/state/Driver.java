@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe.state;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -125,5 +126,14 @@ public final class Driver {
    */
   void addLookup(Lookup lookup) {
     newlyAdded.add(lookup);
+  }
+
+  @Override
+  public String toString() {
+    return toStringHelper(this)
+        .add("ready", ready)
+        .add("newlyAdded", newlyAdded)
+        .add("pending", pending)
+        .toString();
   }
 }

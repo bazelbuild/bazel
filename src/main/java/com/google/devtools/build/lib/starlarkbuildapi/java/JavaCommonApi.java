@@ -19,6 +19,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
+import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
@@ -48,6 +50,7 @@ public interface JavaCommonApi<
         FileT extends FileApi,
         JavaInfoT extends JavaInfoApi<FileT, ?, ?>,
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
+        BootClassPathT extends ProviderApi,
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         StarlarkActionFactoryT extends StarlarkActionFactoryApi>
@@ -189,6 +192,14 @@ public interface JavaCommonApi<
             named = true,
             doc = "A JavaToolchainInfo to be used for this compilation. Mandatory."),
         @Param(
+            name = "bootclasspath",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            doc =
+                "A BootClassPathInfo to be used for this compilation. If present, overrides the"
+                    + " bootclasspath associated with the provided java_toolchain. Optional."),
+        @Param(
             name = "host_javabase",
             positional = false,
             named = true,
@@ -299,6 +310,7 @@ public interface JavaCommonApi<
       Sequence<?> annotationProcessorAdditionalOutputs, // <FileT> expected.
       String strictDepsMode,
       JavaToolchainT javaToolchain,
+      Object bootClassPath,
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <FileT> expected.
       Sequence<?> resources, // <FileT> expected.
@@ -313,7 +325,7 @@ public interface JavaCommonApi<
       Sequence<?> addExports, // <String> expected.
       Sequence<?> addOpens, // <String> expected.
       StarlarkThread thread)
-      throws EvalException, InterruptedException;
+      throws EvalException, InterruptedException, RuleErrorException;
 
   @StarlarkMethod(
       name = "run_ijar",
@@ -576,8 +588,8 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addConstraints(JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */)
-      throws EvalException;
+  JavaInfoT addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "get_constraints",
@@ -590,7 +602,7 @@ public interface JavaCommonApi<
             doc = "The JavaInfo to get constraints from."),
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  Sequence<String> getConstraints(JavaInfoT javaInfo);
+  Sequence<String> getConstraints(Info javaInfo) throws RuleErrorException;
 
   @StarlarkMethod(
       name = "set_annotation_processing",
@@ -647,13 +659,13 @@ public interface JavaCommonApi<
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT setAnnotationProcessing(
-      JavaInfoT javaInfo,
+      Info javaInfo,
       boolean enabled,
       Sequence<?> processorClassnames /* <String> expected. */,
       Object processorClasspath,
       Object classJar,
       Object sourceJar)
-      throws EvalException;
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "java_toolchain_label",
@@ -725,7 +737,7 @@ public interface JavaCommonApi<
       documented = false)
   Sequence<String> collectNativeLibsDirs(
       Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException;
+      throws EvalException, RuleErrorException;
 
   @StarlarkMethod(
       name = "get_runtime_classpath_for_archive",

@@ -590,6 +590,10 @@ import javax.lang.model.*;
 import javax.lang.model.element.*;
 @SupportedAnnotationTypes(value= {"test.processor.TestAnnotation"})
 public class Processor extends AbstractProcessor {
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latestSupported();
+  }
   private static final String OUTFILE_CONTENT = "package test;\n"
       + "public class Generated {\n"
       + "  public static String value = \"" + ProcessorDep.value + "\";\n"

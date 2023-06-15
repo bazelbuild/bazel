@@ -144,7 +144,8 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
                 stateProvider.lateBoundRuleClassProvider(),
                 TransitiveDependencyState.createForTesting(
                     transitiveRootCauses, /* transitivePackages= */ null),
-                env);
+                env,
+                env.getListener());
       } catch (ToolchainException
           | ConfiguredValueCreationException
           | IncompatibleTargetException

@@ -24,11 +24,8 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -36,9 +33,10 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeFormatter;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.cquery.CqueryOptions.Transitions;
+import com.google.devtools.build.lib.query2.cquery.CqueryTransitionResolver.EvaluateException;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
@@ -55,7 +53,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Proto output formatter for cquery results. */
 class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
@@ -110,7 +107,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final SkyframeExecutor skyframeExecutor;
   private final ConfigurationCache configurationCache = new ConfigurationCache();
   private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
-  @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
+  private final RuleClassProvider ruleClassProvider;
 
   private AnalysisProtosV2.CqueryResult.Builder protoResult;
 
@@ -125,12 +122,12 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
       TargetAccessor<ConfiguredTarget> accessor,
       AspectResolver resolver,
       OutputType outputType,
-      @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
+      RuleClassProvider ruleClassProvider) {
     super(eventHandler, options, out, skyframeExecutor, accessor, /*uniquifyResults=*/ false);
     this.outputType = outputType;
     this.skyframeExecutor = skyframeExecutor;
     this.resolver = resolver;
-    this.trimmingTransitionFactory = trimmingTransitionFactory;
+    this.ruleClassProvider = ruleClassProvider;
     this.partialResultMap = Maps.newHashMap();
   }
 
@@ -189,16 +186,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     partialResult.forEach(
         kct -> partialResultMap.put(kct.getOriginalLabel(), accessor.getTarget(kct)));
 
-    KnownTargetsDependencyResolver knownTargetsDependencyResolver =
-        new KnownTargetsDependencyResolver(partialResultMap);
-
     CqueryTransitionResolver transitionResolver =
         new CqueryTransitionResolver(
             eventHandler,
-            knownTargetsDependencyResolver,
             accessor,
             this,
-            trimmingTransitionFactory);
+            ruleClassProvider,
+            skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache());
 
     ConfiguredProtoOutputFormatter formatter = new ConfiguredProtoOutputFormatter();
     formatter.setOptions(options, resolver, skyframeExecutor.getDigestFunction().getHashFunction());
@@ -240,7 +234,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
               }
             }
           }
-        } catch (DependencyResolver.Failure | InconsistentAspectOrderException e) {
+        } catch (EvaluateException e) {
           // This is an abuse of InterruptedException.
           throw new InterruptedException(e.getMessage());
         }

@@ -27,13 +27,12 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.RuleTransitionData;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -191,7 +190,7 @@ public class ConfiguredTargetQueryEnvironment
           ExtendedEventHandler eventHandler,
           OutputStream out,
           SkyframeExecutor skyframeExecutor,
-          @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
+          RuleClassProvider ruleClassProvider,
           PackageManager packageManager)
           throws QueryException, InterruptedException {
     AspectResolver aspectResolver =
@@ -219,7 +218,7 @@ public class ConfiguredTargetQueryEnvironment
             out,
             skyframeExecutor,
             accessor,
-            trimmingTransitionFactory,
+            ruleClassProvider,
             getMainRepoMapping()),
         new ProtoOutputFormatterCallback(
             eventHandler,
@@ -229,7 +228,7 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.BINARY,
-            trimmingTransitionFactory),
+            ruleClassProvider),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -238,7 +237,7 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.TEXT,
-            trimmingTransitionFactory),
+            ruleClassProvider),
         new ProtoOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -247,7 +246,7 @@ public class ConfiguredTargetQueryEnvironment
             accessor,
             aspectResolver,
             OutputType.JSON,
-            trimmingTransitionFactory),
+            ruleClassProvider),
         new BuildOutputFormatterCallback(
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
         new GraphOutputFormatterCallback(

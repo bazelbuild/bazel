@@ -159,7 +159,7 @@ public abstract class PostAnalysisQueryProcessor<T> implements BuildTool.Analysi
             env.getReporter(),
             queryRuntimeHelper.getOutputStreamForQueryOutput(),
             env.getSkyframeExecutor(),
-            runtime.getRuleClassProvider().getTrimmingTransitionFactory(),
+            runtime.getRuleClassProvider(),
             env.getPackageManager());
     String outputFormat = postAnalysisQueryEnvironment.getOutputFormat();
     NamedThreadSafeOutputFormatterCallback<T> callback =

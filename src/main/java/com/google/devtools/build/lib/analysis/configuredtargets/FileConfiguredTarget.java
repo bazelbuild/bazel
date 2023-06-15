@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -78,9 +77,8 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
       NestedSet<Artifact> validationOutputs =
           generatingRuleOutputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION);
       if (!validationOutputs.isEmpty()) {
-        OutputGroupInfo validationOutputGroup =
-            new OutputGroupInfo(ImmutableMap.of(OutputGroupInfo.VALIDATION, validationOutputs));
-        providerBuilder.put(validationOutputGroup);
+        providerBuilder.put(
+            OutputGroupInfo.singleGroup(OutputGroupInfo.VALIDATION, validationOutputs));
       }
     }
 

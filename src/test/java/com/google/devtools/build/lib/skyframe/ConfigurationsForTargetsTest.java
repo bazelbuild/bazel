@@ -11,10 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -31,11 +31,12 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
-import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContextImpl;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -133,35 +135,37 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
       try {
         TargetAndConfiguration targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
         // Set up the toolchain context so that exec transitions resolve properly.
-        ToolchainCollection<ToolchainContext> toolchainContexts =
-            ToolchainCollection.builder()
-                .addDefaultContext(
-                    UnloadedToolchainContextImpl.builder(
-                            ToolchainContextKey.key()
-                                .toolchainTypes(ImmutableSet.of())
-                                .configurationKey(
-                                    targetAndConfiguration.getConfiguration().getKey())
-                                .build())
-                        .setTargetPlatform(
-                            PlatformInfo.builder().setLabel(TARGET_PLATFORM_LABEL).build())
-                        .setExecutionPlatform(
-                            PlatformInfo.builder().setLabel(EXEC_PLATFORM_LABEL).build())
-                        .build())
-                .build();
         var state = new PrerequisiteProducer.State();
         state.targetAndConfiguration = targetAndConfiguration;
+        state.dependencyContext =
+            DependencyContext.create(
+                ToolchainCollection.<UnloadedToolchainContext>builder()
+                    .addDefaultContext(
+                        UnloadedToolchainContextImpl.builder(
+                                ToolchainContextKey.key()
+                                    .toolchainTypes(ImmutableSet.of())
+                                    .configurationKey(
+                                        targetAndConfiguration.getConfiguration().getKey())
+                                    .build())
+                            .setTargetPlatform(
+                                PlatformInfo.builder().setLabel(TARGET_PLATFORM_LABEL).build())
+                            .setExecutionPlatform(
+                                PlatformInfo.builder().setLabel(EXEC_PLATFORM_LABEL).build())
+                            .build())
+                    .build(),
+                ConfigConditions.EMPTY);
         OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depMap =
             PrerequisiteProducer.computeDependencies(
                 state,
                 /* aspects= */ ImmutableList.of(),
-                /* configConditions= */ ImmutableMap.of(),
-                toolchainContexts,
                 stateProvider.lateBoundRuleClassProvider(),
-                stateProvider.lateBoundSkyframeBuildView(),
+                stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
                 TransitiveDependencyState.createForTesting(
                     /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
                     /* transitivePackages= */ null),
-                env);
+                NULL_TRANSITION_COLLECTOR,
+                env,
+                env.getListener());
         return env.valuesMissing() ? null : new Value(depMap);
       } catch (RuntimeException e) {
         throw e;

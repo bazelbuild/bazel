@@ -70,8 +70,8 @@ public final class ModuleInfoExtractorTest {
     return new ModuleInfoExtractor(name -> true, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
-  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedName) {
-    return new ModuleInfoExtractor(isWantedName, RepositoryMapping.ALWAYS_FALLBACK);
+  private static ModuleInfoExtractor getExtractor(Predicate<String> isWantedGlobal) {
+    return new ModuleInfoExtractor(isWantedGlobal, RepositoryMapping.ALWAYS_FALLBACK);
   }
 
   private static ModuleInfoExtractor getExtractor(RepositoryMapping repositoryMapping) {
@@ -89,21 +89,21 @@ public final class ModuleInfoExtractorTest {
   }
 
   @Test
-  public void extractOnlyWantedExportableNames() throws Exception {
+  public void extractOnlyWantedLoadableNames() throws Exception {
     Module module =
         exec(
-            "def exported_unwanted():",
+            "def loadable_unwanted():",
             "    pass",
-            "def exported_wanted():",
+            "def loadable_wanted():",
             "    pass",
-            "def _nonexported():",
+            "def _nonloadable():",
             "    pass",
-            "def _nonexported_matches_wanted_predicate():",
+            "def _nonloadable_matches_wanted_predicate():",
             "    pass");
 
     ModuleInfo moduleInfo = getExtractor(name -> name.contains("_wanted")).extractFrom(module);
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
-        .containsExactly("exported_wanted");
+        .containsExactly("loadable_wanted");
   }
 
   @Test
@@ -565,6 +565,42 @@ public final class ModuleInfoExtractorTest {
                 .setType(AttributeType.OUTPUT_LIST)
                 .setDefaultValue("[]")
                 .build());
+  }
+
+  @Test
+  public void providerNameGroups_useFirstDocumentableProviderName() throws Exception {
+    Module module =
+        exec(
+            "_MyInfo = provider()",
+            "def _my_impl(ctx):",
+            "    pass",
+            "my_lib = rule(",
+            "    implementation = _my_impl,",
+            "    attrs = {",
+            "        'foo': attr.label(providers = [_MyInfo]),",
+            "    },",
+            "    provides = [_MyInfo],",
+            ")",
+            "namespace1 = struct(_MyUndocumentedInfo = _MyInfo)",
+            "namespace2 = struct(MyInfoB = _MyInfo, MyInfoA = _MyInfo)",
+            "namespace3 = struct(MyInfo = _MyInfo)");
+    ModuleInfo moduleInfo = getExtractor().extractFrom(module);
+    assertThat(moduleInfo.getRuleInfoList().get(0).getAdvertisedProviders().getProviderName(0))
+        // Struct fields are extracted in field name alphabetical order, so namespace2.MyInfoA
+        // (despite being declared after namespace2.MyInfoB) wins.
+        .isEqualTo("namespace2.MyInfoA");
+    assertThat(
+            moduleInfo
+                .getRuleInfoList()
+                .get(0)
+                .getAttribute(1) // 0 is the implicit name attribute
+                .getProviderNameGroup(0)
+                .getProviderName(0))
+        .isEqualTo("namespace2.MyInfoA");
+    assertThat(moduleInfo.getProviderInfoList().stream().map(ProviderInfo::getProviderName))
+        .containsExactly("namespace2.MyInfoA", "namespace2.MyInfoB", "namespace3.MyInfo");
+    // TODO(arostovtsev): instead of producing a separate ProviderInfo message per each alias, add a
+    // repeated alias name field, and produce a single ProviderInfo message listing its aliases.
   }
 
   @Test

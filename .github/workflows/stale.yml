@@ -31,8 +31,8 @@ jobs:
       uses: actions/stale@f7176fd3007623b69d27091f9b9d4ab7995f0a06 # v5.2.1
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
-        days-before-issue-stale: 540
-        days-before-pr-stale: 540
+        days-before-issue-stale: 430
+        days-before-pr-stale: 430
         days-before-issue-close: 14
         days-before-pr-close: 14
         stale-issue-message: >

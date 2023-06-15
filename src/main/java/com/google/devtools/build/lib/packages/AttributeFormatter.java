@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_DICT;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST_DICT;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -59,6 +60,7 @@ public class AttributeFormatter {
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.of(
           STRING,
+          STRING_NO_INTERN,
           LABEL,
           OUTPUT,
           STRING_LIST,
@@ -196,11 +198,11 @@ public class AttributeFormatter {
     if (type == INTEGER) {
       builder.setIntValue(((StarlarkInt) value).toIntUnchecked());
     } else if (type == STRING
+        || type == STRING_NO_INTERN
         || type == LABEL
         || type == NODEP_LABEL
         || type == OUTPUT
         || type == GENQUERY_SCOPE_TYPE) {
-
       builder.setStringValue(value.toString());
     } else if (type == STRING_LIST
         || type == LABEL_LIST

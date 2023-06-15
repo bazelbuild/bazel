@@ -341,7 +341,8 @@ public class UiStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(slowAction, 123456999));
 
     ActionLookupData actionLookupData = ActionLookupData.create(mock(ActionLookupKey.class), 1);
-    stateTracker.actionCompletion(new ActionCompletionEvent(20, fastAction, actionLookupData));
+    stateTracker.actionCompletion(
+        new ActionCompletionEvent(20, clock.nanoTime(), fastAction, actionLookupData));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);

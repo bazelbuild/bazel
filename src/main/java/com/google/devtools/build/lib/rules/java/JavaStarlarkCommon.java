@@ -35,7 +35,9 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -64,6 +66,7 @@ public class JavaStarlarkCommon
         Artifact,
         JavaInfo,
         JavaToolchainProvider,
+        BootClassPathInfo.Provider,
         ConstraintValueInfo,
         StarlarkRuleContext,
         StarlarkActionFactory> {
@@ -99,6 +102,7 @@ public class JavaStarlarkCommon
       Sequence<?> annotationProcessorAdditionalOutputs, // <Artifact> expected
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
+      Object bootClassPath,
       Object hostJavabase,
       Sequence<?> sourcepathEntries, // <Artifact> expected
       Sequence<?> resources, // <Artifact> expected
@@ -113,7 +117,7 @@ public class JavaStarlarkCommon
       Sequence<?> addExports, // <String> expected
       Sequence<?> addOpens, // <String> expected
       StarlarkThread thread)
-      throws EvalException, InterruptedException {
+      throws EvalException, InterruptedException, RuleErrorException {
 
     boolean acceptJavaInfo =
         !starlarkRuleContext
@@ -122,15 +126,15 @@ public class JavaStarlarkCommon
             .requireJavaPluginInfo();
 
     final ImmutableList<JavaPluginInfo> pluginsParam;
-    if (acceptJavaInfo && !plugins.isEmpty() && plugins.get(0) instanceof JavaInfo) {
+    if (acceptJavaInfo && !plugins.isEmpty() && JavaInfo.isJavaInfo(plugins.get(0))) {
       // Handle deprecated case where plugins is given a list of JavaInfos
       pluginsParam =
-          Sequence.cast(plugins, JavaInfo.class, "plugins").stream()
+          JavaInfo.wrapSequence(plugins, "plugins").stream()
               .map(JavaInfo::getJavaPluginInfo)
               .filter(Objects::nonNull)
               .collect(toImmutableList());
     } else {
-      pluginsParam = Sequence.cast(plugins, JavaPluginInfo.class, "plugins").getImmutableList();
+      pluginsParam = JavaPluginInfo.wrapSequence(plugins, "plugins");
     }
 
     final ImmutableList<JavaPluginInfo> exportedPluginsParam;
@@ -144,9 +148,7 @@ public class JavaStarlarkCommon
               .filter(Objects::nonNull)
               .collect(toImmutableList());
     } else {
-      exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaPluginInfo.class, "exported_plugins")
-              .getImmutableList();
+      exportedPluginsParam = JavaPluginInfo.wrapSequence(exportedPlugins, "exported_plugins");
     }
     // checks for private API access
     if (!enableCompileJarAction
@@ -174,9 +176,9 @@ public class JavaStarlarkCommon
             outputJar,
             outputSourceJar == Starlark.NONE ? null : (Artifact) outputSourceJar,
             Sequence.cast(javacOpts, String.class, "javac_opts"),
-            Sequence.cast(deps, JavaInfo.class, "deps"),
-            Sequence.cast(runtimeDeps, JavaInfo.class, "runtime_deps"),
-            Sequence.cast(exports, JavaInfo.class, "exports"),
+            JavaInfo.wrapSequence(deps, "deps"),
+            JavaInfo.wrapSequence(runtimeDeps, "runtime_deps"),
+            JavaInfo.wrapSequence(exports, "exports"),
             pluginsParam,
             exportedPluginsParam,
             Sequence.cast(nativeLibraries, CcInfo.class, "native_libraries"),
@@ -190,6 +192,7 @@ public class JavaStarlarkCommon
                 "annotation_processor_additional_outputs"),
             strictDepsMode,
             javaToolchain,
+            bootClassPath == Starlark.NONE ? null : (BootClassPathInfo) bootClassPath,
             ImmutableList.copyOf(Sequence.cast(sourcepathEntries, Artifact.class, "sourcepath")),
             Sequence.cast(resources, Artifact.class, "resources"),
             Sequence.cast(resourceJars, Artifact.class, "resource_jars"),
@@ -293,7 +296,7 @@ public class JavaStarlarkCommon
       checkPrivateAccess(thread);
     }
     return JavaInfo.merge(
-        Sequence.cast(providers, JavaInfo.class, "providers"), mergeJavaOutputs, mergeSourceJars);
+        JavaInfo.wrapSequence(providers, "providers"), mergeJavaOutputs, mergeSourceJars);
   }
 
   // TODO(b/65113771): Remove this method because it's incorrect.
@@ -330,7 +333,9 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo addConstraints(JavaInfo javaInfo, Sequence<?> constraints) throws EvalException {
+  public JavaInfo addConstraints(Info info, Sequence<?> constraints)
+      throws EvalException, RuleErrorException {
+    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(info);
     List<String> constraintStrings = Sequence.cast(constraints, String.class, "constraints");
     ImmutableList<String> mergedConstraints =
         Stream.concat(javaInfo.getJavaConstraints().stream(), constraintStrings.stream())
@@ -340,7 +345,7 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Sequence<String> getConstraints(JavaInfo javaInfo) {
+  public Sequence<String> getConstraints(Info info) throws RuleErrorException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return StarlarkList.empty();
@@ -348,13 +353,13 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo setAnnotationProcessing(
-      JavaInfo javaInfo,
+      Info info,
       boolean enabled,
       Sequence<?> processorClassnames,
       Object processorClasspath,
       Object classJar,
       Object sourceJar)
-      throws EvalException {
+      throws EvalException, RuleErrorException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.
     return null;
@@ -465,7 +470,7 @@ public class JavaStarlarkCommon
   @Override
   public Sequence<String> collectNativeLibsDirs(
       Sequence<? extends TransitiveInfoCollectionApi> deps, StarlarkThread thread)
-      throws EvalException {
+      throws EvalException, RuleErrorException {
     checkPrivateAccess(thread);
     ImmutableList<Artifact> nativeLibs =
         JavaCommon.collectNativeLibraries(

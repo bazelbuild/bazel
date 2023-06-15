@@ -62,11 +62,13 @@ java_test(
     data = ["//tools/build_defs/inspect:defs"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

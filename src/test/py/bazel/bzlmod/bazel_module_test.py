@@ -588,6 +588,84 @@ class BazelModuleTest(test_base.TestBase):
     self.assertIn('@@bar~override reporting in: bar@2.0', stderr)
     self.assertIn('@@quux reporting in: None@None', stderr)
 
+  def testWorkspaceToolchainRegistrationWithPlatformsConstraint(self):
+    """Regression test for https://github.com/bazelbuild/bazel/issues/17289."""
+    self.ScratchFile('MODULE.bazel')
+    self.ScratchFile(
+        'WORKSPACE', ['register_toolchains("//:my_toolchain_toolchain")']
+    )
+    os.remove(self.Path('WORKSPACE.bzlmod'))
+
+    self.ScratchFile(
+        'BUILD.bazel',
+        [
+            'load(":defs.bzl", "get_host_os", "my_consumer", "my_toolchain")',
+            'toolchain_type(name = "my_toolchain_type")',
+            'my_toolchain(',
+            '    name = "my_toolchain",',
+            '    my_value = "Hello, Bzlmod!",',
+            ')',
+            'toolchain(',
+            '    name = "my_toolchain_toolchain",',
+            '    toolchain = ":my_toolchain",',
+            '    toolchain_type = ":my_toolchain_type",',
+            '    target_compatible_with = [',
+            '        "@platforms//os:" + get_host_os(),',
+            '    ],',
+            ')',
+            'my_consumer(',
+            '    name = "my_consumer",',
+            ')',
+        ],
+    )
+
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            (
+                'load("@local_config_platform//:constraints.bzl",'
+                ' "HOST_CONSTRAINTS")'
+            ),
+            'def _my_toolchain_impl(ctx):',
+            '    return [',
+            '        platform_common.ToolchainInfo(',
+            '            my_value = ctx.attr.my_value,',
+            '        ),',
+            '    ]',
+            'my_toolchain = rule(',
+            '    implementation = _my_toolchain_impl,',
+            '    attrs = {',
+            '        "my_value": attr.string(),',
+            '    },',
+            ')',
+            'def _my_consumer(ctx):',
+            '    my_toolchain_info = ctx.toolchains["//:my_toolchain_type"]',
+            '    out = ctx.actions.declare_file(ctx.attr.name)',
+            (
+                '    ctx.actions.write(out, "my_value ='
+                ' {}".format(my_toolchain_info.my_value))'
+            ),
+            '    return [DefaultInfo(files = depset([out]))]',
+            'my_consumer = rule(',
+            '    implementation = _my_consumer,',
+            '    attrs = {},',
+            '    toolchains = ["//:my_toolchain_type"],',
+            ')',
+            'def get_host_os():',
+            '    for constraint in HOST_CONSTRAINTS:',
+            '        if constraint.startswith("@platforms//os:"):',
+            '            return constraint.removeprefix("@platforms//os:")',
+        ],
+    )
+
+    self.RunBazel([
+        'build',
+        '//:my_consumer',
+        '--toolchain_resolution_debug=//:my_toolchain_type',
+    ])
+    with open(self.Path('bazel-bin/my_consumer'), 'r') as f:
+      self.assertEqual(f.read().strip(), 'my_value = Hello, Bzlmod!')
+
 
 if __name__ == '__main__':
   unittest.main()

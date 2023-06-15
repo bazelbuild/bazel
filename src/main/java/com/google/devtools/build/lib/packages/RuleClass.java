@@ -18,7 +18,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
@@ -124,7 +124,7 @@ public class RuleClass {
 
   /** The name attribute, present for all rules at index 0. */
   static final Attribute NAME_ATTRIBUTE =
-      attr("name", STRING)
+      attr("name", STRING_NO_INTERN)
           .nonconfigurable("All rules have a non-customizable \"name\" attribute")
           .build();
 
@@ -2188,17 +2188,18 @@ public class RuleClass {
         if (rule.getRuleClassObject().isPackageMetadataRule()) {
           // Do nothing
         } else {
-          rule.setAttributeValue(attr, pkgBuilder.getDefaultPackageMetadata(), /*explicit=*/ false);
+          rule.setAttributeValue(
+              attr, pkgBuilder.getPackageArgs().defaultPackageMetadata(), /* explicit= */ false);
         }
 
       } else if (attr.getName().equals("licenses") && attr.getType() == BuildType.LICENSE) {
         rule.setAttributeValue(
             attr,
-            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getDefaultLicense(),
-            /*explicit=*/ false);
+            ignoreLicenses ? License.NO_LICENSE : pkgBuilder.getPackageArgs().license(),
+            /* explicit= */ false);
 
       } else if (attr.getName().equals("distribs") && attr.getType() == BuildType.DISTRIBUTIONS) {
-        rule.setAttributeValue(attr, pkgBuilder.getDefaultDistribs(), /*explicit=*/ false);
+        rule.setAttributeValue(attr, pkgBuilder.getPackageArgs().distribs(), /* explicit= */ false);
       }
       // Don't store default values, querying materializes them at read time.
     }
