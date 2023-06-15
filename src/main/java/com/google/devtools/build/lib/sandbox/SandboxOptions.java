@@ -85,8 +85,8 @@ public class SandboxOptions extends OptionsBase {
   @Option(
       name = "ignore_unsupported_sandboxing",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help = "Do not print a warning when sandboxed execution is not supported on this system.")
   public boolean ignoreUnsupportedSandboxing;
 
@@ -225,7 +225,7 @@ public class SandboxOptions extends OptionsBase {
       converter = TriStateConverter.class,
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Use Windows sandbox to run actions. "
               + "If \"yes\", the binary provided by --experimental_windows_sandbox_path must be "
@@ -237,7 +237,7 @@ public class SandboxOptions extends OptionsBase {
       name = "experimental_windows_sandbox_path",
       defaultValue = "BazelSandbox.exe",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Path to the Windows sandbox binary to use when --experimental_use_windows_sandbox is"
               + " true. If a bare name, use the first binary of that name found in the PATH.")
@@ -328,7 +328,7 @@ public class SandboxOptions extends OptionsBase {
       oldName = "experimental_sandbox_default_allow_network",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      effectTags = {OptionEffectTag.EXECUTION},
       help =
           "Allow network access by default for actions; this may not work with all sandboxing "
               + "implementations.")

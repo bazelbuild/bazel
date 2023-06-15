@@ -302,8 +302,8 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "local_cpu_resources",
       defaultValue = "HOST_CPUS",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Explicitly set the total number of local CPU cores available to Bazel to spend on build"
               + " actions executed locally. Takes an integer, or \"HOST_CPUS\", optionally followed"
@@ -316,8 +316,8 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "local_ram_resources",
       defaultValue = "HOST_RAM*.67",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       help =
           "Explicitly set the total amount of local host RAM (in MB) available to Bazel to spend on"
               + " build actions executed locally. Takes an integer, or \"HOST_RAM\", optionally"
@@ -330,8 +330,8 @@ public class ExecutionOptions extends OptionsBase {
   @Option(
       name = "local_extra_resources",
       defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
       allowMultiple = true,
       help =
           "Set the number of extra resources available to Bazel. "

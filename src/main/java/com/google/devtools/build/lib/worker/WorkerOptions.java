@@ -202,7 +202,7 @@ public class WorkerOptions extends OptionsBase {
   @Option(
       name = "experimental_worker_sandbox_hardening",
       defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "If enabled, workers are run in a hardened sandbox, if the implementation allows it.")
   public boolean sandboxHardening;
