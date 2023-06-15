@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.sandbox;
 
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
@@ -32,19 +31,6 @@ public abstract class SandboxedSpawnRunnerTestCase extends BuildIntegrationTestC
   @Override
   protected void setupMockTools() throws IOException {
     // Do nothing.
-  }
-
-  /**
-   * Returns a command environment with local execution statistics enabled and the given workspace
-   * name set.
-   */
-  protected CommandEnvironment getCommandEnvironmentWithExecutionStatisticsOptionDisabled(
-      String workspaceName) throws Exception {
-    runtimeWrapper.addOptions("--noexperimental_collect_local_sandbox_action_metrics");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkspaceName(workspaceName);
-    env.getLocalResourceManager().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
-    return env;
   }
 
   /** Enables real execution by default. */

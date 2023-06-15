@@ -49,16 +49,6 @@ public class LocalExecutionOptions extends OptionsBase {
   public RegexPatternOption allowedLocalAction;
 
   @Option(
-      name = "experimental_collect_local_action_metrics",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "When enabled, execution statistics (such as user and system time) are recorded for "
-              + "locally executed actions which don't use sandboxing")
-  public boolean collectLocalExecutionStatistics;
-
-  @Option(
       name = "experimental_local_lockfree_output",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

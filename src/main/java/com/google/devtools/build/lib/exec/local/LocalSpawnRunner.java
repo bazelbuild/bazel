@@ -66,6 +66,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -193,7 +194,7 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   protected Path createActionTemp(Path execRoot) throws IOException {
     return execRoot.getRelative(
-        java.nio.file.Files.createTempDirectory(
+        Files.createTempDirectory(
                 java.nio.file.Paths.get(execRoot.getPathString()), "local-spawn-runner.")
             .getFileName()
             .toString());
@@ -410,10 +411,8 @@ public class LocalSpawnRunner implements SpawnRunner {
                   .commandLineBuilder(spawn.getArguments())
                   .addExecutionInfo(spawn.getExecutionInfo())
                   .setTimeout(context.getTimeout());
-          if (localExecutionOptions.collectLocalExecutionStatistics) {
-            statisticsPath = tmpDir.getRelative("stats.out");
-            commandLineBuilder.setStatisticsPath(statisticsPath);
-          }
+          statisticsPath = tmpDir.getRelative("stats.out");
+          commandLineBuilder.setStatisticsPath(statisticsPath);
           args = ImmutableList.copyOf(commandLineBuilder.build());
         } else {
           subprocessBuilder.setTimeoutMillis(context.getTimeout().toMillis());
@@ -489,7 +488,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
-        if (statisticsPath != null) {
+        if (statisticsPath != null && statisticsPath.exists()) {
           ExecutionStatistics.getResourceUsage(statisticsPath)
               .ifPresent(
                   resourceUsage -> {

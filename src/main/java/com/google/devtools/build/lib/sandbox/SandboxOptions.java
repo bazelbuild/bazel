@@ -259,16 +259,6 @@ public class SandboxOptions extends OptionsBase {
   }
 
   @Option(
-      name = "experimental_collect_local_sandbox_action_metrics",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.EXECUTION},
-      help =
-          "When enabled, execution statistics (such as user and system time) are recorded for "
-              + "locally executed actions which use sandboxing")
-  public boolean collectLocalSandboxExecutionStatistics;
-
-  @Option(
       name = "experimental_enable_docker_sandbox",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,

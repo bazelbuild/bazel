@@ -370,6 +370,22 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op. To be removed.")
     public boolean skymeldUi;
+
+    @Option(
+        name = "experimental_collect_local_action_metrics",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Deprecated no-op.")
+    public boolean collectLocalExecutionStatistics;
+
+    @Option(
+        name = "experimental_collect_local_sandbox_action_metrics",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.LOGGING,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "Deprecated no-op.")
+    public boolean collectLocalSandboxExecutionStatistics;
   }
 
   /** This is where deprecated Bazel-specific options only used by the build command go to die. */
