@@ -2283,7 +2283,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
   public void resetIncrementalArtifactConflictFindingStates() {
     incrementalArtifactConflictFinder.shutdown();
-    incrementalTransitiveActionLookupKeysCollector.shutdown();
     incrementalArtifactConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(
             new MapBasedActionGraph(actionKeyContext));
@@ -3567,9 +3566,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * action conflicts.
    */
   private static class TransitiveActionLookupKeysCollector {
-    final ForkJoinPool executorService =
-        NamedForkJoinPool.newNamedPool(
-            "find-action-lookup-values-in-build", Runtime.getRuntime().availableProcessors());
     private final WalkableGraph walkableGraph;
     private final Set<ActionLookupKey> globalVisitedSet;
 
@@ -3585,6 +3581,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      */
     private Map<ActionLookupKey, SkyValue> collect(Iterable<ActionLookupKeyOrProxy> visitationRoots)
         throws InterruptedException {
+      ForkJoinPool executorService =
+          NamedForkJoinPool.newNamedPool(
+              "find-action-lookup-values-in-build", Runtime.getRuntime().availableProcessors());
       var collected = new ConcurrentHashMap<ActionLookupKey, SkyValue>();
       List<Future<?>> futures = Lists.newArrayListWithCapacity(Iterables.size(visitationRoots));
       for (ActionLookupKeyOrProxy keyOrProxy : visitationRoots) {
@@ -3601,7 +3600,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       } catch (ExecutionException e) {
         throw new IllegalStateException("Error collecting transitive ActionLookupValues", e);
       } finally {
-        shutdown();
+        if (!executorService.isShutdown() && ExecutorUtil.interruptibleShutdown(executorService)) {
+          // Preserve the interrupt status.
+          Thread.currentThread().interrupt();
+        }
       }
     }
 
@@ -3613,7 +3615,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
      * elements in the transitive closure of the visitationRoot.
      *
      * <p>This method is the Skymeld implementation. Crucially, this differs from the non-Skymeld
-     * implementation in that it does not shutdown the executor.
+     * implementation in that it is launched from a Skyframe thread, likely belongs to the CPU heavy
+     * thread pool, and would queue up recursive tasks in this pool as well. No extra
+     * ExecutorService is created here.
      */
     private ImmutableMap<ActionLookupKey, SkyValue> collect(ActionLookupKeyOrProxy visitationRoot) {
       var collected = new ConcurrentHashMap<ActionLookupKey, SkyValue>();
@@ -3621,7 +3625,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       if (!tryClaimVisitation(key, collected)) {
         return ImmutableMap.of();
       }
-      executorService.invoke(new VisitActionLookupKey(key, collected));
+      // Invoke the recursive task in the same FJP.
+      new VisitActionLookupKey(key, collected).invoke();
       return ImmutableMap.copyOf(collected);
     }
 
@@ -3635,13 +3640,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         ActionLookupKey key, ConcurrentHashMap<ActionLookupKey, SkyValue> collected) {
       return !globalVisitedSet.contains(key)
           && collected.putIfAbsent(key, ClaimedLookupValueSentinel.INSTANCE) == null;
-    }
-
-    private void shutdown() {
-      if (!executorService.isShutdown() && ExecutorUtil.interruptibleShutdown(executorService)) {
-        // Preserve the interrupt status.
-        Thread.currentThread().interrupt();
-      }
     }
 
     protected final class VisitActionLookupKey extends RecursiveAction {
