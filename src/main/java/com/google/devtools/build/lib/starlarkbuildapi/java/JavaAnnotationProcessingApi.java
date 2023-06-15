@@ -87,5 +87,5 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
       doc =
           "Deprecated: Please use <code>JavaInfo.plugins</code> instead. Returns class names of"
               + " annotation processors applied to this rule.")
-  ImmutableList<String> getProcessorClassNames();
+  ImmutableList<String> getProcessorClassNamesList();
 }
