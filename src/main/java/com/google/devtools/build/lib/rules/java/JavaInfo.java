@@ -100,10 +100,14 @@ public final class JavaInfo extends NativeInfo
   }
 
   public static Optional<Artifact> genSourceJar(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    return Optional.ofNullable(getJavaInfo(target))
-        .map(javaInfo -> javaInfo.providerJavaGenJars)
-        .map(JavaGenJarsProvider::getGenSourceJar);
+      throws RuleErrorException, EvalException {
+    Optional<JavaGenJarsProvider> genJarsProviderOpt =
+        Optional.ofNullable(getJavaInfo(target)).map(javaInfo -> javaInfo.providerJavaGenJars);
+    if (genJarsProviderOpt.isPresent()) {
+      return Optional.ofNullable(genJarsProviderOpt.get().getGenSourceJar());
+    } else {
+      return Optional.empty();
+    }
   }
 
   public static Optional<JavaCompilationArgsProvider> getCompilationArgsProvider(
@@ -197,7 +201,7 @@ public final class JavaInfo extends NativeInfo
   public interface JavaInfoInternalProvider {}
 
   @Nullable
-  private static <T> T nullIfNone(Object object, Class<T> type) {
+  static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Starlark.NONE ? type.cast(object) : null;
   }
 

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.rules.java.JavaInfo.nullIfNone;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,12 +24,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
 import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 
 /** The collection of gen jars from the transitive closure. */
@@ -49,7 +54,8 @@ public interface JavaGenJarsProvider
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
       JavaPluginInfo plugins,
-      List<JavaGenJarsProvider> transitiveJavaGenJars) {
+      List<JavaGenJarsProvider> transitiveJavaGenJars)
+      throws RuleErrorException {
     if (!usesAnnotationProcessing
         && genClassJar == null
         && genSourceJar == null
@@ -81,6 +87,17 @@ public interface JavaGenJarsProvider
         sourceJarsBuilder.build());
   }
 
+  static JavaGenJarsProvider from(Object obj) throws EvalException {
+    if (obj == null || obj == Starlark.NONE) {
+      return EMPTY;
+    } else if (obj instanceof JavaGenJarsProvider) {
+      return (JavaGenJarsProvider) obj;
+    } else if (obj instanceof StructImpl) {
+      return new StarlarkJavaGenJarsProvider((StructImpl) obj);
+    }
+    throw Starlark.errorf("wanted JavaGenJarsProvider, got %s", Starlark.type(obj));
+  }
+
   /** Returns a copy with the given details, preserving transitiveXxx sets. */
   default JavaGenJarsProvider withDirectInfo(
       boolean usesAnnotationProcessing,
@@ -88,7 +105,7 @@ public interface JavaGenJarsProvider
       @Nullable Artifact genSourceJar,
       NestedSet<Artifact> processorClasspath,
       NestedSet<String> processorClassNames)
-      throws EvalException {
+      throws EvalException, RuleErrorException {
     // Existing Jars would be a problem b/c we can't remove them from transitiveXxx sets
     if (this.getGenClassJar() != null && !Objects.equals(this.getGenClassJar(), genClassJar)) {
       throw Starlark.errorf("Existing genClassJar: %s", this.getGenClassJar());
@@ -106,7 +123,7 @@ public interface JavaGenJarsProvider
         addIf(getTransitiveGenSourceJars(), genSourceJar));
   }
 
-  default boolean isEmpty() {
+  default boolean isEmpty() throws EvalException, RuleErrorException {
     return !usesAnnotationProcessing()
         && getGenClassJar() == null
         && getGenSourceJar() == null
@@ -114,11 +131,11 @@ public interface JavaGenJarsProvider
         && getTransitiveGenSourceJars().isEmpty();
   }
 
-  NestedSet<Artifact> getTransitiveGenClassJars();
+  NestedSet<Artifact> getTransitiveGenClassJars() throws RuleErrorException;
 
-  NestedSet<Artifact> getTransitiveGenSourceJars();
+  NestedSet<Artifact> getTransitiveGenSourceJars() throws RuleErrorException;
 
-  NestedSet<Artifact> getProcessorClasspath();
+  NestedSet<Artifact> getProcessorClasspath() throws EvalException;
 
   /** Natively constructed JavaGenJarsProvider */
   @Immutable
@@ -175,4 +192,78 @@ public interface JavaGenJarsProvider
     return NestedSetBuilder.<T>stableOrder().add(element).addTransitive(set).build();
   }
 
+  /** Wrapper for Starlark constructed JavaGenJarsProvider */
+  class StarlarkJavaGenJarsProvider implements JavaGenJarsProvider {
+
+    private final StructImpl struct;
+
+    private StarlarkJavaGenJarsProvider(StructImpl struct) {
+      this.struct = struct;
+    }
+
+    @Override
+    public NestedSet<Artifact> getTransitiveGenClassJars() throws RuleErrorException {
+      try {
+        return Depset.cast(
+            struct.getValue("transitive_class_jars"), Artifact.class, "transitive_class_jars");
+      } catch (EvalException e) {
+        throw new RuleErrorException(e);
+      }
+    }
+
+    @Override
+    public NestedSet<Artifact> getTransitiveGenSourceJars() throws RuleErrorException {
+      try {
+        return Depset.cast(
+            struct.getValue("transitive_source_jars"), Artifact.class, "transitive_source_jars");
+      } catch (EvalException e) {
+        throw new RuleErrorException(e);
+      }
+    }
+
+    @Override
+    public NestedSet<Artifact> getProcessorClasspath() throws EvalException {
+      return Depset.cast(
+          struct.getValue("processor_classpath"), Artifact.class, "processor_classpath");
+    }
+
+    @Override
+    public boolean usesAnnotationProcessing() throws EvalException {
+      return struct.getValue("enabled", Boolean.class);
+    }
+
+    @Nullable
+    @Override
+    public Artifact getGenClassJar() throws EvalException {
+      return nullIfNone(struct.getValue("class_jar"), Artifact.class);
+    }
+
+    @Nullable
+    @Override
+    public Artifact getGenSourceJar() throws EvalException {
+      return nullIfNone(struct.getValue("source_jar"), Artifact.class);
+    }
+
+    @Override
+    public Depset getTransitiveGenClassJarsForStarlark() throws EvalException {
+      return struct.getValue("transitive_class_jars", Depset.class);
+    }
+
+    @Override
+    public Depset getTransitiveGenSourceJarsForStarlark() throws EvalException {
+      return struct.getValue("transitive_source_jars", Depset.class);
+    }
+
+    @Override
+    public Depset getProcessorClasspathForStarlark() throws EvalException {
+      return struct.getValue("processor_classpath", Depset.class);
+    }
+
+    @Override
+    public ImmutableList<String> getProcessorClassNamesList() throws EvalException {
+      return Sequence.cast(
+              struct.getValue("processor_classnames"), String.class, "processor_classname")
+          .getImmutableList();
+    }
+  }
 }
