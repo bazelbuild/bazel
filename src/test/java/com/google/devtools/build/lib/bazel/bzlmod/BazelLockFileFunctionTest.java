@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.BazelLockfileFunctionException;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
@@ -63,7 +64,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -71,6 +71,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
@@ -93,7 +94,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     differencer = new SequencedRecordingDifferencer();
     registryFactory = new FakeRegistry.Factory();
     evaluationContext =
-        EvaluationContext.newBuilder().setNumThreads(8).setEventHandler(reporter).build();
+        EvaluationContext.newBuilder().setParallelism(8).setEventHandler(reporter).build();
 
     AtomicReference<PathPackageLocator> packageLocator =
         new AtomicReference<>(
@@ -163,7 +164,7 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                       @Nullable
                       @Override
                       public SkyValue compute(SkyKey skyKey, Environment env)
-                          throws SkyFunctionException, InterruptedException {
+                          throws BazelLockfileFunctionException, InterruptedException {
 
                         UpdateLockFileKey key = (UpdateLockFileKey) skyKey;
                         BzlmodFlagsAndEnvVars flags = BazelDepGraphFunction.getFlagsAndEnvVars(env);
@@ -176,12 +177,14 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        BazelLockFileFunction.updateLockedModule(
+                        BazelLockFileModule.updateLockfile(
                             rootDirectory,
-                            key.moduleHash(),
-                            flags,
-                            localOverrideHashes,
-                            key.depGraph());
+                            BazelLockFileValue.builder()
+                                .setModuleFileHash(key.moduleHash())
+                                .setFlags(flags)
+                                .setLocalOverrideHashes(localOverrideHashes)
+                                .setModuleDepGraph(key.depGraph())
+                                .build());
                         return new SkyValue() {};
                       }
                     })
@@ -268,10 +271,12 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
 
     ImmutableList<String> yankedVersions = ImmutableList.of("2.4", "2.3");
     LocalPathOverride override = LocalPathOverride.create("override_path");
+    ImmutableList<String> registries = ImmutableList.of("registry1", "registry2");
+    ImmutableMap<String, String> moduleOverride = ImmutableMap.of("my_dep_1", override.getPath());
 
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+    ModuleFileFunction.REGISTRIES.set(differencer, registries);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of("my_dep_1", override));
-
     BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.set(differencer, yankedVersions);
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.ERROR);
@@ -295,6 +300,8 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     BazelLockFileValue value = result.get(BazelLockFileValue.KEY);
     assertThat(value.getModuleDepGraph()).isEqualTo(depGraph);
     assertThat(value.getFlags().ignoreDevDependency()).isTrue();
+    assertThat(value.getFlags().cmdRegistries()).isEqualTo(registries);
+    assertThat(value.getFlags().cmdModuleOverrides()).isEqualTo(moduleOverride);
     assertThat(value.getFlags().allowedYankedVersions()).isEqualTo(yankedVersions);
     assertThat(value.getFlags().directDependenciesMode())
         .isEqualTo(CheckDirectDepsMode.ERROR.toString());
@@ -425,8 +432,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     }
     assertThat(result.getError().toString())
         .contains(
-            "Failed to read and parse the MODULE.bazel.lock file with error: Null moduleFileHash."
-                + " Try deleting it and rerun the build.");
+            "Failed to read and parse the MODULE.bazel.lock file with error: "
+                + "java.lang.IllegalStateException: Missing required properties: moduleFileHash "
+                + "flags localOverrideHashes moduleDepGraph. Try deleting it and rerun the build.");
   }
 
   @Test
@@ -511,12 +519,16 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     if (!result.hasError()) {
       fail("expected error about invalid field value in the lockfile, but succeeded");
     }
-    assertThat(result.getError().toString())
-        .contains(
-            "Failed to read and parse the MODULE.bazel.lock file with error:"
-                + " java.lang.IllegalStateException: Expected BEGIN_ARRAY but was STRING at line 1"
-                + " column 129 path $.flags.allowedYankedVersions. Try deleting it and rerun the"
-                + " build.");
+    Pattern expectedExceptionMessage =
+        Pattern.compile(
+            Pattern.quote(
+                    "Failed to read and parse the MODULE.bazel.lock file with error:"
+                        + " java.lang.IllegalStateException: Expected BEGIN_ARRAY but was STRING at"
+                        + " line 1 column 129 path $.flags.allowedYankedVersions")
+                + ".*"
+                + Pattern.quote("Try deleting it and rerun the build."),
+            Pattern.DOTALL);
+    assertThat(result.getError().toString()).containsMatch(expectedExceptionMessage);
   }
 
   @AutoValue
