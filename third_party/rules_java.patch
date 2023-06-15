@@ -1,0 +1,11 @@
+diff --git a/BUILD b/BUILD
+index 9840747..4412a05 100644
+--- a/BUILD
++++ b/BUILD
+@@ -15,5 +15,5 @@ filegroup(
+         "//java:srcs",
+         "//toolchains:srcs",
+     ],
+-    visibility = ["//distro:__pkg__"],
++    visibility = ["//visibility:public"],
+ )

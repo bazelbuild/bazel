@@ -25,6 +25,7 @@ EMBEDDED_TOOLS=$1; shift
 DEPLOY_JAR=$1; shift
 INSTALL_BASE_KEY=$1; shift
 PLATFORMS_ARCHIVE=$1; shift
+RULES_JAVA_ARCHIVE=$1; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -89,6 +90,22 @@ fi
     # --experimental_sibling_repository_layout=true
     mv platforms*/* .
     rmdir -p platforms*
+  fi
+  >> WORKSPACE
+)
+
+(
+  cd $PACKAGE_DIR
+  unzip -q -d rules_java $WORKDIR/$RULES_JAVA_ARCHIVE
+  cd rules_java
+  if ls external/rules_java*/ >/dev/null 2>&1; then
+    # --experimental_sibling_repository_layout=false
+    mv external/rules_java*/* .
+    rmdir -p external/rules_java*
+  else
+    # --experimental_sibling_repository_layout=true
+    mv rules_java*/* .
+    rmdir -p rules_java*
   fi
   >> WORKSPACE
 )

@@ -24,6 +24,7 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
         ":platforms_archive",
+        ":rules_java_archive",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [
@@ -237,6 +238,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         ":platforms_archive",
+        ":rules_java_archive",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
@@ -275,6 +277,13 @@ genrule(
     outs = ["platforms.zip"],
     # Removing the WORKSPACE file since local_repository creates it no matter what and leaving
     # it there would make the zip nondeterministic.
+    cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | grep -v '.*/WORKSPACE$$' | sort | xargs)",
+)
+
+genrule(
+    name = "rules_java_archive",
+    srcs = ["@rules_java//:distribution"],
+    outs = ["rules_java.zip"],
     cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | grep -v '.*/WORKSPACE$$' | sort | xargs)",
 )
 
