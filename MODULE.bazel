@@ -28,6 +28,12 @@ single_version_override(
     patches = ["//third_party:rules_jvm_external_5.2.patch"],
 )
 
+single_version_override(
+    module_name = "rules_java",
+    patch_strip = 1,
+    patches = ["//third_party:rules_java_6.1.0.patch"],
+)
+
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     # We don't yet specify the maven coordinates in the MODULE.bazel to avoid duplicating information.

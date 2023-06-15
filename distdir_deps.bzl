@@ -70,7 +70,7 @@ DIST_DEPS = {
         "archive": "rules_java-6.1.0.tar.gz",
         "sha256": "78e3c24f05cffed529bfcafd1f7a8d1a7b97b4a411f25d8d3b4d47d9bb980394",
         "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.1.0/rules_java-6.1.0.tar.gz"],
-        "patches": ["//third_party:rules_java.patch"],
+        "patches": ["//third_party:rules_java_6.1.0.patch"],
         "patch_args": ["-p1"],
         "used_in": [
             "additional_distfiles",
