@@ -182,8 +182,8 @@ class RemoteServerCapabilities {
     }
 
     // Check API version.
-    ApiVersion.ServerSupportedStatus st =
-        ApiVersion.current.checkServerSupportedVersions(capabilities);
+    ClientApiVersion.ServerSupportedStatus st =
+        ClientApiVersion.current.checkServerSupportedVersions(capabilities);
     if (st.isUnsupported()) {
       result.addError(st.getMessage());
     }
