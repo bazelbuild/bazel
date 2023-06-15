@@ -200,7 +200,7 @@ public final class TopLevelStatusEvents {
   public abstract static class AspectAnalyzedEvent implements TopLevelStatusEventWithType {
     abstract AspectKey aspectKey();
 
-    abstract ConfiguredAspect configuredAspect();
+    public abstract ConfiguredAspect configuredAspect();
 
     public static AspectAnalyzedEvent create(
         AspectKey aspectKey, ConfiguredAspect configuredAspect) {

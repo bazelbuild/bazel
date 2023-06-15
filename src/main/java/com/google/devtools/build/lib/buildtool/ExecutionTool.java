@@ -307,14 +307,15 @@ public class ExecutionTool {
     }
 
     skyframeExecutor.drainChangedFiles();
-    var remoteArtifactChecker =
-        env.getOutputService() != null
-            ? env.getOutputService().getRemoteArtifactChecker()
-            : RemoteArtifactChecker.IGNORE_ALL;
+    // With Skymeld, we don't have enough information at this stage to consider remote files.
+    // This allows BwoB to function (in the sense that it's now compatible with Skymeld), but
+    // there's a performance penalty for incremental build: all action nodes will be dirtied.
+    // We'll be relying on the other forms of caching (local action cache or remote cache).
+    // TODO(b/281655526): Improve this.
     skyframeExecutor.detectModifiedOutputFiles(
         modifiedOutputFiles,
         env.getBlazeWorkspace().getLastExecutionTimeRange(),
-        remoteArtifactChecker,
+        RemoteArtifactChecker.IGNORE_ALL,
         buildRequestOptions.fsvcThreads);
     try (SilentCloseable c = Profiler.instance().profile("configureActionExecutor")) {
       skyframeExecutor.configureActionExecutor(

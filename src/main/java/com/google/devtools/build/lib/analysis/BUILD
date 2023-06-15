@@ -2694,6 +2694,17 @@ java_library(
 )
 
 java_library(
+    name = "test/coverage_artifacts_known_event",
+    srcs = ["test/CoverageArtifactsKnownEvent.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "test/execution_info",
     srcs = ["test/ExecutionInfo.java"],
     deps = [

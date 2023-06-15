@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -50,6 +51,8 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -351,11 +354,32 @@ public final class AnalysisAndExecutionPhaseRunner {
     }
 
     @Subscribe
-    public void handleTopLevelEntityAnalysisConcluded(TopLevelTargetAnalyzedEvent e)
+    public void handleTopLevelTargetAnalysisConcluded(TopLevelTargetAnalyzedEvent e)
         throws ViewCreationFailedException, InterruptedException {
       for (BlazeModule blazeModule : blazeModules) {
         blazeModule.afterTopLevelTargetAnalysis(
             env, buildRequest, buildOptions, e.configuredTarget());
+      }
+    }
+
+    @Subscribe
+    public void handleAspectAnalyzed(AspectAnalyzedEvent e) {
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.afterSingleAspectAnalysis(buildRequest, e.configuredAspect());
+      }
+    }
+
+    @Subscribe
+    public void handleTestAnalyzed(TestAnalyzedEvent e) {
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.afterSingleTestAnalysis(buildRequest, e.configuredTarget());
+      }
+    }
+
+    @Subscribe
+    public void handleKnownCoverageArtifacts(CoverageArtifactsKnownEvent e) {
+      for (BlazeModule blazeModule : blazeModules) {
+        blazeModule.coverageArtifactsKnown(e.coverageArtifacts());
       }
     }
 

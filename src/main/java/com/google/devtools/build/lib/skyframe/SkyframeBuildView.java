@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
+import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
@@ -664,14 +665,13 @@ public final class SkyframeBuildView {
           skyframeExecutor.setTestTypeResolver(null);
 
           // Coverage needs to be done after the list of analyzed targets/tests is known.
+          ImmutableSet<Artifact> coverageArtifacts =
+              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+                  buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
+          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
           additionalArtifactsResult =
               skyframeExecutor.evaluateSkyKeys(
-                  eventHandler,
-                  Artifact.keys(
-                      coverageReportActionsWrapperSupplier.getCoverageArtifacts(
-                          buildResultListener.getAnalyzedTargets(),
-                          buildResultListener.getAnalyzedTests())),
-                  keepGoing);
+                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
           eventBus.post(new CoverageActionFinishedEvent());
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(

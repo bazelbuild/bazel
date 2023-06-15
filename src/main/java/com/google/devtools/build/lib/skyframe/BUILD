@@ -273,6 +273,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:template_expansion_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_propagation_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_action_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_artifacts_known_event",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
@@ -2357,7 +2358,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
     ],
 )
 

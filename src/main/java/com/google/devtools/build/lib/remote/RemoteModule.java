@@ -30,6 +30,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -759,22 +761,35 @@ public final class RemoteModule extends BlazeModule {
       BuildOptions buildOptions,
       ConfiguredTarget configuredTarget) {
     if (remoteOutputChecker != null) {
-      // remoteOutputChecker needs analysis result to determine whether an output is toplevel
-      // artifact. We could feed configuredTarget one by one for the clean build to work. However,
-      // for an incremental build, it needs *ALL* toplevel targets to check action dirtiness in
-      // {@link SequencedSkyframeExecutor#detectModifiedOutputFiles}.
-      //
-      // One way to make it work with skymeld is, instead of calling detectModifiedOutputFiles once
-      // in {@link ExecutionTool#prepareForExecution} after the first toplevel target is analyzed,
-      // we call detectModifiedOutputFiles for each toplevel target.
-      //
-      // TODO(chiwang): Make it work with skymeld.
-      throw new UnsupportedOperationException("BwoB currently doesn't support skymeld");
+      remoteOutputChecker.afterTopLevelTargetAnalysis(
+          configuredTarget, request::getTopLevelArtifactContext);
     }
     if (shouldParseNoCacheOutputs()) {
       parseNoCacheOutputsFromSingleConfiguredTarget(
           Preconditions.checkNotNull(buildEventArtifactUploaderFactoryDelegate.get()),
           configuredTarget);
+    }
+  }
+
+  @Override
+  public void afterSingleAspectAnalysis(BuildRequest request, ConfiguredAspect configuredTarget) {
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.afterAspectAnalysis(
+          configuredTarget, request::getTopLevelArtifactContext);
+    }
+  }
+
+  @Override
+  public void afterSingleTestAnalysis(BuildRequest request, ConfiguredTarget configuredTarget) {
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.afterTestAnalyzedEvent(configuredTarget);
+    }
+  }
+
+  @Override
+  public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {
+    if (remoteOutputChecker != null) {
+      remoteOutputChecker.coverageArtifactsKnown(coverageArtifacts);
     }
   }
 

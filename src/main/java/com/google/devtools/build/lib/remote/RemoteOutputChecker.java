@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
@@ -83,11 +84,29 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     this.patternsToDownload = patternsToDownload;
   }
 
-  // TODO(chiwang): Code path reserved for skymeld.
+  // Skymeld-only.
   public void afterTopLevelTargetAnalysis(
       ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
     addTopLevelTarget(configuredTarget, configuredTarget, topLevelArtifactContextSupplier);
+  }
+
+  // Skymeld-only.
+  public void afterTestAnalyzedEvent(ConfiguredTarget configuredTarget) {
+    addTargetUnderTest(configuredTarget);
+  }
+
+  // Skymeld-only.
+  public void afterAspectAnalysis(
+      ConfiguredAspect configuredAspect,
+      Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
+    addTopLevelTarget(
+        configuredAspect, /* configuredTarget= */ null, topLevelArtifactContextSupplier);
+  }
+
+  // Skymeld-only
+  public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {
+    maybeAddCoverageArtifacts(coverageArtifacts);
   }
 
   public void afterAnalysis(AnalysisResult analysisResult) {
@@ -100,8 +119,9 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     var targetsToTest = analysisResult.getTargetsToTest();
     if (targetsToTest != null) {
       for (var target : targetsToTest) {
-        addTargetUnderTest(target, analysisResult.getArtifactsToBuild());
+        addTargetUnderTest(target);
       }
+      maybeAddCoverageArtifacts(analysisResult.getArtifactsToBuild());
     }
   }
 
@@ -152,8 +172,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     }
   }
 
-  private void addTargetUnderTest(
-      ProviderCollection target, ImmutableSet<Artifact> artifactsToBuild) {
+  private void addTargetUnderTest(ProviderCollection target) {
     TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
     if (downloadToplevel && commandMode == CommandMode.TEST) {
       // In test mode, download the outputs of the test runner action.
@@ -164,10 +183,16 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       // Do this even for MINIMAL, since coverage (unlike test) doesn't produce any observable
       // results other than outputs.
       toplevelArtifactsToDownload.addAll(testProvider.getTestParams().getCoverageArtifacts());
-      for (Artifact artifactToBuild : artifactsToBuild) {
-        if (artifactToBuild.getArtifactOwner().equals(COVERAGE_REPORT_KEY)) {
-          toplevelArtifactsToDownload.add(artifactToBuild);
-        }
+    }
+  }
+
+  private void maybeAddCoverageArtifacts(ImmutableSet<Artifact> artifactsToBuild) {
+    if (commandMode != CommandMode.COVERAGE) {
+      return;
+    }
+    for (Artifact artifactToBuild : artifactsToBuild) {
+      if (artifactToBuild.getArtifactOwner().equals(COVERAGE_REPORT_KEY)) {
+        toplevelArtifactsToDownload.add(artifactToBuild);
       }
     }
   }
