@@ -212,6 +212,7 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
+        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
