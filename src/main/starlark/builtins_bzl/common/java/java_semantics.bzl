@@ -16,8 +16,6 @@
 Java Semantics
 """
 
-load(":common/java/java_info.bzl", "JavaInfo")
-
 java_common = _builtins.toplevel.java_common
 
 def _postprocess(ctx, base_info):
@@ -25,16 +23,6 @@ def _postprocess(ctx, base_info):
 
 def _check_proto_registry_collision(ctx):
     pass
-
-def _get_coverage_runner(ctx):
-    toolchain = _find_java_toolchain(ctx)
-    runner = toolchain.jacocorunner
-    if not runner:
-        fail("jacocorunner not set in java_toolchain: %s" % toolchain.label)
-    runner_jar = runner.executable
-
-    # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
-    return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
 
 def _add_constraints(java_info, constraints):
     return java_info
@@ -80,7 +68,6 @@ semantics = struct(
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
     LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
     check_proto_registry_collision = _check_proto_registry_collision,
-    get_coverage_runner = _get_coverage_runner,
     add_constraints = _add_constraints,
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
     BUILD_INFO_TRANSLATOR_LABEL = None,

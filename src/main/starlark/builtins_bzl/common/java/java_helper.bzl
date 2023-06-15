@@ -226,11 +226,11 @@ def _should_strip_as_default(ctx, feature_config):
 
     return strip_as_default
 
-def _get_coverage_config(ctx):
+def _get_coverage_config(ctx, runner):
     toolchain = semantics.find_java_toolchain(ctx)
     if not ctx.configuration.coverage_enabled:
         return None
-    runner = semantics.get_coverage_runner(ctx) if ctx.attr.create_executable else None
+    runner = runner if ctx.attr.create_executable else None
     manifest = ctx.actions.declare_file("runtime_classpath_for_coverage/%s/runtime_classpath.txt" % ctx.label.name)
     singlejar = toolchain.single_jar
     return struct(
@@ -275,7 +275,10 @@ def _test_providers(ctx):
     test_env = {}
     test_env.update(cc_helper.get_expanded_env(ctx, {}))
 
-    coverage_config = _get_coverage_config(ctx)
+    coverage_config = _get_coverage_config(
+        ctx,
+        runner = None,  # we only need the environment
+    )
     if coverage_config:
         test_env.update(coverage_config.env)
     test_providers.append(testing.TestEnvironment(

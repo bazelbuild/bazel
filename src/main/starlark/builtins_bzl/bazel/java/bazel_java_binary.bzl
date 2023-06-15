@@ -33,7 +33,7 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
 
     main_class = _check_and_get_main_class(ctx)
     coverage_main_class = main_class
-    coverage_config = helper.get_coverage_config(ctx)
+    coverage_config = helper.get_coverage_config(ctx, _get_coverage_runner(ctx))
     if coverage_config:
         main_class = coverage_config.main_class
 
@@ -90,6 +90,19 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
     )
 
     return providers.values()
+
+def _get_coverage_runner(ctx):
+    if ctx.configuration.coverage_enabled and ctx.attr.create_executable:
+        toolchain = semantics.find_java_toolchain(ctx)
+        runner = toolchain.jacocorunner
+        if not runner:
+            fail("jacocorunner not set in java_toolchain: %s" % toolchain.label)
+        runner_jar = runner.executable
+
+        # wrap the jar in JavaInfo so we can add it to deps for java_common.compile()
+        return JavaInfo(output_jar = runner_jar, compile_jar = runner_jar)
+
+    return None
 
 def _collect_all_targets_as_deps(ctx, classpath_type = "all"):
     deps = helper.collect_all_targets_as_deps(ctx, classpath_type = classpath_type)
