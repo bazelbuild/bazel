@@ -20,6 +20,8 @@ import com.google.protobuf.util.JsonFormat;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * An output formatter that outputs a protocol buffer json representation of a query result and
@@ -40,10 +42,13 @@ public class JSONProtoOutputFormatter extends ProtoOutputFormatter {
       @Override
       public void processOutput(Iterable<Target> partialResult)
           throws IOException, InterruptedException {
+        List<String> jsonProtoBuffers = new ArrayList<>();
         for (Target target : partialResult) {
-          out.write(
-              jsonPrinter.print(toTargetProtoBuffer(target)).getBytes(StandardCharsets.UTF_8));
+          jsonProtoBuffers.add(jsonPrinter.print(toTargetProtoBuffer(target)));
         }
+        out.write("[".getBytes(StandardCharsets.UTF_8));
+        out.write(String.join(",", jsonProtoBuffers).getBytes(StandardCharsets.UTF_8));
+        out.write("]".getBytes(StandardCharsets.UTF_8));
       }
     };
   }
