@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalDeps.Code;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -54,11 +53,7 @@ import javax.annotation.Nullable;
  */
 public class BazelDepGraphFunction implements SkyFunction {
 
-  private final Path rootDirectory;
-
-  public BazelDepGraphFunction(Path rootDirectory) {
-    this.rootDirectory = rootDirectory;
-  }
+  public BazelDepGraphFunction() {}
 
   @Override
   @Nullable
@@ -74,11 +69,12 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableMap<String, String> localOverrideHashes = null;
     ImmutableMap<ModuleKey, Module> depGraph = null;
     BzlmodFlagsAndEnvVars flags = null;
+    BazelLockFileValue lockFile = null;
 
     // If the module has not changed (has the same contents and flags as the lockfile),
     // read the dependency graph from the lock file, else run resolution and update lockfile
     if (!lockfileMode.equals(LockfileMode.OFF)) {
-      BazelLockFileValue lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
+      lockFile = (BazelLockFileValue) env.getValue(BazelLockFileValue.KEY);
       if (lockFile == null) {
         return null;
       }
@@ -115,12 +111,14 @@ public class BazelDepGraphFunction implements SkyFunction {
       }
       depGraph = selectionResult.getResolvedDepGraph();
       if (lockfileMode.equals(LockfileMode.UPDATE)) {
-        try {
-          BazelLockFileFunction.updateLockedModule(
-              rootDirectory, root.getModuleFileHash(), flags, localOverrideHashes, depGraph);
-        } catch (ExternalDepsException e) {
-          throw new BazelDepGraphFunctionException(e, Transience.PERSISTENT);
-        }
+        BazelLockFileValue updatedLockFile =
+            lockFile.toBuilder()
+                .setModuleFileHash(root.getModuleFileHash())
+                .setFlags(flags)
+                .setLocalOverrideHashes(localOverrideHashes)
+                .setModuleDepGraph(depGraph)
+                .build();
+        env.getListener().post(updatedLockFile);
       }
     }
 

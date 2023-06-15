@@ -64,7 +64,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -178,16 +177,14 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
                         if (localOverrideHashes == null) {
                           return null;
                         }
-                        try {
-                          BazelLockFileFunction.updateLockedModule(
-                              rootDirectory,
-                              key.moduleHash(),
-                              flags,
-                              localOverrideHashes,
-                              key.depGraph());
-                        } catch (ExternalDepsException e) {
-                          throw new BazelLockfileFunctionException(e, Transience.PERSISTENT);
-                        }
+                        BazelLockFileModule.updateLockfile(
+                            rootDirectory,
+                            BazelLockFileValue.builder()
+                                .setModuleFileHash(key.moduleHash())
+                                .setFlags(flags)
+                                .setLocalOverrideHashes(localOverrideHashes)
+                                .setModuleDepGraph(key.depGraph())
+                                .build());
                         return new SkyValue() {};
                       }
                     })
@@ -435,8 +432,9 @@ public class BazelLockFileFunctionTest extends FoundationTestCase {
     }
     assertThat(result.getError().toString())
         .contains(
-            "Failed to read and parse the MODULE.bazel.lock file with error: Null moduleFileHash."
-                + " Try deleting it and rerun the build.");
+            "Failed to read and parse the MODULE.bazel.lock file with error: "
+                + "java.lang.IllegalStateException: Missing required properties: moduleFileHash "
+                + "flags localOverrideHashes moduleDepGraph. Try deleting it and rerun the build.");
   }
 
   @Test

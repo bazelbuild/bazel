@@ -86,6 +86,22 @@ java_library(
 )
 
 java_library(
+    name = "bazel_lockfile_module",
+    srcs = ["BazelLockFileModule.java"],
+    deps = [
+        ":resolution",
+        ":resolution_impl",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:flogger",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "resolution",
     srcs = [
         "AbridgedModule.java",
