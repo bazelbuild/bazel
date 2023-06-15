@@ -82,7 +82,7 @@ public class BuildRequestOptions extends OptionsBase {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = ProgressReportIntervalConverter.class,
       help =
-          "The number of seconds to between reports on still running jobs. The "
+          "The number of seconds to wait between reports on still running jobs. The "
               + "default value 0 means the first report will be printed after 10 "
               + "seconds, then 30 seconds and after that progress is reported once every minute. "
               + "When --curses is enabled, progress is reported every second.")
