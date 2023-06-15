@@ -232,12 +232,11 @@ def find_vc_path(repository_ctx):
     # 5. Check default directories for VC installation
     auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     for path in [
-        "Microsoft Visual Studio 14.0\\VC",
-        "Microsoft Visual Studio\\2019\\Preview\\VC",
-    ] + [
         "Microsoft Visual Studio\\%s\\%s\\VC" % (year, edition)
-        for year in (2017, 2019, 2022)
-        for edition in ("BuildTools", "Community", "Professional", "Enterprise")
+        for year in (2022, 2019, 2017)
+        for edition in ("Preview", "BuildTools", "Community", "Professional", "Enterprise")
+    ] + [
+        "Microsoft Visual Studio 14.0\\VC",
     ]:
         path = program_files_dir + "\\" + path
         if repository_ctx.path(path).exists:
