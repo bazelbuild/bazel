@@ -412,26 +412,25 @@ DIST_DEPS = {
         "used_in": [
         ],
     },
-    # TODO(bazel-team): JDK20 binary missing for this platform / architecture.
+    # JDK20 unavailable so use JDK19 instead for linux s390x.
     "openjdk_linux_s390x_vanilla": {
-        "archive": "OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
-        "sha256": "fdc82f4b06c880762503b0cb40e25f46cf8190d06011b3b768f4091d3334ef7f",
-        "strip_prefix": "jdk-17.0.4.1+1",
+        "archive": "OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+        "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
+        "strip_prefix": "jdk-19.0.2+7",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
-            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_s390x_linux_hotspot_17.0.4.1_1.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+            "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         ],
         "used_in": [
         ],
     },
-    # TODO(bazel-team): JDK20 binary missing for this platform / architecture.
     "openjdk_linux_ppc64le_vanilla": {
-        "archive": "OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
-        "sha256": "cbedd0a1428b3058d156e99e8e9bc8769e0d633736d6776a4c4d9136648f2fd1",
-        "strip_prefix": "jdk-17.0.4.1+1",
+        "archive": "OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
+        "sha256": "45dde71faf8cbb78fab3c976894259655c8d3de827347f23e0ebe5710921dded",
+        "strip_prefix": "jdk-20+36",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
-            "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.4.1%2B1/OpenJDK17U-jdk_ppc64le_linux_hotspot_17.0.4.1_1.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
+            "https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
         ],
         "used_in": [],
     },
@@ -468,14 +467,14 @@ DIST_DEPS = {
         "used_in": [
         ],
     },
-    # TODO(bazel-team): JDK20 binary missing for this platform / architecture.
+    # JDK20 unavailable so use JDK19 instead for win aarch64.
     "openjdk_win_arm64_vanilla": {
-        "archive": "zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
-        "sha256": "bc3476f2161bf99bc9a243ff535b8fc033b34ce9a2fa4b62fb8d79b6bfdc427f",
-        "strip_prefix": "zulu17.38.21-ca-jdk17.0.5-win_aarch64",
+        "archive": "zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
+        "sha256": "e73e851638066c48421a60e01ce7d956c1de0935620e1b66d8bbbd6cdd4f815e",
+        "strip_prefix": "zulu19.28.81-ca-jdk19.0.0-win_aarch64",
         "urls": [
-            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
-            "https://cdn.azul.com/zulu/bin/zulu17.38.21-ca-jdk17.0.5-win_aarch64.zip",
+            "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
+            "https://cdn.azul.com/zulu/bin/zulu19.28.81-ca-jdk19.0.0-win_aarch64.zip",
         ],
         "used_in": [
         ],
