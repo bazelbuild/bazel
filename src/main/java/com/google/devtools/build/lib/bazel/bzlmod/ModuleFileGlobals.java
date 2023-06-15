@@ -458,23 +458,23 @@ public class ModuleFileGlobals {
 
     String extensionBzlFile = normalizeLabelString(rawExtensionBzlFile);
 
-    Optional<ModuleExtensionId.IsolationKey> isolationContext;
+    Optional<ModuleExtensionId.IsolationKey> isolationKey;
     if (isolate) {
-      isolationContext =
+      isolationKey =
           Optional.of(
               ModuleExtensionId.IsolationKey.create(
                   module.getKey(),
                   devDependency,
                   devDependency ? nextIsolatedDevUsageIndex++ : nextIsolatedNonDevUsageIndex++));
     } else {
-      isolationContext = Optional.empty();
+      isolationKey = Optional.empty();
     }
 
     ModuleExtensionUsageBuilder newUsageBuilder =
         new ModuleExtensionUsageBuilder(
             extensionBzlFile,
             extensionName,
-            isolationContext,
+            isolationKey,
             thread.getCallerLocation());
 
     if (ignoreDevDeps && devDependency) {
