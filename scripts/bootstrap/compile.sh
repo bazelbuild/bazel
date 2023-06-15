@@ -332,6 +332,7 @@ link_dir ${PWD}/platforms ${ARCHIVE_DIR}/platforms
 
 # Prepare @rules_java_builtin local repository
 link_dir ${PWD}/rules_java ${ARCHIVE_DIR}/rules_java
+touch ${ARCHIVE_DIR}/rules_java/WORKSPACE
 
 # Dummy build-runfiles (we can't compile C++ yet, so we can't have the real one)
 if [ "${PLATFORM}" = "windows" ]; then
