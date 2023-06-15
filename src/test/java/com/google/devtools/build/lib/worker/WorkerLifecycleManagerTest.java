@@ -243,6 +243,54 @@ public final class WorkerLifecycleManagerTest {
   }
 
   @Test
+  public void testGetEvictionCandidates_numberOfWorkersIsMoreThanDeafaultNumTests()
+      throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            new WorkerPoolConfig(factoryMock, entryList("dummy", 4), emptyEntryList()));
+    WorkerKey key = createWorkerKey("dummy", fileSystem);
+    Worker w1 = workerPool.borrowObject(key);
+    Worker w2 = workerPool.borrowObject(key);
+    Worker w3 = workerPool.borrowObject(key);
+    Worker w4 = workerPool.borrowObject(key);
+    workerPool.returnObject(key, w1);
+    workerPool.returnObject(key, w2);
+    workerPool.returnObject(key, w3);
+    workerPool.returnObject(key, w4);
+
+    ImmutableList<WorkerMetric> workerMetrics =
+        ImmutableList.of(
+            WorkerMetric.create(
+                createWorkerProperties(w1.getWorkerId(), 1L, "dummy"),
+                createWorkerStat(2000),
+                true),
+            WorkerMetric.create(
+                createWorkerProperties(w2.getWorkerId(), 2L, "dummy"),
+                createWorkerStat(2000),
+                true),
+            WorkerMetric.create(
+                createWorkerProperties(w3.getWorkerId(), 3L, "dummy"),
+                createWorkerStat(4000),
+                true),
+            WorkerMetric.create(
+                createWorkerProperties(w4.getWorkerId(), 4L, "dummy"),
+                createWorkerStat(4000),
+                true));
+
+    WorkerOptions options = new WorkerOptions();
+    options.totalWorkerMemoryLimitMb = 1;
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
+    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(4);
+    assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+
+    manager.evictWorkers(workerMetrics);
+
+    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
+    assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+  }
+
+  @Test
   public void testGetEvictionCandidates_evictWorkerWithSameMenmonicButDifferentKeys()
       throws Exception {
     WorkerPoolImpl workerPool =
