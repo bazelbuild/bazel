@@ -141,7 +141,8 @@ public class EnvironmentCollection {
     }
 
     public EnvironmentCollection build() {
-      return new EnvironmentCollection(mapBuilder.build());
+      var map = mapBuilder.build();
+      return map.isEmpty() ? EMPTY : new EnvironmentCollection(map);
     }
   }
 }
