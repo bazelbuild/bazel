@@ -255,14 +255,12 @@ def _is_vs_2017_or_newer(repository_ctx, vc_path):
     # The layout of VC folder in VS 2017 and newer versions is different from that in VS 2015 and older versions.
     # From VS 2017 it contains three directories:
     # "Auxiliary", "Redist", "Tools"
-    # From VS 2022 17.6, a fourth "vcpkg" directory is also present
+    # From VS 2022 17.6, a fourth "vcpkg" directory is also present, but we only check presence of the three
+    # directories above in case other directories pop up in the future
 
     vc_2017_or_newer_contents = ["auxiliary", "redist", "tools"]
     vc_path_contents = [d.basename.lower() for d in repository_ctx.path(vc_path).readdir()]
-    vc_path_contents = sorted(vc_path_contents)
-    if vc_path_contents == vc_2017_or_newer_contents:
-        return True
-    vc_2017_or_newer_contents.append("vcpkg")
+    vc_path_contents = sorted([d for d in vc_path_contents if d in vc_2017_or_newer_contents])
     return vc_path_contents == vc_2017_or_newer_contents
 
 def _is_msbuildtools(vc_path):
