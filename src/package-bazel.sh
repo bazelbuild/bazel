@@ -107,7 +107,6 @@ fi
     mv rules_java*/* .
     rmdir -p rules_java*
   fi
-  >> WORKSPACE
 )
 
 # Make a list of the files in the order we want them inside the final zip.

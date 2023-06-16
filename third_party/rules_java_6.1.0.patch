@@ -1,8 +1,12 @@
 diff --git a/BUILD b/BUILD
-index 9840747..4412a05 100644
+index 9840747..c138b7f 100644
 --- a/BUILD
 +++ b/BUILD
-@@ -15,5 +15,5 @@ filegroup(
+@@ -12,8 +12,9 @@ filegroup(
+         "BUILD",
+         "LICENSE",
+         "MODULE.bazel",
++        "WORKSPACE",
          "//java:srcs",
          "//toolchains:srcs",
      ],

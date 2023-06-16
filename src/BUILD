@@ -284,7 +284,7 @@ genrule(
     name = "rules_java_archive",
     srcs = ["@rules_java//:distribution"],
     outs = ["rules_java.zip"],
-    cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | grep -v '.*/WORKSPACE$$' | sort | xargs)",
+    cmd = "zip -qX $@ $$(echo $(SRCS) | xargs -n 1 | sort | xargs)",
 )
 
 [genrule(
