@@ -39,6 +39,7 @@ load("@_builtins//:common/cc/cc_common.bzl", "cc_common")
 load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_info.bzl", "JavaInfo")
 
 exported_toplevels = {
     # This dummy symbol is not part of the public API; it is only used to test
@@ -55,6 +56,7 @@ exported_toplevels = {
     "ProtoInfo": ProtoInfo,
     "cc_common": cc_common,
     "+JavaPluginInfo": JavaPluginInfo,
+    "+JavaInfo": JavaInfo,
 }
 
 # A list of Starlarkified native rules.

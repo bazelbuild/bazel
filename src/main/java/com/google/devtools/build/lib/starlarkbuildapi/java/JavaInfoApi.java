@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.starlarkbuildapi.java;
 
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -27,7 +26,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi.Jav
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
@@ -35,10 +33,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkThread;
 
 /** Info object encapsulating all information by java rules. */
-@StarlarkBuiltin(
-    name = "JavaInfo",
-    doc = "A provider encapsulating information about Java and Java-like targets.",
-    category = DocCategory.PROVIDER)
 public interface JavaInfoApi<
         FileT extends FileApi,
         JavaOutputT extends JavaOutputApi<FileT>,
@@ -185,7 +179,6 @@ public interface JavaInfoApi<
   Depset getCompileTimeJavaDependencies();
 
   /** Provider class for {@link JavaInfoApi} objects. */
-  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface JavaInfoProviderApi extends ProviderApi {
 
     @StarlarkMethod(
