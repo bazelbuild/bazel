@@ -747,4 +747,17 @@ public interface JavaCommonApi<
   Depset getRuntimeClasspathForArchive(
       Depset runtimeClasspath, Depset excludedArtifacts, StarlarkThread thread)
       throws EvalException, TypeException;
+
+  @StarlarkMethod(
+      name = "check_provider_instances",
+      documented = false,
+      parameters = {
+        @Param(name = "providers"),
+        @Param(name = "what"),
+        @Param(name = "provider_type")
+      },
+      useStarlarkThread = true)
+  void checkProviderInstances(
+      Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
+      throws EvalException;
 }

@@ -36,8 +36,11 @@ import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
+import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkInfoNoSchema;
+import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
@@ -514,5 +517,35 @@ public class JavaStarlarkCommon
                   runtimeClasspath.toList(Artifact.class),
                   Predicates.not(Predicates.in(excludedArtifacts.getSet().toSet())))));
     }
+  }
+
+  @Override
+  public void checkProviderInstances(
+      Sequence<?> providers, String what, ProviderApi providerType, StarlarkThread thread)
+      throws EvalException {
+    checkPrivateAccess(thread);
+    if (providerType instanceof Provider) {
+      for (int i = 0; i < providers.size(); i++) {
+        Object elem = providers.get(i);
+        if (!isInstanceOfProvider(elem, (Provider) providerType)) {
+          throw Starlark.errorf(
+              "at index %d of %s, got element of type %s, want %s",
+              i, what, Starlark.type(elem), ((Provider) providerType).getPrintableName());
+        }
+      }
+    } else {
+      throw Starlark.errorf("wanted Provider, got %s", Starlark.type(providerType));
+    }
+  }
+
+  private static boolean isInstanceOfProvider(Object obj, Provider provider) {
+    if (obj instanceof NativeInfo) {
+      return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoWithSchema) {
+      return ((StarlarkInfoWithSchema) obj).getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoNoSchema) {
+      return ((StarlarkInfoNoSchema) obj).getProvider().getKey().equals(provider.getKey());
+    }
+    return false;
   }
 }

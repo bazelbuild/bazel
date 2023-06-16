@@ -19,6 +19,7 @@ Definition of JavaInfo provider.
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/java/java_plugin_info.bzl", "merge_without_outputs")
 load(":common/java/java_semantics.bzl", "semantics")
+load(":common/cc/cc_info.bzl", "CcInfo")
 
 java_common = _builtins.toplevel.java_common
 
@@ -67,6 +68,9 @@ _JavaGenJarsInfo = provider(
         "processor_classnames": "Deprecated: Please use JavaInfo.plugins instead.",
     },
 )
+
+def _validate_provider_list(provider_list, what, expected_provider_type):
+    java_common.check_provider_instances(provider_list, what, expected_provider_type)
 
 def _javainfo_init(
         *,
@@ -118,6 +122,11 @@ def _javainfo_init(
     Returns:
         (dict) arguments to the JavaInfo provider constructor
     """
+    _validate_provider_list(deps, "deps", JavaInfo)
+    _validate_provider_list(runtime_deps, "runtime_deps", JavaInfo)
+    _validate_provider_list(exports, "exports", JavaInfo)
+    _validate_provider_list(native_libraries, "native_libraries", CcInfo)
+
     source_jars = [source_jar] if source_jar else []
     plugin_info = merge_without_outputs(exported_plugins + exports)
     if neverlink:
