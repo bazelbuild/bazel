@@ -72,13 +72,14 @@ DIST_DEPS = {
         "urls": ["https://github.com/bazelbuild/rules_java/releases/download/6.1.0/rules_java-6.1.0.tar.gz"],
         "patches": ["//third_party:rules_java_6.1.0.patch"],
         "patch_args": ["-p1"],
+        "workspace_file_content": "",
         "used_in": [
             "additional_distfiles",
         ],
         "license_kinds": [
             "@rules_license//licenses/spdx:Apache-2.0",
         ],
-        "package_version": "6.0.0",
+        "package_version": "6.1.0",
     },
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_proto": {

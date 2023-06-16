@@ -72,40 +72,21 @@ if [ -n "${EMBEDDED_TOOLS}" ]; then
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-# Unzip platforms.zip into platforms/, move files up from external/platforms
-# subdirectory if required, and create WORKSPACE if it doesn't exist.
 (
   cd $PACKAGE_DIR
-  unzip -q -d platforms $WORKDIR/$PLATFORMS_ARCHIVE
-  cd platforms
-  # Platform files may be located under external/platform or platform depending
-  # on the external repository source layout. Take them out if it's the case.
-  # Note that, when enabling Bzlmod, the canonical repo name for platforms is platforms.<version>,
-  # therefore, we use wildcard (platform*) to make sure it always work.
-  if ls external/platforms*/ >/dev/null 2>&1; then
-    # --experimental_sibling_repository_layout=false
-    mv external/platforms*/* .
-    rmdir -p external/platforms*
-  else
-    # --experimental_sibling_repository_layout=true
-    mv platforms*/* .
-    rmdir -p platforms*
+  tar -xf $WORKDIR/$PLATFORMS_ARCHIVE -C .
+  # Rename "platforms~<version>" to "platforms" in case of Bzlmod is enabled.
+  if [[ $(find . -maxdepth 1 -type d -name "platforms~*" | wc -l) -eq 1 ]]; then
+    mv platforms~* platforms
   fi
-  >> WORKSPACE
 )
 
 (
   cd $PACKAGE_DIR
-  unzip -q -d rules_java $WORKDIR/$RULES_JAVA_ARCHIVE
-  cd rules_java
-  if ls external/rules_java*/ >/dev/null 2>&1; then
-    # --experimental_sibling_repository_layout=false
-    mv external/rules_java*/* .
-    rmdir -p external/rules_java*
-  else
-    # --experimental_sibling_repository_layout=true
-    mv rules_java*/* .
-    rmdir -p rules_java*
+  tar -xf $WORKDIR/$RULES_JAVA_ARCHIVE -C .
+  # Rename "rules_java~<version>" to "rules_java" in case of Bzlmod is enabled.
+  if [[ $(find . -maxdepth 1 -type d -name "rules_java~*" | wc -l) -eq 1 ]]; then
+    mv rules_java~* rules_java
   fi
 )
 
