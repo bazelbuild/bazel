@@ -79,6 +79,10 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
 
     runfiles = default_info.runfiles
 
+    if executable:
+        runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = runtime_toolchain.files))
+
     test_support = helper.get_test_support(ctx)
     if test_support:
         runfiles = runfiles.merge(test_support[DefaultInfo].default_runfiles)
@@ -271,7 +275,9 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
         test = test,
         fragments = ["cpp", "java"],
         provides = [JavaInfo],
-        toolchains = [semantics.JAVA_TOOLCHAIN, semantics.JAVA_RUNTIME_TOOLCHAIN] + cc_helper.use_cpp_toolchain(),
+        toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain() + (
+            [semantics.JAVA_RUNTIME_TOOLCHAIN] if executable or test else []
+        ),
         # TODO(hvd): replace with filegroups?
         outputs = {
             "classjar": "%{name}.jar",
@@ -319,6 +325,7 @@ def make_java_binary(executable, resolve_launcher_flag, has_launcher = False):
                 "args": attr.string_list(),
                 "output_licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
             }),
+            remove_attrs = [] if executable else ["_java_runtime_toolchain_type"],
         ),
         executable = executable,
     )

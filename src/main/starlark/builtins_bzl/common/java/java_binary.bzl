@@ -19,7 +19,6 @@ load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/java_helper.bzl", helper = "util")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
-load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/cc/cc_info.bzl", "CcInfo")
@@ -211,33 +210,15 @@ def basic_java_binary(
 
     files = depset(files_to_build + common_info.files_to_build)
 
-    java_runtime_toolchain = semantics.find_java_runtime_toolchain(ctx)
     transitive_runfiles_artifacts = depset(transitive = [
         files,
         java_attrs.runtime_classpath,
         depset(transitive = launcher_info.runfiles),
-        java_runtime_toolchain.files,
     ])
-
-    # Add symlinks to the C++ runtime libraries under a path that can be built
-    # into the Java binary without having to embed the crosstool, gcc, and grte
-    # version information contained within the libraries' package paths.
-    runfiles_symlinks = {}
-
-    # TODO(hvd): do we need this in bazel? if yes, fix abs path check on windows
-    if not helper.is_absolute_path(ctx, java_runtime_toolchain.java_home):
-        runfiles_symlinks = {
-            ("_cpp_runtimes/%s" % lib.basename): lib
-            for lib in cc_helper.find_cpp_toolchain(ctx).dynamic_runtime_lib(
-                feature_configuration = feature_config,
-            ).to_list()
-        }
 
     runfiles = ctx.runfiles(
         transitive_files = transitive_runfiles_artifacts,
         collect_default = True,
-        symlinks = runfiles_symlinks,
-        skip_conflict_checking = True,
     )
 
     if launcher_info.launcher:
@@ -348,10 +329,10 @@ def _generate_coverage_manifest(ctx, output, runtime_classpath):
 
 #TODO(hvd): not needed in bazel
 def _create_shared_archive(ctx, java_attrs):
-    runtime = semantics.find_java_runtime_toolchain(ctx)
     classlist = ctx.file.classlist if hasattr(ctx.file, "classlist") else None
     if not classlist:
         return None
+    runtime = semantics.find_java_runtime_toolchain(ctx)
     jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
     merged = ctx.actions.declare_file(jsa.dirname + "/" + helper.strip_extension(jsa) + "-merged.jar")
     create_single_jar(
