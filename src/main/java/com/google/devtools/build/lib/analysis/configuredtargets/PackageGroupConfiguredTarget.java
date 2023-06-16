@@ -134,6 +134,7 @@ public class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
+  @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }

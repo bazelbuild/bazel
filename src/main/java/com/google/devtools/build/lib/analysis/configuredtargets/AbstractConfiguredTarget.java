@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.configuredtargets;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionLookupKeyOrProxy;
@@ -109,6 +108,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> provider) {
     AnalysisUtils.checkProvider(provider);
     if (provider.isAssignableFrom(getClass())) {
@@ -182,7 +182,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   }
 
   @Override
-  public final ImmutableCollection<String> getFieldNames() {
+  public final ImmutableList<String> getFieldNames() {
     ImmutableList.Builder<String> result = ImmutableList.builder();
     result.addAll(
         ImmutableList.of(
@@ -238,6 +238,7 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
   protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
+  @Nullable
   protected abstract Object rawGetStarlarkProvider(String providerKey);
 
   public String getRuleClassString() {

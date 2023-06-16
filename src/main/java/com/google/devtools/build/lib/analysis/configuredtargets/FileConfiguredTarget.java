@@ -104,26 +104,22 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
+  @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     AnalysisUtils.checkProvider(providerClass);
-    final P provider = providers.getProvider(providerClass);
-    if (provider != null) {
-      return provider;
-    } else if (providerClass.isAssignableFrom(getClass())) {
-      return providerClass.cast(this);
-    } else {
-      return null;
-    }
+    return providers.getProvider(providerClass);
   }
 
   @Override
+  @Nullable
   protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return providers.get(providerKey);
   }
 
   @Override
+  @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
-    return providers.get(providerKey);
+    return null;
   }
 
   @Override
