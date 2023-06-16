@@ -237,18 +237,6 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
-    /** Returns the remote execution properties. */
-    @Nullable
-    public String getRemoteExecutionProperties() {
-      return remoteExecutionProperties;
-    }
-
-    /** Returns the exec properties. */
-    @Nullable
-    public ImmutableMap<String, String> getExecProperties() {
-      return execProperties;
-    }
-
     /**
      * Sets the data being sent to a potential remote executor. If there is a parent {@link
      * PlatformInfo} set, the literal string "{PARENT_REMOTE_EXECUTION_PROPERTIES}" will be replaced
