@@ -18,6 +18,7 @@ import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
@@ -40,6 +41,13 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.ConfiguredRuleInput;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver.Mode;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import com.google.protobuf.ExtensionRegistry;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -317,31 +325,103 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .containsAtLeast("//test:my_alias_rule", "//test:config1", "//test:target1");
   }
 
+  @Test
+  public void testStreamedProtoAndProtoOutputsAreEquivalent() throws Exception {
+    MockRule depsRule =
+        () ->
+            MockRule.define(
+                "my_rule",
+                (builder, env) ->
+                    builder.add(attr("deps", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)));
+    ConfiguredRuleClassProvider ruleClassProvider = setRuleClassProviders(depsRule).build();
+    helper.useRuleClassProvider(ruleClassProvider);
+
+    writeFile(
+        "test/BUILD",
+        "my_rule(name = 'my_rule',",
+        "  deps = select({",
+        "    ':garfield': ['lasagna.java', 'naps.java'],",
+        "    '//conditions:default': ['mondays.java']",
+        "  })",
+        ")",
+        "config_setting(",
+        "  name = 'garfield',",
+        "  values = {'foo': 'cat'}",
+        ")");
+    getHelper().useConfiguration("--foo=cat");
+    AnalysisProtosV2.CqueryResult protoOutput = getOutput("//test:my_rule", ruleClassProvider);
+    ImmutableList<AnalysisProtosV2.CqueryResult> streamedProtoOutput =
+        getStreamedOutput("//test:my_rule", ruleClassProvider);
+    AnalysisProtosV2.CqueryResult.Builder combinedStreamedProtoBuilder =
+        AnalysisProtosV2.CqueryResult.newBuilder();
+    for (AnalysisProtosV2.CqueryResult result : streamedProtoOutput) {
+      if (!result.getResultsList().isEmpty()) {
+        combinedStreamedProtoBuilder.addAllResults(result.getResultsList());
+      }
+      if (!result.getConfigurationsList().isEmpty()) {
+        combinedStreamedProtoBuilder.addAllConfigurations(result.getConfigurationsList());
+      }
+    }
+    assertThat(protoOutput)
+        .ignoringRepeatedFieldOrder()
+        .isEqualTo(combinedStreamedProtoBuilder.build());
+  }
+
   private MockRule getSimpleRule() {
     return () -> MockRule.define("simple_rule");
   }
 
   private AnalysisProtosV2.CqueryResult getOutput(
       String queryExpression, RuleClassProvider ruleClassProvider) throws Exception {
+    CodedInputStream codedIn =
+        getInputStreamsWithData(queryExpression, ruleClassProvider, OutputType.BINARY).getSecond();
+    return AnalysisProtosV2.CqueryResult.parser()
+        .parseFrom(codedIn, ExtensionRegistry.getEmptyRegistry());
+  }
+
+  private ImmutableList<AnalysisProtosV2.CqueryResult> getStreamedOutput(
+      String queryExpression, RuleClassProvider ruleClassProvider) throws Exception {
+    InputStream in =
+        getInputStreamsWithData(queryExpression, ruleClassProvider, OutputType.DELIMITED_BINARY)
+            .getFirst();
+    ImmutableList.Builder<AnalysisProtosV2.CqueryResult> builder = new ImmutableList.Builder<>();
+    AnalysisProtosV2.CqueryResult result;
+    while ((result =
+            AnalysisProtosV2.CqueryResult.parser()
+                .parseDelimitedFrom(in, ExtensionRegistry.getEmptyRegistry()))
+        != null) {
+      builder.add(result);
+    }
+    return builder.build();
+  }
+
+  private Pair<InputStream, CodedInputStream> getInputStreamsWithData(
+      String queryExpression, RuleClassProvider ruleClassProvider, OutputType outputType)
+      throws Exception {
     QueryExpression expression = QueryParser.parse(queryExpression, getDefaultFunctions());
     Set<String> targetPatternSet = new LinkedHashSet<>();
     expression.collectTargetPatterns(targetPatternSet);
     helper.setQuerySettings(Setting.NO_IMPLICIT_DEPS);
     PostAnalysisQueryEnvironment<ConfiguredTarget> env =
         ((ConfiguredTargetQueryHelper) helper).getPostAnalysisQueryEnvironment(targetPatternSet);
-
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    CodedOutputStream codedOut = CodedOutputStream.newInstance(out);
     ProtoOutputFormatterCallback callback =
         new ProtoOutputFormatterCallback(
             reporter,
             options,
-            /* out= */ null,
+            out,
+            codedOut,
             getHelper().getSkyframeExecutor(),
             env.getAccessor(),
             options.aspectDeps.createResolver(
                 getHelper().getPackageManager(), NullEventHandler.INSTANCE),
-            OutputType.BINARY,
+            outputType,
             ruleClassProvider);
     env.evaluateQuery(expression, callback);
-    return callback.getProtoResult();
+    codedOut.flush();
+    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+    CodedInputStream codedIn = CodedInputStream.newInstance(in);
+    return new Pair<>(in, codedIn);
   }
 }
