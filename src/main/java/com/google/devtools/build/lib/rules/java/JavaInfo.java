@@ -20,16 +20,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
@@ -186,11 +188,20 @@ public final class JavaInfo extends NativeInfo
 
   public static ImmutableList<JavaInfo> wrapSequence(Sequence<?> sequence, String what)
       throws EvalException {
-    return Sequence.cast(sequence, JavaInfo.class, what).getImmutableList();
+    ImmutableList.Builder<JavaInfo> builder = ImmutableList.builder();
+    Sequence<Info> infos = Sequence.cast(sequence, Info.class, what);
+    for (int i = 0; i < infos.size(); i++) {
+      try {
+        builder.add(PROVIDER.wrap(infos.get(i)));
+      } catch (RuleErrorException e) {
+        throw Starlark.errorf("at index %s of %s, %s", i, what, e.getMessage());
+      }
+    }
+    return builder.build();
   }
 
   public static boolean isJavaInfo(Object obj) {
-    return obj instanceof JavaInfo;
+    return JavaStarlarkCommon.isInstanceOfProvider(obj, JavaInfo.PROVIDER);
   }
 
   public Optional<JavaCompilationArgsProvider> compilationArgsProvider() {
@@ -381,6 +392,34 @@ public final class JavaInfo extends NativeInfo
     this.providerJavaPlugin = javaPluginInfo;
     this.providerJavaRuleOutputJars = javaRuleOutputJarsProvider;
     this.providerJavaSourceJars = javaSourceJarsProvider;
+  }
+
+  private JavaInfo(StructImpl javaInfo) throws EvalException, TypeException, RuleErrorException {
+    this(
+        JavaCcInfoProvider.fromStarlarkJavaInfo(javaInfo),
+        JavaCompilationArgsProvider.fromStarlarkJavaInfo(javaInfo),
+        /* javaCompilationInfoProvider= */ null,
+        JavaGenJarsProvider.from(javaInfo.getValue("annotation_processing")),
+        JavaModuleFlagsProvider.fromStarlarkJavaInfo(javaInfo),
+        JavaPluginInfo.fromStarlarkJavaInfo(javaInfo),
+        JavaRuleOutputJarsProvider.fromStarlarkJavaInfo(javaInfo),
+        JavaSourceJarsProvider.fromStarlarkJavaInfo(javaInfo),
+        extractDirectRuntimeJars(javaInfo),
+        extractNeverLink(javaInfo),
+        ImmutableList.of(),
+        javaInfo.getCreationLocation());
+  }
+
+  private static ImmutableList<Artifact> extractDirectRuntimeJars(StructImpl javaInfo)
+      throws EvalException {
+    return Sequence.cast(
+            javaInfo.getValue("runtime_output_jars"), Artifact.class, "runtime_output_jars")
+        .getImmutableList();
+  }
+
+  private static boolean extractNeverLink(StructImpl javaInfo) throws EvalException {
+    Boolean neverlink = nullIfNone(javaInfo.getValue("_neverlink"), Boolean.class);
+    return neverlink != null && neverlink;
   }
 
   @Override
@@ -602,10 +641,10 @@ public final class JavaInfo extends NativeInfo
   }
 
   /** Provider class for {@link JavaInfo} objects. */
-  public static class JavaInfoProvider extends BuiltinProvider<JavaInfo>
-      implements JavaInfoProviderApi {
+  public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
+      implements JavaInfoProviderApi, com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
-      super(STARLARK_NAME, JavaInfo.class);
+      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), STARLARK_NAME);
     }
 
     @Override
@@ -658,11 +697,33 @@ public final class JavaInfo extends NativeInfo
               thread.getCallerLocation());
     }
 
+    @Override
     public JavaInfo wrap(Info info) throws RuleErrorException {
       if (info instanceof JavaInfo) {
         return (JavaInfo) info;
+      } else if (info instanceof StructImpl) {
+        try {
+          return new JavaInfo((StructImpl) info);
+        } catch (EvalException | TypeException e) {
+          throw new RuleErrorException(e);
+        }
       }
       throw new RuleErrorException("got " + Starlark.type(info) + ", wanted JavaInfo");
+    }
+
+    @Override
+    public boolean isExported() {
+      return true;
+    }
+
+    @Override
+    public String getPrintableName() {
+      return STARLARK_NAME;
+    }
+
+    @Override
+    public Location getLocation() {
+      return Location.BUILTIN;
     }
   }
 

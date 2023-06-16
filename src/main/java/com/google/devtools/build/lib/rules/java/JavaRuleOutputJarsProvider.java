@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.rules.java.JavaInfo.nullIfNone;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -32,6 +34,7 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkList;
 
@@ -281,5 +284,32 @@ public final class JavaRuleOutputJarsProvider
     public JavaRuleOutputJarsProvider build() {
       return new JavaRuleOutputJarsProvider(ImmutableList.copyOf(javaOutputs));
     }
+  }
+
+  static JavaRuleOutputJarsProvider fromStarlarkJavaInfo(StructImpl javaInfo) throws EvalException {
+    Sequence<?> outputs = javaInfo.getValue("java_outputs", StarlarkList.class);
+    JavaRuleOutputJarsProvider.Builder builder = JavaRuleOutputJarsProvider.builder();
+    for (StructImpl output : Sequence.cast(outputs, StructImpl.class, "outputs")) {
+      builder.addJavaOutput(
+          JavaOutput.builder()
+              .setClassJar(nullIfNone(output.getValue("class_jar"), Artifact.class))
+              .setCompileJar(nullIfNone(output.getValue("compile_jar"), Artifact.class))
+              .setCompileJdeps(nullIfNone(output.getValue("compile_jdeps"), Artifact.class))
+              .setGeneratedClassJar(
+                  nullIfNone(output.getValue("generated_class_jar"), Artifact.class))
+              .setGeneratedSourceJar(
+                  nullIfNone(output.getValue("generated_source_jar"), Artifact.class))
+              .setNativeHeadersJar(
+                  nullIfNone(output.getValue("native_headers_jar"), Artifact.class))
+              .setManifestProto(nullIfNone(output.getValue("manifest_proto"), Artifact.class))
+              .setJdeps(nullIfNone(output.getValue("jdeps"), Artifact.class))
+              .addSourceJars(
+                  Sequence.cast(
+                      output.getValue("source_jars", StarlarkList.class),
+                      Artifact.class,
+                      "source_jars"))
+              .build());
+    }
+    return builder.build();
   }
 }

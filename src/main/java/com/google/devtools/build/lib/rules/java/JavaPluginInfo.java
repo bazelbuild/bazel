@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaO
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaPluginInfoApi;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -315,5 +316,12 @@ public abstract class JavaPluginInfo extends NativeInfo
   public JavaPluginInfo disableAnnotationProcessing() {
     return JavaPluginInfo.create(
         plugins().disableAnnotationProcessing(), /* generatesApi= */ false, getJavaOutputs());
+  }
+
+  @Nullable
+  static JavaPluginInfo fromStarlarkJavaInfo(StructImpl javaInfo)
+      throws EvalException, RuleErrorException {
+    Info info = javaInfo.getValue("_plugin_info", Info.class);
+    return info == null ? null : JavaPluginInfo.PROVIDER.wrap(info);
   }
 }

@@ -143,10 +143,10 @@ public class JavaStarlarkCommon
     final ImmutableList<JavaPluginInfo> exportedPluginsParam;
     if (acceptJavaInfo
         && !exportedPlugins.isEmpty()
-        && exportedPlugins.get(0) instanceof JavaInfo) {
+        && JavaInfo.isJavaInfo(exportedPlugins.get(0))) {
       // Handle deprecated case where exported_plugins is given a list of JavaInfos
       exportedPluginsParam =
-          Sequence.cast(exportedPlugins, JavaInfo.class, "exported_plugins").stream()
+          JavaInfo.wrapSequence(exportedPlugins, "exported_plugins").stream()
               .map(JavaInfo::getJavaPluginInfo)
               .filter(Objects::nonNull)
               .collect(toImmutableList());
@@ -538,7 +538,7 @@ public class JavaStarlarkCommon
     }
   }
 
-  private static boolean isInstanceOfProvider(Object obj, Provider provider) {
+  static boolean isInstanceOfProvider(Object obj, Provider provider) {
     if (obj instanceof NativeInfo) {
       return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
     } else if (obj instanceof StarlarkInfoWithSchema) {
