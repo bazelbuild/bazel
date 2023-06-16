@@ -418,7 +418,7 @@ DIST_DEPS = {
         "sha256": "f2512f9a8e9847dd5d3557c39b485a8e7a1ef37b601dcbcb748d22e49f44815c",
         "strip_prefix": "jdk-19.0.2+7",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%252B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
             "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-19.0.2%2B7/OpenJDK19U-jdk_s390x_linux_hotspot_19.0.2_7.tar.gz",
         ],
         "used_in": [
@@ -429,7 +429,7 @@ DIST_DEPS = {
         "sha256": "45dde71faf8cbb78fab3c976894259655c8d3de827347f23e0ebe5710921dded",
         "strip_prefix": "jdk-20+36",
         "urls": [
-            "https://mirror.bazel.build/github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
+            "https://mirror.bazel.build/github.com/adoptium/temurin20-binaries/releases/download/jdk-20%252B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
             "https://github.com/adoptium/temurin20-binaries/releases/download/jdk-20%2B36/OpenJDK20U-jdk_ppc64le_linux_hotspot_20_36.tar.gz",
         ],
         "used_in": [],
