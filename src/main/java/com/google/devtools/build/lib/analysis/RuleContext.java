@@ -236,7 +236,7 @@ public final class RuleContext extends TargetContext
   public boolean isAllowTagsPropagation() {
     return getAnalysisEnvironment()
         .getStarlarkSemantics()
-        .getBool(BuildLanguageOptions.EXPERIMENTAL_ALLOW_TAGS_PROPAGATION);
+        .getBool(BuildLanguageOptions.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION);
   }
 
   public RepositoryName getRepository() {
