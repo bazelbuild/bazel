@@ -232,10 +232,15 @@ def find_vc_path(repository_ctx):
     # 5. Check default directories for VC installation
     auto_configure_warning_maybe(repository_ctx, "Looking for default Visual C++ installation directory")
     for path in [
-        "Microsoft Visual Studio\\%s\\%s\\VC" % (year, edition)
-        for year in (2022, 2019, 2017)
-        for edition in ("Preview", "BuildTools", "Community", "Professional", "Enterprise")
-    ] + [
+        "Microsoft Visual Studio\\2019\\Preview\\VC",
+        "Microsoft Visual Studio\\2019\\BuildTools\\VC",
+        "Microsoft Visual Studio\\2019\\Community\\VC",
+        "Microsoft Visual Studio\\2019\\Professional\\VC",
+        "Microsoft Visual Studio\\2019\\Enterprise\\VC",
+        "Microsoft Visual Studio\\2017\\BuildTools\\VC",
+        "Microsoft Visual Studio\\2017\\Community\\VC",
+        "Microsoft Visual Studio\\2017\\Professional\\VC",
+        "Microsoft Visual Studio\\2017\\Enterprise\\VC",
         "Microsoft Visual Studio 14.0\\VC",
     ]:
         path = program_files_dir + "\\" + path
@@ -253,7 +258,7 @@ def _is_vs_2017_or_newer(repository_ctx, vc_path):
     """Check if the installed VS version is Visual Studio 2017 or newer."""
 
     # The layout of VC folder in VS 2017 and newer versions is different from that in VS 2015 and older versions.
-    # From VS 2017 it contains three directories:
+    # From VS 2017 it contains only three directories:
     # "Auxiliary", "Redist", "Tools"
     # From VS 2022 17.6, a fourth "vcpkg" directory is also present, but we only check presence of the three
     # directories above in case other directories pop up in the future
