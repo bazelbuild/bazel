@@ -194,6 +194,14 @@ dist_http_archive(
     strip_prefix = "zstd-jni-1.5.2-3",
 )
 
+dist_http_archive(
+    name = "blake3",
+    build_file = "//third_party:blake3/blake3.BUILD",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    strip_prefix = "BLAKE3-1.3.3",
+)
+
 http_archive(
     name = "org_snakeyaml",
     build_file_content = """
