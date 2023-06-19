@@ -14,7 +14,7 @@
 
 """ Implementation of java_binary for bazel """
 
-load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
+load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
 load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")

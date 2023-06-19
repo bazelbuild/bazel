@@ -16,7 +16,7 @@
 Definition of java_import rule.
 """
 
-load(":common/java/java_common.bzl", "construct_defaultinfo")
+load(":common/java/basic_java_library.bzl", "construct_defaultinfo")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
