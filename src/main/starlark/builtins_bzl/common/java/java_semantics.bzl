@@ -24,9 +24,6 @@ def _postprocess(ctx, base_info):
 def _check_proto_registry_collision(ctx):
     pass
 
-def _add_constraints(java_info, constraints):
-    return java_info
-
 def _find_java_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"].java
 
@@ -71,7 +68,6 @@ semantics = struct(
     ALLOWED_RULES_IN_DEPS_WITH_WARNING = [],
     LINT_PROGRESS_MESSAGE = "Running Android Lint for: %{label}",
     check_proto_registry_collision = _check_proto_registry_collision,
-    add_constraints = _add_constraints,
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
     BUILD_INFO_TRANSLATOR_LABEL = None,
     JAVA_TEST_RUNNER_LABEL = "@bazel_tools//tools/jdk:TestRunner",
