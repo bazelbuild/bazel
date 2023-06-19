@@ -849,6 +849,12 @@ public class RemoteExecutionService {
               "Failed creating directory and parents for %s",
               symlink.path())
           .createDirectoryAndParents();
+      // If a directory output is being materialized as a symlink, we must first delete the
+      // preexisting empty directory.
+      if (symlink.path().exists(Symlinks.NOFOLLOW)
+          && symlink.path().isDirectory(Symlinks.NOFOLLOW)) {
+        symlink.path().delete();
+      }
       symlink.path().createSymbolicLink(symlink.target());
     }
   }
@@ -1166,12 +1172,6 @@ public class RemoteExecutionService {
     Map<Path, Path> realToTmpPath = new HashMap<>();
 
     if (downloadOutputs) {
-      // Create output directories first.
-      // This ensures that the directories are present even if downloading fails.
-      // See https://github.com/bazelbuild/bazel/issues/6260.
-      for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-        entry.getKey().createDirectoryAndParents();
-      }
       downloadsBuilder.addAll(
           buildFilesToDownload(context, progressStatusListener, metadata, realToTmpPath));
     } else {
