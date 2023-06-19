@@ -16,8 +16,6 @@
 Java Semantics
 """
 
-java_common = _builtins.toplevel.java_common
-
 def _postprocess(ctx, base_info):
     return base_info.java_info
 
@@ -30,14 +28,6 @@ def _find_java_toolchain(ctx):
 def _find_java_runtime_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 
-def _stamping_enabled(ctx, stamp):
-    if ctx.configuration.is_tool_configuration():
-        stamp = 0
-    return (stamp == 1) or (stamp == -1 and ctx.configuration.stamp_binaries())
-
-def _get_build_info(ctx, stamp):
-    return java_common.get_build_info(ctx, _stamping_enabled(ctx, stamp))
-
 def _extra_java_info(*_args):
     return {}
 
@@ -46,7 +36,6 @@ semantics = struct(
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
     JAVA_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:toolchain_type", mandatory = True),
     find_java_toolchain = _find_java_toolchain,
-    get_build_info = _get_build_info,
     JAVA_RUNTIME_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:runtime_toolchain_type",
     JAVA_RUNTIME_TOOLCHAIN = _builtins.toplevel.config_common.toolchain_type("@bazel_tools//tools/jdk:runtime_toolchain_type", mandatory = True),
     find_java_runtime_toolchain = _find_java_runtime_toolchain,

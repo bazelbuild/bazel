@@ -34,7 +34,7 @@ def create_deploy_archives(
         main_class,
         coverage_main_class,
         strip_as_default,
-        stamp,
+        build_info_files,
         build_target,
         hermetic = False,
         add_exports = depset(),
@@ -55,7 +55,7 @@ def create_deploy_archives(
         coverage_main_class: (String) FQN of the entry point for coverage collection
         build_target: (String) Name of the build target for stamping
         strip_as_default: (bool) Whether to create unstripped deploy jar
-        stamp: (bool) Value of stamping attribute on the rule
+        build_info_files: ([File]) the artifacts containing workspace status for the current build
         hermetic: (bool)
         add_exports: (depset)
         add_opens: (depset)
@@ -76,8 +76,6 @@ def create_deploy_archives(
         order = "preorder",
     )
     multi_release = ctx.fragments.java.multi_release_deploy_jars
-
-    build_info_files = semantics.get_build_info(ctx, stamp)
 
     create_deploy_archive(
         ctx,
