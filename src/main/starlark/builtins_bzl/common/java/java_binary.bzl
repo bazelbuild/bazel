@@ -16,7 +16,7 @@
 
 load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
 load(":common/java/java_util.bzl", "create_single_jar")
-load(":common/java/java_helper.bzl", helper = "util")
+load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")

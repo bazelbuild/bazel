@@ -21,7 +21,7 @@ the generating actions, so that the runfiles symlink tree is staged for the depl
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/java/java_helper.bzl", "util")
+load(":common/java/java_helper.bzl", "helper")
 
 InstrumentedFilesInfo = _builtins.toplevel.InstrumentedFilesInfo
 java_common = _builtins.toplevel.java_common
@@ -198,7 +198,7 @@ def create_deploy_archive(
     args.add_all(
         "--sources",
         runtime_classpath,
-        map_each = util.jar_and_target_arg_mapper,
+        map_each = helper.jar_and_target_arg_mapper,
     )
 
     if one_version_level != "OFF" and one_version_allowlist:

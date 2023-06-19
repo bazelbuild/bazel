@@ -288,7 +288,7 @@ def _test_providers(ctx):
 
     return test_providers
 
-util = struct(
+helper = struct(
     collect_all_targets_as_deps = _collect_all_targets_as_deps,
     filter_launcher_for_target = _filter_launcher_for_target,
     launcher_artifact_for_target = _launcher_artifact_for_target,
