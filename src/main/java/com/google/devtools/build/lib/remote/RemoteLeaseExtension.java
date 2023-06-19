@@ -51,8 +51,6 @@ public class RemoteLeaseExtension implements LeaseExtension {
       Executors.newSingleThreadScheduledExecutor(
           new ThreadFactoryBuilder().setNameFormat("lease-extension-%d").build());
 
-  private final AtomicBoolean started = new AtomicBoolean(false);
-
   private final MemoizingEvaluator memoizingEvaluator;
   @Nullable
   private final ActionCache actionCache;
@@ -198,6 +196,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
               .flatMap(
                   tree ->
                       tree.getChildValues().values().stream()
+                          .filter(FileArtifactValue::isRemote)
                           .map(
                               metadata ->
                                   DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize())))
@@ -211,7 +210,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
     var actionLookupValue =
         (ActionLookupValue)
             checkNotNull(
-                memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey()));
+                memoizingEvaluator.getExistingValue(actionLookupData.getActionLookupKey().toKey()));
     return actionLookupValue.getAction(actionLookupData.getActionIndex());
   }
 

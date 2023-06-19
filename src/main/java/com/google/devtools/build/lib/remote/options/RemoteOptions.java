@@ -697,7 +697,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If set to true, Bazel will extend the lease for outputs that were downloaded during the"
+          "If set to true, Bazel will extend the lease for outputs of remote actions during the"
               + " build by sending `FindMissingBlobs` calls to remote cache.")
   public boolean remoteCacheLeaseExtension;
 
