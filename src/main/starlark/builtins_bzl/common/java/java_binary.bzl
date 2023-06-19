@@ -15,7 +15,6 @@
 """ Implementation of java_binary for bazel """
 
 load(":common/java/java_common.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
-load(":common/java/java_util.bzl", "create_single_jar")
 load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/rule_util.bzl", "merge_attrs")
@@ -335,7 +334,7 @@ def _create_shared_archive(ctx, java_attrs):
     runtime = semantics.find_java_runtime_toolchain(ctx)
     jsa = ctx.actions.declare_file("%s.jsa" % ctx.label.name)
     merged = ctx.actions.declare_file(jsa.dirname + "/" + helper.strip_extension(jsa) + "-merged.jar")
-    create_single_jar(
+    helper.create_single_jar(
         ctx,
         merged,
         java_attrs.runtime_jars,
@@ -412,7 +411,7 @@ def _create_one_version_check(ctx, inputs):
     return output
 
 def _create_deploy_sources_jar(ctx, sources):
-    create_single_jar(
+    helper.create_single_jar(
         ctx,
         ctx.outputs.deploysrcjar,
         sources,
