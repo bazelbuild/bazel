@@ -18,10 +18,13 @@ Definition of j2objc_aspect.
 
 load(":common/paths.bzl", "paths")
 load(":common/cc/cc_helper.bzl", "cc_helper")
+load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/java_semantics.bzl", java_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
+load(":common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/objc_common.bzl", "objc_common")
 load(
     ":common/proto/proto_common.bzl",
     "ProtoLangToolchainInfo",
@@ -180,6 +183,29 @@ def _dep_j2objc_mapping_file_provider(ctx):
         transitive_class_mapping_files.extend(provider.class_mapping_files)
         transitive_dependency_mapping_files.extend(provider.dependency_mapping_files)
         transitive_archive_source_mapping_files.extend(provider.archive_source_mapping_files)
+
+    return J2ObjcMappingFileInfo(
+        header_mapping_files = depset([], transitive = transitive_header_mapping_files),
+        class_mapping_files = depset([], transitive = transitive_class_mapping_files),
+        dependency_mapping_files = depset([], transitive = transitive_dependency_mapping_files),
+        archive_source_mapping_files = depset([], transitive = transitive_archive_source_mapping_files),
+    )
+
+def _exported_j2objc_mapping_file_provider(target, ctx, direct_j2objc_mapping_file_provider):
+    dep_j2objc_mapping_file_provider = _dep_j2objc_mapping_file_provider(ctx)
+
+    transitive_class_mapping_files = []
+    transitive_dependency_mapping_files = []
+    transitive_archive_source_mapping_files = []
+    for provider in direct_j2objc_mapping_file_provider + dep_j2objc_mapping_file_provider:
+        transitive_class_mapping_files.extend(provider.class_mapping_files)
+        transitive_dependency_mapping_files.extend(provider.dependency_mapping_files)
+        transitive_archive_source_mapping_files.extend(provider.archive_source_mapping_files)
+
+    transitive_header_mapping_files = direct_j2objc_mapping_file_provider.header_mapping_files
+    experimental_j2objc_header_map = ctx.fragments.j2objc.experimental_j2objc_header_map()
+    if ProtoInfo in target or len(transitive_header_mapping_files) == 0 or experimental_j2objc_header_map:
+        transitive_header_mapping_files.extend(dep_j2objc_mapping_file_provider.header_mapping_files)
 
     return J2ObjcMappingFileInfo(
         header_mapping_files = depset([], transitive = transitive_header_mapping_files),
@@ -353,13 +379,130 @@ def _java(target, ctx):
         ctx = ctx,
         j2objc_source = j2objc_source,
         direct_j2objc_mapping_file_provider = direct_j2objc_mapping_file_provider,
-        dep_attributes = ["$jre_lib", "deps", "exports", "runtime_deps"],
+        dep_attributes = ["_jre_lib", "deps", "exports", "runtime_deps"],
         proto_toolchain_runtime = [],
     )
 
-# buildifier: disable=unused-variable Implementation will be continued.
-def _build_aspect(target, ctx, j2objc_source, direct_j2objc_mapping_file_provider, dep_attributes, proto_toolchain_runtime):
-    return []
+def _common(
+        ctx,
+        intermediate_artifacts,
+        transpiled_sources,
+        transpiled_headers,
+        header_search_paths,
+        dependent_attributes,
+        other_deps,
+        compile_with_arc):
+    compilation_artifacts = None
+    if transpiled_sources or transpiled_headers:
+        if compile_with_arc:
+            compilation_artifacts = objc_internal.j2objc_create_compilation_artifacts(
+                srcs = transpiled_sources,
+                non_arc_srcs = [],
+                hdrs = transpiled_headers,
+                intermediate_artifacts = intermediate_artifacts,
+            )
+        else:
+            compilation_artifacts = objc_internal.j2objc_create_compilation_artifacts(
+                srcs = [],
+                non_arc_srcs = transpiled_sources,
+                hdrs = transpiled_headers,
+                intermediate_artifacts = intermediate_artifacts,
+            )
+
+    deps = []
+    for dep_attr in dependent_attributes:
+        if hasattr(ctx.rule.attr, dep_attr):
+            attr = getattr(ctx.rule.attr, dep_attr)
+            if type(attr) == type([]):
+                deps.extend(attr)
+            else:
+                deps.append(attr)
+
+    (
+        objc_provider,
+        objc_compilation_context,
+        objc_linking_context,
+    ) = objc_common.create_context_and_provider(
+        ctx = ctx,
+        compilation_artifacts = compilation_artifacts,
+        has_module_map = True,
+        deps = deps + other_deps,
+        intermediate_artifacts = intermediate_artifacts,
+        includes = header_search_paths,
+        compilation_attributes = None,
+        extra_import_libraries = [],
+        implementation_deps = [],
+        attr_linkopts = [],
+        alwayslink = False,
+    )
+
+    return struct(
+        compilation_artifacts = compilation_artifacts,
+        objc_provider = objc_provider,
+        objc_compilation_context = objc_compilation_context,
+        objc_linking_context = objc_linking_context,
+    )
+
+def _build_aspect(
+        target,
+        ctx,
+        j2objc_source,
+        direct_j2objc_mapping_file_provider,
+        dep_attributes,
+        proto_toolchain_runtime):
+    intermediate_artifacts = objc_internal.j2objc_create_intermediate_artifacts(ctx = ctx)
+    if j2objc_source.objc_srcs:
+        common = _common(
+            ctx = ctx,
+            intermediate_artifacts = intermediate_artifacts,
+            transpiled_sources = j2objc_source.objc_srcs,
+            transpiled_headers = j2objc_source.objc_hdrs,
+            header_search_paths = j2objc_source.header_search_paths,
+            dependent_attributes = dep_attributes,
+            other_deps = proto_toolchain_runtime,
+            compile_with_arc = j2objc_source.compile_with_arc,
+        )
+
+        cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
+
+        if j2objc_source.compile_with_arc:
+            extra_compile_args = ["-fno-strict-overflow", "-fobjc-arc-exceptions"]
+        else:
+            extra_compile_args = ["-fno-strict-overflow", "-fobjc-weak"]
+
+        compilation_result = compilation_support.register_compile_and_archive_actions_for_j2objc(
+            ctx = ctx,
+            toolchain = cc_toolchain,
+            intermediate_artifacts = intermediate_artifacts,
+            compilation_artifacts = common.compilation_artifacts,
+            objc_compilation_context = common.objc_compilation_context,
+            cc_linking_contexts = common.objc_linking_context.cc_linking_contexts,
+            extra_compile_args = extra_compile_args,
+        )
+        cc_compilation_context = compilation_result[0]
+        cc_linking_context = compilation_result[1]
+    else:
+        common = _common(
+            ctx = ctx,
+            intermediate_artifacts = intermediate_artifacts,
+            transpiled_sources = [],
+            transpiled_headers = [],
+            header_search_paths = [],
+            dependent_attributes = dep_attributes,
+            other_deps = proto_toolchain_runtime,
+            compile_with_arc = j2objc_source.compile_with_arc,
+        )
+        cc_compilation_context = common.objc_compilation_context.create_cc_compilation_context()
+        cc_linking_context = common.objc_linking_context.cc_linking_contexts
+
+    return [
+        _exported_j2objc_mapping_file_provider(target, ctx, direct_j2objc_mapping_file_provider),
+        common.objc_provider,
+        CcInfo(
+            compilation_context = cc_compilation_context,
+            linking_context = cc_linking_context,
+        ),
+    ]
 
 def _j2objc_aspect_impl(target, ctx):
     if ProtoInfo in target:

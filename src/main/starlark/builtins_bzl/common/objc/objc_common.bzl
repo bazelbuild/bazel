@@ -61,7 +61,8 @@ def _create_context_and_provider(
         deps,
         implementation_deps,
         attr_linkopts,
-        direct_cc_compilation_contexts = []):
+        direct_cc_compilation_contexts = [],
+        includes = []):
     objc_providers = []
     cc_compilation_contexts = []
     cc_linking_contexts = []
@@ -138,7 +139,7 @@ def _create_context_and_provider(
         "private_hdrs": [],
         "public_textual_hdrs": [],
         "defines": [],
-        "includes": [],
+        "includes": list(includes),
         "direct_cc_compilation_contexts": direct_cc_compilation_contexts,
     }
 

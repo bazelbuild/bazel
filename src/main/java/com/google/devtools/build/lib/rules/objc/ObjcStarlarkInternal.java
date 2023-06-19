@@ -215,6 +215,30 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
+      name = "j2objc_create_compilation_artifacts",
+      documented = false,
+      parameters = {
+        @Param(name = "srcs", positional = false, named = true),
+        @Param(name = "non_arc_srcs", positional = false, named = true),
+        @Param(name = "hdrs", positional = false, named = true),
+        @Param(name = "intermediate_artifacts", positional = false, named = true),
+      })
+  public CompilationArtifacts j2objcCreateCompilationArtifacts(
+      Sequence<?> srcs,
+      Sequence<?> nonArcSrcs,
+      Sequence<?> hdrs,
+      Object intermediateArtifactsObject)
+      throws EvalException {
+    IntermediateArtifacts intermediateArtifacts =
+        convertFromNoneable(intermediateArtifactsObject, /* defaultValue= */ null);
+    return new CompilationArtifacts(
+        Sequence.cast(srcs, Artifact.class, "srcs"),
+        Sequence.cast(nonArcSrcs, Artifact.class, "non_arc_srcs"),
+        Sequence.cast(hdrs, Artifact.class, "hdrs"),
+        intermediateArtifacts);
+  }
+
+  @StarlarkMethod(
       name = "j2objc_providers_from_deps",
       documented = false,
       parameters = {
