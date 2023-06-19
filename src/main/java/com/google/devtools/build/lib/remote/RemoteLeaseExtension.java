@@ -74,14 +74,18 @@ public class RemoteLeaseExtension implements LeaseExtension {
     this.context = RemoteActionExecutionContext.create(requestMetadata);
   }
 
-
   @Override
   public void start() {
+    // Immediately extend leases for outputs that are already known to skyframe. For clean build,
+    // the set of outputs is empty. For incremental build, it contains outputs that were not
+    // invalidated after skyframe's dirtiness check.
     var unused = scheduledExecutor.schedule(this::extendLeases, 0, MILLISECONDS);
   }
 
   private void extendLeases() {
     var valuesMap = memoizingEvaluator.getValues();
+    // We will extend leases for all known outputs so the earliest time when one output could be
+    // expired is (now + ttl).
     var earliestExpiration = Instant.now().plus(remoteCacheTtl);
 
     try (var silentCloseable = Profiler.instance().profile("Lease extension")) {
@@ -106,22 +110,32 @@ public class RemoteLeaseExtension implements LeaseExtension {
       logger.atWarning().withCause(e).log("Failed to extend the lease");
     }
 
-    var delay = Duration.between(Instant.now(), earliestExpiration);
+    // Only extend the leases again when one of the outputs is about to expire.
+    var now = Instant.now();
+    Duration delay;
+    if (earliestExpiration.isAfter(now)) {
+      delay = Duration.between(now, earliestExpiration);
+    } else {
+      delay = Duration.ZERO;
+    }
     var unused = scheduledExecutor.schedule(this::extendLeases, delay.toMillis(), MILLISECONDS);
   }
 
+  private static boolean isRemoteMetadataWithTTL(FileArtifactValue metadata) {
+    return metadata.isRemote() && ((RemoteFileArtifactValue) metadata).getExpireAtEpochMilli() >= 0;
+  }
+
+  /** Returns {@code true} iff the outputs of the action */
   private boolean actionHasExpiringOutputs(ActionExecutionValue actionExecutionValue) {
     for (var metadata : actionExecutionValue.getAllFileValues().values()) {
-      if (metadata.isRemote()
-          && ((RemoteFileArtifactValue) metadata).getExpireAtEpochMilli() >= 0) {
+      if (isRemoteMetadataWithTTL(metadata)) {
         return true;
       }
     }
 
     for (var treeMetadata : actionExecutionValue.getAllTreeArtifactValues().values()) {
       for (var metadata : treeMetadata.getChildValues().values()) {
-        if (metadata.isRemote()
-            && ((RemoteFileArtifactValue) metadata).getExpireAtEpochMilli() >= 0) {
+        if (isRemoteMetadataWithTTL(metadata)) {
           return true;
         }
       }
@@ -135,6 +149,8 @@ public class RemoteLeaseExtension implements LeaseExtension {
       throws IOException, InterruptedException {
     ImmutableSet<Digest> missingDigests ;
     try (var silentCloseable = Profiler.instance().profile("findMissingDigests")) {
+      // We assume remote server will extend the leases for all referenced blobs by of a
+      // FindMissingBlobs call.
       missingDigests =
           getFromFuture(
               remoteCache.findMissingDigests(
@@ -145,6 +161,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
     for (var fileEntry : actionExecutionValue.getAllFileValues().entrySet()) {
       var artifact = fileEntry.getKey();
       var metadata = fileEntry.getValue();
+      // Only extend the lease for the remote output if it is still alive remotely.
       if (metadata.isRemote()
           && !missingDigests.contains(
               DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()))) {
@@ -161,6 +178,7 @@ public class RemoteLeaseExtension implements LeaseExtension {
       for (var treeFileEntry : treeMetadata.getChildValues().entrySet()) {
         var treeFile = treeFileEntry.getKey();
         var metadata = treeFileEntry.getValue();
+        // Only extend the lease for the remote output if it is still alive remotely.
         if (metadata.isRemote()
             && !missingDigests.contains(
                 DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()))) {
@@ -173,6 +191,8 @@ public class RemoteLeaseExtension implements LeaseExtension {
     }
 
     if (actionCache != null && token != null && token.dirty) {
+      // Only update the action cache entry if the token was updated because it usually involves
+      // serialization.
       actionCache.put(token.key, token.entry);
     }
   }
@@ -184,22 +204,24 @@ public class RemoteLeaseExtension implements LeaseExtension {
     }
   }
 
+  private static Digest buildDigest(FileArtifactValue metadata) {
+    return DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+  }
+
   private Iterable<Digest> allExpiringOutputDigests(ActionExecutionValue actionExecutionValue) {
     return () -> {
       var files =
           actionExecutionValue.getAllFileValues().values().stream()
-              .filter(FileArtifactValue::isRemote)
-              .map(metadata -> DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize()))
+              .filter(RemoteLeaseExtension::isRemoteMetadataWithTTL)
+              .map(RemoteLeaseExtension::buildDigest)
               .iterator();
       var treeFiles =
           actionExecutionValue.getAllTreeArtifactValues().values().stream()
               .flatMap(
                   tree ->
                       tree.getChildValues().values().stream()
-                          .filter(FileArtifactValue::isRemote)
-                          .map(
-                              metadata ->
-                                  DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize())))
+                          .filter(RemoteLeaseExtension::isRemoteMetadataWithTTL)
+                          .map(RemoteLeaseExtension::buildDigest))
               .iterator();
       return Iterators.concat(files, treeFiles);
     };
