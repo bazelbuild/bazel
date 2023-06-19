@@ -194,14 +194,6 @@ public /*final*/ class ConfiguredRuleClassProvider
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder clearWorkspaceFileSuffixForTesting() {
-      // Defining rules_java_builtin requires bazel_tools to be fetched. To avoid triggering
-      // REPOSITORY_DIRECTORY SkyFunction, we clear rules_java_builtin defined in WORKSPACE prefix.
-      int begin =
-          defaultWorkspaceFilePrefix.indexOf("# WORKSPACE_PREFIX_BEGIN (rules_java_builtin)");
-      int end = defaultWorkspaceFilePrefix.indexOf("# WORKSPACE_PREFIX_END (rules_java_builtin)");
-      if (begin != -1 && end != -1) {
-        defaultWorkspaceFilePrefix.delete(begin, end);
-      }
       defaultWorkspaceFileSuffix.delete(0, defaultWorkspaceFileSuffix.length());
       return this;
     }

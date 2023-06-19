@@ -252,8 +252,6 @@ dist_http_archive(
 
 dist_http_archive(
     name = "rules_java",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
 )
 
 dist_http_archive(
