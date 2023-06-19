@@ -588,7 +588,7 @@ public interface JavaCommonApi<
             doc = "Constraints to add")
       },
       enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API)
-  JavaInfoT addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
+  Info addConstraints(Info javaInfo, Sequence<?> constraints /* <String> expected. */)
       throws EvalException, RuleErrorException;
 
   @StarlarkMethod(

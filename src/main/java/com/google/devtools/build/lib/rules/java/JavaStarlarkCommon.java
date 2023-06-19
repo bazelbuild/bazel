@@ -50,11 +50,9 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollect
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaCommonApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Sequence;
@@ -336,15 +334,11 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public JavaInfo addConstraints(Info info, Sequence<?> constraints)
+  public Info addConstraints(Info info, Sequence<?> constraints)
       throws EvalException, RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.PROVIDER.wrap(info);
-    List<String> constraintStrings = Sequence.cast(constraints, String.class, "constraints");
-    ImmutableList<String> mergedConstraints =
-        Stream.concat(javaInfo.getJavaConstraints().stream(), constraintStrings.stream())
-            .distinct()
-            .collect(toImmutableList());
-    return JavaInfo.Builder.copyOf(javaInfo).setJavaConstraints(mergedConstraints).build();
+    // No implementation in Bazel. This method is not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return info;
   }
 
   @Override
