@@ -107,7 +107,9 @@ def _rule_impl(ctx):
         proguard_provider_specs = ProguardSpecProvider(depset())
 
     java_info, DefaultInfo, OutputGroupInfo = bazel_java_proto_library_rule(ctx)
-    java_info = semantics.add_constraints(java_info, ["android"])
+
+    if hasattr(java_common, "add_constraints"):
+        java_info = java_common.add_constraints(java_info, constraints = ["android"])
 
     return [
         java_info,

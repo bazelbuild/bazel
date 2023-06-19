@@ -97,7 +97,6 @@ def bazel_java_import_rule(
         runtime_deps = [],
         exports = [],
         neverlink = False,
-        constraints = [],
         proguard_specs = []):
     """Implements java_import.
 
@@ -158,9 +157,6 @@ def bazel_java_import_rule(
         # TODO(kotlaja): Remove next line once all java_import targets with empty jars attribute are cleaned from depot (b/246559727).
         java_info = _create_java_info_with_dummy_output_file(ctx, srcjar, all_deps, exports, runtime_deps_list, neverlink, cc_info_list)
 
-    if len(constraints):
-        java_info = semantics.add_constraints(java_info, constraints)
-
     target = {"JavaInfo": java_info}
 
     target["ProguardSpecProvider"] = validate_proguard_specs(
@@ -202,7 +198,6 @@ def _proxy(ctx):
         ctx.attr.runtime_deps,
         ctx.attr.exports,
         ctx.attr.neverlink,
-        ctx.attr.constraints,
         ctx.files.proguard_specs,
     ).values()
 
