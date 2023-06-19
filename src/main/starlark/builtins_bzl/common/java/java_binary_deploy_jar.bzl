@@ -22,9 +22,9 @@ load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/java_helper.bzl", "helper")
+load(":common/java/java_common.bzl", "java_common")
 
 InstrumentedFilesInfo = _builtins.toplevel.InstrumentedFilesInfo
-java_common = _builtins.toplevel.java_common
 
 def create_deploy_archives(
         ctx,

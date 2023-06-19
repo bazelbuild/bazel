@@ -16,7 +16,7 @@
 Definition of JavaPluginInfo provider.
 """
 
-java_common = _builtins.toplevel.java_common
+load(":common/java/java_common.bzl", "java_common")
 
 _JavaPluginDataInfo = provider(
     doc = "Provider encapsulating information about a Java compatible plugin.",

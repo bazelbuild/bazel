@@ -20,8 +20,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/java/java_plugin_info.bzl", "merge_without_outputs")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
-
-java_common = _builtins.toplevel.java_common
+load(":common/java/java_common.bzl", "java_common")
 
 _JavaOutputInfo = provider(
     doc = "The outputs of Java compilation.",

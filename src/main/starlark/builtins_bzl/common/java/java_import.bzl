@@ -22,8 +22,7 @@ load(":common/java/proguard_validation.bzl", "validate_proguard_specs")
 load(":common/java/import_deps_check.bzl", "import_deps_check")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/java/java_info.bzl", "JavaInfo")
-
-java_common = _builtins.toplevel.java_common
+load(":common/java/java_common.bzl", "java_common")
 
 def _filter_provider(provider, *attrs):
     return [dep[provider] for attr in attrs for dep in attr if provider in dep]

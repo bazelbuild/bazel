@@ -24,9 +24,9 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
+load(":common/java/java_common.bzl", "java_common")
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
-java_common = _builtins.toplevel.java_common
 
 InternalDeployJarInfo = provider(
     "Provider for passing info to deploy jar rule",

@@ -16,8 +16,6 @@
 
 load(":common/java/java_semantics.bzl", "semantics")
 
-java_common = _builtins.toplevel.java_common
-
 def android_lint_action(ctx, source_files, source_jars, compilation_info):
     """
     Creates an action that runs Android lint against Java source files.
