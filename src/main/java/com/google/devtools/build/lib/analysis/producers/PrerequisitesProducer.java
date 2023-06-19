@@ -26,10 +26,8 @@ import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyExcepti
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -176,14 +174,16 @@ final class PrerequisitesProducer
       return DONE;
     }
 
-    NestedSetBuilder<Package> transitivePackages =
-        parameters.transitiveState().transitivePackages();
     for (int i = 0; i < configuredTargets.length; ++i) {
       ConfiguredTargetAndData target = configuredTargets[i];
       configuredTargets[i] = null;
       tasks.enqueue(
           new ConfiguredAspectProducer(
-              aspects, target, (ConfiguredAspectProducer.ResultSink) this, i, transitivePackages));
+              aspects,
+              target,
+              (ConfiguredAspectProducer.ResultSink) this,
+              i,
+              parameters.transitiveState()));
     }
     return this::emitMergedTargets;
   }

@@ -37,13 +37,10 @@ import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTa
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
-import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -132,9 +129,9 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws ComputeUnloadedToolchainContextsException, InterruptedException {
       Key key = (Key) skyKey.argument();
-      var state = env.getState(PrerequisiteProducer.State::new);
+      var state =
+          env.getState(() -> new PrerequisiteProducer.State(/* storeTransitivePackages= */ false));
       state.targetAndConfiguration = key.targetAndConfiguration();
-      NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
       DependencyContext result;
       try {
         result =
@@ -142,8 +139,6 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
                 state,
                 key.configuredTargetKey(),
                 stateProvider.lateBoundRuleClassProvider(),
-                TransitiveDependencyState.createForTesting(
-                    transitiveRootCauses, /* transitivePackages= */ null),
                 env,
                 env.getListener());
       } catch (ToolchainException
@@ -152,8 +147,9 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
           | DependencyEvaluationException e) {
         throw new ComputeUnloadedToolchainContextsException(e);
       }
-      if (!transitiveRootCauses.isEmpty()) {
-        throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+      if (!state.transitiveRootCauses().isEmpty()) {
+        throw new IllegalStateException(
+            "expected empty: " + state.transitiveRootCauses().build().toList());
       }
       if (result == null) {
         return null;

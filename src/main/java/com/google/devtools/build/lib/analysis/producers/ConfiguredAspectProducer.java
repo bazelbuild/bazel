@@ -20,11 +20,10 @@ import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.DuplicateException;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -32,7 +31,6 @@ import com.google.devtools.build.skyframe.state.StateMachine;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Computes {@link ConfiguredAspect}s and merges them into a prerequisite. */
 final class ConfiguredAspectProducer implements StateMachine {
@@ -47,7 +45,7 @@ final class ConfiguredAspectProducer implements StateMachine {
   private final ConfiguredTargetAndData prerequisite;
 
   // -------------------- Output --------------------
-  @Nullable private final NestedSetBuilder<Package> transitivePackages;
+  private final TransitiveDependencyState transitiveState;
   private final ResultSink sink;
   private final int outputIndex;
 
@@ -59,12 +57,12 @@ final class ConfiguredAspectProducer implements StateMachine {
       ConfiguredTargetAndData prerequisite,
       ResultSink sink,
       int outputIndex,
-      @Nullable NestedSetBuilder<Package> transitivePackages) {
+      TransitiveDependencyState transitiveState) {
     this.aspects = aspects;
     this.prerequisite = prerequisite;
     this.sink = sink;
     this.outputIndex = outputIndex;
-    this.transitivePackages = transitivePackages;
+    this.transitiveState = transitiveState;
   }
 
   @Override
@@ -87,8 +85,8 @@ final class ConfiguredAspectProducer implements StateMachine {
         continue;
       }
       configuredAspects.add(value.getConfiguredAspect());
-      if (transitivePackages != null) {
-        transitivePackages.addTransitive(value.getTransitivePackages());
+      if (transitiveState.storeTransitivePackages()) {
+        transitiveState.updateTransitivePackages(value.getKey(), value.getTransitivePackages());
       }
     }
     try {

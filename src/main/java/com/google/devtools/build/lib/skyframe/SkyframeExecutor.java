@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
@@ -109,7 +110,6 @@ import com.google.devtools.build.lib.analysis.producers.ConfiguredTargetAndDataP
 import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkBuildSettingsDetailsValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
@@ -118,7 +118,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
-import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -126,7 +125,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
@@ -3888,8 +3886,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
                       .setConfiguration(configuration)
                       .build(),
                   /* transitionKey= */ null,
-                  TransitiveDependencyState.createForTesting(
-                      NestedSetBuilder.<Cause>stableOrder(), /* transitivePackages= */ null),
+                  TransitiveDependencyState.createForTesting(),
                   sink,
                   /* outputIndex= */ 0),
               memoizingEvaluator,

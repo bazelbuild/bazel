@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -100,7 +101,11 @@ public final class ConfiguredTargetAndDataProducer
     if (value != null) {
       var configuredTargetValue = (ConfiguredTargetValue) value;
       this.configuredTarget = configuredTargetValue.getConfiguredTarget();
-      transitiveState.updateTransitivePackages(configuredTargetValue);
+      if (transitiveState.storeTransitivePackages()) {
+        transitiveState.updateTransitivePackages(
+            ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
+            configuredTargetValue.getTransitivePackages());
+      }
       return;
     }
     if (error != null) {

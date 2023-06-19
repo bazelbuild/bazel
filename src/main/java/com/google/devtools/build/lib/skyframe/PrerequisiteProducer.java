@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
@@ -55,7 +56,6 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextError;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducerWithCompatibilityCheck;
 import com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -174,6 +174,8 @@ public final class PrerequisiteProducer {
     @Nullable
     private OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> computeDependenciesResult;
 
+    final TransitiveDependencyState transitiveState;
+
     /**
      * Stores events emitted by memoized computations.
      *
@@ -184,6 +186,19 @@ public final class PrerequisiteProducer {
      * events are stored and replayed when subsequent Skyframe restarts occur.
      */
     final StoredEventHandler storedEvents = new StoredEventHandler();
+
+    public State(boolean storeTransitivePackages) {
+      this.transitiveState =
+          new TransitiveDependencyState(storeTransitivePackages, /* prerequisitePackages= */ null);
+    }
+
+    public NestedSetBuilder<Cause> transitiveRootCauses() {
+      return transitiveState.transitiveRootCauses();
+    }
+
+    public NestedSet<Package> transitivePackages() {
+      return transitiveState.transitivePackages();
+    }
 
     @Override
     public void acceptDependencyContext(DependencyContext value) {
@@ -278,7 +293,6 @@ public final class PrerequisiteProducer {
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
       SemaphoreAcquirer semaphoreLocker,
-      TransitiveDependencyState transitiveState,
       TransitionCollector transitionCollector,
       LookupEnvironment env,
       ExtendedEventHandler listener)
@@ -293,8 +307,7 @@ public final class PrerequisiteProducer {
     semaphoreLocker.acquireSemaphore();
     try {
       var dependencyContext =
-          getDependencyContext(
-              state, configuredTargetKey, ruleClassProvider, transitiveState, env, listener);
+          getDependencyContext(state, configuredTargetKey, ruleClassProvider, env, listener);
       if (dependencyContext == null) {
         return false;
       }
@@ -310,7 +323,7 @@ public final class PrerequisiteProducer {
       // more root causes during computeDependencies.
       // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
       // attributes.
-      NestedSetBuilder<Cause> transitiveRootCauses = transitiveState.transitiveRootCauses();
+      NestedSetBuilder<Cause> transitiveRootCauses = state.transitiveRootCauses();
       if (!transitiveRootCauses.isEmpty()
           && !Objects.equals(configConditions, ConfigConditions.EMPTY)) {
         NestedSet<Cause> causes = transitiveRootCauses.build();
@@ -333,7 +346,6 @@ public final class PrerequisiteProducer {
               /* aspects= */ ImmutableList.of(),
               ruleClassProvider,
               transitionCache,
-              transitiveState,
               transitionCollector,
               env,
               listener);
@@ -367,7 +379,6 @@ public final class PrerequisiteProducer {
       State state,
       ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
-      TransitiveDependencyState transitiveState,
       LookupEnvironment env,
       ExtendedEventHandler listener)
       throws InterruptedException,
@@ -393,7 +404,7 @@ public final class PrerequisiteProducer {
                   targetAndConfiguration,
                   configuredTargetKey,
                   unloadedToolchainContextsInputs,
-                  transitiveState,
+                  state.transitiveState,
                   (DependencyContextProducer.ResultSink) state));
     }
     if (state.dependencyContextProducer.drive(env, listener)) {
@@ -554,7 +565,6 @@ public final class PrerequisiteProducer {
       Iterable<Aspect> aspects,
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
-      TransitiveDependencyState transitiveState,
       TransitionCollector transitionCollector,
       LookupEnvironment env,
       ExtendedEventHandler listener)
@@ -565,6 +575,7 @@ public final class PrerequisiteProducer {
     // Replays stored events unless a Skyframe restart is immediately needed and the events would
     // be unused anyway.
     boolean shouldReplayStoredEvents = true;
+    var transitiveRootCauses = state.transitiveRootCauses();
     try {
       if (state.computeDependenciesResult != null) {
         return state.computeDependenciesResult;
@@ -591,7 +602,7 @@ public final class PrerequisiteProducer {
                         aspects,
                         dependencyContext.configConditions().asProviders(),
                         dependencyContext.toolchainContexts(),
-                        transitiveState.transitiveRootCauses(),
+                        transitiveRootCauses,
                         ((ConfiguredRuleClassProvider) ruleClassProvider)
                             .getTrimmingTransitionFactory(),
                         transitionCollector);
@@ -644,6 +655,10 @@ public final class PrerequisiteProducer {
         return null;
       }
 
+      var transitivePackages =
+          state.transitiveState.storeTransitivePackages()
+              ? NestedSetBuilder.<Package>stableOrder()
+              : null;
       // Resolve configured target dependencies and handle errors.
       Map<ConfiguredTargetKey, ConfiguredTargetAndData> depValues;
       if (state.resolveConfiguredTargetDependenciesResult != null) {
@@ -651,11 +666,7 @@ public final class PrerequisiteProducer {
       } else {
         depValues =
             resolveConfiguredTargetDependencies(
-                env,
-                ctgValue,
-                depValueNames.values(),
-                transitiveState.transitivePackages(),
-                transitiveState.transitiveRootCauses());
+                env, ctgValue, depValueNames.values(), transitivePackages, transitiveRootCauses);
         if (env.valuesMissing()) {
           shouldReplayStoredEvents = false;
           return null;
@@ -666,7 +677,7 @@ public final class PrerequisiteProducer {
       // Resolve required aspects.
       OrderedSetMultimap<Dependency, ConfiguredAspect> depAspects =
           AspectResolver.resolveAspectDependencies(
-              env, depValues, depValueNames.values(), transitiveState.transitivePackages());
+              env, depValues, depValueNames.values(), transitivePackages);
       if (env.valuesMissing()) {
         shouldReplayStoredEvents = false;
         return null;
@@ -683,6 +694,10 @@ public final class PrerequisiteProducer {
       }
       state.computeDependenciesResult = mergeAspectsResult;
 
+      if (transitivePackages != null) {
+        state.transitiveState.setTransitivePackagesBatch(transitivePackages.build());
+      }
+
       // We won't need these anymore.
       state.resolveConfigurationsResult = null;
       state.resolveConfiguredTargetDependenciesResult = null;
@@ -691,7 +706,7 @@ public final class PrerequisiteProducer {
     } catch (InterruptedException e) {
       // In practice, this comes from resolveConfigurations: other InterruptedExceptions are
       // declared for Skyframe value retrievals, which don't throw in reality.
-      if (!transitiveState.transitiveRootCauses().isEmpty()) {
+      if (!transitiveRootCauses.isEmpty()) {
         // Allow caller to throw, don't prioritize interrupt: we may be error bubbling.
         Thread.currentThread().interrupt();
         return null;

@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -418,7 +418,7 @@ public class BuildViewForTesting {
             dependencyContext.configConditions().asProviders(),
             toolchainContexts);
 
-    NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
+    var transitiveState = TransitiveDependencyState.createForTesting();
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
         skyframeExecutor.getConfiguredTargetMapForTesting(
             eventHandler,
@@ -429,11 +429,11 @@ public class BuildViewForTesting {
                 skyframeBuildView.getStarlarkTransitionCache(),
                 toolchainContexts,
                 labels.attributeMap(),
-                TransitiveDependencyState.createForTesting(
-                    transitiveRootCauses, /* transitivePackages= */ null)),
+                transitiveState),
             labels.labels());
-    if (!transitiveRootCauses.isEmpty()) {
-      throw new IllegalStateException("expected empty: " + transitiveRootCauses.build().toList());
+    if (!transitiveState.transitiveRootCauses().isEmpty()) {
+      throw new IllegalStateException(
+          "expected empty: " + transitiveState.transitiveRootCauses().build().toList());
     }
     return result;
   }
@@ -571,7 +571,7 @@ public class BuildViewForTesting {
 
     SkyFunctionEnvironmentForTesting skyfunctionEnvironment =
         new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor);
-    var state = new PrerequisiteProducer.State();
+    var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
     state.targetAndConfiguration =
         new TargetAndConfiguration(target.getAssociatedRule(), configuration);
     NestedSetBuilder<Cause> transitiveRootCauses = NestedSetBuilder.stableOrder();
@@ -583,8 +583,6 @@ public class BuildViewForTesting {
               state,
               ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
               ruleClassProvider,
-              TransitiveDependencyState.createForTesting(
-                  transitiveRootCauses, /* transitivePackages= */ null),
               skyfunctionEnvironment,
               eventHandler);
     } catch (ConfiguredValueCreationException

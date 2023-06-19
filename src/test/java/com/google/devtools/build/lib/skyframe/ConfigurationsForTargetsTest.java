@@ -37,11 +37,9 @@ import com.google.devtools.build.lib.analysis.config.ConfigConditions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
-import com.google.devtools.build.lib.analysis.producers.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -135,7 +133,7 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
       try {
         TargetAndConfiguration targetAndConfiguration = (TargetAndConfiguration) skyKey.argument();
         // Set up the toolchain context so that exec transitions resolve properly.
-        var state = new PrerequisiteProducer.State();
+        var state = new PrerequisiteProducer.State(/* storeTransitivePackages= */ false);
         state.targetAndConfiguration = targetAndConfiguration;
         state.dependencyContext =
             DependencyContext.create(
@@ -160,9 +158,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 /* aspects= */ ImmutableList.of(),
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
-                TransitiveDependencyState.createForTesting(
-                    /* transitiveRootCauses= */ NestedSetBuilder.stableOrder(),
-                    /* transitivePackages= */ null),
                 NULL_TRANSITION_COLLECTOR,
                 env,
                 env.getListener());
