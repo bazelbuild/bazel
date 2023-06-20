@@ -46,8 +46,7 @@ class OnDiskBlobStoreCache extends RemoteCache {
   public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {
     super(
         CAPABILITIES,
-        new DiskCacheClient(
-            cacheDir, /* verifyDownloads= */ true, /* checkActionResult= */ true, digestUtil),
+        new DiskCacheClient(cacheDir, /* verifyDownloads= */ true, digestUtil),
         options,
         digestUtil);
   }

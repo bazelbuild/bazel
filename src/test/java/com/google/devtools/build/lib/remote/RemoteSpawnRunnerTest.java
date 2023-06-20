@@ -52,7 +52,10 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -62,6 +65,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -95,6 +99,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.OutputPermissions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -116,6 +121,7 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -124,20 +130,24 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link com.google.devtools.build.lib.remote.RemoteSpawnRunner} */
 @RunWith(JUnit4.class)
 public class RemoteSpawnRunnerTest {
-  private static final RemoteOutputChecker DUMMY_REMOTE_OUTPUT_CHECKER =
-      new RemoteOutputChecker(
-          new JavaClock(), "build", RemoteOutputsMode.MINIMAL, ImmutableList.of());
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
+  @Mock private RemoteOutputChecker remoteOutputChecker; // download nothing by default.
 
   private final Reporter reporter = new Reporter(new EventBus());
   private static final ImmutableMap<String, String> NO_CACHE =
       ImmutableMap.of(ExecutionRequirements.NO_CACHE, "");
   private ListeningScheduledExecutorService retryService;
 
+  private FileSystem fs;
   private Path execRoot;
+  private ArtifactRoot artifactRoot;
   private TempPathGenerator tempPathGenerator;
   private Path logDir;
   private DigestUtil digestUtil;
@@ -160,9 +170,11 @@ public class RemoteSpawnRunnerTest {
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
     digestUtil = new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
-    FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
+    fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec/root");
     execRoot.createDirectoryAndParents();
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    artifactRoot.getRoot().asPath().createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
     logDir = fs.getPath("/server-logs");
     fakeFileCache = new FakeActionInputFileCache(execRoot);
@@ -235,8 +247,30 @@ public class RemoteSpawnRunnerTest {
         new AbstractSpawnStrategy(execRoot, localRunner, new ExecutionOptions()) {};
     ClassToInstanceMap<ActionContext> actionContextRegistry =
         ImmutableClassToInstanceMap.of(RemoteLocalFallbackRegistry.class, () -> fakeLocalStrategy);
+
+    var actionInputFetcher =
+        new RemoteActionInputFetcher(
+            new Reporter(new EventBus()),
+            "none",
+            "none",
+            cache,
+            execRoot,
+            tempPathGenerator,
+            remoteOutputChecker,
+            OutputPermissions.READONLY);
+
+    var actionFileSystem =
+        new RemoteActionFileSystem(
+            fs,
+            execRoot.asFragment(),
+            artifactRoot.getRoot().asPath().relativeTo(execRoot).getPathString(),
+            new ActionInputMap(0),
+            ImmutableList.of(),
+            StaticInputMetadataProvider.empty(),
+            actionInputFetcher);
+
     return new FakeSpawnExecutionContext(
-        spawn, fakeFileCache, execRoot, outErr, actionContextRegistry);
+        spawn, fakeFileCache, execRoot, outErr, actionContextRegistry, actionFileSystem);
   }
 
   @Test
@@ -1051,7 +1085,7 @@ public class RemoteSpawnRunnerTest {
             executor,
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null,
-            DUMMY_REMOTE_OUTPUT_CHECKER);
+            remoteOutputChecker);
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
@@ -1585,7 +1619,7 @@ public class RemoteSpawnRunnerTest {
                 executor,
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
-                DUMMY_REMOTE_OUTPUT_CHECKER));
+                remoteOutputChecker));
 
     return new RemoteSpawnRunner(
         execRoot,

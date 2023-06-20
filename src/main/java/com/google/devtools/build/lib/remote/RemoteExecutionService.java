@@ -99,7 +99,6 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
-import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -108,7 +107,6 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -150,7 +148,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -859,79 +856,6 @@ public class RemoteExecutionService {
     }
   }
 
-  private void injectRemoteArtifacts(
-      RemoteAction action,
-      ActionResult actionResult,
-      ActionResultMetadata metadata,
-      FileOutErr outErr,
-      long expireAtEpochMilli)
-      throws IOException {
-    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
-    checkState(actionFileSystem instanceof RemoteActionFileSystem);
-
-    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
-
-    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      DirectoryMetadata directory = entry.getValue();
-      for (FileMetadata file : directory.files()) {
-        remoteActionFileSystem.injectRemoteFile(
-            file.path().asFragment(),
-            DigestUtil.toBinaryDigest(file.digest()),
-            file.digest().getSizeBytes(),
-            expireAtEpochMilli);
-      }
-    }
-
-    for (FileMetadata file : metadata.files()) {
-      remoteActionFileSystem.injectRemoteFile(
-          file.path().asFragment(),
-          DigestUtil.toBinaryDigest(file.digest()),
-          file.digest().getSizeBytes(),
-          expireAtEpochMilli);
-    }
-
-    // Inject the metadata for the stdout/stderr, which could be inputs to a followup spawn in the
-    // same action (as is the case e.g. with test rules).
-
-    maybeInjectRemoteArtifactForStdoutOrStderr(
-        remoteActionFileSystem,
-        outErr.getOutputPath(),
-        actionResult.hasStdoutDigest() ? actionResult.getStdoutDigest() : null,
-        actionResult.getStdoutRaw().size(),
-        expireAtEpochMilli);
-
-    maybeInjectRemoteArtifactForStdoutOrStderr(
-        remoteActionFileSystem,
-        outErr.getErrorPath(),
-        actionResult.hasStderrDigest() ? actionResult.getStderrDigest() : null,
-        actionResult.getStderrRaw().size(),
-        expireAtEpochMilli);
-  }
-
-  private void maybeInjectRemoteArtifactForStdoutOrStderr(
-      RemoteActionFileSystem remoteActionFileSystem,
-      Path path,
-      @Nullable Digest digest,
-      long inlinedSize,
-      long expireAtEpochMilli)
-      throws IOException {
-    if (digest != null) {
-      remoteActionFileSystem.injectRemoteFile(
-          path.asFragment(),
-          DigestUtil.toBinaryDigest(digest),
-          digest.getSizeBytes(),
-          expireAtEpochMilli);
-    } else if (inlinedSize > 0) {
-      // If we didn't get a digest back from the service, but we did get the inlined contents,
-      // compute the digest from the output file previously written by downloadOutputs.
-      remoteActionFileSystem.injectRemoteFile(
-          path.asFragment(),
-          DigestUtils.manuallyComputeDigest(path, inlinedSize),
-          inlinedSize,
-          expireAtEpochMilli);
-    }
-  }
-
   /** In-memory representation of action result metadata. */
   static class ActionResultMetadata {
 
@@ -1131,21 +1055,30 @@ public class RemoteExecutionService {
   }
 
   /**
-   * Download the output files and directory trees of a remotely executed action, as well stdin /
-   * stdout to the local machine.
+   * Downloads the outputs of a remotely executed action and injects their metadata.
    *
-   * <p>If minimal download mode is determined, this method avoids downloading the majority of
-   * action outputs by inject their metadata. In this case, this method only downloads output
-   * directory metadata, stdout and stderr as well as the contents of {@code
-   * ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS} if specified.
+   * <p>For a successful action, the {@link RemoteOutputChecker} is consulted to determine which of
+   * the outputs should be downloaded. For a failed action, all outputs are downloaded. The action
+   * stdout and stderr, as well as the in-memory output when present, are always downloaded even in
+   * the success case. Any outputs that are not downloaded have their metadata injected into the
+   * {@link RemoteActionFileSystem}.
    *
-   * <p>In case of failure, this method deletes any output files it might have already created.
+   * <p>In case of download failure, all of the already downloaded outputs are deleted.
+   *
+   * @return The in-memory output if the spawn had one, otherwise null.
    */
   @Nullable
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkNotNull(remoteCache, "remoteCache can't be null");
+
+    FileSystem actionFileSystem = action.getSpawnExecutionContext().getActionFileSystem();
+    checkState(
+        actionFileSystem instanceof RemoteActionFileSystem,
+        "expected the ActionFileSystem to be a RemoteActionFileSystem");
+
+    RemoteActionFileSystem remoteActionFileSystem = (RemoteActionFileSystem) actionFileSystem;
 
     ProgressStatusListener progressStatusListener = action.getSpawnExecutionContext()::report;
     RemoteActionExecutionContext context = action.getRemoteActionExecutionContext();
@@ -1159,27 +1092,57 @@ public class RemoteExecutionService {
       metadata = parseActionResultMetadata(context, result);
     }
 
-    FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
+    // The expiration time for remote cache entries.
+    var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
 
+    // Collect the set of files to download.
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
-
-    boolean downloadOutputs = shouldDownloadOutputsFor(action, result);
 
     // Download into temporary paths, then move everything at the end.
     // This avoids holding the output lock while downloading, which would prevent the local branch
     // from completing sooner under the dynamic execution strategy.
     Map<Path, Path> realToTmpPath = new HashMap<>();
 
-    if (downloadOutputs) {
-      downloadsBuilder.addAll(
-          buildFilesToDownload(context, progressStatusListener, metadata, realToTmpPath));
-    } else {
-      checkState(
-          result.getExitCode() == 0,
-          "injecting remote metadata is only supported for successful actions (exit code 0).");
+    for (FileMetadata file : metadata.files()) {
+      if (realToTmpPath.containsKey(file.path)) {
+        continue;
+      }
+      if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        realToTmpPath.put(file.path, tmpPath);
+        downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
+      } else {
+        remoteActionFileSystem.injectRemoteFile(
+            file.path().asFragment(),
+            DigestUtil.toBinaryDigest(file.digest()),
+            file.digest().getSizeBytes(),
+            expireAtEpochMilli);
+      }
     }
 
+    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
+      for (FileMetadata file : entry.getValue().files()) {
+        if (realToTmpPath.containsKey(file.path)) {
+          continue;
+        }
+        if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+          Path tmpPath = tempPathGenerator.generateTempPath();
+          realToTmpPath.put(file.path, tmpPath);
+          downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
+        } else {
+          remoteActionFileSystem.injectRemoteFile(
+              file.path().asFragment(),
+              DigestUtil.toBinaryDigest(file.digest()),
+              file.digest().getSizeBytes(),
+              expireAtEpochMilli);
+        }
+      }
+    }
+
+    FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
+
+    // Always download the action stdout/stderr.
     FileOutErr tmpOutErr = outErr.childOutErr();
     List<ListenableFuture<Void>> outErrDownloads =
         remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
@@ -1209,41 +1172,7 @@ public class RemoteExecutionService {
     tmpOutErr.clearOut();
     tmpOutErr.clearErr();
 
-    if (downloadOutputs) {
-      moveOutputsToFinalLocation(downloads, realToTmpPath);
-    } else {
-      ActionInput inMemoryOutput = null;
-      Digest inMemoryOutputDigest = null;
-      PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
-
-      for (ActionInput output : action.getSpawn().getOutputFiles()) {
-        if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
-          Path localPath = remotePathResolver.outputPathToLocalPath(output);
-          FileMetadata m = metadata.file(localPath);
-          if (m == null) {
-            // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
-            // outputs were created.
-            continue;
-          }
-          inMemoryOutputDigest = m.digest();
-          inMemoryOutput = output;
-        }
-      }
-
-      var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
-      injectRemoteArtifacts(action, result.actionResult, metadata, outErr, expireAtEpochMilli);
-
-      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
-        if (inMemoryOutput != null) {
-          ListenableFuture<byte[]> inMemoryOutputDownload =
-              remoteCache.downloadBlob(context, inMemoryOutputDigest);
-          waitForBulkTransfer(
-              ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
-          byte[] data = getFromFuture(inMemoryOutputDownload);
-          return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
-        }
-      }
-    }
+    moveOutputsToFinalLocation(downloads, realToTmpPath);
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
     for (Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
@@ -1313,68 +1242,45 @@ public class RemoteExecutionService {
       }
     }
 
+    ActionInput inMemoryOutput = null;
+    Digest inMemoryOutputDigest = null;
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+
+    for (ActionInput output : action.getSpawn().getOutputFiles()) {
+      if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
+        Path localPath = remotePathResolver.outputPathToLocalPath(output);
+        FileMetadata m = metadata.file(localPath);
+        if (m == null) {
+          // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
+          // outputs were created.
+          continue;
+        }
+        inMemoryOutputDigest = m.digest();
+        inMemoryOutput = output;
+      }
+    }
+
+    if (inMemoryOutput != null) {
+      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
+        ListenableFuture<byte[]> inMemoryOutputDownload =
+            remoteCache.downloadBlob(context, inMemoryOutputDigest);
+        waitForBulkTransfer(
+            ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
+        byte[] data = getFromFuture(inMemoryOutputDownload);
+        return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
+      }
+    }
+
     return null;
   }
 
-  private boolean shouldDownloadOutputsFor(RemoteAction action, RemoteActionResult result) {
-    if (remoteOptions.remoteOutputsMode == RemoteOutputsMode.ALL) {
-      return true;
-    }
+  private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
     // In case the action failed, download all outputs. It might be helpful for debugging and there
     // is no point in injecting output metadata of a failed action.
     if (result.getExitCode() != 0) {
       return true;
     }
-
-    checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
-    for (var output : action.getSpawn().getOutputFiles()) {
-      if (remoteOutputChecker.shouldDownloadOutput(output)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownload(
-      RemoteActionExecutionContext context,
-      ProgressStatusListener progressStatusListener,
-      ActionResultMetadata metadata,
-      Map<Path, Path> realToTmpPath) {
-    Predicate<String> alwaysTrue = unused -> true;
-    return buildFilesToDownloadWithPredicate(
-        context, progressStatusListener, metadata, alwaysTrue, realToTmpPath);
-  }
-
-  private ImmutableList<ListenableFuture<FileMetadata>> buildFilesToDownloadWithPredicate(
-      RemoteActionExecutionContext context,
-      ProgressStatusListener progressStatusListener,
-      ActionResultMetadata metadata,
-      Predicate<String> predicate,
-      Map<Path, Path> realToTmpPath) {
-    ImmutableList.Builder<ListenableFuture<FileMetadata>> builder = new ImmutableList.Builder<>();
-
-    for (FileMetadata file : metadata.files()) {
-      if (!realToTmpPath.containsKey(file.path)
-          && predicate.test(file.path.relativeTo(execRoot).toString())) {
-        Path tmpPath = tempPathGenerator.generateTempPath();
-        realToTmpPath.put(file.path, tmpPath);
-        builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
-      }
-    }
-
-    for (Map.Entry<Path, DirectoryMetadata> entry : metadata.directories()) {
-      for (FileMetadata file : entry.getValue().files()) {
-        if (!realToTmpPath.containsKey(file.path)
-            && predicate.test(file.path.relativeTo(execRoot).toString())) {
-          Path tmpPath = tempPathGenerator.generateTempPath();
-          realToTmpPath.put(file.path, tmpPath);
-          builder.add(downloadFile(context, progressStatusListener, file, tmpPath));
-        }
-      }
-    }
-
-    return builder.build();
+    return remoteOutputChecker.shouldDownloadOutput(execPath);
   }
 
   private static String prettyPrint(ActionInput actionInput) {

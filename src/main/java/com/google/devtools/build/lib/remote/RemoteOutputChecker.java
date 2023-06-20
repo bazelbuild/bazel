@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.ConcurrentPathTrie;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -51,7 +53,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private final Clock clock;
   private final CommandMode commandMode;
-  private final boolean downloadToplevel;
+  private final RemoteOutputsMode outputsMode;
   private final ImmutableList<Pattern> patternsToDownload;
   private final ConcurrentPathTrie pathsToDownload = new ConcurrentPathTrie();
 
@@ -77,7 +79,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
       default:
         this.commandMode = CommandMode.UNKNOWN;
     }
-    this.downloadToplevel = outputsMode == RemoteOutputsMode.TOPLEVEL;
+    this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
   }
 
@@ -85,11 +87,19 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   public void afterTopLevelTargetAnalysis(
       ConfiguredTarget configuredTarget,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     addTopLevelTarget(configuredTarget, configuredTarget, topLevelArtifactContextSupplier);
   }
 
   // Skymeld-only.
   public void afterTestAnalyzedEvent(ConfiguredTarget configuredTarget) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     addTargetUnderTest(configuredTarget);
   }
 
@@ -97,16 +107,29 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
   public void afterAspectAnalysis(
       ConfiguredAspect configuredAspect,
       Supplier<TopLevelArtifactContext> topLevelArtifactContextSupplier) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     addTopLevelTarget(
         configuredAspect, /* configuredTarget= */ null, topLevelArtifactContextSupplier);
   }
 
-  // Skymeld-only
+  // Skymeld-only.
   public void coverageArtifactsKnown(ImmutableSet<Artifact> coverageArtifacts) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     maybeAddCoverageArtifacts(coverageArtifacts);
   }
 
+  // Non-Skymeld only.
   public void afterAnalysis(AnalysisResult analysisResult) {
+    if (outputsMode == RemoteOutputsMode.ALL) {
+      // For ALL, there's no need to keep track of toplevel targets - we download everything.
+      return;
+    }
     for (var target : analysisResult.getTargetsToBuild()) {
       addTopLevelTarget(target, target, analysisResult::getTopLevelContext);
     }
@@ -170,7 +193,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
 
   private void addTargetUnderTest(ProviderCollection target) {
     TestProvider testProvider = checkNotNull(target.getProvider(TestProvider.class));
-    if (downloadToplevel && commandMode == CommandMode.TEST) {
+    if (outputsMode != RemoteOutputsMode.MINIMAL && commandMode == CommandMode.TEST) {
       // In test mode, download the outputs of the test runner action.
       addOutputsToDownload(testProvider.getTestParams().getOutputs());
     }
@@ -218,33 +241,36 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
         if (configuredTarget instanceof RuleConfiguredTarget) {
           var ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
           var isTestRule = isTestRuleName(ruleConfiguredTarget.getRuleClassString());
-          return !isTestRule && downloadToplevel;
+          return !isTestRule && outputsMode != RemoteOutputsMode.MINIMAL;
         }
-        return downloadToplevel;
+        return outputsMode != RemoteOutputsMode.MINIMAL;
       default:
-        return downloadToplevel;
+        return outputsMode != RemoteOutputsMode.MINIMAL;
     }
   }
 
-  private boolean matchesPattern(ActionInput output) {
-    if (output instanceof Artifact && ((Artifact) output).isTreeArtifact()) {
-      return false;
-    }
-
+  private boolean matchesPattern(PathFragment execPath) {
     for (var pattern : patternsToDownload) {
-      if (pattern.matcher(output.getExecPathString()).matches()) {
+      if (pattern.matcher(execPath.toString()).matches()) {
         return true;
       }
     }
-
     return false;
   }
 
-  /**
-   * Returns {@code true} if Bazel should download this {@link ActionInput} during spawn execution.
-   */
+  /** Returns whether this {@link ActionInput} should be downloaded. */
   public boolean shouldDownloadOutput(ActionInput output) {
-    return pathsToDownload.contains(output.getExecPath()) || matchesPattern(output);
+    checkState(
+        !(output instanceof Artifact && ((Artifact) output).isTreeArtifact()),
+        "shouldDownloadOutput should not be called on a tree artifact");
+    return shouldDownloadOutput(output.getExecPath());
+  }
+
+  /** Returns whether an {@link ActionInput} with the given path should be downloaded. */
+  public boolean shouldDownloadOutput(PathFragment execPath) {
+    return outputsMode == RemoteOutputsMode.ALL
+        || pathsToDownload.contains(execPath)
+        || matchesPattern(execPath);
   }
 
   @Override
