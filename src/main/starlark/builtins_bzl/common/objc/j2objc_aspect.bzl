@@ -179,10 +179,10 @@ def _dep_j2objc_mapping_file_provider(ctx):
     deps = getattr(ctx.rule.attr, "deps", []) + getattr(ctx.rule.attr, "runtime_deps", []) + getattr(ctx.rule.attr, "exports", [])
     providers = [dep[J2ObjcMappingFileInfo] for dep in deps if J2ObjcMappingFileInfo in dep]
     for provider in providers:
-        transitive_header_mapping_files.extend(provider.header_mapping_files)
-        transitive_class_mapping_files.extend(provider.class_mapping_files)
-        transitive_dependency_mapping_files.extend(provider.dependency_mapping_files)
-        transitive_archive_source_mapping_files.extend(provider.archive_source_mapping_files)
+        transitive_header_mapping_files.append(provider.header_mapping_files)
+        transitive_class_mapping_files.append(provider.class_mapping_files)
+        transitive_dependency_mapping_files.append(provider.dependency_mapping_files)
+        transitive_archive_source_mapping_files.append(provider.archive_source_mapping_files)
 
     return J2ObjcMappingFileInfo(
         header_mapping_files = depset([], transitive = transitive_header_mapping_files),
@@ -194,18 +194,22 @@ def _dep_j2objc_mapping_file_provider(ctx):
 def _exported_j2objc_mapping_file_provider(target, ctx, direct_j2objc_mapping_file_provider):
     dep_j2objc_mapping_file_provider = _dep_j2objc_mapping_file_provider(ctx)
 
+    transitive_header_mapping_files = []
     transitive_class_mapping_files = []
     transitive_dependency_mapping_files = []
     transitive_archive_source_mapping_files = []
-    for provider in direct_j2objc_mapping_file_provider + dep_j2objc_mapping_file_provider:
-        transitive_class_mapping_files.extend(provider.class_mapping_files)
-        transitive_dependency_mapping_files.extend(provider.dependency_mapping_files)
-        transitive_archive_source_mapping_files.extend(provider.archive_source_mapping_files)
 
-    transitive_header_mapping_files = direct_j2objc_mapping_file_provider.header_mapping_files
+    transitive_header_mapping_files.append(direct_j2objc_mapping_file_provider.header_mapping_files)
+    transitive_class_mapping_files.append(direct_j2objc_mapping_file_provider.class_mapping_files)
+    transitive_dependency_mapping_files.append(direct_j2objc_mapping_file_provider.dependency_mapping_files)
+    transitive_archive_source_mapping_files.append(direct_j2objc_mapping_file_provider.archive_source_mapping_files)
+
     experimental_j2objc_header_map = ctx.fragments.j2objc.experimental_j2objc_header_map()
     if ProtoInfo in target or len(transitive_header_mapping_files) == 0 or experimental_j2objc_header_map:
-        transitive_header_mapping_files.extend(dep_j2objc_mapping_file_provider.header_mapping_files)
+        transitive_header_mapping_files.append(dep_j2objc_mapping_file_provider.header_mapping_files)
+    transitive_class_mapping_files.append(dep_j2objc_mapping_file_provider.class_mapping_files)
+    transitive_dependency_mapping_files.append(dep_j2objc_mapping_file_provider.dependency_mapping_files)
+    transitive_archive_source_mapping_files.append(dep_j2objc_mapping_file_provider.archive_source_mapping_files)
 
     return J2ObjcMappingFileInfo(
         header_mapping_files = depset([], transitive = transitive_header_mapping_files),
