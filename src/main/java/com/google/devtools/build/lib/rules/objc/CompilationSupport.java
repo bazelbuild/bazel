@@ -380,11 +380,14 @@ public class CompilationSupport implements StarlarkValue {
     return this;
   }
 
-  private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
-    if (Iterables.contains(extraLinkArgs, "-dynamiclib")) {
+  private StrippingType getStrippingType(
+      ExtraLinkArgs extraLinkArgs, FeatureConfiguration featureConfiguration) {
+    if (Iterables.contains(extraLinkArgs, "-dynamiclib")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_DYLIB_FEATURE)) {
       return StrippingType.DYNAMIC_LIB;
     }
-    if (Iterables.contains(extraLinkArgs, "-bundle")) {
+    if (Iterables.contains(extraLinkArgs, "-bundle")
+        || featureConfiguration.isEnabled(ObjcRuleClasses.LINK_BUNDLE_FEATURE)) {
       return StrippingType.LOADABLE_BUNDLE;
     }
     if (Iterables.contains(extraLinkArgs, "-kext")) {
@@ -740,7 +743,8 @@ public class CompilationSupport implements StarlarkValue {
         inputFileList);
 
     if (cppConfiguration.objcShouldStripBinary()) {
-      registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
+      registerBinaryStripAction(
+          binaryToLink, getStrippingType(extraLinkArgs, featureConfiguration));
     }
 
     return this;
