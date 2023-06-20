@@ -56,7 +56,7 @@ def _bazel_java_proto_aspect_impl(target, ctx):
             target[ProtoInfo],
             proto_toolchain_info,
             [source_jar],
-            source_jar,
+            experimental_output_files = "single",
         )
 
     # Compile Java sources (or just merge if there aren't any)

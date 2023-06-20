@@ -40,6 +40,7 @@ def _rule_impl(ctx):
         ),
         ProtoLangToolchainInfo(
             out_replacement_format_flag = flag,
+            output_files = ctx.attr.output_files,
             plugin_format_flag = ctx.attr.plugin_format_flag,
             plugin = plugin,
             runtime = ctx.attr.runtime,
@@ -59,6 +60,7 @@ def make_proto_lang_toolchain(custom_proto_compiler):
                 "progress_message": attr.string(default = "Generating proto_library %{label}"),
                 "mnemonic": attr.string(default = "GenProto"),
                 "command_line": attr.string(mandatory = True),
+                "output_files": attr.string(values = ["single", "multiple", "legacy"], default = "legacy"),
                 "plugin_format_flag": attr.string(),
                 "plugin": attr.label(
                     executable = True,

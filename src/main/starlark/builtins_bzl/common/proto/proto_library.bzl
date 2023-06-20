@@ -193,6 +193,7 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
             args.add_joined("--allowed_public_imports", public_import_protos, map_each = get_import_path, join_with = ":")
     proto_lang_toolchain_info = proto_common.ProtoLangToolchainInfo(
         out_replacement_format_flag = "--descriptor_set_out=%s",
+        output_files = "single",
         mnemonic = "GenProtoDescriptorSet",
         progress_message = "Generating Descriptor Set proto_library %{label}",
         proto_compiler = ctx.executable._proto_compiler,
@@ -204,7 +205,6 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
         proto_info,
         proto_lang_toolchain_info,
         generated_files = [descriptor_set],
-        plugin_output = descriptor_set,
         additional_inputs = dependencies_descriptor_sets,
         additional_args = args,
     )
