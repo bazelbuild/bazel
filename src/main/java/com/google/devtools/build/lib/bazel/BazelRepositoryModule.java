@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpec;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
 import com.google.devtools.build.lib.bazel.commands.ModqueryCommand;
 import com.google.devtools.build.lib.bazel.commands.SyncCommand;
@@ -590,7 +591,7 @@ public class BazelRepositoryModule extends BlazeModule {
             BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE, bazelCompatibilityMode),
         PrecomputedValue.injected(BazelLockFileFunction.LOCKFILE_MODE, bazelLockfileMode),
         PrecomputedValue.injected(
-            BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
+            YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, allowedYankedVersions));
   }
 
   @Override

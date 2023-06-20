@@ -168,7 +168,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         (ClientEnvironmentValue)
             env.getValue(
                 ClientEnvironmentFunction.key(
-                    BazelModuleResolutionFunction.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
+                    YankedVersionsUtil.BZLMOD_ALLOWED_YANKED_VERSIONS_ENV));
     if (allowedYankedVersionsFromEnv == null) {
       return null;
     }
@@ -180,7 +180,7 @@ public class BazelDepGraphFunction implements SkyFunction {
                 toImmutableMap(e -> e.getKey(), e -> ((LocalPathOverride) e.getValue()).getPath()));
 
     ImmutableList<String> yankedVersions =
-        ImmutableList.copyOf(BazelModuleResolutionFunction.ALLOWED_YANKED_VERSIONS.get(env));
+        ImmutableList.copyOf(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env));
     Boolean ignoreDevDeps = ModuleFileFunction.IGNORE_DEV_DEPS.get(env);
     String compatabilityMode =
         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.get(env).name();
