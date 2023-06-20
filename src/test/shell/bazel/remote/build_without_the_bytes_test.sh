@@ -1782,11 +1782,18 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
-      --experimental_remote_cache_eviction_retries=5 \
+      --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log || fail "Failed to build"
 
   expect_log 'Failed to fetch blobs because they do not exist remotely.'
   expect_log "Found remote cache eviction error, retrying the build..."
+
+  local invocation_ids=$(grep "Invocation ID:" $TEST_log)
+  local first_id=$(echo "$invocation_ids" | head -n 1)
+  local second_id=$(echo "$invocation_ids" | tail -n 1)
+  if [ "$first_id" == "$second_id" ]; then
+    fail "Invocation IDs are the same"
+  fi
 }
 
 function test_remote_cache_eviction_retries_with_fixed_invocation_id() {
@@ -1842,7 +1849,7 @@ EOF
       --invocation_id=91648f28-6081-4af7-9374-cdfd3cd36ef2 \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
-      --experimental_remote_cache_eviction_retries=5 \
+      --experimental_remote_cache_eviction_retries=1 \
       //a:bar >& $TEST_log && fail "Expected build to fail"
 
   expect_log 'Failed to fetch blobs because they do not exist remotely.'
