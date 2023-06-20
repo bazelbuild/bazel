@@ -20,6 +20,7 @@ load(":common/paths.bzl", "paths")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/java/java_semantics.bzl", java_semantics = "semantics")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
@@ -397,6 +398,7 @@ def _common(
         other_deps,
         compile_with_arc):
     compilation_artifacts = None
+    has_module_map = False
     if transpiled_sources or transpiled_headers:
         if compile_with_arc:
             compilation_artifacts = objc_internal.j2objc_create_compilation_artifacts(
@@ -412,6 +414,7 @@ def _common(
                 hdrs = transpiled_headers,
                 intermediate_artifacts = intermediate_artifacts,
             )
+        has_module_map = True
 
     deps = []
     for dep_attr in dependent_attributes:
@@ -429,7 +432,7 @@ def _common(
     ) = objc_common.create_context_and_provider(
         ctx = ctx,
         compilation_artifacts = compilation_artifacts,
-        has_module_map = True,
+        has_module_map = has_module_map,
         deps = deps + other_deps,
         intermediate_artifacts = intermediate_artifacts,
         includes = header_search_paths,
@@ -497,7 +500,9 @@ def _build_aspect(
             compile_with_arc = j2objc_source.compile_with_arc,
         )
         cc_compilation_context = common.objc_compilation_context.create_cc_compilation_context()
-        cc_linking_context = common.objc_linking_context.cc_linking_contexts
+        cc_linking_context = cc_common.merge_linking_contexts(
+            linking_contexts = common.objc_linking_context.cc_linking_contexts,
+        )
 
     return [
         _exported_j2objc_mapping_file_provider(target, ctx, direct_j2objc_mapping_file_provider),
