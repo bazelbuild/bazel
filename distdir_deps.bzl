@@ -328,16 +328,16 @@ DIST_DEPS = {
         "strip_prefix": "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     },
     "rules_license": {
-        "archive": "rules_license-0.0.3.tar.gz",
-        "sha256": "00ccc0df21312c127ac4b12880ab0f9a26c1cff99442dc6c5a331750360de3c3",
+        "archive": "rules_license-0.0.7.tar.gz",
+        "sha256": "4531deccb913639c30e5c7512a054d5d875698daeb75d8cf90f284375fe7c360",
         "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/0.0.3/rules_license-0.0.3.tar.gz",
-            "https://github.com/bazelbuild/rules_license/releases/download/0.0.3/rules_license-0.0.3.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz",
+            "https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz",
         ],
         "used_in": [
             "additional_distfiles",
         ],
-        "package_version": "0.0.3",
+        "package_version": "0.0.7",
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.8.0.tar.gz",
