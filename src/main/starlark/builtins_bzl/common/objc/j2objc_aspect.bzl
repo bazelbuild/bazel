@@ -268,13 +268,13 @@ def _create_j2objc_transpilation_action(
     archive_source_mapping_file = ctx.actions.declare_file(ctx.label.name + ".archive_source_mapping.j2objc")
     args.add("--output_archive_source_mapping_file", archive_source_mapping_file)
 
-    compiled_library = objc_internal.j2objc_create_intermediate_artifacts(ctx = ctx)
+    compiled_library = objc_internal.j2objc_create_intermediate_artifacts(ctx = ctx).archive()
     args.add("--compiled_archive_file_path", compiled_library)
 
     boothclasspath_jar = ctx.file._jre_emul_jar
     args.add("-Xbootclasspath:" + boothclasspath_jar.short_path)
 
-    module_files = [m for target in getattr(ctx.rule.attr, "_jre_emul_module", []) for m in target.files.to_list()]
+    module_files = ctx.attr._jre_emul_module.files.to_list()
     for file in module_files:
         if file.basename == "release":
             args.add("--system", file.dirname)
