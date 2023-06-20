@@ -537,6 +537,8 @@ public class CompilationSupport implements StarlarkValue {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException {
     ObjcProvider objcProviderWithLinkingInfo = null;
@@ -585,12 +587,22 @@ public class CompilationSupport implements StarlarkValue {
     // CppLinkAction too, so create it now.
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
 
+    ImmutableSet<String> allRequestedFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getFeatures())
+            .addAll(extraRequestedFeatures)
+            .build();
+    ImmutableSet<String> allDisabledFeatures =
+        new ImmutableSet.Builder<String>()
+            .addAll(ruleContext.getDisabledFeatures())
+            .addAll(extraDisabledFeatures)
+            .build();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(
             ruleContext,
             buildConfiguration,
-            ruleContext.getFeatures(),
-            ruleContext.getDisabledFeatures(),
+            allRequestedFeatures,
+            allDisabledFeatures,
             Language.OBJC,
             toolchain,
             cppSemantics);

@@ -258,6 +258,8 @@ public class AppleStarlarkCommon
       Object avoidDeps,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
+      Sequence<?> extraRequestedFeatures,
+      Sequence<?> extraDisabledFeatures,
       StarlarkInt stamp,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
@@ -277,6 +279,8 @@ public class AppleStarlarkCommon
               avoidDepsList,
               ImmutableList.copyOf(Sequence.cast(extraLinkopts, String.class, "extra_linkopts")),
               Sequence.cast(extraLinkInputs, Artifact.class, "extra_link_inputs"),
+              Sequence.cast(extraRequestedFeatures, String.class, "extra_requested_features"),
+              Sequence.cast(extraDisabledFeatures, String.class, "extra_disabled_features"),
               isStampingEnabled);
       return createStarlarkLinkingOutputs(linkingOutputs, thread);
     } catch (RuleErrorException | ActionConflictException exception) {

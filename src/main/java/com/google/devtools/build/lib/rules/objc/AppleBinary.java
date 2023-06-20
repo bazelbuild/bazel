@@ -67,6 +67,8 @@ public class AppleBinary {
       ImmutableList<TransitiveInfoCollection> avoidDeps,
       Iterable<String> extraLinkopts,
       Iterable<Artifact> extraLinkInputs,
+      Iterable<String> extraRequestedFeatures,
+      Iterable<String> extraDisabledFeatures,
       boolean isStampingEnabled)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     Map<Optional<String>, List<ConfiguredTargetAndData>> splitDeps =
@@ -137,6 +139,8 @@ public class AppleBinary {
               dependencySpecificConfiguration,
               new ExtraLinkArgs(allLinkopts.build()),
               allLinkInputs.build(),
+              extraRequestedFeatures,
+              extraDisabledFeatures,
               isStampingEnabled,
               propagatedDeps,
               outputGroupCollector);
