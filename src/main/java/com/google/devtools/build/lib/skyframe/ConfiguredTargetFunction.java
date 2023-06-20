@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationIdMessage;
 import static com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector.NULL_TRANSITION_COLLECTOR;
 import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.configurationIdMessage;
 
@@ -432,9 +433,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                       (event) ->
                           new AnalysisFailedCause(
                               target.getLabel(),
-                              configuration == null
-                                  ? null
-                                  : configuration.getEventId().getConfiguration(),
+                              configurationIdMessage(configuration),
                               createDetailedExitCode(event.getMessage())))
                   .collect(Collectors.toList()));
       throw new ConfiguredValueCreationException(

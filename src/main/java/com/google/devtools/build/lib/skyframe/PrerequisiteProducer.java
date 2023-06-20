@@ -612,11 +612,16 @@ public final class PrerequisiteProducer {
                     configuration, label, e.getMessage()));
             throw new DependencyEvaluationException(
                 new ConfiguredValueCreationException(
-                    e.getLocation(), e.getMessage(), label, configuration.getEventId(), null, null),
+                    e.getLocation(),
+                    e.getMessage(),
+                    label,
+                    configurationId(configuration),
+                    null,
+                    null),
                 // These errors occur within DependencyResolver, which is attached to the current
                 // target. i.e. no dependent ConfiguredTargetFunction call happens to report its own
                 // error.
-                /*depReportedOwnError=*/ false);
+                /* depReportedOwnError= */ false);
           } catch (InconsistentAspectOrderException e) {
             throw new DependencyEvaluationException(e);
           }
