@@ -20,17 +20,25 @@ import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFact
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_MAP;
 import static com.google.devtools.build.lib.bazel.bzlmod.DelegateTypeAdapterFactory.IMMUTABLE_SET;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
 import com.google.gson.TypeAdapter;
+import com.google.gson.TypeAdapterFactory;
+import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.io.IOException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * Utility class to hold type adapters and helper methods to get gson registered with type adapters
@@ -88,6 +96,56 @@ public final class GsonTypeAdapterUtil {
         }
       };
 
+  public static final TypeAdapterFactory OPTIONAL =
+      new TypeAdapterFactory() {
+        @Nullable
+        @Override
+        @SuppressWarnings("unchecked")
+        public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> typeToken) {
+          if (typeToken.getRawType() != Optional.class) {
+            return null;
+          }
+          Type type = typeToken.getType();
+          if (!(type instanceof ParameterizedType)) {
+            return null;
+          }
+          Type elementType = ((ParameterizedType) typeToken.getType()).getActualTypeArguments()[0];
+          var elementTypeAdapter = gson.getAdapter(TypeToken.get(elementType));
+          if (elementTypeAdapter == null) {
+            return null;
+          }
+          return (TypeAdapter<T>) new OptionalTypeAdapter<>(elementTypeAdapter);
+        }
+      };
+
+  private static final class OptionalTypeAdapter<T> extends TypeAdapter<Optional<T>> {
+    private final TypeAdapter<T> elementTypeAdapter;
+
+    public OptionalTypeAdapter(TypeAdapter<T> elementTypeAdapter) {
+      this.elementTypeAdapter = elementTypeAdapter;
+    }
+
+    @Override
+    public void write(JsonWriter jsonWriter, Optional<T> t) throws IOException {
+      Preconditions.checkNotNull(t);
+      if (t.isEmpty()) {
+        jsonWriter.nullValue();
+      } else {
+        elementTypeAdapter.write(jsonWriter, t.get());
+      }
+    }
+
+    @Override
+    public Optional<T> read(JsonReader jsonReader) throws IOException {
+      if (jsonReader.peek() == JsonToken.NULL) {
+        jsonReader.nextNull();
+        return Optional.empty();
+      } else {
+        return Optional.of(elementTypeAdapter.read(jsonReader));
+      }
+    }
+  }
+
   public static final Gson LOCKFILE_GSON =
       new GsonBuilder()
           .setPrettyPrinting()
@@ -98,6 +156,7 @@ public final class GsonTypeAdapterUtil {
           .registerTypeAdapterFactory(IMMUTABLE_LIST)
           .registerTypeAdapterFactory(IMMUTABLE_BIMAP)
           .registerTypeAdapterFactory(IMMUTABLE_SET)
+          .registerTypeAdapterFactory(OPTIONAL)
           .registerTypeAdapter(Version.class, VERSION_TYPE_ADAPTER)
           .registerTypeAdapter(ModuleKey.class, MODULE_KEY_TYPE_ADAPTER)
           .registerTypeAdapter(AttributeValues.class, new AttributeValuesAdapter())
