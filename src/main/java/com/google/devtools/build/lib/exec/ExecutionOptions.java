@@ -292,14 +292,6 @@ public class ExecutionOptions extends OptionsBase {
   public TestSummaryFormat testSummary;
 
   @Option(
-      name = "resource_autosense",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "This flag has no effect, and is deprecated")
-  public boolean useResourceAutoSense;
-
-  @Option(
       name = "local_cpu_resources",
       defaultValue = "HOST_CPUS",
       documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
