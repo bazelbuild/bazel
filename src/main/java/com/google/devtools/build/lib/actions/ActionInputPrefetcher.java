@@ -24,7 +24,9 @@ public interface ActionInputPrefetcher {
       new ActionInputPrefetcher() {
         @Override
         public ListenableFuture<Void> prefetchFiles(
-            Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
+            ActionExecutionMetadata action,
+            Iterable<? extends ActionInput> inputs,
+            MetadataProvider metadataProvider) {
           // Do nothing.
           return immediateVoidFuture();
         }
@@ -43,7 +45,9 @@ public interface ActionInputPrefetcher {
    * @return future success if prefetch is finished or {@link IOException}.
    */
   ListenableFuture<Void> prefetchFiles(
-      Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider);
+      ActionExecutionMetadata action,
+      Iterable<? extends ActionInput> inputs,
+      MetadataProvider metadataProvider);
 
   /**
    * Whether the prefetcher is able to fetch individual files in a tree artifact without fetching

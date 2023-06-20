@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -84,7 +85,7 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
             inputs,
             outputs,
             inputFetcher);
-    remoteActionFileSystem.updateContext(metadataInjector);
+    remoteActionFileSystem.updateContext(mock(ActionExecutionMetadata.class), metadataInjector);
     remoteActionFileSystem.createDirectoryAndParents(outputRoot.getRoot().asPath().asFragment());
     return remoteActionFileSystem;
   }
@@ -118,7 +119,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
               return Futures.immediateFuture(null);
             })
         .when(inputFetcher)
-        .downloadFile(eq(remoteArtifact.getPath()), any(), eq(inputs.getMetadata(remoteArtifact)));
+        .downloadFile(
+            any(), eq(remoteArtifact.getPath()), any(), eq(inputs.getMetadata(remoteArtifact)));
 
     // act
     Path remoteActionFsPath = actionFs.getPath(remoteArtifact.getPath().asFragment());
@@ -133,7 +135,8 @@ public final class RemoteActionFileSystemTest extends RemoteActionFileSystemTest
     assertThat(actualRemoteContents).isEqualTo("remote contents");
     assertThat(actualLocalContents).isEqualTo("local contents");
     verify(inputFetcher)
-        .downloadFile(eq(remoteArtifact.getPath()), any(), eq(inputs.getMetadata(remoteArtifact)));
+        .downloadFile(
+            any(), eq(remoteArtifact.getPath()), any(), eq(inputs.getMetadata(remoteArtifact)));
     verifyNoMoreInteractions(inputFetcher);
   }
 

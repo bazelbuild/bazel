@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.circuitbreaker;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.remote.Retrier;
-import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 
 /** Factory for {@link Retrier.CircuitBreaker} */
 public class CircuitBreakerFactory {
-
-  public static final ImmutableSet<Class<? extends Exception>> DEFAULT_IGNORED_ERRORS =
-      ImmutableSet.of(CacheNotFoundException.class);
+  public static final int DEFAULT_MIN_CALL_COUNT_TO_COMPUTE_FAILURE_RATE = 100;
 
   private CircuitBreakerFactory() {}
 
@@ -37,7 +33,7 @@ public class CircuitBreakerFactory {
   public static Retrier.CircuitBreaker createCircuitBreaker(final RemoteOptions remoteOptions) {
     if (remoteOptions.circuitBreakerStrategy == RemoteOptions.CircuitBreakerStrategy.FAILURE) {
       return new FailureCircuitBreaker(
-          remoteOptions.remoteFailureThreshold,
+          remoteOptions.remoteFailureRateThreshold,
           (int) remoteOptions.remoteFailureWindowInterval.toMillis());
     }
     return Retrier.ALLOW_ALL_CALLS;

@@ -33,6 +33,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -292,6 +293,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * @param tempPath the temporary path which the input should be written to.
    */
   protected abstract ListenableFuture<Void> doDownloadFile(
+      ActionExecutionMetadata action,
       Reporter reporter,
       Path tempPath,
       PathFragment execPath,
@@ -317,11 +319,13 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    */
   @Override
   public ListenableFuture<Void> prefetchFiles(
+      ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs, MetadataProvider metadataProvider) {
-    return prefetchFiles(inputs, metadataProvider, Priority.MEDIUM);
+    return prefetchFiles(action, inputs, metadataProvider, Priority.MEDIUM);
   }
 
   protected ListenableFuture<Void> prefetchFiles(
+      ActionExecutionMetadata action,
       Iterable<? extends ActionInput> inputs,
       MetadataProvider metadataProvider,
       Priority priority) {
@@ -346,7 +350,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     Flowable<TransferResult> transfers =
         Flowable.fromIterable(files)
             .flatMapSingle(
-                input -> toTransferResult(prefetchFile(dirCtx, metadataProvider, input, priority)));
+                input -> toTransferResult(prefetchFile(action, dirCtx, metadataProvider, input, priority)));
 
     Completable prefetch =
         Completable.using(
@@ -357,6 +361,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
   }
 
   private Completable prefetchFile(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       MetadataProvider metadataProvider,
       ActionInput input,
@@ -386,6 +391,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
     Completable result =
         downloadFileNoCheckRx(
+            action,
             dirCtx,
             execRoot.getRelative(execPath),
             treeRootExecPath != null ? execRoot.getRelative(treeRootExecPath) : null,
@@ -461,6 +467,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * download finished.
    */
   private Completable downloadFileRx(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
@@ -470,10 +477,11 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     if (!canDownloadFile(path, metadata)) {
       return Completable.complete();
     }
-    return downloadFileNoCheckRx(dirCtx, path, treeRoot, actionInput, metadata, priority);
+    return downloadFileNoCheckRx(action, dirCtx, path, treeRoot, actionInput, metadata, priority);
   }
 
   private Completable downloadFileNoCheckRx(
+      ActionExecutionMetadata action,
       DirectoryContext dirCtx,
       Path path,
       @Nullable Path treeRoot,
@@ -498,6 +506,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                     toCompletable(
                             () ->
                                 doDownloadFile(
+                                    action,
                                     reporter,
                                     tempPath,
                                     finalPath.relativeTo(execRoot),
@@ -542,12 +551,15 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
    * <p>The file will be written into a temporary file and moved to the final destination after the
    * download finished.
    */
-  public void downloadFile(Path path, @Nullable ActionInput actionInput, FileArtifactValue metadata)
+  public void downloadFile(
+      ActionExecutionMetadata action,
+      Path path, @Nullable ActionInput actionInput, FileArtifactValue metadata)
       throws IOException, InterruptedException {
-    getFromFuture(downloadFileAsync(path.asFragment(), actionInput, metadata, Priority.CRITICAL));
+    getFromFuture(downloadFileAsync(action, path.asFragment(), actionInput, metadata, Priority.CRITICAL));
   }
 
   protected ListenableFuture<Void> downloadFileAsync(
+      ActionExecutionMetadata action,
       PathFragment path,
       @Nullable ActionInput actionInput,
       FileArtifactValue metadata,
@@ -557,6 +569,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
             DirectoryContext::new,
             dirCtx ->
                 downloadFileRx(
+                    action,
                     dirCtx,
                     execRoot.getFileSystem().getPath(path),
                     /* treeRoot= */ null,
@@ -695,7 +708,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!inputsToDownload.isEmpty()) {
-      var future = prefetchFiles(inputsToDownload, metadataHandler, Priority.HIGH);
+      var future = prefetchFiles(action, inputsToDownload, metadataHandler, Priority.HIGH);
       addCallback(
           future,
           new FutureCallback<Void>() {
@@ -716,7 +729,7 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
     }
 
     if (!outputsToDownload.isEmpty()) {
-      var future = prefetchFiles(outputsToDownload, metadataHandler, Priority.LOW);
+      var future = prefetchFiles(action, outputsToDownload, metadataHandler, Priority.LOW);
       addCallback(
           future,
           new FutureCallback<Void>() {
