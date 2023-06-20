@@ -337,9 +337,11 @@ public class CommonCommandOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       converter = MemoryProfileStableHeapParameters.Converter.class,
       help =
-          "Tune memory profile's computation of stable heap at end of build. Should be two"
-              + " integers separated by a comma. First parameter is the number of GCs to perform."
-              + " Second parameter is the number of seconds to wait between GCs.")
+          "Tune memory profile's computation of stable heap at end of build. Should be and even"
+              + " number of  integers separated by commas. In each pair the first integer is the"
+              + " number of GCs to perform. The second integer in each pair is the number of"
+              + " seconds to wait between GCs. Ex: 2,4,4,0 would 2 GCs with a 4sec pause, followed"
+              + " by 4 GCs with zero second pause")
   public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
   @Option(
