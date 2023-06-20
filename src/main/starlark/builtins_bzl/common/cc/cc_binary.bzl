@@ -184,7 +184,7 @@ def _add(ctx, linking_statically):
 def _get_file_content(objects):
     result = []
     for obj in objects:
-        result.append(obj.short_path)
+        result.append(obj.path)
         result.append("\n")
     return "".join(result)
 
@@ -195,7 +195,7 @@ def _add_transitive_info_providers(ctx, cc_toolchain, cpp_config, feature_config
         runtime_objects_list = ctx.actions.declare_file(ctx.label.name + "runtime_objects_list.txt")
         file_content = _get_file_content(runtime_objects_for_coverage)
         ctx.actions.write(output = runtime_objects_list, content = file_content, is_executable = False)
-        additional_meta_data = [runtime_objects_list]
+        additional_meta_data = [runtime_objects_list] + runtime_objects_for_coverage
 
     instrumented_files_provider = common.instrumented_files_info_from_compilation_context(
         files = instrumented_object_files,
