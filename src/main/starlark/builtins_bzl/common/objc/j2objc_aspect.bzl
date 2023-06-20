@@ -219,6 +219,12 @@ def _exported_j2objc_mapping_file_provider(target, ctx, direct_j2objc_mapping_fi
         archive_source_mapping_files = depset([], transitive = transitive_archive_source_mapping_files),
     )
 
+def _get_file_path_with_suffix(objc_srcs, suffix):
+    for src in objc_srcs:
+        if src.path.endswith(suffix):
+            return src.path
+    fail("File with %s suffix must exist inside objc_sources.", suffix)
+
 def _create_j2objc_transpilation_action(
         ctx,
         java_source_files,
@@ -247,8 +253,8 @@ def _create_j2objc_transpilation_action(
 
     if java_source_jars:
         args.add_joined("--src_jars", java_source_jars, join_with = ",")
-        args.add("--output_gen_source_dir", ctx.bin_dir.path + "/" + j2objc_source.objc_srcs[0].short_path)
-        args.add("--output_gen_header_dir", ctx.bin_dir.path + "/" + j2objc_source.objc_hdrs[0].short_path)
+        args.add("--output_gen_source_dir", _get_file_path_with_suffix(j2objc_source.objc_srcs, "source_files"))
+        args.add("--output_gen_header_dir", _get_file_path_with_suffix(j2objc_source.objc_hdrs, "header_files"))
 
     args.add_all(ctx.fragments.j2objc.translation_flags)
 
@@ -280,7 +286,7 @@ def _create_j2objc_transpilation_action(
             args.add("--system", file.dirname)
             break
 
-    dead_code_report = ctx.attr._dead_code_report
+    dead_code_report = ctx.file._dead_code_report
     if dead_code_report:
         args.add("--dead-code-report", dead_code_report)
 
@@ -354,7 +360,7 @@ def _java(target, ctx):
         for src in ctx.rule.files.srcs:
             src_path = src.path
             if src_path.endswith(".srcjar"):
-                java_source_jars.append()(src)
+                java_source_jars.append(src)
             if src_path.endswith(".java"):
                 java_source_files.append(src)
 
@@ -547,6 +553,8 @@ j2objc_aspect = aspect(
             default = Label("@//third_party/java/j2objc:jre_emul_module"),
         ),
         "_dead_code_report": attr.label(
+            allow_single_file = True,
+            cfg = "exec",
             default = configuration_field(
                 name = "dead_code_report",
                 fragment = "j2objc",
