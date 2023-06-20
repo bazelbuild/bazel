@@ -2457,6 +2457,150 @@ EOF
   fi
 }
 
+# Runs coverage with `cc_test` using llvm-cov and RE, then checks that the coverage file is
+# returned non-empty.
+# See the above `test_java_rbe_coverage_produces_report` for more information.
+function test_cc_rbe_coverage_produces_report_with_llvm() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  local -r clang=$(which clang)
+  if [[ ! -x "${clang}" ]]; then
+    echo "clang not installed. Skipping"
+    return 0
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ];  then
+    # No lcov produced with <9.0.
+    echo "clang versions <9.0 are not supported, got $clang_version. Skipping."
+    return 0
+  fi
+
+  if ! type -P llvm-cov; then
+    echo "llvm-cov not found. Skipping."
+    return 0
+  fi
+  if ! type -P llvm-profdata; then
+    echo "llvm-profdata not found. Skipping."
+    return 0
+  fi
+
+  local test_dir="a/cc/coverage_test"
+  mkdir -p $test_dir
+
+  cat > "$test_dir"/BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "hello-lib",
+    srcs = ["hello-lib.cc"],
+    hdrs = ["hello-lib.h"],
+)
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+cc_test(
+    name = "hello-test",
+    srcs = ["hello-world.cc"],
+    deps = [":hello-lib"],
+)
+
+EOF
+
+  cat > "$test_dir"/hello-lib.cc <<'EOF'
+#include "hello-lib.h"
+
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+namespace hello {
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+
+}  // namespace hello
+
+EOF
+
+  cat > "$test_dir"/hello-lib.h <<'EOF'
+#ifndef HELLO_LIB_H_
+#define HELLO_LIB_H_
+
+#include <string>
+#include <memory>
+
+namespace hello {
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+
+  void greet(const std::string &thing);
+
+ private:
+  std::unique_ptr<const std::string> greeting_;
+};
+
+}  // namespace hello
+
+#endif  // HELLO_LIB_H_
+
+EOF
+
+  cat > "$test_dir"/hello-world.cc <<'EOF'
+#include "hello-lib.h"
+
+#include <string>
+
+using hello::HelloLib;
+using std::string;
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+
+EOF
+
+  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=llvm-profdata BAZEL_LLVM_COV=llvm-cov CC=clang \
+    bazel coverage \
+      --test_output=all \
+      --experimental_fetch_all_coverage_outputs \
+      --experimental_generate_llvm_lcov \
+      --experimental_split_coverage_postprocessing \
+      --spawn_strategy=remote \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //"$test_dir":hello-test >& $TEST_log \
+      || fail "Failed to run coverage for cc_test"
+
+  # Different LLVM versions generate different outputs.
+  # Simply check if this is empty or not.
+  if [[ ! -s bazel-testlogs/a/cc/coverage_test/hello-test/coverage.dat ]]; then
+    echo "Coverage is empty. Failing now."
+    return 1
+  fi
+}
+
 function test_grpc_connection_errors_are_propagated() {
   # Test that errors when creating grpc connection are propagated instead of crashing Bazel.
   # https://github.com/bazelbuild/bazel/issues/13724

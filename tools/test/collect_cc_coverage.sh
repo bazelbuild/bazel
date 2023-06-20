@@ -85,9 +85,7 @@ function llvm_coverage_lcov() {
   while read -r line; do
     if [[ ${line: -24} == "runtime_objects_list.txt" ]]; then
       while read -r line_runtime_object; do
-        if [[ -e "${RUNFILES_DIR}/${TEST_WORKSPACE}/${line_runtime_object}" ]]; then
-          object_param+=" -object ${RUNFILES_DIR}/${TEST_WORKSPACE}/${line_runtime_object}"
-        fi
+        object_param+=" -object ${line_runtime_object}"
       done < "${line}"
     fi
   done < "${COVERAGE_MANIFEST}"
