@@ -370,7 +370,7 @@ def _filter_inputs(
                     cc_toolchain,
                     linker_input,
                 )
-            elif _check_if_target_should_be_exported_with_filter(
+            if _check_if_target_should_be_exported_with_filter(
                 linker_input.owner,
                 ctx.label,
                 ctx.attr.exports_filter,

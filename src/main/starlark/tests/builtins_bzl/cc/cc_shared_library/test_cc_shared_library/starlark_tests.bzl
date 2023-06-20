@@ -331,3 +331,27 @@ nocode_cc_lib = rule(
     },
     provides = [CcInfo],
 )
+
+def _exports_test_impl(env, target):
+    actual = list(target[CcSharedLibraryInfo].exports)
+
+    # Remove the @ prefix on Bazel
+    for i in range(len(actual)):
+        if actual[i][0] == "@":
+            actual[i] = actual[i][1:]
+    expected = env.ctx.attr._targets_that_should_be_claimed_to_be_exported
+    env.expect.where(
+        detail = "Exports lists do not match.",
+    ).that_collection(actual).contains_exactly(expected).in_order()
+
+def _exports_test_macro(name, target, targets_that_should_be_claimed_to_be_exported):
+    analysis_test(
+        name = name,
+        impl = _exports_test_impl,
+        target = target,
+        attrs = {
+            "_targets_that_should_be_claimed_to_be_exported": attr.string_list(default = targets_that_should_be_claimed_to_be_exported),
+        },
+    )
+
+exports_test = _exports_test_macro
