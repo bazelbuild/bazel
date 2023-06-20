@@ -87,6 +87,10 @@ public class EnvironmentCollection {
     return builder.build();
   }
 
+  boolean isEmpty() {
+    return map.isEmpty();
+  }
+
   /** An empty collection. */
   @SerializationConstant
   static final EnvironmentCollection EMPTY = new EnvironmentCollection(ImmutableMultimap.of());

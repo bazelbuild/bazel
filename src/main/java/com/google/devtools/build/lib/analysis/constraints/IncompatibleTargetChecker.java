@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis.constraints;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
@@ -285,9 +284,7 @@ public class IncompatibleTargetChecker {
             .add(RunfilesProvider.simple(Runfiles.EMPTY))
             .add(FileProvider.EMPTY)
             .add(FilesToRunProvider.EMPTY)
-            .add(
-                new SupportedEnvironments(
-                    EnvironmentCollection.EMPTY, EnvironmentCollection.EMPTY, ImmutableMap.of()));
+            .add(SupportedEnvironments.EMPTY);
     if (configuration.hasFragment(TestConfiguration.class)) {
       // Create a dummy TestProvider instance so that other parts of the code base stay happy. Even
       // though this test will never execute, some code still expects the provider.
