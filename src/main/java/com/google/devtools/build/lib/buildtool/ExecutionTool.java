@@ -126,6 +126,8 @@ import javax.annotation.Nullable;
  * <p>This class contains an ActionCache, and refers to the Blaze Runtime's BuildView and
  * PackageCache.
  *
+ * <p>Lifetime of an instance: 1 invocation.
+ *
  * @see BuildTool
  * @see com.google.devtools.build.lib.analysis.BuildView
  */
@@ -140,6 +142,8 @@ public class ExecutionTool {
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
   private final SpawnStrategyRegistry spawnStrategyRegistry;
   private final ModuleActionContextRegistry actionContextRegistry;
+
+  private boolean informedOutputServiceToStartTheBuild = false;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request)
       throws AbruptExitException, InterruptedException {
@@ -486,6 +490,7 @@ public class ExecutionTool {
         modifiedOutputFiles =
             outputService.startBuild(
                 env.getReporter(), buildId, request.getBuildOptions().finalizeActions);
+        informedOutputServiceToStartTheBuild = true;
       }
     } else {
       // TODO(bazel-team): this could be just another OutputService
@@ -574,9 +579,9 @@ public class ExecutionTool {
         // Ignored
       }
     }
-    // Finalize output service last, so that if we do throw an exception, we know all the other
-    // code has already run.
-    if (env.getOutputService() != null) {
+    // Finalize the output service last if required, so that if we do throw an exception, we know
+    // that all the other code has already run.
+    if (env.getOutputService() != null && informedOutputServiceToStartTheBuild) {
       boolean isBuildSuccessful =
           buildResult.getSuccessfulTargets().size()
               == buildResultListener.getAnalyzedTargets().size();
