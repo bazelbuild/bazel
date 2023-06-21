@@ -196,17 +196,27 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
     /** The reason why a final dependency of a module was resolved the way it was. */
     public enum ResolutionReason {
       /** The dependency is the original dependency defined in the MODULE.bazel file. */
-      ORIGINAL,
+      ORIGINAL(""),
       /** The dependency was replaced by the Minimal-Version Selection algorithm. */
-      MINIMAL_VERSION_SELECTION,
+      MINIMAL_VERSION_SELECTION("MVS"),
       /** The dependency was replaced by a {@code single_version_override} rule. */
-      SINGLE_VERSION_OVERRIDE,
+      SINGLE_VERSION_OVERRIDE("SVO"),
       /** The dependency was replaced by a {@code multiple_version_override} rule. */
-      MULTIPLE_VERSION_OVERRIDE,
+      MULTIPLE_VERSION_OVERRIDE("MVO"),
       /** The dependency was replaced by one of the {@link NonRegistryOverride} rules. */
-      ARCHIVE_OVERRIDE,
-      GIT_OVERRIDE,
-      LOCAL_PATH_OVERRIDE,
+      ARCHIVE_OVERRIDE("archive"),
+      GIT_OVERRIDE("git"),
+      LOCAL_PATH_OVERRIDE("local");
+
+      private final String label;
+
+      ResolutionReason(String label) {
+        this.label = label;
+      }
+
+      public String getLabel() {
+        return label;
+      }
     }
   }
 }
