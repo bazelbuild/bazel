@@ -21,6 +21,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
 import build.bazel.remote.execution.v2.FileNode;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,11 +37,14 @@ import java.io.IOException;
 
 /** A {@link RemoteCache} backed by an {@link DiskCacheClient}. */
 class OnDiskBlobStoreCache extends RemoteCache {
-  private static final CacheCapabilities CAPABILITIES =
-      CacheCapabilities.newBuilder()
-          .setActionCacheUpdateCapabilities(
-              ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-          .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+  private static final ServerCapabilities CAPABILITIES =
+      ServerCapabilities.newBuilder()
+          .setCacheCapabilities(
+              CacheCapabilities.newBuilder()
+                  .setActionCacheUpdateCapabilities(
+                      ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+                  .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+                  .build())
           .build();
 
   public OnDiskBlobStoreCache(RemoteOptions options, Path cacheDir, DigestUtil digestUtil) {

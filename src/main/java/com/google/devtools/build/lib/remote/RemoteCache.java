@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -84,24 +85,28 @@ public class RemoteCache extends AbstractReferenceCounted {
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
 
-  protected final CacheCapabilities cacheCapabilities;
+  protected final ServerCapabilities serverCapabilities;
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
   public RemoteCache(
-      CacheCapabilities cacheCapabilities,
+      ServerCapabilities serverCapabilities,
       RemoteCacheClient cacheProtocol,
       RemoteOptions options,
       DigestUtil digestUtil) {
-    this.cacheCapabilities = cacheCapabilities;
+    this.serverCapabilities = serverCapabilities;
     this.cacheProtocol = cacheProtocol;
     this.options = options;
     this.digestUtil = digestUtil;
   }
 
+  public ServerCapabilities getServerCapabilities() {
+    return serverCapabilities;
+  }
+
   public CacheCapabilities getCacheCapabilities() {
-    return cacheCapabilities;
+    return serverCapabilities.getCacheCapabilities();
   }
 
   public CachedActionResult downloadActionResult(
@@ -124,7 +129,10 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   /** Returns whether the action cache supports updating action results. */
   public boolean actionCacheSupportsUpdate() {
-    return cacheCapabilities.getActionCacheUpdateCapabilities().getUpdateEnabled();
+    return serverCapabilities
+        .getCacheCapabilities()
+        .getActionCacheUpdateCapabilities()
+        .getUpdateEnabled();
   }
 
   /** Upload the action result to the remote cache. */
