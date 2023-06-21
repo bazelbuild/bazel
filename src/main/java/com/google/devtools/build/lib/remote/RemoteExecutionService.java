@@ -358,6 +358,10 @@ public class RemoteExecutionService {
         && Spawns.mayBeExecutedRemotely(spawn);
   }
 
+  public boolean mayBeCachedRemotely(Spawn spawn) {
+    return remoteCache instanceof RemoteExecutionCache && Spawns.mayBeCachedRemotely(spawn);
+  }
+
   @VisibleForTesting
   Cache<Object, CompletableFuture<MerkleTree>> getMerkleTreeCache() {
     return merkleTreeCache;
@@ -530,6 +534,31 @@ public class RemoteExecutionService {
         : null;
   }
 
+  private boolean shouldUseOutputPaths(Spawn spawn) {
+    var isRemoteExec = mayBeExecutedRemotely(spawn);
+    var isRemoteCached = mayBeCachedRemotely(spawn);
+    if (!isRemoteExec || !isRemoteCached) {
+      return true;
+    }
+
+    ServerCapabilities serverCapabilities;
+    if (isRemoteExec) {
+      serverCapabilities = remoteExecutor.getServerCapabilities();
+    } else {
+      serverCapabilities = remoteCache.getServerCapabilities();
+    }
+    if (serverCapabilities == null) {
+      return true;
+    }
+
+    var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
+    if (supportStatus.isUnsupported()) {
+      return true;
+    }
+
+    return supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
@@ -548,20 +577,9 @@ public class RemoteExecutionService {
         platform = PlatformUtils.getPlatformProto(spawn, remoteOptions);
       }
 
-      var useOutputPaths = true;
-      if (mayBeExecutedRemotely(spawn)) {
-        var capabilities = remoteExecutor.getServerCapabilities();
-        if (capabilities != null) {
-          var supportStatus = ClientApiVersion.current.checkServerSupportedVersions(capabilities);
-          if (supportStatus.isSupported()) {
-            useOutputPaths =
-                supportStatus.getHighestSupportedVersion().compareTo(ApiVersion.twoPointOne) >= 0;
-          }
-        }
-      }
       Command command =
           buildCommand(
-              useOutputPaths,
+              shouldUseOutputPaths(spawn),
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
