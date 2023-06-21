@@ -55,6 +55,10 @@ class OnDiskBlobStoreCache extends RemoteCache {
     return ((DiskCacheClient) cacheProtocol).contains(digest);
   }
 
+  public Path getPath(Digest digest) {
+    return ((DiskCacheClient) cacheProtocol).getPath(digest);
+  }
+
   @SuppressWarnings("ProtoParseWithRegistry")
   public void downloadTree(
       RemoteActionExecutionContext context, Digest rootDigest, Path rootLocation)
