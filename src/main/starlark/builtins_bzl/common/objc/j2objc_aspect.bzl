@@ -424,12 +424,10 @@ def _common(
 
     deps = []
     for dep_attr in dependent_attributes:
-        if hasattr(ctx.rule.attr, dep_attr):
-            attr = getattr(ctx.rule.attr, dep_attr)
-            if type(attr) == type([]):
-                deps.extend(attr)
-            else:
-                deps.append(attr)
+        if dep_attr == "_jre_lib":
+            deps.append(ctx.attr._jre_lib)
+        elif hasattr(ctx.rule.attr, dep_attr):
+            deps.extend(getattr(ctx.rule.attr, dep_attr))
 
     (
         objc_provider,
