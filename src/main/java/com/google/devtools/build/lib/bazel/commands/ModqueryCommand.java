@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.Charset.UTF8;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -29,11 +30,12 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.Augm
 import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
-import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.Charset;
-import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.QueryType;
-import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.QueryTypeConverter;
-import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.TargetModule;
-import com.google.devtools.build.lib.bazel.commands.ModqueryOptions.TargetModuleListConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryExecutor;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.QueryType;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.QueryTypeConverter;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.TargetModule;
+import com.google.devtools.build.lib.bazel.bzlmod.modquery.ModqueryOptions.TargetModuleListConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -226,7 +228,7 @@ public final class ModqueryCommand implements BlazeCommand {
             modqueryOptions,
             new OutputStreamWriter(
                 env.getReporter().getOutErr().getOutputStream(),
-                modqueryOptions.charset == Charset.UTF8 ? UTF_8 : US_ASCII));
+                modqueryOptions.charset == UTF8 ? UTF_8 : US_ASCII));
 
     switch (query) {
       case TREE:
