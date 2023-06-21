@@ -133,6 +133,25 @@ public final class JavaRuleOutputJarsProvider
           .build();
     }
 
+    public static JavaOutput fromStarlarkJavaOutput(StructImpl struct) throws EvalException {
+      return JavaOutput.builder()
+          .setClassJar(nullIfNone(struct.getValue("class_jar"), Artifact.class))
+          .setCompileJar(nullIfNone(struct.getValue("compile_jar"), Artifact.class))
+          .setCompileJdeps(nullIfNone(struct.getValue("compile_jdeps"), Artifact.class))
+          .setGeneratedClassJar(nullIfNone(struct.getValue("generated_class_jar"), Artifact.class))
+          .setGeneratedSourceJar(
+              nullIfNone(struct.getValue("generated_source_jar"), Artifact.class))
+          .setNativeHeadersJar(nullIfNone(struct.getValue("native_headers_jar"), Artifact.class))
+          .setManifestProto(nullIfNone(struct.getValue("manifest_proto"), Artifact.class))
+          .setJdeps(nullIfNone(struct.getValue("jdeps"), Artifact.class))
+          .addSourceJars(
+              Sequence.cast(
+                  struct.getValue("source_jars", StarlarkList.class),
+                  Artifact.class,
+                  "source_jars"))
+          .build();
+    }
+
     /** Builder for OutputJar. */
     @AutoValue.Builder
     public abstract static class Builder {
@@ -290,25 +309,7 @@ public final class JavaRuleOutputJarsProvider
     Sequence<?> outputs = javaInfo.getValue("java_outputs", StarlarkList.class);
     JavaRuleOutputJarsProvider.Builder builder = JavaRuleOutputJarsProvider.builder();
     for (StructImpl output : Sequence.cast(outputs, StructImpl.class, "outputs")) {
-      builder.addJavaOutput(
-          JavaOutput.builder()
-              .setClassJar(nullIfNone(output.getValue("class_jar"), Artifact.class))
-              .setCompileJar(nullIfNone(output.getValue("compile_jar"), Artifact.class))
-              .setCompileJdeps(nullIfNone(output.getValue("compile_jdeps"), Artifact.class))
-              .setGeneratedClassJar(
-                  nullIfNone(output.getValue("generated_class_jar"), Artifact.class))
-              .setGeneratedSourceJar(
-                  nullIfNone(output.getValue("generated_source_jar"), Artifact.class))
-              .setNativeHeadersJar(
-                  nullIfNone(output.getValue("native_headers_jar"), Artifact.class))
-              .setManifestProto(nullIfNone(output.getValue("manifest_proto"), Artifact.class))
-              .setJdeps(nullIfNone(output.getValue("jdeps"), Artifact.class))
-              .addSourceJars(
-                  Sequence.cast(
-                      output.getValue("source_jars", StarlarkList.class),
-                      Artifact.class,
-                      "source_jars"))
-              .build());
+      builder.addJavaOutput(JavaOutput.fromStarlarkJavaOutput(output));
     }
     return builder.build();
   }
