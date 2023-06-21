@@ -74,7 +74,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Converters.RegexPatternConverter;
 import com.google.devtools.common.options.Options;
@@ -124,9 +123,8 @@ public class LocalSpawnRunnerTest {
           localExecutionOptions,
           resourceManager,
           localEnvProvider,
-          /*binTools=*/ null,
+          /* binTools= */ null,
           processWrapper,
-          SyscallCache.NO_CACHE,
           Mockito.mock(RunfilesTreeUpdater.class));
     }
 
@@ -726,9 +724,8 @@ public class LocalSpawnRunnerTest {
             Options.getDefaults(LocalExecutionOptions.class),
             resourceManager,
             LocalEnvProvider.forCurrentOs(ImmutableMap.of()),
-            /*binTools=*/ null,
-            /*processWrapper=*/ null,
-            SyscallCache.NO_CACHE,
+            /* binTools= */ null,
+            /* processWrapper= */ null,
             Mockito.mock(RunfilesTreeUpdater.class));
     FileOutErr fileOutErr =
         new FileOutErr(tempDir.getRelative("stdout"), tempDir.getRelative("stderr"));
@@ -987,8 +984,7 @@ public class LocalSpawnRunnerTest {
             LocalSpawnRunnerTest::keepLocalEnvUnchanged,
             binTools,
             new ProcessWrapper(
-                processWrapperPath, /*killDelay=*/ Duration.ZERO, /*gracefulSigterm=*/ false),
-            SyscallCache.NO_CACHE,
+                processWrapperPath, /* killDelay= */ Duration.ZERO, /* gracefulSigterm= */ false),
             Mockito.mock(RunfilesTreeUpdater.class));
 
     Spawn spawn =

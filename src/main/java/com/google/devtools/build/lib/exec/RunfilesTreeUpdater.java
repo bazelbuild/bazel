@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,12 +37,13 @@ import javax.annotation.concurrent.ThreadSafe;
  * Utility used in local execution to create a runfiles tree if {@code --nobuild_runfile_links} has
  * been specified.
  *
- * <p>It is safe to call {@link #updateRunfilesDirectory} concurrently.
+ * <p>It is safe to call {@link #updateRunfiles} concurrently.
  */
 @ThreadSafe
 public class RunfilesTreeUpdater {
-
-  public static final RunfilesTreeUpdater INSTANCE = new RunfilesTreeUpdater();
+  private final Path execRoot;
+  private final BinTools binTools;
+  private final XattrProvider xattrProvider;
 
   private final Object lock = new Object();
 
@@ -59,16 +61,50 @@ public class RunfilesTreeUpdater {
   @GuardedBy("lock")
   private final Map<PathFragment, LockWithRefcnt> locksWithRefcnt = new HashMap<>();
 
-  private RunfilesTreeUpdater() {}
+  public static RunfilesTreeUpdater forCommandEnvironment(CommandEnvironment env) {
+    return new RunfilesTreeUpdater(
+        env.getExecRoot(), env.getBlazeWorkspace().getBinTools(), env.getXattrProvider());
+  }
 
-  private static void updateRunfilesTree(
-      Path execRoot,
+  public RunfilesTreeUpdater(Path execRoot, BinTools binTools, XattrProvider xattrProvider) {
+    this.execRoot = execRoot;
+    this.binTools = binTools;
+    this.xattrProvider = xattrProvider;
+  }
+
+  /** Creates or updates input runfiles trees for a spawn. */
+  public void updateRunfiles(
+      RunfilesSupplier runfilesSupplier, ImmutableMap<String, String> env, OutErr outErr)
+      throws ExecException, IOException, InterruptedException {
+    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
+        runfilesSupplier.getMappings().entrySet()) {
+      PathFragment runfilesDir = runfiles.getKey();
+      if (runfilesSupplier.isBuildRunfileLinks(runfilesDir)) {
+        continue;
+      }
+
+      try {
+        long startTime = Profiler.nanoTimeMaybe();
+        // Synchronize runfiles tree generation on the runfiles directory in order to prevent
+        // concurrent modifications of the runfiles tree. In particular this can happen for sharded
+        // tests and --runs_per_test > 1 in which case multiple actions use the same runfiles tree.
+        synchronized (getLockAndIncrementRefcnt(runfilesDir)) {
+          Profiler.instance()
+              .logSimpleTask(startTime, ProfilerTask.WAIT, "Waiting to create runfiles tree");
+          updateRunfilesTree(
+              runfilesDir, env, outErr, runfilesSupplier.isRunfileLinksEnabled(runfilesDir));
+        }
+      } finally {
+        decrementRefcnt(runfilesDir);
+      }
+    }
+  }
+
+  private void updateRunfilesTree(
       PathFragment runfilesDir,
-      BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr,
-      boolean enableRunfiles,
-      XattrProvider xattrProvider)
+      boolean enableRunfiles)
       throws IOException, ExecException, InterruptedException {
     Path runfilesDirPath = execRoot.getRelative(runfilesDir);
     Path inputManifest = RunfilesSupport.inputManifestPath(runfilesDirPath);
@@ -125,44 +161,6 @@ public class RunfilesTreeUpdater {
               String.format(
                   "Failed to remove lock for dir '%s'." + " This is a bug.", runfilesDirectory));
         }
-      }
-    }
-  }
-
-  public void updateRunfilesDirectory(
-      Path execRoot,
-      RunfilesSupplier runfilesSupplier,
-      BinTools binTools,
-      ImmutableMap<String, String> env,
-      OutErr outErr,
-      XattrProvider xattrProvider)
-      throws ExecException, IOException, InterruptedException {
-    for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
-        runfilesSupplier.getMappings().entrySet()) {
-      PathFragment runfilesDir = runfiles.getKey();
-      if (runfilesSupplier.isBuildRunfileLinks(runfilesDir)) {
-        continue;
-      }
-
-      try {
-        long startTime = Profiler.nanoTimeMaybe();
-        // Synchronize runfiles tree generation on the runfiles directory in order to prevent
-        // concurrent modifications of the runfiles tree. In particular this can happen for sharded
-        // tests and --runs_per_test > 1 in which case multiple actions use the same runfiles tree.
-        synchronized (getLockAndIncrementRefcnt(runfilesDir)) {
-          Profiler.instance()
-              .logSimpleTask(startTime, ProfilerTask.WAIT, "Waiting to create runfiles tree");
-          updateRunfilesTree(
-              execRoot,
-              runfilesDir,
-              binTools,
-              env,
-              outErr,
-              runfilesSupplier.isRunfileLinksEnabled(runfilesDir),
-              xattrProvider);
-        }
-      } finally {
-        decrementRefcnt(runfilesDir);
       }
     }
   }
