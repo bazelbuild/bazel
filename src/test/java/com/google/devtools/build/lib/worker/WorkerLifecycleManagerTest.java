@@ -526,6 +526,64 @@ public final class WorkerLifecycleManagerTest {
         .isEqualTo(Sets.newHashSet(w3.getWorkerId(), w4.getWorkerId()));
   }
 
+  @Test
+  public void evictWorkers_testMultiplexWorkers() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList("dummy", 2)));
+    WorkerKey key =
+        createWorkerKey("dummy", fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
+    Worker w1 = workerPool.borrowObject(key);
+    Worker w2 = workerPool.borrowObject(key);
+    workerPool.returnObject(key, w1);
+    workerPool.returnObject(key, w2);
+    ImmutableList<WorkerMetric> workerMetrics =
+        ImmutableList.of(
+            WorkerMetric.create(
+                createMultiplexWorkerProperties(
+                    ImmutableList.of(w1.getWorkerId(), w2.getWorkerId()), 1L, "dummy"),
+                createWorkerStat(4000),
+                true));
+    WorkerOptions options = new WorkerOptions();
+    options.totalWorkerMemoryLimitMb = 1;
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
+    manager.evictWorkers(workerMetrics);
+
+    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(0);
+    assertThat(workerPool.getNumActive(key)).isEqualTo(0);
+  }
+
+  @Test
+  public void evictWorkers_doomMultiplexWorker() throws Exception {
+    WorkerPoolImpl workerPool =
+        new WorkerPoolImpl(
+            new WorkerPoolConfig(factoryMock, emptyEntryList(), entryList("dummy", 2)));
+    WorkerKey key =
+        createWorkerKey("dummy", fileSystem, /* multiplex= */ true, /* sandboxed= */ false);
+    Worker w1 = workerPool.borrowObject(key);
+    Worker w2 = workerPool.borrowObject(key);
+    workerPool.returnObject(key, w1);
+    ImmutableList<WorkerMetric> workerMetrics =
+        ImmutableList.of(
+            WorkerMetric.create(
+                createMultiplexWorkerProperties(
+                    ImmutableList.of(w1.getWorkerId(), w2.getWorkerId()), 1L, "dummy"),
+                createWorkerStat(4000),
+                true));
+    WorkerOptions options = new WorkerOptions();
+    options.totalWorkerMemoryLimitMb = 1;
+    options.shrinkWorkerPool = true;
+    WorkerLifecycleManager manager = new WorkerLifecycleManager(workerPool, options);
+
+    manager.evictWorkers(workerMetrics);
+
+    assertThat(workerPool.getNumIdlePerKey(key)).isEqualTo(1);
+    assertThat(workerPool.getNumActive(key)).isEqualTo(1);
+    assertThat(workerPool.getDoomedWorkers())
+        .isEqualTo(Sets.newHashSet(w1.getWorkerId(), w2.getWorkerId()));
+  }
+
   private static WorkerMetric.WorkerProperties createWorkerProperties(
       int workerId, long processId, String mnemonic, int workerKeyHash) {
     return WorkerMetric.WorkerProperties.create(
@@ -540,6 +598,12 @@ public final class WorkerLifecycleManagerTest {
   private static WorkerMetric.WorkerProperties createWorkerProperties(
       int workerId, long processId, String mnemonic) {
     return createWorkerProperties(workerId, processId, mnemonic, /* workerKeyHash= */ 0);
+  }
+
+  private static WorkerMetric.WorkerProperties createMultiplexWorkerProperties(
+      ImmutableList<Integer> workerIds, long processId, String mnemonic) {
+    return WorkerMetric.WorkerProperties.create(
+        workerIds, processId, mnemonic, true, /* isSandboxed= */ false, /* workerKeyHash= */ 0);
   }
 
   private static WorkerMetric.WorkerStat createWorkerStat(int memoryUsage) {
