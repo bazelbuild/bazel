@@ -230,7 +230,6 @@ java_library(
         "config/SymlinkDefinition.java",
         "config/TransitionResolver.java",
         "configuredtargets/AbstractConfiguredTarget.java",
-        "configuredtargets/ConfiguredTargetsUtil.java",
         "configuredtargets/EnvironmentGroupConfiguredTarget.java",
         "configuredtargets/FileConfiguredTarget.java",
         "configuredtargets/InputFileConfiguredTarget.java",

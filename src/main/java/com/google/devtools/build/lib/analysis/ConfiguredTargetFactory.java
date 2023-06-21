@@ -239,7 +239,7 @@ public final class ConfiguredTargetFactory {
         return rule;
       }
       Artifact artifact = rule.findArtifactByOutputLabel(outputFile.getLabel());
-      return new OutputFileConfiguredTarget(targetContext, outputFile, rule, artifact);
+      return new OutputFileConfiguredTarget(targetContext, artifact, rule);
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
       TargetContext targetContext =
@@ -260,7 +260,7 @@ public final class ConfiguredTargetFactory {
                   .setLabel(target.getLabel())
                   .setConfiguration(config)
                   .build());
-      return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
+      return new InputFileConfiguredTarget(targetContext, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
       TargetContext targetContext =

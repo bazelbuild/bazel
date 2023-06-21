@@ -298,8 +298,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  public Dict<String, Object> getProvidersDict() {
-    return ConfiguredTargetsUtil.getProvidersDict(this, nonBaseProviders);
+  public Dict<String, Object> getProvidersDictForQuery() {
+    return toProvidersDictForQuery(nonBaseProviders);
   }
 
   @Override

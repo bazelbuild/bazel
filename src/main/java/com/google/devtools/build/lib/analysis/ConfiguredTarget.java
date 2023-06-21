@@ -126,9 +126,10 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, Structure {
   /**
    * This is only intended to be called from the query dialects of Starlark.
    *
-   * @return a map of provider names to their values
+   * @return a map of provider names to their values, or null if there are no providers
    */
-  default Dict<String, Object> getProvidersDict() {
+  @Nullable
+  default Dict<String, Object> getProvidersDictForQuery() {
     return null;
   }
 }
