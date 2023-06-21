@@ -14,17 +14,22 @@
 
 package com.google.devtools.build.lib.rules.starlarkdocextract;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
+import static java.util.stream.Collectors.partitioningBy;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -36,7 +41,9 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -56,6 +63,9 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Module;
@@ -63,6 +73,7 @@ import net.starlark.java.eval.Module;
 /** Implementation of the {@code starlark_doc_extract} rule. */
 public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
   static final String SRC_ATTR = "src";
+  static final String DEPS_ATTR = "deps";
   static final String SYMBOL_NAMES_ATTR = "symbol_names";
   static final SafeImplicitOutputsFunction BINARYPROTO_OUT = fromTemplates("%{name}.binaryproto");
   static final SafeImplicitOutputsFunction TEXTPROTO_OUT = fromTemplates("%{name}.textproto");
@@ -108,7 +119,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       throw exception;
     }
 
-    Module module = loadModule(ruleContext);
+    RepositoryMapping repositoryMapping = getTargetRepositoryMapping(ruleContext);
+    Module module = loadModule(ruleContext, repositoryMapping);
     if (module == null) {
       // Skyframe restart
       verify(
@@ -116,7 +128,8 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
               && !ruleContext.hasErrors());
       return null;
     }
-    ModuleInfo moduleInfo = getModuleInfo(ruleContext, module);
+    verifyModuleDeps(ruleContext, module, repositoryMapping);
+    ModuleInfo moduleInfo = getModuleInfo(ruleContext, module, repositoryMapping);
 
     NestedSet<Artifact> filesToBuild =
         new NestedSetBuilder<Artifact>(Order.STABLE_ORDER)
@@ -137,18 +150,27 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
         .build();
   }
 
+  /**
+   * Loads the Starlark module from the source file given by the rule's {@code src} attribute.
+   *
+   * @throws RuleErrorException and reports an error in the rule if the {@code src} attribute refers
+   *     to multiple or zero files, a generated file, or a source file which cannot be loaded or
+   *     parsed
+   * @return the module object, or null on Skyframe restart
+   */
   @Nullable
-  private static Module loadModule(RuleContext ruleContext)
+  private static Module loadModule(RuleContext ruleContext, RepositoryMapping repositoryMapping)
       throws RuleErrorException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("BzlDocDump.loadModule")) {
-      final Label label = ruleContext.attributes().get(SRC_ATTR, LABEL);
+      // Note attr schema validates that src is a .bzl or .scl file.
+      Label label = getSourceFileLabel(ruleContext, SRC_ATTR, repositoryMapping);
+
       // Note getSkyframeEnv() cannot be null while creating a configured target.
       SkyFunction.Environment env = ruleContext.getAnalysisEnvironment().getSkyframeEnv();
 
       BzlLoadValue bzlLoadValue;
       try {
-        // TODO(b/276733504): support loading modules in non-BUILD context (bzlmod, prelude,
-        // builtins, and possibly workspace).
+        // TODO(b/276733504): support loading modules in @_builtins
         bzlLoadValue =
             (BzlLoadValue)
                 env.getValueOrThrow(BzlLoadValue.keyForBuild(label), BzlLoadFailedException.class);
@@ -164,14 +186,132 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
     }
   }
 
-  private static ModuleInfo getModuleInfo(RuleContext ruleContext, Module module)
+  /**
+   * Retrieves the label of the singular source artifact from a given attribute. Note that we can't
+   * simply use {@code ruleContext.attributes().get(attrName, LABEL)} because that does not resolve
+   * aliases and filegroups.
+   *
+   * @throws RuleErrorException if the source is not a singular source artifact, meaning its label
+   *     cannot be used as a label for a Starlark load()
+   */
+  private static Label getSourceFileLabel(
+      RuleContext ruleContext, String attrName, RepositoryMapping repositoryMapping)
+      throws RuleErrorException {
+    Artifact artifact = ruleContext.getPrerequisiteArtifact(attrName);
+    ruleContext.assertNoErrors();
+    // If ruleContext.getPrerequisiteArtifact() set no errors, we know artifact != null
+    if (!artifact.isSourceArtifact()) {
+      RuleErrorException error =
+          new RuleErrorException(
+              String.format(
+                  "%s is not a source file and cannot be loaded in Starlark",
+                  formatDerivedArtifact(artifact, repositoryMapping)));
+      ruleContext.attributeError(attrName, error.getMessage());
+      throw error;
+    }
+    return verifyNotNull(artifact.getOwner());
+  }
+
+  private static String formatDerivedArtifact(
+      Artifact artifact, RepositoryMapping repositoryMapping) {
+    checkArgument(!artifact.isSourceArtifact());
+    return String.format(
+        "%s (generated by rule %s)",
+        artifact.getRepositoryRelativePath(),
+        artifact.getOwner().getDisplayForm(repositoryMapping));
+  }
+
+  /**
+   * Verifies that the module's transitive loads are a subset of the source artifacts in
+   * files-to-build of the rule's deps.
+   *
+   * @throws RuleErrorException if that is not the case.
+   */
+  private static void verifyModuleDeps(
+      RuleContext ruleContext, Module module, RepositoryMapping repositoryMapping)
+      throws RuleErrorException {
+    // Note attr schema validates that deps are .bzl or .scl files.
+    Map<Boolean, ImmutableSet<Artifact>> flattenedDepsPartitionedByIsSource =
+        ruleContext.getPrerequisites(DEPS_ATTR).stream()
+            // TODO(https://github.com/bazelbuild/bazel/issues/18599): ideally we should use
+            // StarlarkLibraryInfo here instead of FileProvider#getFilesToBuild; that requires a
+            // native StarlarkLibraryInfo in Bazel.
+            .flatMap(dep -> dep.getProvider(FileProvider.class).getFilesToBuild().toList().stream())
+            .collect(partitioningBy(Artifact::isSourceArtifact, toImmutableSet()));
+    // bzl_library targets may contain both source artifacts and derived artifacts (e.g. generated
+    // .bzl files for tests); only the source artifacts can be load()-ed by Bazel.
+    ImmutableSet<Artifact> flattenedDepsSourceArtifacts =
+        flattenedDepsPartitionedByIsSource.getOrDefault(true, ImmutableSet.of());
+    ImmutableSet<Artifact> flattenedDepsDerivedArtifacts =
+        flattenedDepsPartitionedByIsSource.getOrDefault(false, ImmutableSet.of());
+
+    ImmutableList<String> topmostUnknownLoads =
+        getTopmostUnknownLoads(
+            module,
+            flattenedDepsSourceArtifacts.stream()
+                .map(artifact -> verifyNotNull(artifact.getOwner()))
+                .collect(toImmutableSet()),
+            repositoryMapping);
+
+    if (!topmostUnknownLoads.isEmpty()) {
+      StringBuilder errorMessageBuilder =
+          new StringBuilder("missing bzl_library targets for Starlark module(s) ")
+              .append(Joiner.on(", ").join(topmostUnknownLoads));
+      if (!flattenedDepsDerivedArtifacts.isEmpty()) {
+        // TODO(arostovtsev): we ought to print only the derived artifacts having the same
+        // root-relative path as topmostUnknownLoads.
+        errorMessageBuilder
+            .append("\nNote the following are generated file(s) and cannot be loaded in Starlark: ")
+            .append(
+                Joiner.on(", ")
+                    .join(
+                        flattenedDepsDerivedArtifacts.stream()
+                            .map(artifact -> formatDerivedArtifact(artifact, repositoryMapping))
+                            .iterator()));
+      }
+      RuleErrorException error = new RuleErrorException(errorMessageBuilder.toString());
+      ruleContext.attributeError(DEPS_ATTR, error.getMessage());
+      throw error;
+    }
+  }
+
+  /**
+   * Finds the topmost modules that are transitively loaded by the given module but not mentioned in
+   * the given set of known modules, and returns these modules' display forms.
+   *
+   * <p>Unknown modules that are only referenced by other unknown modules are not included.
+   */
+  private static ImmutableList<String> getTopmostUnknownLoads(
+      Module module, ImmutableSet<Label> knownModules, RepositoryMapping repositoryMapping) {
+    ImmutableList.Builder<String> unknown = ImmutableList.builder();
+    Set<Label> visited = new LinkedHashSet<>();
+    BazelModuleContext.visitLoadGraphRecursively(
+        BazelModuleContext.of(module).loads(),
+        label -> {
+          if (!visited.add(label)) {
+            return false;
+          }
+          if (!knownModules.contains(label)) {
+            unknown.add(label.getDisplayForm(repositoryMapping));
+            return false;
+          }
+          return true;
+        });
+    return unknown.build();
+  }
+
+  /**
+   * Returns the starlark_doc_extract target's repository's repo mapping.
+   *
+   * <p>We return the target's repository's repo mapping, as opposed to the main repo mapping, to
+   * ensure label stringification does not change regardless of whether we are the main repo or a
+   * dependency. However, this does mean that label stringifactions we produce could be invalid in
+   * the main repo.
+   */
+  private static RepositoryMapping getTargetRepositoryMapping(RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
     RepositoryMappingValue repositoryMappingValue;
     try {
-      // We get the starlark_doc_extract target's repository's repo mapping to ensure label
-      // stringification does not change regardless of whether we are the main repo or a dependency.
-      // However, this does mean that label stringifactions we produce could be invalid in the main
-      // repo.
       repositoryMappingValue =
           (RepositoryMappingValue)
               ruleContext
@@ -185,13 +325,16 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       throw new RuleErrorException(e);
     }
     verifyNotNull(repositoryMappingValue);
+    return repositoryMappingValue.getRepositoryMapping();
+  }
 
+  private static ModuleInfo getModuleInfo(
+      RuleContext ruleContext, Module module, RepositoryMapping repositoryMapping)
+      throws RuleErrorException {
     ModuleInfo moduleInfo;
     try {
       moduleInfo =
-          new ModuleInfoExtractor(
-                  getWantedSymbolPredicate(ruleContext),
-                  repositoryMappingValue.getRepositoryMapping())
+          new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), repositoryMapping)
               .extractFrom(module);
     } catch (ModuleInfoExtractor.ExtractionException e) {
       ruleContext.ruleError(e.getMessage());

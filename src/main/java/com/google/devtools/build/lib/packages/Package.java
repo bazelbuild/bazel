@@ -31,6 +31,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -470,28 +471,6 @@ public class Package {
   }
 
   /**
-   * Consumes labels of loaded Starlark files during a call to {@link #visitLoadGraph}.
-   *
-   * <p>The value returned by {@link #visit} determines whether the traversal should continue (true)
-   * or backtrack (false). Using a method reference to {@link Set#add} is a convenient way to
-   * aggregate Starlark files while pruning branches when a file was already seen. The same set may
-   * be reused across multiple calls to {@link #visitLoadGraph} for different packages in order to
-   * prune the graph at files already seen during a previous traversal.
-   */
-  @FunctionalInterface
-  public interface LoadGraphVisitor<E1 extends Exception, E2 extends Exception> {
-    /**
-     * Processes a single loaded Starlark file and determines whether to recurse into that file's
-     * loads.
-     *
-     * @return true if the visitation should recurse into the loads of the given file; ignored if
-     *     transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed}
-     */
-    @CanIgnoreReturnValue
-    boolean visit(Label load) throws E1, E2;
-  }
-
-  /**
    * Performs an online visitation of the load graph rooted at this package.
    *
    * <p>If transitive loads were {@linkplain PackageSettings#precomputeTransitiveLoads precomputed},
@@ -504,23 +483,13 @@ public class Package {
         visitor.visit(load);
       }
     } else {
-      visitLoadGraphRecursively(directLoads, visitor);
-    }
-  }
-
-  private static <E1 extends Exception, E2 extends Exception> void visitLoadGraphRecursively(
-      Iterable<Module> loads, LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
-    for (Module module : loads) {
-      BazelModuleContext ctx = BazelModuleContext.of(module);
-      if (visitor.visit(ctx.label())) {
-        visitLoadGraphRecursively(ctx.loads(), visitor);
-      }
+      BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
     }
   }
 
   private static ImmutableList<Label> computeTransitiveLoads(Iterable<Module> directLoads) {
     Set<Label> loads = new LinkedHashSet<>();
-    visitLoadGraphRecursively(directLoads, loads::add);
+    BazelModuleContext.visitLoadGraphRecursively(directLoads, loads::add);
     return ImmutableList.copyOf(loads);
   }
 

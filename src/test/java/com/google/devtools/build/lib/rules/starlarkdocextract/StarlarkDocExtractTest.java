@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.vfs.Path;
@@ -51,6 +52,7 @@ import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -99,6 +101,35 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ModuleInfo.class);
   }
 
+  private ModuleInfo protoFromConfiguredTarget(String targetName) throws Exception {
+    ConfiguredTarget target = getConfiguredTarget(targetName);
+    return protoFromBinaryFileWriteAction(
+        getGeneratingAction(
+            target,
+            Label.parseCanonicalUnchecked(targetName).toPathFragment().getPathString()
+                + ".binaryproto"));
+  }
+
+  @Before
+  public void setUpBzlLibrary() throws Exception {
+    // TODO(https://github.com/bazelbuild/bazel/issues/18599): get rid of this when we bundle
+    // bzl_library with Bazel.
+    scratch.file(
+        "bzl_library.bzl",
+        "def _bzl_library_impl(ctx):",
+        "    deps_files = [x.files for x in ctx.attr.deps]",
+        "    all_files = depset(ctx.files.srcs, order = 'postorder', transitive = deps_files)",
+        "    return DefaultInfo(files = all_files)",
+        "",
+        "bzl_library = rule(",
+        "    implementation = _bzl_library_impl,",
+        "    attrs = {",
+        "        'srcs': attr.label_list(allow_files = ['.bzl', '.scl']),",
+        "        'deps': attr.label_list(),",
+        "    }",
+        ")");
+  }
+
   @Test
   public void basicFunctionality() throws Exception {
     useConfiguration("--experimental_enable_starlark_doc_extract");
@@ -145,6 +176,74 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
   }
 
   @Test
+  public void sclDialect() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    setBuildLanguageOptions("--experimental_enable_scl_dialect");
+    scratch.file(
+        "foo.scl", //
+        "def f():",
+        "    '''This is my function'''",
+        "    pass");
+    scratch.file(
+        "bar.scl", //
+        "'''My scl module string'''",
+        "load('//:foo.scl', 'f')",
+        "bar_f = f");
+    scratch.file(
+        "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'foo_scl',",
+        "    srcs = ['foo.scl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'bar.scl',",
+        "    deps = ['foo_scl'],",
+        ")");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getModuleDocstring()).isEqualTo("My scl module string");
+    assertThat(moduleInfo.getFile()).isEqualTo("//:bar.scl");
+    assertThat(moduleInfo.getFuncInfo(0).getDocString()).isEqualTo("This is my function");
+  }
+
+  @Test
+  public void sourceWithSyntaxError_fails() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file(
+        "error.bzl", //
+        "!!!");
+    scratch.file(
+        "error_loader.bzl", //
+        "'''This is my module'''",
+        "load('error.bzl', 'x')");
+    scratch.file(
+        "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'error_bzl',",
+        "    srcs = ['error.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'error_doc',",
+        "    src = 'error.bzl',",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'error_loader_doc',",
+        "    src = 'error_loader.bzl',",
+        "    deps = ['error_bzl'],",
+        ")");
+
+    AssertionError errorDocFailure =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//:error_doc"));
+    assertThat(errorDocFailure).hasMessageThat().contains("invalid character: '!'");
+
+    AssertionError errorLoaderDocFailure =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//:error_loader_doc"));
+    assertThat(errorLoaderDocFailure).hasMessageThat().contains("invalid character: '!'");
+  }
+
+  @Test
   public void symbolNames() throws Exception {
     useConfiguration("--experimental_enable_starlark_doc_extract");
     scratch.file(
@@ -167,16 +266,11 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "    src = 'foo.bzl',",
         ")");
 
-    ModuleInfo dumpSome =
-        protoFromBinaryFileWriteAction(
-            getGeneratingAction(
-                getConfiguredTarget("//:extract_some"), "extract_some.binaryproto"));
+    ModuleInfo dumpSome = protoFromConfiguredTarget("//:extract_some");
     assertThat(dumpSome.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("func1");
 
-    ModuleInfo dumpAll =
-        protoFromBinaryFileWriteAction(
-            getGeneratingAction(getConfiguredTarget("//:extract_all"), "extract_all.binaryproto"));
+    ModuleInfo dumpAll = protoFromConfiguredTarget("//:extract_all");
     assertThat(dumpAll.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("func1", "func2");
   }
@@ -210,16 +304,19 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'origin_bzl',",
+        "    srcs = ['origin.bzl'],",
+        ")",
         "starlark_doc_extract(",
         "    name = 'extract_renamed',",
         "    src = 'renamer.bzl',",
+        "    deps = ['origin_bzl'],",
         "    symbol_names = ['namespace'],",
         ")");
 
-    ModuleInfo moduleInfo =
-        protoFromBinaryFileWriteAction(
-            getGeneratingAction(
-                getConfiguredTarget("//:extract_renamed"), "extract_renamed.binaryproto"));
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract_renamed");
 
     assertThat(moduleInfo.getFuncInfoList().stream().map(StarlarkFunctionInfo::getFunctionName))
         .containsExactly("namespace.renamed_macro");
@@ -307,6 +404,11 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'origin_bzl',",
+        "    srcs = ['@origin_repo//:origin.bzl'],",
+        ")",
         "starlark_doc_extract(",
         "    name = 'extract_origin',",
         "    src = '@origin_repo//:origin.bzl',",
@@ -314,22 +416,17 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "starlark_doc_extract(",
         "    name = 'extract_renamed',",
         "    src = 'renamer.bzl',",
+        "    deps = ['origin_bzl'],",
         ")");
 
     // verify that ModuleInfo.name for a .bzl file in another bzlmod module is in display form, i.e.
     // "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
-    ModuleInfo originModuleInfo =
-        protoFromBinaryFileWriteAction(
-            getGeneratingAction(
-                getConfiguredTarget("//:extract_origin"), "extract_origin.binaryproto"));
+    ModuleInfo originModuleInfo = protoFromConfiguredTarget("//:extract_origin");
     assertThat(originModuleInfo.getFile()).isEqualTo("@origin_repo//:origin.bzl");
 
     // verify that OriginKey.name for entities defined in a .bzl file in another bzlmod module is in
     // display form, i.e. "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
-    ModuleInfo renamedModuleInfo =
-        protoFromBinaryFileWriteAction(
-            getGeneratingAction(
-                getConfiguredTarget("//:extract_renamed"), "extract_renamed.binaryproto"));
+    ModuleInfo renamedModuleInfo = protoFromConfiguredTarget("//:extract_renamed");
     assertThat(renamedModuleInfo.getFile()).isEqualTo("//:renamer.bzl");
     assertThat(renamedModuleInfo.getFuncInfo(0).getOriginKey().getFile())
         .isEqualTo("@origin_repo//:origin.bzl");
@@ -371,15 +468,18 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "exported_lambda = return_lambda()");
     scratch.file(
         "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'origin_bzl',",
+        "    srcs = ['origin.bzl'],",
+        ")",
         "starlark_doc_extract(",
         "    name = 'extract_exporter',",
         "    src = 'exporter.bzl',",
+        "    deps = ['origin_bzl'],",
         ")");
 
-    ModuleInfo moduleInfo =
-        protoFromBinaryFileWriteAction(
-            getGeneratingAction(
-                getConfiguredTarget("//:extract_exporter"), "extract_exporter.binaryproto"));
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract_exporter");
 
     assertThat(moduleInfo.getFuncInfoList())
         .containsExactly(
@@ -398,5 +498,314 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
                     // OriginKey.name for lambdas is explicitly unset
                     OriginKey.newBuilder().setFile("//:origin.bzl"))
                 .build());
+  }
+
+  @Test
+  public void missingBzlLibraryDeps_fails() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file(
+        "dep.bzl", //
+        "load('//:forgotten_dep_of_dep.bzl', 'g')",
+        "def f(): pass");
+    scratch.file(
+        "forgotten_dep_of_dep.bzl", //
+        "def g(): pass");
+    scratch.file(
+        "forgotten_dep.bzl", //
+        "load('//:forgotten_dep_of_forgotten_dep.bzl', 'j')",
+        "def h(): pass");
+    scratch.file(
+        "forgotten_dep2.bzl", //
+        "def i(): pass");
+    scratch.file(
+        "forgotten_dep_of_forgotten_dep.bzl", //
+        "def j(): pass");
+    scratch.file(
+        "foo.bzl", //
+        "load('//:dep.bzl', 'f')",
+        "load('//:forgotten_dep.bzl', 'h')",
+        "load('//:forgotten_dep2.bzl', 'i')");
+    scratch.file(
+        "BUILD", //
+        "load('bzl_library.bzl', 'bzl_library')",
+        "bzl_library(",
+        "    name = 'dep_bzl',",
+        "    srcs = ['dep.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',", // Note that src does not need to be part of deps
+        "    deps = ['dep_bzl']",
+        ")");
+
+    AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//:extract"));
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "missing bzl_library targets for Starlark module(s) //:forgotten_dep_of_dep.bzl,"
+                + " //:forgotten_dep.bzl, //:forgotten_dep2.bzl");
+    // We do not want to log transitive deps of already missing deps in the error message - it would
+    // be hard to read and unnecessary, since a valid bzl_library target should bring in its
+    // transitive deps.
+    assertThat(e).hasMessageThat().doesNotContain("forgotten_dep_of_forgotten_dep.bzl");
+  }
+
+  @Test
+  public void depsWithDerivedFiles_onUnknownLoads_failsAndPrintsDerivedFiles() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file("BUILD");
+    scratch.file(
+        "pkg/source_file_masked_by_rule_name.bzl", //
+        "def f(): pass");
+    scratch.file(
+        "pkg/source_file_masked_by_rule_output_name.bzl", //
+        "def g(): pass");
+    scratch.file(
+        "pkg/foo.bzl", //
+        "load('//pkg:source_file_masked_by_rule_name.bzl', 'f')",
+        "load('//pkg:source_file_masked_by_rule_output_name.bzl', 'g')");
+    scratch.file(
+        "pkg/BUILD", //
+        "load('//:bzl_library.bzl', 'bzl_library')",
+        "genrule(",
+        "    name = 'source_file_masked_by_rule_name.bzl',",
+        "    outs = ['some_output.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        "genrule(",
+        "    name = 'source_file_masked_by_rule_output_name_bzl_generator',",
+        "    outs = ['source_file_masked_by_rule_output_name.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        "genrule(",
+        "    name = 'some_rule',",
+        "    outs = ['ordinary_generated_file.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        "bzl_library(",
+        "    name = 'deps_bzl',",
+        "    srcs = [",
+        "        'source_file_masked_by_rule_name.bzl',",
+        "        'source_file_masked_by_rule_output_name.bzl',",
+        "        'ordinary_generated_file.bzl',",
+        "    ],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        "    deps = ['deps_bzl']",
+        ")");
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//pkg:extract"));
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            "missing bzl_library targets for Starlark module(s)"
+                + " //pkg:source_file_masked_by_rule_name.bzl,"
+                + " //pkg:source_file_masked_by_rule_output_name.bzl\n"
+                + "Note the following are generated file(s) and cannot be loaded in Starlark:"
+                + " pkg/some_output.bzl (generated by rule"
+                + " //pkg:source_file_masked_by_rule_name.bzl),"
+                + " pkg/source_file_masked_by_rule_output_name.bzl (generated by rule"
+                + " //pkg:source_file_masked_by_rule_output_name_bzl_generator),"
+                + " pkg/ordinary_generated_file.bzl (generated by rule //pkg:some_rule)");
+  }
+
+  @Test
+  public void depsWithDerivedFiles_onNoUnknownLoads_succeeds() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file("BUILD");
+    scratch.file(
+        "util.bzl",
+        "def _impl(ctx):",
+        "    out = ctx.actions.declare_file(ctx.attr.out)",
+        "    ctx.actions.run_shell(command = 'touch $1', arguments = [out.path], outputs = [out])",
+        "    return DefaultInfo(files = depset([out]), runfiles = ctx.runfiles([out]))",
+        "generate_out_without_declaring_it_as_a_target = rule(",
+        "    attrs = {'out': attr.string()},",
+        "    implementation = _impl,",
+        ")");
+    scratch.file(
+        "pkg/source_dep.bzl", //
+        "def f(): pass");
+    scratch.file(
+        "pkg/foo.bzl", //
+        "load('//pkg:source_dep.bzl', 'f')");
+    scratch.file(
+        "pkg/BUILD", //
+        "load('//:bzl_library.bzl', 'bzl_library')",
+        "load('//:util.bzl', 'generate_out_without_declaring_it_as_a_target')",
+        "genrule(",
+        "    name = 'some_rule',",
+        "    outs = ['declared_derived_dep.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        // //pkg:generate_source_dep_without_declaring_it_as_a_target masks the source_dep.bzl
+        // source artifact with a non-target, derived artifact having the same root-relative path.
+        "generate_out_without_declaring_it_as_a_target(",
+        "    name = 'generate_source_dep_without_declaring_it_as_a_target',",
+        "    out = 'source_dep.bzl'",
+        ")",
+        "bzl_library(",
+        "    name = 'deps_bzl',",
+        "    srcs = [",
+        "        'declared_derived_dep.bzl',",
+        "        'source_dep.bzl',",
+        "        'generate_source_dep_without_declaring_it_as_a_target',",
+        "    ],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'foo.bzl',",
+        "    deps = ['deps_bzl']",
+        ")");
+
+    getConfiguredTarget("//pkg:extract");
+    assertNoEvents();
+  }
+
+  @Test
+  public void srcDerivedFile_fails() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file("BUILD");
+    scratch.file("pkg/source_file_masked_by_rule_name.bzl");
+    scratch.file("pkg/source_file_masked_by_rule_output_name.bzl");
+    scratch.file(
+        "pkg/BUILD", //
+        "genrule(",
+        "    name = 'source_file_masked_by_rule_name.bzl',",
+        "    outs = ['some_output.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        "genrule(",
+        "    name = 'source_file_masked_by_rule_output_name_bzl_generator',",
+        "    outs = ['source_file_masked_by_rule_output_name.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        "genrule(",
+        "    name = 'some_rule',",
+        "    outs = ['ordinary_generated_file.bzl'],",
+        "    cmd = 'touch $@'",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'source_file_masked_by_rule_name_doc',",
+        "    src = 'source_file_masked_by_rule_name.bzl',",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'source_file_masked_by_rule_output_name_doc',",
+        "    src = 'source_file_masked_by_rule_output_name.bzl',",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'ordinary_generated_file_doc',",
+        "    src = 'ordinary_generated_file.bzl',",
+        ")");
+
+    AssertionError maskedByRuleError =
+        assertThrows(
+            AssertionError.class,
+            () -> getConfiguredTarget("//pkg:source_file_masked_by_rule_name_doc"));
+    assertThat(maskedByRuleError)
+        .hasMessageThat()
+        .contains(
+            "pkg/some_output.bzl (generated by rule //pkg:source_file_masked_by_rule_name.bzl)"
+                + " is not a source file and cannot be loaded in Starlark");
+
+    AssertionError maskedByRuleOutputError =
+        assertThrows(
+            AssertionError.class,
+            () -> getConfiguredTarget("//pkg:source_file_masked_by_rule_output_name_doc"));
+    assertThat(maskedByRuleOutputError)
+        .hasMessageThat()
+        .contains(
+            "pkg/source_file_masked_by_rule_output_name.bzl (generated by rule"
+                + " //pkg:source_file_masked_by_rule_output_name_bzl_generator) is not a source"
+                + " file and cannot be loaded in Starlark");
+
+    AssertionError ordinaryGeneratedFileError =
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//pkg:ordinary_generated_file_doc"));
+    assertThat(ordinaryGeneratedFileError)
+        .hasMessageThat()
+        .contains(
+            "pkg/ordinary_generated_file.bzl (generated by rule //pkg:some_rule) is not a source"
+                + " file and cannot be loaded in Starlark");
+  }
+
+  @Test
+  public void srcAlias_resolvesToActual() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file("alias_name.bzl");
+    scratch.file("alias_actual.bzl");
+    scratch.file(
+        "BUILD", //
+        "alias(",
+        "    name = 'alias_name.bzl',",
+        "    actual = 'alias_actual.bzl',",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'alias_name.bzl',",
+        ")");
+
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("//:alias_actual.bzl");
+  }
+
+  @Test
+  public void srcFilegroup_resolvesToFilegroupSrc() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file("masked_by_filegroup_name.bzl");
+    scratch.file("filegroup_src_actual.bzl");
+    scratch.file(
+        "BUILD", //
+        "filegroup(",
+        "    name = 'masked_by_filegroup_name.bzl',",
+        "    srcs = ['filegroup_src_actual.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'extract',",
+        "    src = 'masked_by_filegroup_name.bzl',",
+        ")");
+
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("//:extract");
+    assertThat(moduleInfo.getFile()).isEqualTo("//:filegroup_src_actual.bzl");
+  }
+
+  @Test
+  public void srcFilegroup_mustHaveSingleSrc() throws Exception {
+    useConfiguration("--experimental_enable_starlark_doc_extract");
+    scratch.file("foo.bzl");
+    scratch.file("bar.bzl");
+    scratch.file(
+        "BUILD", //
+        "filegroup(",
+        "    name = 'no_files',",
+        "    srcs = [],",
+        ")",
+        "filegroup(",
+        "    name = 'two_files',",
+        "    srcs = ['foo.bzl', 'bar.bzl'],",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'no_files_doc',",
+        "    src = 'no_files',",
+        ")",
+        "starlark_doc_extract(",
+        "    name = 'two_files_doc',",
+        "    src = 'two_files',",
+        ")");
+
+    AssertionError extractNoFilesError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//:no_files_doc"));
+    assertThat(extractNoFilesError)
+        .hasMessageThat()
+        .contains("'//:no_files' must produce a single file");
+
+    AssertionError extractTwoFilesError =
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//:two_files_doc"));
+    assertThat(extractTwoFilesError)
+        .hasMessageThat()
+        .contains("'//:two_files' must produce a single file");
   }
 }

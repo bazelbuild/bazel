@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromFunctions;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
@@ -47,8 +48,15 @@ public final class StarlarkDocExtractRule implements RuleDefinition {
     return builder
         .add(
             attr(StarlarkDocExtract.SRC_ATTR, LABEL)
-                .allowedFileTypes(FileType.of(".bzl"))
+                .allowedFileTypes(FileType.of(".bzl"), FileType.of(".scl"))
+                .singleArtifact()
                 .mandatory())
+        // TODO(https://github.com/bazelbuild/bazel/issues/18599): for deps, we ought to set
+        // mandatoryProviders(StarlarkLibraryInfo); that requires a native StarlarkLibraryInfo in
+        // Bazel.
+        .override(
+            attr(StarlarkDocExtract.DEPS_ATTR, LABEL_LIST)
+                .allowedFileTypes(FileType.of(".bzl"), FileType.of(".scl")))
         .add(
             attr(StarlarkDocExtract.SYMBOL_NAMES_ATTR, STRING_LIST)
                 .value(ImmutableList.<String>of()))
