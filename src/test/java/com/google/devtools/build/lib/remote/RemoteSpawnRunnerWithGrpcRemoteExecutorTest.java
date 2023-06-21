@@ -31,6 +31,7 @@ import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.DigestFunction;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
@@ -1110,7 +1111,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String stdOutResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
+        getResourceName(
+            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1171,7 +1173,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
           }
         });
     String stdOutResourceName =
-        getResourceName(remoteOptions.remoteInstanceName, stdOutDigest, false);
+        getResourceName(
+            remoteOptions.remoteInstanceName, stdOutDigest, false, DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           @Override
@@ -1297,7 +1300,10 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
         });
     String dummyTreeResourceName =
         getResourceName(
-            remoteOptions.remoteInstanceName, DUMMY_OUTPUT_DIRECTORY.getTreeDigest(), false);
+            remoteOptions.remoteInstanceName,
+            DUMMY_OUTPUT_DIRECTORY.getTreeDigest(),
+            false,
+            DigestFunction.Value.SHA256);
     serviceRegistry.addService(
         new ByteStreamImplBase() {
           private boolean first = true;
