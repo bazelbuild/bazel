@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -171,7 +171,7 @@ public class RemoteActionInputFetcherTest extends ActionInputPrefetcherTestBase 
           entry.getValue());
     }
     return new RemoteCache(
-        CacheCapabilities.getDefaultInstance(),
+        ServerCapabilities.getDefaultInstance(),
         new InMemoryCacheClient(cacheEntries),
         options,
         digestUtil);

@@ -22,9 +22,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.RequestMetadata;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -111,11 +111,11 @@ public class RemoteCacheTest {
     Spawn spawn =
         new SimpleSpawn(
             new FakeOwner("foo", "bar", "//dummy:label"),
-            /*arguments=*/ ImmutableList.of(),
-            /*environment=*/ ImmutableMap.of(),
-            /*executionInfo=*/ ImmutableMap.of(),
-            /*inputs=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
-            /*outputs=*/ ImmutableSet.of(),
+            /* arguments= */ ImmutableList.of(),
+            /* environment= */ ImmutableMap.of(),
+            /* executionInfo= */ ImmutableMap.of(),
+            /* inputs= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+            /* outputs= */ ImmutableSet.of(),
             ResourceSet.ZERO);
     context = RemoteActionExecutionContext.create(spawn, metadata);
     fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
@@ -615,7 +615,7 @@ public class RemoteCacheTest {
 
   private RemoteCache newRemoteCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteCache(
-        CacheCapabilities.getDefaultInstance(),
+        ServerCapabilities.getDefaultInstance(),
         remoteCacheClient,
         Options.getDefaults(RemoteOptions.class),
         digestUtil);
@@ -623,7 +623,7 @@ public class RemoteCacheTest {
 
   private RemoteExecutionCache newRemoteExecutionCache(RemoteCacheClient remoteCacheClient) {
     return new RemoteExecutionCache(
-        CacheCapabilities.getDefaultInstance(),
+        ServerCapabilities.getDefaultInstance(),
         remoteCacheClient,
         Options.getDefaults(RemoteOptions.class),
         digestUtil);

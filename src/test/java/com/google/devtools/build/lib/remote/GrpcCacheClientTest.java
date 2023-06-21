@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionCacheGrpc.ActionCacheImplBase;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.ContentAddressableStorageGrpc.ContentAddressableStorageImplBase;
 import build.bazel.remote.execution.v2.Digest;
@@ -37,6 +36,7 @@ import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.Tree;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -101,7 +101,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     RemoteExecutionCache client =
         new RemoteExecutionCache(
-            CacheCapabilities.getDefaultInstance(), newClient(options), options, DIGEST_UTIL);
+            ServerCapabilities.getDefaultInstance(), newClient(options), options, DIGEST_UTIL);
     PathFragment execPath = PathFragment.create("my/exec/path");
     VirtualActionInput virtualActionInput =
         ActionsTestUtil.createVirtualActionInput(execPath, "hello");
@@ -158,7 +158,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
         });
 
     // Upload all missing inputs (that is, the virtual action input from above)
-    client.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), /*force=*/ true);
+    client.ensureInputsPresent(context, merkleTree, ImmutableMap.of(), /* force= */ true);
   }
 
   @Test
@@ -291,7 +291,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     Digest fooDigest = DIGEST_UTIL.computeAsUtf8("foo-contents");
     Digest barDigest = DIGEST_UTIL.computeAsUtf8("bar-contents");
@@ -315,7 +316,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -384,7 +386,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     final Digest barDigest =
         fakeFileCache.createScratchInputDirectory(
@@ -428,7 +431,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     final Digest wobbleDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("bar/test/wobble"), "xyz");
@@ -500,7 +504,7 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     UploadManifest uploadManifest =
         UploadManifest.create(
             remoteCache.options,
-            remoteCache.cacheCapabilities,
+            remoteCache.getCacheCapabilities(),
             remoteCache.digestUtil,
             remotePathResolver,
             actionKey,
@@ -587,7 +591,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
 
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
     remoteCache.downloadActionResult(
         context,
         DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
@@ -599,7 +604,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -676,7 +682,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     remoteOptions.maxOutboundMessageSize = 80; // Enough for one digest, but not two.
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");
@@ -742,7 +749,8 @@ public class GrpcCacheClientTest extends GrpcCacheClientTestBase {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
-        new RemoteCache(CacheCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
+        new RemoteCache(
+            ServerCapabilities.getDefaultInstance(), client, remoteOptions, DIGEST_UTIL);
 
     final Digest fooDigest =
         fakeFileCache.createScratchInput(ActionInputHelper.fromPath("a/foo"), "xyz");

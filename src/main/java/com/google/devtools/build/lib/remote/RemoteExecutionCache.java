@@ -23,9 +23,9 @@ import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfe
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
 import static java.lang.String.format;
 
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -60,7 +60,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RemoteExecutionCache extends RemoteCache {
 
   public RemoteExecutionCache(
-      CacheCapabilities cacheCapabilities,
+      ServerCapabilities cacheCapabilities,
       RemoteCacheClient protocolImpl,
       RemoteOptions options,
       DigestUtil digestUtil) {

@@ -22,8 +22,8 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
@@ -177,7 +177,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       filesToUpload.put(
           file,
           new LocalFile(
-              file, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+              file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
@@ -220,7 +220,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       filesToUpload.put(
           file,
           new LocalFile(
-              file, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+              file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
@@ -352,7 +352,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       filesToUpload.put(
           file,
           new LocalFile(
-              file, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+              file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
     }
     String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
     serviceRegistry.addService(
@@ -437,7 +437,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
     LocalFile file =
         new LocalFile(
-            remotePath, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null);
+            remotePath, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null);
 
     // act
 
@@ -488,10 +488,16 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         ImmutableMap.of(
             remoteFile,
             new LocalFile(
-                remoteFile, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null),
+                remoteFile,
+                LocalFileType.OUTPUT,
+                /* artifact= */ null,
+                /* artifactMetadata= */ null),
             localFile,
             new LocalFile(
-                localFile, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null));
+                localFile,
+                LocalFileType.OUTPUT,
+                /* artifact= */ null,
+                /* artifactMetadata= */ null));
     PathConverter pathConverter = artifactUploader.upload(files).get();
 
     // assert
@@ -541,7 +547,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .findMissingDigests(any(), any());
 
     return new RemoteCache(
-        CacheCapabilities.getDefaultInstance(), cacheClient, remoteOptions, DIGEST_UTIL);
+        ServerCapabilities.getDefaultInstance(), cacheClient, remoteOptions, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(RemoteCache remoteCache) {
@@ -549,11 +555,11 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     return new ByteStreamBuildEventArtifactUploader(
         MoreExecutors.directExecutor(),
         reporter,
-        /*verboseFailures=*/ true,
+        /* verboseFailures= */ true,
         remoteCache,
-        /*remoteServerInstanceName=*/ "localhost/instance",
-        /*buildRequestId=*/ "none",
-        /*commandId=*/ "none",
+        /* remoteServerInstanceName= */ "localhost/instance",
+        /* buildRequestId= */ "none",
+        /* commandId= */ "none",
         SyscallCache.NO_CACHE,
         RemoteBuildEventUploadMode.ALL);
   }

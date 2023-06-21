@@ -124,11 +124,14 @@ import javax.annotation.Nullable;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
 public final class RemoteModule extends BlazeModule {
-  private static final CacheCapabilities HTTP_AND_DISK_CACHE_CAPABILITIES =
-      CacheCapabilities.newBuilder()
-          .setActionCacheUpdateCapabilities(
-              ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-          .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+  private static final ServerCapabilities HTTP_AND_DISK_CACHE_CAPABILITIES =
+      ServerCapabilities.newBuilder()
+          .setCacheCapabilities(
+              CacheCapabilities.newBuilder()
+                  .setActionCacheUpdateCapabilities(
+                      ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+                  .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+                  .build())
           .build();
 
   private final ListeningScheduledExecutorService retryScheduler =
@@ -663,8 +666,7 @@ public final class RemoteModule extends BlazeModule {
       }
       execChannel.release();
       RemoteExecutionCache remoteCache =
-          new RemoteExecutionCache(
-              cacheCapabilities.getCacheCapabilities(), cacheClient, remoteOptions, digestUtil);
+          new RemoteExecutionCache(cacheCapabilities, cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               executorService,
@@ -701,8 +703,7 @@ public final class RemoteModule extends BlazeModule {
       }
 
       RemoteCache remoteCache =
-          new RemoteCache(
-              cacheCapabilities.getCacheCapabilities(), cacheClient, remoteOptions, digestUtil);
+          new RemoteCache(cacheCapabilities, cacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               executorService, env, remoteCache, retryScheduler, digestUtil, remoteOutputChecker);
