@@ -107,7 +107,8 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             callCredentialsProvider,
             options.remoteTimeout.getSeconds(),
             retrier,
-            options.maximumOpenFiles);
+            options.maximumOpenFiles,
+            digestUtil.getDigestFunction());
     maxMissingBlobsDigestsPerMessage = computeMaxMissingBlobsDigestsPerMessage();
     Preconditions.checkState(
         maxMissingBlobsDigestsPerMessage > 0, "Error: gRPC message size too small.");
