@@ -1110,7 +1110,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     // Then parse the command line again, this time with the correct option sources
     parser = OptionsParser.builder().optionsClasses(optionClasses).allowResidue(false).build();
-    parser.parseWithSourceFunction(PriorityCategory.COMMAND_LINE, sourceFunction, args);
+    parser.parseWithSourceFunction(
+        PriorityCategory.COMMAND_LINE, sourceFunction, args, /* fallbackData= */ null);
     return parser;
   }
 
