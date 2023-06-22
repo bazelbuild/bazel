@@ -148,6 +148,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -1095,6 +1096,18 @@ public class RemoteExecutionService {
     // The expiration time for remote cache entries.
     var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
 
+    ActionInput inMemoryOutput = null;
+    AtomicReference<byte[]> inMemoryOutputData = new AtomicReference<>(null);
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+    if (inMemoryOutputPath != null) {
+      for (ActionInput output : action.getSpawn().getOutputFiles()) {
+        if (output.getExecPath().equals(inMemoryOutputPath)) {
+          inMemoryOutput = output;
+          break;
+        }
+      }
+    }
+
     // Collect the set of files to download.
     ImmutableList.Builder<ListenableFuture<FileMetadata>> downloadsBuilder =
         ImmutableList.builder();
@@ -1108,7 +1121,10 @@ public class RemoteExecutionService {
       if (realToTmpPath.containsKey(file.path)) {
         continue;
       }
-      if (shouldDownload(result, file.path.relativeTo(execRoot))) {
+
+      var execPath = file.path.relativeTo(execRoot);
+      var isInMemoryOutputFile = inMemoryOutput != null && execPath.equals(inMemoryOutputPath);
+      if (!isInMemoryOutputFile && shouldDownload(result, execPath)) {
         Path tmpPath = tempPathGenerator.generateTempPath();
         realToTmpPath.put(file.path, tmpPath);
         downloadsBuilder.add(downloadFile(context, progressStatusListener, file, tmpPath));
@@ -1118,6 +1134,17 @@ public class RemoteExecutionService {
             DigestUtil.toBinaryDigest(file.digest()),
             file.digest().getSizeBytes(),
             expireAtEpochMilli);
+
+        if (isInMemoryOutputFile) {
+          downloadsBuilder.add(
+              transform(
+                  remoteCache.downloadBlob(context, file.digest()),
+                  data -> {
+                    inMemoryOutputData.set(data);
+                    return null;
+                  },
+                  directExecutor()));
+        }
       }
     }
 
@@ -1242,33 +1269,8 @@ public class RemoteExecutionService {
       }
     }
 
-    ActionInput inMemoryOutput = null;
-    Digest inMemoryOutputDigest = null;
-    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
-
-    for (ActionInput output : action.getSpawn().getOutputFiles()) {
-      if (inMemoryOutputPath != null && output.getExecPath().equals(inMemoryOutputPath)) {
-        Path localPath = remotePathResolver.outputPathToLocalPath(output);
-        FileMetadata m = metadata.file(localPath);
-        if (m == null) {
-          // A declared output wasn't created. Ignore it here. SkyFrame will fail if not all
-          // outputs were created.
-          continue;
-        }
-        inMemoryOutputDigest = m.digest();
-        inMemoryOutput = output;
-      }
-    }
-
-    if (inMemoryOutput != null) {
-      try (SilentCloseable c = Profiler.instance().profile("Remote.downloadInMemoryOutput")) {
-        ListenableFuture<byte[]> inMemoryOutputDownload =
-            remoteCache.downloadBlob(context, inMemoryOutputDigest);
-        waitForBulkTransfer(
-            ImmutableList.of(inMemoryOutputDownload), /* cancelRemainingOnInterrupt= */ true);
-        byte[] data = getFromFuture(inMemoryOutputDownload);
-        return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(data));
-      }
+    if (inMemoryOutput != null && inMemoryOutputData.get() != null) {
+      return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(inMemoryOutputData.get()));
     }
 
     return null;
