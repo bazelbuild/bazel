@@ -445,6 +445,7 @@ def _common(
         implementation_deps = [],
         attr_linkopts = [],
         alwayslink = False,
+        is_aspect = True,
     )
 
     return struct(

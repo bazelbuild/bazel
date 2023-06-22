@@ -62,7 +62,8 @@ def _create_context_and_provider(
         implementation_deps,
         attr_linkopts,
         direct_cc_compilation_contexts = [],
-        includes = []):
+        includes = [],
+        is_aspect = False):
     objc_providers = []
     cc_compilation_contexts = []
     cc_linking_contexts = []
@@ -202,6 +203,10 @@ def _create_context_and_provider(
             objc_provider_kwargs["library"] = [
                 depset([compilation_artifacts.archive], order = "topological"),
             ]
+            if is_aspect:
+                if ctx.rule.kind in ["j2objc_library", "java_library", "java_import", "java_proto_library"]:
+                    objc_provider_kwargs["j2objc_library"] = [compilation_artifacts.archive]
+
         objc_provider_kwargs["source"].extend(all_sources)
 
         objc_compilation_context_kwargs["public_hdrs"].extend(
