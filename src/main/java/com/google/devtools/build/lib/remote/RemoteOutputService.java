@@ -153,6 +153,11 @@ public class RemoteOutputService implements OutputService {
   }
 
   @Override
+  public boolean shouldStoreRemoteOutputMetadataInActionCache() {
+    return true;
+  }
+
+  @Override
   public RemoteArtifactChecker getRemoteArtifactChecker() {
     return checkNotNull(remoteOutputChecker, "remoteOutputChecker must not be null");
   }

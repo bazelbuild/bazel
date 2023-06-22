@@ -305,9 +305,16 @@ public class ExecutionTool {
     }
     SkyframeBuilder skyframeBuilder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
+      var shouldStoreRemoteMetadataInActionCache =
+          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
       skyframeBuilder =
           (SkyframeBuilder)
-              createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+              createBuilder(
+                  request,
+                  actionCache,
+                  skyframeExecutor,
+                  modifiedOutputFiles,
+                  shouldStoreRemoteMetadataInActionCache);
     }
 
     skyframeExecutor.drainChangedFiles();
@@ -395,7 +402,15 @@ public class ExecutionTool {
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder;
     try (SilentCloseable c = Profiler.instance().profile("createBuilder")) {
-      builder = createBuilder(request, actionCache, skyframeExecutor, modifiedOutputFiles);
+      var shouldStoreRemoteMetadataInActionCache =
+          outputService != null && outputService.shouldStoreRemoteOutputMetadataInActionCache();
+      builder =
+          createBuilder(
+              request,
+              actionCache,
+              skyframeExecutor,
+              modifiedOutputFiles,
+              shouldStoreRemoteMetadataInActionCache);
     }
 
     //
@@ -925,7 +940,8 @@ public class ExecutionTool {
       BuildRequest request,
       @Nullable ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles) {
+      ModifiedFileSet modifiedOutputFiles,
+      boolean shouldStoreRemoteOutputMetadataInActionCache) {
     BuildRequestOptions options = request.getBuildOptions();
 
     skyframeExecutor.setActionOutputRoot(env.getActionTempsDirectory());
@@ -944,7 +960,7 @@ public class ExecutionTool {
             ActionCacheChecker.CacheConfig.builder()
                 .setEnabled(options.useActionCache)
                 .setVerboseExplanations(options.verboseExplanations)
-                .setStoreOutputMetadata(options.actionCacheStoreOutputMetadata)
+                .setStoreOutputMetadata(shouldStoreRemoteOutputMetadataInActionCache)
                 .build()),
         modifiedOutputFiles,
         env.getFileCache(),

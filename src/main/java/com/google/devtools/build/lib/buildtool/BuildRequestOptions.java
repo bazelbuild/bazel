@@ -428,7 +428,7 @@ public class BuildRequestOptions extends OptionsBase {
         OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
         OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
       },
-      help = "Whether to store output metadata in the action cache")
+      help = "no-op")
   public boolean actionCacheStoreOutputMetadata;
 
   @Option(
