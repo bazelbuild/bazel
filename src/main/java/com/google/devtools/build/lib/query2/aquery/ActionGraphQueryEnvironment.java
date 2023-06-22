@@ -51,6 +51,7 @@ import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -194,7 +195,15 @@ public class ActionGraphQueryEnvironment
   @Nullable
   private ConfiguredTargetValue createConfiguredTargetValueFromKey(ConfiguredTargetKey key)
       throws InterruptedException {
-    return getConfiguredTargetValue(key.toKey());
+    ConfiguredTargetValue value = getConfiguredTargetValue(key.toKey());
+    if (value == null
+        || !Objects.equals(
+            value.getConfiguredTarget().getConfigurationKey(), key.getConfigurationKey())) {
+      // The configurations might not match if the target's configuration changed due to a
+      // transition or trimming. Filters such targets.
+      return null;
+    }
+    return value;
   }
 
   @Nullable
@@ -235,7 +244,7 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetValue getValueFromKey(SkyKey key) throws InterruptedException {
     Preconditions.checkState(key instanceof ConfiguredTargetKey);
-    return createConfiguredTargetValueFromKey((ConfiguredTargetKey) key);
+    return getConfiguredTargetValue(((ConfiguredTargetKey) key).toKey());
   }
 
   @Nullable
@@ -335,6 +344,6 @@ public class ActionGraphQueryEnvironment
   }
 
   private static ConfiguredTargetKey getConfiguredTargetKeyImpl(ConfiguredTargetValue targetValue) {
-    return (ConfiguredTargetKey) targetValue.getConfiguredTarget().getKeyOrProxy();
+    return ConfiguredTargetKey.fromConfiguredTarget(targetValue.getConfiguredTarget());
   }
 }

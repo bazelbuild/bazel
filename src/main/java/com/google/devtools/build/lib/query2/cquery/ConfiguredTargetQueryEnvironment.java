@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -59,6 +60,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -339,14 +341,22 @@ public class ConfiguredTargetQueryEnvironment
    * null.
    */
   @Nullable
-  private ConfiguredTarget getConfiguredTarget(Label label, BuildConfigurationValue configuration)
-      throws InterruptedException {
-    return getValueFromKey(
-        ConfiguredTargetKey.builder()
-            .setLabel(label)
-            .setConfiguration(configuration)
-            .build()
-            .toKey());
+  private ConfiguredTarget getConfiguredTarget(
+      Label label, @Nullable BuildConfigurationValue configuration) throws InterruptedException {
+    BuildConfigurationKey configurationKey = configuration == null ? null : configuration.getKey();
+    ConfiguredTarget target =
+        getValueFromKey(
+            ConfiguredTargetKey.builder()
+                .setLabel(label)
+                .setConfigurationKey(configurationKey)
+                .build()
+                .toKey());
+    // The configurations might not match if the target's configuration changed due to a transition
+    // or trimming. Filters such targets.
+    if (target == null || !Objects.equals(configurationKey, target.getConfigurationKey())) {
+      return null;
+    }
+    return target;
   }
 
   @Override
