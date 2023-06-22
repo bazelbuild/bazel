@@ -472,17 +472,13 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_minimal",
       oldName = "experimental_remote_download_minimal",
       defaultValue = "null",
-      expansion = {
-        "--nobuild_runfile_links",
-        "--action_cache_store_output_metadata",
-        "--remote_download_outputs=minimal"
-      },
+      expansion = {"--nobuild_runfile_links", "--remote_download_outputs=minimal"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --nobuild_runfile_links, --action_cache_store_output_metadata and"
+              + " for flags: --nobuild_runfile_links and"
               + " --remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
@@ -490,14 +486,13 @@ public final class RemoteOptions extends CommonRemoteOptions {
       name = "remote_download_toplevel",
       oldName = "experimental_remote_download_toplevel",
       defaultValue = "null",
-      expansion = {"--action_cache_store_output_metadata", "--remote_download_outputs=toplevel"},
+      expansion = {"--remote_download_outputs=toplevel"},
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --action_cache_store_output_metadata and"
-              + " --remote_download_outputs=toplevel.")
+          "Only downloads remote outputs of top level targets to the local machine. This flag is an"
+              + " alias for flag --remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
   @Option(
