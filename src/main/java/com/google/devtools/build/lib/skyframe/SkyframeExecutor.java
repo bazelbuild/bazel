@@ -2280,6 +2280,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   /** Resets the incremental artifact conflict finder to ensure incremental correctness. */
   public void resetIncrementalArtifactConflictFindingStates() {
+    incrementalArtifactConflictFinder.shutdown();
     incrementalArtifactConflictFinder =
         IncrementalArtifactConflictFinder.createWithActionGraph(
             new MapBasedActionGraph(actionKeyContext));
