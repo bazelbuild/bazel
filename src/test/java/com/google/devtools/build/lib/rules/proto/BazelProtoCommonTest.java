@@ -667,4 +667,45 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "lang_proto_library '@//test:simple' may only be created in the same packageas"
             + " proto_library '@//proto:proto'");
   }
+
+  @Test
+  public void langProtoLibrary_exportNotAllowed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "notallowed/BUILD",
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "generate_rule(name = 'simple', proto_dep = '//x:foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//notallowed:simple");
+
+    assertContainsEvent(
+        "proto_library '@//x:foo' can't be reexported in lang_proto_library"
+            + " '@//notallowed:simple'");
+  }
+
+  @Test
+  public void langProtoLibrary_exportAllowed() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='foo', srcs=['foo.proto'], allow_exports = ':test')",
+        "package_group(",
+        "    name='test',",
+        "    packages=['//allowed'],",
+        ")");
+    scratch.file(
+        "allowed/BUILD",
+        "load('//foo:generate.bzl', 'generate_rule')",
+        "generate_rule(name = 'simple', proto_dep = '//x:foo')");
+
+    getConfiguredTarget("//allowed:simple");
+
+    assertNoEvents();
+  }
 }
