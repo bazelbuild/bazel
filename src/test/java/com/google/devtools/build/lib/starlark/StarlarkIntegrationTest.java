@@ -2908,8 +2908,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/rules.bzl",
         "def _transition_impl(settings, attr):",
-        "  print('printing from transition impl', settings['//command_line_option:foo'])",
-        "  return {'//command_line_option:foo': " + "settings['//command_line_option:foo']+'meow'}",
+        "  foo = settings['//command_line_option:foo']",
+        "  print('printing from transition impl', foo)",
+        "  foo = foo if foo.endswith('meowmeowmeow') else foo + 'meow'",
+        "  return {'//command_line_option:foo': foo}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = ['//command_line_option:foo'],",

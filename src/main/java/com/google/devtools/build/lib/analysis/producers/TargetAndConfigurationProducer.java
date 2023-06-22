@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
-import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveDependencyState;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
@@ -35,7 +34,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.Transi
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
@@ -54,13 +52,8 @@ import net.starlark.java.syntax.Location;
  * Computes the target and configuration for a configured target key.
  *
  * <p>If the key has a configuration and the target is configurable, attempts to apply a rule side
- * transition. If the target is not configurable, directly transitions to the null configuration. If
- * the resulting configuration already has an owner, delegates to the owner instead of recomputing
- * the configured target.
- *
- * <p>If the key does not have a configuration, it was requested as a visibility dependency.
- * Verifies that the {@link Target} is a {@link PackageGroup}, throwing {@link
- * InvalidVisibilityDependencyException} if that's not the case.
+ * transition. If the configuration changes, delegates to a target with the new configuration. If
+ * the target is not configurable, directly delegates to the null configuration.
  */
 public final class TargetAndConfigurationProducer
     implements StateMachine, Consumer<SkyValue>, TargetProducer.ResultSink {
@@ -79,15 +72,12 @@ public final class TargetAndConfigurationProducer
     /** Tags the error type. */
     public enum Kind {
       CONFIGURED_VALUE_CREATION,
-      INVALID_VISIBILITY_DEPENDENCY,
       INCONSISTENT_NULL_CONFIG
     }
 
     public abstract Kind kind();
 
     public abstract ConfiguredValueCreationException configuredValueCreation();
-
-    public abstract InvalidVisibilityDependencyException invalidVisibilityDependency();
 
     public abstract InconsistentNullConfigException inconsistentNullConfig();
 
@@ -96,15 +86,6 @@ public final class TargetAndConfigurationProducer
           .configuredValueCreation(e);
     }
 
-    // TODO(b/261521010): enable this error once Rule transitions are removed from dependency
-    // resolution.
-    // private static TargetAndConfigurationError of(InvalidVisibilityDependencyException e) {
-    // return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError
-    // .invalidVisibilityDependency(e);
-    // }
-
-    // TODO(b/261521010): delete this error once Rule transitions are removed from dependency
-    // resolution.
     private static TargetAndConfigurationError of(InconsistentNullConfigException e) {
       return AutoOneOf_TargetAndConfigurationProducer_TargetAndConfigurationError
           .inconsistentNullConfig(e);
@@ -173,41 +154,29 @@ public final class TargetAndConfigurationProducer
     if (configurationKey == null) {
       if (target.isConfigurable()) {
         // We somehow ended up in a target that requires a non-null configuration but with a key
-        // that doesn't have a configuration. This is always an error, but we need to analyze the
-        // dependencies of the latter target to realize that. Short-circuit the evaluation to avoid
-        // doing useless work and running code with a null configuration that's not prepared for it.
+        // that doesn't have a configuration. This is always an error, but we need to bubble this
+        // up to the parent to provide more context.
         sink.acceptTargetAndConfigurationError(
             TargetAndConfigurationError.of(new InconsistentNullConfigException()));
         return DONE;
       }
-      // TODO(b/261521010): after removing the rule transition from dependency resolution, the logic
-      // here changes.
-      //
-      // A null configuration key will only be used for visibility dependencies so when that's
-      // true, a check that the target is a PackageGroup will be performed, throwing
-      // InvalidVisibilityDependencyException on failure.
-      //
-      // The ConfiguredTargetKey cannot fan-in in this case.
       sink.acceptTargetAndConfiguration(
           new TargetAndConfiguration(target, /* configuration= */ null), preRuleTransitionKey);
       return DONE;
     }
 
-    // This may happen for top-level ConfiguredTargets.
-    //
-    // TODO(b/261521010): this may also happen for targets that are not top-level after removing
-    // rule transitions from dependency resolution. Update this comment.
     if (!target.isConfigurable()) {
-      var nullConfiguredTargetKey =
-          ConfiguredTargetKey.builder().setDelegate(preRuleTransitionKey).build();
-      ActionLookupKey delegate = nullConfiguredTargetKey.toKey();
-      if (!delegate.equals(preRuleTransitionKey)) {
-        // Delegates to the key that already owns the null configuration.
-        delegateTo(tasks, delegate);
-        return DONE;
-      }
-      sink.acceptTargetAndConfiguration(
-          new TargetAndConfiguration(target, /* configuration= */ null), nullConfiguredTargetKey);
+      // If target is not configurable, but requested with a configuration. Delegates to a key with
+      // the null configuration. This is expected to be uncommon. The common case of a
+      // non-configurable target is an input file, but those are usually package local and requested
+      // correctly with the null configuration.
+      delegateTo(
+          tasks,
+          ConfiguredTargetKey.builder()
+              .setLabel(preRuleTransitionKey.getLabel())
+              .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
+              .build()
+              .toKey());
       return DONE;
     }
 
@@ -267,17 +236,15 @@ public final class TargetAndConfigurationProducer
       }
 
       if (!configurationKey.equals(preRuleTransitionKey.getConfigurationKey())) {
-        fullKey =
+        delegateTo(
+            tasks,
             ConfiguredTargetKey.builder()
-                .setDelegate(preRuleTransitionKey)
+                .setLabel(preRuleTransitionKey.getLabel())
+                .setExecutionPlatformLabel(preRuleTransitionKey.getExecutionPlatformLabel())
                 .setConfigurationKey(configurationKey)
-                .build();
-        ActionLookupKey delegate = fullKey.toKey();
-        if (!delegate.equals(preRuleTransitionKey)) {
-          // Delegates to the key that already owns this configuration.
-          delegateTo(tasks, delegate);
-          return DONE;
-        }
+                .build()
+                .toKey());
+        return DONE;
       } else {
         fullKey = preRuleTransitionKey;
       }
