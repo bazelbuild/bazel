@@ -482,9 +482,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Does not download any remote build outputs to the local machine. This flag is a shortcut"
-              + " for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=minimal.")
+              + " for flags: --nobuild_runfile_links, --action_cache_store_output_metadata and"
+              + " --remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
@@ -497,9 +496,8 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Only downloads remote outputs of top level targets to the local machine. This flag is a"
-              + " shortcut for flags: --action_cache_store_output_metadata,"
-              + " --experimental_inmemory_jdeps_files, --experimental_inmemory_dotd_files, and "
-              + "--remote_download_outputs=toplevel.")
+              + " shortcut for flags: --action_cache_store_output_metadata and"
+              + " --remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
   @Option(
