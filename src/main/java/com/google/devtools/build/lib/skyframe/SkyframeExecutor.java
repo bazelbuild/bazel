@@ -299,7 +299,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final EmittedEventState emittedEventState = new EmittedEventState();
   protected final PackageFactory pkgFactory;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
-  private final FileSystem fileSystem;
+  protected final FileSystem fileSystem;
   protected final BlazeDirectories directories;
   protected final ExternalFilesHelper externalFilesHelper;
   protected final BugReporter bugReporter;
@@ -3261,7 +3261,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     ImmutableList<Root> pkgRoots = pkgLocator.get().getPathEntries();
     for (Root pathEntry : pkgRoots) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
+          diffAwarenessManager.getDiff(eventHandler, getPathForModifiedFileSet(pathEntry), options);
       if (pkgRoots.size() == 1) {
         workspaceInfo = modifiedFileSet.getWorkspaceInfo();
         workspaceInfoFromDiffReceiver.syncWorkspaceInfoFromDiff(
@@ -3286,6 +3286,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         fsvcThreads);
     handleClientEnvironmentChanges();
     return workspaceInfo;
+  }
+
+  /** Returns the path under which to find the modified file set. */
+  @ForOverride
+  protected Root getPathForModifiedFileSet(Root root) {
+    return root;
   }
 
   /** Invalidates entries in the client environment. */
