@@ -1,7 +1,7 @@
 workspace(name = "io_bazel")
 
 load("//tools/build_defs/repo:http.bzl", "http_archive")
-load("//:distdir.bzl", "dist_http_archive", "distdir_tar", "dist_http_jar")
+load("//:distdir.bzl", "dist_http_archive", "dist_http_jar", "distdir_tar")
 load("//:distdir_deps.bzl", "DIST_DEPS")
 load("//:repositories.bzl", "embedded_jdk_repositories")
 
@@ -300,7 +300,9 @@ dist_http_archive(
 )
 
 load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+
 rules_java_dependencies()
+
 rules_java_toolchains()
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
@@ -543,7 +545,7 @@ maven_install(
         maven.artifact(
             "org.mockito",
             "mockito-core",
-            "3.12.4",
+            "5.4.0",
             testonly = True,
         ),
     ],
