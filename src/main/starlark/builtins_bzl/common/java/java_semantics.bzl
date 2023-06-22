@@ -28,9 +28,6 @@ def _find_java_toolchain(ctx):
 def _find_java_runtime_toolchain(ctx):
     return ctx.toolchains["@bazel_tools//tools/jdk:runtime_toolchain_type"].java_runtime
 
-def _extra_java_info(*_args):
-    return {}
-
 semantics = struct(
     JAVA_TOOLCHAIN_LABEL = "@bazel_tools//tools/jdk:current_java_toolchain",
     JAVA_TOOLCHAIN_TYPE = "@bazel_tools//tools/jdk:toolchain_type",
@@ -60,5 +57,4 @@ semantics = struct(
     JAVA_STUB_TEMPLATE_LABEL = "@bazel_tools//tools/jdk:java_stub_template.txt",
     BUILD_INFO_TRANSLATOR_LABEL = None,
     JAVA_TEST_RUNNER_LABEL = "@bazel_tools//tools/jdk:TestRunner",
-    extra_java_info = _extra_java_info,
 )
