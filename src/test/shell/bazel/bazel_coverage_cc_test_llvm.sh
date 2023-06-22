@@ -27,6 +27,41 @@ if [[ "${COVERAGE_GENERATOR_DIR}" != "released" ]]; then
   add_to_bazelrc "build --override_repository=remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
+# Configures Bazel to emit coverage using LLVM tools, returning a non-zero exit
+# code if the tools are not available.
+function setup_llvm_coverage_tools_for_lcov() {
+  local -r clang=$(which clang || true)
+  if [[ ! -x "${clang}" ]]; then
+    echo "clang not installed. Skipping test."
+    return 1
+  fi
+  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
+  if [ "$clang_version" -lt 9 ];  then
+    # No lcov produced with <9.0.
+    echo "clang versions <9.0 are not supported, got $clang_version. Skipping test."
+    return 1
+  fi
+
+  local -r llvm_profdata=$(which llvm-profdata || true)
+  if [[ ! -x "${llvm_profdata}" ]]; then
+    echo "llvm-profdata not installed. Skipping test."
+    return 1
+  fi
+
+  local -r llvm_cov=$(which llvm-cov || true)
+  if [[ ! -x "${llvm_cov}" ]]; then
+    echo "llvm-cov not installed. Skipping test."
+    return 1
+  fi
+
+  add_to_bazelrc "common --repo_env=BAZEL_LLVM_COV=${llvm_cov}"
+  add_to_bazelrc "common --repo_env=BAZEL_LLVM_PROFDATA=${llvm_profdata}"
+  add_to_bazelrc "common --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1"
+  add_to_bazelrc "common --repo_env=CC=${clang}"
+  add_to_bazelrc "common --repo_env=GCOV=${llvm_profdata}"
+  add_to_bazelrc "common --experimental_generate_llvm_lcov"
+}
+
 # Writes the C++ source files and a corresponding BUILD file for which to
 # collect code coverage. The sources are a.cc, a.h and t.cc.
 function setup_a_cc_lib_and_t_cc_test() {
@@ -109,31 +144,10 @@ function test_cc_test_llvm_coverage_doesnt_fail() {
 }
 
 function test_cc_test_llvm_coverage_produces_lcov_report() {
-  local -r clang="/usr/bin/clang"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
-  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
-    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
-    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
-  fi
-
-  local -r llvm_profdata="/usr/bin/llvm-profdata"
-  if [[ ! -x ${llvm_profdata} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov"
-  if [[ ! -x ${llvm_cov} ]]; then
-    return
-  fi
-
+  setup_llvm_coverage_tools_for_lcov || return 0
   setup_a_cc_lib_and_t_cc_test
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
-    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
-      --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+  bazel coverage --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
 
   local expected_result="SF:a.cc
 FN:3,_Z1ab
@@ -151,29 +165,38 @@ LH:5
 LF:7
 end_of_record"
 
-  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log) | grep -v '^BR')"
+}
+
+function test_cc_test_llvm_coverage_produces_lcov_report_with_split_postprocessing() {
+  setup_llvm_coverage_tools_for_lcov || return 0
+  setup_a_cc_lib_and_t_cc_test
+
+  bazel coverage \
+    --experimental_split_coverage_postprocessing --experimental_fetch_all_coverage_outputs \
+      --test_env=VERBOSE_COVERAGE=1 --test_output=all //:t &>$TEST_log || fail "Coverage for //:t failed"
+
+  local expected_result="SF:a.cc
+FN:3,_Z1ab
+FNDA:1,_Z1ab
+FNF:1
+FNH:1
+DA:3,1
+DA:4,1
+DA:5,1
+DA:6,1
+DA:7,0
+DA:8,0
+DA:9,1
+LH:5
+LF:7
+end_of_record"
+
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log) | grep -v '^BR')"
 }
 
 function test_cc_test_with_runtime_objects_not_in_runfiles() {
-  local -r clang="/usr/bin/clang"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
-  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
-    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
-    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
-  fi
-
-  local -r llvm_profdata="/usr/bin/llvm-profdata"
-  if [[ ! -x ${llvm_profdata} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov"
-  if [[ ! -x ${llvm_cov} ]]; then
-    return
-  fi
+  setup_llvm_coverage_tools_for_lcov || return 0
 
   cat << EOF > BUILD
 cc_test(
@@ -206,10 +229,8 @@ int main(int argc, char const *argv[])
 EOF
 
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
-    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
-      --test_output=all --instrument_test_targets \
-        //:main &>$TEST_log || fail "Coverage for //:main failed"
+  bazel coverage --test_output=all --instrument_test_targets \
+      //:main &>$TEST_log || fail "Coverage for //:main failed"
 
   local expected_result="SF:main.cpp
 FN:4,main
@@ -225,7 +246,7 @@ LH:5
 LF:5
 end_of_record"
 
-  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log) | grep -v '^BR')"
 }
 
 function setup_external_cc_target() {
@@ -306,42 +327,17 @@ EOF
 }
 
 function test_external_cc_target_can_collect_coverage() {
-  local -r clang="/usr/bin/clang"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
-  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
-    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
-    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
-  fi
-
-  local -r llvm_profdata="/usr/bin/llvm-profdata"
-  if [[ ! -x ${llvm_profdata} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov"
-  if [[ ! -x ${llvm_cov} ]]; then
-    return
-  fi
-
+  setup_llvm_coverage_tools_for_lcov || return 0
   setup_external_cc_target
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
-    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
-      --combined_report=lcov --test_output=all \
-        @other_repo//:t --instrumentation_filter=// &>$TEST_log || fail "Coverage for @other_repo//:t failed"
+  bazel coverage --combined_report=lcov --test_output=all \
+    @other_repo//:t --instrumentation_filter=// &>$TEST_log || fail "Coverage for @other_repo//:t failed"
 
   local expected_result='SF:b.cc
 FN:1,_Z1bb
 FNDA:1,_Z1bb
 FNF:1
 FNH:1
-BRDA:2,0,0,1
-BRDA:2,0,1,0
-BRF:2
-BRH:1
 DA:1,1
 DA:2,1
 DA:3,1
@@ -357,10 +353,6 @@ FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
 FNH:1
-BRDA:5,0,0,1
-BRDA:5,0,1,0
-BRF:2
-BRH:1
 DA:4,1
 DA:5,1
 DA:6,1
@@ -372,47 +364,22 @@ LH:5
 LF:7
 end_of_record'
 
-  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
-  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log) | grep -v '^BR')"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat | grep -v '^BR')"
 }
 
 function test_external_cc_target_coverage_not_collected_by_default() {
-  local -r clang="/usr/bin/clang"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
-  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
-    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
-    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
-  fi
-
-  local -r llvm_profdata="/usr/bin/llvm-profdata"
-  if [[ ! -x ${llvm_profdata} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov"
-  if [[ ! -x ${llvm_cov} ]]; then
-    return
-  fi
-
+  setup_llvm_coverage_tools_for_lcov || return 0
   setup_external_cc_target
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
-    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
-      --combined_report=lcov --test_output=all \
-        @other_repo//:t &>$TEST_log || fail "Coverage for @other_repo//:t failed"
+  bazel coverage --combined_report=lcov --test_output=all \
+    @other_repo//:t &>$TEST_log || fail "Coverage for @other_repo//:t failed"
 
   local expected_result='SF:b.cc
 FN:1,_Z1bb
 FNDA:1,_Z1bb
 FNF:1
 FNH:1
-BRDA:2,0,0,1
-BRDA:2,0,1,0
-BRF:2
-BRH:1
 DA:1,1
 DA:2,1
 DA:3,1
@@ -424,30 +391,12 @@ LH:5
 LF:7
 end_of_record'
 
-  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
-  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log) | grep -v '^BR')"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat | grep -v '^BR')"
 }
 
 function test_coverage_with_tmp_in_path() {
-  local -r clang="/usr/bin/clang"
-  if [[ ! -x ${clang} ]]; then
-    return
-  fi
-  local -r clang_version=$(clang --version | grep -o "clang version [0-9]*" | cut -d " " -f 3)
-  if [ "$clang_version" -lt 9 ] || [ "$clang_version" -eq 10 ] || [ "$clang_version" -eq 11 ]; then
-    # No lcov produced with <9.0, no branch coverage with 10.0 and 11.0.
-    echo "clang versions <9.0 as well as 10.0 and 11.0 are not supported." && return
-  fi
-
-  local -r llvm_profdata="/usr/bin/llvm-profdata"
-  if [[ ! -x ${llvm_profdata} ]]; then
-    return
-  fi
-
-  local -r llvm_cov="/usr/bin/llvm-cov"
-  if [[ ! -x ${llvm_cov} ]]; then
-    return
-  fi
+  setup_llvm_coverage_tools_for_lcov || return 0
 
   mkdir -p foo/tmp
   cat > foo/tmp/BUILD <<'EOF'
@@ -490,20 +439,14 @@ int main(void) {
 }
 EOF
 
-  BAZEL_USE_LLVM_NATIVE_COVERAGE=1 GCOV=$llvm_profdata CC=$clang \
-    BAZEL_LLVM_COV=$llvm_cov bazel coverage --experimental_generate_llvm_lcov \
-      --combined_report=lcov --test_output=all \
-        //foo/tmp:t --instrumentation_filter=// &>$TEST_log || fail "Coverage failed"
+  bazel coverage --combined_report=lcov --test_output=all \
+    //foo/tmp:t --instrumentation_filter=// &>$TEST_log || fail "Coverage failed"
 
   local expected_result='SF:foo/tmp/a.cc
 FN:3,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
 FNH:1
-BRDA:4,0,0,1
-BRDA:4,0,1,0
-BRF:2
-BRH:1
 DA:3,1
 DA:4,1
 DA:5,1
@@ -515,8 +458,8 @@ LH:5
 LF:7
 end_of_record'
 
-  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log))"
-  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat)"
+  assert_equals "$expected_result" "$(cat $(get_coverage_file_path_from_test_log) | grep -v '^BR')"
+  assert_equals "$expected_result" "$(cat bazel-out/_coverage/_coverage_report.dat | grep -v '^BR')"
 }
 
 run_suite "test tests"
