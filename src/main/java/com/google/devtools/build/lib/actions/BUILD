@@ -119,7 +119,6 @@ java_library(
         "PathStripper.java",
         "RemoteArtifactChecker.java",
         "ResourceEstimator.java",
-        "RunfilesSupplier.java",
         "RunningActionEvent.java",
         "SandboxedSpawnStrategy.java",
         "ScanningActionEvent.java",
@@ -157,6 +156,7 @@ java_library(
         ":localhost_capacity",
         ":middleman_type",
         ":package_roots",
+        ":runfiles_supplier",
         ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
@@ -193,7 +193,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util:var_int",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -482,6 +481,18 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/worker:worker_pool",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "runfiles_supplier",
+    srcs = ["RunfilesSupplier.java"],
+    deps = [
+        ":artifacts",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:guava",
     ],
 )
 
