@@ -1360,10 +1360,8 @@ function test_combined_disk_remote_exec_with_flag_combinations() {
      # ensure CAS entries get uploaded even when action entries don't.
      "--noremote_upload_local_results"
      "--remote_upload_local_results"
-     # we should see no cache hits  [incompatible_remote_results_ignore_disk=false is default]
-     "--noremote_accept_cached"
      # Should be some disk cache hits, just not remote.
-     "--noremote_accept_cached --incompatible_remote_results_ignore_disk"
+     "--noremote_accept_cached"
   )
 
   for flags in "${testcases[@]}"; do
@@ -1576,13 +1574,13 @@ EOF
   mkdir $cache
 
   # Build and push to disk cache but not grpc cache
-  bazel build $disk_flags $grpc_flags --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results //a:test \
+  bazel build $disk_flags $grpc_flags --noremote_upload_local_results //a:test \
     || fail "Failed to build //a:test with combined disk grpc cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+  bazel build $disk_flags //a:test --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1590,7 +1588,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target
   bazel clean
-  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_upload_local_results &> $TEST_log \
+  bazel build $grpc_flags //a:test --noremote_upload_local_results &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -1602,7 +1600,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target, and upload result to grpc cache
   bazel clean
-  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $grpc_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -1611,7 +1609,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target, and upload result to disk cache
   bazel clean
-  bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $disk_flags $grpc_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   expect_log "1 .*-sandbox" "Rebuild target failed"
@@ -1620,7 +1618,7 @@ EOF
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true --noremote_accept_cached &> $TEST_log \
+  bazel build $disk_flags $grpc_flags //a:test --noremote_accept_cached &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1735,13 +1733,13 @@ EOF
   mkdir $cache
 
   # Build and push to disk cache but not remote cache
-  bazel build $disk_flags $grpc_flags --incompatible_remote_results_ignore_disk=true //a:test \
+  bazel build $disk_flags $grpc_flags //a:test \
     || fail "Failed to build //a:test with combined cache"
   cp -f bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected
 
   # Fetch from disk cache
   bazel clean
-  bazel build $disk_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
+  bazel build $disk_flags //a:test &> $TEST_log \
     || fail "Failed to fetch //a:test from disk cache"
   expect_log "1 disk cache hit" "Fetch from disk cache failed"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1749,7 +1747,7 @@ EOF
 
   # No cache result from grpc cache, rebuild target
   bazel clean
-  bazel build $grpc_flags //a:test --incompatible_remote_results_ignore_disk=true &> $TEST_log \
+  bazel build $grpc_flags //a:test &> $TEST_log \
     || fail "Failed to build //a:test"
   expect_not_log "1 remote cache hit" "Should not get cache hit from grpc cache"
   diff bazel-genfiles/a/test.txt ${TEST_TMPDIR}/test_expected \
@@ -1775,7 +1773,6 @@ EOF
   bazel build \
     --disk_cache=${cache_dir} \
     --remote_executor=grpc://localhost:${worker_port} \
-    --incompatible_remote_results_ignore_disk=true \
     //a:test &> $TEST_log \
     || fail "Failed to build //a:test"
 

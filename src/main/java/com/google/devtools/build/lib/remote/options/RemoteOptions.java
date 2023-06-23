@@ -300,16 +300,7 @@ public final class RemoteOptions extends CommonRemoteOptions {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, --noremote_upload_local_results and --noremote_accept_cached will not"
-              + " apply to the disk cache. If both --disk_cache and --remote_cache are set"
-              + " (combined cache):\n"
-              + "\t--noremote_upload_local_results will cause results to be written to the disk"
-              + " cache, but not uploaded to the remote cache.\n"
-              + "\t--noremote_accept_cached will result in Bazel checking for results in the disk"
-              + " cache, but not in the remote cache.\n"
-              + "\tno-remote-exec actions can hit the disk cache.\n"
-              + "See #8216 for details.")
+      help = "No-op")
   public boolean incompatibleRemoteResultsIgnoreDisk;
 
   @Option(
