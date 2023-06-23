@@ -24,7 +24,11 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/paths.bzl", "paths")
 load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_plugin_info.bzl", "JavaPluginInfo")
-load(":common/java/java_common.bzl", "java_common")
+load(
+    ":common/java/java_common.bzl",
+    "java_common",
+    "to_java_binary_info",
+)
 
 CcLauncherInfo = _builtins.internal.cc_internal.launcher_provider
 
@@ -258,7 +262,7 @@ def basic_java_binary(
 
     _filter_validation_output_group(ctx, output_groups)
 
-    java_binary_info = java_common.to_java_binary_info(java_info)
+    java_binary_info = to_java_binary_info(java_info)
 
     default_info = struct(
         files = files,
