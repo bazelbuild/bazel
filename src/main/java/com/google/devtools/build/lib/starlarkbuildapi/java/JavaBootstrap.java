@@ -22,11 +22,11 @@ import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
 import net.starlark.java.eval.FlagGuardedValue;
+import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
 
-  private final JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi;
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi;
   private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
@@ -38,11 +38,9 @@ public class JavaBootstrap implements Bootstrap {
           PackageIdentifier.createUnchecked("", "tools/build_defs/java"));
 
   public JavaBootstrap(
-      JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
       JavaPluginInfoApi.Provider<?> javaPluginInfoProviderApi,
       ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
-    this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;
     this.javaPluginInfoProviderApi = javaPluginInfoProviderApi;
     this.proguardSpecProvider = proguardSpecProvider;
@@ -54,7 +52,7 @@ public class JavaBootstrap implements Bootstrap {
         "java_common",
         ContextAndFlagGuardedValue.onlyInAllowedReposOrWhenIncompatibleFlagIsFalse(
             BuildLanguageOptions.INCOMPATIBLE_STOP_EXPORTING_LANGUAGE_MODULES,
-            javaCommonApi,
+            Starlark.NONE,
             allowedRepositories));
     builder.put(
         "JavaInfo",
