@@ -14,4 +14,3 @@
 # limitations under the License.
 
 LDD_BINARY="ldd"
-RPATH="RUNPATH"

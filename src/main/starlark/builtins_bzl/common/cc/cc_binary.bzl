@@ -347,7 +347,7 @@ def _build_map_direct_dynamic_dep_to_transitive_dynamic_deps(ctx):
 
     return direct_dynamic_dep_to_transitive_dynamic_deps, all_dynamic_dep_linker_inputs
 
-def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context):
+def _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context):
     merged_cc_shared_library_infos = merge_cc_shared_library_infos(ctx)
     link_once_static_libs_map = build_link_once_static_libs_map(merged_cc_shared_library_infos)
     transitive_exports = build_exports_map_from_only_dynamic_deps(merged_cc_shared_library_infos)
@@ -362,8 +362,6 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context):
         owner = str(linker_input.owner)
         if owner in transitive_exports:
             can_be_linked_dynamically[owner] = True
-
-    transitive_dynamic_dep_labels = {}
 
     # Entries in unused_dynamic_linker_inputs will be marked None if they are
     # used
@@ -412,20 +410,27 @@ def _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context):
     # Unlike Unix on Windows every dynamic dependency must be linked to the
     # main binary, even indirect ones that are dependencies of direct
     # dynamic dependencies of this binary. So even though linking indirect
-    # dynamic dependencies is not needed for Unix, we link them here too
+    # dynamic dependencies is not needed for Unix, we link them here for tests too
     # because we cannot know whether the shared libraries were linked with
     # RUNPATH or RPATH. If they were linked with the former, then the loader
     # won't search in the runfiles directory of this binary for the library, it
     # will only search in the RUNPATH set at the time of linking the shared
     # library and we cannot possibly know at that point the runfiles directory
     # of all of its dependents.
-    #
-    # TODO(bazel-team):Add a feature so that indirect dynamic dependencies are
-    # not linked. This should be opt-in for those people that are creating a
-    # production binary and have manually set the RPATH/RUNPATHS correctly.
+    link_indirect_deps = (
+        ctx.attr._is_test or
+        cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows") or
+        cc_common.is_enabled(
+            feature_configuration = feature_configuration,
+            feature_name = "link_indirect_dynamic_deps_in_binary",
+        )
+    )
+    direct_dynamic_dep_labels = {dep[CcSharedLibraryInfo].linker_input.owner: True for dep in ctx.attr.dynamic_deps}
     topologically_sorted_labels_set = {label: True for label in topologically_sorted_labels}
     for dynamic_linker_input_owner, unused_linker_input in unused_dynamic_linker_inputs.items():
-        if unused_linker_input:
+        should_link_input = (unused_linker_input and
+                             (link_indirect_deps or dynamic_linker_input_owner in direct_dynamic_dep_labels))
+        if should_link_input:
             _add_linker_input_to_dict(
                 dynamic_linker_input_owner,
                 unused_dynamic_linker_inputs[dynamic_linker_input_owner],
@@ -523,7 +528,7 @@ def _create_transitive_linking_actions(
     cc_linking_context = cc_info.linking_context
 
     if len(ctx.attr.dynamic_deps) > 0:
-        cc_linking_context = _filter_libraries_that_are_linked_dynamically(ctx, cc_linking_context)
+        cc_linking_context = _filter_libraries_that_are_linked_dynamically(ctx, feature_configuration, cc_linking_context)
     link_deps_statically = True
     if linking_mode == linker_mode.LINKING_DYNAMIC:
         link_deps_statically = False
@@ -659,6 +664,7 @@ def cc_binary_impl(ctx, additional_linkopts):
     if ctx.attr._is_test and cpp_config.incompatible_enable_cc_test_feature:
         features.append("is_cc_test")
         disabled_features.append("legacy_is_cc_test")
+
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,

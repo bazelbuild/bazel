@@ -417,8 +417,10 @@ def _filter_inputs(
     linker_inputs_seen = {}
     linker_inputs_count = 0
     label_to_linker_inputs = {}
+    experimental_remove_before_7_0_linker_inputs = []
 
     def _add_linker_input_to_dict(owner, linker_input):
+        experimental_remove_before_7_0_linker_inputs.append(linker_input)
         label_to_linker_inputs.setdefault(owner, []).append(linker_input)
 
     # We use this dictionary to give an error if a target containing only
@@ -500,14 +502,17 @@ def _filter_inputs(
             message += dynamic_only_root + "\n"
         fail(message)
 
-    sorted_linker_inputs = _sort_linker_inputs(
-        topologically_sorted_labels,
-        label_to_linker_inputs,
-        linker_inputs_count,
-    )
+    if ctx.attr.experimental_disable_topo_sort_do_not_use_remove_before_7_0:
+        linker_inputs = experimental_remove_before_7_0_linker_inputs
+    else:
+        linker_inputs = _sort_linker_inputs(
+            topologically_sorted_labels,
+            label_to_linker_inputs,
+            linker_inputs_count,
+        )
 
     _throw_linked_but_not_exported_errors(linked_statically_but_not_exported)
-    return (exports, sorted_linker_inputs, curr_link_once_static_libs_set.keys(), precompiled_only_dynamic_libraries)
+    return (exports, linker_inputs, curr_link_once_static_libs_set.keys(), precompiled_only_dynamic_libraries)
 
 def _throw_linked_but_not_exported_errors(error_libs_dict):
     if not error_libs_dict:

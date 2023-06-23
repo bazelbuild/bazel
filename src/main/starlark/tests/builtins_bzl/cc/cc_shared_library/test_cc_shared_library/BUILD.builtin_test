@@ -25,6 +25,7 @@ licenses(["notice"])
 
 package(
     default_visibility = ["//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:__subpackages__"],
+    features = ["exclude_bazel_rpaths_in_transitive_libs"],
 )
 
 py_test(
@@ -45,6 +46,7 @@ cc_binary(
     name = "binary",
     srcs = ["main.cc"],
     dynamic_deps = ["foo_so"],
+    features = ["use_rpath_instead_of_runpath"],
     deps = [
         ":foo",
     ],
@@ -131,7 +133,7 @@ cc_shared_library(
         "bar_so",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library3:diff_pkg_so"
     ],
-    features = ["windows_export_all_symbols"],
+    features = ["windows_export_all_symbols", "use_rpath_instead_of_runpath"],
     exports_filter = [
         ":indirect_dep2",
     ],
