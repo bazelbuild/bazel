@@ -32,4 +32,16 @@ def target_kind(target, dereference_aliases = False):
         dereference_aliases = dereference_aliases,
     )
 
+def get_build_info(ctx, is_stamping_enabled):
+    """ Get the artifacts representing the workspace status for this build
+
+    Args:
+        ctx: (RuleContext) The rule context
+        is_stamping_enabled: (bool) If stamping is enabled
+
+    Returns
+        ([File]) The build info artifacts
+    """
+    return _java_common_internal.get_build_info(ctx, is_stamping_enabled)
+
 java_common = _java_common_internal
